@@ -4692,6 +4692,69 @@ test "run_cmd_with_adapter applies reorder-locals to wasm inputs" {
 }
 
 ///|
+test "run_cmd_with_adapter encodes reorder-locals same-type index remaps" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (result i32) (local i32 i32) i32.const 10 local.set 0 i32.const 20 local.set 1 local.get 1 drop local.get 1))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["rl-same-type.wasm"] },
+    file_exists=fn(path) { path == "rl-same-type.wasm" },
+    read_file=fn(path) {
+      if path == "rl-same-type.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--reorder-locals", "--out", "out.wasm", "rl-same-type.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["reorder-locals"])
+  @debug.assert_eq(writes.length(), 1)
+  assert_false(writes[0].1 == wasm)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(CodeSec([Func(locals, Expr(instrs))])) => {
+      @debug.assert_eq(
+        locals,
+        @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+      )
+      @debug.assert_eq(
+        instrs[1],
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      )
+      @debug.assert_eq(
+        instrs[3],
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      )
+      @debug.assert_eq(
+        instrs[4],
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      )
+      @debug.assert_eq(
+        instrs[6],
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      )
+    }
+    Some(_) => fail("expected single defined function")
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "run_cmd_with_adapter applies local-subtyping to wasm inputs" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),

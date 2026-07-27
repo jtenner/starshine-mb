@@ -1356,7 +1356,13 @@ pub enum GenValidProfile {
   SimplifyLocalsNostructureEffectOrderProfile
   SimplifyLocalsNostructureAllProfile
   ReorderLocalsHotSortProfile
+  ReorderLocalsPermutationOnlyProfile
+  ReorderLocalsMixedTypesProfile
+  ReorderLocalsReferenceTypesProfile
   ReorderLocalsUnusedTrimProfile
+  ReorderLocalsStructuredProfile
+  ReorderLocalsLegacyEhProfile
+  ReorderLocalsMultiFunctionProfile
   ReorderLocalsNameRepairProfile
   ReorderLocalsAllProfile
   OptimizeCastsLaterReuseProfile

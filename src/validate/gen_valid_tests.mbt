@@ -16693,6 +16693,10 @@ test "reorder-locals gen-valid profiles resolve focused leaves" {
     "reorder-locals-hot-sort",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(ReorderLocalsPermutationOnlyProfile),
+    "reorder-locals-permutation-only",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(ReorderLocalsUnusedTrimProfile),
     "reorder-locals-unused-trim",
   )
@@ -16709,14 +16713,31 @@ test "reorder-locals gen-valid profiles resolve focused leaves" {
     Ok(profile) => @debug.assert_eq(profile, ReorderLocalsAllProfile)
     Err(msg) => fail(msg)
   }
+  for
+    profile_name in [
+      "reorder-locals-permutation-only", "reorder-locals-mixed-types", "reorder-locals-reference-types",
+      "reorder-locals-structured", "reorder-locals-legacy-eh", "reorder-locals-multi-function",
+    ] {
+    match gen_valid_profile_by_name(profile_name) {
+      Ok(profile) =>
+        @debug.assert_eq(gen_valid_profile_name(profile), profile_name)
+      Err(msg) => fail(msg)
+    }
+  }
   match gen_valid_profile_by_name("rl-closeout") {
     Ok(profile) => {
       @debug.assert_eq(profile, ReorderLocalsAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
+      @debug.assert_eq(members.length(), 9)
       assert_true(
         members.contains(
           GenValidProfileMember::new(ReorderLocalsHotSortProfile, 3),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(ReorderLocalsPermutationOnlyProfile, 2),
         ),
       )
       assert_true(
@@ -16761,18 +16782,23 @@ test "reorder-locals gen-valid profiles resolve focused leaves" {
     index += 1
   }
   assert_true(seen.contains(ReorderLocalsHotSortProfile))
+  assert_true(seen.contains(ReorderLocalsPermutationOnlyProfile))
   assert_true(seen.contains(ReorderLocalsUnusedTrimProfile))
   assert_true(seen.contains(ReorderLocalsNameRepairProfile))
 }
 
 ///|
-test "reorder-locals gen-valid profile modules expose local reorder opportunities" {
+test "reorder-locals gen-valid profile modules expose every transform family" {
   for
-    profile in [
-      ReorderLocalsHotSortProfile,
-      ReorderLocalsUnusedTrimProfile,
-      ReorderLocalsNameRepairProfile,
+    profile_name in [
+      "reorder-locals-hot-sort", "reorder-locals-permutation-only", "reorder-locals-mixed-types",
+      "reorder-locals-reference-types", "reorder-locals-unused-trim", "reorder-locals-structured",
+      "reorder-locals-legacy-eh", "reorder-locals-multi-function", "reorder-locals-name-repair",
     ] {
+    let profile = match gen_valid_profile_by_name(profile_name) {
+      Ok(profile) => profile
+      Err(msg) => fail(msg)
+    }
     let generated = match
       gen_valid_module_result_from_seed(
         0x5eedUL,
@@ -16781,7 +16807,7 @@ test "reorder-locals gen-valid profile modules expose local reorder opportunitie
       Ok(v) => v
       Err(failure) => fail(failure.validation_error_message)
     }
-    @debug.assert_eq(generated.config_label, gen_valid_profile_name(profile))
+    @debug.assert_eq(generated.config_label, profile_name)
     match validate_module(generated.wasm_module) {
       Ok(_) => ()
       Err(err) => fail(validation_error_message(err))
@@ -16789,14 +16815,19 @@ test "reorder-locals gen-valid profile modules expose local reorder opportunitie
     assert_true(
       generated.facts.has_high_local_indices ||
       generated.facts.has_unused_locals ||
-      generated.facts.has_write_only_locals,
-      msg="expected reorder-locals local-table facts for \{gen_valid_profile_name(profile)}",
+      generated.facts.has_write_only_locals ||
+      generated.facts.has_mixed_local_decl_types ||
+      generated.facts.has_local_name_entries,
+      msg="expected reorder-locals local-table facts for \{profile_name}",
     )
-    if profile == ReorderLocalsUnusedTrimProfile {
+    if profile_name == "reorder-locals-unused-trim" {
       assert_true(generated.facts.has_unused_locals)
       assert_true(generated.facts.has_write_only_locals)
     }
-    if profile == ReorderLocalsNameRepairProfile {
+    if profile_name == "reorder-locals-mixed-types" {
+      assert_true(generated.facts.has_mixed_local_decl_types)
+    }
+    if profile_name == "reorder-locals-name-repair" {
       assert_true(generated.facts.has_local_name_entries)
     }
   }

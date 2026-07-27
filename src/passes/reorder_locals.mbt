@@ -187,8 +187,9 @@ fn rl_rewrite_local_idx(
 ///|
 fn rl_rewrite_expr(expr : @lib.Expr, old_to_new : Array[Int]) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
-  rl_rewrite_instrs_in_place(instrs, old_to_new)
-  expr
+  let rewritten = instrs.copy()
+  rl_rewrite_instrs_in_place(rewritten, old_to_new)
+  @lib.Expr::new(rewritten)
 }
 
 ///|
@@ -199,54 +200,75 @@ fn rl_rewrite_instrs_in_place(
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
       @lib.Block(block_type, @lib.Expr(body)) => {
-        rl_rewrite_instrs_in_place(body, old_to_new)
-        instrs[idx] = @lib.Instruction::block(block_type, @lib.Expr::new(body))
+        let rewritten_body = body.copy()
+        rl_rewrite_instrs_in_place(rewritten_body, old_to_new)
+        instrs[idx] = @lib.Instruction::block(
+          block_type,
+          @lib.Expr::new(rewritten_body),
+        )
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
-        rl_rewrite_instrs_in_place(body, old_to_new)
-        instrs[idx] = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
+        let rewritten_body = body.copy()
+        rl_rewrite_instrs_in_place(rewritten_body, old_to_new)
+        instrs[idx] = @lib.Instruction::loop_(
+          block_type,
+          @lib.Expr::new(rewritten_body),
+        )
       }
       @lib.If(block_type, then_body, else_body) => {
-        rl_rewrite_instrs_in_place(then_body, old_to_new)
-        match else_body {
-          Some(else_instrs) =>
-            rl_rewrite_instrs_in_place(else_instrs, old_to_new)
-          None => ()
+        let rewritten_then = then_body.copy()
+        rl_rewrite_instrs_in_place(rewritten_then, old_to_new)
+        let rewritten_else = match else_body {
+          Some(else_instrs) => {
+            let next_else = else_instrs.copy()
+            rl_rewrite_instrs_in_place(next_else, old_to_new)
+            Some(next_else)
+          }
+          None => None
         }
-        instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
+        instrs[idx] = @lib.Instruction::if_(
+          block_type, rewritten_then, rewritten_else,
+        )
       }
       @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
-        rl_rewrite_instrs_in_place(body, old_to_new)
+        let rewritten_body = body.copy()
+        rl_rewrite_instrs_in_place(rewritten_body, old_to_new)
         let rewritten_catches : Array[@lib.LegacyCatch] = []
         for catch_ in catches {
           match catch_ {
             @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
-              rl_rewrite_instrs_in_place(catch_body, old_to_new)
+              let rewritten_catch_body = catch_body.copy()
+              rl_rewrite_instrs_in_place(rewritten_catch_body, old_to_new)
               rewritten_catches.push(
-                @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(catch_body)),
+                @lib.LegacyCatch::tagged(
+                  tag_idx,
+                  @lib.Expr::new(rewritten_catch_body),
+                ),
               )
             }
             @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
-              rl_rewrite_instrs_in_place(catch_body, old_to_new)
+              let rewritten_catch_body = catch_body.copy()
+              rl_rewrite_instrs_in_place(rewritten_catch_body, old_to_new)
               rewritten_catches.push(
-                @lib.LegacyCatch::all(@lib.Expr::new(catch_body)),
+                @lib.LegacyCatch::all(@lib.Expr::new(rewritten_catch_body)),
               )
             }
           }
         }
         instrs[idx] = @lib.Instruction::try_(
           block_type,
-          @lib.Expr::new(body),
+          @lib.Expr::new(rewritten_body),
           rewritten_catches,
           delegate~,
         )
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        rl_rewrite_instrs_in_place(body, old_to_new)
+        let rewritten_body = body.copy()
+        rl_rewrite_instrs_in_place(rewritten_body, old_to_new)
         instrs[idx] = @lib.Instruction::try_table(
           block_type,
           catches,
-          @lib.Expr::new(body),
+          @lib.Expr::new(rewritten_body),
         )
       }
       @lib.LocalGet(local_idx) => {

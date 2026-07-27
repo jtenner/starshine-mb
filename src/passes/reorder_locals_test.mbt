@@ -373,6 +373,78 @@ test "run_hot_pipeline applies reorder-locals by Binaryen access count and first
 }
 
 ///|
+test "reorder-locals direct pass reorders adjacent same-type locals by access count" {
+  let wat =
+    #| (module
+    #|   (type (func (param i32)))
+    #|   (func (type 0) (param i32))
+    #|   (func (type 0) (param i32) (local i32 i32)
+    #|     i32.const 10
+    #|     local.set 1
+    #|     local.get 1
+    #|     call 0
+    #|     i32.const 20
+    #|     local.set 2
+    #|     local.get 2
+    #|     drop
+    #|     local.get 2
+    #|     call 0))
+    #|
+  let input = pass_test_module_from_wat(wat)
+  let optimized = reorder_locals_run_module_pass(input)
+  let original_target = match input.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs.get(1) {
+        Some(func) => func
+        None => abort("expected original second defined function")
+      }
+    None => abort("expected original code section")
+  }
+  let @lib.Func(_, @lib.Expr(original_instrs)) = original_target
+  @debug.assert_eq(
+    original_instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    original_instrs[5],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  )
+  let target = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs.get(1) {
+        Some(func) => func
+        None => abort("expected second defined function")
+      }
+    None => abort("expected code section")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = target
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(
+    instrs[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(
+    instrs[5],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[8],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+}
+
+///|
 test "reorder-locals keeps write-only locals and drops only zero-access body locals" {
   let input =
     #| (module
@@ -449,14 +521,14 @@ test "reorder-locals counts local.tee as an access" {
 
 ///|
 test "reorder-locals rewrites nested block loop if and try_table local indices" {
+  let input = rl_test_nested_fixture()
   let optimized = match
-    run_hot_pipeline(rl_test_nested_fixture(), HotPipelineOptions::new(), [
-      "reorder-locals",
-    ]) {
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["reorder-locals"]) {
     Ok(mod_) => mod_
     Err(err) =>
       fail("expected reorder-locals nested rewrite success, got \{err}")
   }
+  @debug.assert_eq(input, rl_test_nested_fixture())
   let @lib.Func(locals, @lib.Expr(instrs)) = rl_test_first_defined_func(
     optimized,
   )
@@ -676,4 +748,77 @@ test "reorder-locals sorts a Binaryen-materialized carrier fixture by access cou
     #| )
     #|
   @debug.assert_eq(optimized, pass_test_module_from_wat(expected))
+}
+
+///|
+test "reorder-locals GenValid leaves each trigger a valid encoded rewrite" {
+  let profile_names = [
+    "reorder-locals-hot-sort", "reorder-locals-permutation-only", "reorder-locals-mixed-types",
+    "reorder-locals-reference-types", "reorder-locals-unused-trim", "reorder-locals-structured",
+    "reorder-locals-legacy-eh", "reorder-locals-multi-function", "reorder-locals-name-repair",
+  ]
+  for index = 0; index < profile_names.length(); index = index + 1 {
+    let profile_name = profile_names[index]
+    let profile = match @validate.gen_valid_profile_by_name(profile_name) {
+      Ok(value) => value
+      Err(err) => fail(err)
+    }
+    let generated = match
+      @validate.gen_valid_module_result_from_seed(
+        0x524c0000UL + index.to_uint64(),
+        @validate.GenValidConfig::for_profile(profile),
+      ) {
+      Ok(value) => value
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    let encoded = match @binary.encode_module(generated.wasm_module) {
+      Ok(bytes) => bytes
+      Err(err) => fail("profile \{profile_name} failed to encode: \{err}")
+    }
+    let decoded = match @binary.decode_module(encoded) {
+      Ok(mod_) => mod_
+      Err(err) => fail("profile \{profile_name} failed to decode: \{err}")
+    }
+    let original_roundtrip = match @binary.decode_module(encoded) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("profile \{profile_name} failed to decode baseline: \{err}")
+    }
+    if profile_name == "reorder-locals-name-repair" {
+      assert_true(
+        decoded.raw_name_sec_payload is Some(_),
+        msg="expected encoded name payload for \{profile_name}",
+      )
+    }
+    let optimized = match
+      run_hot_pipeline(decoded, HotPipelineOptions::new(), ["reorder-locals"]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("profile \{profile_name} failed to optimize: \{err}")
+    }
+    assert_true(
+      optimized != decoded,
+      msg="profile \{profile_name} did not trigger reorder-locals",
+    )
+    @debug.assert_eq(decoded, original_roundtrip)
+    if profile_name == "reorder-locals-name-repair" {
+      @debug.assert_eq(optimized.raw_name_sec_payload, None)
+    }
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "profile \{profile_name} produced invalid output: \{@validate.validation_error_message(err)}",
+        )
+    }
+    let rewritten_bytes = match @binary.encode_module(optimized) {
+      Ok(bytes) => bytes
+      Err(err) =>
+        fail("profile \{profile_name} output failed to encode: \{err}")
+    }
+    match @binary.decode_module(rewritten_bytes) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("profile \{profile_name} output failed to roundtrip: \{err}")
+    }
+  }
 }

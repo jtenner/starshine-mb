@@ -867,7 +867,13 @@ pub enum GenValidProfile {
   SimplifyLocalsNostructureEffectOrderProfile
   SimplifyLocalsNostructureAllProfile
   ReorderLocalsHotSortProfile
+  ReorderLocalsPermutationOnlyProfile
+  ReorderLocalsMixedTypesProfile
+  ReorderLocalsReferenceTypesProfile
   ReorderLocalsUnusedTrimProfile
+  ReorderLocalsStructuredProfile
+  ReorderLocalsLegacyEhProfile
+  ReorderLocalsMultiFunctionProfile
   ReorderLocalsNameRepairProfile
   ReorderLocalsAllProfile
   OptimizeCastsLaterReuseProfile
@@ -1172,7 +1178,13 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
       "simplify-locals-nostructure-effect-order"
     SimplifyLocalsNostructureAllProfile => "simplify-locals-nostructure-all"
     ReorderLocalsHotSortProfile => "reorder-locals-hot-sort"
+    ReorderLocalsPermutationOnlyProfile => "reorder-locals-permutation-only"
+    ReorderLocalsMixedTypesProfile => "reorder-locals-mixed-types"
+    ReorderLocalsReferenceTypesProfile => "reorder-locals-reference-types"
     ReorderLocalsUnusedTrimProfile => "reorder-locals-unused-trim"
+    ReorderLocalsStructuredProfile => "reorder-locals-structured"
+    ReorderLocalsLegacyEhProfile => "reorder-locals-legacy-eh"
+    ReorderLocalsMultiFunctionProfile => "reorder-locals-multi-function"
     ReorderLocalsNameRepairProfile => "reorder-locals-name-repair"
     ReorderLocalsAllProfile => "reorder-locals-all"
     OptimizeCastsLaterReuseProfile => "optimize-casts-later-reuse"
@@ -1533,7 +1545,13 @@ pub fn gen_valid_profile_members(
     ReorderLocalsAllProfile =>
       [
         GenValidProfileMember::new(ReorderLocalsHotSortProfile, 3),
+        GenValidProfileMember::new(ReorderLocalsPermutationOnlyProfile, 2),
+        GenValidProfileMember::new(ReorderLocalsMixedTypesProfile, 2),
+        GenValidProfileMember::new(ReorderLocalsReferenceTypesProfile, 2),
         GenValidProfileMember::new(ReorderLocalsUnusedTrimProfile, 2),
+        GenValidProfileMember::new(ReorderLocalsStructuredProfile, 2),
+        GenValidProfileMember::new(ReorderLocalsLegacyEhProfile, 2),
+        GenValidProfileMember::new(ReorderLocalsMultiFunctionProfile, 2),
         GenValidProfileMember::new(ReorderLocalsNameRepairProfile, 1),
       ]
     OptimizeCastsAllProfile =>
@@ -1883,7 +1901,13 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SimplifyLocalsNostructureEffectOrderProfile,
     SimplifyLocalsNostructureAllProfile,
     ReorderLocalsHotSortProfile,
+    ReorderLocalsPermutationOnlyProfile,
+    ReorderLocalsMixedTypesProfile,
+    ReorderLocalsReferenceTypesProfile,
     ReorderLocalsUnusedTrimProfile,
+    ReorderLocalsStructuredProfile,
+    ReorderLocalsLegacyEhProfile,
+    ReorderLocalsMultiFunctionProfile,
     ReorderLocalsNameRepairProfile,
     ReorderLocalsAllProfile,
     OptimizeCastsLaterReuseProfile,
@@ -4627,7 +4651,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         SimplifyLocalsNostructureStraightLineProfile,
       )
     ReorderLocalsHotSortProfile
+    | ReorderLocalsPermutationOnlyProfile
+    | ReorderLocalsMixedTypesProfile
+    | ReorderLocalsReferenceTypesProfile
     | ReorderLocalsUnusedTrimProfile
+    | ReorderLocalsStructuredProfile
+    | ReorderLocalsLegacyEhProfile
+    | ReorderLocalsMultiFunctionProfile
     | ReorderLocalsNameRepairProfile =>
       gen_valid_reorder_locals_profile_config(profile)
     ReorderLocalsAllProfile =>
@@ -4716,49 +4746,85 @@ fn gen_valid_reorder_locals_profile_config(
   profile : GenValidProfile,
 ) -> GenValidConfig {
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let legacy_eh = profile == ReorderLocalsLegacyEhProfile
+  let multi_function = profile == ReorderLocalsMultiFunctionProfile
+  let name_repair = profile == ReorderLocalsNameRepairProfile
+  let reference_types = profile == ReorderLocalsReferenceTypesProfile
   GenValidConfig::{
     ..base,
-    max_type_defs: 1,
-    max_imports: 0,
-    max_defined_funcs: 1,
+    max_type_defs: if legacy_eh || multi_function {
+      3
+    } else if reference_types {
+      2
+    } else {
+      1
+    },
+    max_imports: if multi_function {
+      1
+    } else {
+      0
+    },
+    max_defined_funcs: if legacy_eh ||
+      multi_function ||
+      profile == ReorderLocalsUnusedTrimProfile {
+      2
+    } else {
+      1
+    },
     max_tables: 0,
     max_mems: 0,
     max_globals: 0,
-    max_tags: 0,
+    max_tags: if legacy_eh {
+      1
+    } else {
+      0
+    },
     max_elems: 0,
     max_datas: 0,
-    max_params: 0,
+    max_params: if multi_function || profile == ReorderLocalsHotSortProfile {
+      2
+    } else {
+      0
+    },
     max_results: 0,
     max_locals: 18,
     max_body_statements: match profile {
-      ReorderLocalsUnusedTrimProfile => 7
+      ReorderLocalsPermutationOnlyProfile => 18
+      ReorderLocalsUnusedTrimProfile => 10
+      ReorderLocalsStructuredProfile | ReorderLocalsLegacyEhProfile => 16
+      ReorderLocalsMultiFunctionProfile => 12
       ReorderLocalsNameRepairProfile => 8
-      _ => 10
+      _ => 14
     },
-    max_body_depth: 2,
+    max_body_depth: if profile == ReorderLocalsStructuredProfile || legacy_eh {
+      4
+    } else {
+      2
+    },
     features: GenValidFeatureToggles::{
       ..base.features,
-      allow_imports: false,
+      allow_imports: multi_function,
       allow_tables: false,
       allow_mems: false,
       allow_globals: false,
-      allow_tags: false,
+      allow_tags: legacy_eh,
       allow_elems: false,
       allow_datas: false,
-      allow_ref_types: false,
+      allow_ref_types: reference_types,
       allow_v128: false,
       allow_relaxed_simd: false,
       allow_calls: false,
       allow_call_indirect: false,
       allow_tail_calls: false,
-      allow_branch_heavy_control: profile == ReorderLocalsNameRepairProfile,
+      allow_branch_heavy_control: profile == ReorderLocalsStructuredProfile ||
+      legacy_eh,
       allow_memory_limit_variants: false,
       allow_table_limit_variants: false,
       allow_shared_memories: false,
       allow_memory64: false,
       allow_atomics: false,
-      allow_subtyping_topology: false,
-      allow_name_custom_sections: profile == ReorderLocalsNameRepairProfile,
+      allow_subtyping_topology: reference_types,
+      allow_name_custom_sections: name_repair || multi_function,
       allow_typed_body_generator: true,
     },
   }
@@ -4767,7 +4833,13 @@ fn gen_valid_reorder_locals_profile_config(
 ///|
 fn gen_valid_is_reorder_locals_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(ReorderLocalsHotSortProfile) ||
+  config == GenValidConfig::for_profile(ReorderLocalsPermutationOnlyProfile) ||
+  config == GenValidConfig::for_profile(ReorderLocalsMixedTypesProfile) ||
+  config == GenValidConfig::for_profile(ReorderLocalsReferenceTypesProfile) ||
   config == GenValidConfig::for_profile(ReorderLocalsUnusedTrimProfile) ||
+  config == GenValidConfig::for_profile(ReorderLocalsStructuredProfile) ||
+  config == GenValidConfig::for_profile(ReorderLocalsLegacyEhProfile) ||
+  config == GenValidConfig::for_profile(ReorderLocalsMultiFunctionProfile) ||
   config == GenValidConfig::for_profile(ReorderLocalsNameRepairProfile)
 }
 
@@ -28998,8 +29070,25 @@ fn gen_valid_merge_locals_profile_module(ctx : GenValidContext) -> Module {
 fn gen_valid_reorder_locals_profile_kind(
   config : GenValidConfig,
 ) -> GenValidProfile {
-  if config == GenValidConfig::for_profile(ReorderLocalsUnusedTrimProfile) {
+  if config == GenValidConfig::for_profile(ReorderLocalsPermutationOnlyProfile) {
+    ReorderLocalsPermutationOnlyProfile
+  } else if config ==
+    GenValidConfig::for_profile(ReorderLocalsMixedTypesProfile) {
+    ReorderLocalsMixedTypesProfile
+  } else if config ==
+    GenValidConfig::for_profile(ReorderLocalsReferenceTypesProfile) {
+    ReorderLocalsReferenceTypesProfile
+  } else if config ==
+    GenValidConfig::for_profile(ReorderLocalsUnusedTrimProfile) {
     ReorderLocalsUnusedTrimProfile
+  } else if config ==
+    GenValidConfig::for_profile(ReorderLocalsStructuredProfile) {
+    ReorderLocalsStructuredProfile
+  } else if config == GenValidConfig::for_profile(ReorderLocalsLegacyEhProfile) {
+    ReorderLocalsLegacyEhProfile
+  } else if config ==
+    GenValidConfig::for_profile(ReorderLocalsMultiFunctionProfile) {
+    ReorderLocalsMultiFunctionProfile
   } else if config ==
     GenValidConfig::for_profile(ReorderLocalsNameRepairProfile) {
     ReorderLocalsNameRepairProfile
@@ -29009,7 +29098,17 @@ fn gen_valid_reorder_locals_profile_kind(
 }
 
 ///|
-fn gen_valid_reorder_locals_local_types() -> Array[ValType] {
+fn gen_valid_reorder_locals_i32(seed : UInt64, salt : UInt64) -> @lib.I32 {
+  I32(((seed ^ (salt * 2654435761UL)) % 32749UL).to_int() + 1)
+}
+
+///|
+fn gen_valid_reorder_locals_i64(seed : UInt64, salt : UInt64) -> @lib.I64 {
+  I64(((seed ^ (salt * 11400714819323198485UL)) % 65521UL).to_int64() + 1L)
+}
+
+///|
+fn gen_valid_reorder_locals_i32_types() -> Array[ValType] {
   let locals : Array[ValType] = []
   for _ in 0..<18 {
     locals.push(ValType::i32())
@@ -29018,94 +29117,450 @@ fn gen_valid_reorder_locals_local_types() -> Array[ValType] {
 }
 
 ///|
-fn gen_valid_reorder_locals_hot_sort_body() -> Array[Instruction] {
-  [
-    Instruction::i32_const(I32(17)),
-    Instruction::local_set(LocalIdx::new(17U)),
-    Instruction::local_get(LocalIdx::new(17U)),
-    Instruction::drop(),
-    Instruction::local_get(LocalIdx::new(17U)),
-    Instruction::drop(),
-    Instruction::i32_const(I32(2)),
-    Instruction::local_set(LocalIdx::new(2U)),
-    Instruction::local_get(LocalIdx::new(2U)),
-    Instruction::drop(),
-    Instruction::i32_const(I32(3)),
-    Instruction::local_tee(LocalIdx::new(3U)),
-    Instruction::drop(),
-  ]
+fn gen_valid_reorder_locals_hot_sort_module(seed : UInt64) -> Module {
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32(), ValType::i64()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(gen_valid_reorder_locals_i32_types()),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 19UL)),
+          Instruction::local_set(LocalIdx::new(19U)),
+          Instruction::local_get(LocalIdx::new(19U)),
+          Instruction::drop(),
+          Instruction::local_get(LocalIdx::new(19U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 4UL)),
+          Instruction::local_set(LocalIdx::new(4U)),
+          Instruction::local_get(LocalIdx::new(4U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 5UL)),
+          Instruction::local_tee(LocalIdx::new(5U)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
 }
 
 ///|
-fn gen_valid_reorder_locals_unused_trim_body() -> Array[Instruction] {
-  [
-    Instruction::i32_const(I32(16)),
-    Instruction::local_set(LocalIdx::new(16U)),
-    Instruction::i32_const(I32(4)),
-    Instruction::local_set(LocalIdx::new(4U)),
-    Instruction::local_get(LocalIdx::new(4U)),
-    Instruction::drop(),
-  ]
-}
-
-///|
-fn gen_valid_reorder_locals_name_repair_body() -> Array[Instruction] {
-  [
-    Instruction::block(
-      BlockType::void_(),
-      Expr::new([
-        Instruction::i32_const(I32(16)),
-        Instruction::local_set(LocalIdx::new(16U)),
-        Instruction::local_get(LocalIdx::new(16U)),
-        Instruction::drop(),
-      ]),
-    ),
-    Instruction::i32_const(I32(0)),
-    Instruction::local_set(LocalIdx::new(0U)),
-  ]
-}
-
-///|
-fn gen_valid_reorder_locals_profile_module(config : GenValidConfig) -> Module {
-  let kind = gen_valid_reorder_locals_profile_kind(config)
-  let body = match kind {
-    ReorderLocalsUnusedTrimProfile =>
-      gen_valid_reorder_locals_unused_trim_body()
-    ReorderLocalsNameRepairProfile =>
-      gen_valid_reorder_locals_name_repair_body()
-    _ => gen_valid_reorder_locals_hot_sort_body()
-  }
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::new(
-          Locals::from_types(gen_valid_reorder_locals_local_types()),
-          Expr::new(body),
-        ),
-      ]),
-    )
-  if kind == ReorderLocalsNameRepairProfile {
-    mod.with_name_sec(
-      NameSec::new(
-        func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("rl"))])),
-        local_names=Some(
-          IndirectNameMap::new([
-            IndirectNameAssoc::new(
-              0U,
-              NameMap::new([
-                NameAssoc::new(0U, Name::new("cold_write")),
-                NameAssoc::new(1U, Name::new("unused_one")),
-                NameAssoc::new(16U, Name::new("hot_named")),
-              ]),
-            ),
-          ]),
-        ),
+fn gen_valid_reorder_locals_permutation_only_module(seed : UInt64) -> Module {
+  let body : Array[Instruction] = []
+  for idx in 0..<18 {
+    body.push(
+      Instruction::i32_const(
+        gen_valid_reorder_locals_i32(seed, idx.to_uint64() + 1UL),
       ),
     )
-  } else {
-    mod
+    body.push(Instruction::local_set(LocalIdx::new(idx.to_uint())))
+    body.push(Instruction::local_get(LocalIdx::new(idx.to_uint())))
+    body.push(Instruction::drop())
+  }
+  for _ in 0..<3 {
+    body.push(Instruction::local_get(LocalIdx::new(17U)))
+    body.push(Instruction::drop())
+  }
+  for _ in 0..<2 {
+    body.push(Instruction::local_get(LocalIdx::new(15U)))
+    body.push(Instruction::drop())
+  }
+  body.push(Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 33UL)))
+  body.push(Instruction::local_tee(LocalIdx::new(16U)))
+  body.push(Instruction::drop())
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(gen_valid_reorder_locals_i32_types()),
+        Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_reorder_locals_mixed_types_module(seed : UInt64) -> Module {
+  let locals = [
+    ValType::i32(),
+    ValType::f64(),
+    ValType::i64(),
+    ValType::f32(),
+    ValType::i32(),
+    ValType::f64(),
+    ValType::i64(),
+    ValType::f32(),
+    ValType::i32(),
+    ValType::f64(),
+    ValType::i64(),
+    ValType::f32(),
+    ValType::i32(),
+    ValType::f64(),
+    ValType::i64(),
+    ValType::f32(),
+    ValType::i32(),
+    ValType::f64(),
+  ]
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(locals),
+        Expr::new([
+          Instruction::f64_const(F64((seed % 97UL).to_int().to_double() + 0.25)),
+          Instruction::local_set(LocalIdx::new(17U)),
+          Instruction::local_get(LocalIdx::new(17U)),
+          Instruction::drop(),
+          Instruction::local_get(LocalIdx::new(17U)),
+          Instruction::drop(),
+          Instruction::i64_const(gen_valid_reorder_locals_i64(seed, 2UL)),
+          Instruction::local_set(LocalIdx::new(2U)),
+          Instruction::local_get(LocalIdx::new(2U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 16UL)),
+          Instruction::local_set(LocalIdx::new(16U)),
+          Instruction::local_get(LocalIdx::new(16U)),
+          Instruction::drop(),
+          Instruction::f32_const(
+            F32(Float::from_double((seed % 53UL).to_int().to_double() + 0.5)),
+          ),
+          Instruction::local_tee(LocalIdx::new(3U)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_reorder_locals_reference_types_module(seed : UInt64) -> Module {
+  let struct_type = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let func_type = gen_valid_precompute_void_func_type()
+  let heap = HeapType::new(TypeIdx::new(0U))
+  let nullable = ValType::ref_type(RefType::new(true, heap))
+  let nonnullable = ValType::ref_type(RefType::new(false, heap))
+  let locals = Array::make(18, ValType::i32())
+  locals[0] = nullable
+  locals[17] = nonnullable
+  Module::new()
+  .with_type_sec(TypeSec::new([struct_type, func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(locals),
+        Expr::new([
+          Instruction::struct_new_default(TypeIdx::new(0U)),
+          Instruction::local_set(LocalIdx::new(17U)),
+          Instruction::local_get(LocalIdx::new(17U)),
+          Instruction::drop(),
+          Instruction::local_get(LocalIdx::new(17U)),
+          Instruction::drop(),
+          Instruction::ref_null(heap),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 1UL)),
+          Instruction::local_set(LocalIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_reorder_locals_unused_trim_module(seed : UInt64) -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(gen_valid_reorder_locals_i32_types()),
+        Expr::new([
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 16UL)),
+          Instruction::local_set(LocalIdx::new(16U)),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 4UL)),
+          Instruction::local_set(LocalIdx::new(4U)),
+          Instruction::local_get(LocalIdx::new(4U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 5UL)),
+          Instruction::local_tee(LocalIdx::new(5U)),
+          Instruction::drop(),
+        ]),
+      ),
+      Func::new(
+        Locals::from_types(gen_valid_reorder_locals_i32_types()),
+        Expr::new([Instruction::nop()]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_reorder_locals_structured_module(seed : UInt64) -> Module {
+  let hot = gen_valid_reorder_locals_i32(seed, 17UL)
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(gen_valid_reorder_locals_i32_types()),
+        Expr::new([
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::loop_(
+                BlockType::void_(),
+                Expr::new([
+                  Instruction::local_get(LocalIdx::new(17U)),
+                  Instruction::drop(),
+                ]),
+              ),
+              Instruction::i32_const(I32(1)),
+              Instruction::if_(
+                BlockType::void_(),
+                [
+                  Instruction::i32_const(
+                    gen_valid_reorder_locals_i32(seed, 3UL),
+                  ),
+                  Instruction::local_set(LocalIdx::new(3U)),
+                ],
+                Some([
+                  Instruction::i32_const(
+                    gen_valid_reorder_locals_i32(seed, 4UL),
+                  ),
+                  Instruction::local_tee(LocalIdx::new(4U)),
+                  Instruction::drop(),
+                ]),
+              ),
+              Instruction::try_table(
+                BlockType::void_(),
+                [],
+                Expr::new([
+                  Instruction::i32_const(hot),
+                  Instruction::local_set(LocalIdx::new(17U)),
+                  Instruction::local_get(LocalIdx::new(17U)),
+                  Instruction::drop(),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_reorder_locals_legacy_eh_module(seed : UInt64) -> Module {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let func_type = gen_valid_precompute_void_func_type()
+  Module::new()
+  .with_type_sec(TypeSec::new([tag_type, func_type]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U), TypeIdx::new(1U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(gen_valid_reorder_locals_i32_types()),
+        Expr::new([
+          Instruction::try_(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 16UL)),
+              Instruction::local_set(LocalIdx::new(16U)),
+            ]),
+            [
+              @lib.LegacyCatch::tagged(
+                TagIdx::new(0U),
+                Expr::new([
+                  Instruction::local_get(LocalIdx::new(3U)),
+                  Instruction::drop(),
+                ]),
+              ),
+              @lib.LegacyCatch::all(
+                Expr::new([
+                  Instruction::i32_const(
+                    gen_valid_reorder_locals_i32(seed, 4UL),
+                  ),
+                  Instruction::local_tee(LocalIdx::new(4U)),
+                  Instruction::drop(),
+                ]),
+              ),
+            ],
+          ),
+        ]),
+      ),
+      Func::new(
+        Locals::from_types(gen_valid_reorder_locals_i32_types()),
+        Expr::new([
+          Instruction::try_(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 17UL)),
+              Instruction::local_set(LocalIdx::new(17U)),
+              Instruction::local_get(LocalIdx::new(17U)),
+              Instruction::drop(),
+            ]),
+            [],
+            delegate=Some(LabelIdx::new(0U)),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_reorder_locals_multi_function_module(seed : UInt64) -> Module {
+  let import_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  let two_param_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i64(), ValType::i32()], [])),
+  )
+  let void_type = gen_valid_precompute_void_func_type()
+  Module::new()
+  .with_type_sec(TypeSec::new([import_type, two_param_type, void_type]))
+  .with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("identity"),
+        ExternType::func(TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U), TypeIdx::new(2U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([ValType::i32(), ValType::f64(), ValType::i64()]),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::drop(),
+          Instruction::i64_const(gen_valid_reorder_locals_i64(seed, 4UL)),
+          Instruction::local_set(LocalIdx::new(4U)),
+          Instruction::local_get(LocalIdx::new(4U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 2UL)),
+          Instruction::local_set(LocalIdx::new(2U)),
+        ]),
+      ),
+      Func::new(
+        Locals::from_types([ValType::i64(), ValType::i32()]),
+        Expr::new([
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 1UL)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::drop(),
+          Instruction::i64_const(gen_valid_reorder_locals_i64(seed, 0UL)),
+          Instruction::local_set(LocalIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_name_sec(
+    NameSec::new(
+      local_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(0U, Name::new("import_param"))]),
+          ),
+          IndirectNameAssoc::new(
+            1U,
+            NameMap::new([
+              NameAssoc::new(0U, Name::new("lhs")),
+              NameAssoc::new(1U, Name::new("rhs")),
+              NameAssoc::new(2U, Name::new("cold")),
+              NameAssoc::new(4U, Name::new("hot")),
+            ]),
+          ),
+          IndirectNameAssoc::new(
+            2U,
+            NameMap::new([
+              NameAssoc::new(0U, Name::new("wide")),
+              NameAssoc::new(1U, Name::new("hot")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+}
+
+///|
+fn gen_valid_reorder_locals_name_repair_module(seed : UInt64) -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(gen_valid_reorder_locals_i32_types()),
+        Expr::new([
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 16UL)),
+          Instruction::local_set(LocalIdx::new(16U)),
+          Instruction::local_get(LocalIdx::new(16U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 0UL)),
+          Instruction::local_set(LocalIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+  .with_name_sec(
+    NameSec::new(
+      func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("rl"))])),
+      local_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([
+              NameAssoc::new(0U, Name::new("cold_write")),
+              NameAssoc::new(1U, Name::new("unused_one")),
+              NameAssoc::new(16U, Name::new("hot_named")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+}
+
+///|
+fn gen_valid_reorder_locals_profile_module(ctx : GenValidContext) -> Module {
+  match gen_valid_reorder_locals_profile_kind(ctx.config) {
+    ReorderLocalsPermutationOnlyProfile =>
+      gen_valid_reorder_locals_permutation_only_module(ctx.root_seed)
+    ReorderLocalsMixedTypesProfile =>
+      gen_valid_reorder_locals_mixed_types_module(ctx.root_seed)
+    ReorderLocalsReferenceTypesProfile =>
+      gen_valid_reorder_locals_reference_types_module(ctx.root_seed)
+    ReorderLocalsUnusedTrimProfile =>
+      gen_valid_reorder_locals_unused_trim_module(ctx.root_seed)
+    ReorderLocalsStructuredProfile =>
+      gen_valid_reorder_locals_structured_module(ctx.root_seed)
+    ReorderLocalsLegacyEhProfile =>
+      gen_valid_reorder_locals_legacy_eh_module(ctx.root_seed)
+    ReorderLocalsMultiFunctionProfile =>
+      gen_valid_reorder_locals_multi_function_module(ctx.root_seed)
+    ReorderLocalsNameRepairProfile =>
+      gen_valid_reorder_locals_name_repair_module(ctx.root_seed)
+    _ => gen_valid_reorder_locals_hot_sort_module(ctx.root_seed)
   }
 }
 
@@ -29245,7 +29700,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     return gen_valid_merge_locals_profile_module(ctx)
   }
   if gen_valid_is_reorder_locals_profile_config(config) {
-    return gen_valid_reorder_locals_profile_module(config)
+    return gen_valid_reorder_locals_profile_module(ctx)
   }
   if gen_valid_is_oi_trigger_profile_config(config) {
     return gen_valid_oi_trigger_profile_module(ctx)
