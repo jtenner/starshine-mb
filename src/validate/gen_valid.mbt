@@ -6519,7 +6519,7 @@ fn gen_valid_rume_legacy_eh_module() -> Module {
             BlockType::void_(),
             Expr::new([Instruction::call(FuncIdx::new(0U))]),
             [
-              LegacyCatch::tagged(
+              @lib.LegacyCatch::tagged(
                 TagIdx::new(1U),
                 Expr::new([Instruction::call(FuncIdx::new(0U))]),
               ),

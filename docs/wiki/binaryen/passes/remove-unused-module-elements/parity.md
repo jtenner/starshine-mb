@@ -78,7 +78,7 @@ Native Starshine: `_build/native/release/build/cmd/cmd.exe`.
 | wasm-smith, 10,000 | `9956` comparable; `9955` normalized; one known memory64 Starshine win; `44` Binaryen/tool failures |
 | Focused RUME tests | `43/43` |
 | Dedicated profile tests | `2/2` |
-| Full repository | `9979/9979` |
+| Full repository after rebasing on local master | `9994/9994` |
 
 See [`./fuzzing.md`](./fuzzing.md) for commands, artifact paths, and residual classifications.
 
