@@ -16536,7 +16536,7 @@ test "simplify-locals-nostructure gen-valid profiles resolve and emit local oppo
       @debug.assert_eq(profile, SimplifyLocalsNostructureAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 3)
+      @debug.assert_eq(members.length(), 4)
       assert_true(
         members.contains(
           GenValidProfileMember::new(
@@ -16613,6 +16613,70 @@ test "simplify-locals-nostructure gen-valid profiles resolve and emit local oppo
 }
 
 ///|
+test "simplify-locals family coverage profile maps every source-owned row" {
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsFamilyCoverageProfile),
+    "simplify-locals-family-coverage",
+  )
+  let covered = gen_valid_simplify_locals_profile_family_ids(
+    SimplifyLocalsFamilyCoverageProfile,
+  )
+  @debug.assert_eq(covered.length(), 35)
+  for family_id = 1; family_id <= 35; family_id = family_id + 1 {
+    assert_true(
+      covered.contains(family_id),
+      msg="missing SimplifyLocals source family SL-\{family_id}",
+    )
+  }
+  for
+    aggregate in [
+      SimplifyLocalsAllProfile,
+      SimplifyLocalsNoteeAllProfile,
+      SimplifyLocalsNostructureAllProfile,
+      SimplifyLocalsNoteeNostructureAllProfile,
+      SimplifyLocalsNonestingAllProfile,
+    ] {
+    assert_true(
+      gen_valid_profile_members(aggregate).contains(
+        GenValidProfileMember::new(SimplifyLocalsFamilyCoverageProfile, 5),
+      ),
+      msg="missing family coverage leaf from \{gen_valid_profile_name(aggregate)}",
+    )
+  }
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(SimplifyLocalsFamilyCoverageProfile),
+    ) {
+    Ok(value) => value
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  let pretty_out = StringBuilder::new()
+  for func_idx = 0; func_idx < 10; func_idx = func_idx + 1 {
+    pretty_out.write_string(
+      generated.wasm_module.pretty_print_func(
+        @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+      ),
+    )
+  }
+  let pretty = pretty_out.to_string()
+  for
+    needle in [
+      "local.set", "local.tee", "block", "br_if", "if", "loop", "call", "global.get",
+      "global.set", "load", "store", "table.get", "table.set", "try_table", "ref.as_non_null",
+    ] {
+    assert_true(
+      pretty.contains(needle),
+      msg="family coverage module missing \{needle}:\n\{pretty}",
+    )
+  }
+}
+
+///|
 test "all SimplifyLocals variants resolve family-targeted aggregate profiles" {
   @debug.assert_eq(
     gen_valid_profile_name(SimplifyLocalsLocalTrafficProfile),
@@ -16638,7 +16702,7 @@ test "all SimplifyLocals variants resolve family-targeted aggregate profiles" {
     Ok(profile) => {
       @debug.assert_eq(profile, SimplifyLocalsAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
-      @debug.assert_eq(gen_valid_profile_members(profile).length(), 5)
+      @debug.assert_eq(gen_valid_profile_members(profile).length(), 6)
     }
     Err(msg) => fail(msg)
   }
@@ -16646,7 +16710,7 @@ test "all SimplifyLocals variants resolve family-targeted aggregate profiles" {
     Ok(profile) => {
       @debug.assert_eq(profile, SimplifyLocalsNoteeAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
-      @debug.assert_eq(gen_valid_profile_members(profile).length(), 5)
+      @debug.assert_eq(gen_valid_profile_members(profile).length(), 6)
     }
     Err(msg) => fail(msg)
   }
@@ -16659,7 +16723,7 @@ test "all SimplifyLocals variants resolve family-targeted aggregate profiles" {
     Ok(profile) => {
       @debug.assert_eq(profile, SimplifyLocalsNoteeNostructureAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
-      @debug.assert_eq(gen_valid_profile_members(profile).length(), 5)
+      @debug.assert_eq(gen_valid_profile_members(profile).length(), 6)
     }
     Err(msg) => fail(msg)
   }
@@ -16667,7 +16731,7 @@ test "all SimplifyLocals variants resolve family-targeted aggregate profiles" {
     Ok(profile) => {
       @debug.assert_eq(profile, SimplifyLocalsNonestingAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
-      @debug.assert_eq(gen_valid_profile_members(profile).length(), 5)
+      @debug.assert_eq(gen_valid_profile_members(profile).length(), 6)
     }
     Err(msg) => fail(msg)
   }

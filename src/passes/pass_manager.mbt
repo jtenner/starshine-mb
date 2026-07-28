@@ -7914,11 +7914,7 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.local_get_count >= 48
   let should_skip_root_local_set_stack_hazard = (
       raw_nostructure_stack_hazard &&
-      (
-        stats.has_structured_control ||
-        stats.locals_count >= 16 ||
-        stats.instr_count >= 128
-      )
+      (stats.locals_count >= 16 || stats.instr_count >= 128)
     ) ||
     (
       raw_simplify_locals_stack_global_hazard &&
@@ -57251,6 +57247,16 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   let dead_set_cleaned = run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_func(
     func,
   )
+  if descriptor_name == "simplify-locals-notee" ||
+    descriptor_name == "simplify-locals-no-tee" ||
+    descriptor_name == "simplify-locals-notee-nostructure" {
+    // Binaryen's no-tee variants reject aggregate multi-read producers in
+    // every main cycle. Do not let the lowered adjacent-pair fixpoint remove
+    // the last pair, recount, and then peel the earlier pairs one by one.
+    return run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
+      dead_set_cleaned, descriptor_name, refinalization_context, mod_,
+    )
+  }
   let @lib.Func(_, @lib.Expr(body)) = dead_set_cleaned
   if run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
       descriptor_name, body,

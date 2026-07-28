@@ -1360,6 +1360,7 @@ pub enum GenValidProfile {
   SimplifyLocalsFlatParentProfile
   SimplifyLocalsEffectOrderProfile
   SimplifyLocalsStressProfile
+  SimplifyLocalsFamilyCoverageProfile
   SimplifyLocalsAllProfile
   SimplifyLocalsNoteeAllProfile
   SimplifyLocalsNoteeNostructureAllProfile

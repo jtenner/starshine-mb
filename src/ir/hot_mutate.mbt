@@ -974,9 +974,18 @@ pub fn hot_control_result_type_set(
       func, region_label_id, "hot_control_result_type_set region label",
     )
     let region_label = hot_label_get(func, region_label_id)
+    let region_branch_arity = if node.op == HotOp::Loop &&
+      region_label_id == label_id {
+      // A loop's own label branch arity describes loop-entry parameters, not
+      // fallthrough results. Changing a result-only loop from void to a value
+      // type must not reinterpret its first body child as an entry operand.
+      label.branch_arity
+    } else {
+      result_arity
+    }
     func.labels[region_label_id] = {
       ..region_label,
-      branch_arity: result_arity,
+      branch_arity: region_branch_arity,
     }
   }
   hot_revision_bump(func)

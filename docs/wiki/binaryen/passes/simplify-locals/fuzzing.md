@@ -1,12 +1,13 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-28
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_ssa.mbt
+  - ../../../../../src/validate/gen_valid_simplify_locals.mbt
   - ../../../../../src/validate/gen_valid_tests.mbt
   - ./transform-family-inventory.md
 ---
@@ -29,7 +30,13 @@ Every aggregate completed `10000/10000` comparisons with zero validation, proper
 
 The full-pass random-all regression corpus was also replayed against every one of its prior `2433` mismatches. `81` now match exactly; the remaining `2352` contain `2262` smaller and `90` equal-size Starshine outputs, with zero larger outputs, validation failures, property failures, or command failures. This replay specifically closes the former `175` size-losing cases and the later narrowed `63` cases.
 
-The aggregate profiles already exercised every registered leaf, so no GenValid constructor change was required. New focused binary-path tests retain the discovered return-suffix and branch-result carrier witnesses.
+The broad aggregate profiles exercise every pre-existing registered leaf. The July 28 follow-up adds a deterministic `simplify-locals-family-coverage` leaf for the source-owned `SL-01` through `SL-35` inventory and includes it in all five aggregates. New focused binary-path tests retain the discovered return-suffix and branch-result carrier witnesses.
+
+## Deterministic source-family coverage — 2026-07-28
+
+The `simplify-locals-family-coverage` leaf emits one dense valid module spanning all 35 source-owned transform rows. It covers repeated-local cycles, structured carriers, no-tee/no-structure policy, effects, `try_table`, transparent copy chains, and nondefaultable references. The follow-up repairs structure formation in walker postorder, preserve Hot IR value/label ownership, lower payload-bearing `br_if` statements without spill locals, restore aggregate first-cycle deferral, distinguish direct copies from refined fallthrough equivalence, and keep variant gates explicit.
+
+This deterministic leaf complements the larger 10,000-case aggregate and measured-win evidence above: it is a reproducible interaction probe, while the broad lanes remain authoritative for the integrated pass's stronger pure-drop and dead-local cleanup classifications.
 
 ## Canonical aggregate profiles
 

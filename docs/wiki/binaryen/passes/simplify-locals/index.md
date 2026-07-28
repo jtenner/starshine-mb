@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-28
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -45,7 +45,9 @@ related:
 
 The five-variant Binaryen-v131 renewal is closed. `SimplifyLocals.cpp` and the reviewed locals helpers are unchanged from v130; the relevant released drift is confined to shared pass/global-effect behavior and expected outputs. The audit nevertheless found and repaired four Starshine cleanup gaps: discarded `struct.new_default`, pure dropped local reads, return-local carriers separated by inert code and unreachable suffixes, and branch-result block carriers. Native SHA-256 `5935985cb02530a77aba751dd88f0103a3eadc6ada8e4a0c0b040c878ba4e5bf` was compared with official `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
 
-All five refreshed `10000`-case aggregate profiles have zero validation, property, generator, or command failures and no output larger than Binaryen. Exact/more-compact counts are: full `7298/2702`, no-tee `2766/7234`, no-structure `7115/2885`, no-tee/no-structure `2766/7234`, and nonesting `7684/2316`. Every non-exact dedicated result is strictly smaller in canonical wasm. Five independent `1000`-case idempotence lanes are `1000/1000`. Replaying all `2433` former full random-all mismatches produces `81` newly exact cases and `2352` remaining differences with `2262` smaller and `90` equal-size Starshine outputs; no larger output or failure remains. `[V131-SPOT]001` is closed for this family.
+All five refreshed `10000`-case aggregate profiles have zero validation, property, generator, or command failures and no output larger than Binaryen. Exact/more-compact counts are: full `7298/2702`, no-tee `2766/7234`, no-structure `7115/2885`, no-tee/no-structure `2766/7234`, and nonesting `7684/2316`. Every non-exact dedicated result is strictly smaller in canonical wasm. Five independent `1000`-case idempotence lanes are `1000/1000`. Replaying all `2433` former full random-all mismatches produces `81` newly exact cases and `2352` remaining differences with `2262` smaller and `90` equal-size Starshine outputs; no larger output or failure remains.
+
+The July 28 follow-up adds deterministic `SL-01`–`SL-35` interaction coverage and repairs postorder structure formation, unique control/value ownership, payload-bearing `br_if` lowering, aggregate first-cycle deferral, explicit no-tee/no-structure policy, transparent copy chains, and nonesting refined fallthrough equivalence. The integrated pass retains the already measured smaller pure-drop/dead-local cleanup behavior from the larger v131 renewal. `[V131-SPOT]001` is closed for this family.
 
 ## Role
 

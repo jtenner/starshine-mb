@@ -1,4 +1,418 @@
 ///|
+fn simplify_locals_wbtest_ctx() -> HotPassContext {
+  HotPassContext::new(
+    simplify_locals_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+}
+
+///|
+test "simplify-locals defers aggregate multi-read locals on the first cycle" {
+  let func = pass_test_lift_first_func(
+    "(module (func (local i32) i32.const 1 local.set 0 local.get 0 drop i32.const 2 local.set 0 local.get 0 drop))",
+  )
+  let get_counts = simplify_locals_count_local_gets(func)
+  @debug.assert_eq(get_counts[0], 2)
+  let detached : Array[Int] = []
+  let (changed, has_deferred) = simplify_locals_run_main_cycle(
+    simplify_locals_wbtest_ctx(),
+    func,
+    true,
+    detached,
+    SimplifyLocalsPolicy::new(false, true, true),
+    false,
+  )
+  assert_false(changed)
+  assert_true(has_deferred)
+}
+
+///|
+test "simplify-locals no-tee keeps aggregate multi-read producers after copy sinking" {
+  let func = pass_test_lift_first_func(
+    "(module (func (local i32 i32) i32.const 1 i32.const 2 i32.add local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 3 i32.const 4 i32.add local.set 0 local.get 0 drop))",
+  )
+  let initial_counts = simplify_locals_count_local_gets(func)
+  @debug.assert_eq(initial_counts[0], 2)
+  @debug.assert_eq(initial_counts[1], 1)
+  let policy = SimplifyLocalsPolicy::new(true, false, true)
+  let first_detached : Array[Int] = []
+  let (first_changed, first_deferred) = simplify_locals_run_main_cycle(
+    simplify_locals_wbtest_ctx(),
+    func,
+    true,
+    first_detached,
+    policy,
+    false,
+  )
+  assert_true(first_changed)
+  assert_true(first_deferred)
+  simplify_locals_delete_detached_nodes(func, first_detached)
+  let after_first_counts = simplify_locals_count_local_gets(func)
+  @debug.assert_eq(after_first_counts[0], 2)
+  @debug.assert_eq(after_first_counts[1], 0)
+  let cleanup_detached : Array[Int] = []
+  let cleanup_rehomed : Array[SimplifyLocalsDetachedControlOwner] = []
+  ignore(
+    simplify_locals_run_dead_cleanup(
+      simplify_locals_wbtest_ctx(),
+      func,
+      cleanup_detached,
+      cleanup_rehomed,
+      true,
+    ),
+  )
+  simplify_locals_rehome_detached_control_owners(func, cleanup_rehomed)
+  simplify_locals_delete_detached_nodes(func, cleanup_detached)
+  @debug.assert_eq(simplify_locals_count_local_gets(func)[0], 2)
+  let live_set_locals : Array[Int] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::LocalSet => live_set_locals.push(node.imm0)
+        _ => ()
+      }
+    }
+  }
+  @debug.assert_eq(live_set_locals, [0, 0])
+  let second_detached : Array[Int] = []
+  let (second_changed, _) = simplify_locals_run_main_cycle(
+    simplify_locals_wbtest_ctx(),
+    func,
+    false,
+    second_detached,
+    policy,
+    false,
+  )
+  assert_false(second_changed)
+  simplify_locals_delete_detached_nodes(func, second_detached)
+  let second_cleanup_detached : Array[Int] = []
+  let second_cleanup_rehomed : Array[SimplifyLocalsDetachedControlOwner] = []
+  assert_false(
+    simplify_locals_run_dead_cleanup(
+      simplify_locals_wbtest_ctx(),
+      func,
+      second_cleanup_detached,
+      second_cleanup_rehomed,
+      true,
+    ),
+  )
+  simplify_locals_rehome_detached_control_owners(func, second_cleanup_rehomed)
+  simplify_locals_delete_detached_nodes(func, second_cleanup_detached)
+  @debug.assert_eq(simplify_locals_count_local_gets(func)[0], 2)
+  let structure_detached : Array[Int] = []
+  assert_false(
+    simplify_locals_run_structure_rewrites(
+      func,
+      structure_detached,
+      allow_multi_use=false,
+    ),
+  )
+  @debug.assert_eq(simplify_locals_equivalent_candidate_count(func), 0)
+}
+
+///|
+test "simplify-locals no-tee canonicalizes repeated copies without sinking their source" {
+  let func = pass_test_lift_first_func(
+    "(module (func (local i32 i32) i32.const 70 local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 71 i32.const 1 i32.add local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 72 i32.const 2 i32.add local.set 0 local.get 0 drop))",
+  )
+  let policy = SimplifyLocalsPolicy::new(true, false, true)
+  let first_detached : Array[Int] = []
+  let (first_changed, first_deferred) = simplify_locals_run_main_cycle(
+    simplify_locals_wbtest_ctx(),
+    func,
+    true,
+    first_detached,
+    policy,
+    false,
+  )
+  assert_false(first_changed)
+  assert_true(first_deferred)
+  let second_detached : Array[Int] = []
+  let (second_changed, _) = simplify_locals_run_main_cycle(
+    simplify_locals_wbtest_ctx(),
+    func,
+    false,
+    second_detached,
+    policy,
+    false,
+  )
+  assert_false(second_changed)
+  @debug.assert_eq(simplify_locals_equivalent_candidate_count(func), 2)
+  assert_true(
+    simplify_locals_run_equivalent_cleanup(simplify_locals_wbtest_ctx(), func),
+  )
+  let late_detached : Array[Int] = []
+  let late_rehomed : Array[SimplifyLocalsDetachedControlOwner] = []
+  assert_true(
+    simplify_locals_run_dead_cleanup(
+      simplify_locals_wbtest_ctx(),
+      func,
+      late_detached,
+      late_rehomed,
+      true,
+    ),
+  )
+  simplify_locals_rehome_detached_control_owners(func, late_rehomed)
+  simplify_locals_delete_detached_nodes(func, late_detached)
+  let counts = simplify_locals_count_local_gets(func)
+  @debug.assert_eq(counts[0], 3)
+  @debug.assert_eq(counts[1], 0)
+  let source_sets : Array[Int] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::LocalSet if node.imm0 == 0 => source_sets.push(node_id)
+        _ => ()
+      }
+    }
+  }
+  @debug.assert_eq(source_sets.length(), 3)
+  let final_detached : Array[Int] = []
+  let (final_changed, _) = simplify_locals_run_main_cycle(
+    simplify_locals_wbtest_ctx(),
+    func,
+    false,
+    final_detached,
+    policy,
+    false,
+  )
+  assert_false(final_changed)
+  let full_func = pass_test_lift_first_func(
+    "(module (func (local i32 i32) i32.const 70 local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 71 i32.const 1 i32.add local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 72 i32.const 2 i32.add local.set 0 local.get 0 drop))",
+  )
+  ignore(
+    simplify_locals_run_with_options(
+      simplify_locals_wbtest_ctx(),
+      full_func,
+      policy,
+    ),
+  )
+  @debug.assert_eq(simplify_locals_count_local_gets(full_func)[0], 3)
+  let source = "(module (func (local i32 i32) i32.const 70 local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 71 i32.const 1 i32.add local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 72 i32.const 2 i32.add local.set 0 local.get 0 drop))"
+  let mod_ = pass_test_module_from_wat(source)
+  let module_state = HotPipelineModuleState::new()
+  let options = HotPipelineOptions::new()
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  let context_func = match
+    @ir.hot_lift_func_with_context_result(
+      mod_,
+      @lib.FuncIdx::new(0U),
+      module_ctx,
+    ) {
+    Ok(func) => func
+    Err(err) => fail("expected context lift success, got \{err}")
+  }
+  let context_pass = HotPassContext::new(
+    simplify_locals_notee_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(module_ctx),
+  )
+  ignore(simplify_locals_run_with_options(context_pass, context_func, policy))
+  @debug.assert_eq(simplify_locals_count_local_gets(context_func)[0], 3)
+}
+
+///|
+test "simplify-locals no-structure Hot result removes the transparent copy read" {
+  let source = "(module (func (param i32) (local i32 i32 i32) local.get 0 local.set 1 block local.get 1 local.set 2 end local.get 2 local.set 1 local.get 1 drop local.get 0 drop))"
+  let func = pass_test_lift_first_func(source)
+  ignore(
+    simplify_locals_run_with_options(
+      simplify_locals_wbtest_ctx(),
+      func,
+      SimplifyLocalsPolicy::new(false, true, true),
+    ),
+  )
+  let lowered = @ir.hot_lower_func(func)
+  let candidate = pass_test_module_from_wat(source).with_code_sec(
+    @lib.CodeSec::new([lowered]),
+  )
+  let pretty = candidate.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(pretty.split("local.get (Local 0)").length(), 2)
+}
+
+///|
+test "simplify-locals keeps deferred repeated-read sinking core-valid" {
+  let source = "(module (memory 1) (table 1 funcref) (global (mut i32) (i32.const 0)) (func (local i32 funcref) global.get 0 local.set 0 i32.const 1 global.set 0 local.get 0 drop i32.const 0 i32.load local.set 0 i32.const 4 i32.load drop local.get 0 drop i32.const 0 i32.load local.set 0 i32.const 0 i32.const 2 i32.store local.get 0 drop i32.const 0 table.get 0 local.set 1 nop local.get 1 drop i32.const 0 ref.null func table.set 0 call 1 drop) (func (result i32) i32.const 3))"
+  let func = pass_test_lift_first_func(source)
+  let result = simplify_locals_run(simplify_locals_wbtest_ctx(), func)
+  assert_true(result.changed)
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected deferred repeated-read sinking core validity, got \{err}")
+  }
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected deferred repeated-read sinking control validity, got \{err}",
+      )
+  }
+  let lowered = @ir.hot_lower_func(func)
+  let original = pass_test_module_from_wat(source)
+  let helper = @ir.hot_lower_func(
+    pass_test_lift_first_func("(module (func (result i32) i32.const 3))"),
+  )
+  let candidate = original.with_code_sec(@lib.CodeSec::new([lowered, helper]))
+  match @validate.validate_module(candidate) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected deferred repeated-read sinking module validity, got \{@validate.validation_error_message(err)}; module=\{candidate}",
+      )
+  }
+}
+
+///|
+test "simplify-locals full runner keeps conditional block result formation valid" {
+  let source = "(module (func (param i32) (local i32) block i32.const 7 local.set 1 local.get 0 br_if 0 i32.const 9 local.set 1 end local.get 1 drop))"
+  let probe = pass_test_lift_first_func(source)
+  let probe_detached : Array[Int] = []
+  assert_true(
+    simplify_locals_try_rewrite_block_return(
+      probe,
+      @ir.HotRegionRef::root(),
+      0,
+      @ir.hot_root_get(probe, 0),
+      simplify_locals_count_local_gets(probe),
+      probe_detached,
+    ),
+  )
+  let probe_drop = @ir.hot_root_get(probe, 1)
+  @debug.assert_eq(@ir.hot_node_get(probe, probe_drop).op.to_string(), "Drop")
+  let probe_block = @ir.hot_child_get(probe, probe_drop, 0)
+  @debug.assert_eq(@ir.hot_node_get(probe, probe_block).op.to_string(), "Block")
+  let probe_body = @ir.hot_region_body_ref(probe, probe_block)
+  @debug.assert_eq(@ir.hot_region_root_count(probe, probe_body), 4)
+  @debug.assert_eq(
+    @ir.hot_node_get(probe, @ir.hot_region_get(probe, probe_body, 2)).op.to_string(),
+    "Nop",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(probe, @ir.hot_region_get(probe, probe_body, 3)).op.to_string(),
+    "Const",
+  )
+  let func = pass_test_lift_first_func(source)
+  let result = simplify_locals_run(simplify_locals_wbtest_ctx(), func)
+  assert_true(result.changed)
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected full block rewrite to remain core-valid, got \{err}")
+  }
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected full block rewrite to remain control-valid, got \{err}")
+  }
+  let lowered = @ir.hot_lower_func(func)
+  let candidate = pass_test_module_from_wat(source).with_code_sec(
+    @lib.CodeSec::new([lowered]),
+  )
+  match @validate.validate_module(candidate) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected full block rewrite module validation, got \{@validate.validation_error_message(err)}; module=\{candidate}",
+      )
+  }
+  let @lib.Func(_, @lib.Expr(body)) = lowered
+  assert_true(body.any(fn(instr) { instr is @lib.Drop }))
+  assert_false(body.any(fn(instr) { instr is @lib.LocalSet(_) }))
+  assert_false(
+    body.any(fn(instr) { instr is @lib.LocalGet(@lib.LocalIdx(1U)) }),
+  )
+}
+
+///|
+test "simplify-locals full runner keeps simple loop result formation valid" {
+  let source = "(module (func (local i32) loop i32.const 44 local.set 0 nop end local.get 0 drop))"
+  let func = pass_test_lift_first_func(source)
+  let result = simplify_locals_run(simplify_locals_wbtest_ctx(), func)
+  assert_true(result.changed)
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected full loop rewrite to remain core-valid, got \{err}")
+  }
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected full loop rewrite to remain control-valid, got \{err}")
+  }
+  let lowered = @ir.hot_lower_func(func)
+  let @lib.Func(_, @lib.Expr(body)) = lowered
+  assert_true(body.any(fn(instr) { instr is @lib.Drop }))
+  assert_false(body.any(fn(instr) { instr is @lib.LocalSet(_) }))
+  assert_false(body.any(fn(instr) { instr is @lib.LocalGet(_) }))
+  let candidate = pass_test_module_from_wat(source).with_code_sec(
+    @lib.CodeSec::new([lowered]),
+  )
+  match @validate.validate_module(candidate) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected full loop rewrite module validation, got \{@validate.validation_error_message(err)}; module=\{candidate}",
+      )
+  }
+}
+
+///|
+test "simplify-locals recognizes simple loop tail writes before sink cleanup" {
+  let func = pass_test_lift_first_func(
+    "(module (func (local i32) loop i32.const 44 local.set 0 nop end local.get 0 drop))",
+  )
+  let loop_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let tail = simplify_locals_region_tail_local_set(func, body_ref)
+  assert_true(tail is Some(_))
+  let counts = simplify_locals_count_local_gets(func)
+  @debug.assert_eq(counts[0], 1)
+  let detached : Array[Int] = []
+  assert_true(
+    simplify_locals_try_rewrite_loop_return(
+      func,
+      @ir.HotRegionRef::root(),
+      0,
+      loop_id,
+      counts,
+      detached,
+    ),
+  )
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op.to_string(),
+    "Nop",
+  )
+  let drop_id = @ir.hot_root_get(func, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, drop_id).op.to_string(), "Drop")
+  let moved_loop_id = @ir.hot_child_get(func, drop_id, 0)
+  assert_true(moved_loop_id != loop_id)
+  @debug.assert_eq(@ir.hot_node_get(func, moved_loop_id).op.to_string(), "Loop")
+  @debug.assert_eq(@ir.hot_node_result_arity(func, moved_loop_id), 1)
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected moved loop result to remain core-valid, got \{err}")
+  }
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected moved loop result to remain control-valid, got \{err}")
+  }
+}
+
+///|
 test "simplify-locals does not collect block exits through typed child carriers" {
   let func = pass_test_lift_first_func(
     (

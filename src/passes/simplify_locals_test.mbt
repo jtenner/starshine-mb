@@ -2456,6 +2456,23 @@ test "simplify-locals rewrites dead local.set roots" {
 }
 
 ///|
+test "simplify-locals lowers dropped control tees to local sets" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (local i32) local.get 0 if i32.const 3 local.set 1 else i32.const 4 local.set 1 end local.get 1 drop local.get 0 if return else i32.const 5 local.set 1 end local.get 1 drop local.get 0 if i32.const 6 local.set 1 end local.get 1 drop))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped control tee cleanup, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("if I32"), msg=pretty)
+}
+
+///|
 test "simplify-locals rewrites dead local.tee roots" {
   let optimized = match
     pass_test_run_pipeline(
@@ -2471,6 +2488,40 @@ test "simplify-locals rewrites dead local.tee roots" {
   assert_true(pretty.contains("nop"))
   assert_false(pretty.contains("drop"))
   assert_true(pretty.contains("I32(7)"))
+}
+
+///|
+test "simplify-locals sinks one-use loads across repeated definitions of one local" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (local i32) i32.const 0 i32.load local.set 0 i32.const 4 i32.load drop local.get 0 drop i32.const 8 i32.load local.set 0 i32.const 12 i32.load drop local.get 0 drop i32.const 16 i32.load local.set 0 i32.const 20 i32.load drop local.get 0 drop))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected repeated-load simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "simplify-locals sinks one-use reads after unrelated blocked definitions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (table 1 funcref) (global (mut i32) (i32.const 0)) (func $helper (result i32) i32.const 3) (func (local i32 funcref) global.get 0 local.set 0 i32.const 1 global.set 0 local.get 0 drop i32.const 0 i32.load local.set 0 i32.const 4 i32.load drop local.get 0 drop i32.const 0 i32.load local.set 0 i32.const 0 i32.const 2 i32.store local.get 0 drop i32.const 0 table.get 0 local.set 1 nop local.get 1 drop i32.const 0 ref.null func table.set 0 call $helper drop))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected mixed-effects simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get"), msg=pretty)
 }
 
 ///|
@@ -2660,6 +2711,25 @@ test "simplify-locals collapses drop of a sunk tee back into a set" {
   assert_false(pretty.contains("local.set"))
   assert_false(pretty.contains("local.tee"))
   assert_true(pretty.contains("I32(1)"))
+}
+
+///|
+test "simplify-locals defers repeated-local writes before removing the later pure producer" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (local i32 i32) i32.const 1 i32.const 2 i32.add local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 3 i32.const 4 i32.add local.set 0 local.get 0 drop))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected repeated-local simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+  assert_false(pretty.contains("I32(3)"), msg=pretty)
+  assert_false(pretty.contains("I32(4)"), msg=pretty)
 }
 
 ///|
@@ -2977,7 +3047,7 @@ test "simplify-locals keeps shared tee children that remain referenced" {
 }
 
 ///|
-test "simplify-locals rehomes dead tee control labels before cleanup" {
+test "simplify-locals preserves control label ownership when lowering dropped tees" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
   )
@@ -3005,13 +3075,13 @@ test "simplify-locals rehomes dead tee control labels before cleanup" {
       fail("expected simplify-locals dead-tee control success, got \{err}")
   }
 
-  match @ir.hot_node_get(func, tee).op {
-    @ir.HotOp::Block => ()
-    other => fail("expected tee slot to become a block, got \{other}")
-  }
-  @debug.assert_eq(@ir.hot_control_node_label(func, tee), carried_label)
-  @debug.assert_eq(@ir.hot_label_owner(func, carried_label), tee)
-  assert_false(@ir.hot_node_is_live(func, carried_block))
+  assert_false(@ir.hot_node_is_live(func, tee))
+  assert_true(@ir.hot_node_is_live(func, carried_block))
+  @debug.assert_eq(
+    @ir.hot_control_node_label(func, carried_block),
+    carried_label,
+  )
+  @debug.assert_eq(@ir.hot_label_owner(func, carried_label), carried_block)
   match @ir.hot_verify_core(func) {
     Ok(_) => ()
     Err(err) =>

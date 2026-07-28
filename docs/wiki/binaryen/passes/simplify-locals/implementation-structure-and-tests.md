@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-28
 sources:
   - ./index.md
 related:
@@ -16,7 +16,7 @@ related:
 
 ## V131 implementation/test renewal
 
-The v130/v131 owner and reviewed helper surfaces are byte-identical. Starshine's renewal added binary-decoded regression fixtures for return-suffix stackification and branch-result carriers, plus focused pure-drop and default-GC cleanup tests. Current focused counts are `71/71` main, `15/15` variants, `79/79` no-structure, and `161/161` GenValid.
+The v130/v131 owner and reviewed helper surfaces are byte-identical. Starshine's renewal added binary-decoded regression fixtures for return-suffix stackification and branch-result carriers, plus focused pure-drop and default-GC cleanup tests. The July 28 follow-up adds deterministic `SL-01`–`SL-35` coverage and repairs postorder structure formation, unique Hot IR control/value ownership, payload-bearing `br_if` statement lowering, aggregate first-cycle deferral, no-tee/no-structure policy, transparent copy cleanup, and refined fallthrough equivalence. Current integrated focused counts are `75/75` main, `21/21` variants, `81/81` no-structure, and `19/19` simplify-locals whitebox.
 
 ## Why this page exists
 
@@ -26,7 +26,7 @@ This page answers a narrower question:
 - which official Binaryen files and tests actually define that meaning?
 
 That matters because `simplify-locals` is easy to misremember as one vague locals pass.
-In `version_131`, the real contract is spread across:
+In Binaryen `version_131`, the real contract is spread across:
 
 - one core implementation file
 - a few helper headers

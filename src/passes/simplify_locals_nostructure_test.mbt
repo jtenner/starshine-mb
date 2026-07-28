@@ -130,11 +130,10 @@ test "simplify-locals-nostructure skips changed first-cycle follow-up without de
 }
 
 ///|
-test "simplify-locals-nostructure stops after deferred multi-use follow-up stabilizes" {
-  // Performance invariant from the SLNS v130 timing audit: Binaryen's forced
-  // follow-up cycle for first-cycle-deferred multi-use sets should be enough for
-  // the straight-line tee/drop cleanup family. A third full main/dead scan is a
-  // no-op confirmation pass on these generated hot fixtures.
+test "simplify-locals-nostructure defers repeated-local writes by aggregate use count" {
+  // Binaryen uses the whole-local get count on the first cycle. Even though
+  // each definition below has one following read, both writes are deferred so
+  // the later cycle can form tee/set traffic and remove the final pure write.
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -378,6 +377,23 @@ test "simplify-locals-nostructure optimizes deferred root locals with embedded c
 }
 
 ///|
+test "simplify-locals-nostructure removes the dead transparent copy chain" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (local i32 i32 i32) local.get 0 local.set 1 block local.get 1 local.set 2 end local.get 2 local.set 1 local.get 1 drop local.get 0 drop))",
+      ["simplify-locals-nostructure"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected simplify-locals-nostructure copy cleanup, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(pretty.split("local.get (Local 0)").length(), 1)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+}
+
+///|
 test "simplify-locals-nostructure optimizes pure local traffic before root calls" {
   // Binaryen version_130 optimizes the local carrier before the structured
   // control and root call. The root stack/local-set hazard guard must stay
@@ -437,50 +453,68 @@ test "simplify-locals-nostructure carries pure tee candidate across value block 
 }
 
 ///|
-test "simplify-locals-nostructure skips root stack/local-set call hazards" {
+test "no-structure variants sink pure locals past an unrelated throwing try_table boundary" {
+  let input = "(module (type $t (func)) (tag $e (type $t)) (func $value (result i32) i32.const 3) (func (local i32 i32) call $value local.set 0 block try_table (catch $e 0) local.get 0 drop end end i32.const 7 local.set 1 block try_table (catch $e 0) local.get 1 drop end end))"
+  for
+    pass_name in [
+      "simplify-locals-nostructure", "simplify-locals-notee-nostructure",
+    ] {
+    let pretty = match pass_test_run_pipeline(input, [pass_name]) {
+      Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(1U))
+      Err(err) => fail("expected \{pass_name} try_table success, got \{err}")
+    }
+    assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+    assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+    assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+    assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+    assert_true(pretty.contains("I32(7)"), msg=pretty)
+  }
+}
+
+///|
+test "simplify-locals-nostructure sinks call-valued locals into later call operands" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       "(module (func $alloc (param i32 i32) (result i32) (local.get 0)) (func (param i32 i32) (local i32) local.get 0 i32.const 2 call $alloc local.set 2 local.get 2 local.get 1 call $alloc drop))",
       ["simplify-locals-nostructure"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail(
         "expected simplify-locals-nostructure stack/local-set hazard success, got \{err}",
       )
   }
-  assert_true(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[simplify-locals-nostructure]:skip-hot reason=root-local-set-stack-hazard-noop",
-      )
-    }),
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+  assert_false(
+    trace.any(fn(line) { line.contains("root-local-set-stack-hazard-noop") }),
+    msg=trace.to_string(),
   )
 }
 
 ///|
-test "simplify-locals-notee-nostructure skips root stack/local-set call hazards" {
+test "simplify-locals-notee-nostructure sinks single-use call-valued locals" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       "(module (func $alloc (param i32 i32) (result i32) (local.get 0)) (func (param i32 i32) (local i32) local.get 0 i32.const 2 call $alloc local.set 2 local.get 2 local.get 1 call $alloc drop))",
       ["simplify-locals-notee-nostructure"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail(
         "expected simplify-locals-notee-nostructure stack/local-set hazard success, got \{err}",
       )
   }
-  assert_true(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[simplify-locals-notee-nostructure]:skip-hot reason=root-local-set-stack-hazard-noop",
-      )
-    }),
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+  assert_false(
+    trace.any(fn(line) { line.contains("root-local-set-stack-hazard-noop") }),
     msg=trace.to_string(),
   )
 }

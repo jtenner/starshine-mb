@@ -867,6 +867,7 @@ pub enum GenValidProfile {
   SimplifyLocalsFlatParentProfile
   SimplifyLocalsEffectOrderProfile
   SimplifyLocalsStressProfile
+  SimplifyLocalsFamilyCoverageProfile
   SimplifyLocalsAllProfile
   SimplifyLocalsNoteeAllProfile
   SimplifyLocalsNoteeNostructureAllProfile
@@ -1199,6 +1200,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SimplifyLocalsFlatParentProfile => "simplify-locals-flat-parent"
     SimplifyLocalsEffectOrderProfile => "simplify-locals-effect-order"
     SimplifyLocalsStressProfile => "simplify-locals-stress"
+    SimplifyLocalsFamilyCoverageProfile => "simplify-locals-family-coverage"
     SimplifyLocalsAllProfile => "simplify-locals-all"
     SimplifyLocalsNoteeAllProfile => "simplify-locals-notee-all"
     SimplifyLocalsNoteeNostructureAllProfile =>
@@ -1560,6 +1562,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SimplifyLocalsFlatParentProfile, 2),
         GenValidProfileMember::new(SimplifyLocalsEffectOrderProfile, 2),
         GenValidProfileMember::new(SimplifyLocalsStressProfile, 1),
+        GenValidProfileMember::new(SimplifyLocalsFamilyCoverageProfile, 5),
       ]
     SimplifyLocalsNoteeAllProfile =>
       [
@@ -1568,6 +1571,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SimplifyLocalsFlatParentProfile, 2),
         GenValidProfileMember::new(SimplifyLocalsEffectOrderProfile, 2),
         GenValidProfileMember::new(SimplifyLocalsStressProfile, 1),
+        GenValidProfileMember::new(SimplifyLocalsFamilyCoverageProfile, 5),
       ]
     SimplifyLocalsNoteeNostructureAllProfile =>
       [
@@ -1576,6 +1580,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SimplifyLocalsFlatParentProfile, 3),
         GenValidProfileMember::new(SimplifyLocalsEffectOrderProfile, 2),
         GenValidProfileMember::new(SimplifyLocalsStressProfile, 1),
+        GenValidProfileMember::new(SimplifyLocalsFamilyCoverageProfile, 5),
       ]
     SimplifyLocalsNonestingAllProfile =>
       [
@@ -1584,6 +1589,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SimplifyLocalsFlatParentProfile, 4),
         GenValidProfileMember::new(SimplifyLocalsEffectOrderProfile, 2),
         GenValidProfileMember::new(SimplifyLocalsStressProfile, 1),
+        GenValidProfileMember::new(SimplifyLocalsFamilyCoverageProfile, 5),
       ]
     SimplifyLocalsNostructureAllProfile =>
       [
@@ -1599,6 +1605,7 @@ pub fn gen_valid_profile_members(
           SimplifyLocalsNostructureEffectOrderProfile,
           2,
         ),
+        GenValidProfileMember::new(SimplifyLocalsFamilyCoverageProfile, 5),
       ]
     ReorderLocalsAllProfile =>
       [
@@ -1967,6 +1974,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SimplifyLocalsFlatParentProfile,
     SimplifyLocalsEffectOrderProfile,
     SimplifyLocalsStressProfile,
+    SimplifyLocalsFamilyCoverageProfile,
     SimplifyLocalsAllProfile,
     SimplifyLocalsNoteeAllProfile,
     SimplifyLocalsNoteeNostructureAllProfile,
@@ -4737,6 +4745,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | SimplifyLocalsFlatParentProfile
     | SimplifyLocalsEffectOrderProfile
     | SimplifyLocalsStressProfile => gen_valid_slns_profile_config(profile)
+    SimplifyLocalsFamilyCoverageProfile =>
+      gen_valid_simplify_locals_family_profile_config()
     SimplifyLocalsAllProfile
     | SimplifyLocalsNoteeAllProfile
     | SimplifyLocalsNoteeNostructureAllProfile
@@ -30597,6 +30607,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_reorder_locals_profile_config(config) {
     return gen_valid_reorder_locals_profile_module(ctx)
+  }
+  if gen_valid_is_simplify_locals_family_profile_config(config) {
+    return gen_valid_simplify_locals_family_profile_module(ctx.root_seed)
   }
   if gen_valid_is_oi_trigger_profile_config(config) {
     return gen_valid_oi_trigger_profile_module(ctx)

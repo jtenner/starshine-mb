@@ -31,6 +31,22 @@ test "simplify-locals-notee does not create a sink tee for multi-use locals" {
 }
 
 ///|
+test "simplify-locals-notee preserves repeated constant local traffic" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (local i32) i32.const 7 local.set 0 local.get 0 drop local.get 0 drop))",
+      ["simplify-locals-notee"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-locals-notee success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
 test "simplify-locals-notee still synthesizes if results" {
   let optimized = match
     pass_test_run_pipeline(
@@ -44,6 +60,22 @@ test "simplify-locals-notee still synthesizes if results" {
   assert_true(pretty.contains("if I32"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
+test "simplify-locals-notee does not synthesize multi-read if results" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (local i32) local.get 0 if i32.const 7 local.set 1 else i32.const 9 local.set 1 end local.get 1 drop local.get 1 drop))",
+      ["simplify-locals-notee"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-locals-notee success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
 }
 
 ///|
@@ -63,11 +95,19 @@ test "simplify-locals-no-tee aliases the canonical no-tee pass" {
 }
 
 ///|
-test "no-tee variants finish exposed computed local cleanup in one run" {
+test "no-tee variants preserve aggregate multi-read producers after copy cleanup" {
   let input = "(module (func (local i32 i32) i32.const 70 local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 71 i32.const 1 i32.add local.set 0 local.get 0 local.set 1 local.get 1 drop i32.const 72 i32.const 2 i32.add local.set 0 local.get 0 drop))"
   for
     pass_name in ["simplify-locals-notee", "simplify-locals-notee-nostructure"] {
-    let once = match pass_test_run_pipeline(input, [pass_name]) {
+    let trace : Array[String] = []
+    let once = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
       Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
       Err(err) => fail("expected \{pass_name} success, got \{err}")
     }
@@ -75,8 +115,22 @@ test "no-tee variants finish exposed computed local cleanup in one run" {
       Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
       Err(err) => fail("expected repeated \{pass_name} success, got \{err}")
     }
-    assert_false(once.contains("local.set"), msg="\{pass_name}: \{once}")
-    assert_false(once.contains("local.get"), msg="\{pass_name}: \{once}")
+    assert_true(
+      once.contains("local.set (Local 0)"),
+      msg="\{pass_name}: \{once}; trace=\{trace}",
+    )
+    assert_true(
+      once.contains("local.get (Local 0)"),
+      msg="\{pass_name}: \{once}",
+    )
+    assert_false(
+      once.contains("local.set (Local 1)"),
+      msg="\{pass_name}: \{once}",
+    )
+    assert_false(
+      once.contains("local.get (Local 1)"),
+      msg="\{pass_name}: \{once}",
+    )
     @debug.assert_eq(once, twice)
   }
 }
@@ -127,6 +181,46 @@ test "nesting-enabled variants lower unread effectful sets before return to drop
 }
 
 ///|
+test "structure variants lift simple loop tail writes before sink cleanup" {
+  let input = "(module (func (local i32) loop i32.const 44 local.set 0 nop end local.get 0 drop))"
+  for pass_name in ["simplify-locals", "simplify-locals-notee"] {
+    let pretty = match pass_test_run_pipeline(input, [pass_name]) {
+      Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+      Err(err) => fail("expected \{pass_name} success, got \{err}")
+    }
+    assert_true(pretty.contains("loop I32"), msg="\{pass_name}: \{pretty}")
+    assert_false(pretty.contains("local.set"), msg="\{pass_name}: \{pretty}")
+    assert_false(pretty.contains("local.get"), msg="\{pass_name}: \{pretty}")
+  }
+}
+
+///|
+test "structure variants lift conditional block exits before sink cleanup" {
+  let input = "(module (func (param i32) (local i32) block i32.const 7 local.set 1 local.get 0 br_if 0 i32.const 9 local.set 1 end local.get 1 drop))"
+  for pass_name in ["simplify-locals", "simplify-locals-notee"] {
+    let pretty = match pass_test_run_pipeline(input, [pass_name]) {
+      Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+      Err(err) => fail("expected \{pass_name} success, got \{err}")
+    }
+    assert_true(pretty.contains("block I32"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("br_if"), msg="\{pass_name}: \{pretty}")
+    assert_false(pretty.contains("local.set"), msg="\{pass_name}: \{pretty}")
+    assert_false(
+      pretty.contains("local.get (Local 1)"),
+      msg="\{pass_name}: \{pretty}",
+    )
+    assert_false(
+      pretty.contains("local.get (Local 2)"),
+      msg="\{pass_name}: \{pretty}",
+    )
+    assert_false(
+      pretty.contains("local.get (Local 3)"),
+      msg="\{pass_name}: \{pretty}",
+    )
+  }
+}
+
+///|
 test "structure variants lift loop copy-through values into loop results" {
   let input = "(module (func (local i32 i32) loop i32.const 44 local.set 0 i32.const 5 drop local.get 0 local.set 1 end local.get 1 drop))"
   for pass_name in ["simplify-locals", "simplify-locals-notee"] {
@@ -138,6 +232,22 @@ test "structure variants lift loop copy-through values into loop results" {
     assert_false(pretty.contains("local.set"), msg="\{pass_name}: \{pretty}")
     assert_false(pretty.contains("local.get"), msg="\{pass_name}: \{pretty}")
   }
+}
+
+///|
+test "simplify-locals-notee removes the dead aggregate copy read" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (local i32 i32 i32) local.get 0 local.set 1 block local.get 1 local.set 2 end local.get 2 local.set 1 local.get 1 drop local.get 0 drop))",
+      ["simplify-locals-notee"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-locals-notee success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(pretty.split("local.get (Local 0)").length(), 3)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
 }
 
 ///|
@@ -185,6 +295,22 @@ test "simplify-locals-nonesting retargets flat local copies" {
   assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
+test "simplify-locals-nonesting retargets refined fallthrough copies" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param externref) (local externref) local.get 0 ref.as_non_null local.set 1 local.get 1 ref.as_non_null drop))",
+      ["simplify-locals-nonesting"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-locals-nonesting success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  @debug.assert_eq(pretty.split("local.get (Local 0)").length(), 3)
 }
 
 ///|
