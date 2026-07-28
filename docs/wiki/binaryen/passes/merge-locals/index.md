@@ -1,9 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../ir2/registry-map.md
@@ -30,7 +30,7 @@ supersedes:
 It rewrites copy-shaped local traffic (`local.set $x (local.get $y)`) by temporarily exposing a trivial `local.tee`, then retargeting influenced gets to either the source local or the destination local when the `LocalGraph` proof says the move is still single-set and type-safe.
 The pass is DWARF-sensitive: the reviewed source still reports `invalidatesDWARF() == true`.
 
-Starshine now implements the complete Binaryen v131 algorithm as a HOT pass: temporary-tee instrumentation, eager CFG-backed LocalGraph influences, both retargeting orientations, exact type checks, post-graph sibling rollback, and cleanup. A linear immutable-snapshot raw path keeps straight-line copy-heavy workloads near Binaryen speed, while structured control uses the full graph path. The pass is scheduled in O4z immediately after `heap2local`.
+Starshine implements the Binaryen v131 algorithm through a HOT path plus raw fast paths: temporary-tee instrumentation, eager CFG-backed LocalGraph influences, both retargeting orientations, exact type checks, post-graph sibling rollback, and cleanup. A linear immutable-snapshot path handles straight-line copy traffic, while a recursive regional bridge handles protected, typed-catch, catch-all, and delegate-bearing legacy `try` shapes that HOT lift does not yet admit. The pass is scheduled in O4z immediately after `heap2local`.
 
 So the beginner mental model is **copy-shape local traffic balancing with graph-checked retargeting**, not generic local-slot coalescing and not the stale one-set/local-simple-value story.
 
@@ -42,7 +42,7 @@ So the beginner mental model is **copy-shape local traffic balancing with graph-
   - [`../optimize-casts/index.md`](../optimize-casts/index.md)
   - [`../local-subtyping/index.md`](../local-subtyping/index.md)
   - [`../coalesce-locals/index.md`](../coalesce-locals/index.md)
-- The 2026-07-11 current-main recheck keeps that upstream contract fresh and reconciles the living dossier with the landed Starshine direct pass: local status is active, but its deliberately linear forward-alias subset is not a `LocalGraph` parity claim.
+- The 2026-07-28 source-family renewal checks the released v131 owner and both dedicated fixture surfaces, and replaces the stale forward-only description with the current HOT graph plus legacy-EH regional implementation.
 
 ## Inputs and outputs
 
@@ -84,26 +84,23 @@ It does **not** rewrite function signatures, heap types, globals, imports, expor
 
 ## Starshine status
 
-Closed for v0.1.0 against Binaryen v131. `src/passes/merge_locals.mbt` owns the HOT graph implementation and straight-line raw fast path; `src/passes/optimize.mbt` registers the descriptor and schedules `heap2local -> merge-locals -> optimize-casts`; focused tests cover both orientations, structured influence, tee candidates, rollback, and slot order. Seven leaf GenValid profiles plus `merge-locals-all` cover the maintained family matrix.
+Closed for the v0.1.1 Binaryen-v131 renewal. `src/passes/merge_locals.mbt` owns the HOT graph implementation, straight-line raw fast path, and recursive legacy-EH regional bridge; `src/passes/optimize.mbt` schedules `heap2local -> merge-locals -> optimize-casts`; focused tests cover both orientations, structured influence, tee candidates, rollback, unreachable control, legacy `try`, and slot order. Fifteen leaf GenValid profiles plus `merge-locals-all` cover the released source and fixture families.
 
-Final evidence is `100000/100000` regular GenValid, `10000/10000` dedicated, `10000/10000` random-all-profile, and `10000/10000` exact `heap2local -> merge-locals -> optimize-casts` neighborhood normalized matches. The wasm-smith lane has one proven no-pass codec-baseline unreachable-debris difference and 44 Binaryen/tool failures; no merge-locals transform mismatch remains. Copy-heavy whole-command timing is `13.787 ms` Starshine versus `10.819 ms` Binaryen v131 (`1.27x`). Full evidence and classification are in research note `1574`.
+Final explicit-v131 evidence:
 
-Validation evidence from the 2026-05-06 post-fuzzer-change direct revalidation:
+- regular GenValid: `100000/100000` exact;
+- dedicated `merge-locals-all`: `9353` exact plus `647` two-byte Starshine unread-tee wins;
+- random all profiles: `9330` exact plus `625` eight-byte structured-result wins and `45` two-byte unread-tee wins;
+- wasm-smith: `9955/9956` exact, one proven no-copy codec baseline, and `44` Binaryen-only parser/tool failures;
+- runtime/idempotence: `1000/1000` idempotent, with all 60 exported legacy-EH cases returning equal results.
 
-- `moon info`, `moon fmt`, and `moon test` passed.
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-locals --out-dir .tmp/pass-fuzz-merge-locals`: 6759 compared, 6759 normalized matches, 0 mismatches, 20 Binaryen command failures from the known empty-recursion-group parser/canonicalization class.
+A 143,734-byte one-function copy-heavy benchmark records nine-run pass-local medians of `7.548 ms` Starshine versus `27.1409 ms` Binaryen v131: `0.278x` Binaryen time, or about `3.60x` as fast. The official full all-features fixture validates in both tools at 753 bytes Starshine versus 747 Binaryen; that six-byte fuzz-only control-rebuild shape is retained only with the measured pass-local speed win and reopens if it becomes a generated canonical size-loss family.
 
-Prior artifact evidence from the 2026-05-05 landing slice also had `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --merge-locals` normalized WAT equal and canonical function compare equal; Starshine pass runtime was 475.956 ms versus Binaryen pass runtime 2062.410 ms on that artifact.
+Full commands, cache counters, size counts, classifications, and reopening criteria are in [`fuzzing.md`](fuzzing.md) and [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
-Remaining implementation debt is the broader LocalGraph-equivalent retargeting engine for control-flow-spanning copy traffic. Keep it out of public presets until that fuller rewrite is separately proven in the late local-cleanup neighborhood.
+## Reopening guide
 
-## How to validate a future port
-
-1. Add focused tests for source-to-destination retargeting, destination-to-source retargeting, type-mismatch negatives, and rollback cases.
-2. Add a conservative `between-unreachable` regression.
-3. Compare `--pass merge-locals` against Binaryen for reduced WAT shapes before adding it to any preset.
-4. Then run pass-targeted fuzz comparison at the repo standard scale once the implementation is stable.
-5. Finally test the late local-cleanup neighborhood with `heap2local -> merge-locals -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` as those neighbors become available locally.
+Reopen for a semantic or validation failure, an uncovered v131 source family, a generated pass-owned canonical size loss without measured benefit, an unsafe cross-region legacy-EH case, or pass-local regression behind Binaryen on the copy-heavy benchmark. Downstream `coalesce-locals` suffix numbering remains separately owned by `[COALESCE-LOCALS]001`.
 
 ## Page map
 
@@ -111,16 +108,17 @@ Remaining implementation debt is the broader LocalGraph-equivalent retargeting e
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - Owner-file, helper, scheduler, and official lit-test map.
 - [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) - Focused guide to the graph/influence mechanics behind copy retargeting.
 - [`./wat-shapes.md`](./wat-shapes.md) - Before/after shape catalog for beginners and port authors.
-- [`./starshine-strategy.md`](./starshine-strategy.md) - Exact current Starshine status and future port map.
-- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - First-slice analyzer, validation ladder, and exact local code surfaces for a future port.
+- [`./starshine-strategy.md`](./starshine-strategy.md) - Current HOT/raw/legacy-EH implementation and residual classifications.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - Final validation matrix, official fixtures, and reopening criteria.
+- [`./fuzzing.md`](./fuzzing.md) - Fifteen-leaf aggregate, exact lane counts, byte census, cache counters, runtime, and performance evidence.
 
 ## Sources
 
-- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp>; registration: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>; fixture: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-locals.wast>
+- Binaryen v131 owner: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp>; registration: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>; fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-locals.wast>
 - research note 0535
 - research note 0485
 - research note 0441
 - research note 0363
 - Binaryen `version_129` source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeLocals.cpp>
-- Binaryen current `main` source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp>
+- Binaryen released-v131 source: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp>
 - Binaryen lit test: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-locals.wast>

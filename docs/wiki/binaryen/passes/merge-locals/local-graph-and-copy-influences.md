@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
   - ./index.md
 related:
   - ./index.md
@@ -27,7 +27,7 @@ The easiest way to misread `merge-locals` is to choose one wrong extreme:
 
 The reviewed Binaryen implementation is in between.
 It starts from a concrete copy-shaped local traffic pair, uses `LocalGraph` set influences to decide which side should own the influenced gets, and then verifies the rewrite against a post-graph snapshot.
-The 2026-07-11 freshness layer keeps that reading current without changing the contract. It also makes the local boundary explicit: Starshine's active direct pass is a forward epoch-alias subset, not this `LocalGraph` engine.
+The 2026-07-28 v131 renewal keeps that reading current and confirms that Starshine's HOT path now implements the same graph/orientation/rollback contract; only decoded legacy `Try` uses a narrower region-local raw bridge because general HOT lift does not admit it.
 
 ## The central question
 
@@ -128,13 +128,9 @@ The pass does not claim those two locals are identical; it chooses the side that
 
 ## Starshine boundary
 
-Starshine's current `src/passes/merge_locals.mbt` deliberately proves less:
+Starshine's HOT path now covers both orientations, cross-control influence, exact type checks, and post-graph sibling rollback. Straight-line functions use an immutable raw snapshot with the same forward proof. Decoded legacy `Try` remains region-local: protected and handler bodies are rewritten independently only when their local sequence is straight-line, preserving all EH metadata and declining unsupported cross-region traffic.
 
-- it recognizes adjacent same-typed `local.get src; local.set dst` copies;
-- it only retargets later `src` gets toward `dst` while the destination write epoch stays unchanged; and
-- it clears aliases at structured-control boundaries instead of proving a cross-control graph relation.
-
-Do not use a direct-pass normalized match to claim the opposite orientation, cross-control influence, or rollback parity. Those remain future work described in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
+Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) for the exact legacy-EH boundary and reopening criteria.
 
 ## What to remember
 

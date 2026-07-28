@@ -1,17 +1,14 @@
 ---
 kind: concept
-status: supported
-last_reviewed: 2026-07-18
+status: strong
+last_reviewed: 2026-07-28
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
-  - ./index.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/merge-locals_all-features.wast
   - ../../../../../src/passes/merge_locals.mbt
   - ../../../../../src/passes/merge_locals_test.mbt
-  - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/lib/types.mbt
-  - ../../../../../src/validate/typecheck.mbt
-  - ../../../../../src/validate/validate.mbt
+  - ../../../../../src/validate/gen_valid.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -19,72 +16,65 @@ related:
   - ./local-graph-and-copy-influences.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
-  - ../optimize-casts/index.md
-  - ../local-subtyping/index.md
-  - ../coalesce-locals/index.md
+  - ./fuzzing.md
 ---
 
-# Starshine port readiness and validation for `merge-locals`
+# Starshine validation and reopening guide for `merge-locals`
 
-This bridge tracks the gap between the active Starshine direct pass and a fuller Binaryen-equivalent `merge-locals` port.
+This page formerly tracked a partial forward-only port. That status is superseded: Starshine now implements the Binaryen-v131 graph algorithm for HOT-admitted control and a safe raw regional bridge for legacy EH.
 
-Use it with:
+## Closed implementation surface
 
-- [`./index.md`](./index.md) for the folder overview;
-- [`./binaryen-strategy.md`](./binaryen-strategy.md) for the corrected upstream algorithm;
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the owner/test map;
-- [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) for the graph/orientation proof;
-- [`./wat-shapes.md`](./wat-shapes.md) for concrete before/after examples;
-- [`./starshine-strategy.md`](./starshine-strategy.md) for current local status.
+- temporary source-local tee instrumentation;
+- eager original-state local graph;
+- destination ownership and reverse source ownership;
+- single-source and exact-type gates;
+- post-rewrite graph verification and all-sibling rollback;
+- local-set and local-tee candidates;
+- block, `if`, loop, and `try_table` control;
+- straight-line immutable-snapshot fast path;
+- protected-body, typed-catch, catch-all, and delegate-bearing legacy-`try` regions;
+- no-candidate byte-preserving bypass;
+- public registry, direct CLI, O4z scheduling, and compare-harness admission.
 
-## Current local reality
+## Final Binaryen-v131 matrix
 
-`merge-locals` has an active Starshine module-pass owner and direct explicit-pass parity under the refreshed 2026-05-06 harness. The current implementation covers a conservative same-typed, forward `src -> dst` linear copy-retargeting slice, guarded by destination write-epoch invalidation, and is wired through registry, dispatcher, tests, and compare-pass tooling. It clears parent aliases at every structured-control boundary, so recursive traversal does not imply control-flow-spanning proof.
+All commands used explicit official `.tmp/binaryen-version-131-bin/bin/wasm-opt`, reporting `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, and rebuilt `_build/native/release/build/cmd/cmd.exe`, SHA-256 `8bc8fa62e9580d12ce9e8981153d4ab88c5d6a00a0deffb0a9628c3a492c4723`.
 
-It is still not a full `LocalGraph`-equivalent port and should stay out of public presets until the broader local-cleanup neighborhood is oracle-proven.
+| Lane | Result | Classification |
+| --- | --- | --- |
+| Regular GenValid, `100000`, seed `0x5eed` | `100000/100000` normalized, zero failures | Exact. |
+| `merge-locals-all`, `10000`, seed `0x5eed` | `9353` normalized, `647` residuals, zero failures | Every residual is the `trivial-confusion` unread-tee Starshine win, `-2` canonical bytes each. |
+| Random all profiles, `10000`, seed `0x5555` | `9330` normalized, `670` residuals, zero failures | `625` structured-result wins at `-8` bytes and `45` unread-tee wins at `-2` bytes. |
+| wasm-smith, `10000`, seed `0x5eed` | `9956` comparable, `9955` normalized, one residual, `44` Binaryen-only failures | Residual case `9332` is a no-copy, pass-byte-no-op codec baseline. |
 
-## Exact Starshine code and proof surfaces
+The dedicated aggregate selected all fifteen leaves and every seed-rotated subfamily, including all four legacy-EH region forms.
 
-| Surface | Why it matters |
-| --- | --- |
-| [`src/passes/merge_locals.mbt`](../../../../../src/passes/merge_locals.mbt) | Active module-pass owner for same-typed copy-retargeting. |
-| [`src/passes/merge_locals_test.mbt`](../../../../../src/passes/merge_locals_test.mbt) | Public spelling, same-typed retargeting, and destination-write invalidation tests. |
-| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | `merge-locals` is a module-pass registry entry. |
-| [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | Active module-pass dispatcher invokes `merge_locals_run_module_pass`. |
-| [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) | Direct compare-pass harness exposes the `--merge-locals` spelling. |
-| [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) | Explains the graph/orientation proof still missing from the local subset. |
-| `src/lib/types.mbt` | Local declarations and instruction nodes define the validator-visible rewrite surface. |
-| `src/validate/typecheck.mbt` | Local get/set/tee typing must stay sound after any rewrite. |
-| `docs/wiki/binaryen/passes/merge-locals/index.md` | Current direct parity evidence: 6759/6759 normalized matches, 0 mismatches. |
+## Runtime and idempotence
 
-## Current validation evidence
+A `1000`-case `merge-locals-all` lane completed `1000/1000` idempotence checks with zero property failures. Node checked all cases without adapter failure; the 60 exported legacy-EH modules produced 60 equal results and zero semantic mismatches. A random-all structured-result representative produced the same runtime trap in both tools and remained idempotent.
 
-The 2026-05-06 direct signoff ran:
+## Official fixtures
 
-- `moon info`
-- `moon fmt`
-- `moon test`
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-locals --out-dir .tmp/pass-fuzz-merge-locals`
+- The v131 lit `between-unreachable` module is canonical-text exact and 28 bytes in both tools.
+- The full all-features fixture validates in both tools. Starshine is 753 bytes and Binaryen 747 bytes. The six-byte aggregate difference comes from Binaryen rebuilding one deeply nested fuzz-only value-block sequence while Starshine preserves that control shape; local-copy decisions are otherwise matched or improved, and Starshine removes unread tees in several fixture functions. This retained shape is accepted only with the measured `3.60x` pass-local speed advantage and should reopen if it recurs as a generated canonical size-loss family.
 
-The compare-pass run reported 6759 compared cases, 6759 normalized matches, 0 mismatches, 0 validation failures, 0 generator failures, and 20 known Binaryen empty-recursion-group parser/canonicalization command failures.
+## Validation commands
 
-## Next safe slices
+```text
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file merge_locals_test.mbt
+moon test --package jtenner/starshine/validate --file gen_valid_merge_locals_tests.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+```
 
-The remaining work is to extend from the current linear same-typed copy slice toward Binaryen's graph-backed behavior:
+See [`fuzzing.md`](fuzzing.md) for the exact compare commands and cache counters.
 
-1. add a `LocalGraph`-style set-influence representation;
-2. decide source-side versus destination-side ownership with graph evidence;
-3. reject or roll back candidates that fail post-rewrite graph validation;
-4. expand tests for control-flow influence, type-mismatch negatives, rollback cases, and `between-unreachable` conservatism;
-5. rerun direct compare-pass parity after each semantic expansion;
-6. only then test the late local-cleanup neighborhood.
+## Remaining non-pass work
 
-Potential neighborhood lanes once surrounding passes are ready:
-
-- `heap2local -> merge-locals -> optimize-casts`
-- `optimize-casts -> local-subtyping`
-- `local-subtyping -> coalesce-locals -> local-cse`
-
-## Bottom line
-
-The pass is active and direct-green for the landed conservative slice. The readiness question is now about **fuller LocalGraph parity and preset/neighborhood proof**, not about basic registry or dispatcher exposure.
+- `[TOOL]001`: symmetric handling of no-copy unreachable-debris writer differences.
+- `[WALL]001`: whole-command decode, validation, encoding, buffering, and process-startup attribution.
+- `[COALESCE-LOCALS]001`: downstream extended local-cleanup suffix numbering and shape gaps; these are not direct `merge-locals` failures.

@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
   - ./index.md
 related:
   - ./index.md
@@ -19,7 +19,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` plus the 2026-07-11 current-`main` recheck as the source oracle for this page.
+Use released Binaryen `version_131` as the source oracle for this page.
 The corrected source-backed owner surface is:
 
 - `src/passes/MergeLocals.cpp`
@@ -29,7 +29,7 @@ The corrected source-backed owner surface is:
 - `test/lit/passes/merge-locals.wast`
 
 The living dossier is about copy-shaped local traffic balancing, not one-set-local merging.
-The 2026-07-11 recheck keeps that correction fresh without changing the source-backed contract. It also distinguishes that upstream graph-based contract from Starshine's active, forward-only linear epoch-alias subset; see [`starshine-strategy.md`](starshine-strategy.md).
+The 2026-07-28 audit reviewed the released v131 owner and both dedicated fixture surfaces. The algorithm remains graph-based temporary-tee instrumentation with two orientations and post-graph rollback, and Starshine's HOT implementation now covers that contract; see [`starshine-strategy.md`](starshine-strategy.md).
 The earlier overread that centered `computeInfluences()`, one-set candidate discovery, and fresh-temp canonicalization is superseded for this pass.
 
 ## High-level intent

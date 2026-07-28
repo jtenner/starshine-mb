@@ -1,74 +1,89 @@
 ---
 kind: concept
-status: supported
-last_reviewed: 2026-07-18
+status: strong
+last_reviewed: 2026-07-28
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
   - ./index.md
   - ../../../../../src/passes/merge_locals.mbt
   - ../../../../../src/passes/merge_locals_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_merge_locals_tests.mbt
 related:
-  - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./local-graph-and-copy-influences.md
   - ./wat-shapes.md
-  - ./starshine-port-readiness-and-validation.md
-  - ../optimize-casts/index.md
-  - ../local-subtyping/index.md
+  - ./fuzzing.md
   - ../coalesce-locals/index.md
 ---
 
 # Starshine strategy for `merge-locals`
 
-## Honest current status
+## Current status
 
-`merge-locals` is now an active Starshine module pass for direct `--merge-locals` execution.
-It is no longer a removed-name placeholder.
+`merge-locals` is closed against Binaryen `version_131` for the maintained direct-pass contract.
 
-The landed slice rewrites same-typed copy-shaped local traffic in one expression body: after adjacent `local.get src; local.set dst` instructions, later source-local gets can be retargeted to the destination local while the destination's write epoch remains unchanged. It recursively handles nested bodies but clears parent aliases at every structured-control boundary. This covers the direct O4z copy-balancing lane that was signed off against Binaryen, but it is still narrower than Binaryen's full `LocalGraph`-checked, bidirectional retargeting and rollback engine.
+Starshine uses two execution paths:
 
-## Exact local code and doc map
+- a HOT/CFG path implementing temporary source-tee instrumentation, eager `HotLocalGraph` influences, both Binaryen orientations, exact type checks, post-graph verification, sibling rollback, and cleanup;
+- an immutable-snapshot raw path for straight-line functions, plus a recursive legacy-`try` region bridge for protected bodies, typed catches, catch-all handlers, and delegate-bearing nesting that HOT lift does not yet admit.
 
-| Local surface | Meaning |
+The pass is registered publicly and scheduled in O4z immediately after `heap2local` and before `optimize-casts`.
+
+## Implementation map
+
+| Surface | Responsibility |
 | --- | --- |
-| [`src/passes/merge_locals.mbt`](../../../../../src/passes/merge_locals.mbt) | Active module-pass owner for copy-shaped local retargeting. |
-| [`src/passes/merge_locals_test.mbt`](../../../../../src/passes/merge_locals_test.mbt) | Public spelling, same-typed retargeting, and write-invalidation regressions. |
-| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Registry classifies `merge-locals` as a module pass. |
-| [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | Module dispatcher runs `merge_locals_run_module_pass`. |
-| [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) | Direct oracle harness exposes `--merge-locals`. |
-| [research note 0535](./index.md) | Post-fuzzer-change direct parity evidence. |
+| [`src/passes/merge_locals.mbt`](../../../../../src/passes/merge_locals.mbt) | HOT graph algorithm, straight-line raw algorithm, recursive legacy-EH region bridge. |
+| [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | Candidate admission, no-candidate byte-preserving bypass, legacy-EH raw routing, HOT fallback. |
+| [`src/passes/merge_locals_test.mbt`](../../../../../src/passes/merge_locals_test.mbt) | Public pass, both orientations, control flow, tee candidates, rollback, unreachable preservation, legacy-`try`, and O4z slot tests. |
+| [`src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt) | Fifteen source-family leaves and `merge-locals-all`. |
+| [`src/validate/gen_valid_merge_locals_tests.mbt`](../../../../../src/validate/gen_valid_merge_locals_tests.mbt) | Profile validity, copy opportunity, source-family labels, GC type boundary, and four legacy-EH region forms. |
 
-## Validation evidence
+## Source-family coverage
 
-The 2026-05-06 revalidation lane ran:
+The maintained generator covers:
 
-- `moon info`
-- `moon fmt`
-- `moon test`
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-locals --out-dir .tmp/pass-fuzz-merge-locals`
+- forward single-use and multi-sibling retargeting;
+- partial influence before a later write, both linear and branch-local;
+- reverse orientation;
+- reverse lifetime-end boundaries;
+- block, `if`, and loop influence;
+- `local.tee` copy candidates;
+- merge/phi rejection;
+- exact local type equality and strict-subtype rejection;
+- forward and reverse rollback, including conditional and nested target clobbers;
+- nested copy instrumentation;
+- the upstream `trivial-confusion` loop interaction;
+- `between-unreachable` robustness;
+- legacy `try` protected, typed-catch, catch-all, and delegate-bearing regions.
 
-The compare-pass run reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen parser/canonicalization command failures from the known empty-recursion-group class.
+See [`fuzzing.md`](fuzzing.md) for the exact profile names and final counts.
 
-## Remaining implementation debt
+## Residual classifications
 
-A fuller Binaryen-equivalent port still needs:
+Two output families intentionally remain different:
 
-1. a `LocalGraph`-equivalent set-influence proof across control flow;
-2. destination-to-source as well as source-to-destination orientation decisions;
-3. post-rewrite validation / rollback for graph-invalidated candidates;
-4. conservative coverage for `between-unreachable`, type mismatch, and other control-flow-spanning shapes;
-5. late local-cleanup neighborhood proof before any public preset scheduling.
+1. `trivial-confusion`: Starshine removes an unread `local.tee` shell after retargeting. Every dedicated residual is two canonical bytes smaller than Binaryen and preserves the same branch condition value.
+2. Broad `remove-unused-brs-control` inputs sampled by random-all: Starshine retains a structured result block instead of Binaryen's scratch-local scalarization. Every residual is eight canonical bytes smaller; a replayed representative is idempotent, validates, and produces the same runtime trap.
 
-Neighboring local-cleanup dossiers remain the right context:
+The wasm-smith case `9332` is not pass-owned: it has no local copy candidates, and Starshine's no-pass and `--merge-locals` outputs are byte-identical. Binaryen's reader/writer removes unreachable stack debris during canonicalization. Keep that residual under `[TOOL]001`.
 
-- [`../optimize-casts/index.md`](../optimize-casts/index.md)
-- [`../local-subtyping/index.md`](../local-subtyping/index.md)
-- [`../coalesce-locals/index.md`](../coalesce-locals/index.md)
+## Performance boundary
 
-## Bottom line
+On a 143,734-byte, one-function workload with 10,000 copy/use groups, nine post-warmup pass-local samples report medians of `7.548 ms` for Starshine and `27.1409 ms` for Binaryen v131. Starshine is `0.278x` Binaryen time, or about `3.60x` as fast.
 
-Starshine's current `merge-locals` strategy is **active direct-pass parity for the landed copy-retargeting slice**, not full upstream `LocalGraph` parity and not preset-ready local cleanup. Keep the broader graph/orientation work as future implementation debt.
+Whole-command timing remains codec-dominated: the multi-function synthetic workload is slower in Starshine despite the faster pass. That is a `[WALL]001` decode/validate/encode attribution, not a `merge-locals` pass-local regression.
+
+## Reopening criteria
+
+Reopen this pass for:
+
+- a validation or true-semantic failure;
+- a newly identified Binaryen-v131 source family not represented by the fifteen-leaf aggregate;
+- a pass-owned canonical size loss without a measured semantic or performance benefit;
+- legacy-EH traffic that crosses region boundaries and demonstrates an observable Binaryen transform missed by the regional bridge;
+- pass-local median regression to slower than Binaryen on the copy-heavy benchmark.

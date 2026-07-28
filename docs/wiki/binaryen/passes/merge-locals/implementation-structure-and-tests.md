@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
   - ./index.md
 related:
   - ./index.md
@@ -66,33 +66,31 @@ Successful rewrites strip the trivial tee wrapper and leave behind the simplifie
 The reviewed `test/lit/passes/merge-locals.wast` capture is narrow.
 It visibly anchors the conservative `between-unreachable` family, which is enough to prove that the pass remains careful around unreachable boundaries but not enough to stand in for a broad coverage suite.
 
-## Current-main check
+## Released-v131 check
 
-The 2026-07-11 recheck compared the upstream owner, registration, and dedicated fixture on current `main`. No teaching-relevant drift was found from the corrected `version_129` contract: Binaryen still combines temporary-tee instrumentation, eager `LocalGraph` influences, two orientation choices, post-graph rollback, and DWARF invalidation.
+The 2026-07-28 audit read the released `version_131` owner plus both dedicated fixture surfaces. The owner contract remains temporary-tee instrumentation, eager `LocalGraph` influences, two orientation choices, post-graph rollback, cleanup, and DWARF invalidation. The all-features fixture adds forward sibling sets, partial influence, reverse boundaries, reverse rollback, nested copy interactions, loop confusion, a fuzz stress shape, and strict-subtype rejection; the lit fixture anchors `between-unreachable` robustness.
 
 ## Starshine implementation/test status
 
-Starshine now has a dedicated active direct-pass slice:
-
 | Local surface | What it proves |
 | --- | --- |
-| [`src/passes/merge_locals.mbt`](../../../../../src/passes/merge_locals.mbt) | Owns a same-typed, forward `src -> dst` epoch-alias rewrite for adjacent `local.get src; local.set dst` copies. |
-| [`src/passes/merge_locals_test.mbt`](../../../../../src/passes/merge_locals_test.mbt) | Proves public spelling, a forward positive, destination-write invalidation, and a structured-control boundary negative. |
-| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Registers `merge-locals` as an active module pass. |
-| [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | Dispatches the module pass. |
-| [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) | Admits `--merge-locals` to direct Binaryen comparison. |
+| [`src/passes/merge_locals.mbt`](../../../../../src/passes/merge_locals.mbt) | HOT graph algorithm, straight-line snapshot path, and recursive legacy-EH regional path. |
+| [`src/passes/merge_locals_test.mbt`](../../../../../src/passes/merge_locals_test.mbt) | Public spelling, both orientations, cross-control influence, tee candidates, rollback, unreachable preservation, legacy `try`, and O4z placement. |
+| [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | Candidate admission, byte-preserving no-candidate bypass, legacy-EH routing, and HOT fallback. |
+| [`src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt) | Fifteen source-family leaves plus `merge-locals-all`. |
+| [`src/validate/gen_valid_merge_locals_tests.mbt`](../../../../../src/validate/gen_valid_merge_locals_tests.mbt) | Validity, copy opportunities, exact labels, type topology, and four legacy-EH region forms. |
+| [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) | Direct Binaryen-v131 comparison, replay, runtime, and idempotence evidence. |
 
-The local pass is deliberately not an upstream algorithm port: it has no `LocalGraph`, no destination-to-source orientation, and no post-rewrite rollback. It recursively rewrites nested expression bodies, but clears parent aliases after `block`, `loop`, `if`, and `try_table`; control-flow-spanning aliasing is therefore intentionally out of scope.
+The only raw regional specialization is legacy EH because general HOT lift still rejects decoded legacy `Try`. The bridge rewrites only region-local straight-line copy traffic, preserves block types, catch order and kind, tags, and delegate targets, and leaves wider cross-region traffic unchanged.
 
-## Validation checklist for a fuller local port
+## Current validation ladder
 
-The landed direct subset already has focused tests and historical 10,000-case comparison evidence. A fuller Binaryen-equivalent expansion should add, in order:
+1. focused public pass and profile tests;
+2. official lit and all-features fixture replay;
+3. `100000` regular GenValid;
+4. `10000` dedicated `merge-locals-all`;
+5. `10000` random all profiles;
+6. `10000` wasm-smith;
+7. runtime/idempotence and pass-local performance probes.
 
-1. destination-to-source orientation positives;
-2. control-flow-spanning `LocalGraph` influence positives and negatives;
-3. type-mismatch and `between-unreachable` regressions;
-4. post-graph rollback cases;
-5. focused pass-targeted parity after each expansion; and
-6. late-local-cleanup neighborhood proof before preset scheduling.
-
-See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the exact active-subset versus full-parity boundary.
+See [`./fuzzing.md`](./fuzzing.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for final counts and reopening criteria.

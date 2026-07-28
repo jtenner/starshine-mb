@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
   - ./index.md
 related:
   - ./index.md
@@ -18,7 +18,7 @@ related:
 # `merge-locals` WAT shapes
 
 This page is the beginner-friendly shape catalog for upstream Binaryen `merge-locals`.
-Examples are intentionally small and conceptual; exact final WAT can differ after the later cleanup passes that run around it. They are not all current Starshine promises: the active local subset supports only the sequential forward source-to-destination family, clears aliases around structured control, and has neither reverse orientation nor `LocalGraph` rollback; see [`starshine-strategy.md`](starshine-strategy.md).
+Examples are intentionally small and conceptual; exact final WAT can differ after later cleanup. Starshine now covers these released-v131 orientation, control, type, rollback, and unreachable families; decoded legacy `Try` uses a narrower region-local bridge described in [`starshine-strategy.md`](starshine-strategy.md).
 
 ## Correct mental model
 
@@ -168,4 +168,4 @@ Why this matters:
 
 Binaryen `merge-locals` rewrites copy-shaped local traffic, not arbitrary locals. The shapes to remember are the two ownership directions, the graph-guided control-flow positive, the type-mismatch negative, and the conservative unreachable-boundary regression.
 
-For Starshine today, treat only a same-typed sequential source-to-destination copy as implemented direct-pass behavior. Treat reverse ownership, cross-control flow, and rollback as source-backed future parity work rather than “safe enough” representation drift.
+For Starshine today, treat both ownership directions, graph-backed cross-control flow, exact type rejection, and rollback as implemented direct-pass behavior. Treat only cross-region legacy-EH traffic as a conservative boundary requiring fresh evidence.
