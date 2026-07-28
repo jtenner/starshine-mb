@@ -15,6 +15,14 @@ fn die_test_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
+fn die_test_import_count(mod_ : @lib.Module) -> Int {
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) => imports.length()
+    None => 0
+  }
+}
+
+///|
 fn die_test_first_call_target(
   mod_ : @lib.Module,
   defined_idx : Int,
@@ -217,4 +225,104 @@ test "duplicate-import-elimination clears stale raw names after function remap" 
   @debug.assert_eq(die_test_imported_func_count(optimized), 1)
   @debug.assert_eq(optimized.raw_name_sec_payload, None)
   assert_true(optimized.name_sec is Some(_))
+}
+
+///|
+test "duplicate-import-elimination remaps defined-function annotations and drops removed aliases" {
+  let source =
+    #|(module
+    #|  (type $v (func))
+    #|  (import "env" "f" (func $first (type $v)))
+    #|  (import "env" "f" (func $duplicate (type $v)))
+    #|  (func $caller))
+  let input = pass_test_module_from_wat(source).with_func_annotation_sec(
+    @lib.FuncAnnotationSec::new([
+      @lib.FuncAnnotationAssoc::new(0U, [
+        @lib.FuncAnnotation::new("binaryen.idempotent"),
+      ]),
+      @lib.FuncAnnotationAssoc::new(1U, [
+        @lib.FuncAnnotation::new("binaryen.removable.if.unused"),
+      ]),
+      @lib.FuncAnnotationAssoc::new(2U, [
+        @lib.FuncAnnotation::new("binaryen.js.called"),
+      ]),
+    ]),
+  )
+  let optimized = die_run_module_pass(input)
+  @debug.assert_eq(
+    optimized.func_annotation_sec,
+    Some(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(1U, [
+          @lib.FuncAnnotation::new("binaryen.js.called"),
+        ]),
+      ]),
+    ),
+  )
+}
+
+///|
+test "duplicate-import-elimination GenValid leaves cover every v131 family" {
+  let profile_names = [
+    "duplicate-import-elimination-functions", "duplicate-import-elimination-identity",
+    "duplicate-import-elimination-module-code", "duplicate-import-elimination-legacy-eh",
+    "duplicate-import-elimination-nonfunction",
+  ]
+  for index = 0; index < profile_names.length(); index = index + 1 {
+    let profile_name = profile_names[index]
+    let profile = match @validate.gen_valid_profile_by_name(profile_name) {
+      Ok(value) => value
+      Err(err) => fail(err)
+    }
+    let variants = if profile_name == "duplicate-import-elimination-legacy-eh" ||
+      profile_name == "duplicate-import-elimination-identity" {
+      5
+    } else {
+      1
+    }
+    for variant = 0; variant < variants; variant = variant + 1 {
+      let generated = match
+        @validate.gen_valid_module_result_from_seed(
+          variant.to_uint64(),
+          @validate.GenValidConfig::for_profile(profile),
+        ) {
+        Ok(value) => value
+        Err(failure) => fail(failure.validation_error_message)
+      }
+      let encoded = match @binary.encode_module(generated.wasm_module) {
+        Ok(bytes) => bytes
+        Err(err) => fail("profile \{profile_name} failed to encode: \{err}")
+      }
+      let decoded = match @binary.decode_module(encoded) {
+        Ok(mod_) => mod_
+        Err(err) => fail("profile \{profile_name} failed to decode: \{err}")
+      }
+      let before_funcs = die_test_imported_func_count(decoded)
+      let before_imports = die_test_import_count(decoded)
+      let optimized = die_run_module_pass(decoded)
+      match @validate.validate_module(optimized) {
+        Ok(_) => ()
+        Err(err) =>
+          fail(
+            "profile \{profile_name} variant \{variant} produced invalid wasm: \{@validate.validation_error_message(err)}",
+          )
+      }
+      if profile_name == "duplicate-import-elimination-nonfunction" {
+        @debug.assert_eq(before_funcs, 0)
+        @debug.assert_eq(die_test_imported_func_count(optimized), 0)
+        @debug.assert_eq(die_test_import_count(optimized), before_imports)
+        @debug.assert_eq(optimized, decoded)
+      } else {
+        assert_true(
+          die_test_imported_func_count(optimized) < before_funcs,
+          msg="profile \{profile_name} variant \{variant} did not remove a duplicate function import",
+        )
+        assert_true(optimized != decoded)
+      }
+      @debug.assert_eq(die_run_module_pass(optimized), optimized)
+    }
+  }
 }

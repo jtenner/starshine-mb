@@ -16399,10 +16399,52 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
 }
 
 ///|
+test "duplicate-import-elimination aggregate owns every v131 transform family" {
+  let expected = [
+    DuplicateImportEliminationFunctionsProfile,
+    DuplicateImportEliminationIdentityProfile,
+    DuplicateImportEliminationModuleCodeProfile,
+    DuplicateImportEliminationLegacyEhProfile,
+    DuplicateImportEliminationNonfunctionProfile,
+  ]
+  let members = gen_valid_profile_members(DuplicateImportEliminationAllProfile)
+  for profile in expected {
+    assert_true(
+      members.any(fn(item) { item.profile == profile }),
+      msg="missing DIE family profile \{gen_valid_profile_name(profile)}",
+    )
+    let config = GenValidConfig::for_profile(profile)
+    for seed in [0x5eedUL, 0x5eeeUL, 0x5eefUL, 0x5ef0UL, 0x5ef1UL] {
+      let generated = match gen_valid_module_result_from_seed(seed, config) {
+        Ok(v) => v
+        Err(failure) => fail(failure.validation_error_message)
+      }
+      match validate_module(generated.wasm_module) {
+        Ok(_) => ()
+        Err(err) => fail(validation_error_message(err))
+      }
+      assert_true(generated.facts.has_imports)
+    }
+  }
+}
+
+///|
 test "duplicate-import-elimination gen-valid profiles resolve and emit pass opportunities" {
   @debug.assert_eq(
     gen_valid_profile_name(DuplicateImportEliminationFunctionsProfile),
     "duplicate-import-elimination-functions",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DuplicateImportEliminationIdentityProfile),
+    "duplicate-import-elimination-identity",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DuplicateImportEliminationModuleCodeProfile),
+    "duplicate-import-elimination-module-code",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DuplicateImportEliminationLegacyEhProfile),
+    "duplicate-import-elimination-legacy-eh",
   )
   @debug.assert_eq(
     gen_valid_profile_name(DuplicateImportEliminationNonfunctionProfile),
@@ -16425,11 +16467,36 @@ test "duplicate-import-elimination gen-valid profiles resolve and emit pass oppo
       @debug.assert_eq(profile, DuplicateImportEliminationAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
+      @debug.assert_eq(members.length(), 5)
       assert_true(
         members.contains(
           GenValidProfileMember::new(
             DuplicateImportEliminationFunctionsProfile,
-            3,
+            2,
+          ),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(
+            DuplicateImportEliminationIdentityProfile,
+            2,
+          ),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(
+            DuplicateImportEliminationModuleCodeProfile,
+            2,
+          ),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(
+            DuplicateImportEliminationLegacyEhProfile,
+            4,
           ),
         ),
       )
@@ -16437,7 +16504,7 @@ test "duplicate-import-elimination gen-valid profiles resolve and emit pass oppo
         members.contains(
           GenValidProfileMember::new(
             DuplicateImportEliminationNonfunctionProfile,
-            1,
+            2,
           ),
         ),
       )

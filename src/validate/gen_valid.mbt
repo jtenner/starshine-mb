@@ -863,6 +863,9 @@ pub enum GenValidProfile {
   RemoveUnusedBrsWinBoundaryProfile
   RemoveUnusedBrsAllProfile
   DuplicateImportEliminationFunctionsProfile
+  DuplicateImportEliminationIdentityProfile
+  DuplicateImportEliminationModuleCodeProfile
+  DuplicateImportEliminationLegacyEhProfile
   DuplicateImportEliminationNonfunctionProfile
   DuplicateImportEliminationAllProfile
   SsaNomergeCoverageProfile
@@ -1203,6 +1206,12 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     RemoveUnusedBrsAllProfile => "remove-unused-brs-all"
     DuplicateImportEliminationFunctionsProfile =>
       "duplicate-import-elimination-functions"
+    DuplicateImportEliminationIdentityProfile =>
+      "duplicate-import-elimination-identity"
+    DuplicateImportEliminationModuleCodeProfile =>
+      "duplicate-import-elimination-module-code"
+    DuplicateImportEliminationLegacyEhProfile =>
+      "duplicate-import-elimination-legacy-eh"
     DuplicateImportEliminationNonfunctionProfile =>
       "duplicate-import-elimination-nonfunction"
     DuplicateImportEliminationAllProfile => "duplicate-import-elimination"
@@ -1565,11 +1574,17 @@ pub fn gen_valid_profile_members(
       [
         GenValidProfileMember::new(
           DuplicateImportEliminationFunctionsProfile,
-          3,
+          2,
         ),
+        GenValidProfileMember::new(DuplicateImportEliminationIdentityProfile, 2),
+        GenValidProfileMember::new(
+          DuplicateImportEliminationModuleCodeProfile,
+          2,
+        ),
+        GenValidProfileMember::new(DuplicateImportEliminationLegacyEhProfile, 4),
         GenValidProfileMember::new(
           DuplicateImportEliminationNonfunctionProfile,
-          1,
+          2,
         ),
       ]
     SsaNomergeAllProfile =>
@@ -1994,6 +2009,9 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     RemoveUnusedBrsWinBoundaryProfile,
     RemoveUnusedBrsAllProfile,
     DuplicateImportEliminationFunctionsProfile,
+    DuplicateImportEliminationIdentityProfile,
+    DuplicateImportEliminationModuleCodeProfile,
+    DuplicateImportEliminationLegacyEhProfile,
     DuplicateImportEliminationNonfunctionProfile,
     DuplicateImportEliminationAllProfile,
     SsaNomergeCoverageProfile,
@@ -4768,6 +4786,9 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     RemoveUnusedBrsAllProfile =>
       gen_valid_remove_unused_brs_profile_config(RemoveUnusedBrsControlProfile)
     DuplicateImportEliminationFunctionsProfile
+    | DuplicateImportEliminationIdentityProfile
+    | DuplicateImportEliminationModuleCodeProfile
+    | DuplicateImportEliminationLegacyEhProfile
     | DuplicateImportEliminationNonfunctionProfile =>
       gen_valid_duplicate_import_elimination_profile_config(profile)
     DuplicateImportEliminationAllProfile =>
@@ -7945,24 +7966,37 @@ fn gen_valid_duplicate_import_elimination_profile_config(
   profile : GenValidProfile,
 ) -> GenValidConfig {
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
-  let max_imports = match profile {
-    DuplicateImportEliminationNonfunctionProfile => 3
-    _ => 4
-  }
+  let module_code = profile == DuplicateImportEliminationModuleCodeProfile
+  let legacy_eh = profile == DuplicateImportEliminationLegacyEhProfile
+  let nonfunction = profile == DuplicateImportEliminationNonfunctionProfile
   GenValidConfig::{
     ..base,
-    max_type_defs: 3,
-    max_imports,
+    max_type_defs: 4,
+    max_imports: if nonfunction {
+      8
+    } else {
+      5
+    },
     max_defined_funcs: 1,
-    max_tables: 0,
-    max_mems: 0,
-    max_globals: if profile == DuplicateImportEliminationNonfunctionProfile {
-      2
+    max_tables: if module_code {
+      1
     } else {
       0
     },
-    max_tags: 0,
-    max_elems: if profile == DuplicateImportEliminationNonfunctionProfile {
+    max_mems: 0,
+    max_globals: if module_code {
+      1
+    } else {
+      0
+    },
+    max_tags: if legacy_eh {
+      1
+    } else {
+      0
+    },
+    max_elems: if module_code {
+      3
+    } else if nonfunction {
       0
     } else {
       1
@@ -7971,23 +8005,33 @@ fn gen_valid_duplicate_import_elimination_profile_config(
     max_params: 1,
     max_results: 0,
     max_locals: 0,
-    max_body_statements: 8,
-    max_body_depth: 1,
+    max_body_statements: if legacy_eh {
+      16
+    } else {
+      12
+    },
+    max_body_depth: if legacy_eh {
+      4
+    } else {
+      3
+    },
     features: GenValidFeatureToggles::{
       ..base.features,
       allow_imports: true,
-      allow_tables: false,
-      allow_mems: false,
-      allow_globals: profile == DuplicateImportEliminationNonfunctionProfile,
-      allow_tags: false,
-      allow_start: profile != DuplicateImportEliminationNonfunctionProfile,
-      allow_elems: profile != DuplicateImportEliminationNonfunctionProfile,
+      allow_tables: module_code || nonfunction,
+      allow_mems: nonfunction,
+      allow_globals: module_code || nonfunction,
+      allow_tags: legacy_eh || nonfunction,
+      allow_start: !nonfunction,
+      allow_elems: !nonfunction,
       allow_datas: false,
-      allow_ref_types: profile != DuplicateImportEliminationNonfunctionProfile,
-      allow_calls: true,
+      allow_ref_types: !nonfunction,
+      allow_calls: !nonfunction,
       allow_call_indirect: false,
-      allow_tail_calls: false,
-      allow_branch_heavy_control: false,
+      allow_tail_calls: profile == DuplicateImportEliminationFunctionsProfile,
+      allow_branch_heavy_control: profile ==
+      DuplicateImportEliminationFunctionsProfile ||
+      legacy_eh,
       allow_v128: false,
       allow_relaxed_simd: false,
       allow_atomics: false,
@@ -8004,11 +8048,50 @@ fn gen_valid_duplicate_import_elimination_profile_config(
 }
 
 ///|
+pub fn gen_valid_duplicate_import_elimination_profile_case_label(
+  profile : GenValidProfile,
+  seed : UInt64,
+) -> String? {
+  match profile {
+    DuplicateImportEliminationFunctionsProfile =>
+      Some("duplicate-import-elimination:body-references")
+    DuplicateImportEliminationIdentityProfile =>
+      match (seed % 5UL).to_int() {
+        0 => Some("duplicate-import-elimination:identity-same-type")
+        1 => Some("duplicate-import-elimination:identity-representative-reset")
+        2 => Some("duplicate-import-elimination:identity-different-module")
+        3 => Some("duplicate-import-elimination:identity-different-base")
+        _ =>
+          Some("duplicate-import-elimination:identity-equal-structural-types")
+      }
+    DuplicateImportEliminationModuleCodeProfile =>
+      Some("duplicate-import-elimination:module-code-references")
+    DuplicateImportEliminationLegacyEhProfile =>
+      match (seed % 5UL).to_int() {
+        0 => Some("duplicate-import-elimination:legacy-eh-protected")
+        1 => Some("duplicate-import-elimination:legacy-eh-typed-catch")
+        2 => Some("duplicate-import-elimination:legacy-eh-catch-all")
+        3 => Some("duplicate-import-elimination:legacy-eh-delegate")
+        _ => Some("duplicate-import-elimination:try-table-protected")
+      }
+    DuplicateImportEliminationNonfunctionProfile =>
+      Some("duplicate-import-elimination:nonfunction-negative")
+    _ => None
+  }
+}
+
+///|
 fn gen_valid_is_duplicate_import_elimination_profile_config(
   config : GenValidConfig,
 ) -> Bool {
   config ==
   GenValidConfig::for_profile(DuplicateImportEliminationFunctionsProfile) ||
+  config ==
+  GenValidConfig::for_profile(DuplicateImportEliminationIdentityProfile) ||
+  config ==
+  GenValidConfig::for_profile(DuplicateImportEliminationModuleCodeProfile) ||
+  config ==
+  GenValidConfig::for_profile(DuplicateImportEliminationLegacyEhProfile) ||
   config ==
   GenValidConfig::for_profile(DuplicateImportEliminationNonfunctionProfile)
 }
@@ -30875,13 +30958,17 @@ fn gen_valid_reorder_locals_profile_module(ctx : GenValidContext) -> Module {
 }
 
 ///|
+fn gen_valid_die_void_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [])))
+}
+
+///|
 fn gen_valid_duplicate_import_elimination_functions_module() -> Module {
   let i32_consumer = RecType::new(
     SubType::comp_type(CompType::func([ValType::i32()], [])),
   )
-  let void_func = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
-  .with_type_sec(TypeSec::new([i32_consumer, void_func]))
+  .with_type_sec(TypeSec::new([i32_consumer, gen_valid_die_void_type()]))
   .with_import_sec(
     ImportSec::new([
       Import::new(
@@ -30930,9 +31017,24 @@ fn gen_valid_duplicate_import_elimination_functions_module() -> Module {
           Instruction::i32_const(I32(7)),
           Instruction::call(FuncIdx::new(0U)),
           Instruction::call(FuncIdx::new(2U)),
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([Instruction::call(FuncIdx::new(2U))]),
+          ),
+          Instruction::loop_(
+            BlockType::void_(),
+            Expr::new([Instruction::call(FuncIdx::new(2U))]),
+          ),
+          Instruction::i32_const(I32(1)),
+          Instruction::if_(
+            BlockType::void_(),
+            [Instruction::call(FuncIdx::new(2U))],
+            Some([Instruction::ref_func(FuncIdx::new(2U)), Instruction::drop()]),
+          ),
           Instruction::ref_func(FuncIdx::new(2U)),
           Instruction::drop(),
           Instruction::call(FuncIdx::new(3U)),
+          Instruction::return_call(FuncIdx::new(2U)),
         ]),
       ),
     ]),
@@ -30940,26 +31042,377 @@ fn gen_valid_duplicate_import_elimination_functions_module() -> Module {
 }
 
 ///|
-fn gen_valid_duplicate_import_elimination_nonfunction_module() -> Module {
-  let void_func = RecType::new(SubType::comp_type(CompType::func([], [])))
+fn gen_valid_duplicate_import_elimination_identity_module(
+  seed : UInt64,
+) -> Module {
+  let imports : Array[Import] = []
+  let mut duplicate_idx = 1U
+  match (seed % 5UL).to_int() {
+    0 => {
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      duplicate_idx = 2U
+    }
+    1 => {
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(0U)),
+        ),
+      )
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      duplicate_idx = 2U
+    }
+    2 => {
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      imports.push(
+        Import::new(
+          Name::from_string("other"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+    }
+    3 => {
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.other"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+    }
+    _ => {
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(1U)),
+        ),
+      )
+      imports.push(
+        Import::new(
+          Name::from_string("env"),
+          Name::from_string("die.identity"),
+          ExternType::func(TypeIdx::new(2U)),
+        ),
+      )
+    }
+  }
+  let defined_idx = imports.length().reinterpret_as_uint()
   Module::new()
-  .with_type_sec(TypeSec::new([void_func]))
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      gen_valid_die_void_type(),
+      gen_valid_die_void_type(),
+    ]),
+  )
+  .with_import_sec(ImportSec::new(imports))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(
+        Name::from_string("run"),
+        ExternIdx::func(FuncIdx::new(defined_idx)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::call(FuncIdx::new(duplicate_idx))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_duplicate_import_elimination_module_code_module() -> Module {
+  let funcref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_die_void_type()]))
+  .with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.module-code"),
+        ExternType::func(TypeIdx::new(0U)),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.module-code"),
+        ExternType::func(TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_table_sec(
+    TableSec::new([
+      Table::new(
+        TableType::new(funcref, Limits::i32(1U, None)),
+        Some(Expr::new([Instruction::ref_func(FuncIdx::new(1U))])),
+      ),
+    ]),
+  )
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::funcref(), false),
+        Expr::new([Instruction::ref_func(FuncIdx::new(1U))]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(
+        Name::from_string("die.export"),
+        ExternIdx::func(FuncIdx::new(1U)),
+      ),
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(2U))),
+    ]),
+  )
+  .with_start_sec(StartSec::new(FuncIdx::new(1U)))
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(
+        ElemMode::declarative(),
+        ElemKind::funcs([FuncIdx::new(0U), FuncIdx::new(1U)]),
+      ),
+      Elem::new(
+        ElemMode::declarative(),
+        ElemKind::func_exprs([
+          Expr::new([Instruction::ref_func(FuncIdx::new(1U))]),
+        ]),
+      ),
+      Elem::new(
+        ElemMode::passive(),
+        ElemKind::typed_exprs(funcref, [
+          Expr::new([Instruction::ref_func(FuncIdx::new(1U))]),
+        ]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::call(FuncIdx::new(1U))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_duplicate_import_elimination_legacy_eh_module(
+  seed : UInt64,
+) -> Module {
+  let duplicate = FuncIdx::new(1U)
+  let tag = TagIdx::new(0U)
+  let body = match (seed % 5UL).to_int() {
+    0 =>
+      [
+        Instruction::try_(
+          BlockType::void_(),
+          Expr::new([Instruction::call(duplicate)]),
+          [@lib.LegacyCatch::tagged(tag, Expr::new([Instruction::nop()]))],
+        ),
+      ]
+    1 =>
+      [
+        Instruction::try_(
+          BlockType::void_(),
+          Expr::new([Instruction::throw_(tag)]),
+          [
+            @lib.LegacyCatch::tagged(
+              tag,
+              Expr::new([Instruction::call(duplicate)]),
+            ),
+          ],
+        ),
+      ]
+    2 =>
+      [
+        Instruction::try_(
+          BlockType::void_(),
+          Expr::new([Instruction::throw_(tag)]),
+          [
+            @lib.LegacyCatch::all(
+              Expr::new([Instruction::ref_func(duplicate), Instruction::drop()]),
+            ),
+          ],
+        ),
+      ]
+    3 =>
+      [
+        Instruction::try_(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::try_(
+              BlockType::void_(),
+              Expr::new([Instruction::call(duplicate)]),
+              [],
+              delegate=Some(LabelIdx::new(0U)),
+            ),
+          ]),
+          [@lib.LegacyCatch::tagged(tag, Expr::new([Instruction::nop()]))],
+        ),
+      ]
+    _ =>
+      [
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::try_table(
+              BlockType::void_(),
+              [Catch::new(tag, LabelIdx::new(0U))],
+              Expr::new([Instruction::call(duplicate)]),
+            ),
+          ]),
+        ),
+      ]
+  }
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([gen_valid_die_void_type(), gen_valid_die_void_type()]),
+  )
+  .with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.eh"),
+        ExternType::func(TypeIdx::new(0U)),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.eh"),
+        ExternType::func(TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1U))]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(2U))),
+    ]),
+  )
+  .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new(body))]))
+}
+
+///|
+fn gen_valid_duplicate_import_elimination_nonfunction_module() -> Module {
+  let table_type = TableType::new(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+    Limits::i32(1U, None),
+  )
+  let mem_type = MemType::new(Limits::i32(1U, None))
+  let global_type = GlobalType::new(ValType::i32(), false)
+  let tag_type = TagType::new(TypeIdx::new(0U))
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_die_void_type()]))
   .with_import_sec(
     ImportSec::new([
       Import::new(
         Name::from_string("env"),
         Name::from_string("die.global"),
-        ExternType::global(GlobalType::new(ValType::i32(), false)),
+        ExternType::global(global_type),
       ),
       Import::new(
         Name::from_string("env"),
         Name::from_string("die.global"),
-        ExternType::global(GlobalType::new(ValType::i32(), false)),
+        ExternType::global(global_type),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.table"),
+        ExternType::table(table_type),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.table"),
+        ExternType::table(table_type),
       ),
       Import::new(
         Name::from_string("env"),
         Name::from_string("die.memory"),
-        ExternType::mem(MemType::new(Limits::i32(1U, None))),
+        ExternType::mem(mem_type),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.memory"),
+        ExternType::mem(mem_type),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.tag"),
+        ExternType::tag(tag_type),
+      ),
+      Import::new(
+        Name::from_string("env"),
+        Name::from_string("die.tag"),
+        ExternType::tag(tag_type),
       ),
     ]),
   )
@@ -30974,7 +31427,11 @@ fn gen_valid_duplicate_import_elimination_nonfunction_module() -> Module {
       Func::new(
         Locals::empty(),
         Expr::new([
-          Instruction::global_get(GlobalIdx::new(0U)),
+          Instruction::global_get(GlobalIdx::new(1U)),
+          Instruction::drop(),
+          Instruction::table_size(TableIdx::new(1U)),
+          Instruction::drop(),
+          Instruction::memory_size(MemIdx::new(1U)),
           Instruction::drop(),
         ]),
       ),
@@ -30984,9 +31441,19 @@ fn gen_valid_duplicate_import_elimination_nonfunction_module() -> Module {
 
 ///|
 fn gen_valid_duplicate_import_elimination_profile_module(
-  config : GenValidConfig,
+  ctx : GenValidContext,
 ) -> Module {
+  let config = ctx.config
   if config ==
+    GenValidConfig::for_profile(DuplicateImportEliminationIdentityProfile) {
+    gen_valid_duplicate_import_elimination_identity_module(ctx.root_seed)
+  } else if config ==
+    GenValidConfig::for_profile(DuplicateImportEliminationModuleCodeProfile) {
+    gen_valid_duplicate_import_elimination_module_code_module()
+  } else if config ==
+    GenValidConfig::for_profile(DuplicateImportEliminationLegacyEhProfile) {
+    gen_valid_duplicate_import_elimination_legacy_eh_module(ctx.root_seed)
+  } else if config ==
     GenValidConfig::for_profile(DuplicateImportEliminationNonfunctionProfile) {
     gen_valid_duplicate_import_elimination_nonfunction_module()
   } else {
@@ -31007,7 +31474,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     return gen_valid_code_folding_profile_module(config)
   }
   if gen_valid_is_duplicate_import_elimination_profile_config(config) {
-    return gen_valid_duplicate_import_elimination_profile_module(config)
+    return gen_valid_duplicate_import_elimination_profile_module(ctx)
   }
   if gen_valid_is_merge_locals_profile_config(config) {
     return gen_valid_merge_locals_profile_module(ctx)

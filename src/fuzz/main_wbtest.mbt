@@ -2205,40 +2205,40 @@ test "parse_fuzz_cli_command parses gen-valid batch profile and feature filters"
 }
 
 ///|
-test "gen-valid batch manifest labels duplicate-import-elimination profile leaves" {
+test "gen-valid batch manifest labels every duplicate-import-elimination family" {
   let args = EmitGenValidBatchArgs::new(
-    8,
+    128,
     0x5eedUL,
     "tmp/gen-valid",
     profile="duplicate-import-elimination",
-    max_attempts=8,
+    max_attempts=128,
   )
   let selection = match emit_gen_valid_batch_selection(args) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  @debug.assert_eq(selection.selected, 8)
+  @debug.assert_eq(selection.selected, 128)
   let manifest = format_gen_valid_batch_manifest_json(args, selection)
-  assert_true(
-    manifest.contains(
-      "\"selected_profile\":\"duplicate-import-elimination-functions\"",
-    ),
-  )
-  assert_true(
-    manifest.contains(
-      "\"selected_profile\":\"duplicate-import-elimination-nonfunction\"",
-    ),
-  )
-  assert_true(
-    manifest.contains(
-      "\"profile_case_label\":\"duplicate-import-elimination:functions\"",
-    ),
-  )
-  assert_true(
-    manifest.contains(
-      "\"profile_case_label\":\"duplicate-import-elimination:nonfunction-negative\"",
-    ),
-  )
+  for
+    profile in [
+      "duplicate-import-elimination-functions", "duplicate-import-elimination-identity",
+      "duplicate-import-elimination-module-code", "duplicate-import-elimination-legacy-eh",
+      "duplicate-import-elimination-nonfunction",
+    ] {
+    assert_true(manifest.contains("\"selected_profile\":\"\{profile}\""))
+  }
+  for
+    label in [
+      "duplicate-import-elimination:body-references", "duplicate-import-elimination:identity-same-type",
+      "duplicate-import-elimination:identity-representative-reset", "duplicate-import-elimination:identity-different-module",
+      "duplicate-import-elimination:identity-different-base", "duplicate-import-elimination:identity-equal-structural-types",
+      "duplicate-import-elimination:module-code-references", "duplicate-import-elimination:legacy-eh-protected",
+      "duplicate-import-elimination:legacy-eh-typed-catch", "duplicate-import-elimination:legacy-eh-catch-all",
+      "duplicate-import-elimination:legacy-eh-delegate", "duplicate-import-elimination:try-table-protected",
+      "duplicate-import-elimination:nonfunction-negative",
+    ] {
+    assert_true(manifest.contains("\"profile_case_label\":\"\{label}\""))
+  }
 }
 
 ///|

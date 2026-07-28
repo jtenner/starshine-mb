@@ -3544,12 +3544,12 @@ fn emit_gen_valid_batch_profile_case_label(
   leaf_profile : GenValidProfile,
   seed : UInt64,
 ) -> String? {
-  match leaf_profile {
-    DuplicateImportEliminationFunctionsProfile =>
-      return Some("duplicate-import-elimination:functions")
-    DuplicateImportEliminationNonfunctionProfile =>
-      return Some("duplicate-import-elimination:nonfunction-negative")
-    _ => ()
+  match
+    gen_valid_duplicate_import_elimination_profile_case_label(
+      leaf_profile, seed,
+    ) {
+    Some(label) => return Some(label)
+    None => ()
   }
   match gen_valid_memory_packing_profile_case_label(leaf_profile) {
     Some(label) => return Some(label)

@@ -64,6 +64,8 @@ pub fn gen_valid_dead_argument_elimination_profile_config(GenValidProfile) -> Ge
 
 pub fn gen_valid_derive_stream_seed(UInt64, GenValidRandomStreamLabel) -> UInt64
 
+pub fn gen_valid_duplicate_import_elimination_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
 
 pub fn gen_valid_heap_store_optimization_profile_case_label(GenValidProfile) -> String?
@@ -1356,6 +1358,9 @@ pub enum GenValidProfile {
   RemoveUnusedBrsWinBoundaryProfile
   RemoveUnusedBrsAllProfile
   DuplicateImportEliminationFunctionsProfile
+  DuplicateImportEliminationIdentityProfile
+  DuplicateImportEliminationModuleCodeProfile
+  DuplicateImportEliminationLegacyEhProfile
   DuplicateImportEliminationNonfunctionProfile
   DuplicateImportEliminationAllProfile
   SsaNomergeCoverageProfile
