@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
   - ./index.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -37,7 +37,7 @@ The upstream owner is:
 
 - `src/passes/HeapStoreOptimization.cpp`
 
-In Binaryen `version_129` and the 2026-05-05 current-main recheck, that file owns the whole public pass implementation.
+In Binaryen `version_129` and the 2026-05-05 current-main recheck, that file owns the whole public pass implementation. The July 28, 2026 v131 renewal additionally proves the v130/v131 owner files are byte-identical at SHA-256 `9d9aa00140d106360282f8b0bb822b4e844b30b2d944bc102bfc88a66f8c24fc`. The only dedicated v131 lit drift is the shared bottom-type finalization spelling from `local.tee` to `local.set` in `$unreachable`; it does not change HSO's transform contract.
 The key structure is small enough to keep in one mental model:
 
 | Source area | What it proves |

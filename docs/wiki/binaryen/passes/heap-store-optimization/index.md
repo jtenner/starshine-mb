@@ -47,9 +47,11 @@ related:
 
 ## Binaryen v131 renewal status
 
-The v131 renewal is closed. `HeapStoreOptimization.cpp` is unchanged from v130, while the released lit surface adds shared acquire/release ordering and descriptor shallow-trap coverage through `heap-store-atomics.wast` and `heap-store-optimization-desc.wast`.
+The v131 renewal is closed. `HeapStoreOptimization.cpp` is byte-identical between v130 and v131 at SHA-256 `9d9aa00140d106360282f8b0bb822b4e844b30b2d944bc102bfc88a66f8c24fc`, while the released lit surface adds shared acquire/release ordering and descriptor shallow-trap coverage through `heap-store-atomics.wast` and `heap-store-optimization-desc.wast`.
 
 Starshine now preserves acquire/release order on linear-memory atomics through decode, IR, HOT rewrites, memarg reconstruction, and encode; classifies shared memory and shared GC accesses directionally; encodes shared subtype/descriptor wrappers in the v131 order; validates shared abstract bottoms against compatible shared concrete types; and treats nullable descriptor allocation as a shallow trap before moving later effects. The official v131 HSO, descriptor, and atomics fixtures validate through Starshine. Remaining printed differences are bounded lowering/cleanup shape: Starshine omits Binaryen `nop` placeholders, can eliminate additional safe fresh-struct stores while preserving acquire/release direction, and may spill a non-nullable struct reference when retaining a trapping descriptor store.
+
+The primary `heap-store-optimization.wast` file also changes one shared-finalization expectation in `$unreachable`: a bottom-valued `local.tee` now prints as `local.set`. A focused v131 source-WAT probe confirms the new text, while wasm reparse canonicalizes both Binaryen and Starshine to the same valid 32-byte `unreachable` function. The explicit-v131 ordinary `1000`-case spot lane is exact, and the dedicated `100`-case spot lane is cleanup-normalized under the existing `local-cleanup-debris` classification with zero failures.
 
 ## Role
 

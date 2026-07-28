@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp
@@ -47,6 +47,8 @@ This page is that compact source-map answer.
 | `src/wasm/wasm.cpp` | `TupleMake::finalize()` and `TupleExtract::finalize()` | Tuple-opt is operating over ordinary Binaryen tuple node semantics, not custom pass-local typing rules. |
 | `src/wasm/wasm-validator.cpp` | Tuple validation rules | The pass must respect multivalue gating, tuple.make arity, tuple.extract bounds, and extracted-element subtype rules. |
 | `test/lit/passes/tuple-optimization.wast` | Dedicated upstream behavior surface | The official tests make the pass's narrow approved surface and conservative bailout rules much clearer than the short implementation file does by itself. |
+
+The July 28, 2026 v131 renewal proves `TupleOptimization.cpp` is byte-identical to v130 at SHA-256 `2809e78bb844a8a910c68def6caabaa7ddfcb8df4e3103d5d83ae9beb474e264`. The dedicated lit file changes only four bottom-valued `local.tee` expected outputs to `local.set` in unreachability cases. That is shared typing/finalization drift, not a tuple-opt algorithm change.
 
 ## The core C++ shape
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
   - ../../release-horizon-and-oracles.md
   - ../code-pushing/index.md
@@ -36,7 +36,9 @@ related:
 
 ## Binaryen v131 renewal status
 
-`TupleOptimization.cpp` did not change between v130 and v131, so the pass is not automatically reopened. Its dedicated expected output changed through shared typing/finalization behavior, and `[V131-SPOT]001` requires a focused v131 probe before the existing closeout is cited as current-release evidence. Open new implementation work only for a classified failing family.
+Closed on July 28, 2026. `TupleOptimization.cpp` is byte-identical between v130 and v131 at SHA-256 `2809e78bb844a8a910c68def6caabaa7ddfcb8df4e3103d5d83ae9beb474e264`. The dedicated lit delta changes four bottom-valued `local.tee` expectations to `local.set` in the unreachability families; the tuple-local analysis and scalarization owner did not change.
+
+A focused v131 source-WAT probe confirmed the new Binaryen `local.set` spelling. After wasm serialization, both Binaryen and Starshine canonicalize the reduced `unreachable.tuple.extract` probe to the same valid 30-byte `unreachable` function. Focused tuple tests pass `56/56`; explicit-v131 ordinary GenValid is `1000/1000` exact. A 100-case dedicated profile reproduces only the already approved pure/drop-only scalar-spelling wins: all 100 cases have zero effects/traps, Starshine is smaller in every case (`-22` bytes for spill; `-20` for tee and copy-chain), and there are no validation, property, generator, or command failures. No implementation slice is opened.
 
 ## Role
 

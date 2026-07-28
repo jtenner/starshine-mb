@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -11,6 +11,17 @@ sources:
 ---
 
 # `tuple-optimization` Fuzzing Profile
+
+## Binaryen v131 spot renewal
+
+The July 28, 2026 explicit-v131 renewal used the rebuilt `_build/native/release/build/cmd/cmd.exe` and `.tmp/binaryen-version-131/bin/wasm-opt`, verified as `wasm-opt version 131 (version_131)`:
+
+- `.tmp/pass-fuzz-tuple-v131-spot-ordinary-1000`: `1000/1000` exact normalized matches, zero mismatches/failures, Binaryen cache `0/1000` hits/misses;
+- `.tmp/pass-fuzz-tuple-v131-spot-dedicated-100`: `100/100` known raw scalar-spelling differences, zero validation/property/generator/command failures, selected/profile counts spill `41`, tee `15`, copy-chain `44`.
+
+Every dedicated input has zero call, memory, table, global, exception, atomic, unreachable, and trap facts. Starshine is smaller in all 100 cases: spill is uniformly `-22` encoded bytes, while tee and copy-chain are uniformly `-20`. This is the same narrow pure/drop-only measured-win family approved by the 2026-06-30 closeout, not a new v131 gap.
+
+The owner file is unchanged from v130. The four dedicated-lit deltas are bottom-valued `local.tee` to `local.set` finalization in unreachability cases; a focused source-WAT probe confirms Binaryen's new text, while binary reparse reduces both outputs to the same valid 30-byte `unreachable` function. The renewal therefore closes without implementation work.
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 
