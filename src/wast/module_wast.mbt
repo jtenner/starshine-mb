@@ -188,14 +188,6 @@ fn index_text(idx : Index) -> String {
 }
 
 ///|
-fn atomic_order_text(order : AtomicOrder) -> String {
-  match order {
-    SeqCst => "seq_cst"
-    AcqRel => "acq_rel"
-  }
-}
-
-///|
 fn aggregate_atomic_rmw_suffix(op : @lib.AggregateAtomicRmwOp) -> String {
   match op {
     @lib.AggregateAtomicRmwAdd => "add"

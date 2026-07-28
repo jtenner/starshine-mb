@@ -48,7 +48,7 @@ fn[T : Encode + Decode + Eq + Show + @debug.Debug + @quickcheck.Arbitrary] round
   let a = Array::new(capacity=count)
   let mut i = 0
   while i < count {
-    let val = T::arbitrary(i, st)
+    let val = @quickcheck.Arbitrary::arbitrary(i, st)
     roundtrip(val)
     a.push(val)
     i += 1

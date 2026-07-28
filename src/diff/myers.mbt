@@ -209,7 +209,7 @@ fn myers_build_contexts(
   let lhs_parts = myers_split_text(lhs, options.compare)
   let rhs_parts = myers_split_text(rhs, options.compare)
 
-  let code_by_text : Map[String, Int] = {}
+  let code_by_text : Map[String, Int] = Map([])
   let mut next_code = 0
 
   let lhs_codes : Array[Int] = []

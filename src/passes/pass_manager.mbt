@@ -3753,6 +3753,7 @@ fn run_hot_pipeline_raw_simplify_locals_gate_stats(
 // Treat every numeric edge as inclusive/exclusive API and keep representative
 // ±1 tests in `pass_manager_threshold_wbtest.mbt`.
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_ladder(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -3803,6 +3804,7 @@ fn run_hot_pipeline_raw_simplify_locals_giant_func_stats(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_func(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -3814,6 +3816,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_func(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -3830,6 +3833,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_call_heavy(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_validator_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -3848,6 +3852,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_validator_structured_call_he
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_parser_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -3871,6 +3876,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_parser_structured_call_heavy
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_decode_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -3896,6 +3902,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_decode_structured_call_heavy
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_encode_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4053,6 +4060,7 @@ fn run_hot_pipeline_raw_simplify_locals_dense_structured_call_heavy_stats(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_branchy_decode_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4065,6 +4073,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_branchy_decode_structured_ca
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_transformer_catch_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4077,6 +4086,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_transformer_catch_structured
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_branchy_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4089,6 +4099,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_branchy_structured_call_heav
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_dense_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4099,6 +4110,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_dense_structured_call_heavy(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_stringview_trim_loop_churn(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4123,6 +4135,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_stringview_trim_loop_churn(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4148,6 +4161,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_small_loop_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4172,6 +4186,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_small_loop_call_heavy(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_straight_line_builder_churn(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4196,6 +4211,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_straight_line_builder_churn(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_huge_straight_line_call_builder(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4215,6 +4231,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_huge_straight_line_call_buil
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_medium_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4236,6 +4253,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_medium_structured_call_heavy
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_loop_heavy_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4258,6 +4276,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_loop_heavy_structured_call_h
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_local_churn(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4295,6 +4314,7 @@ fn run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_branch_dense_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4330,6 +4350,7 @@ fn run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_block_rich_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4365,6 +4386,7 @@ fn run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_call_dense_structured_walker(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4444,6 +4466,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_multivalue_call_ladder(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4513,6 +4536,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_multivalue_call_ladder(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_pure_call_tails(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4527,6 +4551,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_rewrite_pure_call_tails(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_straight_line_adjacent_local_tees(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4545,6 +4570,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_rewrite_straight_line_adjacent_lo
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_straight_line_lane_builder(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -4569,6 +4595,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_rewrite_straight_line_lane_builde
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_structured_pure_call_tails(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -25960,7 +25987,7 @@ fn RawOiStackEffectBarrierFact::from_instr(
     | @lib.MemoryCopy(_, _)
     | @lib.MemoryFill(_)
     | @lib.DataDrop(_)
-    | @lib.AtomicFence
+    | @lib.AtomicFence(_)
     | @lib.StructSet(_, _)
     | @lib.ArraySet(_)
     | @lib.ArrayFill(_)
@@ -61685,6 +61712,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
   mod_ : @lib.Module,
   requested_descriptors : Array[@ir.HotPassDescriptor],
@@ -62323,6 +62351,7 @@ fn run_hot_pipeline_apply_local_subtyping_to_touched(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
   mod_ : @lib.Module,
   defs : Array[Int],
@@ -62529,6 +62558,7 @@ fn run_hot_pipeline_dae_val_type_is_exact_nonnull_ref(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_has_touched_nop_body_with_params(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -62556,6 +62586,7 @@ fn run_hot_pipeline_dae_has_touched_nop_body_with_params(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_has_exact_nonnull_param_i32_zero_body(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -62670,6 +62701,7 @@ fn run_hot_pipeline_dae_strip_dropped_struct_defaults_instrs(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -62703,6 +62735,7 @@ fn run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_retain_valid_selected_defs(
   baseline : @lib.Module,
   candidate : @lib.Module,
@@ -62797,6 +62830,7 @@ fn run_hot_pipeline_dae_retain_valid_selected_defs(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_validate_selected_def_or_rollback(
   original : @lib.Module,
   candidate : @lib.Module,
@@ -62873,6 +62907,7 @@ fn run_hot_pipeline_dae_encoded_func_size(func : @lib.Func) -> Int? {
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_selected_func_encoded_not_larger(
   current : @lib.Module,
   candidate : @lib.Module,
@@ -62909,6 +62944,7 @@ fn run_hot_pipeline_dae_selected_func_encoded_not_larger(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
   current : @lib.Module,
   candidate : @lib.Module,
@@ -62945,6 +62981,7 @@ fn run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_clone_cleanup_defs(
   mod_ : @lib.Module,
   defs : Array[Int],
@@ -63110,6 +63147,7 @@ fn run_hot_pipeline_dae_collect_direct_callees(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_high_literal_chain_payoff(
   funcs : Array[@lib.Func],
   def_idx : Int,
@@ -64853,6 +64891,7 @@ fn run_hot_pipeline_dae_remove_nops_instrs(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_broad_high_structural_cleanup(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -65006,6 +65045,7 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_broad_high_coalesce_linear_subset(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -65052,6 +65092,7 @@ fn run_hot_pipeline_dae_broad_high_coalesce_linear_subset(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_broad_high_dead_write_cleanup(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -65066,6 +65107,7 @@ fn run_hot_pipeline_dae_broad_high_dead_write_cleanup(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_broad_high_compact_selected_locals(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -65103,6 +65145,7 @@ fn run_hot_pipeline_dae_broad_high_compact_selected_locals(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_bounded_instr_count(
   instrs : Array[@lib.Instruction],
   limit : Int,
@@ -66734,6 +66777,7 @@ fn run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
 // Flat effects may remain between the old and new positions; only unconditional
 // block descent is
 // allowed, and all other structured or terminal boundaries reject.
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_instrs(
   instrs : Array[@lib.Instruction],
   local_types : Array[@lib.ValType],
@@ -67553,6 +67597,7 @@ fn run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
 // The constant is pure and nontrapping, so duplicating it at each read removes
 // the carrier without moving any effect or trap. Other counts and parameters
 // reject instead of generalizing SimplifyLocals behavior.
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_materialize_exact_i64_zero_local_instrs(
   instrs : Array[@lib.Instruction],
   local_types : Array[@lib.ValType],
@@ -70696,6 +70741,7 @@ fn run_hot_pipeline_dae_fold_immutable_global_struct_fields_instrs(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -70830,6 +70876,7 @@ fn run_hot_pipeline_dae_fold_i32_tee_compare_ifs_instrs(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_fold_i32_tee_compare_ifs_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -70861,6 +70908,7 @@ fn run_hot_pipeline_dae_fold_i32_tee_compare_ifs_touched(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
   original : @lib.Module,
   current : @lib.Module,
@@ -70960,6 +71008,7 @@ fn run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
 }
 
 ///|
+#warnings("-unused_value")
 fn run_hot_pipeline_dae_admit_body_only_worth_defs(
   worth_touched : Array[Bool],
   cleaned_defs : Array[Int],

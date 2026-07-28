@@ -23,7 +23,7 @@ fn dfe_imported_func_count(mod_ : @lib.Module) -> Int {
 fn dfe_func_annotation_map(
   mod_ : @lib.Module,
 ) -> Map[UInt, Array[@lib.FuncAnnotation]] {
-  let by_idx : Map[UInt, Array[@lib.FuncAnnotation]] = {}
+  let by_idx : Map[UInt, Array[@lib.FuncAnnotation]] = Map([])
   match mod_.func_annotation_sec {
     Some(@lib.FuncAnnotationSec(entries)) =>
       for entry in entries {
@@ -142,7 +142,7 @@ fn dfe_supports_simple_type_dedup(rec_types : Array[@lib.RecType]) -> Bool {
 fn dfe_duplicate_simple_type_canonical_map(
   rec_types : Array[@lib.RecType],
 ) -> Map[UInt, UInt] {
-  let canonical_map : Map[UInt, UInt] = {}
+  let canonical_map : Map[UInt, UInt] = Map([])
   if !dfe_supports_simple_type_dedup(rec_types) {
     return canonical_map
   }
@@ -228,7 +228,7 @@ fn dfe_type_metadata_uses_remap(
   metadata : @lib.TypeMetadata,
   remap : Map[UInt, UInt],
 ) -> Bool {
-  let { describes, descriptor } = metadata
+  let { describes, descriptor, .. } = metadata
   match describes {
     Some(idx) => if dfe_type_idx_is_remapped(idx, remap) { return true }
     None => ()
@@ -402,7 +402,7 @@ fn dfe_rec_type_uses_remap(
 
 ///|
 fn dfe_type_metadata_mentions_type_idxs(metadata : @lib.TypeMetadata) -> Bool {
-  let { describes, descriptor } = metadata
+  let { describes, descriptor, .. } = metadata
   describes is Some(_) || descriptor is Some(_)
 }
 
@@ -2941,7 +2941,7 @@ fn dfe_rewrite_module_func_idxs(
 
 ///|
 fn dfe_canonical_remap_sources(remap : Map[UInt, UInt]) -> Map[UInt, UInt] {
-  let canonical : Map[UInt, UInt] = {}
+  let canonical : Map[UInt, UInt] = Map([])
   for source_idx in remap.keys() {
     let target_idx = remap[source_idx]
     match canonical.get(target_idx) {
@@ -3333,7 +3333,7 @@ fn dfe_prune_unused_simple_func_type_suffix(mod_ : @lib.Module) -> @lib.Module {
           ) {
           break
         }
-        let remap : Map[UInt, UInt] = {}
+        let remap : Map[UInt, UInt] = Map([])
         remap[candidate_idx.reinterpret_as_uint()] = 0U
         if dfe_module_type_refs_use_remap(mod_, remap) {
           break
@@ -3344,7 +3344,7 @@ fn dfe_prune_unused_simple_func_type_suffix(mod_ : @lib.Module) -> @lib.Module {
         return mod_
       }
       let kept : Array[@lib.RecType] = []
-      let keep_remap : Map[UInt, UInt] = {}
+      let keep_remap : Map[UInt, UInt] = Map([])
       for idx = 0; idx < keep_count; idx = idx + 1 {
         kept.push(rec_types[idx])
         keep_remap[idx.reinterpret_as_uint()] = idx.reinterpret_as_uint()
@@ -3380,7 +3380,7 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
       }
       let keep_timer = dfe_perf_start_timer_opt(perf, "type-canon:kept-types")
       let kept_types : Array[@lib.RecType] = []
-      let old_to_new : Map[UInt, UInt] = {}
+      let old_to_new : Map[UInt, UInt] = Map([])
       let mut old_idx = 0
       while old_idx < rec_types.length() {
         let raw_old_idx = old_idx.reinterpret_as_uint()
@@ -3400,7 +3400,7 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
         return mod_
       }
       let remap_timer = dfe_perf_start_timer_opt(perf, "type-canon:remap")
-      let type_remap : Map[UInt, UInt] = {}
+      let type_remap : Map[UInt, UInt] = Map([])
       old_idx = 0
       while old_idx < rec_types.length() {
         let raw_old_idx = old_idx.reinterpret_as_uint()
@@ -3449,7 +3449,7 @@ fn dfe_iteration(
       let type_canon = match mod_.type_sec {
         Some(@lib.TypeSec(rec_types)) =>
           dfe_duplicate_simple_type_canonical_map(rec_types)
-        None => {}
+        None => Map([])
       }
       dfe_perf_stop_timer_opt(perf, "type-canon", type_canon_timer)
       let imported_count = dfe_imported_func_count(mod_)

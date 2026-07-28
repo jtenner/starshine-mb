@@ -3940,7 +3940,7 @@ fn rume_mark_type_metadata(
   used_types : @bitset.BitSet,
   metadata : @lib.TypeMetadata,
 ) -> Unit {
-  let { describes, descriptor } = metadata
+  let { describes, descriptor, .. } = metadata
   match describes {
     Some(type_idx) => rume_mark_type_idx(used_types, type_idx)
     None => ()
@@ -4039,7 +4039,7 @@ fn rume_sub_type_mentions_type_idxs(subtype : @lib.SubType) -> Bool {
 
 ///|
 fn rume_type_metadata_mentions_type_idxs(metadata : @lib.TypeMetadata) -> Bool {
-  let { describes, descriptor } = metadata
+  let { describes, descriptor, .. } = metadata
   describes is Some(_) || descriptor is Some(_)
 }
 
@@ -4364,7 +4364,7 @@ fn rume_collect_used_type_flags(mod_ : @lib.Module) -> @bitset.BitSet? {
 
 ///|
 fn rume_build_type_remap(used_types : @bitset.BitSet) -> Map[UInt, UInt] {
-  let remap : Map[UInt, UInt] = {}
+  let remap : Map[UInt, UInt] = Map([])
   let mut next_idx = 0
   let mut idx = 0
   while idx < used_types.length() {

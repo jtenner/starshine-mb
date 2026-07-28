@@ -64432,12 +64432,12 @@ test "optimize-instructions intentionally keeps local-carried representation-loa
   assert_true(reinterpret.contains("f32.reinterpret_i32"), msg=reinterpret)
   assert_true(reinterpret.contains("i32.load"), msg=reinterpret)
   assert_false(reinterpret.contains("f32.load"), msg=reinterpret)
-  let extend = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(extend.contains("local.tee"), msg=extend)
-  assert_true(extend.contains("i64.extend_i32u"), msg=extend)
-  assert_true(extend.contains("i64.extend_i32s"), msg=extend)
-  assert_true(extend.contains("i32.load"), msg=extend)
-  assert_false(extend.contains("i64.load32"), msg=extend)
+  let extended = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(extended.contains("local.tee"), msg=extended)
+  assert_true(extended.contains("i64.extend_i32u"), msg=extended)
+  assert_true(extended.contains("i64.extend_i32s"), msg=extended)
+  assert_true(extended.contains("i32.load"), msg=extended)
+  assert_false(extended.contains("i64.load32"), msg=extended)
 }
 
 ///|
@@ -82161,16 +82161,18 @@ test "optimize-instructions keeps trailing constants after conversion operands" 
     other => fail("expected trailing i32 mask constant, got \{other}")
   }
 
-  let extend = optimize_instructions_test_run_hot(
+  let extended = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i64) local.get 0 i64.extend_i32_u i64.const 255 i64.and))",
   )
-  let extend_root = @ir.hot_root_get(extend, 0)
-  match @ir.hot_node_get(extend, @ir.hot_child_get(extend, extend_root, 0)).op {
+  let extend_root = @ir.hot_root_get(extended, 0)
+  match
+    @ir.hot_node_get(extended, @ir.hot_child_get(extended, extend_root, 0)).op {
     @ir.HotOp::Convert => ()
     other =>
       fail("expected extend conversion before trailing mask, got \{other}")
   }
-  match @ir.hot_node_get(extend, @ir.hot_child_get(extend, extend_root, 1)).op {
+  match
+    @ir.hot_node_get(extended, @ir.hot_child_get(extended, extend_root, 1)).op {
     @ir.HotOp::Const => ()
     other => fail("expected trailing i64 mask constant, got \{other}")
   }

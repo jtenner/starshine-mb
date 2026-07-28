@@ -45,6 +45,7 @@ priv enum DaeDecisionReason {
 } derive(Eq, Debug)
 
 ///|
+#warnings("-unused_constructor")
 priv enum DaeBoundarySurface {
   DaePrivateDirectBoundary
   DaeExportedBoundary
@@ -165,6 +166,7 @@ fn dae_decision_reason_code(reason : DaeDecisionReason) -> String {
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_boundary_surface_reason(
   surface : DaeBoundarySurface,
 ) -> DaeDecisionReason {
@@ -287,6 +289,7 @@ priv struct DaeCurrentTopologyExtras {
 ///|
 /// Authoritative boundary facts. Exposure lives only on `original`; topology
 /// lives only on `graph`. Do not reintroduce duplicate mutable copies.
+#warnings("-unused_field")
 priv struct DaeBoundaryFacts {
   original : DaeOriginalBoundarySnapshot
   graph : DaeCurrentBoundaryGraph
@@ -323,6 +326,7 @@ fn dae_def_idx_of_abs(imported : Int, func_abs : Int) -> Int? {
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_operand_decision_reason(
   operand : DaeOperandDisposition,
   effects_must_be_replayed : Bool,
@@ -342,6 +346,7 @@ fn dae_operand_decision_reason(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_gc_refinement_decision_reason(
   lub_available : Bool,
   strict_improvement : Bool,
@@ -403,6 +408,7 @@ fn dae_diagnostics_reason_count(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_diagnostics_record_return_callsite_rewrite(
   diagnostics : DaeDiagnostics,
 ) -> Unit {
@@ -556,6 +562,7 @@ priv struct DaeCallShape {
 /// Producer category for a recovered value slice. Used by the ordinary
 /// unused-parameter classifier; do not re-derive purity from opcode names
 /// in multiple places.
+#warnings("-unused_value")
 priv enum DaeValueProducerKind {
   DaeProducerConstantOrPureLeaf
   DaeProducerLocalRead
@@ -602,6 +609,7 @@ priv struct DaeInstructionObservabilityEvidence {
 }
 
 ///|
+#warnings("-unused_field")
 priv struct DaeOperandRewriteDisposition {
   operand : DaeOperandDisposition
   localization_available : Bool
@@ -626,6 +634,7 @@ priv struct DaeOperandRemovalPlan {
 /// ([O4Z-DAE-PLAN]001). Specialized GC/control/result paths still construct
 /// slices through shared helpers; migrate them in later workstreams rather than
 /// inventing a parallel carrier.
+#warnings("-unused_field")
 priv struct DaeValueSlice {
   start : Int
   end : Int
@@ -653,6 +662,7 @@ priv struct DaeValueSlice {
 }
 
 ///|
+#warnings("-unused_field")
 priv struct DaeDirectCallOperandSlices {
   call_idx : Int
   call_kind : DaeDirectCallKind
@@ -855,6 +865,7 @@ priv struct DaeI32ParamZeroResultLoopEvidence {
 }
 
 ///|
+#warnings("-unused_field")
 priv struct DaeControlBlockTypeGcResultEvidence {
   signature : DaeControlBlockTypeSignatureEvidence
   result_index : Int
@@ -1407,6 +1418,7 @@ priv enum DaeInvalidationDomain {
 } derive(Eq, Debug)
 
 ///|
+#warnings("-unused_value")
 priv struct DaeCommitEffects {
   structurally_touched : Array[Bool]
   worth_decided : Array[Bool]
@@ -1608,6 +1620,7 @@ fn dae_commit_effects_merge(
 }
 
 ///|
+#warnings("-unused_field")
 priv struct DaeCoreRunResult {
   mod_out : @lib.Module
   touched : Array[Bool]
@@ -1687,6 +1700,7 @@ priv struct DaeForwardedParamNode {
 }
 
 ///|
+#warnings("-unused_value")
 priv enum DaeParameterFlowState {
   DaeParameterUnseen
   DaeParameterForwardedOnly
@@ -1716,6 +1730,7 @@ priv struct DaeForwardedParamSccApplication {
 }
 
 ///|
+#warnings("-unused_field")
 priv struct DaeForwardedParamDeadCalleeApplication {
   mod_out : @lib.Module
   touched : Array[Bool]
@@ -1736,6 +1751,7 @@ priv struct DaeOriginalCallSummary {
 }
 
 ///|
+#warnings("-unused_field")
 priv struct DaeOriginalBoundarySnapshot {
   imported : Int
   defined : Int
@@ -1911,6 +1927,7 @@ priv struct DaeCurrentBoundaryGraph {
 }
 
 ///|
+#warnings("-unused_value")
 priv struct DaeParameterForwardingEdge {
   caller_def : Int
   caller_param_idx : Int
@@ -1925,6 +1942,7 @@ priv struct DaeParameterForwardingEdge {
 } derive(Eq, Debug)
 
 ///|
+#warnings("-unused_field")
 priv struct DaeBoundaryDependencyGraph {
   callers_by_def : Array[Array[Int]]
   callees_by_def : Array[Array[Int]]
@@ -1961,6 +1979,7 @@ priv enum DaeWorkFamily {
 } derive(Eq, Debug)
 
 ///|
+#warnings("-unused_value")
 priv struct DaeWorkItem {
   target_def : Int
   component_id : Int
@@ -1977,6 +1996,7 @@ priv struct DaeWorkItem {
 } derive(Eq, Debug)
 
 ///|
+#warnings("-unused_field")
 priv enum DaeWorkOutcome {
   DaeWorkNoChange(DaeDecisionReason)
   DaeWorkDeferred(DaeDecisionReason)
@@ -1995,6 +2015,7 @@ priv struct DaeBoundaryWorklist {
 }
 
 ///|
+#warnings("-unused_value")
 priv enum DaeParameterAction {
   DaeKeepParameter
   DaeRemovePureParameter
@@ -2005,6 +2026,7 @@ priv enum DaeParameterAction {
 } derive(Eq, Debug)
 
 ///|
+#warnings("-unused_value")
 priv enum DaeResultAction {
   DaeKeepResult
   DaeRemoveResult
@@ -2012,6 +2034,7 @@ priv enum DaeResultAction {
 } derive(Eq, Debug)
 
 ///|
+#warnings("-unused_value")
 priv struct DaeDirectCallIdentity {
   caller_def : Int
   path : Array[Int]
@@ -2124,6 +2147,7 @@ priv struct DaeComponentCallerExpectation {
 }
 
 ///|
+#warnings("-unused_field")
 priv struct DaeComponentRewritePlan {
   effects : DaeCommitEffects
   component_id : Int
@@ -2147,6 +2171,7 @@ priv struct DaeComponentRewritePlanCommit {
 }
 
 ///|
+#warnings("-unused_field")
 priv enum DaeComponentRewritePlanApplication {
   DaeComponentPlanCommitted(DaeComponentRewritePlanCommit)
   DaeComponentPlanRejected(@lib.Module, DaeDecisionReason)
@@ -3054,6 +3079,7 @@ fn dae_boundary_facts_new(mod_ : @lib.Module) -> DaeBoundaryFacts {
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_boundary_facts_refresh_current(
   facts : DaeBoundaryFacts,
   mod_ : @lib.Module,
@@ -3183,6 +3209,7 @@ fn dae_can_remove_function_result(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_can_remove_function_result_reason(
   facts : DaeBoundaryFacts,
   func_abs : Int,
@@ -3229,6 +3256,7 @@ fn dae_can_change_function_boundary(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_can_change_function_boundary_reason(
   facts : DaeBoundaryFacts,
   func_abs : Int,
@@ -3237,6 +3265,7 @@ fn dae_can_change_function_boundary_reason(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_is_incoming_parameter_live(
   facts : DaeBoundaryFacts,
   func_abs : Int,
@@ -6179,6 +6208,7 @@ fn dae_resolve_func_type(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_collect_exported_funcs(
   mod_ : @lib.Module,
   total_funcs : Int,
@@ -6212,6 +6242,7 @@ fn dae_collect_exported_funcs(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_mark_elem_escapes(kind : @lib.ElemKind, escaped : Array[Bool]) -> Unit {
   match kind {
     @lib.FuncsElemKind(funcs) =>
@@ -7381,14 +7412,15 @@ fn dae_instr_stack_effect(
     | @lib.LocalGet(_)
     | @lib.TableSize(_)
     | @lib.MemorySize(_) => Some((0, 1))
-    @lib.StructNew(type_idx) | @lib.StructNewDesc(type_idx) as constructor =>
+    @lib.StructNew(type_idx)
+    | @lib.StructNewDesc(type_idx) as allocation_instr =>
       match mod_.type_sec {
         Some(type_sec) =>
           match dae_type_sec_subtype(type_sec, type_idx) {
             Some(subtype) =>
               match subtype.get_comptype() {
                 @lib.StructCompType(fields) => {
-                  let descriptor_count = match constructor {
+                  let descriptor_count = match allocation_instr {
                     @lib.StructNewDesc(_) => 1
                     _ => 0
                   }
@@ -8222,8 +8254,7 @@ fn dae_value_producer_kind_from_range(
       | (DaeProducerLocalRead, _)
       | (_, DaeProducerGlobalRead)
       | (DaeProducerGlobalRead, _)
-      | (_, DaeProducerConstantOrPureLeaf)
-      | (DaeProducerConstantOrPureLeaf, _) =>
+      | (_, DaeProducerConstantOrPureLeaf) =>
         kind = DaeProducerOrdinaryExpression
     }
     idx += 1
@@ -10033,6 +10064,7 @@ fn dae_direct_call_operand_slices(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_direct_call_operand_slices_epoch_is_current(
   graph : DaeCurrentBoundaryGraph,
   slices : DaeDirectCallOperandSlices,
@@ -10315,6 +10347,7 @@ fn dae_collect_owned_callsite_param_slices(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_classify_unused_parameter_actions(
   facts : DaeBoundaryFacts,
   mod_ : @lib.Module,
@@ -13102,7 +13135,7 @@ fn dae_subtype_references_slot(
       return true
     }
   }
-  let { describes, descriptor } = metadata
+  let { describes, descriptor, .. } = metadata
   match describes {
     Some(type_idx) =>
       if dae_type_idx_references_slot(type_idx, target_slot, rec_group_base) {
@@ -13441,7 +13474,7 @@ fn dae_can_replace_unique_defined_func_type(
   }
   match dae_type_sec_subtype(type_sec, old_type_idx) {
     Some(@lib.CompTypeSubType(metadata, @lib.FuncCompType(_, _))) => {
-      let { describes, descriptor } = metadata
+      let { describes, descriptor, .. } = metadata
       if describes is Some(_) || descriptor is Some(_) {
         return false
       }
@@ -22432,6 +22465,7 @@ fn dae_apply_rewrite_plan(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_rewrite_plan_with_callee(
   plan : DaeRewritePlan,
   callee : @lib.Func,
@@ -22550,6 +22584,7 @@ fn dae_try_rewrite_candidate(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_rewrite_verified_uniform_const_candidate(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -22844,7 +22879,7 @@ fn dae_instruction_observability_evidence(
     | @lib.I64Store32(_)
     | @lib.Throw(_)
     | @lib.ThrowRef
-    | @lib.AtomicFence
+    | @lib.AtomicFence(_)
     | @lib.MemoryAtomicNotify(_)
     | @lib.MemoryAtomicWait32(_)
     | @lib.MemoryAtomicWait64(_)
@@ -23827,6 +23862,7 @@ fn dae_specialized_result_commit_effects(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_apply_specialized_result_family_plan(
   current : @lib.Module,
   graph : DaeCurrentBoundaryGraph,
@@ -23898,6 +23934,7 @@ fn dae_rewrite_dropped_result_calls_in_scope_with_policy(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_rewrite_dropped_result_calls_in_scope(
   funcs : Array[@lib.Func],
   scope : DaeDroppedResultScope,
@@ -25818,6 +25855,7 @@ fn dae_try_remove_unobserved_unreachable_function_with_facts(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_remove_unobserved_unreachable_function(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -25868,6 +25906,7 @@ fn dae_try_remove_dead_self_suffix_result_with_facts(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_remove_dead_self_suffix_result(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -25917,6 +25956,7 @@ fn dae_try_remove_uncalled_results_with_facts(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_remove_uncalled_results(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -30181,6 +30221,7 @@ fn dae_apply_core_result(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_apply_cleanup_result_preserving_touched(
   current : @lib.Module,
   touched : Array[Bool],
@@ -30230,6 +30271,7 @@ fn dae_run_singleton_selected_core_rewrite(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_run_bounded_singleton_selected_core_rewrite(
   current : @lib.Module,
   touched : Array[Bool],
@@ -30268,6 +30310,7 @@ fn dae_run_bounded_singleton_selected_core_rewrite(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_apply_primary_selected_core_result(
   current : @lib.Module,
   touched : Array[Bool],
@@ -30326,6 +30369,7 @@ fn dae_try_apply_selected_def_func_rewrite_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_apply_selected_def_typed_func_rewrite_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -30353,6 +30397,7 @@ fn dae_try_apply_selected_def_typed_func_rewrite_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_apply_first_selected_typed_func_rewrite_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -30550,6 +30595,7 @@ fn dae_try_apply_selected_def_body_rewrite_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_collect_direct_callee_defs_from_caller_prefix(
   mod_ : @lib.Module,
   max_caller_def_exclusive : Int,
@@ -30796,6 +30842,7 @@ fn dae_collect_shifted_forward_wrapper_callee_order(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_collect_shifted_forward_wrapper_callee_defs(
   mod_ : @lib.Module,
   min_caller_def_inclusive : Int,
@@ -34371,6 +34418,7 @@ fn dae_try_fold_func237_default_carrier_to_local_body(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_fold_selected_func237_default_carrier_to_local0_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -35084,6 +35132,7 @@ fn dae_try_wrap_func237_outer_loop_carrier_body_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_wrap_selected_func237_outer_loop_carrier_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -35362,6 +35411,7 @@ fn dae_try_flatten_func237_nested_branch_result_body_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_flatten_selected_func237_nested_branch_result_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -35496,6 +35546,7 @@ fn dae_try_fold_func237_dropped_result_branch_carrier_body_recursive_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_fold_selected_func237_dropped_result_branch_carrier_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -35626,6 +35677,7 @@ fn dae_try_fold_func237_unreachable_after_if_else_branch_body_recursive_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_fold_selected_func237_unreachable_after_if_else_branch_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -35930,6 +35982,7 @@ fn dae_try_hoist_func237_leading_retain_call_body_recursive_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_hoist_selected_func237_leading_retain_call_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -36223,6 +36276,7 @@ fn dae_wrap_func237_inner_iteration_loop_body_recursive_until_stable(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_wrap_selected_func237_inner_iteration_loop_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -36382,6 +36436,7 @@ fn dae_try_flatten_func237_terminal_br0_block_body_recursive_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_flatten_selected_func237_terminal_br0_block_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -36556,6 +36611,7 @@ fn dae_try_flatten_func237_zero_branch_body_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_flatten_selected_func237_zero_branch_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -37994,6 +38050,7 @@ fn dae_try_compact_func287_setup_locals_body(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_compact_selected_func287_setup_locals_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -38204,6 +38261,7 @@ fn dae_func288_local_map() -> Array[Int] {
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_compact_selected_func288_switch_carriers_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -38493,6 +38551,7 @@ fn dae_try_flatten_func288_return_wrapper_body_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_flatten_selected_func288_return_wrapper_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -38516,6 +38575,7 @@ fn dae_try_flatten_selected_func288_return_wrapper_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_strip_selected_func237_raw_debris_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -38556,6 +38616,7 @@ fn dae_try_strip_selected_func237_raw_debris_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_spill_selected_func237_param_loop_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -38878,6 +38939,7 @@ fn dae_find_first_matching_func_type_idx(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_retarget_selected_func256_loop_carriers_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -39015,6 +39077,7 @@ fn dae_strip_i32_zero_before_return_instrs(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_retarget_selected_func298_loop_carriers_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -39224,6 +39287,7 @@ fn dae_try_swap_inverted_i32_eqz_if_instrs_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_swap_selected_func299_inverted_result_if_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -39757,7 +39821,6 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
     )
     let mut rewritten = folded_consts
     let mut changed = const_changed
-    let mut swap_iter = 0
     while true {
       match dae_try_swap_i32_eq_zero_if_instrs_once(rewritten) {
         Some(next) => {
@@ -39766,7 +39829,6 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
         }
         None => break
       }
-      swap_iter += 1
     }
     match
       dae_try_inline_terminal_call_local_sets_body_once(
@@ -39790,7 +39852,6 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
           }
         }
     }
-    let mut const_local_iter = 0
     while true {
       match
         dae_try_inline_i32_const_local_set_instrs_once(rewritten, param_count) {
@@ -39800,7 +39861,6 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
         }
         None => break
       }
-      const_local_iter += 1
     }
     let total_locals = param_count + locals.length()
     if total_locals <= 27 {
@@ -40014,7 +40074,6 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
     )
     let mut rewritten = folded_consts
     let mut changed = const_changed
-    let mut swap_iter = 0
     while true {
       match dae_try_swap_i32_eq_zero_if_instrs_once(rewritten) {
         Some(next) => {
@@ -40023,7 +40082,6 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
         }
         None => break
       }
-      swap_iter += 1
     }
     match
       dae_try_inline_terminal_call_local_sets_body_once(
@@ -40638,6 +40696,7 @@ fn dae_apply_selected_func323_global_suffix_transaction(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_retarget_selected_func236_locals_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -40931,6 +40990,7 @@ fn dae_dropped_result_candidate_cached_precheck(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_dropped_result_candidate_passes_cached_precheck(
   facts : DaeBoundaryFacts,
   candidate : DaeDroppedResultCandidate,
@@ -41053,6 +41113,7 @@ fn dae_run_dropped_result_candidate_worklist_with_facts(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_run_post_cleanup_boundary_revisit_worklist(
   current : @lib.Module,
   touched : Array[Bool],
@@ -41223,7 +41284,6 @@ fn dae_run_broad_dropped_result_payoff_chain(
   let mut current_touched = touched
   let productive_defs : Array[Int] = []
   let effects = dae_commit_effects_empty(defined)
-  let mut iteration = 0
   while true {
     let call_facts = dae_collect_current_call_facts(current_mod, total)
     let candidates = dae_collect_dropped_result_payoff_chain_candidates(
@@ -41273,7 +41333,6 @@ fn dae_run_broad_dropped_result_payoff_chain(
     if !applied {
       break
     }
-    iteration += 1
   }
   {
     mod_out: current_mod,
@@ -41541,6 +41600,7 @@ fn dae_direct_calls_need_stack_carried_void_effects(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_exact_literal_def_has_immediate_i32_suffix_priority(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -42002,6 +42062,7 @@ fn dae_collect_post_revisit_exact_literal_candidates(
 }
 
 ///|
+#warnings("-unused_field")
 priv struct DaeExactLiteralCandidateContext {
   mod_ : @lib.Module
   imported : Int
@@ -43170,6 +43231,7 @@ fn dae_collect_forwarded_param_cycle_defs_with_facts(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_collect_forwarded_param_cycle_batches(
   current : @lib.Module,
   touched : Array[Bool],
@@ -44480,6 +44542,7 @@ fn dae_collect_forwarded_param_dead_callee_defs(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_run_forwarded_param_dead_callee_convergence(
   current : @lib.Module,
   touched : Array[Bool],
@@ -45536,6 +45599,7 @@ fn dae_remove_nops_instrs(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_remove_selected_nops_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -46315,6 +46379,7 @@ fn dae_try_fold_func246_builder_body_once(
 }
 
 ///|
+#warnings("-unused_value")
 fn dae_try_fold_selected_func246_builder_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],

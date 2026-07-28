@@ -63,7 +63,7 @@ fn invalid_repro_test_original_spec_seed_report() -> Result[
 
 ///|
 test "FUZ1026A1 builds deterministic two-fault AST invalid stress report" {
-  let writes : Map[String, Bytes] = {}
+  let writes : Map[String, Bytes] = Map([])
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
     path,
     bytes,
@@ -106,7 +106,7 @@ test "FUZ1026A1 builds deterministic two-fault AST invalid stress report" {
 
 ///|
 test "FUZ1026A2 builds deterministic binary plus text multi-fault stress report" {
-  let writes : Map[String, Bytes] = {}
+  let writes : Map[String, Bytes] = Map([])
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
     path,
     bytes,
@@ -247,7 +247,7 @@ test "persist_invalid_fuzz_failure_report writes deterministic suite strategy la
 
 ///|
 test "FUZ1043E invalid repro persistence records reduction contract" {
-  let writes : Map[String, Bytes] = {}
+  let writes : Map[String, Bytes] = Map([])
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
     path,
     bytes,
@@ -330,7 +330,7 @@ test "FUZ1043E invalid repro persistence records reduction contract" {
 
 ///|
 test "FUZ1053B1 timeout repro metadata persists resource budgets" {
-  let writes : Map[String, Bytes] = {}
+  let writes : Map[String, Bytes] = Map([])
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
     path,
     bytes,
@@ -375,7 +375,7 @@ test "FUZ1053B1 timeout repro metadata persists resource budgets" {
 
 ///|
 test "FUZ1053B2 timeout repro persists manifest when partial artifact write fails" {
-  let writes : Map[String, Bytes] = {}
+  let writes : Map[String, Bytes] = Map([])
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
     path,
     bytes,
@@ -420,7 +420,7 @@ test "FUZ1053B2 timeout repro persists manifest when partial artifact write fail
 
 ///|
 test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
-  let writes : Map[String, Bytes] = {}
+  let writes : Map[String, Bytes] = Map([])
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
     path,
     bytes,
@@ -502,7 +502,7 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
 
 ///|
 test "dynamic valid-before-link repro persists link outcome metadata separately" {
-  let writes : Map[String, Bytes] = {}
+  let writes : Map[String, Bytes] = Map([])
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
     path,
     bytes,
@@ -563,7 +563,7 @@ test "dynamic valid-before-link repro persists link outcome metadata separately"
 
 ///|
 test "FUZ1055B4 unlinkable repro persists link classifier metadata separately" {
-  let writes : Map[String, Bytes] = {}
+  let writes : Map[String, Bytes] = Map([])
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
     path,
     bytes,
@@ -646,7 +646,7 @@ test "FUZ1055B4 generic repro dispatcher builds unlinkable report" {
 
 ///|
 test "parse_invalid_fuzz_failure_report roundtrips persisted seed metadata" {
-  let writes : Map[String, Bytes] = {}
+  let writes : Map[String, Bytes] = Map([])
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
     path,
     bytes,

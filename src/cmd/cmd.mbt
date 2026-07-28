@@ -5187,6 +5187,7 @@ pub fn run_cmd_exit_code(args : Array[String]) -> Int {
 }
 
 ///|
+#warnings("-unused_value")
 fn trim_program_name(argv : Array[String]) -> Array[String] {
   if argv.length() == 0 {
     return []

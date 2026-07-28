@@ -966,7 +966,7 @@ fn lcse_raw_instr_is_atomic(instr : @lib.Instruction) -> Bool {
     @lib.Instruction::MemoryAtomicNotify(_)
     | @lib.Instruction::MemoryAtomicWait32(_)
     | @lib.Instruction::MemoryAtomicWait64(_)
-    | @lib.Instruction::AtomicFence
+    | @lib.Instruction::AtomicFence(_)
     | @lib.Instruction::I32AtomicLoad(_, _)
     | @lib.Instruction::I64AtomicLoad(_, _)
     | @lib.Instruction::I32AtomicLoad8U(_, _)

@@ -22841,7 +22841,7 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
     DaeLocalizeParameterAndRetry,
   )
 
-  let protected = pass_test_module_from_wat(
+  let protected_mod = pass_test_module_from_wat(
     (
       #|(module
       #|  (func $pad)
@@ -22852,11 +22852,11 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
       #|    call $target))
     ),
   )
-  let protected_facts = dae_boundary_facts_new(protected)
+  let protected_facts = dae_boundary_facts_new(protected_mod)
   let protected_slices = match
     dae_collect_owned_callsite_param_slices(
       protected_facts,
-      protected,
+      protected_mod,
       1,
       [@lib.ValType::i32()],
       [2],

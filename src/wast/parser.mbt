@@ -979,16 +979,6 @@ fn WastParser::is_reserved_word(self : WastParser, word : String) -> Bool {
 }
 
 ///|
-fn WastParser::parse_atomic_order(
-  self : WastParser,
-) -> AtomicOrder raise ParserError {
-  match self.try_parse_atomic_order() {
-    Some(order) => order
-    None => raise UnexpectedToken(self.current, "expected atomic ordering")
-  }
-}
-
-///|
 fn WastParser::try_parse_atomic_order(self : WastParser) -> AtomicOrder? {
   if self.is_reserved_word("seq_cst") {
     let _ = self.advance()

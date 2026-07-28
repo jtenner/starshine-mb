@@ -2417,7 +2417,6 @@ pub fn gen_valid_dead_argument_elimination_profile_config(
     },
     max_module_byte_size_budget: Some(30000 + body_statements),
     features: GenValidFeatureToggles::{
-      ..base.features,
       allow_imports: false,
       allow_tables: uses_tables,
       allow_mems: uses_mems,
@@ -12384,7 +12383,7 @@ priv enum GenValidArrayConstExprKind {
   ArrayNewConstExpr
   ArrayNewDefaultConstExpr
   ArrayNewFixedConstExpr
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct GenValidArrayConstExprShape {

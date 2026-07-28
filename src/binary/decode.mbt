@@ -412,19 +412,6 @@ fn decode_aggregate_atomic_rmw_order(
 }
 
 ///|
-fn decode_aggregate_atomic_reserved_zero(
-  bytes : Bytes,
-  i : Int,
-) -> Result[Int, BinaryDecodeError] {
-  match
-    (Decode::decode(bytes, i) : Result[(@lib.U32, Int), BinaryDecodeError]) {
-    Ok((@lib.U32(0), next)) => Ok(next)
-    Ok(_) => Err(BinaryDecodeError::InvalidAtomicInstruction)
-    Err(t) => Err(t)
-  }
-}
-
-///|
 pub impl Decode for RecType with fn decode(buf, i) {
   match buf.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)

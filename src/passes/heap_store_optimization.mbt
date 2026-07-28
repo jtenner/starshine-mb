@@ -186,14 +186,14 @@ fn hso_order_effects_note_exact_instr(
       if hso_type_is_shared(module_ctx, type_idx) {
         effects.shared_struct_write = true
       }
-    @lib.StructAtomicGet(order, type_idx, _)
-    | @lib.StructAtomicGetS(order, type_idx, _)
-    | @lib.StructAtomicGetU(order, type_idx, _) => {
+    @lib.StructAtomicGet(order, _, _)
+    | @lib.StructAtomicGetS(order, _, _)
+    | @lib.StructAtomicGetU(order, _, _) => {
       effects.shared_struct_read = true
       hso_order_effects_note_read_order(effects, order)
     }
-    @lib.StructAtomicRmw(order, _, type_idx, _)
-    | @lib.StructAtomicCmpxchg(order, type_idx, _) => {
+    @lib.StructAtomicRmw(order, _, _, _)
+    | @lib.StructAtomicCmpxchg(order, _, _) => {
       effects.shared_struct_read = true
       effects.shared_struct_write = true
       hso_order_effects_note_read_order(effects, order)

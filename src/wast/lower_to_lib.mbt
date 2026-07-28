@@ -23,15 +23,15 @@ priv struct WTLowerCtx {
 fn wt_new_ctx() -> WTLowerCtx {
   WTLowerCtx::{
     type_recs: [],
-    type_ids: {},
-    func_ids: {},
-    table_ids: {},
-    mem_ids: {},
-    global_ids: {},
-    tag_ids: {},
+    type_ids: Map([]),
+    func_ids: Map([]),
+    table_ids: Map([]),
+    mem_ids: Map([]),
+    global_ids: Map([]),
+    tag_ids: Map([]),
     tag_type_idxs: [],
-    elem_ids: {},
-    data_ids: {},
+    elem_ids: Map([]),
+    data_ids: Map([]),
     next_func_idx: 0U,
     next_table_idx: 0U,
     next_mem_idx: 0U,
@@ -181,7 +181,8 @@ fn wt_elem_item_to_expr(
   ctx : WTLowerCtx,
   item : ElemInitExpr,
 ) -> Result[@lib.Expr, String] {
-  match wt_instrs_to_lib(ctx, item.instrs, {}, [], wt_default_legacy_ctx()) {
+  match
+    wt_instrs_to_lib(ctx, item.instrs, Map([]), [], wt_default_legacy_ctx()) {
     Ok(instrs) => Ok(@lib.Expr::new(instrs))
     Err(e) => Err(e)
   }
@@ -451,20 +452,6 @@ fn wt_type_group(
 }
 
 ///|
-fn wt_append_lib_func_type(
-  ctx : WTLowerCtx,
-  params : Array[@lib.ValType],
-  results : Array[@lib.ValType],
-) -> UInt {
-  let rec = @lib.RecType::new(
-    @lib.SubType::comp_type(@lib.CompType::func(params, results)),
-  )
-  let idx = wt_flat_type_count(ctx)
-  ctx.type_recs.push(rec)
-  idx
-}
-
-///|
 fn wt_flat_type_count(ctx : WTLowerCtx) -> UInt {
   let mut count = 0U
   for rec in ctx.type_recs {
@@ -510,151 +497,6 @@ fn wt_find_matching_func_type_index(
     }
   }
   None
-}
-
-///|
-fn wt_resolve_functype_sig_by_index(
-  ctx : WTLowerCtx,
-  type_idx : UInt,
-) -> Result[(Array[@lib.ValType], Array[@lib.ValType]), String] {
-  let mut flat = 0U
-  for rec in ctx.type_recs {
-    match rec {
-      SingleRecType(st) =>
-        match st.get_comptype() {
-          FuncCompType(params, results) => {
-            if flat == type_idx {
-              return Ok((params, results))
-            }
-            flat += 1
-          }
-          _ => {
-            if flat == type_idx {
-              return Err(
-                "type index does not reference a function type: \{type_idx}",
-              )
-            }
-            flat += 1
-          }
-        }
-      GroupRecType(sts) =>
-        for st in sts {
-          match st.get_comptype() {
-            FuncCompType(params, results) => {
-              if flat == type_idx {
-                return Ok((params, results))
-              }
-              flat += 1
-            }
-            _ => {
-              if flat == type_idx {
-                return Err(
-                  "type index does not reference a function type: \{type_idx}",
-                )
-              }
-              flat += 1
-            }
-          }
-        }
-    }
-  }
-  Err("type index out of bounds: \{type_idx}")
-}
-
-///|
-fn wt_block_type_results(
-  ctx : WTLowerCtx,
-  bt : BlockType,
-) -> Result[Array[@lib.ValType], String] {
-  match bt.type_use {
-    None => Ok([])
-    Some(tu) =>
-      match tu.type_index {
-        Some(idx) => {
-          let ti = match
-            wt_resolve_named_or_num_index(
-              idx,
-              ctx.type_ids,
-              ctx.type_recs.length().reinterpret_as_uint(),
-              "type",
-            ) {
-            Ok(v) => v
-            Err(e) => return Err(e)
-          }
-          let (_, results) = match wt_resolve_functype_sig_by_index(ctx, ti) {
-            Ok(v) => v
-            Err(e) => return Err(e)
-          }
-          Ok(results)
-        }
-        None => {
-          let (_, results) = match wt_func_sig(ctx, tu.func_type) {
-            Ok(v) => v
-            Err(e) => return Err(e)
-          }
-          Ok(results)
-        }
-      }
-  }
-}
-
-///|
-fn wt_tag_payload_types(
-  ctx : WTLowerCtx,
-  tag_idx : UInt,
-) -> Result[Array[@lib.ValType], String] {
-  let ti = match ctx.tag_type_idxs.get(tag_idx.reinterpret_as_int()) {
-    Some(v) => v
-    None => return Err("unknown tag index: \{tag_idx}")
-  }
-  let (params, _) = match wt_resolve_functype_sig_by_index(ctx, ti) {
-    Ok(v) => v
-    Err(e) => return Err(e)
-  }
-  Ok(params)
-}
-
-///|
-fn wt_default_value_instrs_for_valtype(
-  vt : @lib.ValType,
-) -> Result[Array[@lib.Instruction], String] {
-  match vt {
-    @lib.NumTypeValType(@lib.I32NumType) =>
-      Ok([@lib.Instruction::i32_const(@lib.I32(0))])
-    @lib.NumTypeValType(@lib.I64NumType) =>
-      Ok([@lib.Instruction::i64_const(@lib.I64(0L))])
-    @lib.NumTypeValType(@lib.F32NumType) =>
-      Ok([@lib.Instruction::f32_const(@lib.F32(0.0))])
-    @lib.NumTypeValType(@lib.F64NumType) =>
-      Ok([@lib.Instruction::f64_const(@lib.F64(0.0))])
-    @lib.VecTypeValType =>
-      Ok([
-        @lib.Instruction::v128_const(
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ),
-      ])
-    @lib.RefTypeValType(rt) => {
-      let ref_null = @lib.Instruction::ref_null(rt.get_heap_type())
-      if rt.is_nullable() {
-        Ok([ref_null])
-      } else {
-        Ok([ref_null, @lib.Instruction::ref_as_non_null()])
-      }
-    }
-    @lib.BotValType =>
-      Err("cannot synthesize legacy-catch payload value for bottom type")
-  }
-}
-
-///|
-fn wt_drop_n_instrs(n : Int) -> Array[@lib.Instruction] {
-  let drops : Array[@lib.Instruction] = []
-  let mut i = 0
-  while i < n {
-    drops.push(@lib.Instruction::drop())
-    i += 1
-  }
-  drops
 }
 
 ///|
@@ -3288,7 +3130,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   for entry in func_defs {
     let (f, type_idx) = entry
     func_type_idxs.push(@lib.TypeIdx::new(type_idx))
-    let local_ids : Map[String, UInt] = {}
+    let local_ids : Map[String, UInt] = Map([])
     let mut param_idx = 0U
     for param_id in f.type_use.param_ids {
       match param_id {
@@ -3357,7 +3199,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
   let global_defs : Array[@lib.Global] = []
   for g in global_defs_raw {
     let init = match
-      wt_instrs_to_lib(ctx, g.init, {}, [], wt_default_legacy_ctx()) {
+      wt_instrs_to_lib(ctx, g.init, Map([]), [], wt_default_legacy_ctx()) {
       Ok(v) => v
       Err(e) => return Err(e)
     }
@@ -3487,7 +3329,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         Err(e) => return Err(e)
       }
       let offset = match
-        wt_instrs_to_lib(ctx, e.offset, {}, [], wt_default_legacy_ctx()) {
+        wt_instrs_to_lib(ctx, e.offset, Map([]), [], wt_default_legacy_ctx()) {
         Ok(v) => @lib.Expr::new(v)
         Err(e) => return Err(e)
       }
@@ -3602,7 +3444,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         Err(e) => return Err(e)
       }
       let offset = match
-        wt_instrs_to_lib(ctx, d.offset, {}, [], wt_default_legacy_ctx()) {
+        wt_instrs_to_lib(ctx, d.offset, Map([]), [], wt_default_legacy_ctx()) {
         Ok(v) => @lib.Expr::new(v)
         Err(e) => return Err(e)
       }
@@ -4953,7 +4795,13 @@ test "wt_instr_to_lib lowers struct allocation instruction families" {
     ),
   )
   let struct_new = match
-    wt_instr_to_lib(ctx, StructNew(Num(0U)), {}, [], wt_default_legacy_ctx()) {
+    wt_instr_to_lib(
+      ctx,
+      StructNew(Num(0U)),
+      Map([]),
+      [],
+      wt_default_legacy_ctx(),
+    ) {
     Ok(instr) => instr
     Err(e) => fail("expected struct.new lowering success: \{e}")
   }
@@ -4965,7 +4813,7 @@ test "wt_instr_to_lib lowers struct allocation instruction families" {
     wt_instr_to_lib(
       ctx,
       StructNewDefault(Num(0U)),
-      {},
+      Map([]),
       [],
       wt_default_legacy_ctx(),
     ) {
@@ -4980,7 +4828,7 @@ test "wt_instr_to_lib lowers struct allocation instruction families" {
     wt_instr_to_lib(
       ctx,
       StructNewDesc(Num(1U)),
-      {},
+      Map([]),
       [],
       wt_default_legacy_ctx(),
     ) {
@@ -4995,7 +4843,7 @@ test "wt_instr_to_lib lowers struct allocation instruction families" {
     wt_instr_to_lib(
       ctx,
       StructNewDefaultDesc(Num(1U)),
-      {},
+      Map([]),
       [],
       wt_default_legacy_ctx(),
     ) {

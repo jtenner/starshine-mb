@@ -326,24 +326,6 @@ fn gen_valid_ssa_blocktype_scalar_result(bt : BlockType) -> ValType? {
 }
 
 ///|
-fn gen_valid_ssa_instr_is_forbidden_control(instr : Instruction) -> Bool {
-  match instr {
-    Block(_, _)
-    | Loop(_, _)
-    | If(_, _, _)
-    | Br(_)
-    | BrIf(_)
-    | BrTable(_, _)
-    | Return
-    | Unreachable
-    | TryTable(_, _, _)
-    | Throw(_)
-    | ThrowRef => true
-    _ => false
-  }
-}
-
-///|
 fn gen_valid_ssa_blocktype_has_stack_result(bt : BlockType) -> Bool {
   match bt {
     ValTypeBlockType(_) | TypeIdxBlockType(_) => true
