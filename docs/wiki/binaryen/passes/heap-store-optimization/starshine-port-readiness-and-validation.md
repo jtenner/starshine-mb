@@ -35,10 +35,10 @@ The local implementation is still meant to fold a fresh `struct.set` back into a
 
 The practical validation surfaces are:
 
-- `422` focused constructor/store, descriptor, ordering, and control-flow tests
+- focused constructor/store, descriptor, ordering, signed-division trap, and control-flow tests
 - binary codec tests for acquire/release atomics and shared descriptor/subtype wrappers
 - the nine-leaf `heap-store-optimization` GenValid aggregate
-- perf tests for raw fast-skip behavior
+- perf tests for raw fast-skip behavior plus a skipped native-release ordered-summary stress lane
 - CLI replay tests for `--heap-store-optimization`
 - official Binaryen v131 main, descriptor, and atomics fixture replay
 - the explicit-v131 `pass-fuzz-compare` parity lane
@@ -102,6 +102,8 @@ It covers:
 
 `src/passes/perf_test.mbt` keeps the raw no-candidate fast path honest.
 That matters because this pass is allowed to skip work when there is no plausible constructor/store pair.
+
+`src/passes_perf_long/heap_store_optimization_ordered_perf_test.mbt` separately owns the skipped native-release slow-path guard. It builds long shared descriptor-backed constructor chains with nested descriptor operands, acquire/release and sequentially consistent memory atomics, shared-GC accesses, and repeated swap candidates. The July 28 native-release run used `192` candidates and reported a nine-sample median of `5.182ms` with `per_query_full_bitset_allocations=0`.
 
 ### 3. CLI replay
 

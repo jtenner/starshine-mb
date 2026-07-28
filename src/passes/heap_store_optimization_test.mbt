@@ -30,6 +30,56 @@ fn hso_i32_eqref_struct_fields() -> Array[@lib.FieldType] {
 }
 
 ///|
+fn hso_i64_global_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let pair = @lib.TypeIdx::new(0U)
+  let pair_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i64()),
+          @lib.Mut::var_(),
+        ),
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i64()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([pair_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([
+            @lib.ValType::ref_null(@lib.HeapType::new(pair)),
+          ]),
+          @lib.Expr::new(body),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) => abort("unexpected invalid i64 HSO fixture: \{err}")
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_test_module_with_locals(
   field_count : Int,
   local_types : Array[@lib.ValType],
@@ -17508,6 +17558,136 @@ test "heap-store-optimization keeps call_indirect old fields before unrelated gr
       )
   }
   assert_true(table_grow_idx < table_struct_set_idx, msg=table_pretty)
+}
+
+///|
+test "heap-store-optimization folds safe i32 signed division by negative one before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_global_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::i32_const(@lib.I32(-1)),
+        @lib.Instruction::i32_div_s(),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected safe i32-div-s constructor/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.div_s"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds safe i64 signed division by negative one before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_i64_global_test_run([
+      @lib.Instruction::i64_const(@lib.I64(5L)),
+      @lib.Instruction::i64_const(@lib.I64(-1L)),
+      @lib.Instruction::i64_div_s(),
+      @lib.Instruction::i64_const(@lib.I64(2L)),
+      @lib.Instruction::struct_new(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::i32_const(@lib.I32(9)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::i64_const(@lib.I64(42L)),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected safe i64-div-s HSO success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i64.div_s"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps exact i32 minimum divided by negative one before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_global_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(-2147483647 - 1)),
+        @lib.Instruction::i32_const(@lib.I32(-1)),
+        @lib.Instruction::i32_div_s(),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected trapping i32-div-s constructor/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps exact i64 minimum divided by negative one before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_i64_global_test_run([
+      @lib.Instruction::i64_const(@lib.I64(-9223372036854775808L)),
+      @lib.Instruction::i64_const(@lib.I64(-1L)),
+      @lib.Instruction::i64_div_s(),
+      @lib.Instruction::i64_const(@lib.I64(2L)),
+      @lib.Instruction::struct_new(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::i32_const(@lib.I32(9)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::i64_const(@lib.I64(42L)),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected trapping i64-div-s HSO success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.div_s"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|

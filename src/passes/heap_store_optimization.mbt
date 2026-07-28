@@ -22,14 +22,6 @@ pub fn heap_store_optimization_summary() -> String {
 }
 
 ///|
-priv struct HsoPredicateCache {
-  readonly_revision : Array[Int]
-  readonly_result : @bitset.BitSet
-  skip_revision : Array[Int]
-  skip_result : @bitset.BitSet
-}
-
-///|
 priv struct HsoTypeCache {
   struct_field_counts : Array[Int]
   default_field_counts : Array[Int]
@@ -47,6 +39,16 @@ priv struct HsoOrderEffects {
   mut acquire_read : Bool
   mut release_write : Bool
   mut seq_cst : Bool
+}
+
+///|
+priv struct HsoPredicateCache {
+  readonly_revision : Array[Int]
+  readonly_result : @bitset.BitSet
+  skip_revision : Array[Int]
+  skip_result : @bitset.BitSet
+  order_revision : Array[Int]
+  order_result : Array[HsoOrderEffects?]
 }
 
 ///|
@@ -72,6 +74,28 @@ fn hso_order_effects_accesses_shared(effects : HsoOrderEffects) -> Bool {
   effects.shared_struct_write ||
   effects.shared_array_read ||
   effects.shared_array_write
+}
+
+///|
+fn hso_order_effects_merge(
+  effects : HsoOrderEffects,
+  other : HsoOrderEffects,
+) -> Unit {
+  effects.shared_memory_read = effects.shared_memory_read ||
+    other.shared_memory_read
+  effects.shared_memory_write = effects.shared_memory_write ||
+    other.shared_memory_write
+  effects.shared_struct_read = effects.shared_struct_read ||
+    other.shared_struct_read
+  effects.shared_struct_write = effects.shared_struct_write ||
+    other.shared_struct_write
+  effects.shared_array_read = effects.shared_array_read ||
+    other.shared_array_read
+  effects.shared_array_write = effects.shared_array_write ||
+    other.shared_array_write
+  effects.acquire_read = effects.acquire_read || other.acquire_read
+  effects.release_write = effects.release_write || other.release_write
+  effects.seq_cst = effects.seq_cst || other.seq_cst
 }
 
 ///|
@@ -203,38 +227,51 @@ fn hso_order_effects_note_exact_instr(
 
 ///|
 fn hso_collect_order_effects_region(
+  cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
   region_ref : @ir.HotRegionRef,
-  seen : @bitset.BitSet,
   effects : HsoOrderEffects,
 ) -> Unit {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    hso_collect_order_effects_node(
-      func,
-      module_ctx,
-      @ir.hot_region_get(func, region_ref, idx),
-      seen,
+    hso_order_effects_merge(
       effects,
+      hso_order_effects_for_node(
+        cache,
+        func,
+        module_ctx,
+        @ir.hot_region_get(func, region_ref, idx),
+      ),
     )
   }
 }
 
 ///|
-fn hso_collect_order_effects_node(
+fn hso_order_effects_for_node(
+  cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
   node_id : Int,
-  seen : @bitset.BitSet,
-  effects : HsoOrderEffects,
-) -> Unit {
+) -> HsoOrderEffects {
   if node_id < 0 ||
     node_id >= @ir.hot_node_count(func) ||
-    !@ir.hot_node_is_live(func, node_id) ||
-    seen[node_id] {
-    return
+    !@ir.hot_node_is_live(func, node_id) {
+    return hso_new_order_effects()
   }
-  seen[node_id] = true
+  hso_ensure_predicate_cache_capacity(cache, node_id)
+  let revision = @ir.hot_revision_current(func)
+  if cache.order_revision[node_id] == revision {
+    match cache.order_result[node_id] {
+      Some(effects) => return effects
+      None => return hso_new_order_effects()
+    }
+  }
+
+  let effects = hso_new_order_effects()
+  // Publish an empty in-progress summary before recursion so a malformed cyclic
+  // HOT graph terminates; verified HOT graphs are structurally acyclic.
+  cache.order_revision[node_id] = revision
+  cache.order_result[node_id] = Some(effects)
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(instr) =>
       hso_order_effects_note_exact_instr(effects, module_ctx, instr)
@@ -249,89 +286,75 @@ fn hso_collect_order_effects_node(
     effects.shared_array_write = true
   }
   for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
-    hso_collect_order_effects_node(
-      func,
-      module_ctx,
-      @ir.hot_child_get(func, node_id, idx),
-      seen,
+    hso_order_effects_merge(
       effects,
+      hso_order_effects_for_node(
+        cache,
+        func,
+        module_ctx,
+        @ir.hot_child_get(func, node_id, idx),
+      ),
     )
   }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       hso_collect_order_effects_region(
+        cache,
         func,
         module_ctx,
         @ir.hot_region_body_ref(func, node_id),
-        seen,
         effects,
       )
     @ir.HotOp::If => {
       hso_collect_order_effects_region(
+        cache,
         func,
         module_ctx,
         @ir.hot_region_then_ref(func, node_id),
-        seen,
         effects,
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(region_ref) =>
           hso_collect_order_effects_region(
-            func, module_ctx, region_ref, seen, effects,
+            cache, func, module_ctx, region_ref, effects,
           )
         None => ()
       }
     }
     @ir.HotOp::Try => {
       hso_collect_order_effects_region(
+        cache,
         func,
         module_ctx,
         @ir.hot_region_body_ref(func, node_id),
-        seen,
         effects,
       )
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(region_ref) =>
           hso_collect_order_effects_region(
-            func, module_ctx, region_ref, seen, effects,
+            cache, func, module_ctx, region_ref, effects,
           )
         None => ()
       }
     }
     @ir.HotOp::TryTable => {
       hso_collect_order_effects_region(
+        cache,
         func,
         module_ctx,
         @ir.hot_region_body_ref(func, node_id),
-        seen,
         effects,
       )
       hso_collect_order_effects_region(
+        cache,
         func,
         module_ctx,
         @ir.hot_region_catch_list_ref(func, node_id),
-        seen,
         effects,
       )
     }
     _ => ()
   }
-}
-
-///|
-fn hso_order_effects_for_node(
-  func : @ir.HotFunc,
-  module_ctx : @ir.HotModuleContext?,
-  node_id : Int,
-) -> HsoOrderEffects {
-  let effects = hso_new_order_effects()
-  hso_collect_order_effects_node(
-    func,
-    module_ctx,
-    node_id,
-    @bitset.BitSet::new(@ir.hot_node_count(func)),
-    effects,
-  )
   effects
 }
 
@@ -374,6 +397,7 @@ fn hso_release_memory_before_shared_gc_read_can_reorder(
 
 ///|
 fn hso_ordered_before(
+  cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
   first_id : Int,
@@ -385,8 +409,8 @@ fn hso_ordered_before(
     return true
   }
   hso_order_effects_ordered_before(
-    hso_order_effects_for_node(func, module_ctx, first_id),
-    hso_order_effects_for_node(func, module_ctx, second_id),
+    hso_order_effects_for_node(cache, func, module_ctx, first_id),
+    hso_order_effects_for_node(cache, func, module_ctx, second_id),
   )
 }
 
@@ -397,6 +421,8 @@ fn hso_new_predicate_cache() -> HsoPredicateCache {
     readonly_result: @bitset.BitSet::new(0),
     skip_revision: [],
     skip_result: @bitset.BitSet::new(0),
+    order_revision: [],
+    order_result: [],
   }
 }
 
@@ -413,6 +439,8 @@ fn hso_ensure_predicate_cache_capacity(
   while cache.readonly_revision.length() <= node_id {
     cache.readonly_revision.push(-1)
     cache.skip_revision.push(-1)
+    cache.order_revision.push(-1)
+    cache.order_result.push(None)
   }
   cache.readonly_result.grow(cache.readonly_revision.length())
   cache.skip_result.grow(cache.skip_revision.length())
@@ -495,7 +523,8 @@ fn hso_exact_div_rem_is_known_safe(func : @ir.HotFunc, node_id : Int) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32DivS) =>
       match (hso_i32_const_at(func, lhs_id), hso_i32_const_at(func, rhs_id)) {
-        (Some(_), Some(rhs)) => rhs != 0 && rhs != -1
+        (Some(lhs), Some(rhs)) =>
+          rhs != 0 && !(lhs == -2147483647 - 1 && rhs == -1)
         _ => false
       }
     Some(@lib.Instruction::I32DivU)
@@ -507,7 +536,8 @@ fn hso_exact_div_rem_is_known_safe(func : @ir.HotFunc, node_id : Int) -> Bool {
       }
     Some(@lib.Instruction::I64DivS) =>
       match (hso_i64_const_at(func, lhs_id), hso_i64_const_at(func, rhs_id)) {
-        (Some(_), Some(rhs)) => rhs != 0L && rhs != -1L
+        (Some(lhs), Some(rhs)) =>
+          rhs != 0L && !(lhs == -9223372036854775808L && rhs == -1L)
         _ => false
       }
     Some(@lib.Instruction::I64DivU)
@@ -2042,8 +2072,12 @@ fn hso_nodes_can_reorder(
     moved_without_global == 0U {
     return true
   }
-  let barrier_order = hso_order_effects_for_node(func, module_ctx, barrier_id)
-  let moved_order = hso_order_effects_for_node(func, module_ctx, moved_id)
+  let barrier_order = hso_order_effects_for_node(
+    cache, func, module_ctx, barrier_id,
+  )
+  let moved_order = hso_order_effects_for_node(
+    cache, func, module_ctx, moved_id,
+  )
   let release_gc_allowed_mask = @ir.EFFECT_MASK_LOCAL_STATE |
     @ir.EFFECT_MASK_MEMORY_READ |
     @ir.EFFECT_MASK_MEMORY_WRITE |
@@ -2638,7 +2672,7 @@ fn hso_wrapped_try_table_swap_allowed(
     ) |
     hso_struct_new_shallow_effects(func, moved_struct_new_id)
   if hso_ordered_before(
-      func, module_ctx, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
+      cache, func, module_ctx, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
     ) &&
     !hso_global_only_ordering_can_be_ignored(
       func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
@@ -2706,7 +2740,7 @@ fn hso_root_can_swap_before_local_struct_new(
     ) |
     hso_struct_new_shallow_effects(func, moved_struct_new_id)
   if hso_ordered_before(
-      func, module_ctx, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
+      cache, func, module_ctx, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
     ) &&
     !hso_global_only_ordering_can_be_ignored(
       func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
@@ -3702,6 +3736,7 @@ fn hso_peel_reorderable_value_prefix_roots(
   )
   for prefix_id in prefix_roots {
     if hso_ordered_before(
+        cache,
         func,
         module_ctx,
         struct_new_id,
@@ -3849,13 +3884,15 @@ fn hso_try_fold_into_struct_new(
     func, struct_new_id,
   )
   if hso_ordered_before(
-      func, module_ctx, struct_new_id, struct_new_shallow_mask, value_id, value_reorder_mask,
+      cache, func, module_ctx, struct_new_id, struct_new_shallow_mask, value_id,
+      value_reorder_mask,
     ) &&
     !hso_subtree_is_trapless_reorderable(cache, func, node_masks, value_id, []) {
     return None
   }
   for prefix_id in lifted_prefix_roots {
     if hso_ordered_before(
+        cache,
         func,
         module_ctx,
         struct_new_id,
