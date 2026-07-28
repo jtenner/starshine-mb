@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-28
 sources:
   - ./index.md
   - ../../../../../src/passes/reorder_locals.mbt
@@ -38,7 +38,7 @@ This page is the bridge from the algorithm pages to validation work. Use it when
 
 ## Current Starshine status
 
-The 2026-07-27 renewal re-proved the explicit pass against official Binaryen `version_131` after repairing copy-on-write output loss. Regular GenValid is `100000/100000`; the expanded nine-leaf `reorder-locals-all` and idempotence lanes are each `10000/10000`; random-all is `9375` exact plus `625` measured smaller Starshine multivalue-boundary wins; and wasm-smith is green for all `9956` comparable cases with one `unreachable-control-debris` compare-normalized residual and `44` Binaryen-only command failures. See [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
+The 2026-07-28 refresh re-proved the explicit pass against official Binaryen `version_131` after separating equal-count first-use ordering into its own generated family. Regular GenValid is `100000/100000`; the expanded ten-leaf `reorder-locals-all` and idempotence lanes are each `10000/10000`; the focused first-use singleton is `1000/1000`; random-all is `9375` exact plus `625` measured smaller Starshine multivalue-boundary wins; and wasm-smith is green for all `9956` comparable cases with one `unreachable-control-debris` compare-normalized residual and `44` Binaryen-only command failures. See [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
 A 2026-05-07 stable-boundary replay on the checked-in debug artifact kept the policy honest: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals` still reported `Binaryen no-pass converged: no` and `Canonical wasm equal: no`, but it also reported `Normalized WAT equal: yes` and `Canonical function compare equal: yes`. That confirms the remaining full-artifact raw drift still belongs to the Binaryen multivalue-call writeback boundary documented in [`./multivalue-call-scope.md`](./multivalue-call-scope.md), not to the standalone sorter contract.
 

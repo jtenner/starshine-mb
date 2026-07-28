@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-28
 sources:
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../../../../src/passes/reorder_locals.mbt
@@ -146,7 +146,7 @@ What it actually is in `version_131`:
 
 The current released oracle is official `wasm-opt version 131 (version_131)`. The 2026-07-27 audit compared the v131 owner and dedicated `reorder-locals*` lit files with the retained v130 copies and found them byte-identical. The older v129/v130 notes remain useful algorithm provenance, but current closeout claims use v131.
 
-The same audit repaired a Starshine copy-on-write bug that could lose pure same-type local-index permutations at the CLI boundary, expanded the dedicated aggregate to nine leaves, and completed the required v131 matrix. See [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
+The 2026-07-27 audit repaired a Starshine copy-on-write bug that could lose pure same-type local-index permutations at the CLI boundary. The 2026-07-28 refresh then split equal-count first-use ordering into its own dedicated leaf, expanded the aggregate to ten leaves, replayed both official v131 fixtures byte-exact with debug names preserved, and reran the full required matrix. See [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
 ## Current maintenance rule
 
@@ -156,7 +156,7 @@ The same audit repaired a Starshine copy-on-write bug that could lose pure same-
 - Keep the writer-roundtrip rule explicit whenever future docs or code changes touch this pass.
 - Keep the multivalue-call writeback distinction explicit whenever future parity work mentions remaining raw-output drift.
 - Keep the preset-state split explicit: three `reorder-locals` public cleanup slots are now scheduled, but that does **not** imply full preset parity for unrelated remaining no-DWARF gaps such as the second pre-pass `remove-unused-module-elements` slot, `code-folding`, `redundant-set-elimination`, or the extra Starshine `remove-unused-brs` slot.
-- The explicit Binaryen-v131 renewal is closed as of 2026-07-27. Regular is `100000/100000`; the nine-leaf dedicated and idempotence lanes are `10000/10000`; random-all is `9375` exact plus `625` measured smaller Starshine multivalue-boundary wins; wasm-smith is green for all `9956` comparable cases with one cleanup-normalized residual and `44` Binaryen-only failures. The copy-on-write output-loss bug is repaired and guarded by pass, CLI, and permutation-only GenValid coverage. Repeated cleanup slots remain outside RL's reopening surface; broader preset differences stay with neighboring owners.
+- The explicit Binaryen-v131 renewal was refreshed on 2026-07-28. Regular is `100000/100000`; the ten-leaf dedicated and idempotence lanes are `10000/10000`; the new first-use-tie singleton is `1000/1000`; random-all is `9375` exact plus `625` measured smaller Starshine multivalue-boundary wins; wasm-smith is green for all `9956` comparable cases with one cleanup-normalized residual and `44` Binaryen-only failures. The copy-on-write output-loss bug is guarded by pass, CLI, and permutation-only GenValid coverage, while equal-count ordering now has independent direct and generated proof. Repeated cleanup slots remain outside RL's reopening surface; broader preset differences stay with neighboring owners.
 
 ## Sources
 

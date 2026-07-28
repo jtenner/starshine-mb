@@ -1,7 +1,7 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-28
 sources:
   - ./index.md
 related:
@@ -27,13 +27,13 @@ related:
 
 ## Binaryen v131 generated evidence
 
-The 2026-07-27 random-all lane found one repeated non-pass-owned shape family: all `625` `remove-unused-brs-control` selections differed because Binaryen materialized type-indexed multivalue blocks into a different scratch-local/control shape before `ReorderLocals.cpp` ran. Starshine preserved the direct block representation.
+The 2026-07-28 random-all refresh reproduced one repeated non-pass-owned shape family: all `625` `remove-unused-brs-control` selections differed because Binaryen materialized type-indexed multivalue blocks into a different scratch-local/control shape before `ReorderLocals.cpp` ran. Starshine preserved the direct block representation.
 
 This family is retained as a measured Starshine win, not dismissed as merely equivalent representation:
 
 - Starshine canonical wasm was exactly `8` bytes smaller in all `625` random-all cases (`-5000` total).
 - A separate `1000`-case replay validated both outputs with `wasm-tools` and executed every case in Node.
-- Runtime evidence was `757` equal results plus `243` equal traps, with zero semantic mismatches.
+- Fresh runtime evidence was `775` equal results plus `225` equal traps, with zero semantic mismatches.
 - Starshine was exactly `8` canonical bytes smaller in every replay case (`-8000` total).
 
 Reopen this decision if runtime results diverge, Starshine stops being no larger, or a future Binaryen release no longer materializes the alternate shape.

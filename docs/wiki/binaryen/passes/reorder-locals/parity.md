@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-28
 sources:
   - ./index.md
   - ./fuzzing.md
@@ -23,7 +23,7 @@ related:
 
 ## Binaryen v131 Oracle Verdict
 
-The 2026-07-27 audit used official `wasm-opt version 131 (version_131)` and Binaryen source commit `1f903c14babf829745b421b92ff0f286e93e4209` as the oracle. The reviewed `ReorderLocals.cpp` and dedicated `reorder-locals*` lit fixtures are byte-identical between `version_130` and `version_131`, so the released owner contract did not change.
+The 2026-07-28 refresh used official `wasm-opt version 131 (version_131)` and Binaryen source commit `1f903c14babf829745b421b92ff0f286e93e4209` as the oracle. The reviewed `ReorderLocals.cpp` and dedicated `reorder-locals*` lit fixtures are byte-identical between `version_130` and `version_131`, so the released owner contract did not change.
 
 The current contract is:
 
@@ -58,7 +58,8 @@ A dedicated `reorder-locals-permutation-only` GenValid leaf keeps all body local
 | --- | --- | --- |
 | Parameter stability and params-only no-op | Focused pass tests and hot-sort/multi-function generation | exact |
 | `local.get` / `local.set` / `local.tee` counting | Focused tests plus hot-sort and permutation-only leaves | exact |
-| Descending count and first-use ties | Focused carrier fixtures and high-index generated permutations | exact |
+| Descending access counts | Focused carrier fixtures and `reorder-locals-hot-sort` | exact |
+| Equal nonzero counts ordered by first observed use | Focused direct regression plus `reorder-locals-first-use-ties`; singleton `1000/1000` exact | exact |
 | Pure same-type permutation | Copy-on-write pass/CLI regressions and `reorder-locals-permutation-only` | repaired; exact |
 | Mixed declarations and grouped local runs | `reorder-locals-mixed-types` | exact |
 | Nullable/non-nullable GC references | `reorder-locals-reference-types` | exact |
@@ -71,10 +72,11 @@ A dedicated `reorder-locals-permutation-only` GenValid leaf keeps all body local
 
 ## Final Direct Evidence
 
-The final native Starshine binary had SHA-256 `23fc1d30ef2db126e2690e610ad44b4af8f28da435cab6ebe845b6ec058f96c1`.
+The refreshed native Starshine binary has SHA-256 `e90aad59cc6e1f43e4304906b6364c8a57b3cb25d1de915b08043dd8ac085bd4`.
 
+- First-use-tie singleton: `1000/1000` normalized matches.
 - Regular GenValid: `100000/100000` normalized matches.
-- Dedicated nine-leaf aggregate: `10000/10000` normalized matches; every leaf selected.
+- Dedicated ten-leaf aggregate: `10000/10000` normalized matches; every leaf selected, including `999` first-use-tie cases.
 - Dedicated idempotence: `10000/10000` comparisons and idempotence checks, zero property failures.
 - Random all-profiles: `9375` normalized matches plus `625` classified Starshine wins from one non-pass-owned multivalue lowering family.
 - External wasm-smith: `9955` direct matches plus one `unreachable-control-debris` compare-normalized match across `9956` comparable cases; `44` Binaryen-only command failures; zero remaining mismatches.
@@ -86,10 +88,14 @@ All `625` residuals were `remove-unused-brs-control` modules containing type-ind
 
 - Starshine canonical wasm was exactly `8` bytes smaller in every residual (`-5000` bytes total).
 - A separate `1000`-case replay externally validated both outputs and executed all cases in Node.
-- Runtime outcomes were `757` equal results and `243` equal traps, with zero semantic mismatches.
+- Fresh runtime outcomes were `775` equal results and `225` equal traps, with zero semantic mismatches.
 - Starshine was exactly `8` canonical bytes smaller in every replay case (`-8000` total).
 
 This family is therefore a measured Starshine size win with runtime evidence. Reopen if Starshine ceases to be no larger, runtime outcomes diverge, or the Binaryen boundary stops materializing the alternate shape.
+
+## Official Fixture Replay
+
+Both official Binaryen v131 fixtures were parsed to wasm, run through Starshine and Binaryen with debug names preserved, externally validated, and normalized through the same v131 writer. `reorder-locals.wast` was byte-equal at `165` bytes for both outputs; `reorder-locals_print_roundtrip.wast` was byte-equal at `89` bytes. This directly confirms the source fixture's hotness/trimming behavior and the print-roundtrip local-name/declaration-order contract.
 
 ## Artifact Quality And Performance
 
