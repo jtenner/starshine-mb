@@ -23,6 +23,16 @@ fn merge_locals_test_count_gets(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         count += merge_locals_test_count_gets(body, local_idx)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        count += merge_locals_test_count_gets(body, local_idx)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_expr) | @lib.LegacyCatchAll(catch_expr) =>
+              catch_expr
+          }
+          count += merge_locals_test_count_gets(catch_body, local_idx)
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         count += merge_locals_test_count_gets(then_body, local_idx)
         match else_body {
@@ -253,4 +263,35 @@ test "merge-locals stops retargeting after destination write" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+}
+
+///|
+test "merge-locals retargets source influences inside legacy try bodies" {
+  let input =
+    #| (module
+    #|   (tag $e)
+    #|   (func (param $src i32) (result i32) (local $dst i32)
+    #|     (try (result i32)
+    #|       (do
+    #|         (local.set $dst (local.get $src))
+    #|         (drop (local.get $src))
+    #|         (local.get $dst))
+    #|       (catch $e
+    #|         (i32.const 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["merge-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected merge-locals legacy try success, got \{err}")
+  }
+  let @lib.Func(_locals, @lib.Expr(instrs)) = merge_locals_test_first_func(
+    optimized,
+  )
+  @debug.assert_eq(
+    merge_locals_test_count_gets(instrs, @lib.LocalIdx::new(0U)),
+    1,
+  )
+  @debug.assert_eq(
+    merge_locals_test_count_gets(instrs, @lib.LocalIdx::new(1U)),
+    2,
+  )
 }

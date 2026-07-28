@@ -59227,6 +59227,20 @@ fn run_hot_pipeline_raw_merge_locals_has_candidate(
         if run_hot_pipeline_raw_merge_locals_has_candidate(body) {
           return true
         }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_merge_locals_has_candidate(body) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_expr) | @lib.LegacyCatchAll(catch_expr) =>
+              catch_expr
+          }
+          if run_hot_pipeline_raw_merge_locals_has_candidate(catch_body) {
+            return true
+          }
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_merge_locals_has_candidate(then_body) {
           return true
@@ -59272,7 +59286,11 @@ fn run_hot_pipeline_raw_merge_locals(
   let params = run_hot_pipeline_required_raw_func_params(
     mod_, module_ctx, func_idx,
   )
-  let rewrite = merge_locals_run_raw_straight_line_func(original, params)
+  let rewrite = if pass_raw_instrs_have_legacy_try(instrs) {
+    merge_locals_run_raw_legacy_func(original, params)
+  } else {
+    merge_locals_run_raw_straight_line_func(original, params)
+  }
   if !rewrite.supported {
     return None
   }

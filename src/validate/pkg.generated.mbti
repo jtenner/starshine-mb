@@ -1327,12 +1327,20 @@ pub enum GenValidProfile {
   CoalesceLocalsLoopCopyThroughProfile
   CoalesceLocalsAllProfile
   MergeLocalsForwardProfile
+  MergeLocalsForwardMultipleProfile
+  MergeLocalsPartialInfluenceProfile
   MergeLocalsReverseProfile
+  MergeLocalsReverseBoundaryProfile
   MergeLocalsControlProfile
   MergeLocalsTeeProfile
   MergeLocalsMergeBoundaryProfile
   MergeLocalsTypeBoundaryProfile
   MergeLocalsRollbackProfile
+  MergeLocalsReverseRollbackProfile
+  MergeLocalsNestedCopiesProfile
+  MergeLocalsTrivialConfusionProfile
+  MergeLocalsUnreachableProfile
+  MergeLocalsLegacyEhProfile
   MergeLocalsAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile

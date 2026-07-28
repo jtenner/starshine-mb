@@ -2876,20 +2876,23 @@ test "emit gen-valid reorder-locals composite records selected subprofiles" {
 #skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid merge-locals composite records every v131 family profile" {
   let args = EmitGenValidBatchArgs::new(
-    28,
+    120,
     0x5eedUL,
     "tmp/gen-valid-merge-locals",
     profile="merge-locals-all",
-    max_attempts=112,
+    max_attempts=480,
   )
   let selection = match emit_gen_valid_batch_selection(args) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  @debug.assert_eq(selection.manifest.length(), 28)
+  @debug.assert_eq(selection.manifest.length(), 120)
   let expected = [
-    "merge-locals-forward", "merge-locals-reverse", "merge-locals-control", "merge-locals-tee",
-    "merge-locals-merge-boundary", "merge-locals-type-boundary", "merge-locals-rollback",
+    "merge-locals-forward", "merge-locals-forward-multiple", "merge-locals-partial-influence",
+    "merge-locals-reverse", "merge-locals-reverse-boundary", "merge-locals-control",
+    "merge-locals-tee", "merge-locals-merge-boundary", "merge-locals-type-boundary",
+    "merge-locals-rollback", "merge-locals-reverse-rollback", "merge-locals-nested-copies",
+    "merge-locals-trivial-confusion", "merge-locals-unreachable", "merge-locals-legacy-eh",
   ]
   let selected_profiles : Array[String] = []
   for item in selection.manifest {

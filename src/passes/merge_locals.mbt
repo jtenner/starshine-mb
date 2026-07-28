@@ -580,6 +580,141 @@ fn merge_locals_run_raw_straight_line_func(
 }
 
 ///|
+fn merge_locals_run_raw_region_expr(
+  expr : @lib.Expr,
+  locals : @lib.Locals,
+  params : Array[@lib.ValType],
+) -> (@lib.Expr, Bool) {
+  let @lib.Expr(original) = expr
+  let rewritten = original.copy()
+  let mut changed = false
+  for idx = 0; idx < rewritten.length(); idx = idx + 1 {
+    match rewritten[idx] {
+      @lib.Block(block_type, body) => {
+        let (next_body, body_changed) = merge_locals_run_raw_region_expr(
+          body, locals, params,
+        )
+        if body_changed {
+          rewritten[idx] = @lib.Instruction::block(block_type, next_body)
+          changed = true
+        }
+      }
+      @lib.Loop(block_type, body) => {
+        let (next_body, body_changed) = merge_locals_run_raw_region_expr(
+          body, locals, params,
+        )
+        if body_changed {
+          rewritten[idx] = @lib.Instruction::loop_(block_type, next_body)
+          changed = true
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = merge_locals_run_raw_region_expr(
+          @lib.Expr::new(then_body),
+          locals,
+          params,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next, did_change) = merge_locals_run_raw_region_expr(
+              @lib.Expr::new(body),
+              locals,
+              params,
+            )
+            let @lib.Expr(next_instrs) = next
+            (Some(next_instrs), did_change)
+          }
+          None => (None, false)
+        }
+        if then_changed || else_changed {
+          let @lib.Expr(next_then_instrs) = next_then
+          rewritten[idx] = @lib.Instruction::if_(
+            block_type, next_then_instrs, next_else,
+          )
+          changed = true
+        }
+      }
+      @lib.Try(block_type, body, catches, delegate) => {
+        let (next_body, body_changed) = merge_locals_run_raw_region_expr(
+          body, locals, params,
+        )
+        let next_catches : Array[@lib.LegacyCatch] = []
+        let mut catches_changed = false
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(tag_idx, catch_body) => {
+              let (next_catch, catch_changed) = merge_locals_run_raw_region_expr(
+                catch_body, locals, params,
+              )
+              next_catches.push(@lib.LegacyCatch::tagged(tag_idx, next_catch))
+              catches_changed = catches_changed || catch_changed
+            }
+            @lib.LegacyCatchAll(catch_body) => {
+              let (next_catch, catch_changed) = merge_locals_run_raw_region_expr(
+                catch_body, locals, params,
+              )
+              next_catches.push(@lib.LegacyCatch::all(next_catch))
+              catches_changed = catches_changed || catch_changed
+            }
+          }
+        }
+        if body_changed || catches_changed {
+          rewritten[idx] = @lib.Instruction::try_(
+            block_type,
+            next_body,
+            next_catches,
+            delegate~,
+          )
+          changed = true
+        }
+      }
+      @lib.TryTable(block_type, catches, body) => {
+        let (next_body, body_changed) = merge_locals_run_raw_region_expr(
+          body, locals, params,
+        )
+        if body_changed {
+          rewritten[idx] = @lib.Instruction::try_table(
+            block_type, catches, next_body,
+          )
+          changed = true
+        }
+      }
+      _ => ()
+    }
+  }
+  let leaf = merge_locals_run_raw_straight_line_func(
+    @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+    params,
+  )
+  if leaf.supported && leaf.changed {
+    let @lib.Func(_, next_expr) = leaf.func
+    (next_expr, true)
+  } else {
+    (@lib.Expr::new(rewritten), changed)
+  }
+}
+
+///|
+fn merge_locals_run_raw_legacy_func(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> MergeLocalsRawRewrite {
+  let @lib.Func(locals, body) = func
+  let (rewritten, changed) = merge_locals_run_raw_region_expr(
+    body, locals, params,
+  )
+  {
+    supported: true,
+    func: if changed {
+      @lib.Func::new(locals, rewritten)
+    } else {
+      func
+    },
+    changed,
+  }
+}
+
+///|
 fn merge_locals_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let copies = merge_locals_instrument_copies(func)
   if copies.is_empty() {
