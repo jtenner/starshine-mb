@@ -25,8 +25,6 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 | Pass | Active work | Owner |
 | --- | --- | --- |
-| `heap-store-optimization` | Focused v131 shared-helper renewal. | `[V131-SPOT]001` |
-| `simplify-locals` family | Focused v131 renewal across all five policy variants. | `[V131-SPOT]001` |
 | `tuple-optimization` | Focused v131 shared-typing/finalization renewal. | `[V131-SPOT]001` |
 | `merge-locals` | Renew direct evidence after the raw fallback began rejecting legacy `try`. | `[V131-LEGACY-EH]001` |
 | `duplicate-import-elimination` | Renew direct evidence after legacy-EH remapping and raw-name repair. | `[V131-LEGACY-EH]001` |
@@ -40,11 +38,11 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 ### [V131-SPOT]001 - Renew shared-helper-sensitive closed-pass evidence
 
-- **Status:** three pass families remain.
+- **Status:** one pass family remains; `heap-store-optimization` closed on 2026-07-28 and all five `simplify-locals` variants closed on 2026-07-27.
 - **Goal:** determine whether v131 shared effect, type, and finalization changes alter passes whose owner file did not change.
 - **Active targets:**
-  - [ ] `heap-store-optimization`.
-  - [ ] all five `simplify-locals` variants.
+  - [x] `heap-store-optimization` — v131 source/lit audit, shared/atomic codec and ordering repair, descriptor shallow-trap repair, nine-leaf aggregate, official fixture replay, and final `10000/10000` dedicated compare with zero failures or mismatches.
+  - [x] all five `simplify-locals` variants — v131 aggregate profiles refreshed at `10000` cases each with zero failures and no size-losing residual; five idempotence lanes are `1000/1000`; prior full random-all mismatches replay with no positive size delta.
   - [ ] `tuple-optimization`.
 - **Method:** read the focused v131 source/test delta first; keep the pass closed when the probe and owner contract are unchanged, and open a dedicated parity slice only for a classified failing or missing released family.
 - **Exit criteria:** each target has a current explicit-v131 verdict recorded in its dossier, with any discovered gap moved to a concrete owning slice.

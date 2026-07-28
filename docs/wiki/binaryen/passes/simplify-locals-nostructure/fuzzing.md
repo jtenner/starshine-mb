@@ -1,7 +1,7 @@
 ---
 kind: workflow
-status: working
-last_reviewed: 2026-07-11
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -12,6 +12,10 @@ sources:
 ---
 
 # `simplify-locals-nostructure` Fuzzing Profile
+
+## Binaryen-v131 closeout
+
+The refreshed aggregate at `.tmp/pass-fuzz-simplify-locals-nostructure-v131-refresh-20260727-10000` completed `10000/10000`: `7115` exact normalized matches and `2885` strictly smaller Starshine outputs (`-12..-8` canonical bytes), with zero validation, property, generator, or command failures. The selected leaves were straight-line `4290`, tee-control `2885`, and effect-order `2825`. A separate `1000`-case seed-`0x1d3a` lane is `1000/1000` idempotent. This current evidence supersedes the historical development chronology below; the new differences are measured wins from pure dropped-read and dead-carrier cleanup, not annotation-only acceptance.
 
 Recommended dedicated GenValid closeout lane: use the aggregate profile `simplify-locals-nostructure-all`.
 

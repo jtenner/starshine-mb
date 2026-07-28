@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -17,7 +17,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass family.
+Use Binaryen `version_131` as the current source oracle for this pass family.
 
 Primary files:
 
@@ -57,7 +57,7 @@ Representative shipped lit tests:
 
 Binaryen uses `simplify-locals` to recover tighter tree-shaped value flow from frontend- or previous-pass-introduced local traffic.
 
-That sounds like a simple peephole pass, but the real `version_129` implementation is broader.
+That sounds like a simple peephole pass, but the real `version_131` implementation is broader.
 
 It combines:
 
@@ -479,6 +479,4 @@ A future honest Binaryen-parity port must keep these source-backed rules explici
 
 ## Current freshness note
 
-A narrow 2026-04-21 current-main check found no meaningful semantic drift on the checked surfaces.
-The core source difference is only `map/set` -> `unordered_map/unordered_set` container cleanup, and the checked dedicated lit files are unchanged.
-So `version_129` remains the best released oracle for this dossier.
+The 2026-07-27 release check found `SimplifyLocals.cpp` and the reviewed locals helpers byte-identical between v130 and v131. Shared `pass.cpp` global-effect handling and released expected-output drift were covered by the focused probes and refreshed fuzz lanes. `version_131` is therefore the released oracle for this dossier.

@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -16,11 +16,18 @@ related:
 
 # `simplify-locals-nostructure` parity checklist
 
-This page is the active audit checklist for bringing Starshine's direct `simplify-locals-nostructure` behavior to Binaryen `version_130` parity or to narrow evidence-backed Starshine-win / non-goal decisions.
+This page records Starshine's direct `simplify-locals-nostructure` parity against Binaryen `version_131` and the historical work that reached it.
 
-## Current baseline
+## Binaryen-v131 verdict
 
-- Local oracle: `wasm-opt version 130 (version_130)`.
+- Local oracle: official `wasm-opt version 131 (version_131)`.
+- Dedicated aggregate: `10000/10000`, with `7115` exact matches and `2885` strictly smaller Starshine outputs (`-12..-8` bytes); zero failures.
+- Idempotence: `1000/1000` with zero property failures.
+- Classification: no current semantic, validation, unknown/risky, or size-losing residual. The v131 behavioral and canonical-size renewal is closed; older chronology below is retained as superseded implementation history.
+
+## Historical baseline
+
+- Previous local oracle: `wasm-opt version 130 (version_130)`.
 - Source refresh: [research note 1399](./index.md).
 - Direct pass status: active hot pass under canonical spelling `simplify-locals-nostructure`; compatibility alias `simplify-locals-no-structure` exists separately.
 - Important correction from the tee slices: canonical SLNS no longer skips every function merely because a live `local.tee` already exists. Binaryen is tee-enabled for this variant. Starshine allows a root dropped existing tee in a function with later structured control, the no-tee sibling cleans straight-line unrelated locals despite an existing dropped tee, and the 2026-07-01 protected-root slices no longer skip the whole function for embedded-control dropped tees when unrelated root local traffic can be cleaned. The protected path now also runs later root main cycles plus root-only dead cleanup for deferred multi-use root locals, and a follow-up protected child cleanup fixes the bounded generated `ssa-nomerge-smoke` embedded-tee residual family at 1000- and 10000-case random all-profiles scale. The no-local-writes raw fallback also fixes the former `case-009332-wasm-smith` no-normal result-block/control-debris residual, and the typed result-loop const/nop raw fallback fixes the former `case-003694-wasm-smith` residual. This is still not full parity closure because performance acceptance/exception remains open even though the latest required wasm-smith lane has no Starshine mismatches.

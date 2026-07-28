@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-27
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -12,6 +12,24 @@ sources:
 ---
 
 # SimplifyLocals family fuzzing profiles
+
+## Binaryen-v131 profile refresh — 2026-07-27
+
+All lanes used official `wasm-opt version 131 (version_131)` and the explicit native release binary `_build/native/release/build/cmd/cmd.exe` (SHA-256 `5935985cb02530a77aba751dd88f0103a3eadc6ada8e4a0c0b040c878ba4e5bf`).
+
+| Variant | Refreshed aggregate (`10000`, seed `0x5eed`) | Canonical size classification | Idempotence (`1000`, seed `0x1d3a`) |
+| --- | --- | --- | --- |
+| `simplify-locals` | `7298` exact, `2702` differences | all smaller, `-8..-4` bytes | `1000/1000` |
+| `simplify-locals-notee` | `2766` exact, `7234` differences | all smaller, `-54..-4` bytes | `1000/1000` |
+| `simplify-locals-nostructure` | `7115` exact, `2885` differences | all smaller, `-12..-8` bytes | `1000/1000` |
+| `simplify-locals-notee-nostructure` | `2766` exact, `7234` differences | all smaller, `-54..-10` bytes | `1000/1000` |
+| `simplify-locals-nonesting` | `7684` exact, `2316` differences | all smaller, `-6..-2` bytes | `1000/1000` |
+
+Every aggregate completed `10000/10000` comparisons with zero validation, property, generator, or command failures. The no-structure count intentionally supersedes the older exact-profile result: Starshine now removes pure `local.get; drop` observations and the local writes that become dead, preserving effects and validity while saving bytes.
+
+The full-pass random-all regression corpus was also replayed against every one of its prior `2433` mismatches. `81` now match exactly; the remaining `2352` contain `2262` smaller and `90` equal-size Starshine outputs, with zero larger outputs, validation failures, property failures, or command failures. This replay specifically closes the former `175` size-losing cases and the later narrowed `63` cases.
+
+The aggregate profiles already exercised every registered leaf, so no GenValid constructor change was required. New focused binary-path tests retain the discovered return-suffix and branch-result carrier witnesses.
 
 ## Canonical aggregate profiles
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -26,13 +26,17 @@ related:
 
 # `simplify-locals-notee-nostructure`
 
+## Binaryen-v131 renewal
+
+Closed on 2026-07-27. The refreshed aggregate completed `10000/10000`: `2766` exact matches and `7234` strictly smaller Starshine outputs (`-54..-10` bytes), with zero validation, property, generator, or command failures. Idempotence is `1000/1000`.
+
 ## Role
 
 - `simplify-locals-notee-nostructure` is an upstream Binaryen aggressive locals-cleanup pass.
 - It is now an **active direct** Starshine pass: the exact upstream spelling is registered as a HOT pass, dispatches through the existing `simplify_locals` policy engine with `allowStructure = false` and `allowTee = false`, and has green direct Binaryen parity evidence.
 - The old local removed-name placeholder spelling `simplify-locals-no-tee-no-structure` remains distinct from the upstream / saved-audit spelling `simplify-locals-notee-nostructure`; the newly active direct pass uses the upstream spelling.
 - The dossier is grounded in the retained 2026-04-25 source bridge and the dated 2026-05-05 current-main recheck summarized in research note 0489, the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md), and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
-- In Binaryen `version_129`, it is **not** part of the canonical no-DWARF `-O` / `-Os` path.
+- In Binaryen `version_131`, it is **not** part of the canonical no-DWARF `-O` / `-Os` path.
 - Instead, `pass.cpp` inserts it only in the more aggressive `optimizeLevel >= 4` function prelude:
   - `flatten`
   - `simplify-locals-notee-nostructure`
@@ -87,7 +91,7 @@ That is much closer to the real pass than â€œfull simplify-locals, but smaller.â
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Deep dive into the actual Binaryen `version_129` implementation: template identity, phase-by-phase behavior, helper dependencies, conservative invalidation rules, aggressive scheduler placement, and the exact families a future Starshine port must preserve.
+  Deep dive into the actual Binaryen `version_131` implementation: template identity, phase-by-phase behavior, helper dependencies, conservative invalidation rules, aggressive scheduler placement, and the exact families a future Starshine port must preserve.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   Source-confirmed owner-file and test-map page for `simplify-locals-notee-nostructure`, including the shared `SimplifyLocals.cpp` engine, `pass.cpp` registration, `opt-utils.h` nested rerun surface, dedicated WAT/TXT pair, neighboring variant contrasts, and what remains source-backed rather than directly lit-isolated.
 - [`./variant-surface.md`](./variant-surface.md)
@@ -101,7 +105,7 @@ That is much closer to the real pass than â€œfull simplify-locals, but smaller.â
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `simplify-locals-notee-nostructure` research and port planning.
+- Treat this folder as the canonical home for future `simplify-locals-notee-nostructure` maintenance and parity renewal.
 - Keep it explicitly marked as **active direct, aggressive-prelude deferred**.
 - Cite `0554` when explaining why `[SLNNS]003` was pruned from the active backlog; cite `0544` for refreshed direct-pass parity evidence; cite the raw primary-source manifest and `0333` follow-up for provenance or current Starshine status; keep `0129` as historical mechanics research rather than the current status source.
 - Keep the strategy page, implementation/test map, Starshine page, and variant-surface page aligned whenever new evidence changes the answer to either:
@@ -122,19 +126,19 @@ That is much closer to the real pass than â€œfull simplify-locals, but smaller.â
 - [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [research note 0063](../../../ir2/registry-map.md)
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/equivalent_sets.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/linear-execution.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.txt>
+- Binaryen `version_131` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SimplifyLocals.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/passes.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/opt-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/local-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/equivalent_sets.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/linear-execution.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/properties.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/branch-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/simplify-locals-notee-nostructure.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/simplify-locals-notee-nostructure.txt>
 - Narrow same-day freshness checks on current upstream `main`:
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>

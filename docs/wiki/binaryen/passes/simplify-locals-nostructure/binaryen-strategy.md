@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -18,9 +18,12 @@ related:
 
 # Binaryen `simplify-locals-nostructure` Strategy
 
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
+
 ## Upstream source rule
 
-- Use Binaryen `version_130` as the current source oracle for this pass.
+- Use Binaryen `version_131` as the current source oracle for this pass.
 - The core implementation is the shared `src/passes/SimplifyLocals.cpp` template.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:
@@ -30,7 +33,7 @@ related:
   - `src/ir/linear-execution.h`
   - `src/ir/properties.h`
 - The shipped behavior examples come from the dedicated no-structure and nearby-variant tests under `test/passes/`.
-- The current local oracle reports `wasm-opt version 130 (version_130)`. The 2026-06-30 refresh of `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, helper files, and the dedicated no-structure / neighbor tests found no new no-structure test family versus `version_129`. The core no-structure source contract remains the same except for unordered container implementation drift in `SimplifyLocals.cpp`; helper diffs in effect and linear-execution analysis remain important audit inputs. See [research note 1399](./index.md).
+- The current local oracle reports `wasm-opt version 131 (version_131)`. The 2026-07-27 renewal found `SimplifyLocals.cpp` and the reviewed locals helpers unchanged from v130, then exercised shared pass/global-effect drift through focused and generated lanes. The earlier v130 source inventory remains historical detail; see [research note 1399](./index.md).
 
 Primary source URLs:
 

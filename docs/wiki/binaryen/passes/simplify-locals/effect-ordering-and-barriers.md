@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -15,6 +15,8 @@ related:
 ---
 
 # `simplify-locals` Effect Ordering And Barriers
+
+The v131 renewal did not weaken this barrier model. New direct carrier rewrites are limited to inert prefixes, exact adjacent ownership, dead later reads, and either dupable values or a structured producer whose whole result is forwarded; focused branch-exit and nondefaultable-local tests guard those boundaries.
 
 ## Why This Page Exists
 

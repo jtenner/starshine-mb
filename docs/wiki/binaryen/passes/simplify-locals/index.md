@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-07-27
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -11,13 +11,13 @@ sources:
   - ../../../../../agent-todo.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/linear-execution.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/equivalent_sets.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SimplifyLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/opt-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/pass.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/linear-execution.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/equivalent_sets.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/local-utils.h
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp
 related:
   - ./binaryen-strategy.md
@@ -43,13 +43,15 @@ related:
 
 ## Binaryen v131 renewal status
 
-The shared `SimplifyLocals.cpp` owner did not change in v131, so the five public variants remain closed under their v130 audits rather than automatically reopened. V131 changes shared global-effect, EH, and expected-output surfaces used by locals tests, so `[V131-SPOT]001` requires a focused renewal across all five policy combinations before current-release signoff. A failing probe should open only the affected variant/family, not reset the entire completed matrix by default.
+The five-variant Binaryen-v131 renewal is closed. `SimplifyLocals.cpp` and the reviewed locals helpers are unchanged from v130; the relevant released drift is confined to shared pass/global-effect behavior and expected outputs. The audit nevertheless found and repaired four Starshine cleanup gaps: discarded `struct.new_default`, pure dropped local reads, return-local carriers separated by inert code and unreachable suffixes, and branch-result block carriers. Native SHA-256 `5935985cb02530a77aba751dd88f0103a3eadc6ada8e4a0c0b040c878ba4e5bf` was compared with official `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
+
+All five refreshed `10000`-case aggregate profiles have zero validation, property, generator, or command failures and no output larger than Binaryen. Exact/more-compact counts are: full `7298/2702`, no-tee `2766/7234`, no-structure `7115/2885`, no-tee/no-structure `2766/7234`, and nonesting `7684/2316`. Every non-exact dedicated result is strictly smaller in canonical wasm. Five independent `1000`-case idempotence lanes are `1000/1000`. Replaying all `2433` former full random-all mismatches produces `81` newly exact cases and `2352` remaining differences with `2262` smaller and `90` equal-size Starshine outputs; no larger output or failure remains. `[V131-SPOT]001` is closed for this family.
 
 ## Role
 
 - `simplify-locals` is an active implemented **hot pass** in Starshine.
 - Its 2026-06-04 O4z audit closeout is green: the direct keep-going `10000`-request lane `.tmp/pass-fuzz-simplify-locals-audit-10000-keepgoing` reached `9975/10000` compared cases with `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, and `25` Binaryen/tool command failures; the generated late-neighborhood lane `.tmp/pass-fuzz-sl-late-neighborhood-audit-10000-keepgoing` for `local-cse -> simplify-locals -> merge-blocks` reached the same counts. Both lanes used `--jobs auto` and `_build/native/release/build/cmd/cmd.exe` because this workspace did not produce `target/native/release/build/cmd/cmd.exe`.
-- In upstream Binaryen `version_129`, `simplify-locals` is not one pass name with one behavior.
+- In upstream Binaryen `version_131`, `simplify-locals` is not one pass name with one behavior.
   It is a **family** of five public passes built from one templated implementation in `SimplifyLocals.cpp`.
 - The public `pass.cpp` summary is short:
   - `miscellaneous locals-related optimizations`
@@ -84,7 +86,7 @@ So this pass is **not** just dead-local removal and **not** just adjacent set/ge
 
 - Binaryen `simplify-locals` is **not** generic CFG-based local dataflow.
 - Binaryen `simplify-locals` is **not** just dead-set cleanup.
-- The real `version_129` contract is a staged family built from:
+- The real `version_131` contract is a staged family built from:
   1. `LocalGetCounter` use counting
   2. a first cycle biased toward single-use sinks
   3. later tee-aware linear-trace sinking cycles
@@ -97,7 +99,7 @@ So this pass is **not** just dead-local removal and **not** just adjacent set/ge
   - structure creation
   - whether new nesting is allowed at all
 - The 2026-06-04 O4z audit added focused `try_table` EH boundary tests for nonthrowing value sinking and may-throw producer preservation in `src/passes/simplify_locals_test.mbt`, refreshed the direct and late-neighborhood generated parity lanes, and closed `[O4Z-AUDIT-SL]`; no implementation change was needed.
-- Current `main` shows only a tiny checked drift beyond `version_129` here:
+- Current `main` shows only a tiny checked drift beyond `version_131` here:
   - `std::map` / `std::set` -> `std::unordered_map` / `std::unordered_set` bookkeeping cleanup in `SimplifyLocals.cpp`
   - the major dedicated lit files checked for this dossier are unchanged
 
@@ -126,11 +128,11 @@ That difference explains why:
 ### Upstream Binaryen contract
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the actual Binaryen `version_129` implementation, algorithm phases, helper dependencies, and why the pass family is more structured than the public name suggests.
+  - Deep dive into the actual Binaryen `version_131` implementation, algorithm phases, helper dependencies, and why the pass family is more structured than the public name suggests.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Exact upstream file map plus the official lit roster: what `SimplifyLocals.cpp`, `linear-execution.h`, `equivalent_sets.h`, `local-utils.h`, `pass.cpp`, `opt-utils.h`, and the simplify-locals lit files each prove.
 - [`./transform-family-inventory.md`](./transform-family-inventory.md)
-  - Current `version_130` source-owned transform inventory for all five variants, including the no-tee structure-created-tee distinction, the nonesting parent-position rule, late equivalent-set policy, effect domains, and Starshine gap map.
+  - Current `version_131` source-owned transform inventory for all five variants, including the no-tee structure-created-tee distinction, the nonesting parent-position rule, late equivalent-set policy, effect domains, and Starshine gap map.
 - [`./variant-matrix-and-scheduler.md`](./variant-matrix-and-scheduler.md)
   - Explicit public variant matrix for `simplify-locals`, `-notee`, `-nostructure`, `-notee-nostructure`, and `-nonesting`, plus the exact top-level and nested scheduler placements that give each variant its job.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -163,7 +165,7 @@ A narrow 2026-04-21 source check found no meaningful semantic drift on the check
 
 What I directly re-confirmed:
 
-- `SimplifyLocals.cpp` on current `main` differs from `version_129` only by container choice cleanup
+- `SimplifyLocals.cpp` on current `main` differs from `version_131` only by container choice cleanup
 - the checked dedicated lit surfaces are unchanged:
   - `simplify-locals-gc.wast`
   - `simplify-locals-gc-nn.wast`
@@ -174,8 +176,8 @@ What I directly re-confirmed:
 
 So the current durable rule is:
 
-- treat Binaryen `version_129` as the released semantic oracle for this dossier
-- use the `version_129` source links in this page's Sources section when a future thread needs the exact release/source/test provenance again
+- treat Binaryen `version_131` as the released semantic oracle for this dossier
+- use the `version_131` source links in this page's Sources section when a future thread needs the exact release/source/test provenance again
 - mention current-main drift only when it is more than container cleanup
 
 ## Current maintenance rule
@@ -184,7 +186,7 @@ So the current durable rule is:
 - Keep the main correction explicit:
   - Binaryen `simplify-locals` is a staged locals pass family, not one adjacent-peephole transform
 - Keep the variant matrix, late equivalent-copy phase, and split validation-repair story explicit whenever future docs or code changes touch this pass.
-- Keep the older Starshine-port pages, but do not let them silently replace the official Binaryen `version_129` contract on the landing page.
+- Keep the older Starshine-port pages, but do not let them silently replace the official Binaryen `version_131` contract on the landing page.
 
 ## Sources
 
@@ -198,14 +200,14 @@ So the current durable rule is:
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/linear-execution.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/equivalent_sets.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h>
+- Binaryen `version_131` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SimplifyLocals.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/opt-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/pass.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/linear-execution.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/equivalent_sets.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/local-utils.h>
 - Narrow freshness-check surface:
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp>

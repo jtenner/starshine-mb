@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -14,6 +14,10 @@ related:
 
 # Binaryen `simplify-locals` implementation structure and tests
 
+## V131 implementation/test renewal
+
+The v130/v131 owner and reviewed helper surfaces are byte-identical. Starshine's renewal added binary-decoded regression fixtures for return-suffix stackification and branch-result carriers, plus focused pure-drop and default-GC cleanup tests. Current focused counts are `71/71` main, `15/15` variants, `79/79` no-structure, and `161/161` GenValid.
+
 ## Why this page exists
 
 The main landing and strategy pages explain what `simplify-locals` means.
@@ -22,7 +26,7 @@ This page answers a narrower question:
 - which official Binaryen files and tests actually define that meaning?
 
 That matters because `simplify-locals` is easy to misremember as one vague locals pass.
-In `version_129`, the real contract is spread across:
+In `version_131`, the real contract is spread across:
 
 - one core implementation file
 - a few helper headers
@@ -310,5 +314,5 @@ A 2026-04-21 current-main check found:
 
 So the practical rule for this dossier is:
 
-- teach the `version_129` file/test structure as the authoritative released contract
+- teach the `version_131` file/test structure as the authoritative released contract
 - add a drift note only if future checked surfaces show more than that container cleanup

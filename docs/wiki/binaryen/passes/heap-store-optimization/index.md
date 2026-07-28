@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -12,6 +12,11 @@ sources:
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../late-pipeline-dispatch.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/HeapStoreOptimization.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/heap-store-optimization.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/heap-store-optimization-desc.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/heap-store-atomics.wast
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/HeapStoreOptimization.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/heap-store-optimization.wast
@@ -42,7 +47,9 @@ related:
 
 ## Binaryen v131 renewal status
 
-`HeapStoreOptimization.cpp` did not change between v130 and v131, so the pass is not reopened solely by owner drift. Its dedicated expected output changed under shared effect/type behavior, making a targeted v131 probe necessary before the large v130 closeout is cited as current-release evidence. `[V131-SPOT]001` owns that renewal and will open a dedicated slice only if the probe exposes a classified gap.
+The v131 renewal is closed. `HeapStoreOptimization.cpp` is unchanged from v130, while the released lit surface adds shared acquire/release ordering and descriptor shallow-trap coverage through `heap-store-atomics.wast` and `heap-store-optimization-desc.wast`.
+
+Starshine now preserves acquire/release order on linear-memory atomics through decode, IR, HOT rewrites, memarg reconstruction, and encode; classifies shared memory and shared GC accesses directionally; encodes shared subtype/descriptor wrappers in the v131 order; validates shared abstract bottoms against compatible shared concrete types; and treats nullable descriptor allocation as a shallow trap before moving later effects. The official v131 HSO, descriptor, and atomics fixtures validate through Starshine. Remaining printed differences are bounded lowering/cleanup shape: Starshine omits Binaryen `nop` placeholders, can eliminate additional safe fresh-struct stores while preserving acquire/release direction, and may spill a non-nullable struct reference when retaining a trapping descriptor store.
 
 ## Role
 
@@ -64,9 +71,11 @@ It is a narrow GC constructor/store cleanup pass.
 
 ## Current closeout status
 
-- Direct `heap-store-optimization` is closed again by `1357` for the current Binaryen `version_130` audit scope. The `1138` closeout remains historical evidence but is superseded by `1139` for its original speed conclusion; `1357` supersedes that reopened status with fresh speed and compare evidence.
+- Direct `heap-store-optimization` is closed for Binaryen `version_131`. The prior v130 closeout and performance evidence remain valid because the owner file is unchanged; the 2026-07-28 renewal adds the released shared-ordering, descriptor, codec, and subtype surfaces.
+- The dedicated GenValid profile is now a nine-leaf aggregate covering tee, chains, defaults, side effects, descriptors, control flow, swaps, shared ordering, and boundaries. The final explicit-v131 lane rebuilt `_build/native/release/build/cmd/cmd.exe` and compared `10000/10000` cases with `2155` normalized matches plus `7845` `local-cleanup-debris` matches, `0` mismatches, and `0` validation, property, generator, or command failures.
+- The official v131 descriptor fixture keeps both null-descriptor no-reorder cases and folds the nontrapping nested descriptor chain. The official ordered-atomics fixture preserves acquire/release bytes and ordering; Starshine's residual output differences remove dead `nop` roots or perform additional safe fresh-store folding without crossing acquire/release or nullable-descriptor trap boundaries. On stripped official outputs, Starshine is smaller in all three surfaces: main HSO `1153` versus `1175` bytes (`-22`), descriptor `118` versus `119` (`-1`), and atomics `300` versus `314` (`-14`).
 - The reopened HOT-path benchmark uses `.tmp/hso-hot-plain-struct-new-candidates-2000-20260625.wat`, a 2000-function plain `struct.new` candidate fixture that does not raw-skip. `1139` measured Starshine median `10.738ms` versus Binaryen `1.036ms`; `1354` reconfirmed the blocker; `1355` improved to `6.881ms` versus Binaryen `1.110ms`; and `1356` closed the blocker with a raw/lowered exact plain-chain path at Starshine `0.781ms` versus Binaryen `1.366ms`, meeting the user's `0.95x` target while reporting raw-skip `no` and keeping normalized/canonical outputs equal.
-- Behavior-parity and validation evidence from `1109`, `1113`, `1136`, `1137`, and the refreshed `1357` full compare matrix is green. Reopen only for a new HSO-owned mismatch/validation failure, Binaryen source drift, a broader speed-family miss, or a future raw-fast-path widening without equivalent safety proof.
+- Reopen only for a new HSO-owned mismatch or validation failure, Binaryen source/lit drift, a measured size-losing residual, a broader speed-family miss, or a future raw/HOT fast-path widening without equivalent safety proof.
 
 ## Why this pass matters
 

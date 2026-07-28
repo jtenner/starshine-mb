@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-27
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -24,14 +24,16 @@ related:
 
 ## Current status
 
-The direct compare lane is runnable.
+The direct compare lane is runnable and the Binaryen-v131 renewal is complete.
 
 - canonical Starshine pass: `simplify-locals-nonesting`
 - compatibility alias: `simplify-locals-no-nesting`
 - Binaryen oracle flag: `--simplify-locals-nonesting`
 - harness alias mapping: active
 - dedicated aggregate profile: `simplify-locals-nonesting`
-- final closeout: complete on 2026-07-17
+- refreshed aggregate: `10000/10000`, `7684` exact plus `2316` strictly smaller Starshine outputs (`-6..-2` bytes), zero failures
+- refreshed idempotence: `1000/1000`, zero property failures
+- final v131 closeout: complete on 2026-07-27
 
 ## Initial smoke
 

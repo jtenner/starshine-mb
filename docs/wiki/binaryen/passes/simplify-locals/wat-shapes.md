@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -14,9 +14,11 @@ related:
 
 # Binaryen `simplify-locals` WAT shapes
 
+The v131 source-owned shape catalog is unchanged from v130. The Starshine renewal extends local regressions around the same catalog with pure dropped reads, discarded `struct.new_default`, return suffixes, and direct branch-result carriers.
+
 ## Scope
 
-This page records the important **upstream Binaryen `version_129`** shape families for the `simplify-locals` pass family.
+This page records the important **upstream Binaryen `version_131`** shape families for the `simplify-locals` pass family.
 
 It focuses on four things:
 
@@ -611,7 +613,7 @@ The flatten/souper combo tests exist because this stronger flatness promise is p
 
 When updating this page, prefer the official Binaryen-backed question:
 
-- what shapes does `version_129` actually rewrite or intentionally preserve?
+- what shapes does `version_131` actually rewrite or intentionally preserve?
 
 Do not silently replace that with a Starshine-local raw-lane story.
 Keep the upstream positive, negative, and bailout families explicit, especially when a future port is tempted to overgeneralize one of the structure or tee rewrites.

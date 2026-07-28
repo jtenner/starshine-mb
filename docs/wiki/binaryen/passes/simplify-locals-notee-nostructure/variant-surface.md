@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -16,6 +16,9 @@ related:
 ---
 
 # `simplify-locals-notee-nostructure` Variant Surface
+
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
 
 Use this page with the retained 2026-04-25 source bridge and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 A 2026-05-05 current-main recheck left the variant identity unchanged: this is still the `SimplifyLocals<false, false, true>` sibling, not the non-nesting sibling.

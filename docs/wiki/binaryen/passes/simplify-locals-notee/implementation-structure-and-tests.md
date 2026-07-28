@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -18,6 +18,9 @@ related:
 ---
 
 # `simplify-locals-notee` implementation structure and tests
+
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
 
 Use this page with the retained 2026-04-24 research inventory and direct tagged source URLs.
 It records what each upstream source/test surface proves, so the rest of the dossier can stay focused on strategy and shapes.
@@ -155,7 +158,7 @@ These are not substitutes for the dedicated sibling test, but they are the right
 ## Current-main spot-check result
 
 A narrow 2026-04-24 current-`main` spot check found the public pass name, factory surface, and dedicated test paths still present.
-This page intentionally keeps `version_129` as the detailed source oracle and does not claim whole-file semantic equivalence with current `main`.
+This page retains its detailed v129 source walk as historical provenance; the current released oracle is `version_131`, whose owner contract is unchanged for this family.
 
 ## Starshine implication
 

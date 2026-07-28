@@ -1,45 +1,41 @@
 ---
 kind: workflow
-status: planned
-last_reviewed: 2026-07-11
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/validate/gen_valid.mbt
 related:
   - ./index.md
   - ./starshine-strategy.md
   - ../simplify-locals/fuzzing.md
-  - ../../../tooling/pass-fuzz-compare.md
 ---
 
-# Binaryen `simplify-locals-notee` Fuzzing Status
+# Binaryen `simplify-locals-notee` fuzzing
 
-## Current state: planned, not runnable
+## Binaryen-v131 closeout
 
-Do **not** treat `bun fuzz compare-pass --pass simplify-locals-notee ...` as current Starshine-vs-Binaryen evidence.
+The direct lane is active under canonical spelling `simplify-locals-notee`, mapped to Binaryen `--simplify-locals-notee`.
 
-- The harness allowlist in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) contains neither Binaryen's `simplify-locals-notee` spelling nor the local historical placeholder.
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) preserves only `simplify-locals-no-tee` as a **Removed** local name; it is not an active alias for the upstream pass.
-- Therefore a rejected upstream spelling, a rejected local placeholder, or zero compared cases proves only spelling/registry status. It does not exercise the no-new-tee policy.
-
-Safe inspection only:
+The refreshed aggregate used seed `0x5eed`, official Binaryen v131, and the explicit native Starshine release binary:
 
 ```text
-bun fuzz compare-pass --list-passes
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed \
+  --pass simplify-locals-notee \
+  --gen-valid-profile simplify-locals-notee \
+  --out-dir .tmp/pass-fuzz-simplify-locals-notee-v131-refresh-20260727-10000 \
+  --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt
 ```
 
-## Future executable lane
+Result:
 
-First choose and document an active local spelling and map it to Binaryen `--simplify-locals-notee`. Then add focused tests/profile coverage for single-use sinks, multi-use candidates that must not grow a tee, structure formation that remains allowed, late equivalent-copy/dead-set cleanup, and effect/trap/EH barriers. Keep this separate from the active full [`../simplify-locals/fuzzing.md`](../simplify-locals/fuzzing.md) lane and from the no-structure sibling.
+- compared: `10000/10000`;
+- exact normalized matches: `2766`;
+- structural differences: `7234`, every one strictly smaller for Starshine by `4–54` canonical wasm bytes;
+- validation, property, generator, and command failures: `0`;
+- profile leaf coverage: local traffic `3530`, structure result `3557`, effect order `1455`, stress `1458`.
 
-```text
-moon build --target native --release src/cmd
-bun fuzz compare-pass --pass <chosen-local-spelling> --count 10000 --seed 0x5eed \
-  --gen-valid-profile <simplify-locals-notee-profile> \
-  --out-dir .tmp/pass-fuzz-simplify-locals-notee --jobs auto \
-  --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --min-compared <meaningful-threshold>
-```
-
-This is a future template, not a current runnable command.
+The separate `1000`-case seed-`0x1d3a` idempotence lane is `1000/1000` with zero property failures. The residuals are classified Starshine wins from the documented no-new-tee and cleanup shaping; no parity gap, unknown/risky family, validation failure, or size-losing result remains.

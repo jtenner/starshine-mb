@@ -1,12 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/pass_manager.mbt
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SimplifyLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SimplifyLocals.cpp
 related:
   - ./index.md
   - ./variant-matrix-and-scheduler.md
@@ -24,7 +24,7 @@ The canonical detailed inventory is [research note 1571](./index.md).
 
 ## Audit contract
 
-All five Binaryen `version_130` public variants must be implemented and signed off against the same source-owned family table:
+All five Binaryen `version_131` public variants must be implemented and signed off against the same source-owned family table:
 
 - full: tee + structure + nesting
 - no-tee: structure + nesting, but no sink-created tee
@@ -45,7 +45,8 @@ The family inventory contains 35 source-owned transform/postcondition rows. The 
 - All five canonical variants and compatibility aliases are active through one explicit tee/structure/nesting policy engine.
 - Focused tests cover no-tee structure synthesis, nonesting parent-position legality, loop-result lifting, no-tee self-copy handling, reachable dead-write cleanup, nested-loop result nops, and one-run idempotence.
 - Every canonical variant has a stable aggregate profile with selected-leaf metadata.
-- The required four-lane matrix, runtime probes, idempotence reruns, pass-local timing, and O4z neighborhood are complete; see [`fuzzing.md`](./fuzzing.md).
+- The required matrices, runtime probes, idempotence reruns, pass-local timing, and O4z neighborhood are complete; see [`fuzzing.md`](./fuzzing.md).
+- The 2026-07-27 v131 renewal adds explicit coverage for four cleanup subfamilies exposed by random-all profiles: discarded default GC allocations, pure dropped local reads, return carriers with inert or unreachable suffix code, and direct structured-result carriers including branches to the owning block.
 - Retained raw gates are performance/correctness boundaries, not semantic omissions. The newly narrowed no-tee stack/global gate admits small source-owned GC cleanup shapes while preserving the large-function boundary.
 
 ## Completion rule

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -18,6 +18,9 @@ related:
 ---
 
 # `simplify-locals-notee-nostructure` Implementation Structure And Tests
+
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
 
 Use this page as the source-following map for Binaryen `version_129`.
 A 2026-05-05 current-main recheck left the reviewed owner-file and test-map surfaces unchanged, so the older source map still holds.

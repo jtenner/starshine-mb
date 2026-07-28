@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../simplify-locals/index.md
   - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
@@ -26,6 +26,9 @@ related:
 ---
 
 # Starshine `simplify-locals-nonesting` implementation and validation
+
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
 
 ## Implementation state
 

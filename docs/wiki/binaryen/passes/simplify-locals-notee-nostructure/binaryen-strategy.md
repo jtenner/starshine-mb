@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -17,9 +17,12 @@ related:
 
 # Binaryen `simplify-locals-notee-nostructure` Strategy
 
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
+
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Use Binaryen `version_131` as the current source oracle for this pass; the older v129 walk remains valid historical detail because the owner contract did not change.
 A 2026-05-05 current-main recheck on `SimplifyLocals.cpp`, `pass.cpp`, and the dedicated test pair found no teaching-relevant drift on the reviewed surfaces.
 - Use the retained 2026-04-25 source bridge plus the direct upstream URLs below for provenance, current-main spot-check scope, and the exact reviewed source/test URL set.
 - The core implementation is the shared `src/passes/SimplifyLocals.cpp` template.

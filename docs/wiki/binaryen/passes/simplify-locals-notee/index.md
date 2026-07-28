@@ -2,7 +2,7 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../simplify-locals/index.md
   - ../../../../../src/passes/optimize.mbt
@@ -27,16 +27,20 @@ related:
 
 # `simplify-locals-notee`
 
+## Binaryen-v131 renewal
+
+Closed on 2026-07-27. The refreshed `simplify-locals-notee` aggregate completed `10000/10000`: `2766` exact matches and `7234` strictly smaller Starshine outputs (`-54..-4` bytes), with zero validation, property, generator, or command failures. Idempotence is `1000/1000`.
+
 ## Role
 
 - `simplify-locals-notee` is an upstream Binaryen public pass and now an **active Starshine hot pass**.
 - The canonical spelling `simplify-locals-notee` and compatibility alias `simplify-locals-no-tee` both route to the shared policy engine with structure enabled, sink-tee creation disabled, and ordinary nesting enabled.
-- Focused TDD proves single-use sinking, preservation of multi-use carriers without a fresh sink tee, and `if`-result synthesis. The initial regular GenValid smoke compared `1000/1000` cases with `1000` normalized matches and zero failures or mismatches; this is implementation evidence, not final four-lane closeout.
+- Focused TDD proves single-use sinking, preservation of multi-use carriers without a fresh sink tee, and `if`-result synthesis. The current dedicated aggregate and idempotence closeout are recorded in [`./fuzzing.md`](./fuzzing.md).
 - The 2026-04-24 source inventory is retained in research note 0329, alongside direct tagged source URLs.
-- In Binaryen `version_129`, this pass is **not** part of the canonical no-DWARF `-O` / `-Os` path tracked in [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md).
+- In Binaryen `version_131`, this pass is **not** part of the canonical no-DWARF `-O` / `-Os` path tracked in [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md).
 - It is still a fair wiki target because it is:
   - a real upstream public pass name in `pass.cpp`
-  - a still-tracked local removed-registry candidate
+  - an active Starshine registry entry with a tested compatibility alias
   - a close sibling of already-documented locals-family variants
 
 ## Main beginner correction
@@ -92,7 +96,7 @@ So `-notee` is **not**:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Actual Binaryen `version_129` implementation shape, helper dependencies, scheduler facts, and the real tee-vs-structure split.
+  - Actual Binaryen `version_131` implementation shape, helper dependencies, scheduler facts, and the real tee-vs-structure split.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Source/test map for `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, helper files, the dedicated sibling fixtures, and neighboring comparison fixtures.
 - [`./variant-boundaries-and-registry-aliases.md`](./variant-boundaries-and-registry-aliases.md)
@@ -105,7 +109,7 @@ So `-notee` is **not**:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for the upstream public `simplify-locals-notee` pass.
-- Keep the local alias mismatch explicit instead of silently pretending the local removed-registry spelling is the upstream name.
+- Keep the canonical `simplify-locals-notee` spelling and compatibility alias `simplify-locals-no-tee` explicit.
 - Keep the main correction explicit:
   - `-notee` still forms structure
   - `-notee` only forbids new tee creation
@@ -121,9 +125,9 @@ So `-notee` is **not**:
 - [`../simplify-locals/variant-matrix-and-scheduler.md`](../simplify-locals/variant-matrix-and-scheduler.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- Binaryen `version_131` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SimplifyLocals.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>
 - Representative tests:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/simplify-locals-notee.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/simplify-locals-notee.txt>

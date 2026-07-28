@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -20,6 +20,16 @@ related:
 ---
 
 # `simplify-locals` Validation And Signoff
+
+## Current Binaryen-v131 closeout
+
+- Oracle: official `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
+- Starshine: `_build/native/release/build/cmd/cmd.exe`, SHA-256 `5935985cb02530a77aba751dd88f0103a3eadc6ada8e4a0c0b040c878ba4e5bf`.
+- Focused tests: main `71/71`, variants `15/15`, no-structure `79/79`, GenValid `161/161`, full Moon `10008/10008`.
+- Dedicated aggregate profiles: all five completed `10000/10000`; every difference is strictly smaller than Binaryen and no lane has validation, property, generator, or command failures.
+- Idempotence: all five variants completed `1000/1000` checks with zero property failures.
+- Random-all regression replay: all prior `2433` full-pass mismatches were replayed; `81` are exact, `2262` are smaller, `90` are equal-size, and none are larger.
+- Classification: no semantic mismatch, validation failure, unknown/risky family, or size-losing residual remains. The remaining dedicated differences are measured Starshine wins from stronger dead local/pure-drop cleanup or previously documented structure/no-tee shaping.
 
 ## Why This Page Exists
 

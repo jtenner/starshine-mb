@@ -1,7 +1,7 @@
 ---
 kind: comparison
-status: working
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -28,6 +28,9 @@ related:
 
 ## What Is Green Today
 
+- The Binaryen-v131 five-variant renewal closed on 2026-07-27. Focused work repaired discarded default-GC allocations, pure dropped local observations, encoded return-local spill reconstruction, and direct branch-result local carriers. Focused suites pass `71/71` main, `15/15` variants, `79/79` no-structure, and `161/161` GenValid; the full Moon suite passes `10008/10008`.
+- Refreshed `10000`-case aggregate profiles have no Starshine failure and no canonical size loss: full `7298` exact + `2702` smaller; no-tee `2766` + `7234`; no-structure `7115` + `2885`; no-tee/no-structure `2766` + `7234`; nonesting `7684` + `2316`. Five idempotence lanes are each `1000/1000`.
+- Replaying all `2433` previously differing full random-all cases retires every positive size delta: `81` are newly exact, `2262` are smaller, and `90` are equal-size. There are zero validation, property, or command failures.
 - The 2026-06-04 O4z audit closeout is green on the built native binary. The direct keep-going `10000`-request lane `.tmp/pass-fuzz-simplify-locals-audit-10000-keepgoing` reached `9975/10000` compared cases with `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, and `25` Binaryen/tool command failures. The generated late-neighborhood lane `.tmp/pass-fuzz-sl-late-neighborhood-audit-10000-keepgoing` for `local-cse -> simplify-locals -> merge-blocks` reached the same counts. The default direct lane without `--keep-going-after-command-failures` stopped at `6764/10000` after the same Binaryen/tool command-failure family hit the default max-failure threshold, so the keep-going result is the closeout evidence. The initial `target/native/...` harness attempt failed with `ENOENT` in this workspace because the native binary was built at `_build/native/release/build/cmd/cmd.exe`; that failed path run is a binary-path issue, not pass evidence.
 - The 2026-06-04 coverage audit added focused `try_table` EH boundary guards for nonthrowing value sinking and may-throw producer preservation in `src/passes/simplify_locals_test.mbt`; no implementation change was needed, and `[O4Z-AUDIT-SL]` is now closed.
 - The 2026-05-09 direct semantic lane is green on current head:

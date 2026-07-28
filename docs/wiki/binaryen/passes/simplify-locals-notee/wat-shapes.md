@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -14,6 +14,9 @@ related:
 ---
 
 # `simplify-locals-notee` WAT shapes
+
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
 
 This page focuses on the shapes beginners are most likely to misread.
 It is anchored by the retained 2026-04-24 research inventory and direct tagged source URLs.

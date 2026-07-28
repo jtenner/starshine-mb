@@ -1,7 +1,7 @@
 ---
 kind: comparison
-status: working
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -17,6 +17,8 @@ related:
 ---
 
 # `simplify-locals` Performance And Artifact Frontiers
+
+The 2026-07-27 v131 renewal is a behavioral, validity, idempotence, and canonical-size closeout. It does not replace the historical large-artifact timing caveat below; renewed wall-time work remains owned by `[WALL]001` and is not a simplify-locals v131 parity blocker.
 
 ## Scope
 

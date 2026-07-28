@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -20,6 +20,13 @@ related:
 ---
 
 # `simplify-locals` Implementation Map
+
+## V131 renewal map
+
+- `src/passes/simplify_locals.mbt`: direct following-root replacement, branch-free structure-result candidates, and discarded default-GC recognition.
+- `src/passes/pass_manager.mbt`: pure dropped-value cleanup, root return finalization, unreachable suffix removal, and inert-prefix structured-result carrier forwarding.
+- `src/passes/simplify_locals_test.mbt`: exact binary fixtures for return and branch-result carrier encoding, plus pure-drop/default-GC focused coverage.
+- `src/passes/pass_manager_wbtest.mbt` and `simplify_locals_nostructure_test.mbt`: updated validity and no-structure expectations after pure dropped reads become removable.
 
 ## Why This Page Exists
 

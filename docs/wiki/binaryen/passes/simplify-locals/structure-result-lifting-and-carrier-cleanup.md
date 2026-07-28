@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -17,6 +17,8 @@ related:
 ---
 
 # `simplify-locals` structure-result lifting and carrier cleanup
+
+The v131 renewal adds an exact direct-carrier subfamily: an inert root prefix followed by a result-producing structured expression, `local.set`, and the matching final `local.get` can become `nop` plus the structured producer. Encoded-byte tests cover both direct block results and branches to the owning block; a later-read guard and inert-prefix restriction keep the rewrite narrow.
 
 ## Why this page exists
 
@@ -57,7 +59,7 @@ Starshine then adds one practical local maintenance family around the same area:
 
 ## Upstream Binaryen source locations that matter most
 
-The official `version_129` source file is still the anchor:
+The official `version_131` source file is still the anchor:
 
 - `src/passes/SimplifyLocals.cpp`
 
@@ -70,7 +72,7 @@ The most useful reviewed locations from the 2026-04-21 source capture are:
 - the explicit comment above `optimizeIfReturn(...)` calling the one-armed rewrite *speculative*
 - `runLateOptimizations(...)` explaining why equivalent-copy cleanup runs after structure work instead of before it
 
-Those source locations remain listed directly in the [`simplify-locals` landing page](./index.md)'s `version_129` source list.
+Those source locations remain listed directly in the [`simplify-locals` landing page](./index.md)'s `version_131` source list.
 
 ## Shape family 1: named block exits become block results
 

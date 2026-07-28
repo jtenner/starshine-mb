@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/pass_manager.mbt
@@ -21,6 +21,10 @@ related:
 ---
 
 # `simplify-locals` Raw Lane And Exact Writeback
+
+## V131 cleanup additions
+
+The 2026-07-27 renewal keeps the raw lane narrow but adds four exact postconditions: erase discarded default struct allocation; erase pure `local.get; drop`; move inert `nop`s before dupable return values and delete unreachable root suffixes; and replace an inert-prefix structured-result `local.set/local.get` carrier with `nop` plus the direct result producer. Binary-path encoded-size regressions guard the two stackifier-sensitive families.
 
 ## Why The Raw Lane Exists
 

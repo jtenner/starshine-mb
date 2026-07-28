@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -16,9 +16,12 @@ related:
 
 # Binaryen `simplify-locals-notee` strategy
 
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
+
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle.
+Use Binaryen `version_131` as the current source oracle; the older v129 detail below remains valid because the owner contract did not change.
 The 2026-04-24 source inventory is retained in [research note 0329](./index.md), alongside the direct tagged URLs below.
 
 Primary files:

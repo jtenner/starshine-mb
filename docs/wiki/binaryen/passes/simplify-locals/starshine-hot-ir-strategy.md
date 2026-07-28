@@ -1,7 +1,7 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -22,6 +22,8 @@ related:
 ---
 
 # `simplify-locals` Starshine Strategy
+
+The v131 renewal preserves this three-layer design. The new parity work deliberately places HOT region-splice behavior in `simplify_locals.mbt` and exact stackifier-sensitive cleanup/finalization in `pass_manager.mbt`, rather than broadening either layer beyond its proof surface.
 
 ## Core Design Rule
 
@@ -219,7 +221,7 @@ related:
 
 ## Sources
 
-- Upstream `version_129` sources: [`./index.md`](./index.md#sources)
+- Upstream `version_131` sources: [`./index.md`](./index.md#sources)
 - Follow-up note: [research note 0241](./index.md)
 - Archived research note: [research note 0076](./index.md)
 - Implementation: [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)

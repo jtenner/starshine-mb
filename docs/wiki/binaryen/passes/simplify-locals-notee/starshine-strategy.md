@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../simplify-locals/index.md
   - ./index.md
@@ -29,6 +29,9 @@ related:
 ---
 
 # Starshine Strategy For `simplify-locals-notee`
+
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
 
 Use this page together with the retained 2026-04-24 research inventory and direct tagged source URLs.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, naming policy, shared implementation surface, and remaining closeout work for the no-tee locals-family sibling.

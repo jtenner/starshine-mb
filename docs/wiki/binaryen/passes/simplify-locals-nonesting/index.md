@@ -2,7 +2,7 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -12,10 +12,10 @@ sources:
   - ../simplify-locals/variant-matrix-and-scheduler.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.txt
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SimplifyLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/simplify-locals-nonesting.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/simplify-locals-nonesting.txt
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -35,13 +35,17 @@ related:
 
 # `simplify-locals-nonesting`
 
+## Binaryen-v131 renewal
+
+Closed on 2026-07-27. The refreshed aggregate completed `10000/10000`: `7684` exact matches and `2316` strictly smaller Starshine outputs (`-6..-2` bytes), with zero validation, property, generator, or command failures. Idempotence is `1000/1000`.
+
 ## Role
 
 - `simplify-locals-nonesting` is a real public Binaryen pass and now an **active Starshine hot pass**.
 - The canonical spelling and compatibility alias `simplify-locals-no-nesting` share `SimplifyLocalsPolicy(false, false, false)` in [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt).
 - Focused red-first tests prove flat copy retargeting, computed-value movement only into another `local.set`, preservation under `drop` and calls, no `if`-result synthesis, and alias behavior.
 - Starshine's HOT inline helpers now carry an explicit parent-position fact so non-copy expressions move only when the immediate consumer is a `local.set`; copy values remain eligible everywhere. This is the Binaryen-specific nonesting exception, not a broad skip gate.
-- The initial regular GenValid smoke compared `1000/1000` cases with `1000` normalized matches and zero failures or mismatches. Dedicated generation and final closeout remain open under `[SL-FAMILY]001`.
+- The current dedicated aggregate compares `10000/10000` with `7684` exact and `2316` strictly smaller Starshine outputs; the separate idempotence lane is `1000/1000`.
 - It is not part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
 ## Why this pass matters
@@ -124,19 +128,19 @@ A dedicated folder was still justified because:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, preserved, and bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Active Starshine implementation map: spelling policy, shared policy engine, parent-position legality fact, tests, and remaining closeout.
+  Active Starshine implementation map: spelling policy, shared policy engine, parent-position legality fact, tests, and v131 closeout.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness bridge: spelling-policy first step, no-rewrite skeleton, flat-copy first slice, disabled tee/structure/nesting negatives, late-cleanup follow-up, and Binaryen `--simplify-locals-nonesting` oracle ladder.
 - [`./fuzzing.md`](./fuzzing.md)
-  Planned-only compare-pass status: exact upstream/local spelling split, current removed-registry and harness-admission barriers, flatness-aware profile requirements, and the targeted signoff matrix.
+  Current compare-pass status, flatness-aware aggregate profile, refreshed v131 counts, and idempotence evidence.
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `simplify-locals-nonesting` research and port planning.
+- Treat this folder as the canonical home for future `simplify-locals-nonesting` maintenance and parity renewal.
 - Keep the canonical/alias split explicit:
   - canonical upstream and Starshine name: `simplify-locals-nonesting`
   - tested Starshine compatibility alias: `simplify-locals-no-nesting`
-- Do not mark [`fuzzing.md`](fuzzing.md) closed until the dedicated profile and required four-lane closeout are complete.
+- Reopen [`fuzzing.md`](fuzzing.md) for a new validation/property failure, semantic mismatch, unknown/risky family, or size-losing residual.
 - Keep the biggest correction explicit:
   - this variant is stricter than `simplify-locals-notee-nostructure` because it also forbids new nesting.
 
@@ -152,8 +156,8 @@ A dedicated folder was still justified because:
 - [`../simplify-locals/variant-matrix-and-scheduler.md`](../simplify-locals/variant-matrix-and-scheduler.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.txt>
+- Binaryen `version_131` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SimplifyLocals.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/simplify-locals-nonesting.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/simplify-locals-nonesting.txt>

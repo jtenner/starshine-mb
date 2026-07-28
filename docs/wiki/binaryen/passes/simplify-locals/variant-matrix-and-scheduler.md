@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -15,10 +15,14 @@ related:
 
 # Binaryen `simplify-locals` variant matrix and scheduler
 
+## Binaryen-v131 renewal verdict
+
+The public five-name matrix and scheduler placements are unchanged in v131. The 2026-07-27 Starshine renewal reran every canonical aggregate and idempotence lane; no variant produced a validation failure, semantic mismatch, or output larger than Binaryen. See [`./fuzzing.md`](./fuzzing.md) for the refreshed counts.
+
 ## Why this page exists
 
 One of the easiest ways to misunderstand `simplify-locals` is to talk as if Binaryen ships one pass with one fixed behavior.
-That is not how `version_129` is structured.
+That is not how `version_131` is structured.
 
 Binaryen exposes **five** public pass names that all come from one template with **three** semantic switches.
 This page is the durable answer to:

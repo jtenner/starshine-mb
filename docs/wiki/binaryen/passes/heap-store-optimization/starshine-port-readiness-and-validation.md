@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
   - ./index.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -35,11 +35,13 @@ The local implementation is still meant to fold a fresh `struct.set` back into a
 
 The practical validation surfaces are:
 
-- unit tests for the constructor/store fold families
+- `422` focused constructor/store, descriptor, ordering, and control-flow tests
+- binary codec tests for acquire/release atomics and shared descriptor/subtype wrappers
+- the nine-leaf `heap-store-optimization` GenValid aggregate
 - perf tests for raw fast-skip behavior
 - CLI replay tests for `--heap-store-optimization`
-- the current-main Binaryen source spotcheck that keeps the dossier honest about upstream drift
-- the refreshed `pass-fuzz-compare` direct parity lane
+- official Binaryen v131 main, descriptor, and atomics fixture replay
+- the explicit-v131 `pass-fuzz-compare` parity lane
 
 ## Exact local code map
 
@@ -105,23 +107,31 @@ That matters because this pass is allowed to skip work when there is no plausibl
 
 `src/cmd/cmd_wbtest.mbt` proves the pass still resolves through the command layer for the checked-in replay fixtures.
 
-### 4. Binaryen oracle check
+### 4. Binaryen v131 oracle check
 
-The current-main source spotcheck in [research note 0511](./index.md) keeps the upstream contract visible while the local implementation evolves.
+The owner file is unchanged from v130, but v131's released descriptor and atomics fixtures exercise shallow descriptor traps plus acquire/release ordering across shared memory and shared GC. Starshine now runs all three official fixture surfaces through decode, validation, HSO, encode, and Binaryen-v131 reparse.
 
-The refreshed direct oracle lane in [research note 0530](./index.md) ran:
+The final dedicated aggregate lane ran with a freshly rebuilt native CLI and explicit Binaryen v131:
 
-- `moon info`
-- `moon fmt`
-- `moon test`
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap-store-optimization --out-dir .tmp/pass-fuzz-heap-store-optimization`
+```sh
+PATH="$PWD/.tmp/binaryen-version-131-bin/bin:$PATH" \
+  bun fuzz compare-pass \
+  --pass heap-store-optimization \
+  --gen-valid-profile heap-store-optimization \
+  --count 10000 --min-compared 10000 --jobs auto \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --normalize local-cleanup-debris \
+  --no-reduce-mismatches \
+  --out-dir .tmp/hso-closeout-10000-final
+```
 
-Result: 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+Result: `10000/10000` compared, `2155` normalized, `7845` cleanup-normalized, and zero mismatches or validation/property/generator/command failures. Stripped official outputs are also smaller than Binaryen v131 for the main (`-22` bytes), descriptor (`-1`), and atomics (`-14`) fixtures.
 
 ## What this page does not claim
 
 - It does not claim generic heap dead-store elimination.
 - It does not claim load forwarding.
+- It does not claim byte-for-byte WAT identity with Binaryen where Starshine removes dead `nop` roots or its general lowering retains values through scratch locals.
 - It does not claim ordered no-DWARF preset parity for the repeated `heap-store-optimization` slots.
 
 If any of those become true later, the bridge should grow with them instead of pretending the current contract already had them.

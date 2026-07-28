@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -18,6 +18,9 @@ related:
 
 # Binaryen `simplify-locals-nostructure` Implementation Structure And Tests
 
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
+
 ## Why this page exists
 
 The landing, strategy, variant, and WAT-shape pages explain what `simplify-locals-nostructure` does.
@@ -31,7 +34,7 @@ Use that sibling for the complete five-variant family; use this page when you on
 
 ## Freshness note
 
-Use Binaryen `version_130` as the stable source oracle for current audit work.
+Use Binaryen `version_131` as the stable source oracle; the v130 source map below remains applicable because the reviewed owner/helper surface did not change.
 The 2026-06-30 source refresh in [research note 1399](./index.md) found the dedicated no-structure and nearby-variant tests unchanged from `version_129`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. Helper drift in `EffectAnalyzer`, `LinearExecutionWalker`, and `Properties` remains relevant to the active effect/refinalization audit.
 
 ## Upstream file map

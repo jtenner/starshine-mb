@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -31,6 +31,9 @@ related:
 ---
 
 # Starshine Strategy For `simplify-locals-notee-nostructure`
+
+> **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
+
 
 Use this page together with the retained 2026-04-25 source bridge and the companion [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) bridge.
 A 2026-05-07 backlog-closure review confirmed the current Starshine status is now best described as active direct with the aggressive prelude deferred outside the active no-DWARF parity queue.
