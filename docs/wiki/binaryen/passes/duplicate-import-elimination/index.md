@@ -1,13 +1,15 @@
 ---
 kind: entity
-status: supported
-last_reviewed: 2026-07-18
+status: strong
+starshine_status: active
+last_reviewed: 2026-07-28
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp
-  - ../../../../../src/passes/optimize.mbt
-  - ../../no-dwarf-default-optimize-path.md
-  - ../tracker.md
-  - ../../../../../agent-todo.md
+  - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/DuplicateImportElimination.cpp
+  - ../../../../../src/passes/duplicate_import_elimination.mbt
+  - ../../../../../src/passes/duplicate_import_elimination_test.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ./fuzzing.md
   - ../late-pipeline-dispatch.md
 related:
   - ./binaryen-strategy.md
@@ -15,7 +17,8 @@ related:
   - ./identity-and-rewrite-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
-  - ../inlining-optimizing/index.md
+  - ./fuzzing.md
+  - ../duplicate-function-elimination/index.md
   - ../simplify-globals-optimizing/index.md
   - ../remove-unused-module-elements/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -24,126 +27,87 @@ related:
 
 # `duplicate-import-elimination`
 
-## Role
+## Role and status
 
-- `duplicate-import-elimination` is an upstream Binaryen late module / boundary cleanup pass.
-- As of 2026-05-06, it is implemented in Starshine as an active module pass in [`../../../../../src/passes/duplicate_import_elimination.mbt`](../../../../../src/passes/duplicate_import_elimination.mbt), registered in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), and dispatched by [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
-- Binaryen runs it in the late post-pass cluster after the second `duplicate-function-elimination` and before `simplify-globals-optimizing`; Starshine exposes the direct pass but has not yet widened the public `optimize` preset to that full late-tail shape.
-- The reviewed official Binaryen GitHub [`version_129` release](https://github.com/WebAssembly/binaryen/releases/tag/version_129) was rechecked on **2026-04-23**, and GitHub showed the release publish date as **2026-04-01**.
-- The local `wasm-opt` oracle and official Binaryen `version_130` / current `main` source were refreshed on **2026-07-06** against [the tagged owner](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp) and [current-main owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateImportElimination.cpp). The pass is still function-import-only, but the older first-import wording was corrected: a type mismatch updates the current bucket representative, so a later same-type import deduplicates against that newer kept import.
+`duplicate-import-elimination` is a late module pass that collapses duplicate imported **functions**. Starshine exposes it as an active direct pass, and the 2026-07-28 Binaryen-v131 renewal closes its behavior parity after the legacy-EH and raw-name repairs.
 
-## Why this dossier needed a follow-up
+Binaryen's canonical late neighborhood is:
 
-This folder used to teach a much broader contract than current Binaryen actually implements.
+`duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements`
 
-The source-confirmation follow-ups corrected the biggest mistake:
+Exact public O4z preset reconciliation remains separate under `[O4Z-PRESET]001`; direct DIE is no longer an active `[V131-LEGACY-EH]001` blocker.
 
-- current Binaryen `version_130` / `main` `duplicate-import-elimination` is a **function-import-only** alias-cleanup pass.
+## Released Binaryen v131 contract
 
-It does **not** currently deduplicate imported:
+The v131 owner, rewrite helper, and dedicated input fixture are byte-identical to v130. The algorithm remains:
 
-- globals
-- tables
-- memories
-- tags
+1. inspect imported functions only;
+2. bucket by exact `(module, base)` strings;
+3. compare against the current bucket representative's exact function type;
+4. keep a type mismatch and make it the new representative;
+5. rewrite a type match through `OptUtils::replaceFunctions`;
+6. remove the later imported function.
 
-That correction comes directly from `src/passes/DuplicateImportElimination.cpp`, whose own opening comment says:
+The source still carries `TODO: non-function imports too`; duplicate globals, tables, memories, and tags remain outside the pass.
 
-- `TODO: non-function imports too`
+## Rewrite surface
 
-So this folder should now be read as a corrected, source-confirmed dossier rather than as a broad all-import working contract.
+Binaryen's helper covers:
 
-## Why it still matters
+- direct `call`;
+- `ref.func`;
+- function references in module-code expression trees;
+- `start`;
+- function exports.
 
-- The canonical Binaryen no-DWARF `-O` / `-Os` post-pass phase runs `duplicate-import-elimination` after the second `duplicate-function-elimination` and before `simplify-globals-optimizing`.
-- The saved generated-artifact `-O4z` audit records one real skipped top-level upstream slot:
-  - top-level slot `51`
-- The saved Binaryen debug log shows the pass is tiny but real:
-  - `2.133e-05` seconds in the captured generated-artifact run
-- `[O4Z-AUDIT-DIE]` is closed for direct `--pass duplicate-import-elimination` behavior parity; separate late-tail preset/neighborhood replay remains future preset work.
+Starshine's numeric-index IR must additionally shift every later defined `FuncIdx` and repair structured function-name, local-name, label-name, and function-annotation ownership. It clears `raw_name_sec_payload` on the changed path so stale absolute function indices cannot be re-emitted.
 
-## Correct beginner summary
+## Full family coverage
 
-A safe beginner mental model for Binaryen `version_130` is:
+The current `duplicate-import-elimination` GenValid aggregate owns five leaves:
 
-- if the module imported the same host **function** more than once under different internal names,
-- and those imports have the same function type,
-- Binaryen keeps the current representative imported function name for the `(module, base)` bucket,
-- rewrites later duplicate function-name users to that representative name,
-- then deletes the later imported function declarations.
+- body references, including nested control and `return_call`;
+- identity and representative policy;
+- module-code references;
+- legacy EH and `try_table`;
+- all four non-function import kinds as negative scope.
 
-That is much closer to the real pass than either:
+The 10,000-case dedicated lane selected every leaf and all 13 case labels. Every case normalized exactly to Binaryen v131, with no validation, generator, property, command, or raw mismatch failures.
 
-- “remove unused imports”, or
-- “merge all duplicate imports of every kind.”
+Focused pass tests also encode/decode every leaf and every identity/EH variant, require positive leaves to remove a duplicate function import, require the negative leaf to remain exactly unchanged, validate every output, and require idempotence.
 
-## Current durable takeaways
+## Closeout matrix
 
-- The 2026-05-06 refreshed direct parity lane for `duplicate-import-elimination` reported 6759 / 10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures; see research note 0519.
-- The 2026-07-06 final direct-pass closeout matrix is complete. Regular GenValid `100000` at seed `0x5eed` matched `100000/100000`; dedicated `duplicate-import-elimination` GenValid `10000` at seed `0x5eed` matched `10000/10000`; random-all-profiles `10000` at seed `0x5555` matched `10000/10000`; explicit wasm-smith `10000` at seed `0x5eed` compared `9956/10000`, had 44 Binaryen/tool command failures, and had one raw unreachable-control-debris output drift that normalized to `cleanupNormalizedMatchCount=1` under the existing normalizer. Agent classification: no unclassified DIE semantic or validation mismatches; see [`./fuzzing.md`](./fuzzing.md) and research note 1554.
-- The same 2026-07-06 timing probe met the stricter direct pass-local 1x target on two `.tmp/die-timing/` fixtures: Starshine/Binaryen medians were `0.447/2.00646 ms` on `die-import-heavy-2000i-128u.wasm` and `0.2835/0.946297 ms` on `die-user-heavy-800i-4000u.wasm`.
-- `duplicate-import-elimination` is a **late module / boundary** pass, not a function-local peephole.
-- In Binaryen `version_130`, it scans only:
-  - imported functions
-- Duplicate detection is not the broad `ImportInfo(kind,module,base,type)` story taught in the earlier dossier.
-  The actual pass groups imports by:
-  - `(module, base)`
-  and then requires:
-  - exact `Function::type` equality with the current kept representative for that pair.
-- The canonical representative is the **current kept import** for that `(module, base)` bucket: all-same-type buckets are first-import-wins, but a different-type kept import resets the representative for later same-type aliases.
-- The real rewrite surface is exactly the function-name surface in `OptUtils::replaceFunctions(...)`:
-  - direct `call`
-  - `ref.func`
-  - function references found in module-code expression trees
-  - `start`
-  - function exports
-- The pass removes duplicate imported functions immediately after retargeting users.
-- The shipped dedicated test is correspondingly small and function-only.
+- regular GenValid: `100000/100000` exact normalized matches;
+- dedicated aggregate: `10000/10000` exact normalized matches;
+- random all-profiles: `9375` exact plus `625` classified pass-independent local-run representation gaps from `remove-unused-brs-control` modules with no imports;
+- explicit wasm-smith: `9956` comparable, `9955` exact, one pass-independent unreachable-control-debris case, and 44 Binaryen/tool command failures;
+- wasm-smith classification rerun: `9955` exact plus `1` cleanup-normalized, zero remaining mismatches.
+
+See [`fuzzing.md`](./fuzzing.md) for exact commands, out dirs, cache counters, selected-family counts, and classifications.
+
+## Representation verdict
+
+All DIE-owned transform families match Binaryen's normalized representation. No Starshine-only output shape is retained as a claimed win. Starshine-specific metadata/index repair exists only to preserve Binaryen-equivalent behavior in Starshine's numeric-index module representation.
+
+The random-all local-run family is a real one-byte Starshine size loss, but its inputs have no imports and both DIE implementations are no-ops. It remains owned by decoder/encoder local-run canonicalization rather than this pass.
+
+## Performance
+
+The pass implementation did not change during this renewal. Retained direct fixtures remain faster than Binaryen:
+
+- import-heavy: `0.447 ms` versus `2.00646 ms` (`0.223x`);
+- user-heavy: `0.2835 ms` versus `0.946297 ms` (`0.300x`).
 
 ## Page map
 
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Corrected strategy page for the real Binaryen `version_130` implementation: small late function-import alias cleanup, exact duplicate key, exact rewrite surface, and nearby non-goals.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  Compact owner-file and shipped-test map showing that the real pass lives in `DuplicateImportElimination.cpp`, uses only `replaceFunctions(...)`, and is proven by one dedicated function-only test pair.
-- [`./identity-and-rewrite-surface.md`](./identity-and-rewrite-surface.md)
-  Focused guide to the exact duplicate key and rewrite surface, including the crucial correction from the older dossier's over-broad all-import story.
-- [`./wat-shapes.md`](./wat-shapes.md)
-  Beginner-friendly before/after WAT and module-shape catalog for the real positive function-import families, the preserved different-signature family, and the explicit current non-goals.
-- [`./starshine-strategy.md`](./starshine-strategy.md)
-  Dedicated Starshine status/port-map page covering the active in-repo module-pass implementation, registry and dispatcher locations, the closed direct `DIE` audit, the canonical late-tail slot, the source-confirmed Binaryen `version_130` function-import-only contract, the final four-lane direct fuzz matrix, and the current direct pass-local timing evidence.
-- [`./fuzzing.md`](./fuzzing.md)
-  Dedicated profile and compare-lane page for `duplicate-import-elimination`, including the current `duplicate-import-elimination` GenValid profile, manifest labels, completed four-lane direct closeout matrix, wasm-smith unreachable-control-debris classification, and reopening criteria.
+- [`binaryen-strategy.md`](./binaryen-strategy.md): upstream algorithm and scheduler role.
+- [`implementation-structure-and-tests.md`](./implementation-structure-and-tests.md): owner/helper/test map.
+- [`identity-and-rewrite-surface.md`](./identity-and-rewrite-surface.md): duplicate key and user-retargeting contract.
+- [`wat-shapes.md`](./wat-shapes.md): positive and negative module shapes.
+- [`starshine-strategy.md`](./starshine-strategy.md): local implementation, family verdicts, invariants, and reopening criteria.
+- [`fuzzing.md`](./fuzzing.md): current profiles and full v131 closeout evidence.
 
-## Current maintenance rule
+## Reopening criteria
 
-- Treat this folder as the canonical home for future `duplicate-import-elimination` research and port planning.
-- Treat the older broad all-import story as superseded by the 2026-04-21 source-confirmation follow-up.
-- `[O4Z-AUDIT-DIE]` is no longer active in `agent-todo.md`; if new backlog wording appears, keep it narrowed to strict Binaryen `version_130` parity unless upstream evidence changes.
-- Keep the folder explicitly scoped to the implemented Starshine module pass and the source-confirmed Binaryen `version_130` function-import-only contract.
-- If future upstream Binaryen expands the pass beyond functions, record that as new drift instead of silently widening this `version_130` contract.
-
-## Sources
-
-- Binaryen `version_130` owner: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp>
-- Binaryen current-main owner checked on 2026-07-06: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateImportElimination.cpp>
-- research note 0519
-- research note 0123
-- research note 0205
-- research note 0269
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../tracker.md`](../tracker.md)
-- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
-- Binaryen `version_130` implementation and test sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/duplicate-import-elimination.wast>
-- Historical Binaryen `version_129` implementation and test sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateImportElimination.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/import-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.txt>
+Reopen direct DIE if upstream widens scope or changes identity policy, a dedicated family stops matching exactly, a duplicate-import case fails validation, metadata/index/EH/module-code repair regresses, the unchanged path mutates, or direct pass-local timing exceeds Binaryen under the retained method.

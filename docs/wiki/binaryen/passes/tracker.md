@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-07-28
 sources:
   - ../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../release-horizon-and-oracles.md
@@ -28,7 +28,7 @@ sources:
   - ./simplify-locals-notee-nostructure/index.md
   - ./simplify-locals-nostructure/index.md
   - ./duplicate-import-elimination/index.md
-  - ../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
+  - ../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./vacuum/index.md
   - ./simplify-locals-notee/index.md
   - ./strip-target-features/index.md
@@ -186,7 +186,7 @@ If these ever disagree, update this tracker in the same change. The 2026-05-06 a
 | Pass | Category | Wiki status | Main living docs | Notes |
 | --- | --- | --- | --- | --- |
 | `duplicate-function-elimination` | implemented module | deep | [`duplicate-function-elimination/index.md`](duplicate-function-elimination/index.md) | Full dossier with Binaryen strategy, upstream implementation/test-map, WAT-shape catalog, renamed Starshine module-strategy page, scheduler/validation bridge, upstream-vs-local-extra notes, parity page, raw primary-source manifests, and a 2026-05-13 current-main no-drift recheck; the refreshed folder now also makes the exact MoonBit registry/dispatcher/core-rewrite/type-compaction/code-map surface explicit without the stale HOT-IR strategy filename, and keeps the one-iteration explicit-pass versus Binaryen repeat-budget/two-slot preset gap visible before future scheduler work. |
-| `duplicate-import-elimination` | implemented module | deep | [`duplicate-import-elimination/index.md`](duplicate-import-elimination/index.md) | Full dossier with Binaryen strategy, implementation/test-map, identity/rewrite-surface notes, WAT-shape catalog, immutable 2026-07-06 `version_130` / current-`main` refresh, and refreshed Starshine strategy; current Starshine implements and signs off the source-confirmed Binaryen `version_130` function-import-only contract with current-representative reset behavior, links exact remap/registry/dispatcher/test code locations, and has a completed four-lane direct fuzz matrix plus 1x pass-local timing evidence, while broader late-tail preset/neighborhood replay remains separate future work. |
+| `duplicate-import-elimination` | implemented module; v131 direct parity closed | deep | [`duplicate-import-elimination/index.md`](duplicate-import-elimination/index.md) | The 2026-07-28 v131 source refresh confirms unchanged owner/helper/input hashes and the function-import-only current-representative contract. Five GenValid leaves and 13 labels cover body/tail refs, identity boundaries, module code, protected/typed-catch/catch-all/delegate legacy EH, `try_table`, metadata/index repair, and duplicate global/table/memory/tag negatives. Regular `100000/100000` and dedicated `10000/10000` are exact; random-all and wasm-smith residuals are inspected pass-independent no-import families; zero Starshine failures. Retained pass-local fixtures remain faster than Binaryen. |
 | `string-gathering` | implemented module | deep | [`string-gathering/index.md`](string-gathering/index.md) | Active direct public module pass for the no-DWARF late-tail slot before `reorder-globals`. The local pass collects direct `string.const` payloads from defined function bodies before module expression sites, deduplicates by bytes, inserts immutable string globals after imported globals and before existing defined globals, rewrites gathered sites to `global.get`, and remaps existing defined-global traffic. Direct evidence is green in `.tmp/pass-fuzz-string-gathering-genvalid-10000-native`, `.tmp/pass-fuzz-string-gathering-10000-native-keepgoing`, and `.tmp/self-opt-string-gathering-debug`; the accepted public late-tail suffix is already scheduled; existing-string-global reuse and broader string-proposal binary decoder coverage remain follow-up. |
 | `remove-unused-module-elements` | implemented module; v131 direct parity closed | deep | [`remove-unused-module-elements/index.md`](remove-unused-module-elements/index.md) | Tail direct-call special-import handling and exact configureAll operand validation are repaired and red-first tested. Focused `52/52`, seven-family aggregate `10000/10000`, four high-risk singleton lanes `10000/10000` each, regular `100000/100000`, classified random-all/wasm-smith residuals, native/wasm-gc validation, deterministic CI suites, and `1.500x` pass-local timing close the repair. All three scheduler slots remain wired. |
 | `memory-packing` | implemented module; v131 parity closed | deep | [`memory-packing/index.md`](memory-packing/index.md) | Implements source-order trampling cleanup, zero-filled imported overlap only after an all-active-segments in-bounds proof, overflow-safe memory32/memory64 bounds, public CLI option routing, focused v131 fixtures, current compare lanes, and exact O4z slot equality. |

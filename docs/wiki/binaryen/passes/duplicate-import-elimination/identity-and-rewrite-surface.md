@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
-  - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
+  - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
 related:
   - ./index.md
@@ -15,13 +15,13 @@ related:
 
 # `duplicate-import-elimination`: identity key and rewrite surface
 
-This page focuses on the two most important implementation questions for Binaryen `version_130` `duplicate-import-elimination`:
+This page focuses on the two most important implementation questions for Binaryen `version_131` `duplicate-import-elimination`:
 
 1. **when are two imports considered duplicates?**
 2. **which uses must be retargeted before the later import can be removed?**
 
 The source-confirmed answer is smaller than the earlier dossier taught.
-Current Binaryen `version_130` answers both questions only for imported **functions**.
+Current Binaryen `version_131` answers both questions only for imported **functions**.
 
 ## Identity key: what must match
 
@@ -131,7 +131,7 @@ These do not share a bucket either.
 
 ## What the pass does not currently compare because it does not handle those kinds
 
-For Binaryen `version_130`, do **not** teach this page in terms of current merge rules for:
+For Binaryen `version_131`, do **not** teach this page in terms of current merge rules for:
 
 - imported globals,
 - imported tables,
@@ -204,7 +204,7 @@ Because the pass uses only `replaceFunctions(...)`, it does **not** currently re
 - memory exports
 - segment target-name fields as non-function declarations
 
-Those broader surfaces belonged to the earlier overgeneralized dossier, not to the real `version_130` pass.
+Those broader surfaces belonged to the earlier overgeneralized dossier, not to the real `version_131` pass.
 
 ## Imported tags are not a caveat here; they are outside the implemented scope
 
@@ -217,7 +217,7 @@ The same is true for imported globals, tables, and memories.
 
 ## Practical porting checklist
 
-When maintaining Binaryen `version_130` parity for this pass in Starshine, verify all of these are true:
+When maintaining Binaryen `version_131` parity for this pass in Starshine, verify all of these are true:
 
 1. Only imported functions are considered.
 2. Duplicate buckets are keyed by `(module, base)`.
@@ -232,4 +232,4 @@ When maintaining Binaryen `version_130` parity for this pass in Starshine, verif
 6. Duplicate imported functions are actually removed after retargeting.
 7. Globals/tables/memories/tags are left untouched unless a future deliberate divergence is documented.
 
-That checklist is the shortest faithful implementation summary of the real `version_130` pass.
+That checklist is the shortest faithful implementation summary of the real `version_131` pass. Starshine's refreshed dedicated profile additionally checks nested body references, module-code initializers and all element encodings, protected/typed-catch/catch-all/delegate legacy EH, `try_table`, metadata-owner shifts, and non-function negatives.

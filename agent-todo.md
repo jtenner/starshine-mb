@@ -24,7 +24,6 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 | Pass | Active work | Owner |
 | --- | --- | --- |
-| `duplicate-import-elimination` | Renew direct evidence after legacy-EH remapping and raw-name repair. | `[V131-LEGACY-EH]001` |
 | `reorder-globals` | Renew direct evidence after legacy-`try` traffic/dependency/rewrite repair. | `[V131-LEGACY-EH]001` |
 | `directize` | Renew direct evidence after legacy-`try` table analysis/rewrite repair; retain thin module-shape breadth. | `[V131-LEGACY-EH]001`, `[AUDIT]004` |
 | `coalesce-locals` | Resolve four direct loop/parameter/block shape gaps and the extended O4z suffix numbering gap. | `[COALESCE-LOCALS]001` |
@@ -35,12 +34,12 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 ### [V131-LEGACY-EH]001 - Renew evidence after legacy-`try` correctness repairs
 
-- **Status:** three release-scale direct matrices remain open; RUME was renewed on 2026-07-27 and merge-locals was renewed on 2026-07-28.
+- **Status:** two release-scale direct matrices remain open; RUME was renewed on 2026-07-27, merge-locals on 2026-07-28, and duplicate-import-elimination on 2026-07-28.
 - **Goal:** replace pre-repair closeout evidence for every pass whose correctness-sensitive analysis or rewrite changed on 2026-07-21.
 - **Why:** decoded legacy `Try` bodies and catches previously could be omitted from reachability, index rewriting, traffic analysis, or mutation guards. Passing pre-repair matrices cannot close the repaired behavior.
 - **Deliverables:**
   - [x] Run the required explicit-v131 four-lane matrix for `remove-unused-module-elements` (regular `100000/100000` and dedicated `rume-all` `10000/10000` exact; wasm-smith `9955/9956` exact plus the full-u64 memory64 Starshine win and `44` Binaryen/tool failures; random-all `9375/10000` exact plus `625` pass-independent one-byte local-run encoding residuals; zero Starshine failures).
-  - [ ] Run the required explicit-v131 four-lane matrix for `duplicate-import-elimination`.
+  - [x] Run the required explicit-v131 four-lane matrix for `duplicate-import-elimination` (regular and dedicated exact; wasm-smith exact after one pass-independent unreachable-debris normalization plus 44 Binaryen/tool failures; random-all retains 625 pass-independent local-run size gaps on no-import inputs; zero Starshine failures).
   - [ ] Run the required explicit-v131 four-lane matrix for `reorder-globals`.
   - [ ] Run the required explicit-v131 four-lane matrix for `directize`.
   - [ ] Add or refresh a pass-owned aggregate GenValid profile before a matrix when the current profile does not exercise protected-body, typed-catch, catch-all, and delegate-bearing cases.

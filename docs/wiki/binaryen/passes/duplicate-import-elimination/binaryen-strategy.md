@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
-  - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
+  - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
 related:
   - ./index.md
@@ -18,8 +18,8 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_130` plus the current `main` refresh as the current source oracle for this pass; see [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md).
-- The reviewed official Binaryen GitHub [`version_129` release](https://github.com/WebAssembly/binaryen/releases/tag/version_129) was rechecked on **2026-04-23**, and GitHub showed the release publish date as **2026-04-01**.
+- Use official Binaryen `version_131` as the current source oracle; see the [2026-07-28 source refresh](../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md).
+- The v131 owner, `opt-utils.h`, and dedicated input fixture are byte-identical to the retained v130 hashes, so the released transform contract is unchanged.
 - The core implementation is `src/passes/DuplicateImportElimination.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - The actual rewrite surface used by this pass comes from `src/passes/opt-utils.h`, specifically `OptUtils::replaceFunctions(...)`.
@@ -28,12 +28,12 @@ related:
   - `test/passes/duplicate-import-elimination.wast`
   - `test/passes/duplicate-import-elimination.txt`
 
-Current primary source URLs refreshed on 2026-07-06:
+Current primary source URLs refreshed on 2026-07-28:
 
-- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateImportElimination.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/duplicate-import-elimination.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/DuplicateImportElimination.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/opt-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/duplicate-import-elimination.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/duplicate-import-elimination.txt>
 
 Historical primary source URLs captured on 2026-04-23 and rechecked against current `main` on 2026-05-04:
 
@@ -44,13 +44,13 @@ Historical primary source URLs captured on 2026-04-23 and rechecked against curr
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.txt>
 
-The 2026-07-06 refresh found `version_130` and current `main` byte-identical for the pass source and corrected this dossier's representative wording for mixed-type buckets; it is the retained current-source freshness evidence for this dossier.
+The 2026-07-28 refresh found the released `version_131` owner, rewrite helper, and dedicated input fixture byte-identical to their retained v130 hashes. The mixed-type current-representative rule remains the released behavior.
 
 ## Main correction
 
 The most important source-confirmed fact is simple:
 
-- Binaryen `version_130` / current `main` `duplicate-import-elimination` is a **function-import-only** pass.
+- Binaryen `version_131` `duplicate-import-elimination` is a **function-import-only** pass.
 
 The implementation file says:
 
@@ -179,7 +179,7 @@ That helper rewrites only the function-name surface:
 - function exports
 
 This is the second main place the older dossier over-attributed behavior from nearby helpers.
-Current `version_129` does **not** use sibling replace helpers for globals, tables, or memories here.
+Current `version_131` does **not** use sibling replace helpers for globals, tables, or memories here.
 
 ## 6. Remove duplicate imported functions immediately
 
@@ -250,14 +250,14 @@ Because the pass uses only `replaceFunctions(...)`, the real rewrite surface is 
 ## 4. The public name is broader than the current implementation
 
 `duplicate-import-elimination` sounds like it handles every import kind.
-The source-confirmed reality in `version_130` / current `main` is smaller.
+The source-confirmed reality in `version_131` is smaller.
 
 ## Starshine parity checklist
 
 Starshine now has an active module-pass implementation, so read this as the ongoing parity/maintenance checklist rather than future-port scaffolding.
 
 - Keep this a late module pass.
-- Keep duplicate imported-function elimination as the Binaryen `version_130` parity scope.
+- Keep duplicate imported-function elimination as the Binaryen `version_131` parity scope.
 - Bucket candidates by `(module, base)`.
 - Require exact function-type equality before merging.
 - Preserve current-representative canonicalization; all-same-type buckets are first-import-wins, while type mismatches reset the representative.
@@ -268,4 +268,4 @@ Starshine now has an active module-pass implementation, so read this as the ongo
   - start
   - function exports
 - Remove duplicate imported functions immediately.
-- If Starshine later widens the pass to globals/tables/memories, document that as a deliberate divergence or future-upstream drift, not as current `version_130` behavior.
+- If Starshine later widens the pass to globals/tables/memories/tags, document that as a deliberate divergence or future-upstream drift, not as current `version_131` behavior.

@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-28
 sources:
-  - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
+  - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
 related:
   - ./index.md
@@ -14,8 +14,7 @@ related:
 
 # `duplicate-import-elimination` WAT and module shape guide
 
-This page is the beginner-friendly shape catalog for the real Binaryen `version_130` `duplicate-import-elimination` pass.
-The reviewed official Binaryen GitHub [`version_129` release](https://github.com/WebAssembly/binaryen/releases/tag/version_129) was rechecked on **2026-04-23**, and GitHub showed the release publish date as **2026-04-01**. The retained 2026-07-06 `version_130` / `main` refresh in [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md) confirmed the current pass source and corrected the bucket representative rule for mixed-type runs.
+This page is the beginner-friendly shape catalog for the real Binaryen `version_131` `duplicate-import-elimination` pass. The [2026-07-28 v131 refresh](../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md) confirms that the owner, rewrite helper, and dedicated input fixture are byte-identical to the retained v130 hashes and that the mixed-type current-representative rule remains released behavior.
 
 The main question to keep asking is:
 
@@ -224,7 +223,7 @@ Preserved because:
 ## 4. Imported globals, tables, memories, and tags are not current positive shapes
 
 The older dossier treated these as current merge families with caveats.
-The source-confirmed `version_130` story is simpler:
+The source-confirmed `version_131` story is simpler:
 
 - they are outside the current implemented scope of this pass.
 
@@ -250,7 +249,7 @@ So do **not** teach shapes like these as current positives:
 (import "mod" "tag" (tag $b (param i32)))
 ```
 
-Those are possible future-expansion stories, not current `version_130` `duplicate-import-elimination` behavior.
+Those are possible future-expansion stories, not current `version_131` `duplicate-import-elimination` behavior.
 
 ## Interaction shapes worth remembering
 
@@ -286,7 +285,7 @@ Beginner shorthand:
 ## 3. This is not a generic import-cleanup pass
 
 A useful anti-shape is anything that would require rewriting non-function import users.
-Current `version_130` does not do that here.
+Current `version_131` does not do that here.
 
 ## Easy mental checklist for future Starshine work
 
@@ -298,4 +297,4 @@ When deciding whether a shape should rewrite, ask:
 4. Is the use one of the real rewritten function-name surfaces?
 5. After retargeting, can the later imported function declaration be removed entirely?
 
-That checklist matches the real `version_130` source much better than “duplicate imports disappear.”
+That checklist matches the real `version_131` source much better than “duplicate imports disappear.” The refreshed GenValid catalog also exercises nested block/loop/if and tail-call users, table/global initializer `ref.func`, all three element payload encodings, protected/typed-catch/catch-all/delegate legacy EH, `try_table`, and all four non-function negative import kinds.

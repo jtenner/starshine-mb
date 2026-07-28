@@ -1,9 +1,9 @@
 ---
 kind: concept
-status: supported
-last_reviewed: 2026-07-21
+status: strong
+last_reviewed: 2026-07-28
 sources:
-  - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
+  - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
 related:
   - ./index.md
@@ -15,8 +15,7 @@ related:
 
 # `duplicate-import-elimination`: implementation structure and tests
 
-This page is the compact source-confirmed map for how Binaryen `version_130` actually implements `duplicate-import-elimination` and where the shipped tests pin that behavior down.
-The reviewed official Binaryen GitHub [`version_129` release](https://github.com/WebAssembly/binaryen/releases/tag/version_129) was rechecked on **2026-04-23**, and GitHub showed the release publish date as **2026-04-01**.
+This page is the compact source-confirmed map for how Binaryen `version_131` implements `duplicate-import-elimination` and where the shipped tests pin that behavior down. The v131 owner, rewrite helper, and dedicated input fixture are byte-identical to the retained v130 hashes.
 
 ## Why this page exists
 
@@ -28,7 +27,7 @@ The folder already had a useful dossier, but it still missed one compact page an
 - and which shipped tests prove the contract.
 
 That gap mattered because the earlier folder also overgeneralized the pass into a broad all-import deduplicator.
-The real `version_130` implementation is much smaller.
+The real `version_131` implementation is much smaller.
 
 ## Official owner files
 
@@ -48,7 +47,7 @@ The file's own top comment includes the most important scope correction:
 
 - `TODO: non-function imports too`
 
-That is the clearest source-backed proof that current `version_130` is function-import-only here.
+That is the clearest source-backed proof that current `version_131` is function-import-only here.
 
 ## `src/passes/opt-utils.h`
 
@@ -170,7 +169,7 @@ It does not:
 
 Starshine's changed path also owns the binary name-section cache boundary. Removing a duplicate imported function changes the absolute function-index space, so the pass remaps structured function names and clears `Module.raw_name_sec_payload`. Keeping the raw bytes would let encode prefer the stale payload over the rewritten `NameSec`. The focused regression in `src/passes/duplicate_import_elimination_test.mbt` supplies both representations and proves the changed path clears the cache; the unchanged path remains byte-preserving.
 
-A rebuilt native binary (`f5d84bb880d03780d21efdc939915bff94f6ae8e5e67d2002f9c1e0ebf2807e9`) compared `300/300` random-all-profile cases exactly against official Binaryen `version_131` on 2026-07-21, with zero validation, command, or semantic failures.
+The 2026-07-28 closeout rebuild and full explicit-v131 evidence matrix are recorded in [`fuzzing.md`](./fuzzing.md).
 
 ## Important negative facts
 
@@ -250,12 +249,12 @@ It is another reason the earlier broad dossier needed correction.
 | `src/passes/pass.cpp` | Public pass registration and late post-pass scheduler placement |
 | `test/passes/duplicate-import-elimination.wast` | Function-only positive and negative input shapes |
 | `test/passes/duplicate-import-elimination.txt` | The expected canonicalized output for those shapes |
-| `src/validate/gen_valid.mbt` / `src/validate/gen_valid_tests.mbt` | Starshine's dedicated `duplicate-import-elimination` GenValid profile, including mixed-signature representative-reset duplicates, function-user rewrites, and nonfunction negative imports |
-| `src/fuzz/main.mbt` | Manifest `profile_case_label` metadata for the dedicated DIE profile |
+| `src/validate/gen_valid.mbt` / `src/validate/gen_valid_tests.mbt` | Five dedicated GenValid leaves covering body/tail references, identity policy, module code, legacy EH/`try_table`, and all four non-function negative import kinds |
+| `src/fuzz/main.mbt` / `src/fuzz/main_wbtest.mbt` | Manifest `profile_case_label` metadata and coverage for all 13 DIE family labels |
+| `src/passes/duplicate_import_elimination_test.mbt` | Encode/decode/transform/validate/idempotence checks for every leaf and identity/EH variant, plus raw-name and annotation-owner repair regressions |
 
-## Current-main drift check
+## Released-v131 drift check
 
-A 2026-07-06 refresh found `version_130` and current `main` byte-identical for `DuplicateImportElimination.cpp` and corrected the mixed-type bucket representative rule; see [`../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md`](../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md).
+The 2026-07-28 refresh found released `version_131` byte-identical to the retained v130 owner/helper/input hashes and retained the corrected mixed-type bucket representative rule; see the [v131 source refresh](../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md).
 
-So the corrected story on this page is not just tag-specific historical trivia.
-It still describes the current upstream implementation on the reviewed surface.
+The refreshed Starshine proof surface now also includes five GenValid leaves and focused encode/decode/transform/validate/idempotence coverage for body references, identity policy, module code, legacy EH/`try_table`, metadata repair, and all four non-function negative kinds.
