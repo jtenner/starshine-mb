@@ -6441,9 +6441,9 @@ fn gen_valid_test_instrs_have_atomic_xchg_restore(
   let mut saw_i64_xchg = false
   for instr in instrs {
     match instr {
-      I32AtomicLoad(_) => saw_i32_load = true
-      I64AtomicLoad(_) => saw_i64_load = true
-      AtomicRmw(op, _) =>
+      I32AtomicLoad(_, _) => saw_i32_load = true
+      I64AtomicLoad(_, _) => saw_i64_load = true
+      AtomicRmw(_, op, _) =>
         if op == AtomicRmwOp::i32_xchg() {
           saw_i32_xchg = true
         } else if op == AtomicRmwOp::i64_xchg() {
@@ -6479,9 +6479,9 @@ fn gen_valid_test_instrs_have_atomic_add_restore(
   let mut saw_i64_add = false
   for instr in instrs {
     match instr {
-      I32AtomicLoad(_) => saw_i32_load = true
-      I64AtomicLoad(_) => saw_i64_load = true
-      AtomicRmw(op, _) =>
+      I32AtomicLoad(_, _) => saw_i32_load = true
+      I64AtomicLoad(_, _) => saw_i64_load = true
+      AtomicRmw(_, op, _) =>
         if op == AtomicRmwOp::i32_add() {
           saw_i32_add = true
         } else if op == AtomicRmwOp::i64_add() {
@@ -6517,9 +6517,9 @@ fn gen_valid_test_instrs_have_atomic_sub_restore(
   let mut saw_i64_sub = false
   for instr in instrs {
     match instr {
-      I32AtomicLoad(_) => saw_i32_load = true
-      I64AtomicLoad(_) => saw_i64_load = true
-      AtomicRmw(op, _) =>
+      I32AtomicLoad(_, _) => saw_i32_load = true
+      I64AtomicLoad(_, _) => saw_i64_load = true
+      AtomicRmw(_, op, _) =>
         if op == AtomicRmwOp::i32_sub() {
           saw_i32_sub = true
         } else if op == AtomicRmwOp::i64_sub() {
@@ -6555,9 +6555,9 @@ fn gen_valid_test_instrs_have_atomic_xor_restore(
   let mut saw_i64_xor = false
   for instr in instrs {
     match instr {
-      I32AtomicLoad(_) => saw_i32_load = true
-      I64AtomicLoad(_) => saw_i64_load = true
-      AtomicRmw(op, _) =>
+      I32AtomicLoad(_, _) => saw_i32_load = true
+      I64AtomicLoad(_, _) => saw_i64_load = true
+      AtomicRmw(_, op, _) =>
         if op == AtomicRmwOp::i32_xor() {
           saw_i32_xor = true
         } else if op == AtomicRmwOp::i64_xor() {
@@ -6593,9 +6593,9 @@ fn gen_valid_test_instrs_have_atomic_or_restore(
   let mut saw_i64_or = false
   for instr in instrs {
     match instr {
-      I32AtomicLoad(_) => saw_i32_load = true
-      I64AtomicLoad(_) => saw_i64_load = true
-      AtomicRmw(op, _) =>
+      I32AtomicLoad(_, _) => saw_i32_load = true
+      I64AtomicLoad(_, _) => saw_i64_load = true
+      AtomicRmw(_, op, _) =>
         if op == AtomicRmwOp::i32_or() {
           saw_i32_or = true
         } else if op == AtomicRmwOp::i64_or() {
@@ -6631,9 +6631,9 @@ fn gen_valid_test_instrs_have_atomic_and_restore(
   let mut saw_i64_and = false
   for instr in instrs {
     match instr {
-      I32AtomicLoad(_) => saw_i32_load = true
-      I64AtomicLoad(_) => saw_i64_load = true
-      AtomicRmw(op, _) =>
+      I32AtomicLoad(_, _) => saw_i32_load = true
+      I64AtomicLoad(_, _) => saw_i64_load = true
+      AtomicRmw(_, op, _) =>
         if op == AtomicRmwOp::i32_and() {
           saw_i32_and = true
         } else if op == AtomicRmwOp::i64_and() {
@@ -6669,9 +6669,9 @@ fn gen_valid_test_instrs_have_atomic_cmpxchg_restore(
   let mut saw_i64_cmpxchg = false
   for instr in instrs {
     match instr {
-      I32AtomicLoad(_) => saw_i32_load = true
-      I64AtomicLoad(_) => saw_i64_load = true
-      AtomicCmpxchg(op, _) =>
+      I32AtomicLoad(_, _) => saw_i32_load = true
+      I64AtomicLoad(_, _) => saw_i64_load = true
+      AtomicCmpxchg(_, op, _) =>
         if op == AtomicCmpxchgOp::i32() {
           saw_i32_cmpxchg = true
         } else if op == AtomicCmpxchgOp::i64() {

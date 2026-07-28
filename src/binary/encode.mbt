@@ -343,6 +343,9 @@ pub impl Encode for SubType with fn encode(val, buf) {
       if Encode::encode(indexes, buf) is Err(t) {
         return Err(t)
       }
+      if meta.shared {
+        buf.write_byte(0x65)
+      }
       match meta.describes {
         Some(i) => {
           buf.write_byte(0x4C)
@@ -360,13 +363,13 @@ pub impl Encode for SubType with fn encode(val, buf) {
           }
         }
         None => ()
-      }
-      if meta.shared {
-        buf.write_byte(0x65)
       }
       Encode::encode(ct, buf)
     }
     CompTypeSubType(meta, ct) => {
+      if meta.shared {
+        buf.write_byte(0x65)
+      }
       match meta.describes {
         Some(i) => {
           buf.write_byte(0x4C)
@@ -384,9 +387,6 @@ pub impl Encode for SubType with fn encode(val, buf) {
           }
         }
         None => ()
-      }
-      if meta.shared {
-        buf.write_byte(0x65)
       }
       Encode::encode(ct, buf)
     }
@@ -1945,6 +1945,46 @@ pub impl Encode for MemArg with fn encode(val, buf) {
 }
 
 ///|
+fn encode_atomic_memarg(
+  order : AtomicOrder,
+  memarg : MemArg,
+  buf : @buffer.Buffer,
+  is_rmw : Bool,
+) -> Result[Unit, BinaryEncodeError] {
+  let MemArg(U32(align), memory, offset) = memarg
+  if align >= 16U {
+    return Err(BinaryEncodeError::InvalidMemArgEncoding)
+  }
+  let has_order = order == AtomicOrder::acq_rel()
+  let memory_idx = match memory {
+    Some(@lib.MemIdx(raw)) => raw
+    None => 0U
+  }
+  let mut raw_align = align
+  if has_order {
+    raw_align = raw_align | 0x10U
+  }
+  if memory_idx > 0U {
+    raw_align = raw_align | 0x40U
+  }
+  if Encode::encode(@lib.U32(raw_align), buf) is Err(err) {
+    return Err(err)
+  }
+  if memory_idx > 0U &&
+    Encode::encode(@lib.MemIdx::new(memory_idx), buf) is Err(err) {
+    return Err(err)
+  }
+  if has_order {
+    if is_rmw {
+      encode_aggregate_atomic_rmw_order(order, buf)
+    } else if Encode::encode(order, buf) is Err(err) {
+      return Err(err)
+    }
+  }
+  Encode::encode(offset, buf)
+}
+
+///|
 fn simd_inst(
   id : UInt,
   buf : @buffer.Buffer,
@@ -2539,137 +2579,139 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
-    AtomicFence => {
+    AtomicFence(order) => {
       if atomic_inst(3, buf) is Err(t) {
         return Err(t)
       }
-      buf.write_byte(0x00)
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
     }
-    I32AtomicLoad(m) => {
+    I32AtomicLoad(order, m) => {
       if atomic_inst(16, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I64AtomicLoad(m) => {
+    I64AtomicLoad(order, m) => {
       if atomic_inst(17, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I32AtomicLoad8U(m) => {
+    I32AtomicLoad8U(order, m) => {
       if atomic_inst(18, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I32AtomicLoad16U(m) => {
+    I32AtomicLoad16U(order, m) => {
       if atomic_inst(19, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I64AtomicLoad8U(m) => {
+    I64AtomicLoad8U(order, m) => {
       if atomic_inst(20, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I64AtomicLoad16U(m) => {
+    I64AtomicLoad16U(order, m) => {
       if atomic_inst(21, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I64AtomicLoad32U(m) => {
+    I64AtomicLoad32U(order, m) => {
       if atomic_inst(22, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I32AtomicStore(m) => {
+    I32AtomicStore(order, m) => {
       if atomic_inst(23, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I64AtomicStore(m) => {
+    I64AtomicStore(order, m) => {
       if atomic_inst(24, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I32AtomicStore8(m) => {
+    I32AtomicStore8(order, m) => {
       if atomic_inst(25, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I32AtomicStore16(m) => {
+    I32AtomicStore16(order, m) => {
       if atomic_inst(26, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I64AtomicStore8(m) => {
+    I64AtomicStore8(order, m) => {
       if atomic_inst(27, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I64AtomicStore16(m) => {
+    I64AtomicStore16(order, m) => {
       if atomic_inst(28, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    I64AtomicStore32(m) => {
+    I64AtomicStore32(order, m) => {
       if atomic_inst(29, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, false) is Err(t) {
         return Err(t)
       }
     }
-    AtomicRmw(op, m) => {
+    AtomicRmw(order, op, m) => {
       if atomic_inst(atomic_rmw_op_id(op), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, true) is Err(t) {
         return Err(t)
       }
     }
-    AtomicCmpxchg(op, m) => {
+    AtomicCmpxchg(order, op, m) => {
       if atomic_inst(atomic_cmpxchg_op_id(op), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(m, buf) is Err(t) {
+      if encode_atomic_memarg(order, m, buf, true) is Err(t) {
         return Err(t)
       }
     }

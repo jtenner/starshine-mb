@@ -1879,7 +1879,7 @@ fn hso_desc_two_i32_global_test_module(
           @lib.GlobalType::new(
             @lib.ValType::ref_type(
               @lib.RefType::new(
-                true,
+                false,
                 @lib.HeapType::new(@lib.TypeIdx::new(1U)),
                 exact=true,
               ),
@@ -2673,6 +2673,46 @@ test "heap-store-optimization keeps Binaryen pattern-breaker local copy chains" 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("struct.set"), msg=pretty)
   assert_true(pretty.contains("I32(20)"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds values that read another reference local" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let optimized = match
+    hso_test_run_with_locals(
+      [
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(local1),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(20)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+      ],
+      1,
+      [ref_type, ref_type],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected other-local-read heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(20)"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -6374,7 +6414,7 @@ test "heap-store-optimization keeps struct.set when descriptor loop branches to 
 }
 
 ///|
-test "heap-store-optimization moves call value before descriptor local.get" {
+test "heap-store-optimization keeps call value after nullable descriptor local.get" {
   let pair = @lib.TypeIdx::new(0U)
   let ref_local = @lib.LocalIdx::new(0U)
   let desc_local = @lib.LocalIdx::new(1U)
@@ -6402,7 +6442,7 @@ test "heap-store-optimization moves call value before descriptor local.get" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("struct.new_desc"), msg=pretty)
   assert_true(pretty.contains("call"), msg=pretty)
-  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -6979,6 +7019,53 @@ test "heap-store-optimization keeps struct.set when descriptor block br_if condi
   assert_true(pretty.contains("i32.load"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
   assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps memory store after nullable descriptor allocation trap" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::struct_new_desc(pair),
+    @lib.Instruction::local_set(local0),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 0UL)),
+        @lib.Instruction::i32_const(@lib.I32(1337)),
+      ]),
+    ),
+    @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+  ]
+  let fixture = hso_desc_test_module(body).with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  match @validate.validate_module(fixture) {
+    Ok(_) => ()
+    Err(err) => abort("unexpected invalid nullable descriptor fixture: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(fixture, HotPipelineOptions::new(), [
+      "heap-store-optimization",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nullable descriptor/memory-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
 }
 
 ///|
@@ -11173,7 +11260,9 @@ test "heap-store-optimization keeps struct.set when the ref child is wrapped in 
 }
 
 ///|
-test "heap-store-optimization keeps struct.set for decoded raw wasm memory-size ref prefixes" {
+test "heap-store-optimization folds decoded memory-size ref prefixes as a measured size win" {
+  // Binaryen v131 keeps the set at 61 stripped bytes; this safe cross-memory
+  // readonly move produces 60 stripped bytes.
   let optimized = match
     hso_test_run_module(
       hso_decode_fixture_module(
@@ -11194,11 +11283,12 @@ test "heap-store-optimization keeps struct.set for decoded raw wasm memory-size 
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "heap-store-optimization keeps struct.set for decoded raw wasm pure ref-prefix ref results" {
+test "heap-store-optimization folds decoded pure ref prefixes as a measured size win" {
+  // Binaryen v131 keeps the set at 46 stripped bytes; removing it produces 45.
   let optimized = match
     hso_test_run_module(
       hso_decode_fixture_module(
@@ -11218,7 +11308,7 @@ test "heap-store-optimization keeps struct.set for decoded raw wasm pure ref-pre
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -21905,4 +21995,174 @@ test "heap-store-optimization folds pure branch-loop old fields before unrelated
     ],
     "table.grow",
   )
+}
+
+///|
+fn hso_shared_atomic_order_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let shared_struct = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(2)),
+      metadata=@lib.TypeMetadata::new(shared=true),
+    ),
+  )
+  let void_func = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let shared_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([shared_struct, void_func]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([shared_ref, shared_ref]),
+          @lib.Expr::new(body),
+        ),
+      ]),
+    )
+  hso_test_run_module(mod_)
+}
+
+///|
+fn hso_shared_struct_seed_other() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ]
+}
+
+///|
+test "heap-store-optimization keeps shared GC reads after acquire constructor operands" {
+  let body = hso_shared_struct_seed_other()
+  body.append([
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_atomic_load(
+          @lib.MemArg::new(2U, None, 0UL),
+          order=@lib.AtomicOrder::acq_rel(),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+      ]),
+    ),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), 1U),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(0U), 0U),
+  ])
+  let optimized = match hso_shared_atomic_order_test_run(body) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected acquire-order HSO success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization moves shared GC reads before release constructor operands" {
+  let body = hso_shared_struct_seed_other()
+  body.append([
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::i32_atomic_store(
+          @lib.MemArg::new(2U, None, 0UL),
+          order=@lib.AtomicOrder::acq_rel(),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+      ]),
+    ),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), 1U),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(0U), 0U),
+  ])
+  let optimized = match hso_shared_atomic_order_test_run(body) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected release-order HSO success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("i32.atomic.store"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization respects acquire direction while swapping roots" {
+  let memarg = @lib.MemArg::new(2U, None, 0UL)
+  let allowed = hso_shared_struct_seed_other()
+  allowed.append([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), 1U),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_atomic_load(memarg, order=@lib.AtomicOrder::acq_rel()),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(0U), 0U),
+  ])
+  let allowed_optimized = match hso_shared_atomic_order_test_run(allowed) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected acquire swap-positive HSO success, got \{err}")
+  }
+  let allowed_pretty = allowed_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_false(allowed_pretty.contains("struct.set"), msg=allowed_pretty)
+
+  let blocked = hso_shared_struct_seed_other()
+  blocked.append([
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_atomic_load(
+          memarg,
+          order=@lib.AtomicOrder::acq_rel(),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), 1U),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(0U), 0U),
+  ])
+  let blocked_optimized = match hso_shared_atomic_order_test_run(blocked) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected acquire swap-negative HSO success, got \{err}")
+  }
+  let blocked_pretty = blocked_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(blocked_pretty.contains("struct.set"), msg=blocked_pretty)
 }

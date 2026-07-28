@@ -874,13 +874,13 @@ fn simplify_locals_effects_mask_for_atomic_exact(
       @ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_TRAP
     Some(@lib.Instruction::MemoryAtomicWait32(_))
     | Some(@lib.Instruction::MemoryAtomicWait64(_))
-    | Some(@lib.Instruction::I32AtomicLoad(_))
-    | Some(@lib.Instruction::I64AtomicLoad(_))
-    | Some(@lib.Instruction::I32AtomicLoad8U(_))
-    | Some(@lib.Instruction::I32AtomicLoad16U(_))
-    | Some(@lib.Instruction::I64AtomicLoad8U(_))
-    | Some(@lib.Instruction::I64AtomicLoad16U(_))
-    | Some(@lib.Instruction::I64AtomicLoad32U(_))
+    | Some(@lib.Instruction::I32AtomicLoad(_, _))
+    | Some(@lib.Instruction::I64AtomicLoad(_, _))
+    | Some(@lib.Instruction::I32AtomicLoad8U(_, _))
+    | Some(@lib.Instruction::I32AtomicLoad16U(_, _))
+    | Some(@lib.Instruction::I64AtomicLoad8U(_, _))
+    | Some(@lib.Instruction::I64AtomicLoad16U(_, _))
+    | Some(@lib.Instruction::I64AtomicLoad32U(_, _))
     | Some(@lib.Instruction::StructAtomicGet(_, _, _))
     | Some(@lib.Instruction::StructAtomicGetS(_, _, _))
     | Some(@lib.Instruction::StructAtomicGetU(_, _, _)) =>
@@ -889,16 +889,16 @@ fn simplify_locals_effects_mask_for_atomic_exact(
       @ir.EFFECT_MASK_MEMORY_READ |
       @ir.EFFECT_MASK_MEMORY_WRITE |
       @ir.EFFECT_MASK_TRAP
-    Some(@lib.Instruction::I32AtomicStore(_))
-    | Some(@lib.Instruction::I64AtomicStore(_))
-    | Some(@lib.Instruction::I32AtomicStore8(_))
-    | Some(@lib.Instruction::I32AtomicStore16(_))
-    | Some(@lib.Instruction::I64AtomicStore8(_))
-    | Some(@lib.Instruction::I64AtomicStore16(_))
-    | Some(@lib.Instruction::I64AtomicStore32(_)) =>
+    Some(@lib.Instruction::I32AtomicStore(_, _))
+    | Some(@lib.Instruction::I64AtomicStore(_, _))
+    | Some(@lib.Instruction::I32AtomicStore8(_, _))
+    | Some(@lib.Instruction::I32AtomicStore16(_, _))
+    | Some(@lib.Instruction::I64AtomicStore8(_, _))
+    | Some(@lib.Instruction::I64AtomicStore16(_, _))
+    | Some(@lib.Instruction::I64AtomicStore32(_, _)) =>
       @ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_TRAP
-    Some(@lib.Instruction::AtomicRmw(_, _))
-    | Some(@lib.Instruction::AtomicCmpxchg(_, _)) =>
+    Some(@lib.Instruction::AtomicRmw(_, _, _))
+    | Some(@lib.Instruction::AtomicCmpxchg(_, _, _)) =>
       @ir.EFFECT_MASK_MEMORY_READ |
       @ir.EFFECT_MASK_MEMORY_WRITE |
       @ir.EFFECT_MASK_TRAP
@@ -2343,6 +2343,20 @@ fn simplify_locals_value_is_const(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn simplify_locals_is_discardable_default_gc_allocation(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructNewDefault(_)) => true
+    _ => false
+  }
+}
+
+///|
 fn simplify_locals_value_can_clone_node(
   func : @ir.HotFunc,
   node_id : Int,
@@ -2590,6 +2604,30 @@ fn simplify_locals_try_inline_following_local_get(
     None => return false
   }
   let next_id = @ir.hot_region_get(func, parent_region, next_idx)
+  if next_id >= 0 &&
+    @ir.hot_node_is_live(func, next_id) &&
+    replacement_id >= 0 &&
+    @ir.hot_node_is_live(func, replacement_id) &&
+    @ir.hot_node_result_arity(func, replacement_id) == 1 {
+    let next = @ir.hot_node_get(func, next_id)
+    match next.op {
+      @ir.HotOp::LocalGet if next.imm0 == local_id => {
+        if !allow_nesting &&
+          simplify_locals_equivalent_local_get_value(func, replacement_id) ==
+          None {
+          return false
+        }
+        let removed = @ir.hot_region_splice(func, parent_region, next_idx, 1, [
+          replacement_id,
+        ])
+        for removed_id in removed {
+          detached.push(removed_id)
+        }
+        return true
+      }
+      _ => ()
+    }
+  }
   if simplify_locals_value_is_child_inline_safe(func, replacement_id) {
     return simplify_locals_try_inline_local_get_child(
       func, next_id, local_id, replacement_id, allow_nesting, detached,
@@ -3479,6 +3517,13 @@ fn simplify_locals_scan_node(
             detached.push(child_id)
             changed = true
           }
+          @ir.HotOp::Heap if simplify_locals_is_discardable_default_gc_allocation(
+              func, child_id,
+            ) => {
+            @ir.hot_replace_node(func, node_id, simplify_locals_make_nop(func))
+            detached.push(child_id)
+            changed = true
+          }
           @ir.HotOp::LocalTee => {
             let value_id = @ir.hot_child_get(func, child_id, 0)
             let preserves_control_owner = if value_id >= 0 &&
@@ -3764,8 +3809,7 @@ fn simplify_locals_try_apply_block_return_candidate(
       label_id,
       candidate.local_id,
       exits,
-    ) ||
-    exits.is_empty() {
+    ) {
     return false
   }
   let last_live_idx = simplify_locals_region_last_live_non_nop_root_idx(

@@ -23026,7 +23026,7 @@ test "DAEO broad-high structural primitives preserve stack/control shape" {
 }
 
 ///|
-test "simplify-locals lowered cleanup counts reads after block-local branch exits" {
+test "simplify-locals lowered cleanup removes dropped reads after block-local branch exits" {
   let local_idx = @lib.LocalIdx::new(0U)
   let func = @lib.Func::new(
     @lib.Locals::from_types([@lib.ValType::i32()]),
@@ -23061,12 +23061,12 @@ test "simplify-locals lowered cleanup counts reads after block-local branch exit
   let (cleaned, changed) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
     func,
   )
-  assert_false(changed)
-  @debug.assert_eq(cleaned, func)
+  assert_true(changed)
+  assert_false(cleaned == func)
 }
 
 ///|
-test "simplify-locals lowered cleanup preserves non-defaultable initialization after block-local branch exits" {
+test "simplify-locals lowered cleanup preserves non-defaultable validity after removing dropped reads" {
   let mod_ = pass_test_module_from_wat(
     (
       #|(module
@@ -23104,8 +23104,8 @@ test "simplify-locals lowered cleanup preserves non-defaultable initialization a
   let (cleaned, changed) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
     funcs[0],
   )
-  assert_false(changed)
-  @debug.assert_eq(cleaned, funcs[0])
+  assert_true(changed)
+  assert_false(cleaned == funcs[0])
   match
     @validate.validate_module(mod_.with_code_sec(@lib.CodeSec::new([cleaned]))) {
     Ok(_) => ()

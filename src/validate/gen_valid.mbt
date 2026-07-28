@@ -798,6 +798,15 @@ pub enum GenValidProfile {
   DeadCodeEliminationStructuredPrefixProfile
   DeadCodeEliminationEffectfulStructuredPrefixProfile
   DeadCodeEliminationAllProfile
+  HsoTeeProfile
+  HsoChainProfile
+  HsoDefaultProfile
+  HsoSideEffectsProfile
+  HsoDescriptorProfile
+  HsoControlFlowProfile
+  HsoSwapProfile
+  HsoSharedOrderingProfile
+  HsoBoundariesProfile
   HeapStoreOptimizationProfile
   MemoryPackingActiveRangesProfile
   MemoryPackingActiveTrapsProfile
@@ -1116,6 +1125,15 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     DeadCodeEliminationEffectfulStructuredPrefixProfile =>
       "dead-code-elimination-effectful-structured-prefix"
     DeadCodeEliminationAllProfile => "dead-code-elimination-all"
+    HsoTeeProfile => "heap-store-optimization-tee"
+    HsoChainProfile => "heap-store-optimization-chains"
+    HsoDefaultProfile => "heap-store-optimization-defaults"
+    HsoSideEffectsProfile => "heap-store-optimization-side-effects"
+    HsoDescriptorProfile => "heap-store-optimization-descriptors"
+    HsoControlFlowProfile => "heap-store-optimization-control-flow"
+    HsoSwapProfile => "heap-store-optimization-swaps"
+    HsoSharedOrderingProfile => "heap-store-optimization-shared-ordering"
+    HsoBoundariesProfile => "heap-store-optimization-boundaries"
     HeapStoreOptimizationProfile => "heap-store-optimization"
     MemoryPackingActiveRangesProfile => "memory-packing-active-ranges"
     MemoryPackingActiveTrapsProfile => "memory-packing-active-traps"
@@ -1242,6 +1260,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | CodeFoldingAllProfile
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
+    | HeapStoreOptimizationProfile
     | MemoryPackingAllProfile
     | Heap2LocalAllProfile
     | LocalSubtypingAllProfile
@@ -1447,6 +1466,18 @@ pub fn gen_valid_profile_members(
           DeadCodeEliminationEffectfulStructuredPrefixProfile,
           1,
         ),
+      ]
+    HeapStoreOptimizationProfile =>
+      [
+        GenValidProfileMember::new(HsoTeeProfile, 1),
+        GenValidProfileMember::new(HsoChainProfile, 1),
+        GenValidProfileMember::new(HsoDefaultProfile, 1),
+        GenValidProfileMember::new(HsoSideEffectsProfile, 1),
+        GenValidProfileMember::new(HsoDescriptorProfile, 1),
+        GenValidProfileMember::new(HsoControlFlowProfile, 1),
+        GenValidProfileMember::new(HsoSwapProfile, 1),
+        GenValidProfileMember::new(HsoSharedOrderingProfile, 1),
+        GenValidProfileMember::new(HsoBoundariesProfile, 1),
       ]
     MemoryPackingAllProfile =>
       [
@@ -1867,6 +1898,15 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     DeadCodeEliminationStructuredPrefixProfile,
     DeadCodeEliminationEffectfulStructuredPrefixProfile,
     DeadCodeEliminationAllProfile,
+    HsoTeeProfile,
+    HsoChainProfile,
+    HsoDefaultProfile,
+    HsoSideEffectsProfile,
+    HsoDescriptorProfile,
+    HsoControlFlowProfile,
+    HsoSwapProfile,
+    HsoSharedOrderingProfile,
+    HsoBoundariesProfile,
     HeapStoreOptimizationProfile,
     MemoryPackingActiveRangesProfile,
     MemoryPackingActiveTrapsProfile,
@@ -2065,7 +2105,10 @@ pub fn gen_valid_profile_by_name(
     "dce" => Ok(DeadCodeEliminationAllProfile)
     "dead-code-elimination" => Ok(DeadCodeEliminationAllProfile)
     "dead-code-elimination-closeout" => Ok(DeadCodeEliminationAllProfile)
-    "hso" => Ok(HeapStoreOptimizationProfile)
+    "hso"
+    | "heap-store-optimization-closeout"
+    | "heap-store-optimization-all"
+    | "heap-store-optimization-all-profiles" => Ok(HeapStoreOptimizationProfile)
     "memory-packing"
     | "memory-packing-closeout"
     | "memory-packing-all-profiles" => Ok(MemoryPackingAllProfile)
@@ -4604,8 +4647,18 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_dead_code_elimination_profile_config(
         DeadCodeEliminationNonControlProfile,
       )
+    HsoTeeProfile
+    | HsoChainProfile
+    | HsoDefaultProfile
+    | HsoSideEffectsProfile
+    | HsoDescriptorProfile
+    | HsoControlFlowProfile
+    | HsoSwapProfile
+    | HsoSharedOrderingProfile
+    | HsoBoundariesProfile =>
+      gen_valid_heap_store_optimization_profile_config(profile)
     HeapStoreOptimizationProfile =>
-      gen_valid_heap_store_optimization_profile_config()
+      gen_valid_heap_store_optimization_profile_config(HsoTeeProfile)
     MemoryPackingActiveRangesProfile
     | MemoryPackingActiveTrapsProfile
     | MemoryPackingDefinedOverlapProfile
@@ -6120,7 +6173,9 @@ pub fn gen_valid_memory_packing_profile_case_label(
 }
 
 ///|
-fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
+fn gen_valid_heap_store_optimization_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
   let base = GenValidConfig::coverage_forced_default()
   GenValidConfig::{
     ..base,
@@ -6136,7 +6191,18 @@ fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
     max_params: 0,
     max_results: 0,
     max_locals: 0,
-    max_body_statements: 8,
+    max_body_statements: match profile {
+      HsoTeeProfile => 90
+      HsoChainProfile => 91
+      HsoDefaultProfile => 92
+      HsoSideEffectsProfile => 93
+      HsoDescriptorProfile => 94
+      HsoControlFlowProfile => 95
+      HsoSwapProfile => 96
+      HsoSharedOrderingProfile => 97
+      HsoBoundariesProfile => 98
+      _ => 90
+    },
     max_body_depth: 3,
     features: GenValidFeatureToggles::{
       ..base.features,
@@ -6147,14 +6213,32 @@ fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
       allow_tail_calls: false,
       allow_v128: false,
       allow_relaxed_simd: false,
-      allow_atomics: false,
-      allow_shared_memories: false,
+      allow_atomics: profile == HsoSharedOrderingProfile,
+      allow_shared_memories: profile == HsoSharedOrderingProfile,
       allow_memory64: false,
       allow_typed_body_generator: false,
       allow_ssa_nomerge_body_generator: false,
       allow_heap_store_optimization_body_generator: true,
       allow_name_custom_sections: false,
     },
+  }
+}
+
+///|
+pub fn gen_valid_heap_store_optimization_profile_case_label(
+  profile : GenValidProfile,
+) -> String? {
+  match profile {
+    HsoTeeProfile => Some("hso:tee")
+    HsoChainProfile => Some("hso:chains")
+    HsoDefaultProfile => Some("hso:defaults")
+    HsoSideEffectsProfile => Some("hso:side-effects")
+    HsoDescriptorProfile => Some("hso:descriptors")
+    HsoControlFlowProfile => Some("hso:control-flow")
+    HsoSwapProfile => Some("hso:swaps")
+    HsoSharedOrderingProfile => Some("hso:shared-ordering")
+    HsoBoundariesProfile => Some("hso:boundaries")
+    _ => None
   }
 }
 
@@ -11541,18 +11625,29 @@ fn gen_valid_gc_type_defs(
 
   if want_struct && defs.length() < remaining_type_budget {
     let struct_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    let hso_shared = ctx.config.features.allow_heap_store_optimization_body_generator &&
+      ctx.config.max_body_statements == 97
+    let struct_comp_type = if hso_shared {
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+      ])
+    } else {
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+        FieldType::new(
+          StorageType::val_type(
+            ValType::ref_type(RefType::abs(AbsHeapType::eq())),
+          ),
+          Const,
+        ),
+      ])
+    }
     defs.push(
       RecType::new(
         SubType::comp_type(
-          CompType::struct_([
-            FieldType::new(StorageType::val_type(ValType::i32()), Var),
-            FieldType::new(
-              StorageType::val_type(
-                ValType::ref_type(RefType::abs(AbsHeapType::eq())),
-              ),
-              Const,
-            ),
-          ]),
+          struct_comp_type,
+          metadata=TypeMetadata::new(shared=hso_shared),
         ),
       ),
     )
@@ -17854,8 +17949,189 @@ fn gen_valid_append_heap2local_body_slice(
 }
 
 ///|
+fn gen_valid_append_hso_struct_new_fields(
+  out : Array[Instruction],
+  shared : Bool,
+  first : Int,
+  second : Int,
+) -> Unit {
+  out.push(Instruction::i32_const(I32(first)))
+  if shared {
+    out.push(Instruction::i32_const(I32(second)))
+  } else {
+    out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+  }
+}
+
+///|
+fn gen_valid_append_hso_leaf_body_slice(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  struct_idx : TypeIdx,
+  local_idx : LocalIdx,
+) -> Bool {
+  let family = ctx.config.max_body_statements
+  let shared = family == 97
+  match family {
+    90 => {
+      // Immediate local.tee(struct.new) folding.
+      gen_valid_append_hso_struct_new_fields(out, false, 10, 0)
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_tee(local_idx))
+      out.push(Instruction::i32_const(I32(11)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
+      out.push(Instruction::drop())
+      true
+    }
+    91 => {
+      // Block-local chains and repeated same-field writes.
+      gen_valid_append_hso_struct_new_fields(out, false, 20, 0)
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(21)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(22)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      true
+    }
+    92 => {
+      // Default-constructor materialization.
+      out.push(Instruction::struct_new_default(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(31)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      true
+    }
+    93 => {
+      // Preserve an overwritten trapping old-field expression while folding.
+      out.push(
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(36)),
+            Instruction::i32_const(I32(3)),
+            Instruction::i32_div_s(),
+          ]),
+        ),
+      )
+      out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(41)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      true
+    }
+    94 => {
+      // Descriptor-bearing explicit/default constructor siblings.
+      match
+        (
+          env.gc_type_plan.descriptor_struct_idx,
+          env.gc_type_plan.descriptor_type_idx,
+        ) {
+        (Some(described_idx), Some(descriptor_idx)) => {
+          let described_ref = ValType::ref_type(
+            RefType::new(true, HeapType::new(described_idx), exact=true),
+          )
+          match gen_matching_local_idx(env.local_types, described_ref) {
+            Some(described_local) => {
+              out.push(Instruction::struct_new_default(descriptor_idx))
+              out.push(Instruction::struct_new_default_desc(described_idx))
+              out.push(Instruction::local_set(described_local))
+              out.push(Instruction::local_get(described_local))
+              out.push(Instruction::i32_const(I32(51)))
+              out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+            }
+            None => ()
+          }
+        }
+        _ => ()
+      }
+      true
+    }
+    95 => {
+      // Result-typed control wrapper as the moved store value.
+      gen_valid_append_hso_struct_new_fields(out, false, 60, 0)
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(Instruction::local_get(local_idx))
+      out.push(
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([Instruction::i32_const(I32(61))]),
+        ),
+      )
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      true
+    }
+    96 => {
+      // A readonly root between the constructor local.set and the store.
+      gen_valid_append_hso_struct_new_fields(out, false, 70, 0)
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(Instruction::i32_const(I32(71)))
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(72)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      true
+    }
+    97 => {
+      // Release-store directionality against a shared-GC read.
+      if !env.mems.is_empty() {
+        out.push(
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(0)),
+              Instruction::i32_const(I32(80)),
+              Instruction::i32_atomic_store(MemArg::new(2U, None, 0UL)),
+              Instruction::i32_const(I32(0)),
+            ]),
+          ),
+        )
+        out.push(Instruction::i32_const(I32(81)))
+        out.push(Instruction::struct_new(struct_idx))
+        out.push(Instruction::local_set(local_idx))
+        out.push(Instruction::local_get(local_idx))
+        out.push(Instruction::local_get(local_idx))
+        out.push(Instruction::struct_get(struct_idx, U32::new(1U)))
+        out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      }
+      true
+    }
+    98 => {
+      // A write barrier that intentionally terminates the local constructor chain.
+      gen_valid_append_hso_struct_new_fields(out, false, 90, 0)
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      if !env.mems.is_empty() {
+        out.push(Instruction::i32_const(I32(1)))
+        out.push(Instruction::memory_grow(MemIdx::new(0U)))
+        out.push(Instruction::drop())
+      }
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(91)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      true
+    }
+    _ => {
+      ignore(shared)
+      false
+    }
+  }
+}
+
+///|
 fn gen_valid_append_heap_store_optimization_body_slice(
   out : Array[Instruction],
+  ctx : GenValidContext,
   env : GenValidBodyEnv,
 ) -> Unit {
   if env.gc_type_plan.struct_type_idxs.is_empty() {
@@ -17868,6 +18144,9 @@ fn gen_valid_append_heap_store_optimization_body_slice(
   let local_idx = match gen_matching_local_idx(env.local_types, struct_ref) {
     Some(idx) => idx
     None => return
+  }
+  if gen_valid_append_hso_leaf_body_slice(out, ctx, env, struct_idx, local_idx) {
+    return
   }
 
   // Subsequent local-get store: the core Binaryen HSO block-local fold.
@@ -19233,7 +19512,7 @@ fn gen_valid_build_func(
   }
   gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
   if ctx.config.features.allow_heap_store_optimization_body_generator {
-    gen_valid_append_heap_store_optimization_body_slice(body_instrs, env)
+    gen_valid_append_heap_store_optimization_body_slice(body_instrs, ctx, env)
   }
   if ctx.config.features.allow_heap2local_body_generator {
     gen_valid_append_heap2local_body_slice(body_instrs, ctx, env)
@@ -19456,7 +19735,11 @@ fn gen_valid_mem_type(ctx : GenValidContext, total_mem_idx : Int) -> MemType {
   let variants = ctx.config.features.allow_memory_limit_variants
   let shared_enabled = ctx.config.features.allow_shared_memories
   let memory64_enabled = ctx.config.features.allow_memory64
-  if total_mem_idx == 0 {
+  if total_mem_idx == 0 &&
+    ctx.config.features.allow_heap_store_optimization_body_generator &&
+    ctx.config.max_body_statements == 97 {
+    gen_valid_memory_limits_i32(1U, Some(1U), true)
+  } else if total_mem_idx == 0 {
     if variants && ctx.config.mode == CoverageForced {
       gen_valid_memory_limits_i32(0U, None, false)
     } else {
@@ -33595,23 +33878,23 @@ fn gen_valid_instr_is_atomic(instr : Instruction) -> Bool {
     MemoryAtomicNotify(_)
     | MemoryAtomicWait32(_)
     | MemoryAtomicWait64(_)
-    | AtomicFence
-    | I32AtomicLoad(_)
-    | I64AtomicLoad(_)
-    | I32AtomicLoad8U(_)
-    | I32AtomicLoad16U(_)
-    | I64AtomicLoad8U(_)
-    | I64AtomicLoad16U(_)
-    | I64AtomicLoad32U(_)
-    | I32AtomicStore(_)
-    | I64AtomicStore(_)
-    | I32AtomicStore8(_)
-    | I32AtomicStore16(_)
-    | I64AtomicStore8(_)
-    | I64AtomicStore16(_)
-    | I64AtomicStore32(_)
-    | AtomicRmw(_, _)
-    | AtomicCmpxchg(_, _) => true
+    | AtomicFence(_)
+    | I32AtomicLoad(_, _)
+    | I64AtomicLoad(_, _)
+    | I32AtomicLoad8U(_, _)
+    | I32AtomicLoad16U(_, _)
+    | I64AtomicLoad8U(_, _)
+    | I64AtomicLoad16U(_, _)
+    | I64AtomicLoad32U(_, _)
+    | I32AtomicStore(_, _)
+    | I64AtomicStore(_, _)
+    | I32AtomicStore8(_, _)
+    | I32AtomicStore16(_, _)
+    | I64AtomicStore8(_, _)
+    | I64AtomicStore16(_, _)
+    | I64AtomicStore32(_, _)
+    | AtomicRmw(_, _, _)
+    | AtomicCmpxchg(_, _, _) => true
     _ => false
   }
 }

@@ -3444,7 +3444,7 @@ test "run_cmd_with_adapter keeps wrapped-ref if conditions outside HSO scratch b
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for HSO readonly ref-prefix memory.size wasm inputs" {
+test "run_cmd_with_adapter folds HSO readonly ref-prefix memory.size as a size win" {
   let wasm = fixture_hso_memory_size_ref_prefix_wasm()
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -3474,12 +3474,13 @@ test "run_cmd_with_adapter keeps struct.set for HSO readonly ref-prefix memory.s
   @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Binaryen v131 keeps 61 stripped bytes; Starshine emits 60.
   assert_true(pretty.contains("memory.size"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for HSO pure ref-prefix ref-result wasm inputs" {
+test "run_cmd_with_adapter folds HSO pure ref-prefix ref-result as a size win" {
   let wasm = fixture_hso_pure_ref_prefix_ref_result_wasm()
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -3511,8 +3512,9 @@ test "run_cmd_with_adapter keeps struct.set for HSO pure ref-prefix ref-result w
   @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Binaryen v131 keeps 46 stripped bytes; Starshine emits 45.
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
@@ -3590,7 +3592,7 @@ test "run_cmd_with_adapter folds HSO readonly value-prefix memory.size wasm inpu
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix table.size wasm inputs" {
+test "run_cmd_with_adapter folds HSO table.size value prefixes as a size win" {
   let wasm = fixture_hso_table_size_value_prefix_wasm()
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -3620,12 +3622,13 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix table.s
   @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Binaryen v131 keeps 63 stripped bytes; Starshine emits 62.
   assert_true(pretty.contains("table.size"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix local.get wasm inputs" {
+test "run_cmd_with_adapter folds HSO local.get value prefixes as a size win" {
   let wasm = fixture_hso_local_value_prefix_wasm()
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -3655,12 +3658,13 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix local.g
   @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Binaryen v131 keeps 66 stripped bytes; Starshine emits 65.
   assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix immutable global wasm inputs" {
+test "run_cmd_with_adapter folds HSO immutable-global value prefixes as a size win" {
   let wasm = fixture_hso_immutable_global_value_prefix_wasm()
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -3693,12 +3697,13 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix immutab
   @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Binaryen v131 keeps 64 stripped bytes; Starshine emits 63.
   assert_true(pretty.contains("global.get"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
-test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix mutable global wasm inputs" {
+test "run_cmd_with_adapter folds HSO mutable-global value prefixes as a size win" {
   let wasm = fixture_hso_mutable_global_value_prefix_wasm()
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -3731,8 +3736,9 @@ test "run_cmd_with_adapter keeps struct.set for HSO decoded value-prefix mutable
   @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Binaryen v131 keeps 64 stripped bytes; Starshine emits 63.
   assert_true(pretty.contains("global.get"), msg=pretty)
-  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|

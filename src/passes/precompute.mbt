@@ -7785,8 +7785,8 @@ fn precompute_raw_instr_is_preserved_dropped_effect(
     | @lib.MemoryAtomicNotify(_)
     | @lib.MemoryAtomicWait32(_)
     | @lib.MemoryAtomicWait64(_)
-    | @lib.AtomicRmw(_, _)
-    | @lib.AtomicCmpxchg(_, _)
+    | @lib.AtomicRmw(_, _, _)
+    | @lib.AtomicCmpxchg(_, _, _)
     | @lib.I32DivS
     | @lib.I32DivU
     | @lib.I32RemS
@@ -7827,13 +7827,13 @@ fn precompute_raw_instr_is_preserved_dropped_effect(
     | @lib.I64Load16U(_)
     | @lib.I64Load32S(_)
     | @lib.I64Load32U(_)
-    | @lib.I32AtomicLoad(_)
-    | @lib.I64AtomicLoad(_)
-    | @lib.I32AtomicLoad8U(_)
-    | @lib.I32AtomicLoad16U(_)
-    | @lib.I64AtomicLoad8U(_)
-    | @lib.I64AtomicLoad16U(_)
-    | @lib.I64AtomicLoad32U(_)
+    | @lib.I32AtomicLoad(_, _)
+    | @lib.I64AtomicLoad(_, _)
+    | @lib.I32AtomicLoad8U(_, _)
+    | @lib.I32AtomicLoad16U(_, _)
+    | @lib.I64AtomicLoad8U(_, _)
+    | @lib.I64AtomicLoad16U(_, _)
+    | @lib.I64AtomicLoad32U(_, _)
     | @lib.V128Load(_)
     | @lib.V128Load8x8S(_)
     | @lib.V128Load8x8U(_)
@@ -8281,7 +8281,7 @@ fn precompute_raw_instrs_have_stack_switching(
 ///|
 fn precompute_raw_instr_has_atomic_fence(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.AtomicFence => true
+    @lib.AtomicFence(_) => true
     @lib.Block(_, @lib.Expr(body))
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>

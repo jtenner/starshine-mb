@@ -20,6 +20,7 @@ pub struct HotLowerOptions {
   preserve_typed_loop_const_prefix_spills : Bool
   preserve_flat_ir_spills : Bool
   flatten_unused_result_blocks : Bool
+  preserve_struct_set_value_blocks : Bool
 }
 
 ///|
@@ -31,6 +32,7 @@ pub fn HotLowerOptions::new(
   preserve_typed_loop_const_prefix_spills? : Bool = false,
   preserve_flat_ir_spills? : Bool = false,
   flatten_unused_result_blocks? : Bool = false,
+  preserve_struct_set_value_blocks? : Bool = false,
 ) -> HotLowerOptions {
   {
     preserve_if_arm_single_nops,
@@ -40,6 +42,7 @@ pub fn HotLowerOptions::new(
     preserve_typed_loop_const_prefix_spills,
     preserve_flat_ir_spills,
     flatten_unused_result_blocks,
+    preserve_struct_set_value_blocks,
   }
 }
 
@@ -4269,6 +4272,7 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
   func : HotFunc,
   body : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let rewritten : Array[Instruction] = []
   let mut idx = 0
@@ -4343,7 +4347,7 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
         _ => ()
       }
     }
-    if idx + 2 < body.length() {
+    if !options.preserve_struct_set_value_blocks && idx + 2 < body.length() {
       match body[idx] {
         LocalGet(local_idx) =>
           match body[idx + 1] {
@@ -4419,26 +4423,33 @@ fn hot_lower_impl_stackify_nested_instr(
   func : HotFunc,
   instr : Instruction,
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Instruction {
   match instr {
     Block(bt, Expr(body)) =>
       Instruction::block(
         bt,
-        Expr::new(hot_lower_impl_stackify_nested_body(func, body, extra_locals)),
+        Expr::new(
+          hot_lower_impl_stackify_nested_body(func, body, extra_locals, options),
+        ),
       )
     Loop(bt, Expr(body)) =>
       Instruction::loop_(
         bt,
-        Expr::new(hot_lower_impl_stackify_nested_body(func, body, extra_locals)),
+        Expr::new(
+          hot_lower_impl_stackify_nested_body(func, body, extra_locals, options),
+        ),
       )
     If(bt, then_, else_) =>
       Instruction::if_(
         bt,
-        hot_lower_impl_stackify_nested_body(func, then_, extra_locals),
+        hot_lower_impl_stackify_nested_body(func, then_, extra_locals, options),
         match else_ {
           Some(else_body) =>
             Some(
-              hot_lower_impl_stackify_nested_body(func, else_body, extra_locals),
+              hot_lower_impl_stackify_nested_body(
+                func, else_body, extra_locals, options,
+              ),
             )
           None => None
         },
@@ -4447,7 +4458,9 @@ fn hot_lower_impl_stackify_nested_instr(
       Instruction::try_table(
         bt,
         catches,
-        Expr::new(hot_lower_impl_stackify_nested_body(func, body, extra_locals)),
+        Expr::new(
+          hot_lower_impl_stackify_nested_body(func, body, extra_locals, options),
+        ),
       )
     _ => instr
   }
@@ -4458,15 +4471,16 @@ fn hot_lower_impl_stackify_nested_body(
   func : HotFunc,
   body : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let rewritten_children : Array[Instruction] = []
   for instr in body {
     rewritten_children.push(
-      hot_lower_impl_stackify_nested_instr(func, instr, extra_locals),
+      hot_lower_impl_stackify_nested_instr(func, instr, extra_locals, options),
     )
   }
   hot_lower_impl_stackify_wrapped_struct_set_prefixes(
-    func, rewritten_children, extra_locals,
+    func, rewritten_children, extra_locals, options,
   )
 }
 
@@ -4689,7 +4703,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
   let stackified = if options.preserve_flat_ir_spills {
     canonical
   } else {
-    hot_lower_impl_stackify_nested_body(func, canonical, extra_locals)
+    hot_lower_impl_stackify_nested_body(func, canonical, extra_locals, options)
   }
   let stackified = if options.preserve_flat_ir_spills {
     stackified

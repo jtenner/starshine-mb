@@ -37,6 +37,360 @@ priv struct HsoTypeCache {
 }
 
 ///|
+priv struct HsoOrderEffects {
+  mut shared_memory_read : Bool
+  mut shared_memory_write : Bool
+  mut shared_struct_read : Bool
+  mut shared_struct_write : Bool
+  mut shared_array_read : Bool
+  mut shared_array_write : Bool
+  mut acquire_read : Bool
+  mut release_write : Bool
+  mut seq_cst : Bool
+}
+
+///|
+fn hso_new_order_effects() -> HsoOrderEffects {
+  {
+    shared_memory_read: false,
+    shared_memory_write: false,
+    shared_struct_read: false,
+    shared_struct_write: false,
+    shared_array_read: false,
+    shared_array_write: false,
+    acquire_read: false,
+    release_write: false,
+    seq_cst: false,
+  }
+}
+
+///|
+fn hso_order_effects_accesses_shared(effects : HsoOrderEffects) -> Bool {
+  effects.shared_memory_read ||
+  effects.shared_memory_write ||
+  effects.shared_struct_read ||
+  effects.shared_struct_write ||
+  effects.shared_array_read ||
+  effects.shared_array_write
+}
+
+///|
+fn hso_order_effects_note_read_order(
+  effects : HsoOrderEffects,
+  order : @lib.AtomicOrder,
+) -> Unit {
+  match order {
+    @lib.AcqRel => effects.acquire_read = true
+    @lib.SeqCst => effects.seq_cst = true
+  }
+}
+
+///|
+fn hso_order_effects_note_write_order(
+  effects : HsoOrderEffects,
+  order : @lib.AtomicOrder,
+) -> Unit {
+  match order {
+    @lib.AcqRel => effects.release_write = true
+    @lib.SeqCst => effects.seq_cst = true
+  }
+}
+
+///|
+fn hso_type_is_shared(
+  module_ctx : @ir.HotModuleContext?,
+  type_idx : @lib.TypeIdx,
+) -> Bool {
+  match module_ctx {
+    Some(ctx) =>
+      match @ir.hot_module_resolve_subtype(ctx, type_idx) {
+        Some(subtype) => subtype.metadata().is_shared()
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+fn hso_order_effects_note_exact_instr(
+  effects : HsoOrderEffects,
+  module_ctx : @ir.HotModuleContext?,
+  instr : @lib.Instruction,
+) -> Unit {
+  match instr {
+    @lib.I32AtomicLoad(order, _)
+    | @lib.I64AtomicLoad(order, _)
+    | @lib.I32AtomicLoad8U(order, _)
+    | @lib.I32AtomicLoad16U(order, _)
+    | @lib.I64AtomicLoad8U(order, _)
+    | @lib.I64AtomicLoad16U(order, _)
+    | @lib.I64AtomicLoad32U(order, _) => {
+      effects.shared_memory_read = true
+      hso_order_effects_note_read_order(effects, order)
+    }
+    @lib.I32AtomicStore(order, _)
+    | @lib.I64AtomicStore(order, _)
+    | @lib.I32AtomicStore8(order, _)
+    | @lib.I32AtomicStore16(order, _)
+    | @lib.I64AtomicStore8(order, _)
+    | @lib.I64AtomicStore16(order, _)
+    | @lib.I64AtomicStore32(order, _) => {
+      effects.shared_memory_write = true
+      hso_order_effects_note_write_order(effects, order)
+    }
+    @lib.AtomicRmw(order, _, _) | @lib.AtomicCmpxchg(order, _, _) => {
+      effects.shared_memory_read = true
+      effects.shared_memory_write = true
+      hso_order_effects_note_read_order(effects, order)
+      hso_order_effects_note_write_order(effects, order)
+    }
+    @lib.MemoryAtomicWait32(_)
+    | @lib.MemoryAtomicWait64(_)
+    | @lib.MemoryAtomicNotify(_)
+    | @lib.AtomicFence(_) => {
+      effects.shared_memory_read = true
+      effects.shared_memory_write = true
+      effects.seq_cst = true
+    }
+    @lib.StructGet(type_idx, _)
+    | @lib.StructGetS(type_idx, _)
+    | @lib.StructGetU(type_idx, _) =>
+      if hso_type_is_shared(module_ctx, type_idx) {
+        effects.shared_struct_read = true
+      }
+    @lib.StructSet(type_idx, _) =>
+      if hso_type_is_shared(module_ctx, type_idx) {
+        effects.shared_struct_write = true
+      }
+    @lib.StructAtomicGet(order, type_idx, _)
+    | @lib.StructAtomicGetS(order, type_idx, _)
+    | @lib.StructAtomicGetU(order, type_idx, _) => {
+      effects.shared_struct_read = true
+      hso_order_effects_note_read_order(effects, order)
+    }
+    @lib.StructAtomicRmw(order, _, type_idx, _)
+    | @lib.StructAtomicCmpxchg(order, type_idx, _) => {
+      effects.shared_struct_read = true
+      effects.shared_struct_write = true
+      hso_order_effects_note_read_order(effects, order)
+      hso_order_effects_note_write_order(effects, order)
+    }
+    @lib.ArrayGet(type_idx)
+    | @lib.ArrayGetS(type_idx)
+    | @lib.ArrayGetU(type_idx) =>
+      if hso_type_is_shared(module_ctx, type_idx) {
+        effects.shared_array_read = true
+      }
+    @lib.ArraySet(type_idx) | @lib.ArrayFill(type_idx) =>
+      if hso_type_is_shared(module_ctx, type_idx) {
+        effects.shared_array_write = true
+      }
+    @lib.ArrayAtomicGet(order, _)
+    | @lib.ArrayAtomicGetS(order, _)
+    | @lib.ArrayAtomicGetU(order, _) => {
+      effects.shared_array_read = true
+      hso_order_effects_note_read_order(effects, order)
+    }
+    @lib.ArrayAtomicRmw(order, _, _) | @lib.ArrayAtomicCmpxchg(order, _) => {
+      effects.shared_array_read = true
+      effects.shared_array_write = true
+      hso_order_effects_note_read_order(effects, order)
+      hso_order_effects_note_write_order(effects, order)
+    }
+    _ => ()
+  }
+}
+
+///|
+fn hso_collect_order_effects_region(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  region_ref : @ir.HotRegionRef,
+  seen : @bitset.BitSet,
+  effects : HsoOrderEffects,
+) -> Unit {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    hso_collect_order_effects_node(
+      func,
+      module_ctx,
+      @ir.hot_region_get(func, region_ref, idx),
+      seen,
+      effects,
+    )
+  }
+}
+
+///|
+fn hso_collect_order_effects_node(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  node_id : Int,
+  seen : @bitset.BitSet,
+  effects : HsoOrderEffects,
+) -> Unit {
+  if node_id < 0 ||
+    node_id >= @ir.hot_node_count(func) ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    seen[node_id] {
+    return
+  }
+  seen[node_id] = true
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) =>
+      hso_order_effects_note_exact_instr(effects, module_ctx, instr)
+    None => ()
+  }
+  if (@ir.effects_for_node(func, node_id) & @ir.EFFECT_MASK_CALL) != 0U {
+    effects.shared_memory_read = true
+    effects.shared_memory_write = true
+    effects.shared_struct_read = true
+    effects.shared_struct_write = true
+    effects.shared_array_read = true
+    effects.shared_array_write = true
+  }
+  for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
+    hso_collect_order_effects_node(
+      func,
+      module_ctx,
+      @ir.hot_child_get(func, node_id, idx),
+      seen,
+      effects,
+    )
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_collect_order_effects_region(
+        func,
+        module_ctx,
+        @ir.hot_region_body_ref(func, node_id),
+        seen,
+        effects,
+      )
+    @ir.HotOp::If => {
+      hso_collect_order_effects_region(
+        func,
+        module_ctx,
+        @ir.hot_region_then_ref(func, node_id),
+        seen,
+        effects,
+      )
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          hso_collect_order_effects_region(
+            func, module_ctx, region_ref, seen, effects,
+          )
+        None => ()
+      }
+    }
+    @ir.HotOp::Try => {
+      hso_collect_order_effects_region(
+        func,
+        module_ctx,
+        @ir.hot_region_body_ref(func, node_id),
+        seen,
+        effects,
+      )
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(region_ref) =>
+          hso_collect_order_effects_region(
+            func, module_ctx, region_ref, seen, effects,
+          )
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable => {
+      hso_collect_order_effects_region(
+        func,
+        module_ctx,
+        @ir.hot_region_body_ref(func, node_id),
+        seen,
+        effects,
+      )
+      hso_collect_order_effects_region(
+        func,
+        module_ctx,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        seen,
+        effects,
+      )
+    }
+    _ => ()
+  }
+}
+
+///|
+fn hso_order_effects_for_node(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  node_id : Int,
+) -> HsoOrderEffects {
+  let effects = hso_new_order_effects()
+  hso_collect_order_effects_node(
+    func,
+    module_ctx,
+    node_id,
+    @bitset.BitSet::new(@ir.hot_node_count(func)),
+    effects,
+  )
+  effects
+}
+
+///|
+fn hso_order_effects_ordered_before(
+  first : HsoOrderEffects,
+  second : HsoOrderEffects,
+) -> Bool {
+  let first_shared = hso_order_effects_accesses_shared(first)
+  let second_shared = hso_order_effects_accesses_shared(second)
+  (second.release_write && first_shared) ||
+  (first.acquire_read && second_shared) ||
+  (first.seq_cst && second_shared) ||
+  (second.seq_cst && first_shared)
+}
+
+///|
+fn hso_release_memory_before_shared_gc_read_can_reorder(
+  first : HsoOrderEffects,
+  second : HsoOrderEffects,
+) -> Bool {
+  first.release_write &&
+  first.shared_memory_write &&
+  !first.shared_memory_read &&
+  !first.shared_struct_read &&
+  !first.shared_struct_write &&
+  !first.shared_array_read &&
+  !first.shared_array_write &&
+  !first.acquire_read &&
+  !first.seq_cst &&
+  (second.shared_struct_read || second.shared_array_read) &&
+  !second.shared_memory_read &&
+  !second.shared_memory_write &&
+  !second.shared_struct_write &&
+  !second.shared_array_write &&
+  !second.acquire_read &&
+  !second.release_write &&
+  !second.seq_cst
+}
+
+///|
+fn hso_ordered_before(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  first_id : Int,
+  first_mask : UInt,
+  second_id : Int,
+  second_mask : UInt,
+) -> Bool {
+  if hso_mask_ordered_before(first_mask, second_mask) {
+    return true
+  }
+  hso_order_effects_ordered_before(
+    hso_order_effects_for_node(func, module_ctx, first_id),
+    hso_order_effects_for_node(func, module_ctx, second_id),
+  )
+}
+
+///|
 fn hso_new_predicate_cache() -> HsoPredicateCache {
   {
     readonly_revision: [],
@@ -100,9 +454,81 @@ fn hso_exact_instr_can_trap(instr : @lib.Instruction?) -> Bool {
 }
 
 ///|
+fn hso_i32_const_at(func : @ir.HotFunc, node_id : Int) -> Int? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, node.imm0) {
+        @ir.HotConstPayload::I32Const(@lib.I32(raw)) => Some(raw)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn hso_i64_const_at(func : @ir.HotFunc, node_id : Int) -> Int64? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, node.imm0) {
+        @ir.HotConstPayload::I64Const(@lib.I64(raw)) => Some(raw)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn hso_exact_div_rem_is_known_safe(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let lhs_id = @ir.hot_child_get(func, node_id, 0)
+  let rhs_id = @ir.hot_child_get(func, node_id, 1)
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32DivS) =>
+      match (hso_i32_const_at(func, lhs_id), hso_i32_const_at(func, rhs_id)) {
+        (Some(_), Some(rhs)) => rhs != 0 && rhs != -1
+        _ => false
+      }
+    Some(@lib.Instruction::I32DivU)
+    | Some(@lib.Instruction::I32RemS)
+    | Some(@lib.Instruction::I32RemU) =>
+      match hso_i32_const_at(func, rhs_id) {
+        Some(rhs) => rhs != 0
+        None => false
+      }
+    Some(@lib.Instruction::I64DivS) =>
+      match (hso_i64_const_at(func, lhs_id), hso_i64_const_at(func, rhs_id)) {
+        (Some(_), Some(rhs)) => rhs != 0L && rhs != -1L
+        _ => false
+      }
+    Some(@lib.Instruction::I64DivU)
+    | Some(@lib.Instruction::I64RemS)
+    | Some(@lib.Instruction::I64RemU) =>
+      match hso_i64_const_at(func, rhs_id) {
+        Some(rhs) => rhs != 0L
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn hso_node_may_trap(func : @ir.HotFunc, node_id : Int) -> Bool {
-  @ir.hot_may_trap(func, node_id) ||
-  hso_exact_instr_can_trap(@ir.hot_node_exact_instr(func, node_id))
+  if hso_exact_div_rem_is_known_safe(func, node_id) {
+    false
+  } else {
+    @ir.hot_may_trap(func, node_id) ||
+    hso_exact_instr_can_trap(@ir.hot_node_exact_instr(func, node_id))
+  }
 }
 
 ///|
@@ -117,6 +543,10 @@ fn hso_effects_for_node(
     @ir.effects_for_node(func, node_id)
   }
   if node_id >= 0 &&
+    node_id < @ir.hot_node_count(func) &&
+    hso_exact_div_rem_is_known_safe(func, node_id) {
+    base_mask ^ (base_mask & @ir.EFFECT_MASK_TRAP)
+  } else if node_id >= 0 &&
     node_id < @ir.hot_node_count(func) &&
     hso_exact_instr_can_trap(@ir.hot_node_exact_instr(func, node_id)) {
     base_mask | @ir.EFFECT_MASK_TRAP
@@ -1577,6 +2007,7 @@ fn hso_subtree_is_trapless_readonly_contained_control(
 fn hso_nodes_can_reorder(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
   node_masks : Array[UInt],
   barrier_id : Int,
   barrier_mask : UInt,
@@ -1611,7 +2042,26 @@ fn hso_nodes_can_reorder(
     moved_without_global == 0U {
     return true
   }
-  if !hso_mask_ordered_before(barrier_reorder_mask, moved_reorder_mask) {
+  let barrier_order = hso_order_effects_for_node(func, module_ctx, barrier_id)
+  let moved_order = hso_order_effects_for_node(func, module_ctx, moved_id)
+  let release_gc_allowed_mask = @ir.EFFECT_MASK_LOCAL_STATE |
+    @ir.EFFECT_MASK_MEMORY_READ |
+    @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_TRAP
+  if (
+      (barrier_reorder_mask | moved_reorder_mask) ^
+      ((barrier_reorder_mask | moved_reorder_mask) & release_gc_allowed_mask)
+    ) ==
+    0U &&
+    hso_release_memory_before_shared_gc_read_can_reorder(
+      barrier_order, moved_order,
+    ) {
+    return true
+  }
+  if hso_mask_ordered_before(barrier_reorder_mask, moved_reorder_mask) ||
+    hso_order_effects_ordered_before(barrier_order, moved_order) {
+    ()
+  } else {
     return true
   }
   let local_control_barrier_mask = @ir.EFFECT_MASK_LOCAL_STATE |
@@ -1770,6 +2220,25 @@ fn hso_desc_operand_effects_for_node(
     return 0U
   }
   let node = @ir.hot_node_get(func, node_id)
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructNew(_))
+    | Some(@lib.Instruction::StructNewDefault(_))
+    | Some(@lib.Instruction::StructNewDesc(_))
+    | Some(@lib.Instruction::StructNewDefaultDesc(_)) => {
+      let mut mask = hso_struct_new_shallow_effects(func, node_id)
+      for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
+        mask = mask |
+          hso_desc_operand_effects_for_node(
+            func,
+            module_ctx,
+            node_masks,
+            @ir.hot_child_get(func, node_id, idx),
+          )
+      }
+      return mask
+    }
+    _ => ()
+  }
   if @ir.hot_is_branch(func, node_id) {
     let mut mask = 0U
     for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
@@ -2165,9 +2634,12 @@ fn hso_wrapped_try_table_swap_allowed(
   let blocker_mask = raw_blocker_mask ^
     (raw_blocker_mask & @ir.EFFECT_MASK_CONTROL)
   let moved_mask = hso_struct_new_operand_effect_mask(
-    func, module_ctx, node_masks, moved_struct_new_id,
-  )
-  if hso_mask_ordered_before(moved_mask, blocker_mask) &&
+      func, module_ctx, node_masks, moved_struct_new_id,
+    ) |
+    hso_struct_new_shallow_effects(func, moved_struct_new_id)
+  if hso_ordered_before(
+      func, module_ctx, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
+    ) &&
     !hso_global_only_ordering_can_be_ignored(
       func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
     ) {
@@ -2230,9 +2702,12 @@ fn hso_root_can_swap_before_local_struct_new(
     cache, func, node_masks, blocker_id,
   )
   let moved_mask = hso_struct_new_operand_effect_mask(
-    func, module_ctx, node_masks, moved_struct_new_id,
-  )
-  if hso_mask_ordered_before(moved_mask, blocker_mask) &&
+      func, module_ctx, node_masks, moved_struct_new_id,
+    ) |
+    hso_struct_new_shallow_effects(func, moved_struct_new_id)
+  if hso_ordered_before(
+      func, module_ctx, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
+    ) &&
     !hso_global_only_ordering_can_be_ignored(
       func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
     ) {
@@ -2244,6 +2719,13 @@ fn hso_root_can_swap_before_local_struct_new(
   if (blocker_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
     hso_subtree_touches_local(func, blocker_id, target_local_id) {
     return false
+  }
+  if moved_mask == 0U {
+    match blocker_node.op {
+      @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
+        return true
+      _ => ()
+    }
   }
   if (blocker_mask & disallowed_effects) == 0U &&
     !@ir.hot_is_terminator_node(func, blocker_id) {
@@ -2260,12 +2742,18 @@ fn hso_swapped_readonly_roots_respect_ref_order(
   swapped_roots : Array[Int],
   ref_id : Int,
 ) -> Bool {
+  let ref_node = @ir.hot_node_get(func, ref_id)
+  let ref_local = match ref_node.op {
+    @ir.HotOp::LocalGet => ref_node.imm0
+    _ => return false
+  }
   for root_id in swapped_roots {
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
       continue
     }
     if hso_subtree_is_trapless_reorderable(cache, func, node_masks, root_id, []) &&
-      ref_id < root_id {
+      ref_id < root_id &&
+      hso_subtree_touches_local(func, root_id, ref_local) {
       return false
     }
   }
@@ -2493,9 +2981,31 @@ fn hso_supported_struct_new(
 fn hso_struct_new_shallow_effects(func : @ir.HotFunc, node_id : Int) -> UInt {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::StructNew(_))
-    | Some(@lib.Instruction::StructNewDefault(_))
-    | Some(@lib.Instruction::StructNewDesc(_))
-    | Some(@lib.Instruction::StructNewDefaultDesc(_)) => 0U
+    | Some(@lib.Instruction::StructNewDefault(_)) => 0U
+    Some(@lib.Instruction::StructNewDesc(_))
+    | Some(@lib.Instruction::StructNewDefaultDesc(_)) => {
+      let child_count = @ir.hot_child_count(func, node_id)
+      if child_count <= 0 {
+        return @ir.EFFECT_MASK_TRAP
+      }
+      let desc_id = @ir.hot_child_get(func, node_id, child_count - 1)
+      let results = @ir.hot_type_results(
+        func,
+        @ir.hot_node_get(func, desc_id).ty,
+      )
+      if results.length() != 1 {
+        return @ir.EFFECT_MASK_TRAP
+      }
+      match results[0] {
+        @lib.RefTypeValType(ref_type) =>
+          if ref_type.is_nullable() {
+            @ir.EFFECT_MASK_TRAP
+          } else {
+            0U
+          }
+        _ => @ir.EFFECT_MASK_TRAP
+      }
+    }
     _ => 0U
   }
 }
@@ -3134,8 +3644,14 @@ fn hso_peel_reorderable_value_prefix_roots(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
   node_masks : Array[UInt],
+  struct_new_id : Int,
+  field_idx : Int,
+  field_count : Int,
+  desc_id : Int?,
+  needs_default_materialization : Bool,
   value_id : Int,
   local_id : Int,
+  active_catch_depth : Int,
 ) -> Array[Int]? {
   if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
     return None
@@ -3161,7 +3677,17 @@ fn hso_peel_reorderable_value_prefix_roots(
   let prefix_roots : Array[Int] = Array::new(capacity=roots.length() - 1)
   for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
     let root_id = roots[idx]
-    if !hso_root_can_swap_before_local_struct_new(
+    let uncaught_call_can_lift = if active_catch_depth == 0 &&
+      !hso_subtree_touches_local(func, root_id, local_id) {
+      match @ir.hot_node_get(func, root_id).op {
+        @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef => true
+        _ => false
+      }
+    } else {
+      false
+    }
+    if !uncaught_call_can_lift &&
+      !hso_root_can_swap_before_local_struct_new(
         cache, func, module_ctx, node_masks, final_root_id, root_id, local_id,
       ) {
       return Some([])
@@ -3170,6 +3696,71 @@ fn hso_peel_reorderable_value_prefix_roots(
   }
   if prefix_roots.is_empty() {
     return Some([])
+  }
+  let struct_new_shallow_mask = hso_struct_new_shallow_effects(
+    func, struct_new_id,
+  )
+  for prefix_id in prefix_roots {
+    if hso_ordered_before(
+        func,
+        module_ctx,
+        struct_new_id,
+        struct_new_shallow_mask,
+        prefix_id,
+        hso_reorder_effect_mask(cache, func, node_masks, prefix_id),
+      ) &&
+      !hso_subtree_is_trapless_reorderable(cache, func, node_masks, prefix_id, []) {
+      return Some([])
+    }
+  }
+  for idx = field_idx + 1; idx < field_count; idx = idx + 1 {
+    let later_id = if needs_default_materialization {
+      -1
+    } else {
+      @ir.hot_child_get(func, struct_new_id, idx)
+    }
+    if later_id >= 0 {
+      if hso_subtree_has_tail_or_throw_escape(func, later_id) {
+        return Some([])
+      }
+      let later_mask = hso_effects_for_node(func, node_masks, later_id)
+      for prefix_id in prefix_roots {
+        if !hso_nodes_can_reorder(
+            cache,
+            func,
+            module_ctx,
+            node_masks,
+            later_id,
+            later_mask,
+            prefix_id,
+            hso_reorder_effect_mask(cache, func, node_masks, prefix_id),
+          ) {
+          return Some([])
+        }
+      }
+    }
+  }
+  match desc_id {
+    Some(desc_id) => {
+      let desc_mask = hso_desc_operand_effects_for_node(
+        func, module_ctx, node_masks, desc_id,
+      )
+      for prefix_id in prefix_roots {
+        if !hso_nodes_can_reorder(
+            cache,
+            func,
+            module_ctx,
+            node_masks,
+            desc_id,
+            desc_mask,
+            prefix_id,
+            hso_reorder_effect_mask(cache, func, node_masks, prefix_id),
+          ) {
+          return Some([])
+        }
+      }
+    }
+    None => ()
   }
   ignore(
     @ir.hot_region_splice(func, body_ref, 0, roots.length(), [final_root_id]),
@@ -3223,7 +3814,8 @@ fn hso_try_fold_into_struct_new(
   ignore(hso_trim_unreachable_subtree(func, value_id))
   let lifted_prefix_roots = match
     hso_peel_reorderable_value_prefix_roots(
-      cache, func, module_ctx, node_masks, value_id, local_id,
+      cache, func, module_ctx, node_masks, struct_new_id, field_idx, field_count,
+      desc_id, needs_default_materialization, value_id, local_id, active_catch_depth,
     ) {
     Some(roots) => roots
     None => return None
@@ -3253,12 +3845,27 @@ fn hso_try_fold_into_struct_new(
     hso_subtree_may_escape_to_active_catch(func, value_id) {
     return None
   }
-  if hso_mask_ordered_before(
-      hso_struct_new_shallow_effects(func, struct_new_id),
-      value_reorder_mask,
+  let struct_new_shallow_mask = hso_struct_new_shallow_effects(
+    func, struct_new_id,
+  )
+  if hso_ordered_before(
+      func, module_ctx, struct_new_id, struct_new_shallow_mask, value_id, value_reorder_mask,
     ) &&
     !hso_subtree_is_trapless_reorderable(cache, func, node_masks, value_id, []) {
     return None
+  }
+  for prefix_id in lifted_prefix_roots {
+    if hso_ordered_before(
+        func,
+        module_ctx,
+        struct_new_id,
+        struct_new_shallow_mask,
+        prefix_id,
+        hso_reorder_effect_mask(cache, func, node_masks, prefix_id),
+      ) &&
+      !hso_subtree_is_trapless_reorderable(cache, func, node_masks, prefix_id, []) {
+      return None
+    }
   }
 
   for idx = field_idx + 1; idx < field_count; idx = idx + 1 {
@@ -3276,7 +3883,7 @@ fn hso_try_fold_into_struct_new(
       return None
     }
     if !hso_nodes_can_reorder(
-        cache, func, node_masks, later_id, later_mask, value_id, value_reorder_mask,
+        cache, func, module_ctx, node_masks, later_id, later_mask, value_id, value_reorder_mask,
       ) {
       return None
     }
@@ -3284,6 +3891,7 @@ fn hso_try_fold_into_struct_new(
       if !hso_nodes_can_reorder(
           cache,
           func,
+          module_ctx,
           node_masks,
           later_id,
           later_mask,
@@ -3300,7 +3908,7 @@ fn hso_try_fold_into_struct_new(
         func, module_ctx, node_masks, desc_id,
       )
       if !hso_nodes_can_reorder(
-          cache, func, node_masks, desc_id, desc_mask, value_id, value_reorder_mask,
+          cache, func, module_ctx, node_masks, desc_id, desc_mask, value_id, value_reorder_mask,
         ) {
         return None
       }
@@ -3308,6 +3916,7 @@ fn hso_try_fold_into_struct_new(
         if !hso_nodes_can_reorder(
             cache,
             func,
+            module_ctx,
             node_masks,
             desc_id,
             desc_mask,

@@ -1990,22 +1990,22 @@ fn rume_scan_instruction(
     | @lib.MemoryAtomicNotify(memarg)
     | @lib.MemoryAtomicWait32(memarg)
     | @lib.MemoryAtomicWait64(memarg)
-    | @lib.I32AtomicLoad(memarg)
-    | @lib.I64AtomicLoad(memarg)
-    | @lib.I32AtomicLoad8U(memarg)
-    | @lib.I32AtomicLoad16U(memarg)
-    | @lib.I64AtomicLoad8U(memarg)
-    | @lib.I64AtomicLoad16U(memarg)
-    | @lib.I64AtomicLoad32U(memarg)
-    | @lib.I32AtomicStore(memarg)
-    | @lib.I64AtomicStore(memarg)
-    | @lib.I32AtomicStore8(memarg)
-    | @lib.I32AtomicStore16(memarg)
-    | @lib.I64AtomicStore8(memarg)
-    | @lib.I64AtomicStore16(memarg)
-    | @lib.I64AtomicStore32(memarg)
-    | @lib.AtomicRmw(_, memarg)
-    | @lib.AtomicCmpxchg(_, memarg)
+    | @lib.I32AtomicLoad(_, memarg)
+    | @lib.I64AtomicLoad(_, memarg)
+    | @lib.I32AtomicLoad8U(_, memarg)
+    | @lib.I32AtomicLoad16U(_, memarg)
+    | @lib.I64AtomicLoad8U(_, memarg)
+    | @lib.I64AtomicLoad16U(_, memarg)
+    | @lib.I64AtomicLoad32U(_, memarg)
+    | @lib.I32AtomicStore(_, memarg)
+    | @lib.I64AtomicStore(_, memarg)
+    | @lib.I32AtomicStore8(_, memarg)
+    | @lib.I32AtomicStore16(_, memarg)
+    | @lib.I64AtomicStore8(_, memarg)
+    | @lib.I64AtomicStore16(_, memarg)
+    | @lib.I64AtomicStore32(_, memarg)
+    | @lib.AtomicRmw(_, _, memarg)
+    | @lib.AtomicCmpxchg(_, _, memarg)
     | @lib.V128Load(memarg)
     | @lib.V128Load8x8S(memarg)
     | @lib.V128Load8x8U(memarg)
@@ -3370,60 +3370,87 @@ fn rume_rewrite_instruction(
       @lib.Instruction::memory_atomic_wait64(
         rume_rewrite_memarg(memarg, mem_remap),
       )
-    @lib.I32AtomicLoad(memarg) =>
-      @lib.Instruction::i32_atomic_load(rume_rewrite_memarg(memarg, mem_remap))
-    @lib.I64AtomicLoad(memarg) =>
-      @lib.Instruction::i64_atomic_load(rume_rewrite_memarg(memarg, mem_remap))
-    @lib.I32AtomicLoad8U(memarg) =>
+    @lib.I32AtomicLoad(order, memarg) =>
+      @lib.Instruction::i32_atomic_load(
+        rume_rewrite_memarg(memarg, mem_remap),
+        order~,
+      )
+    @lib.I64AtomicLoad(order, memarg) =>
+      @lib.Instruction::i64_atomic_load(
+        rume_rewrite_memarg(memarg, mem_remap),
+        order~,
+      )
+    @lib.I32AtomicLoad8U(order, memarg) =>
       @lib.Instruction::i32_atomic_load8_u(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.I32AtomicLoad16U(memarg) =>
+    @lib.I32AtomicLoad16U(order, memarg) =>
       @lib.Instruction::i32_atomic_load16_u(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.I64AtomicLoad8U(memarg) =>
+    @lib.I64AtomicLoad8U(order, memarg) =>
       @lib.Instruction::i64_atomic_load8_u(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.I64AtomicLoad16U(memarg) =>
+    @lib.I64AtomicLoad16U(order, memarg) =>
       @lib.Instruction::i64_atomic_load16_u(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.I64AtomicLoad32U(memarg) =>
+    @lib.I64AtomicLoad32U(order, memarg) =>
       @lib.Instruction::i64_atomic_load32_u(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.I32AtomicStore(memarg) =>
-      @lib.Instruction::i32_atomic_store(rume_rewrite_memarg(memarg, mem_remap))
-    @lib.I64AtomicStore(memarg) =>
-      @lib.Instruction::i64_atomic_store(rume_rewrite_memarg(memarg, mem_remap))
-    @lib.I32AtomicStore8(memarg) =>
+    @lib.I32AtomicStore(order, memarg) =>
+      @lib.Instruction::i32_atomic_store(
+        rume_rewrite_memarg(memarg, mem_remap),
+        order~,
+      )
+    @lib.I64AtomicStore(order, memarg) =>
+      @lib.Instruction::i64_atomic_store(
+        rume_rewrite_memarg(memarg, mem_remap),
+        order~,
+      )
+    @lib.I32AtomicStore8(order, memarg) =>
       @lib.Instruction::i32_atomic_store8(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.I32AtomicStore16(memarg) =>
+    @lib.I32AtomicStore16(order, memarg) =>
       @lib.Instruction::i32_atomic_store16(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.I64AtomicStore8(memarg) =>
+    @lib.I64AtomicStore8(order, memarg) =>
       @lib.Instruction::i64_atomic_store8(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.I64AtomicStore16(memarg) =>
+    @lib.I64AtomicStore16(order, memarg) =>
       @lib.Instruction::i64_atomic_store16(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.I64AtomicStore32(memarg) =>
+    @lib.I64AtomicStore32(order, memarg) =>
       @lib.Instruction::i64_atomic_store32(
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
-    @lib.AtomicRmw(op, memarg) =>
-      @lib.Instruction::atomic_rmw(op, rume_rewrite_memarg(memarg, mem_remap))
-    @lib.AtomicCmpxchg(op, memarg) =>
+    @lib.AtomicRmw(order, op, memarg) =>
+      @lib.Instruction::atomic_rmw(
+        op,
+        rume_rewrite_memarg(memarg, mem_remap),
+        order~,
+      )
+    @lib.AtomicCmpxchg(order, op, memarg) =>
       @lib.Instruction::atomic_cmpxchg(
         op,
         rume_rewrite_memarg(memarg, mem_remap),
+        order~,
       )
     @lib.RefFunc(func_idx) =>
       @lib.Instruction::ref_func(rume_rewrite_func_idx(func_idx, func_remap))

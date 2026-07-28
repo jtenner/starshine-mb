@@ -1072,23 +1072,23 @@ pub enum Instruction {
   MemoryAtomicNotify(MemArg)
   MemoryAtomicWait32(MemArg)
   MemoryAtomicWait64(MemArg)
-  AtomicFence
-  I32AtomicLoad(MemArg)
-  I64AtomicLoad(MemArg)
-  I32AtomicLoad8U(MemArg)
-  I32AtomicLoad16U(MemArg)
-  I64AtomicLoad8U(MemArg)
-  I64AtomicLoad16U(MemArg)
-  I64AtomicLoad32U(MemArg)
-  I32AtomicStore(MemArg)
-  I64AtomicStore(MemArg)
-  I32AtomicStore8(MemArg)
-  I32AtomicStore16(MemArg)
-  I64AtomicStore8(MemArg)
-  I64AtomicStore16(MemArg)
-  I64AtomicStore32(MemArg)
-  AtomicRmw(AtomicRmwOp, MemArg)
-  AtomicCmpxchg(AtomicCmpxchgOp, MemArg)
+  AtomicFence(AtomicOrder)
+  I32AtomicLoad(AtomicOrder, MemArg)
+  I64AtomicLoad(AtomicOrder, MemArg)
+  I32AtomicLoad8U(AtomicOrder, MemArg)
+  I32AtomicLoad16U(AtomicOrder, MemArg)
+  I64AtomicLoad8U(AtomicOrder, MemArg)
+  I64AtomicLoad16U(AtomicOrder, MemArg)
+  I64AtomicLoad32U(AtomicOrder, MemArg)
+  I32AtomicStore(AtomicOrder, MemArg)
+  I64AtomicStore(AtomicOrder, MemArg)
+  I32AtomicStore8(AtomicOrder, MemArg)
+  I32AtomicStore16(AtomicOrder, MemArg)
+  I64AtomicStore8(AtomicOrder, MemArg)
+  I64AtomicStore16(AtomicOrder, MemArg)
+  I64AtomicStore32(AtomicOrder, MemArg)
+  AtomicRmw(AtomicOrder, AtomicRmwOp, MemArg)
+  AtomicCmpxchg(AtomicOrder, AtomicCmpxchgOp, MemArg)
   I32Const(I32)
   I64Const(I64)
   F32Const(F32)
@@ -1588,9 +1588,9 @@ pub fn Instruction::array_new_elem(TypeIdx, ElemIdx) -> Self
 pub fn Instruction::array_new_fixed(TypeIdx, U32) -> Self
 pub fn Instruction::array_set(TypeIdx) -> Self
 pub fn Instruction::array_store(StoreOp, TypeIdx) -> Self
-pub fn Instruction::atomic_cmpxchg(AtomicCmpxchgOp, MemArg) -> Self
-pub fn Instruction::atomic_fence() -> Self
-pub fn Instruction::atomic_rmw(AtomicRmwOp, MemArg) -> Self
+pub fn Instruction::atomic_cmpxchg(AtomicCmpxchgOp, MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::atomic_fence(order? : AtomicOrder) -> Self
+pub fn Instruction::atomic_rmw(AtomicRmwOp, MemArg, order? : AtomicOrder) -> Self
 pub fn Instruction::block(BlockType, Expr) -> Self
 pub fn Instruction::br(LabelIdx) -> Self
 pub fn Instruction::br_if(LabelIdx) -> Self
@@ -1785,12 +1785,12 @@ pub fn Instruction::i31_get_s() -> Self
 pub fn Instruction::i31_get_u() -> Self
 pub fn Instruction::i32_add() -> Self
 pub fn Instruction::i32_and() -> Self
-pub fn Instruction::i32_atomic_load(MemArg) -> Self
-pub fn Instruction::i32_atomic_load16_u(MemArg) -> Self
-pub fn Instruction::i32_atomic_load8_u(MemArg) -> Self
-pub fn Instruction::i32_atomic_store(MemArg) -> Self
-pub fn Instruction::i32_atomic_store16(MemArg) -> Self
-pub fn Instruction::i32_atomic_store8(MemArg) -> Self
+pub fn Instruction::i32_atomic_load(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i32_atomic_load16_u(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i32_atomic_load8_u(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i32_atomic_store(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i32_atomic_store16(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i32_atomic_store8(MemArg, order? : AtomicOrder) -> Self
 pub fn Instruction::i32_clz() -> Self
 pub fn Instruction::i32_const(I32) -> Self
 pub fn Instruction::i32_ctz() -> Self
@@ -1889,14 +1889,14 @@ pub fn Instruction::i32x4_trunc_sat_f64x2s_zero() -> Self
 pub fn Instruction::i32x4_trunc_sat_f64x2u_zero() -> Self
 pub fn Instruction::i64_add() -> Self
 pub fn Instruction::i64_and() -> Self
-pub fn Instruction::i64_atomic_load(MemArg) -> Self
-pub fn Instruction::i64_atomic_load16_u(MemArg) -> Self
-pub fn Instruction::i64_atomic_load32_u(MemArg) -> Self
-pub fn Instruction::i64_atomic_load8_u(MemArg) -> Self
-pub fn Instruction::i64_atomic_store(MemArg) -> Self
-pub fn Instruction::i64_atomic_store16(MemArg) -> Self
-pub fn Instruction::i64_atomic_store32(MemArg) -> Self
-pub fn Instruction::i64_atomic_store8(MemArg) -> Self
+pub fn Instruction::i64_atomic_load(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i64_atomic_load16_u(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i64_atomic_load32_u(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i64_atomic_load8_u(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i64_atomic_store(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i64_atomic_store16(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i64_atomic_store32(MemArg, order? : AtomicOrder) -> Self
+pub fn Instruction::i64_atomic_store8(MemArg, order? : AtomicOrder) -> Self
 pub fn Instruction::i64_clz() -> Self
 pub fn Instruction::i64_const(I64) -> Self
 pub fn Instruction::i64_ctz() -> Self

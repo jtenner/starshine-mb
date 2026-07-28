@@ -2513,7 +2513,7 @@ test "simplify-locals drops dead lowered call-result temps in conditions" {
 }
 
 ///|
-test "simplify-locals removes overwritten pending local sets" {
+test "simplify-locals removes overwritten pending local sets and pure dropped constants" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) (local i32) i32.const 1 local.set 0 i32.const 2 local.set 0 local.get 0))",
@@ -2527,8 +2527,8 @@ test "simplify-locals removes overwritten pending local sets" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.set"))
   assert_false(pretty.contains("local.get"))
-  assert_true(pretty.contains("drop"))
-  assert_true(pretty.contains("I32(1)"))
+  assert_false(pretty.contains("drop"))
+  assert_false(pretty.contains("I32(1)"))
   assert_true(pretty.contains("I32(2)"))
 }
 
@@ -2621,7 +2621,8 @@ test "simplify-locals keeps pending sinks across unrelated local traffic" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("I32(5)"), msg=pretty)
 }
 
@@ -3018,4 +3019,159 @@ test "simplify-locals rehomes dead tee control labels before cleanup" {
         "expected simplify-locals dead-tee control verify success, got \{err}",
       )
   }
+}
+
+///|
+test "simplify-locals v131 removes discarded default GC allocations" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type $s (struct (field (mut i32)) (field eqref))) (func (local anyref) struct.new_default $s local.set 0 local.get 0 drop struct.new_default $s local.tee 0 drop local.get 0 drop))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 GC tee cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    simplify_locals_test_count_substring(pretty, "struct.new_default"),
+    0,
+  )
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
+test "simplify-locals sinks a binary-decoded copied parameter into return" {
+  // Saved `dae-optimizing-return-cleanup` random-all witness. Keep the exact
+  // binary because the in-repo WAT path rebuilds the unreachable suffix into a
+  // higher-level shape that does not reproduce the lowering scratch carrier.
+  let decoded = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 11, 2, 96, 2, 127, 127, 1, 127, 96, 0, 1,
+        127, 3, 4, 3, 0, 1, 1, 7, 7, 1, 3, 114, 117, 110, 0, 1, 10, 39, 3, 17, 1,
+        3, 127, 32, 1, 33, 2, 32, 2, 15, 65, 33, 33, 3, 32, 3, 11, 9, 0, 65, 229,
+        0, 65, 7, 16, 0, 11, 9, 0, 65, 230, 0, 65, 8, 16, 0, 11,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected return-copy fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      decoded,
+      HotPipelineOptions::new(
+        validate_final_module=false,
+        stack_function_passes=true,
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected return-copy cleanup success, got \{err}")
+  }
+
+  let encoded = match @binary.encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected return-copy output encode success, got \{err}")
+  }
+  let roundtripped = match @binary.decode_module(encoded) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected return-copy output decode success, got \{err}")
+  }
+  let pretty = roundtripped.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 5)"), msg=pretty)
+  @debug.assert_eq(encoded.length(), 68)
+}
+
+///|
+test "simplify-locals removes dropped copied locals inside blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32 i32 i32) local.get 1 local.set 2 block local.get 2 local.set 3 local.get 3 drop end local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dropped copied-local cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "simplify-locals removes a binary-decoded branch-result local carrier" {
+  let decoded = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 11, 2, 96, 2, 127, 127, 1, 127, 96, 0, 1,
+        127, 3, 4, 3, 0, 1, 1, 7, 7, 1, 3, 114, 117, 110, 0, 1, 10, 37, 3, 15, 1,
+        3, 127, 2, 127, 32, 1, 12, 0, 11, 33, 2, 32, 2, 11, 9, 0, 65, 229, 0, 65,
+        7, 16, 0, 11, 9, 0, 65, 230, 0, 65, 8, 16, 0, 11,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branch-result fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      decoded,
+      HotPipelineOptions::new(
+        validate_final_module=false,
+        stack_function_passes=true,
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branch-result carrier cleanup success, got \{err}")
+  }
+  let encoded = match @binary.encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected branch-result output encode success, got \{err}")
+  }
+  @debug.assert_eq(encoded.length(), 72)
+}
+
+///|
+test "simplify-locals forwards nested block values without a local carrier" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32 i32 i32) block (result i32) block (result i32) local.get 1 end end local.set 2 local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested block carrier cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+}
+
+///|
+test "simplify-locals forwards a constant through copied control locals" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32 i32) i32.const 32 local.set 1 local.get 1 local.set 2 block local.get 1 drop end local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected copied-control local cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(32)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
 }

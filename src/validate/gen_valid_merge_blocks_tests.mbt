@@ -186,7 +186,7 @@ test "merge-blocks GenValid leaves emit valid family triggers" {
         assert_true(
           gen_valid_merge_blocks_test_contains(body, fn(instr) {
             match instr {
-              AtomicFence | I32AtomicLoad(_) => true
+              AtomicFence | I32AtomicLoad(_, _) => true
               _ => false
             }
           }),

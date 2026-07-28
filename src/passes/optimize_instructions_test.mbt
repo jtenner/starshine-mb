@@ -58526,6 +58526,7 @@ test "optimize-instructions folds atomic load constant offsets" {
             @lib.Instruction::i32_const(@lib.I32(3008)),
             @lib.Instruction::i64_atomic_load(
               @lib.MemArg::new(@lib.U32(3), None, @lib.U64(8UL)),
+              order=@lib.AtomicOrder::acq_rel(),
             ),
           ]),
         ),
@@ -58538,6 +58539,7 @@ test "optimize-instructions folds atomic load constant offsets" {
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("i64.atomic.load offset=8"), msg=pretty)
+  assert_true(pretty.contains("i64.atomic.load acq_rel"), msg=pretty)
   optimize_instructions_assert_strings_in_order(pretty, [
     "I32(3016)", "i64.atomic.load",
   ])
@@ -58567,6 +58569,7 @@ test "optimize-instructions folds atomic store constant offsets" {
             @lib.Instruction::i32_const(@lib.I32(1)),
             @lib.Instruction::i32_atomic_store(
               @lib.MemArg::new(@lib.U32(2), None, @lib.U64(8UL)),
+              order=@lib.AtomicOrder::acq_rel(),
             ),
           ]),
         ),
@@ -58580,6 +58583,7 @@ test "optimize-instructions folds atomic store constant offsets" {
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("i32.atomic.store offset=8"), msg=pretty)
+  assert_true(pretty.contains("i32.atomic.store acq_rel"), msg=pretty)
   optimize_instructions_assert_strings_in_order(pretty, [
     "I32(3016)", "I32(1)", "i32.atomic.store",
   ])

@@ -22848,15 +22848,15 @@ fn dae_instruction_observability_evidence(
     | @lib.MemoryAtomicNotify(_)
     | @lib.MemoryAtomicWait32(_)
     | @lib.MemoryAtomicWait64(_)
-    | @lib.I32AtomicStore(_)
-    | @lib.I64AtomicStore(_)
-    | @lib.I32AtomicStore8(_)
-    | @lib.I32AtomicStore16(_)
-    | @lib.I64AtomicStore8(_)
-    | @lib.I64AtomicStore16(_)
-    | @lib.I64AtomicStore32(_)
-    | @lib.AtomicRmw(_, _)
-    | @lib.AtomicCmpxchg(_, _) => has_observable_effect = true
+    | @lib.I32AtomicStore(_, _)
+    | @lib.I64AtomicStore(_, _)
+    | @lib.I32AtomicStore8(_, _)
+    | @lib.I32AtomicStore16(_, _)
+    | @lib.I64AtomicStore8(_, _)
+    | @lib.I64AtomicStore16(_, _)
+    | @lib.I64AtomicStore32(_, _)
+    | @lib.AtomicRmw(_, _, _)
+    | @lib.AtomicCmpxchg(_, _, _) => has_observable_effect = true
     @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) | @lib.Return =>
       has_branch_control = true
     @lib.Block(_, @lib.Expr(body))

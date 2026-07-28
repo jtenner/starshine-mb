@@ -674,23 +674,23 @@ pub enum Instruction {
   MemoryAtomicNotify(MemArg)
   MemoryAtomicWait32(MemArg)
   MemoryAtomicWait64(MemArg)
-  AtomicFence
-  I32AtomicLoad(MemArg)
-  I64AtomicLoad(MemArg)
-  I32AtomicLoad8U(MemArg)
-  I32AtomicLoad16U(MemArg)
-  I64AtomicLoad8U(MemArg)
-  I64AtomicLoad16U(MemArg)
-  I64AtomicLoad32U(MemArg)
-  I32AtomicStore(MemArg)
-  I64AtomicStore(MemArg)
-  I32AtomicStore8(MemArg)
-  I32AtomicStore16(MemArg)
-  I64AtomicStore8(MemArg)
-  I64AtomicStore16(MemArg)
-  I64AtomicStore32(MemArg)
-  AtomicRmw(AtomicRmwOp, MemArg)
-  AtomicCmpxchg(AtomicCmpxchgOp, MemArg)
+  AtomicFence(AtomicOrder)
+  I32AtomicLoad(AtomicOrder, MemArg)
+  I64AtomicLoad(AtomicOrder, MemArg)
+  I32AtomicLoad8U(AtomicOrder, MemArg)
+  I32AtomicLoad16U(AtomicOrder, MemArg)
+  I64AtomicLoad8U(AtomicOrder, MemArg)
+  I64AtomicLoad16U(AtomicOrder, MemArg)
+  I64AtomicLoad32U(AtomicOrder, MemArg)
+  I32AtomicStore(AtomicOrder, MemArg)
+  I64AtomicStore(AtomicOrder, MemArg)
+  I32AtomicStore8(AtomicOrder, MemArg)
+  I32AtomicStore16(AtomicOrder, MemArg)
+  I64AtomicStore8(AtomicOrder, MemArg)
+  I64AtomicStore16(AtomicOrder, MemArg)
+  I64AtomicStore32(AtomicOrder, MemArg)
+  AtomicRmw(AtomicOrder, AtomicRmwOp, MemArg)
+  AtomicCmpxchg(AtomicOrder, AtomicCmpxchgOp, MemArg)
   I32Const(I32)
   I64Const(I64)
   F32Const(F32)
@@ -3445,91 +3445,140 @@ pub fn Instruction::memory_atomic_wait64(ma : MemArg) -> Instruction {
 }
 
 ///|
-pub fn Instruction::atomic_fence() -> Instruction {
-  AtomicFence
+pub fn Instruction::atomic_fence(
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  AtomicFence(order)
 }
 
 ///|
-pub fn Instruction::i32_atomic_load(ma : MemArg) -> Instruction {
-  I32AtomicLoad(ma)
+pub fn Instruction::i32_atomic_load(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I32AtomicLoad(order, ma)
 }
 
 ///|
-pub fn Instruction::i64_atomic_load(ma : MemArg) -> Instruction {
-  I64AtomicLoad(ma)
+pub fn Instruction::i64_atomic_load(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I64AtomicLoad(order, ma)
 }
 
 ///|
-pub fn Instruction::i32_atomic_load8_u(ma : MemArg) -> Instruction {
-  I32AtomicLoad8U(ma)
+pub fn Instruction::i32_atomic_load8_u(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I32AtomicLoad8U(order, ma)
 }
 
 ///|
-pub fn Instruction::i32_atomic_load16_u(ma : MemArg) -> Instruction {
-  I32AtomicLoad16U(ma)
+pub fn Instruction::i32_atomic_load16_u(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I32AtomicLoad16U(order, ma)
 }
 
 ///|
-pub fn Instruction::i64_atomic_load8_u(ma : MemArg) -> Instruction {
-  I64AtomicLoad8U(ma)
+pub fn Instruction::i64_atomic_load8_u(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I64AtomicLoad8U(order, ma)
 }
 
 ///|
-pub fn Instruction::i64_atomic_load16_u(ma : MemArg) -> Instruction {
-  I64AtomicLoad16U(ma)
+pub fn Instruction::i64_atomic_load16_u(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I64AtomicLoad16U(order, ma)
 }
 
 ///|
-pub fn Instruction::i64_atomic_load32_u(ma : MemArg) -> Instruction {
-  I64AtomicLoad32U(ma)
+pub fn Instruction::i64_atomic_load32_u(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I64AtomicLoad32U(order, ma)
 }
 
 ///|
-pub fn Instruction::i32_atomic_store(ma : MemArg) -> Instruction {
-  I32AtomicStore(ma)
+pub fn Instruction::i32_atomic_store(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I32AtomicStore(order, ma)
 }
 
 ///|
-pub fn Instruction::i64_atomic_store(ma : MemArg) -> Instruction {
-  I64AtomicStore(ma)
+pub fn Instruction::i64_atomic_store(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I64AtomicStore(order, ma)
 }
 
 ///|
-pub fn Instruction::i32_atomic_store8(ma : MemArg) -> Instruction {
-  I32AtomicStore8(ma)
+pub fn Instruction::i32_atomic_store8(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I32AtomicStore8(order, ma)
 }
 
 ///|
-pub fn Instruction::i32_atomic_store16(ma : MemArg) -> Instruction {
-  I32AtomicStore16(ma)
+pub fn Instruction::i32_atomic_store16(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I32AtomicStore16(order, ma)
 }
 
 ///|
-pub fn Instruction::i64_atomic_store8(ma : MemArg) -> Instruction {
-  I64AtomicStore8(ma)
+pub fn Instruction::i64_atomic_store8(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I64AtomicStore8(order, ma)
 }
 
 ///|
-pub fn Instruction::i64_atomic_store16(ma : MemArg) -> Instruction {
-  I64AtomicStore16(ma)
+pub fn Instruction::i64_atomic_store16(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I64AtomicStore16(order, ma)
 }
 
 ///|
-pub fn Instruction::i64_atomic_store32(ma : MemArg) -> Instruction {
-  I64AtomicStore32(ma)
+pub fn Instruction::i64_atomic_store32(
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  I64AtomicStore32(order, ma)
 }
 
 ///|
-pub fn Instruction::atomic_rmw(op : AtomicRmwOp, ma : MemArg) -> Instruction {
-  AtomicRmw(op, ma)
+pub fn Instruction::atomic_rmw(
+  op : AtomicRmwOp,
+  ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  AtomicRmw(order, op, ma)
 }
 
 ///|
 pub fn Instruction::atomic_cmpxchg(
   op : AtomicCmpxchgOp,
   ma : MemArg,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
-  AtomicCmpxchg(op, ma)
+  AtomicCmpxchg(order, op, ma)
 }
 
 ///|

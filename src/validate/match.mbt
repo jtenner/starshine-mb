@@ -103,6 +103,33 @@ pub impl Match for RefType with fn matches(self, other, env) {
               }
             None => return false
           }
+        SharedAbsHeapTypeHeapType(NoneAbsHeapType) =>
+          match env.resolve_heaptype_subtype(ht1) {
+            Some(st) if st.metadata().is_shared() =>
+              match st.get_comptype() {
+                StructCompType(_) | ArrayCompType(_) => ()
+                _ => return false
+              }
+            _ => return false
+          }
+        SharedAbsHeapTypeHeapType(NoFuncAbsHeapType) =>
+          match env.resolve_heaptype_subtype(ht1) {
+            Some(st) if st.metadata().is_shared() =>
+              match st.get_comptype() {
+                FuncCompType(_, _) => ()
+                _ => return false
+              }
+            _ => return false
+          }
+        SharedAbsHeapTypeHeapType(NoContAbsHeapType) =>
+          match env.resolve_heaptype_subtype(ht1) {
+            Some(st) if st.metadata().is_shared() =>
+              match st.get_comptype() {
+                ContCompType(_) => ()
+                _ => return false
+              }
+            _ => return false
+          }
         _ => return false
       }
     }
@@ -547,7 +574,17 @@ fn heap_vs_typeidx_fuel(
   }
   match h {
     AbsHeapTypeHeapType(abs) => abs_vs_typeidx_fuel(abs, target, env, fuel - 1)
-    SharedAbsHeapTypeHeapType(_) => false
+    SharedAbsHeapTypeHeapType(abs) =>
+      match env.resolve_subtype(target) {
+        Some(st) if st.metadata().is_shared() =>
+          match (abs, st.get_comptype()) {
+            (NoneAbsHeapType, StructCompType(_) | ArrayCompType(_)) => true
+            (NoFuncAbsHeapType, FuncCompType(_, _)) => true
+            (NoContAbsHeapType, ContCompType(_)) => true
+            _ => false
+          }
+        _ => false
+      }
     HeapType(tidx1) =>
       typeidx_leq_typeidx_with_fuel(tidx1, target, env, fuel - 1)
     DefTypeHeapType(dt1) =>

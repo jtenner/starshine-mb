@@ -7554,13 +7554,13 @@ fn validate_test_simd_phase3_forms_module(
 ///|
 fn validate_test_atomic_load_form(instr : Instruction) -> Int? {
   match instr {
-    I32AtomicLoad(_) => Some(0)
-    I64AtomicLoad(_) => Some(1)
-    I32AtomicLoad8U(_) => Some(2)
-    I32AtomicLoad16U(_) => Some(3)
-    I64AtomicLoad8U(_) => Some(4)
-    I64AtomicLoad16U(_) => Some(5)
-    I64AtomicLoad32U(_) => Some(6)
+    I32AtomicLoad(_, _) => Some(0)
+    I64AtomicLoad(_, _) => Some(1)
+    I32AtomicLoad8U(_, _) => Some(2)
+    I32AtomicLoad16U(_, _) => Some(3)
+    I64AtomicLoad8U(_, _) => Some(4)
+    I64AtomicLoad16U(_, _) => Some(5)
+    I64AtomicLoad32U(_, _) => Some(6)
     _ => None
   }
 }
@@ -7568,13 +7568,13 @@ fn validate_test_atomic_load_form(instr : Instruction) -> Int? {
 ///|
 fn validate_test_atomic_store_form(instr : Instruction) -> Int? {
   match instr {
-    I32AtomicStore(_) => Some(0)
-    I64AtomicStore(_) => Some(1)
-    I32AtomicStore8(_) => Some(2)
-    I32AtomicStore16(_) => Some(3)
-    I64AtomicStore8(_) => Some(4)
-    I64AtomicStore16(_) => Some(5)
-    I64AtomicStore32(_) => Some(6)
+    I32AtomicStore(_, _) => Some(0)
+    I64AtomicStore(_, _) => Some(1)
+    I32AtomicStore8(_, _) => Some(2)
+    I32AtomicStore16(_, _) => Some(3)
+    I64AtomicStore8(_, _) => Some(4)
+    I64AtomicStore16(_, _) => Some(5)
+    I64AtomicStore32(_, _) => Some(6)
     _ => None
   }
 }
@@ -7682,7 +7682,7 @@ test "gen_valid coverage-forced emits full atomic instruction matrix" {
             None => ()
           }
           match instr {
-            AtomicRmw(op, ma) => {
+            AtomicRmw(_, op, ma) => {
               rmws.set(validate_test_atomic_rmw_form(op), true)
               let MemArg(_, mem, _) = ma
               match mem {
@@ -7691,7 +7691,7 @@ test "gen_valid coverage-forced emits full atomic instruction matrix" {
                 _ => ()
               }
             }
-            AtomicCmpxchg(op, ma) => {
+            AtomicCmpxchg(_, op, ma) => {
               cmpxchgs.set(validate_test_atomic_cmpxchg_form(op), true)
               let MemArg(_, mem, _) = ma
               match mem {
@@ -7703,7 +7703,7 @@ test "gen_valid coverage-forced emits full atomic instruction matrix" {
             MemoryAtomicNotify(_) => saw_notify = true
             MemoryAtomicWait32(_) => saw_wait32 = true
             MemoryAtomicWait64(_) => saw_wait64 = true
-            AtomicFence => saw_fence = true
+            AtomicFence(_) => saw_fence = true
             _ => ()
           }
         }

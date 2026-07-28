@@ -321,11 +321,10 @@ test "simplify-locals-nostructure removes dead result-if set with embedded tee" 
 }
 
 ///|
-test "simplify-locals-nostructure lowers embedded dropped tee to set" {
-  // Binaryen version_130 lowers `drop(local.tee)` inside structured control to
-  // a plain `local.set`, preserving the write for a later root read without
-  // requiring the unsafe broader child deletion that the protected path still
-  // forbids.
+test "simplify-locals-nostructure removes an embedded tee carrier observed only by drop" {
+  // Lowering `drop(local.tee)` inside structured control exposes a plain set.
+  // Once the later root read is also proven pure and dropped, the entire local
+  // carrier is dead and can be removed without broad child deletion.
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32) (local i32) local.get 0 if i32.const 120 local.tee 1 drop end local.get 1 drop))",
@@ -340,8 +339,8 @@ test "simplify-locals-nostructure lowers embedded dropped tee to set" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("if (Void)"), msg=pretty)
-  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.tee (Local 1)"), msg=pretty)
 }
 

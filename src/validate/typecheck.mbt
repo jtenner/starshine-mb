@@ -4230,13 +4230,13 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     I64Load16U(ma) => typecheck_load(st, ma, 16, ValType::i64())
     I64Load32S(ma) => typecheck_load(st, ma, 32, ValType::i64())
     I64Load32U(ma) => typecheck_load(st, ma, 32, ValType::i64())
-    I32AtomicLoad(ma) => typecheck_atomic_load(st, ma, 32, ValType::i32())
-    I64AtomicLoad(ma) => typecheck_atomic_load(st, ma, 64, ValType::i64())
-    I32AtomicLoad8U(ma) => typecheck_atomic_load(st, ma, 8, ValType::i32())
-    I32AtomicLoad16U(ma) => typecheck_atomic_load(st, ma, 16, ValType::i32())
-    I64AtomicLoad8U(ma) => typecheck_atomic_load(st, ma, 8, ValType::i64())
-    I64AtomicLoad16U(ma) => typecheck_atomic_load(st, ma, 16, ValType::i64())
-    I64AtomicLoad32U(ma) => typecheck_atomic_load(st, ma, 32, ValType::i64())
+    I32AtomicLoad(_, ma) => typecheck_atomic_load(st, ma, 32, ValType::i32())
+    I64AtomicLoad(_, ma) => typecheck_atomic_load(st, ma, 64, ValType::i64())
+    I32AtomicLoad8U(_, ma) => typecheck_atomic_load(st, ma, 8, ValType::i32())
+    I32AtomicLoad16U(_, ma) => typecheck_atomic_load(st, ma, 16, ValType::i32())
+    I64AtomicLoad8U(_, ma) => typecheck_atomic_load(st, ma, 8, ValType::i64())
+    I64AtomicLoad16U(_, ma) => typecheck_atomic_load(st, ma, 16, ValType::i64())
+    I64AtomicLoad32U(_, ma) => typecheck_atomic_load(st, ma, 32, ValType::i64())
     I32Store(ma) => typecheck_store(st, ma, 32, ValType::i32())
     I64Store(ma) => typecheck_store(st, ma, 64, ValType::i64())
     F32Store(ma) => typecheck_store(st, ma, 32, ValType::f32())
@@ -4246,13 +4246,16 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     I64Store8(ma) => typecheck_store(st, ma, 8, ValType::i64())
     I64Store16(ma) => typecheck_store(st, ma, 16, ValType::i64())
     I64Store32(ma) => typecheck_store(st, ma, 32, ValType::i64())
-    I32AtomicStore(ma) => typecheck_atomic_store(st, ma, 32, ValType::i32())
-    I64AtomicStore(ma) => typecheck_atomic_store(st, ma, 64, ValType::i64())
-    I32AtomicStore8(ma) => typecheck_atomic_store(st, ma, 8, ValType::i32())
-    I32AtomicStore16(ma) => typecheck_atomic_store(st, ma, 16, ValType::i32())
-    I64AtomicStore8(ma) => typecheck_atomic_store(st, ma, 8, ValType::i64())
-    I64AtomicStore16(ma) => typecheck_atomic_store(st, ma, 16, ValType::i64())
-    I64AtomicStore32(ma) => typecheck_atomic_store(st, ma, 32, ValType::i64())
+    I32AtomicStore(_, ma) => typecheck_atomic_store(st, ma, 32, ValType::i32())
+    I64AtomicStore(_, ma) => typecheck_atomic_store(st, ma, 64, ValType::i64())
+    I32AtomicStore8(_, ma) => typecheck_atomic_store(st, ma, 8, ValType::i32())
+    I32AtomicStore16(_, ma) =>
+      typecheck_atomic_store(st, ma, 16, ValType::i32())
+    I64AtomicStore8(_, ma) => typecheck_atomic_store(st, ma, 8, ValType::i64())
+    I64AtomicStore16(_, ma) =>
+      typecheck_atomic_store(st, ma, 16, ValType::i64())
+    I64AtomicStore32(_, ma) =>
+      typecheck_atomic_store(st, ma, 32, ValType::i64())
     Drop => typecheck_drop(st)
     Select(None) => typecheck_select_untyped(st)
     Select(Some(ts)) => typecheck_select_typed(st, ts)
@@ -4274,12 +4277,12 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     MemoryAtomicNotify(ma) => typecheck_atomic_notify(st, ma)
     MemoryAtomicWait32(ma) => typecheck_atomic_wait(st, ma, 32, ValType::i32())
     MemoryAtomicWait64(ma) => typecheck_atomic_wait(st, ma, 64, ValType::i64())
-    AtomicFence => Ok(st)
+    AtomicFence(_) => Ok(st)
     MemoryInit(d, m) => typecheck_memory_init(st, d, m)
     DataDrop(d) => typecheck_data_drop(st, d)
     MemoryCopy(d, s) => typecheck_memory_copy(st, d, s)
     MemoryFill(m) => typecheck_memory_fill(st, m)
-    AtomicRmw(op, ma) =>
+    AtomicRmw(_, op, ma) =>
       match op {
         I32AtomicRmwAddOp => typecheck_atomic_rmw(st, ma, 32, ValType::i32())
         I64AtomicRmwAddOp => typecheck_atomic_rmw(st, ma, 64, ValType::i64())
@@ -4327,7 +4330,7 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
         I64AtomicRmw32XchgUOp =>
           typecheck_atomic_rmw(st, ma, 32, ValType::i64())
       }
-    AtomicCmpxchg(op, ma) =>
+    AtomicCmpxchg(_, op, ma) =>
       match op {
         I32AtomicRmwCmpxchgOp =>
           typecheck_atomic_cmpxchg(st, ma, 32, ValType::i32())

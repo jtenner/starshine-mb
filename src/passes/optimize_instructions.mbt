@@ -9467,13 +9467,13 @@ fn OiMaxBitsBlockPrefixFact::from_root(
     @ir.HotOp::Atomic if @ir.hot_child_count(func, root_id) == 2 =>
       match @ir.hot_node_exact_instr(func, root_id) {
         Some(
-          @lib.Instruction::I32AtomicStore(_)
-          | @lib.Instruction::I64AtomicStore(_)
-          | @lib.Instruction::I32AtomicStore8(_)
-          | @lib.Instruction::I32AtomicStore16(_)
-          | @lib.Instruction::I64AtomicStore8(_)
-          | @lib.Instruction::I64AtomicStore16(_)
-          | @lib.Instruction::I64AtomicStore32(_)
+          @lib.Instruction::I32AtomicStore(_, _)
+          | @lib.Instruction::I64AtomicStore(_, _)
+          | @lib.Instruction::I32AtomicStore8(_, _)
+          | @lib.Instruction::I32AtomicStore16(_, _)
+          | @lib.Instruction::I64AtomicStore8(_, _)
+          | @lib.Instruction::I64AtomicStore16(_, _)
+          | @lib.Instruction::I64AtomicStore32(_, _)
         ) => Some({ kind: MaxBitsBlockPrefixAtomicStore, root_id })
         _ => None
       }
@@ -9497,13 +9497,13 @@ fn OiMaxBitsBlockPrefixFact::from_root(
         @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 1 =>
           match @ir.hot_node_exact_instr(func, child_id) {
             Some(
-              @lib.Instruction::I32AtomicLoad(_)
-              | @lib.Instruction::I64AtomicLoad(_)
-              | @lib.Instruction::I32AtomicLoad8U(_)
-              | @lib.Instruction::I32AtomicLoad16U(_)
-              | @lib.Instruction::I64AtomicLoad8U(_)
-              | @lib.Instruction::I64AtomicLoad16U(_)
-              | @lib.Instruction::I64AtomicLoad32U(_)
+              @lib.Instruction::I32AtomicLoad(_, _)
+              | @lib.Instruction::I64AtomicLoad(_, _)
+              | @lib.Instruction::I32AtomicLoad8U(_, _)
+              | @lib.Instruction::I32AtomicLoad16U(_, _)
+              | @lib.Instruction::I64AtomicLoad8U(_, _)
+              | @lib.Instruction::I64AtomicLoad16U(_, _)
+              | @lib.Instruction::I64AtomicLoad32U(_, _)
             ) => Some({ kind: MaxBitsBlockPrefixDropAtomicLoad, root_id })
             Some(
               @lib.Instruction::StructAtomicGet(_, _, _)
@@ -9514,7 +9514,7 @@ fn OiMaxBitsBlockPrefixFact::from_root(
           }
         @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 2 =>
           match @ir.hot_node_exact_instr(func, child_id) {
-            Some(@lib.Instruction::AtomicRmw(_, _)) =>
+            Some(@lib.Instruction::AtomicRmw(_, _, _)) =>
               Some({ kind: MaxBitsBlockPrefixDropAtomicRmw, root_id })
             Some(@lib.Instruction::MemoryAtomicNotify(_)) =>
               Some({ kind: MaxBitsBlockPrefixDropAtomicNotify, root_id })
@@ -9522,7 +9522,7 @@ fn OiMaxBitsBlockPrefixFact::from_root(
           }
         @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 3 =>
           match @ir.hot_node_exact_instr(func, child_id) {
-            Some(@lib.Instruction::AtomicCmpxchg(_, _)) =>
+            Some(@lib.Instruction::AtomicCmpxchg(_, _, _)) =>
               Some({ kind: MaxBitsBlockPrefixDropAtomicCmpxchg, root_id })
             Some(@lib.Instruction::ArrayAtomicRmw(_, _, _)) =>
               Some({ kind: MaxBitsBlockPrefixDropArrayAtomicRmw, root_id })
@@ -20023,13 +20023,13 @@ fn OiStableMemoryReadEqualityKind::from_op_and_instr(
     @ir.HotOp::Load => StableMemoryReadLoad
     @ir.HotOp::Atomic =>
       match instr {
-        @lib.Instruction::I32AtomicLoad(_)
-        | @lib.Instruction::I64AtomicLoad(_)
-        | @lib.Instruction::I32AtomicLoad8U(_)
-        | @lib.Instruction::I32AtomicLoad16U(_)
-        | @lib.Instruction::I64AtomicLoad8U(_)
-        | @lib.Instruction::I64AtomicLoad16U(_)
-        | @lib.Instruction::I64AtomicLoad32U(_) => StableMemoryReadAtomicLoad
+        @lib.Instruction::I32AtomicLoad(_, _)
+        | @lib.Instruction::I64AtomicLoad(_, _)
+        | @lib.Instruction::I32AtomicLoad8U(_, _)
+        | @lib.Instruction::I32AtomicLoad16U(_, _)
+        | @lib.Instruction::I64AtomicLoad8U(_, _)
+        | @lib.Instruction::I64AtomicLoad16U(_, _)
+        | @lib.Instruction::I64AtomicLoad32U(_, _) => StableMemoryReadAtomicLoad
         _ => StableMemoryReadUnsupported
       }
     _ => StableMemoryReadUnsupported
@@ -21765,20 +21765,20 @@ fn OiAtomicAccessFact::from_instr(
   instr : @lib.Instruction,
 ) -> OiAtomicAccessFact? {
   match instr {
-    @lib.Instruction::I32AtomicLoad(_)
-    | @lib.Instruction::I64AtomicLoad(_)
-    | @lib.Instruction::I32AtomicLoad8U(_)
-    | @lib.Instruction::I32AtomicLoad16U(_)
-    | @lib.Instruction::I64AtomicLoad8U(_)
-    | @lib.Instruction::I64AtomicLoad16U(_)
-    | @lib.Instruction::I64AtomicLoad32U(_)
-    | @lib.Instruction::I32AtomicStore(_)
-    | @lib.Instruction::I64AtomicStore(_)
-    | @lib.Instruction::I32AtomicStore8(_)
-    | @lib.Instruction::I32AtomicStore16(_)
-    | @lib.Instruction::I64AtomicStore8(_)
-    | @lib.Instruction::I64AtomicStore16(_)
-    | @lib.Instruction::I64AtomicStore32(_) => Some({ instr, })
+    @lib.Instruction::I32AtomicLoad(_, _)
+    | @lib.Instruction::I64AtomicLoad(_, _)
+    | @lib.Instruction::I32AtomicLoad8U(_, _)
+    | @lib.Instruction::I32AtomicLoad16U(_, _)
+    | @lib.Instruction::I64AtomicLoad8U(_, _)
+    | @lib.Instruction::I64AtomicLoad16U(_, _)
+    | @lib.Instruction::I64AtomicLoad32U(_, _)
+    | @lib.Instruction::I32AtomicStore(_, _)
+    | @lib.Instruction::I64AtomicStore(_, _)
+    | @lib.Instruction::I32AtomicStore8(_, _)
+    | @lib.Instruction::I32AtomicStore16(_, _)
+    | @lib.Instruction::I64AtomicStore8(_, _)
+    | @lib.Instruction::I64AtomicStore16(_, _)
+    | @lib.Instruction::I64AtomicStore32(_, _) => Some({ instr, })
     _ => None
   }
 }
@@ -21789,34 +21789,34 @@ fn OiAtomicAccessFact::with_memarg(
   memarg : @lib.MemArg,
 ) -> @lib.Instruction? {
   match self.instr {
-    @lib.Instruction::I32AtomicLoad(_) =>
-      Some(@lib.Instruction::i32_atomic_load(memarg))
-    @lib.Instruction::I64AtomicLoad(_) =>
-      Some(@lib.Instruction::i64_atomic_load(memarg))
-    @lib.Instruction::I32AtomicLoad8U(_) =>
-      Some(@lib.Instruction::i32_atomic_load8_u(memarg))
-    @lib.Instruction::I32AtomicLoad16U(_) =>
-      Some(@lib.Instruction::i32_atomic_load16_u(memarg))
-    @lib.Instruction::I64AtomicLoad8U(_) =>
-      Some(@lib.Instruction::i64_atomic_load8_u(memarg))
-    @lib.Instruction::I64AtomicLoad16U(_) =>
-      Some(@lib.Instruction::i64_atomic_load16_u(memarg))
-    @lib.Instruction::I64AtomicLoad32U(_) =>
-      Some(@lib.Instruction::i64_atomic_load32_u(memarg))
-    @lib.Instruction::I32AtomicStore(_) =>
-      Some(@lib.Instruction::i32_atomic_store(memarg))
-    @lib.Instruction::I64AtomicStore(_) =>
-      Some(@lib.Instruction::i64_atomic_store(memarg))
-    @lib.Instruction::I32AtomicStore8(_) =>
-      Some(@lib.Instruction::i32_atomic_store8(memarg))
-    @lib.Instruction::I32AtomicStore16(_) =>
-      Some(@lib.Instruction::i32_atomic_store16(memarg))
-    @lib.Instruction::I64AtomicStore8(_) =>
-      Some(@lib.Instruction::i64_atomic_store8(memarg))
-    @lib.Instruction::I64AtomicStore16(_) =>
-      Some(@lib.Instruction::i64_atomic_store16(memarg))
-    @lib.Instruction::I64AtomicStore32(_) =>
-      Some(@lib.Instruction::i64_atomic_store32(memarg))
+    @lib.Instruction::I32AtomicLoad(order, _) =>
+      Some(@lib.Instruction::i32_atomic_load(memarg, order~))
+    @lib.Instruction::I64AtomicLoad(order, _) =>
+      Some(@lib.Instruction::i64_atomic_load(memarg, order~))
+    @lib.Instruction::I32AtomicLoad8U(order, _) =>
+      Some(@lib.Instruction::i32_atomic_load8_u(memarg, order~))
+    @lib.Instruction::I32AtomicLoad16U(order, _) =>
+      Some(@lib.Instruction::i32_atomic_load16_u(memarg, order~))
+    @lib.Instruction::I64AtomicLoad8U(order, _) =>
+      Some(@lib.Instruction::i64_atomic_load8_u(memarg, order~))
+    @lib.Instruction::I64AtomicLoad16U(order, _) =>
+      Some(@lib.Instruction::i64_atomic_load16_u(memarg, order~))
+    @lib.Instruction::I64AtomicLoad32U(order, _) =>
+      Some(@lib.Instruction::i64_atomic_load32_u(memarg, order~))
+    @lib.Instruction::I32AtomicStore(order, _) =>
+      Some(@lib.Instruction::i32_atomic_store(memarg, order~))
+    @lib.Instruction::I64AtomicStore(order, _) =>
+      Some(@lib.Instruction::i64_atomic_store(memarg, order~))
+    @lib.Instruction::I32AtomicStore8(order, _) =>
+      Some(@lib.Instruction::i32_atomic_store8(memarg, order~))
+    @lib.Instruction::I32AtomicStore16(order, _) =>
+      Some(@lib.Instruction::i32_atomic_store16(memarg, order~))
+    @lib.Instruction::I64AtomicStore8(order, _) =>
+      Some(@lib.Instruction::i64_atomic_store8(memarg, order~))
+    @lib.Instruction::I64AtomicStore16(order, _) =>
+      Some(@lib.Instruction::i64_atomic_store16(memarg, order~))
+    @lib.Instruction::I64AtomicStore32(order, _) =>
+      Some(@lib.Instruction::i64_atomic_store32(memarg, order~))
     _ => None
   }
 }

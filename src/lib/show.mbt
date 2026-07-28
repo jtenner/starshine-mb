@@ -1231,88 +1231,141 @@ pub impl Show for Instruction with fn output(self, logger) {
       Show::output(m, logger)
       logger.write_char(')')
     }
-    AtomicFence => logger.write_string("atomic.fence")
-    I32AtomicLoad(m) => {
+    AtomicFence(order) => {
+      logger.write_string("atomic.fence")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string(" acq_rel")
+      }
+    }
+    I32AtomicLoad(order, m) => {
       logger.write_string("(i32.atomic.load ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I64AtomicLoad(m) => {
+    I64AtomicLoad(order, m) => {
       logger.write_string("(i64.atomic.load ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I32AtomicLoad8U(m) => {
+    I32AtomicLoad8U(order, m) => {
       logger.write_string("(i32.atomic.load8_u ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I32AtomicLoad16U(m) => {
+    I32AtomicLoad16U(order, m) => {
       logger.write_string("(i32.atomic.load16_u ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I64AtomicLoad8U(m) => {
+    I64AtomicLoad8U(order, m) => {
       logger.write_string("(i64.atomic.load8_u ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I64AtomicLoad16U(m) => {
+    I64AtomicLoad16U(order, m) => {
       logger.write_string("(i64.atomic.load16_u ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I64AtomicLoad32U(m) => {
+    I64AtomicLoad32U(order, m) => {
       logger.write_string("(i64.atomic.load32_u ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I32AtomicStore(m) => {
+    I32AtomicStore(order, m) => {
       logger.write_string("(i32.atomic.store ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I64AtomicStore(m) => {
+    I64AtomicStore(order, m) => {
       logger.write_string("(i64.atomic.store ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I32AtomicStore8(m) => {
+    I32AtomicStore8(order, m) => {
       logger.write_string("(i32.atomic.store8 ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I32AtomicStore16(m) => {
+    I32AtomicStore16(order, m) => {
       logger.write_string("(i32.atomic.store16 ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I64AtomicStore8(m) => {
+    I64AtomicStore8(order, m) => {
       logger.write_string("(i64.atomic.store8 ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I64AtomicStore16(m) => {
+    I64AtomicStore16(order, m) => {
       logger.write_string("(i64.atomic.store16 ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    I64AtomicStore32(m) => {
+    I64AtomicStore32(order, m) => {
       logger.write_string("(i64.atomic.store32 ")
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    AtomicRmw(op, m) => {
+    AtomicRmw(order, op, m) => {
       logger.write_string("(atomic.rmw ")
       Show::output(op, logger)
       logger.write_char(' ')
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }
-    AtomicCmpxchg(op, m) => {
+    AtomicCmpxchg(order, op, m) => {
       logger.write_string("(atomic.cmpxchg ")
       Show::output(op, logger)
       logger.write_char(' ')
+      if order == AtomicOrder::acq_rel() {
+        logger.write_string("acq_rel ")
+      }
       Show::output(m, logger)
       logger.write_char(')')
     }

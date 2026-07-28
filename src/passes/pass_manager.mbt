@@ -7401,6 +7401,20 @@ fn run_hot_pipeline_raw_simplify_locals(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let root_forwarded = run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers(
+    instrs,
+  )
+  if root_forwarded != instrs {
+    let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+      @lib.Func::new(locals, @lib.Expr::new(root_forwarded)),
+    )
+    return Some({
+      reason: "root-structured-local-carrier",
+      func: cleaned,
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
   let raw_const_nop_only = descriptor.name == "simplify-locals-notee" ||
     descriptor.name == "simplify-locals-no-tee"
   let no_tee_variant = raw_const_nop_only ||
@@ -9211,7 +9225,7 @@ fn run_hot_pipeline_dce_raw_instr_is_definitely_void(
     | @lib.MemoryFill(_)
     | @lib.DataDrop(_)
     | @lib.ElemDrop(_)
-    | @lib.AtomicFence => true
+    | @lib.AtomicFence(_) => true
     @lib.Call(func_idx) =>
       match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
         Some(@lib.FuncType(_, results)) => results.is_empty()
@@ -9839,6 +9853,60 @@ fn run_hot_pipeline_hso_candidate_scan_into(
       _ => ()
     }
   }
+}
+
+///|
+fn run_hot_pipeline_hso_instrs_have_tail_call(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_hso_instrs_have_tail_call(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_hso_instrs_have_tail_call(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_hso_instrs_have_tail_call(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_hso_instrs_have_tail_call(body) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          if run_hot_pipeline_hso_instrs_have_tail_call(catch_body) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_hso_original_requires_unchanged_lowering(
+  original : @lib.Func,
+) -> Bool {
+  let @lib.Func(_, @lib.Expr(body)) = original
+  run_hot_pipeline_hso_instrs_have_tail_call(body)
 }
 
 ///|
@@ -18145,9 +18213,9 @@ fn run_hot_pipeline_raw_plain_load_result_type(
     | @lib.I32Load8U(_)
     | @lib.I32Load16S(_)
     | @lib.I32Load16U(_)
-    | @lib.I32AtomicLoad(_)
-    | @lib.I32AtomicLoad8U(_)
-    | @lib.I32AtomicLoad16U(_) => Some(@lib.ValType::i32())
+    | @lib.I32AtomicLoad(_, _)
+    | @lib.I32AtomicLoad8U(_, _)
+    | @lib.I32AtomicLoad16U(_, _) => Some(@lib.ValType::i32())
     @lib.I64Load(_)
     | @lib.I64Load8S(_)
     | @lib.I64Load8U(_)
@@ -18155,10 +18223,10 @@ fn run_hot_pipeline_raw_plain_load_result_type(
     | @lib.I64Load16U(_)
     | @lib.I64Load32S(_)
     | @lib.I64Load32U(_)
-    | @lib.I64AtomicLoad(_)
-    | @lib.I64AtomicLoad8U(_)
-    | @lib.I64AtomicLoad16U(_)
-    | @lib.I64AtomicLoad32U(_) => Some(@lib.ValType::i64())
+    | @lib.I64AtomicLoad(_, _)
+    | @lib.I64AtomicLoad8U(_, _)
+    | @lib.I64AtomicLoad16U(_, _)
+    | @lib.I64AtomicLoad32U(_, _) => Some(@lib.ValType::i64())
     @lib.F32Load(_) => Some(@lib.ValType::f32())
     @lib.F64Load(_) => Some(@lib.ValType::f64())
     _ => None
@@ -25885,13 +25953,13 @@ fn RawOiStackEffectBarrierFact::from_instr(
     | @lib.I64Store8(_)
     | @lib.I64Store16(_)
     | @lib.I64Store32(_)
-    | @lib.I32AtomicStore(_)
-    | @lib.I64AtomicStore(_)
-    | @lib.I32AtomicStore8(_)
-    | @lib.I32AtomicStore16(_)
-    | @lib.I64AtomicStore8(_)
-    | @lib.I64AtomicStore16(_)
-    | @lib.I64AtomicStore32(_)
+    | @lib.I32AtomicStore(_, _)
+    | @lib.I64AtomicStore(_, _)
+    | @lib.I32AtomicStore8(_, _)
+    | @lib.I32AtomicStore16(_, _)
+    | @lib.I64AtomicStore8(_, _)
+    | @lib.I64AtomicStore16(_, _)
+    | @lib.I64AtomicStore32(_, _)
     | @lib.MemoryInit(_, _)
     | @lib.MemoryCopy(_, _)
     | @lib.MemoryFill(_)
@@ -25920,8 +25988,8 @@ fn RawOiStackEffectBarrierFact::from_instr(
     | @lib.MemoryAtomicNotify(_)
     | @lib.MemoryAtomicWait32(_)
     | @lib.MemoryAtomicWait64(_)
-    | @lib.AtomicRmw(_, _)
-    | @lib.AtomicCmpxchg(_, _)
+    | @lib.AtomicRmw(_, _, _)
+    | @lib.AtomicCmpxchg(_, _, _)
     | @lib.StructAtomicGet(_, _, _)
     | @lib.StructAtomicGetS(_, _, _)
     | @lib.StructAtomicGetU(_, _, _)
@@ -25952,13 +26020,13 @@ fn run_hot_pipeline_optimize_instructions_instr_is_plain_load(
     | @lib.I64Load16U(_)
     | @lib.I64Load32S(_)
     | @lib.I64Load32U(_)
-    | @lib.I32AtomicLoad(_)
-    | @lib.I64AtomicLoad(_)
-    | @lib.I32AtomicLoad8U(_)
-    | @lib.I32AtomicLoad16U(_)
-    | @lib.I64AtomicLoad8U(_)
-    | @lib.I64AtomicLoad16U(_)
-    | @lib.I64AtomicLoad32U(_)
+    | @lib.I32AtomicLoad(_, _)
+    | @lib.I64AtomicLoad(_, _)
+    | @lib.I32AtomicLoad8U(_, _)
+    | @lib.I32AtomicLoad16U(_, _)
+    | @lib.I64AtomicLoad8U(_, _)
+    | @lib.I64AtomicLoad16U(_, _)
+    | @lib.I64AtomicLoad32U(_, _)
     | @lib.StructAtomicGet(_, _, _)
     | @lib.StructAtomicGetS(_, _, _)
     | @lib.StructAtomicGetU(_, _, _) => true
@@ -29223,13 +29291,13 @@ fn RawOiMemoryAccessMemargFact::from_load_instr(
     | @lib.I64Load16U(memarg)
     | @lib.I64Load32S(memarg)
     | @lib.I64Load32U(memarg)
-    | @lib.I32AtomicLoad(memarg)
-    | @lib.I64AtomicLoad(memarg)
-    | @lib.I32AtomicLoad8U(memarg)
-    | @lib.I32AtomicLoad16U(memarg)
-    | @lib.I64AtomicLoad8U(memarg)
-    | @lib.I64AtomicLoad16U(memarg)
-    | @lib.I64AtomicLoad32U(memarg) =>
+    | @lib.I32AtomicLoad(_, memarg)
+    | @lib.I64AtomicLoad(_, memarg)
+    | @lib.I32AtomicLoad8U(_, memarg)
+    | @lib.I32AtomicLoad16U(_, memarg)
+    | @lib.I64AtomicLoad8U(_, memarg)
+    | @lib.I64AtomicLoad16U(_, memarg)
+    | @lib.I64AtomicLoad32U(_, memarg) =>
       Some({ memarg, is_load: true, is_store: false })
     _ => None
   }
@@ -29249,13 +29317,13 @@ fn RawOiMemoryAccessMemargFact::from_store_instr(
     | @lib.I64Store8(memarg)
     | @lib.I64Store16(memarg)
     | @lib.I64Store32(memarg)
-    | @lib.I32AtomicStore(memarg)
-    | @lib.I64AtomicStore(memarg)
-    | @lib.I32AtomicStore8(memarg)
-    | @lib.I32AtomicStore16(memarg)
-    | @lib.I64AtomicStore8(memarg)
-    | @lib.I64AtomicStore16(memarg)
-    | @lib.I64AtomicStore32(memarg) =>
+    | @lib.I32AtomicStore(_, memarg)
+    | @lib.I64AtomicStore(_, memarg)
+    | @lib.I32AtomicStore8(_, memarg)
+    | @lib.I32AtomicStore16(_, memarg)
+    | @lib.I64AtomicStore8(_, memarg)
+    | @lib.I64AtomicStore16(_, memarg)
+    | @lib.I64AtomicStore32(_, memarg) =>
       Some({ memarg, is_load: false, is_store: true })
     _ => None
   }
@@ -29295,18 +29363,20 @@ fn RawOiMemoryAccessMemargFact::load_rewrite_with_memarg(
     @lib.I64Load16U(_) => Some(@lib.Instruction::i64_load16u(memarg))
     @lib.I64Load32S(_) => Some(@lib.Instruction::i64_load32s(memarg))
     @lib.I64Load32U(_) => Some(@lib.Instruction::i64_load32u(memarg))
-    @lib.I32AtomicLoad(_) => Some(@lib.Instruction::i32_atomic_load(memarg))
-    @lib.I64AtomicLoad(_) => Some(@lib.Instruction::i64_atomic_load(memarg))
-    @lib.I32AtomicLoad8U(_) =>
-      Some(@lib.Instruction::i32_atomic_load8_u(memarg))
-    @lib.I32AtomicLoad16U(_) =>
-      Some(@lib.Instruction::i32_atomic_load16_u(memarg))
-    @lib.I64AtomicLoad8U(_) =>
-      Some(@lib.Instruction::i64_atomic_load8_u(memarg))
-    @lib.I64AtomicLoad16U(_) =>
-      Some(@lib.Instruction::i64_atomic_load16_u(memarg))
-    @lib.I64AtomicLoad32U(_) =>
-      Some(@lib.Instruction::i64_atomic_load32_u(memarg))
+    @lib.I32AtomicLoad(order, _) =>
+      Some(@lib.Instruction::i32_atomic_load(memarg, order~))
+    @lib.I64AtomicLoad(order, _) =>
+      Some(@lib.Instruction::i64_atomic_load(memarg, order~))
+    @lib.I32AtomicLoad8U(order, _) =>
+      Some(@lib.Instruction::i32_atomic_load8_u(memarg, order~))
+    @lib.I32AtomicLoad16U(order, _) =>
+      Some(@lib.Instruction::i32_atomic_load16_u(memarg, order~))
+    @lib.I64AtomicLoad8U(order, _) =>
+      Some(@lib.Instruction::i64_atomic_load8_u(memarg, order~))
+    @lib.I64AtomicLoad16U(order, _) =>
+      Some(@lib.Instruction::i64_atomic_load16_u(memarg, order~))
+    @lib.I64AtomicLoad32U(order, _) =>
+      Some(@lib.Instruction::i64_atomic_load32_u(memarg, order~))
     _ => None
   }
 }
@@ -29326,16 +29396,20 @@ fn RawOiMemoryAccessMemargFact::store_rewrite_with_memarg(
     @lib.I64Store8(_) => Some(@lib.Instruction::i64_store8(memarg))
     @lib.I64Store16(_) => Some(@lib.Instruction::i64_store16(memarg))
     @lib.I64Store32(_) => Some(@lib.Instruction::i64_store32(memarg))
-    @lib.I32AtomicStore(_) => Some(@lib.Instruction::i32_atomic_store(memarg))
-    @lib.I64AtomicStore(_) => Some(@lib.Instruction::i64_atomic_store(memarg))
-    @lib.I32AtomicStore8(_) => Some(@lib.Instruction::i32_atomic_store8(memarg))
-    @lib.I32AtomicStore16(_) =>
-      Some(@lib.Instruction::i32_atomic_store16(memarg))
-    @lib.I64AtomicStore8(_) => Some(@lib.Instruction::i64_atomic_store8(memarg))
-    @lib.I64AtomicStore16(_) =>
-      Some(@lib.Instruction::i64_atomic_store16(memarg))
-    @lib.I64AtomicStore32(_) =>
-      Some(@lib.Instruction::i64_atomic_store32(memarg))
+    @lib.I32AtomicStore(order, _) =>
+      Some(@lib.Instruction::i32_atomic_store(memarg, order~))
+    @lib.I64AtomicStore(order, _) =>
+      Some(@lib.Instruction::i64_atomic_store(memarg, order~))
+    @lib.I32AtomicStore8(order, _) =>
+      Some(@lib.Instruction::i32_atomic_store8(memarg, order~))
+    @lib.I32AtomicStore16(order, _) =>
+      Some(@lib.Instruction::i32_atomic_store16(memarg, order~))
+    @lib.I64AtomicStore8(order, _) =>
+      Some(@lib.Instruction::i64_atomic_store8(memarg, order~))
+    @lib.I64AtomicStore16(order, _) =>
+      Some(@lib.Instruction::i64_atomic_store16(memarg, order~))
+    @lib.I64AtomicStore32(order, _) =>
+      Some(@lib.Instruction::i64_atomic_store32(memarg, order~))
     _ => None
   }
 }
@@ -29544,27 +29618,27 @@ fn RawOiAtomicAccessFact::from_instr(
   instr : @lib.Instruction,
 ) -> RawOiAtomicAccessFact? {
   match instr {
-    @lib.I32AtomicLoad(_)
-    | @lib.I64AtomicLoad(_)
-    | @lib.I32AtomicLoad8U(_)
-    | @lib.I32AtomicLoad16U(_)
-    | @lib.I64AtomicLoad8U(_)
-    | @lib.I64AtomicLoad16U(_)
-    | @lib.I64AtomicLoad32U(_) =>
+    @lib.I32AtomicLoad(_, _)
+    | @lib.I64AtomicLoad(_, _)
+    | @lib.I32AtomicLoad8U(_, _)
+    | @lib.I32AtomicLoad16U(_, _)
+    | @lib.I64AtomicLoad8U(_, _)
+    | @lib.I64AtomicLoad16U(_, _)
+    | @lib.I64AtomicLoad32U(_, _) =>
       Some({
         is_atomic_load: true,
         is_atomic_rmw: false,
         is_atomic_cmpxchg: false,
         address_operand_distance: 1,
       })
-    @lib.AtomicRmw(_, _) =>
+    @lib.AtomicRmw(_, _, _) =>
       Some({
         is_atomic_load: false,
         is_atomic_rmw: true,
         is_atomic_cmpxchg: false,
         address_operand_distance: 2,
       })
-    @lib.AtomicCmpxchg(_, _) =>
+    @lib.AtomicCmpxchg(_, _, _) =>
       Some({
         is_atomic_load: false,
         is_atomic_rmw: false,
@@ -56793,6 +56867,61 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_body(
 }
 
 ///|
+fn run_hot_pipeline_simplify_locals_lowered_remove_discarded_pure_values(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 1 < body.length() {
+      match (body[idx], body[idx + 1]) {
+        (@lib.StructNewDefault(_) | @lib.LocalGet(_), @lib.Drop) => {
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    rewritten.push(body[idx])
+    idx += 1
+  }
+  rewritten
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_forward_simple_block_tail_local(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 1 < body.length() {
+      match (body[idx], body[idx + 1]) {
+        (
+          @lib.Block(
+            @lib.VoidBlockType,
+            @lib.Expr([producer, @lib.LocalSet(set_local)])
+          ),
+          @lib.LocalGet(get_local),
+        ) if set_local == get_local &&
+          run_hot_pipeline_raw_simplify_locals_instr_is_dupable_copy_value(
+            producer,
+          ) => {
+          rewritten.push(@lib.Instruction::nop())
+          rewritten.push(producer)
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    rewritten.push(body[idx])
+    idx += 1
+  }
+  rewritten
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_lowered_cleanup_body(
   body : Array[@lib.Instruction],
   counts : Array[Int],
@@ -56824,8 +56953,14 @@ fn run_hot_pipeline_simplify_locals_lowered_cleanup_body(
       None => ()
     }
   }
-  run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
+  let without_discarded_pure_values = run_hot_pipeline_simplify_locals_lowered_remove_discarded_pure_values(
     cleaned,
+  )
+  let with_forwarded_block_tails = run_hot_pipeline_simplify_locals_lowered_forward_simple_block_tail_local(
+    without_discarded_pure_values,
+  )
+  run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
+    with_forwarded_block_tails,
   )
 }
 
@@ -56946,7 +57081,11 @@ fn run_hot_pipeline_simplify_locals_cleanup_exact_func(
     current_body = cleaned_body
     changed = true
   }
-  (@lib.Func::new(locals, @lib.Expr::new(current_body)), changed)
+  let cleaned = @lib.Func::new(locals, @lib.Expr::new(current_body))
+  let finalized = run_hot_pipeline_simplify_locals_finalize_lowered_root(
+    cleaned,
+  )
+  (finalized, changed || finalized != cleaned)
 }
 
 ///|
@@ -57013,6 +57152,82 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
 }
 
 ///|
+fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 2 < body.length() {
+      let mut prefix_is_inert = true
+      for prefix_idx = 0; prefix_idx < idx; prefix_idx = prefix_idx + 1 {
+        if body[prefix_idx] != @lib.Instruction::nop() {
+          prefix_is_inert = false
+          break
+        }
+      }
+      let producer_is_structured_result = prefix_is_inert &&
+        (match body[idx] {
+          @lib.Block(block_type, _)
+          | @lib.Loop(block_type, _)
+          | @lib.If(block_type, _, _)
+          | @lib.TryTable(block_type, _, _) =>
+            run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type)
+          _ => false
+        })
+      if producer_is_structured_result {
+        match (body[idx + 1], body[idx + 2]) {
+          (
+            @lib.LocalSet(@lib.LocalIdx(set_raw)),
+            @lib.LocalGet(@lib.LocalIdx(get_raw)),
+          ) if set_raw == get_raw &&
+            !run_hot_pipeline_raw_instrs_have_later_local_read(
+              body,
+              idx + 3,
+              set_raw.reinterpret_as_int(),
+            ) => {
+            rewritten.push(@lib.Instruction::nop())
+            rewritten.push(body[idx])
+            idx += 3
+            continue
+          }
+          _ => ()
+        }
+      }
+    }
+    rewritten.push(body[idx])
+    idx += 1
+  }
+  rewritten
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_finalize_lowered_root(
+  func : @lib.Func,
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let forwarded = run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers(
+    body,
+  )
+  let reachable : Array[@lib.Instruction] = []
+  for instr in forwarded {
+    reachable.push(instr)
+    match instr {
+      @lib.Return => break
+      _ => ()
+    }
+  }
+  let reordered = run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
+    reachable,
+  )
+  if reordered == body {
+    func
+  } else {
+    @lib.Func::new(locals, @lib.Expr::new(reordered))
+  }
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   func : @lib.Func,
   descriptor_name : String,
@@ -57027,8 +57242,10 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   )
   if descriptor_name == "simplify-locals-nonesting" ||
     descriptor_name == "simplify-locals-no-nesting" {
-    return run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
-      func, descriptor_name, refinalization_context, mod_,
+    return run_hot_pipeline_simplify_locals_finalize_lowered_root(
+      run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
+        func, descriptor_name, refinalization_context, mod_,
+      ),
     )
   }
   let dead_set_cleaned = run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_func(
@@ -57038,15 +57255,19 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   if run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
       descriptor_name, body,
     ) {
-    return run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
-      dead_set_cleaned, descriptor_name, refinalization_context, mod_,
+    return run_hot_pipeline_simplify_locals_finalize_lowered_root(
+      run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
+        dead_set_cleaned, descriptor_name, refinalization_context, mod_,
+      ),
     )
   }
   let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
     dead_set_cleaned,
   )
-  run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
-    cleaned, descriptor_name, refinalization_context, mod_,
+  run_hot_pipeline_simplify_locals_finalize_lowered_root(
+    run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
+      cleaned, descriptor_name, refinalization_context, mod_,
+    ),
   )
 }
 
@@ -58920,6 +59141,11 @@ fn run_hot_pipeline_lower_options_for_descriptor(
       preserve_nontrailing_nops=true,
       preserve_trailing_nops=true,
     )
+  } else if descriptor_name == "heap-store-optimization" {
+    @ir.HotLowerOptions::new(
+      preserve_flat_ir_spills=true,
+      preserve_struct_set_value_blocks=true,
+    )
   } else if descriptor_name == "precompute" ||
     descriptor_name == "precompute-propagate" {
     @ir.HotLowerOptions::new(preserve_nontrailing_nops=true)
@@ -59275,7 +59501,20 @@ fn run_hot_pipeline_func(
     run_hot_pipeline_raw_simplify_locals(
       mod_, func_idx, module_state, descriptor, options,
     ) {
-    Some(result) => return Ok(result)
+    Some(result) => {
+      let finalized = run_hot_pipeline_simplify_locals_finalize_lowered_root(
+        result.func,
+      )
+      if finalized == result.func {
+        return Ok(result)
+      }
+      return Ok({
+        reason: "\{result.reason}-root-finalized",
+        func: finalized,
+        unchanged_original: false,
+        trace_skip_raw: result.trace_skip_raw,
+      })
+    }
     None => ()
   }
   let lift_start_us = perf_start_timer_opt(options.perf, "lift")
@@ -59503,7 +59742,10 @@ fn run_hot_pipeline_func(
           descriptor.name == "remove-unused-brs" ||
           descriptor.name == "dead-code-elimination"
         ) &&
-        descriptor.name != "heap-store-optimization" &&
+        !(descriptor.name == "heap-store-optimization" &&
+        run_hot_pipeline_hso_original_requires_unchanged_lowering(
+          run_hot_pipeline_original_func(mod_, func_idx),
+        )) &&
         !((
           descriptor.name == "vacuum" ||
           descriptor.name == "precompute" ||

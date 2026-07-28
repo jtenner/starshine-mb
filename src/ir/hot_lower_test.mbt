@@ -1212,6 +1212,55 @@ test "hot lower stackifies wrapped struct.set value prefixes through a scratch r
 }
 
 ///|
+test "hot lower can preserve wrapped struct.set value blocks without scratch locals" {
+  let struct_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let body = @lib.Expr::new([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+      ]),
+    ),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(locals=[struct_ref_type]),
+    hot_module_context_from_module(hot_lower_test_struct_module()),
+    body_result_type=@lib.BlockType::val_type(struct_ref_type),
+  )
+
+  @debug.assert_eq(
+    hot_lower_func_with_options(
+      hot,
+      HotLowerOptions::new(preserve_struct_set_value_blocks=true),
+    ),
+    @lib.Func::new(
+      @lib.Locals::from_types([struct_ref_type]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ]),
+    ),
+  )
+}
+
+///|
 test "hot lower keeps trailing if conditions outside wrapped struct.set scratch blocks" {
   let struct_ref_type = @lib.ValType::ref_null(
     @lib.HeapType::new(@lib.TypeIdx::new(0U)),

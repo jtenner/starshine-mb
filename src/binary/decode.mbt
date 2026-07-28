@@ -505,6 +505,27 @@ fn decode_shared_comptype(
 }
 
 ///|
+fn decode_subtype_tail(
+  buf : Bytes,
+  i : Int,
+) -> Result[(CompType, TypeMetadata, Int), BinaryDecodeError] {
+  let (cursor, shared) = if buf.get(i) == Some(0x65) {
+    (i + 1, true)
+  } else {
+    (i, false)
+  }
+  let (metadata, cursor) = match decode_descriptor_clauses(buf, cursor) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let metadata = metadata.with_shared(shared)
+  match Decode::decode(buf, cursor) {
+    Ok((ct, next)) => Ok((ct, metadata, next))
+    Err(err) => Err(err)
+  }
+}
+
+///|
 pub impl Decode for SubType with fn decode(buf, i) {
   match buf.get(i) {
     // Shared definition wrapper.
@@ -522,33 +543,23 @@ pub impl Decode for SubType with fn decode(buf, i) {
     // Final
     Some(0x4F) =>
       match Decode::decode(buf, i + 1) {
-        Ok((idxs, i)) => {
-          let (meta, next) = match decode_descriptor_clauses(buf, i) {
-            Ok(v) => v
-            Err(err) => return Err(err)
-          }
-          match decode_shared_comptype(buf, next, meta) {
+        Ok((idxs, i)) =>
+          match decode_subtype_tail(buf, i) {
             Ok((ct, meta, i)) =>
               Ok((SubType::new(true, idxs, ct, metadata=meta), i))
             Err(err) => Err(err)
           }
-        }
         Err(err) => Err(err)
       }
     // Subtypes
     Some(0x50) =>
       match Decode::decode(buf, i + 1) {
-        Ok((idxs, i)) => {
-          let (meta, next) = match decode_descriptor_clauses(buf, i) {
-            Ok(v) => v
-            Err(err) => return Err(err)
-          }
-          match decode_shared_comptype(buf, next, meta) {
+        Ok((idxs, i)) =>
+          match decode_subtype_tail(buf, i) {
             Ok((ct, meta, i)) =>
               Ok((SubType::new(false, idxs, ct, metadata=meta), i))
             Err(err) => Err(err)
           }
-        }
         Err(err) => Err(err)
       }
     // CompType, defer to comp type decoder
@@ -2498,6 +2509,61 @@ pub impl Decode for MemArg with fn decode(bytes, i) {
 }
 
 ///|
+fn decode_atomic_memarg(
+  bytes : Bytes,
+  i : Int,
+  is_rmw : Bool,
+) -> Result[(@lib.AtomicOrder, MemArg, Int), BinaryDecodeError] {
+  let (@lib.U32(raw), decoded_next) = match Decode::decode(bytes, i) {
+    Ok(decoded) => decoded
+    Err(err) => return Err(err)
+  }
+  let mut next = decoded_next
+  let has_order = (raw & 0x10U) != 0U
+  let has_backing_array = (raw & 0x20U) != 0U
+  let has_memory_index = (raw & 0x40U) != 0U
+  if has_backing_array {
+    return Err(BinaryDecodeError::InvalidMemArg)
+  }
+  let align = raw & 0x0fU
+  if align > 8U {
+    return Err(BinaryDecodeError::InvalidMemArg)
+  }
+  let memory = if has_memory_index {
+    match Decode::decode(bytes, next) {
+      Ok((memory, after_memory)) => {
+        next = after_memory
+        Some(memory)
+      }
+      Err(err) => return Err(err)
+    }
+  } else {
+    None
+  }
+  let order = if has_order {
+    let decoded = if is_rmw {
+      decode_aggregate_atomic_rmw_order(bytes, next)
+    } else {
+      Decode::decode(bytes, next)
+    }
+    match decoded {
+      Ok((order, after_order)) => {
+        next = after_order
+        order
+      }
+      Err(err) => return Err(err)
+    }
+  } else {
+    @lib.AtomicOrder::seq_cst()
+  }
+  match Decode::decode(bytes, next) {
+    Ok((@lib.U64(offset), after_offset)) =>
+      Ok((order, MemArg::new(align, memory, offset), after_offset))
+    Err(err) => Err(err)
+  }
+}
+
+///|
 fn decode_i8x16_shuffle_lanes(
   bytes : Bytes,
   i : Int,
@@ -3837,43 +3903,50 @@ fn decode_instruction_with_depth(
             Err(t) => Err(t)
           }
         Ok((@lib.U32(3), i)) =>
-          match bytes.get(i) {
-            Some(0x00) => Ok((Instruction::atomic_fence(), i + 1))
-            _ => Err(BinaryDecodeError::InvalidAtomicFenceImmediate)
+          match Decode::decode(bytes, i) {
+            Ok((order, i)) => Ok((Instruction::atomic_fence(order~), i))
+            Err(_) => Err(BinaryDecodeError::InvalidAtomicFenceImmediate)
           }
         Ok((@lib.U32(16), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i32_atomic_load(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i32_atomic_load(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(17), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i64_atomic_load(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i64_atomic_load(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(18), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i32_atomic_load8_u(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i32_atomic_load8_u(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(19), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i32_atomic_load16_u(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i32_atomic_load16_u(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(20), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i64_atomic_load8_u(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i64_atomic_load8_u(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(21), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i64_atomic_load16_u(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i64_atomic_load16_u(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(22), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i64_atomic_load32_u(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i64_atomic_load32_u(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(id), i)) if id >= 0x5C && id <= 0x5E =>
@@ -4037,43 +4110,50 @@ fn decode_instruction_with_depth(
             Err(t) => Err(t)
           }
         Ok((@lib.U32(23), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i32_atomic_store(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i32_atomic_store(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(24), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i64_atomic_store(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i64_atomic_store(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(25), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i32_atomic_store8(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i32_atomic_store8(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(26), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i32_atomic_store16(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i32_atomic_store16(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(27), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i64_atomic_store8(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i64_atomic_store8(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(28), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i64_atomic_store16(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i64_atomic_store16(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(29), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::i64_atomic_store32(m), i))
+          match decode_atomic_memarg(bytes, i, false) {
+            Ok((order, m, i)) =>
+              Ok((Instruction::i64_atomic_store32(m, order~), i))
             Err(t) => Err(t)
           }
         Ok((@lib.U32(id), i)) if id >= 30 && id <= 71 =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => {
+          match decode_atomic_memarg(bytes, i, true) {
+            Ok((order, m, i)) => {
               let op : AtomicRmwOp = match id {
                 30 => AtomicRmwOp::i32_add()
                 31 => AtomicRmwOp::i64_add()
@@ -4118,13 +4198,13 @@ fn decode_instruction_with_depth(
                 70 => AtomicRmwOp::i64_16_xchg_u()
                 _ => AtomicRmwOp::i64_32_xchg_u()
               }
-              Ok((Instruction::atomic_rmw(op, m), i))
+              Ok((Instruction::atomic_rmw(op, m, order~), i))
             }
             Err(t) => Err(t)
           }
         Ok((@lib.U32(id), i)) if id >= 72 && id <= 78 =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => {
+          match decode_atomic_memarg(bytes, i, true) {
+            Ok((order, m, i)) => {
               let op : AtomicCmpxchgOp = match id {
                 72 => AtomicCmpxchgOp::i32()
                 73 => AtomicCmpxchgOp::i64()
@@ -4134,7 +4214,7 @@ fn decode_instruction_with_depth(
                 77 => AtomicCmpxchgOp::i64_16_u()
                 _ => AtomicCmpxchgOp::i64_32_u()
               }
-              Ok((Instruction::atomic_cmpxchg(op, m), i))
+              Ok((Instruction::atomic_cmpxchg(op, m, order~), i))
             }
             Err(t) => Err(t)
           }

@@ -2095,10 +2095,36 @@ test "aggregate atomic rmw cmpxchg encode decode opcodes" {
 }
 
 ///|
-test "decode reports invalid atomic.fence immediate" {
+test "shared descriptor subtype uses v131 wrapper order" {
+  let subtype = SubType::new(
+    false,
+    [],
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(1U)), shared=true),
+  )
+  let buf = @buffer.new()
+  match Encode::encode(subtype, buf) {
+    Ok(_) => ()
+    Err(err) => fail("expected shared descriptor subtype encode, got \{err}")
+  }
+  @debug.assert_eq(buf.to_bytes(), b"\x50\x00\x65\x4D\x01\x5F\x00")
+  match
+    (
+      Decode::decode(buf.to_bytes(), 0) :
+      Result[(SubType, Int), BinaryDecodeError]) {
+    Ok((decoded, next)) => {
+      @debug.assert_eq(decoded, subtype)
+      @debug.assert_eq(next, 7)
+    }
+    Err(err) => fail("expected shared descriptor subtype decode, got \{err}")
+  }
+}
+
+///|
+test "decode reports invalid atomic.fence memory order" {
   assert_decode_err_contains(
     (
-      Decode::decode(b"\xFE\x03\x01", 0) :
+      Decode::decode(b"\xFE\x03\x02", 0) :
       Result[(Instruction, Int), BinaryDecodeError]),
     BinaryDecodeError::InvalidAtomicFenceImmediate,
   )
@@ -2270,8 +2296,8 @@ test "invalid decode vectors are table-driven across decoders" {
   let instruction_vectors : Array[(String, Bytes, BinaryDecodeError)] = [
     ("unknown opcode", b"\xFF", BinaryDecodeError::InvalidInstruction),
     (
-      "atomic.fence with non-zero immediate",
-      b"\xFE\x03\x01",
+      "atomic.fence with invalid memory order",
+      b"\xFE\x03\x02",
       BinaryDecodeError::InvalidAtomicFenceImmediate,
     ),
   ]
@@ -3280,6 +3306,38 @@ test "shared GC atomic order roundtrip" {
     match Encode::encode(decoded, buf) {
       Ok(_) => ()
       Err(err) => fail("expected shared atomic encode, got \{err}")
+    }
+    @debug.assert_eq(buf.to_bytes(), bytes)
+  }
+}
+
+///|
+test "relaxed linear-memory atomic order roundtrip" {
+  let memarg = MemArg::new(U32::new(2U), None, U64::new(0UL))
+  let cases = [
+    (
+      b"\xfe\x10\x12\x01\x00",
+      Instruction::i32_atomic_load(memarg, order=AtomicOrder::acq_rel()),
+    ),
+    (
+      b"\xfe\x17\x12\x01\x00",
+      Instruction::i32_atomic_store(memarg, order=AtomicOrder::acq_rel()),
+    ),
+    (b"\xfe\x03\x01", Instruction::atomic_fence(order=AtomicOrder::acq_rel())),
+  ]
+  for pair in cases {
+    let (bytes, expected) = pair
+    let (decoded, next) = match
+      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      Ok(v) => v
+      Err(err) => fail("expected relaxed linear atomic decode, got \{err}")
+    }
+    @debug.assert_eq(next, bytes.length())
+    @debug.assert_eq(decoded, expected)
+    let buf = @buffer.new()
+    match Encode::encode(decoded, buf) {
+      Ok(_) => ()
+      Err(err) => fail("expected relaxed linear atomic encode, got \{err}")
     }
     @debug.assert_eq(buf.to_bytes(), bytes)
   }
