@@ -16828,6 +16828,10 @@ test "reorder-locals gen-valid profiles resolve focused leaves" {
     "reorder-locals-permutation-only",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(ReorderLocalsFirstUseTiesProfile),
+    "reorder-locals-first-use-ties",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(ReorderLocalsUnusedTrimProfile),
     "reorder-locals-unused-trim",
   )
@@ -16846,8 +16850,9 @@ test "reorder-locals gen-valid profiles resolve focused leaves" {
   }
   for
     profile_name in [
-      "reorder-locals-permutation-only", "reorder-locals-mixed-types", "reorder-locals-reference-types",
-      "reorder-locals-structured", "reorder-locals-legacy-eh", "reorder-locals-multi-function",
+      "reorder-locals-permutation-only", "reorder-locals-first-use-ties", "reorder-locals-mixed-types",
+      "reorder-locals-reference-types", "reorder-locals-structured", "reorder-locals-legacy-eh",
+      "reorder-locals-multi-function",
     ] {
     match gen_valid_profile_by_name(profile_name) {
       Ok(profile) =>
@@ -16860,7 +16865,7 @@ test "reorder-locals gen-valid profiles resolve focused leaves" {
       @debug.assert_eq(profile, ReorderLocalsAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 9)
+      @debug.assert_eq(members.length(), 10)
       assert_true(
         members.contains(
           GenValidProfileMember::new(ReorderLocalsHotSortProfile, 3),
@@ -16869,6 +16874,11 @@ test "reorder-locals gen-valid profiles resolve focused leaves" {
       assert_true(
         members.contains(
           GenValidProfileMember::new(ReorderLocalsPermutationOnlyProfile, 2),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(ReorderLocalsFirstUseTiesProfile, 2),
         ),
       )
       assert_true(
@@ -16914,7 +16924,13 @@ test "reorder-locals gen-valid profiles resolve focused leaves" {
   }
   assert_true(seen.contains(ReorderLocalsHotSortProfile))
   assert_true(seen.contains(ReorderLocalsPermutationOnlyProfile))
+  assert_true(seen.contains(ReorderLocalsFirstUseTiesProfile))
+  assert_true(seen.contains(ReorderLocalsMixedTypesProfile))
+  assert_true(seen.contains(ReorderLocalsReferenceTypesProfile))
   assert_true(seen.contains(ReorderLocalsUnusedTrimProfile))
+  assert_true(seen.contains(ReorderLocalsStructuredProfile))
+  assert_true(seen.contains(ReorderLocalsLegacyEhProfile))
+  assert_true(seen.contains(ReorderLocalsMultiFunctionProfile))
   assert_true(seen.contains(ReorderLocalsNameRepairProfile))
 }
 
@@ -16922,9 +16938,10 @@ test "reorder-locals gen-valid profiles resolve focused leaves" {
 test "reorder-locals gen-valid profile modules expose every transform family" {
   for
     profile_name in [
-      "reorder-locals-hot-sort", "reorder-locals-permutation-only", "reorder-locals-mixed-types",
-      "reorder-locals-reference-types", "reorder-locals-unused-trim", "reorder-locals-structured",
-      "reorder-locals-legacy-eh", "reorder-locals-multi-function", "reorder-locals-name-repair",
+      "reorder-locals-hot-sort", "reorder-locals-permutation-only", "reorder-locals-first-use-ties",
+      "reorder-locals-mixed-types", "reorder-locals-reference-types", "reorder-locals-unused-trim",
+      "reorder-locals-structured", "reorder-locals-legacy-eh", "reorder-locals-multi-function",
+      "reorder-locals-name-repair",
     ] {
     let profile = match gen_valid_profile_by_name(profile_name) {
       Ok(profile) => profile

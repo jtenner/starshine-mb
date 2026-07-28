@@ -889,6 +889,7 @@ pub enum GenValidProfile {
   SimplifyLocalsNostructureAllProfile
   ReorderLocalsHotSortProfile
   ReorderLocalsPermutationOnlyProfile
+  ReorderLocalsFirstUseTiesProfile
   ReorderLocalsMixedTypesProfile
   ReorderLocalsReferenceTypesProfile
   ReorderLocalsUnusedTrimProfile
@@ -1240,6 +1241,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SimplifyLocalsNostructureAllProfile => "simplify-locals-nostructure-all"
     ReorderLocalsHotSortProfile => "reorder-locals-hot-sort"
     ReorderLocalsPermutationOnlyProfile => "reorder-locals-permutation-only"
+    ReorderLocalsFirstUseTiesProfile => "reorder-locals-first-use-ties"
     ReorderLocalsMixedTypesProfile => "reorder-locals-mixed-types"
     ReorderLocalsReferenceTypesProfile => "reorder-locals-reference-types"
     ReorderLocalsUnusedTrimProfile => "reorder-locals-unused-trim"
@@ -1650,6 +1652,7 @@ pub fn gen_valid_profile_members(
       [
         GenValidProfileMember::new(ReorderLocalsHotSortProfile, 3),
         GenValidProfileMember::new(ReorderLocalsPermutationOnlyProfile, 2),
+        GenValidProfileMember::new(ReorderLocalsFirstUseTiesProfile, 2),
         GenValidProfileMember::new(ReorderLocalsMixedTypesProfile, 2),
         GenValidProfileMember::new(ReorderLocalsReferenceTypesProfile, 2),
         GenValidProfileMember::new(ReorderLocalsUnusedTrimProfile, 2),
@@ -2035,6 +2038,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SimplifyLocalsNostructureAllProfile,
     ReorderLocalsHotSortProfile,
     ReorderLocalsPermutationOnlyProfile,
+    ReorderLocalsFirstUseTiesProfile,
     ReorderLocalsMixedTypesProfile,
     ReorderLocalsReferenceTypesProfile,
     ReorderLocalsUnusedTrimProfile,
@@ -4823,6 +4827,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       )
     ReorderLocalsHotSortProfile
     | ReorderLocalsPermutationOnlyProfile
+    | ReorderLocalsFirstUseTiesProfile
     | ReorderLocalsMixedTypesProfile
     | ReorderLocalsReferenceTypesProfile
     | ReorderLocalsUnusedTrimProfile
@@ -4961,6 +4966,7 @@ fn gen_valid_reorder_locals_profile_config(
     max_locals: 18,
     max_body_statements: match profile {
       ReorderLocalsPermutationOnlyProfile => 18
+      ReorderLocalsFirstUseTiesProfile => 12
       ReorderLocalsUnusedTrimProfile => 10
       ReorderLocalsStructuredProfile | ReorderLocalsLegacyEhProfile => 16
       ReorderLocalsMultiFunctionProfile => 12
@@ -5005,6 +5011,7 @@ fn gen_valid_reorder_locals_profile_config(
 fn gen_valid_is_reorder_locals_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(ReorderLocalsHotSortProfile) ||
   config == GenValidConfig::for_profile(ReorderLocalsPermutationOnlyProfile) ||
+  config == GenValidConfig::for_profile(ReorderLocalsFirstUseTiesProfile) ||
   config == GenValidConfig::for_profile(ReorderLocalsMixedTypesProfile) ||
   config == GenValidConfig::for_profile(ReorderLocalsReferenceTypesProfile) ||
   config == GenValidConfig::for_profile(ReorderLocalsUnusedTrimProfile) ||
@@ -30466,6 +30473,9 @@ fn gen_valid_reorder_locals_profile_kind(
   if config == GenValidConfig::for_profile(ReorderLocalsPermutationOnlyProfile) {
     ReorderLocalsPermutationOnlyProfile
   } else if config ==
+    GenValidConfig::for_profile(ReorderLocalsFirstUseTiesProfile) {
+    ReorderLocalsFirstUseTiesProfile
+  } else if config ==
     GenValidConfig::for_profile(ReorderLocalsMixedTypesProfile) {
     ReorderLocalsMixedTypesProfile
   } else if config ==
@@ -30575,6 +30585,34 @@ fn gen_valid_reorder_locals_permutation_only_module(seed : UInt64) -> Module {
       Func::new(
         Locals::from_types(gen_valid_reorder_locals_i32_types()),
         Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_reorder_locals_first_use_ties_module(seed : UInt64) -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(gen_valid_reorder_locals_i32_types()),
+        Expr::new([
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 17UL)),
+          Instruction::local_set(LocalIdx::new(17U)),
+          Instruction::local_get(LocalIdx::new(17U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 2UL)),
+          Instruction::local_set(LocalIdx::new(2U)),
+          Instruction::local_get(LocalIdx::new(2U)),
+          Instruction::drop(),
+          Instruction::i32_const(gen_valid_reorder_locals_i32(seed, 9UL)),
+          Instruction::local_set(LocalIdx::new(9U)),
+          Instruction::local_get(LocalIdx::new(9U)),
+          Instruction::drop(),
+        ]),
       ),
     ]),
   )
@@ -30939,6 +30977,8 @@ fn gen_valid_reorder_locals_profile_module(ctx : GenValidContext) -> Module {
   match gen_valid_reorder_locals_profile_kind(ctx.config) {
     ReorderLocalsPermutationOnlyProfile =>
       gen_valid_reorder_locals_permutation_only_module(ctx.root_seed)
+    ReorderLocalsFirstUseTiesProfile =>
+      gen_valid_reorder_locals_first_use_ties_module(ctx.root_seed)
     ReorderLocalsMixedTypesProfile =>
       gen_valid_reorder_locals_mixed_types_module(ctx.root_seed)
     ReorderLocalsReferenceTypesProfile =>

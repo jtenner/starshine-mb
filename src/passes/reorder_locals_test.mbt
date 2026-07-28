@@ -373,6 +373,54 @@ test "run_hot_pipeline applies reorder-locals by Binaryen access count and first
 }
 
 ///|
+test "reorder-locals breaks equal access counts by first observed use" {
+  let input =
+    #| (module
+    #|   (func (local i32 i32 i32 i32)
+    #|     i32.const 30
+    #|     local.set 3
+    #|     local.get 3
+    #|     drop
+    #|     i32.const 10
+    #|     local.set 1
+    #|     local.get 1
+    #|     drop
+    #|     i32.const 20
+    #|     local.set 2
+    #|     local.get 2
+    #|     drop))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["reorder-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected reorder-locals first-use tie success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = rl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[5],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[9],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  )
+}
+
+///|
 test "reorder-locals direct pass reorders adjacent same-type locals by access count" {
   let wat =
     #| (module
@@ -753,9 +801,10 @@ test "reorder-locals sorts a Binaryen-materialized carrier fixture by access cou
 ///|
 test "reorder-locals GenValid leaves each trigger a valid encoded rewrite" {
   let profile_names = [
-    "reorder-locals-hot-sort", "reorder-locals-permutation-only", "reorder-locals-mixed-types",
-    "reorder-locals-reference-types", "reorder-locals-unused-trim", "reorder-locals-structured",
-    "reorder-locals-legacy-eh", "reorder-locals-multi-function", "reorder-locals-name-repair",
+    "reorder-locals-hot-sort", "reorder-locals-permutation-only", "reorder-locals-first-use-ties",
+    "reorder-locals-mixed-types", "reorder-locals-reference-types", "reorder-locals-unused-trim",
+    "reorder-locals-structured", "reorder-locals-legacy-eh", "reorder-locals-multi-function",
+    "reorder-locals-name-repair",
   ]
   for index = 0; index < profile_names.length(); index = index + 1 {
     let profile_name = profile_names[index]
