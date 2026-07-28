@@ -1,22 +1,20 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-28
 sources:
   - wasm-linear-memory-threads-boundary.md
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/relaxed-atomics/blob/main/proposals/relaxed-atomics/Overview.md
-  - https://github.com/WebAssembly/proposals
   - raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - wast/atomic-memory-instruction-authoring.md
   - wast/gc-aggregate-instruction-authoring.md
-  - wast/simd-authoring.md
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
   - ../../src/binary/encode.mbt
   - ../../src/validate/typecheck.mbt
-  - ../../src/validate/gen_valid.mbt
+  - ../../src/ir/effects.mbt
 related:
   - wasm-feature-status-and-proposal-boundaries.md
   - wast/atomic-memory-instruction-authoring.md
@@ -31,80 +29,83 @@ related:
 
 ## Overview
 
-Use this page when a fixture, external tool, proposal note, or future Starshine design mentions **Relaxed Atomics**. This is a separate active WebAssembly proposal, not a shorthand for ordinary threads atomics, not Core/finished relaxed SIMD, and not Starshine's current shared-GC `struct.atomic.get*` order spellings.
+Use this page when a fixture, external tool, proposal note, or Starshine design mentions **Relaxed Atomics**. This is a separate active WebAssembly proposal, not shorthand for ordinary threads atomics, Core relaxed SIMD, or shared-GC aggregate atomics.
 
-For beginners: ordinary WebAssembly atomic memory operations behave like synchronized memory accesses. A relaxed-atomics proposal tries to expose weaker ordering choices that can be faster on some hardware while still being explicit about what ordering is promised. That is a memory-model feature, so optimizer and validator work must be careful: changing an ordering byte is not just changing syntax.
+Starshine's boundary changed in July 2026: linear-memory atomic loads, stores, RMW, cmpxchg, and `atomic.fence` now carry `AtomicOrder::{SeqCst, AcqRel}` in the core IR and binary codec. That is real partial proposal-facing support. It is still not a complete Relaxed Atomics implementation because `pause`, high-level WAST text, a dedicated generator gate, and complete proposal/runtime signoff remain absent.
 
-The official active proposals tracker, the Relaxed Atomics proposal overview, and current Starshine code establish the boundary: **current Starshine has ordinary linear-memory atomics and shared-GC atomic-get order spellings, but no documented relaxed-atomics support.**
+For beginners: changing an atomic order is semantic, not cosmetic. Optimizers must preserve acquire, release, and sequentially consistent edges in the correct direction.
 
-## What The Proposal Adds
-
-The proposal overview currently describes two feature families:
+## Current Surface
 
 | Proposal surface | Meaning | Starshine status |
 | --- | --- | --- |
-| Release-acquire (`acqrel`) ordering for linear-memory atomic accesses | Atomic loads, stores, RMW, and cmpxchg operations can carry weaker ordering information instead of only sequential consistency. | No support. Current `MemArg` has alignment, optional memory index, and offset, but no linear-memory ordering field. |
-| Ordering byte on `atomic.fence` | `atomic.fence` no longer means only the current zero-immediate form; the immediate selects an ordering. | No support. Current binary decode accepts `0xFE 0x03 0x00` only and rejects other fence immediates. |
-| `pause` at `0xFE 0x04` | A spin-wait hint instruction with no stack operands/results. | No support. Current `0xFE` decode has no `pause` variant and routes unknown atomic subcodes to `InvalidAtomicInstruction`. |
-| Binary encoding flag for memory ordering | Atomic `memarg` encodings can signal that an ordering byte follows the usual `memarg` and any memory index. | No support. Current Starshine extended `MemArg` already uses its own optional-memory-index encoding and has no ordering-presence bit or post-memarg ordering decode. |
+| Release/acquire ordering on linear-memory accesses | Atomic loads, stores, RMW, and cmpxchg carry weaker ordering than sequential consistency. | Represented by `AtomicOrder::{SeqCst, AcqRel}` on the instruction variants; binary decode/encode and HOT/effects preserve it. |
+| Ordered `atomic.fence` | The standalone fence carries ordering information. | `AtomicFence(AtomicOrder)` is represented and encoded/decoded; it remains a no-memory, no-stack-effect ordering barrier. |
+| `pause` | Spin-wait hint with no stack operands/results. | Unsupported: there is no `Pause` instruction, WAST spelling, codec arm, validator rule, or generator gate. |
+| Ordering-bearing binary forms | Atomic encodings preserve an order value in addition to the memory argument or fence opcode. | Supported for the currently represented `SeqCst` / `AcqRel` slice; malformed and future-order values remain codec/validation boundaries. |
+| High-level WAST text | Human-authored ordered linear atomics such as ordered loads/stores. | Unsupported: ordinary linear-memory atomic keywords/parser cases remain absent. |
+| Dedicated proposal generation/runtime signoff | Generate and execute proposal-specific modules under an explicit feature mode. | Unsupported: existing atomics generation is not a complete Relaxed Atomics gate or runtime-conformance lane. |
 
-This page intentionally does not try to freeze the future opcode contract beyond those source facts. The proposal is active Phase 2, and implementation should begin with a fresh source recheck.
+Because the proposal is active Phase 2, future widening should recheck the proposal source before assuming the current local order bytes, spelling, or instruction set are complete.
 
-## Current Starshine Non-Support Map
+## Layer Map
 
-| Layer | Current evidence | Relaxed-atomics implication |
+| Layer | Current evidence | Boundary |
 | --- | --- | --- |
-| Core instruction model | [`Instruction`](../../src/lib/types.mbt) contains ordinary `MemoryAtomicNotify`, `MemoryAtomicWait32`, `MemoryAtomicWait64`, `AtomicFence`, atomic loads/stores, `AtomicRmw`, and `AtomicCmpxchg`. It has no `Pause` and no ordering field on linear-memory atomics. | No core carrier for relaxed-atomics ordering or `pause`. |
-| Binary decode/encode | [`src/binary/decode.mbt`](../../src/binary/decode.mbt) handles `0xFE` subcodes for ordinary atomics and rejects nonzero `atomic.fence` immediates; [`src/binary/encode.mbt`](../../src/binary/encode.mbt) emits ordinary atomic subcodes and zero-immediate `AtomicFence`. | `0xFE 0x04` and ordering-bearing memargs are unsupported bytes today. |
-| Validation | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) typechecks `MemArg`-based atomics through ordinary selected-memory/alignment/offset/address checks without a sharedness requirement and treats `AtomicFence` as no stack effect. | No validation rule for relaxed ordering strength, `pause`, or ordering-immediate legality. |
-| WAST text | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) records that ordinary linear-memory atomic text keywords are already a WAST gap. | Relaxed-atomics text is also unsupported; do not add examples before parser/lowerer/printer tests. |
-| Valid generator | [`GenValidProposalFeature`](../../src/validate/gen_valid.mbt) has `AtomicsFeature` and `RelaxedSimdFeature`, but no `RelaxedAtomicsFeature`. `[FZG]017` deliberately selects shared memory before emitting ordinary current-Starshine-valid atomics. | Generator atomics coverage is not relaxed-atomics evidence or a local validator sharedness requirement. |
-| HOT/effects/passes | Existing atomic effects are treated as memory/trap/order-sensitive ordinary atomics. | Any pass that moves, drops, merges, or rewrites a future relaxed atomic must understand ordering semantics first. |
+| Core instruction model | [`src/lib/types.mbt`](../../src/lib/types.mbt) carries `AtomicOrder` on linear loads/stores, `AtomicRmw`, `AtomicCmpxchg`, and `AtomicFence`. | `SeqCst` / `AcqRel` are represented; `Pause` is absent. |
+| Binary decode/encode | [`src/binary/decode.mbt`](../../src/binary/decode.mbt) and [`src/binary/encode.mbt`](../../src/binary/encode.mbt) preserve the current order encodings. | This proves the local codec slice, not every future proposal order or opcode. |
+| Validation | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) retains ordinary selected-memory/alignment/offset/address/stack checks and treats fence as no stack effect. | Ordering legality is currently bounded by the two-value carrier; no `pause` rule exists. |
+| WAST text | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) records the ordinary linear-atomic text gap. | Use core builders, bytes, or generated modules for ordered linear-atomic fixtures. |
+| Valid generator | [`GenValidProposalFeature`](../../src/validate/gen_valid.mbt) has ordinary atomics support but no dedicated complete Relaxed Atomics mode. | Existing `[FZG]017` shared-memory topology is not full proposal evidence. |
+| HOT/effects/passes | [`src/ir/hot_lift.mbt`](../../src/ir/hot_lift.mbt), [`src/ir/hot_lower.mbt`](../../src/ir/hot_lower.mbt), and [`src/ir/effects.mbt`](../../src/ir/effects.mbt) preserve atomic instructions; HSO adds directional shared ordering analysis. | Every motion/deletion/rewrite still needs an acquire/release/seq-cst proof. |
 
 ## Three Easy Confusions
 
-### Relaxed Atomics versus ordinary linear-memory atomics
+### Relaxed Atomics versus ordinary threads atomics
 
-Starshine already models the current ordinary linear-memory atomic family under the `0xFE` prefix: loads, stores, RMW, cmpxchg, wait/notify, and `atomic.fence`. That evidence lives in [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) and [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md). It proves current core/binary/validator/generator coverage for those instructions, not ordering-immediate support.
+The existing `0xFE` family includes wait/notify, fence, loads/stores, RMW, and cmpxchg. The addition of order fields widens that local representation, but resource validation and proposal execution remain separate. `MemArg` atomics still use selected-memory, alignment, offset, address-width, and stack checks; local typechecking does not require the selected memory to be shared.
 
-### Relaxed Atomics versus shared-GC `struct.atomic.get*`
+### Relaxed Atomics versus shared-GC atomics
 
-Starshine's [`AtomicOrder`](../../src/lib/types.mbt) enum currently has `SeqCst` and `AcqRel`, and WAST can parse order spellings for `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u`. That is a shared-GC aggregate instruction surface documented in [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md). It is not the same representation as linear-memory atomic ordering bytes and does not make `i32.atomic.load acqrel` or `pause` valid.
+Struct/array aggregate atomics also use `AtomicOrder`, but they operate on GC heap objects rather than linear memory. Route shared heap types and aggregate atomic get/RMW/cmpxchg through [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md). Shared use of the enum does not make the instruction families interchangeable.
 
 ### Relaxed Atomics versus relaxed SIMD
 
-Relaxed SIMD is a finished/Core-3.0 SIMD instruction family with its own local WAST/binary/validation support and generator gates; see [`wast/simd-authoring.md`](wast/simd-authoring.md). Relaxed Atomics is still active Phase 2 and needs its own representation and signoff. Do not route it through `RelaxedSimdFeature`, the `remove-relaxed-simd` pass, or SIMD oracle lanes.
+Relaxed SIMD is Core 3.0 / finished behavior with separate SIMD opcodes and generator policy. Relaxed Atomics remains active Phase 2. Do not route it through `RelaxedSimdFeature`, SIMD tests, or `remove-relaxed-simd`.
 
-## Future Implementation Checklist
+## Optimizer Invariants
 
-A faithful Starshine slice should update all of these together:
+- Acquire behavior is attached to reads; release behavior is attached to writes; RMW/cmpxchg can carry both directions.
+- `SeqCst` operations participate in stronger global ordering and cannot be treated as plain memory reads/writes.
+- `atomic.fence` has no memory operand but is still an ordering barrier, never an incidental `nop`.
+- A pass must not erase, strengthen, weaken, duplicate, or move an ordered atomic without a documented memory-model proof.
+- Validation and binary roundtrip success do not establish safe motion.
 
-1. **Source recheck.** Re-open the proposal tracker, Relaxed Atomics repository, overview, formatted spec build, and any external tool/oracle source before choosing opcode or text spellings.
-2. **Core representation.** Add an explicit linear-memory ordering carrier and a `pause` instruction rather than reusing shared-GC `AtomicOrder` accidentally.
-3. **Binary codec.** Decode/encode ordering-present memarg bits, post-memarg ordering bytes, nonzero `atomic.fence` ordering immediates, and `0xFE 0x04` `pause`; add malformed, overwide, reserved-ordering, and truncated-input tests.
-4. **Validation.** Define which ordering values are legal for each instruction family, preserve ordinary stack typing, and keep shared-memory/resource checks separate from memory-order checks.
-5. **WAST text and printing.** Add keyword/parser/lowerer/printer coverage only after deciding whether Starshine should use the proposal spelling directly or keep initial support core/binary-only.
-6. **Generator gates.** Add a dedicated relaxed-atomics feature row instead of folding it into `AtomicsFeature` or `RelaxedSimdFeature`; keep `[FZG]017` scoped to ordinary atomics unless deliberately widened.
-7. **Effects and passes.** Treat relaxed ordering as semantic information. No optimizer may erase, strengthen, weaken, or move these operations without a documented memory-model proof and Binaryen/tool comparison where available.
-8. **Docs and health.** Update this page, [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and external-validator routing notes.
+## Remaining Work
 
-## Validation And Signoff Guidance
+1. Recheck the active proposal before adding more order values, flags, or opcode forms.
+2. Add `pause` representation, codec, validation, WAST, generator, and effect coverage if that proposal slice is selected.
+3. Add high-level ordered linear-atomic WAST keyword/parser/lowerer/printer tests.
+4. Add a dedicated Relaxed Atomics generator/feature row rather than relying on ordinary atomics coverage.
+5. Expand malformed/reserved order tests and external-tool adapters for the exact supported draft revision.
+6. Add runtime and optimizer signoff that proves acquire/release/seq-cst behavior, not merely module validity.
+7. Keep this page, the feature-status router, linear Threads page, atomic authoring guide, index, and log synchronized.
 
-Until implementation lands, classify relaxed-atomics inputs as unsupported-feature or proposal-gap evidence, not as regressions in ordinary atomics. If an external validator accepts `pause`, acqrel atomic memory operations, or nonzero `atomic.fence` immediates while Starshine rejects them, preserve the exact command and tool version, then use [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) and [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) before filing a local bug.
+## Signoff Guidance
 
-After implementation, signoff should include:
+For the current partial slice, test:
 
-- binary decode/encode roundtrips for every ordering and `pause` form;
-- invalid-binary fixtures for malformed ordering immediates and wrong fence/pause encodings;
-- typechecker tests proving stack and resource rules still hold independently from ordering;
-- generator coverage with a dedicated relaxed-atomics feature gate;
-- pass tests proving effects and ordering prevent unsafe motion/deletion; and
-- external oracle comparison when a stable tool supports the same draft revision.
+- binary roundtrips for `SeqCst` and `AcqRel` loads, stores, RMW, cmpxchg, and fence;
+- invalid/reserved order encodings;
+- unchanged stack/resource validation across both orders;
+- HOT lift/lower preservation;
+- pass regressions that prevent unsafe movement in both acquire and release directions; and
+- explicit classification of `pause`, unsupported text, generator-gate, or runtime failures as remaining proposal gaps rather than ordinary atomic regressions.
 
 ## Sources
 
 - Official proposal sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/relaxed-atomics/blob/main/proposals/relaxed-atomics/Overview.md>
-- Shared Core/proposal status source: [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals)
-- Current ordinary atomics evidence: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md), and the historical June shared-memory/fence bridges.
-- Shared-GC atomic-get evidence: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)
-- Local code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt)
+- Linear-memory boundary: [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md)
+- Atomic authoring: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md)
+- Shared-GC boundary: [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md)
+- Local code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/ir/effects.mbt`](../../src/ir/effects.mbt)

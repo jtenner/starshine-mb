@@ -330,7 +330,7 @@ Important upstream behaviors are still absent locally, especially:
 - `ArrayRMW`
 - `ArrayCmpxchg`
 
-For OI-L specifically, Binaryen `version_130` optimizes non-mutating aggregate RMW/cmpxchg forms such as `struct.atomic.rmw.add 0`, `struct.atomic.rmw.and -1`, and `struct.atomic.rmw.cmpxchg` with equal expected/replacement values to `struct.get`-like reads for probed acqrel/acqrel forms. Starshine currently has text/core support for `struct.atomic.get*` only, not aggregate RMW/cmpxchg constructors, so these remain an explicit representation boundary rather than hidden parity.
+For OI-L specifically, Binaryen `version_130` optimizes non-mutating aggregate RMW/cmpxchg forms such as `struct.atomic.rmw.add 0`, `struct.atomic.rmw.and -1`, and equal-value `struct.atomic.rmw.cmpxchg` to read-like forms for the probed orders. Starshine now represents and processes struct/array aggregate RMW/cmpxchg; remaining work is bounded behavioral breadth and shared-ordering legality, not an absent constructor surface.
 
 ## 5. Partial tuple extraction surface
 

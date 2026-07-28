@@ -885,7 +885,7 @@ It is also lowering some higher-level GC atomic ops into more basic forms when t
 Important negative shape:
 
 - shared `seqcst` GC RMW / cmpxchg is deliberately *not* lowered this way.
-- Starshine's current OI-L boundary is even earlier: the local text/core aggregate atomic surface supports `struct.atomic.get*` only, not `struct.atomic.rmw.*` or `struct.atomic.rmw.cmpxchg`. Binaryen `version_130` optimizes probed acqrel/acqrel non-mutating forms (`add 0`, `and -1`, and equal expected/replacement cmpxchg) to `struct.get`-like reads, but Starshine records those as unsupported representation gaps until aggregate RMW/cmpxchg constructors exist locally.
+- This former OI-L representation boundary is superseded. Starshine now has local text/core constructors for struct aggregate RMW/cmpxchg and core/binary/validator/HOT support for struct/array get/RMW/cmpxchg. The remaining OI-L boundary is behavioral breadth and shared-ordering legality, not missing aggregate RMW/cmpxchg representation.
 
 ## Shape family 21: `tuple.extract(tuple.make(...))`
 
