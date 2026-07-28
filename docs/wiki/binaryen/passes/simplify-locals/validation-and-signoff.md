@@ -28,13 +28,13 @@ related:
 ## Current Binaryen-v131 closeout
 
 - Oracle: official `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
-- Starshine: `_build/native/release/build/cmd/cmd.exe`, SHA-256 `5935985cb02530a77aba751dd88f0103a3eadc6ada8e4a0c0b040c878ba4e5bf`.
-- Integrated focused tests after the July 28 family follow-up: main `75/75`, variants `21/21`, no-structure `81/81`, and simplify-locals whitebox `19/19`.
+- Starshine: post-rebase `_build/native/release/build/cmd/cmd.exe`, SHA-256 `ae518fc0bf248ce1066003e63b269e75d4375835828ab7945fedd94711849ce9`.
+- Integrated focused tests after the July 28 family follow-up: main `75/75`, variants `21/21`, no-structure `81/81`, and simplify-locals whitebox `19/19`; full `moon test` passes `10051/10051`.
 - Dedicated aggregate profiles: all five completed `10000/10000`; every difference is strictly smaller than Binaryen and no lane has validation, property, generator, or command failures.
 - Idempotence: all five variants completed `1000/1000` checks with zero property failures.
 - Random-all regression replay: all prior `2433` full-pass mismatches were replayed; `81` are exact, `2262` are smaller, `90` are equal-size, and none are larger.
-- Deterministic coverage: `simplify-locals-family-coverage` maps all source-owned `SL-01` through `SL-35` rows and is included in every public variant aggregate.
-- Classification: no semantic mismatch, validation failure, unknown/risky family, or size-losing residual remains. The remaining broad dedicated differences are measured Starshine wins from stronger dead local/pure-drop cleanup or previously documented structure/no-tee shaping.
+- Deterministic coverage: `simplify-locals-family-coverage` maps all source-owned `SL-01` through `SL-35` rows and is included in every public variant aggregate. Post-rebase 100-case results are exact for no-tee/no-structure and nonesting; full, no-tee, and no-structure are uniformly smaller by `14`, `1`, and `3` encoded bytes per case, with zero validation, property, generator, or command failures.
+- Classification: no semantic mismatch, validation failure, unknown/risky family, or size-losing residual remains. The remaining deterministic and broad dedicated differences are measured Starshine wins from stronger dead local/pure-drop cleanup or previously documented structure/no-tee shaping.
 
 ## Why This Page Exists
 

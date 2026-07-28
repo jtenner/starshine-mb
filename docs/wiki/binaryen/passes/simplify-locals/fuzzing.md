@@ -38,6 +38,18 @@ The `simplify-locals-family-coverage` leaf emits one dense valid module spanning
 
 This deterministic leaf complements the larger 10,000-case aggregate and measured-win evidence above: it is a reproducible interaction probe, while the broad lanes remain authoritative for the integrated pass's stronger pure-drop and dead-local cleanup classifications.
 
+The post-rebase integrated native binary completed five fresh 100-case lanes with zero validation, property, generator, or command failures:
+
+| Variant | Result | Classification |
+| --- | --- | --- |
+| `simplify-locals` | `100/100` differences, uniformly `-14` encoded bytes | measured stronger dead-local/pure-drop cleanup |
+| `simplify-locals-notee` | `100/100` differences, uniformly `-1` encoded byte | measured dead aggregate-copy observation cleanup |
+| `simplify-locals-nostructure` | `100/100` differences, uniformly `-3` encoded bytes | measured transparent-copy/pure-drop cleanup |
+| `simplify-locals-notee-nostructure` | `100/100` exact normalized matches | exact |
+| `simplify-locals-nonesting` | `100/100` exact normalized matches | exact |
+
+The three differing lanes retain effects and trap order while deleting only local carrier traffic or pure dropped reads. They are the same measured-win policy already established by the larger v131 aggregate and random-all evidence, not new parity gaps. Artifacts are `.tmp/pass-fuzz-simplify-locals-v131-family-post-rebase-final-100`, `.tmp/pass-fuzz-simplify-locals-notee-v131-family-post-rebase-final-100`, `.tmp/pass-fuzz-simplify-locals-nostructure-v131-family-post-rebase-final-100`, `.tmp/pass-fuzz-simplify-locals-notee-nostructure-v131-family-post-rebase-100`, and `.tmp/pass-fuzz-simplify-locals-nonesting-v131-family-post-rebase-100`.
+
 ## Canonical aggregate profiles
 
 Every Binaryen public variant now has a direct aggregate GenValid name:

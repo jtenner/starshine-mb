@@ -16,8 +16,8 @@ sources:
 
 The July 28, 2026 explicit-v131 renewal used the rebuilt `_build/native/release/build/cmd/cmd.exe` and `.tmp/binaryen-version-131/bin/wasm-opt`, verified as `wasm-opt version 131 (version_131)`:
 
-- `.tmp/pass-fuzz-tuple-v131-spot-ordinary-1000`: `1000/1000` exact normalized matches, zero mismatches/failures, Binaryen cache `0/1000` hits/misses;
-- `.tmp/pass-fuzz-tuple-v131-spot-dedicated-100`: `100/100` known raw scalar-spelling differences, zero validation/property/generator/command failures, selected/profile counts spill `41`, tee `15`, copy-chain `44`.
+- `.tmp/pass-fuzz-tuple-v131-spot-post-rebase-ordinary-1000`: `1000/1000` exact normalized matches, zero mismatches/failures, Binaryen cache `1000/0` hits/misses;
+- `.tmp/pass-fuzz-tuple-v131-spot-post-rebase-dedicated-100`: `100/100` known raw scalar-spelling differences, zero validation/property/generator/command failures, selected/profile counts spill `41`, tee `15`, copy-chain `44`, Binaryen cache `100/0`.
 
 Every dedicated input has zero call, memory, table, global, exception, atomic, unreachable, and trap facts. Starshine is smaller in all 100 cases: spill is uniformly `-22` encoded bytes, while tee and copy-chain are uniformly `-20`. This is the same narrow pure/drop-only measured-win family approved by the 2026-06-30 closeout, not a new v131 gap.
 

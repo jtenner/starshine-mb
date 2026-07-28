@@ -16,8 +16,8 @@ sources:
 
 The July 28, 2026 explicit-v131 renewal used the rebuilt `_build/native/release/build/cmd/cmd.exe` and `.tmp/binaryen-version-131/bin/wasm-opt`, verified as `wasm-opt version 131 (version_131)`:
 
-- `.tmp/pass-fuzz-hso-v131-spot-ordinary-1000`: `1000/1000` exact normalized matches, zero mismatches/failures, Binaryen cache `0/1000` hits/misses;
-- `.tmp/pass-fuzz-hso-v131-spot-dedicated-100`: `100/100` cleanup-normalized matches under `local-cleanup-debris`, zero mismatches/failures, Binaryen cache `13/87` hits/misses.
+- `.tmp/pass-fuzz-hso-v131-spot-post-rebase-ordinary-1000`: `1000/1000` exact normalized matches, zero mismatches/failures, Binaryen cache `1000/0` hits/misses;
+- `.tmp/pass-fuzz-hso-v131-spot-post-rebase-dedicated-100`: `16` exact plus `84` cleanup-normalized matches under `local-cleanup-debris`, zero mismatches/failures, Binaryen cache `0/100` hits/misses.
 
 The owner file is unchanged from v130. The one dedicated-lit expectation delta is bottom-valued `local.tee` to `local.set` finalization in `$unreachable`; a focused source-WAT probe confirms Binaryen's new text, while binary reparse reduces both Binaryen and Starshine to the same valid 32-byte `unreachable` function. This renews the existing closeout without opening implementation work.
 
