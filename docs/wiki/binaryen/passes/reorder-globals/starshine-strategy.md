@@ -9,6 +9,7 @@ sources:
   - ../../../../../src/passes/reorder_globals_test.mbt
   - ../../../../../src/passes/reorder_globals_wbtest.mbt
   - ../../../../../src/validate/gen_valid_reorder_globals.mbt
+  - ../../../../../src/passes_perf_long/reorder_globals_perf_test.mbt
   - ./fuzzing.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -129,7 +130,7 @@ The 2026-07-29 audit also repaired the previously missing imported-global family
 - externally visible boundary and section invariants
 - regressions for reordered globals with string users, exports, and directized tail interaction
 - exact pass-owned comparison for every dedicated family, plus the proven inner late-tail replay
-- bounded performance proof: `70.079 ms` Starshine pass-local median on a 2,000-import / 20,000-use fixture, with byte-identical Binaryen output
+- bounded performance proof after replacing quadratic ready scans: `0.742 ms` Starshine versus `1.68593 ms` Binaryen on 2,000 imports, and `0.762 ms` versus `1.49234 ms` on a 2,000-global dependency chain; both outputs are byte-identical
 
 That framing matches the upstream dossier better than a vague “sort globals by use count” summary would.
 

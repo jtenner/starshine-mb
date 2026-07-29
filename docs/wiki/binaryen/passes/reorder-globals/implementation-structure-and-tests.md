@@ -4,6 +4,9 @@ status: supported
 last_reviewed: 2026-07-29
 sources:
   - ./index.md
+  - ../../../../../src/passes/reorder_globals.mbt
+  - ../../../../../src/passes/reorder_globals_wbtest.mbt
+  - ../../../../../src/passes_perf_long/reorder_globals_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/encode.mbt
@@ -144,9 +147,10 @@ Starshine now has a direct public-pass owner file for `reorder-globals`.
 
 | Local source | Current role |
 | --- | --- |
-| `src/passes/reorder_globals.mbt` | Active module-pass implementation: public `<128` cutoff, complete imported-plus-defined traffic counts, adjacency-list initializer dependencies, Binaryen-shaped candidate ordering, exact `0.095` exponential scoring, true ULEB-size selection, import/global declaration reorder, and numeric `GlobalIdx` remapping. |
+| `src/passes/reorder_globals.mbt` | Active module-pass implementation: public `<128` cutoff, complete imported-plus-defined traffic counts, adjacency-list initializer dependencies, max-heap ready selection, dependency-free original-versus-greedy fast path, Binaryen-shaped candidate ordering, exact `0.095` exponential scoring, true ULEB-size selection, import/global declaration reorder, and numeric `GlobalIdx` remapping. |
 | `src/passes/reorder_globals_test.mbt` | Focused direct coverage for registry status, public cutoff, imported-only and mixed-import sorting, preservation of non-global import positions, 129-global reorder, dependency preservation, export/global-name remapping, and stale raw-name clearing. |
-| `src/passes/reorder_globals_wbtest.mbt` | White-box proof for zero/raw/summed/exponential candidate vectors, true-cost winner selection, and candidate tie stability. |
+| `src/passes/reorder_globals_wbtest.mbt` | White-box proof for ready-heap import/count/tie priority, zero/raw/summed/exponential candidate vectors, true-cost winner selection, and candidate tie stability. |
+| `src/passes_perf_long/reorder_globals_perf_test.mbt` | Skipped native-release guard for 2,000 imported globals and a 2,000-global initializer chain, each with 20,000 hot uses and a 20 ms median ceiling. |
 | `src/passes/legacy_eh_audit_wbtest.mbt` | Protected-body, typed-catch, catch-all, and delegate-preserving traffic/rewrite proof. |
 | `src/validate/gen_valid_reorder_globals.mbt` | Seven pass-owned GenValid leaves covering function traffic, candidate search, imported globals, module code, legacy EH, metadata, and threshold boundaries. |
 | `src/validate/gen_valid_reorder_globals_tests.mbt` | Resolves the aggregate and validates every seeded subfamily. |
@@ -181,7 +185,10 @@ The active direct Starshine port includes these pieces:
 3. **Binaryen-compatible ordering policy**
    - public `< 128` no-op,
    - `reorder-globals-always` kept separate as boundary-only,
-   - zero/raw/sum/exponential candidate search.
+   - zero/raw/sum/exponential candidate search,
+   - max-heap ready selection for dependency-constrained candidates,
+   - one original-versus-greedy sort when no dependency edges exist,
+   - reuse of the zero-count topological order for summed and exponential propagation.
 4. **Numeric `GlobalIdx` remapper**
    - the global-import subsequence while preserving non-global import positions,
    - defined global declarations,
@@ -195,7 +202,9 @@ The active direct Starshine port includes these pieces:
    - the final explicit-v131 matrix is regular `100000/100000` exact and dedicated `10000/10000` exact,
    - random-all has only 625 pass-independent canonical `-8`-byte wins on no-global inputs,
    - wasm-smith covers all 9956 comparable cases after one established unreachable-debris normalization, with 44 Binaryen/tool failures and zero Starshine failures,
-   - the synthetic 2,000-import / 20,000-use fixture is byte-identical and externally valid; Starshine's nine-run pass-local median is `70.079 ms`, below the repository `<1s` target.
+   - the synthetic 2,000-import / 20,000-use fixture is byte-identical and externally valid; Starshine's nine-run pass-local median improved from `70.079 ms` to `0.742 ms` versus Binaryen's `1.68593 ms`,
+   - the 2,000-global dependency chain is also byte-identical at `0.762 ms` versus Binaryen's `1.49234 ms`,
+   - the skipped in-process native-release lane reports `1,174 us` imported and `1,083 us` dependency-heavy medians under a `20 ms` guard.
 
 ## Non-goals
 

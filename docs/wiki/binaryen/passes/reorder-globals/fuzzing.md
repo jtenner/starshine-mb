@@ -10,6 +10,8 @@ sources:
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_reorder_globals.mbt
   - ../../../../../src/validate/gen_valid_reorder_globals_tests.mbt
+  - ../../../../../src/passes/reorder_globals_wbtest.mbt
+  - ../../../../../src/passes_perf_long/reorder_globals_perf_test.mbt
   - ../../../../../src/fuzz/main.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
 ---
@@ -39,7 +41,7 @@ Focused white-box coverage in `src/passes/reorder_globals_wbtest.mbt` separately
 The 2026-07-29 closeout used:
 
 - native Starshine: `_build/native/release/build/cmd/cmd.exe`
-- native SHA-256: `0d905fcc5f4cf7b03ffb1b635cdadd4627bfd7304c14bd0befd1c1334680e1a5`
+- native SHA-256: `d09b0100360cb83d87545fb1ca92e98f01780882d1649acf2aa96293d364aadc`
 - explicit official oracle: `.tmp/binaryen-version-131-bin/bin/wasm-opt`
 - oracle text: `wasm-opt version 131 (version_131)`
 - oracle SHA-256: `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`
@@ -56,11 +58,11 @@ The source audit found a real parity gap: Binaryen's `module->globals` order inc
 
 | Lane | Seed | Out dir | Requested / compared | Direct normalized | Cleanup-normalized | Raw mismatches | Failures | Cache |
 | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
-| regular GenValid | `0x5eed` | `.tmp/pass-fuzz-reorder-globals-v131-closeout-regular-100000-20260729` | `100000 / 100000` | `100000` | `0` | `0` | validation/property/generator/command `0` | Binaryen `100000/0`; failures `0/0` |
-| dedicated `reorder-globals-all` | `0x5eed` | `.tmp/pass-fuzz-reorder-globals-v131-closeout-dedicated-10000-20260729` | `10000 / 10000` | `10000` | `0` | `0` | validation/property/generator/command `0` | Binaryen `10000/0`; failures `0/0` |
-| random all-profiles | `0x5555` | `.tmp/pass-fuzz-reorder-globals-v131-closeout-random-all-10000-20260729` | `10000 / 10000` | `9375` | `0` | `625` | validation/property/generator/command `0` | Binaryen `10000/0`; failures `0/0` |
-| explicit wasm-smith, required unnormalized run | `0x5eed` | `.tmp/pass-fuzz-reorder-globals-v131-closeout-wasm-smith-10000-20260729` | `10000 / 9956` | `9955` | `0` | `1` | 44 Binaryen/tool failures: rec-group-zero `39`, invalid-tag-index `1`, table-index-out-of-range `1`, bad-section-size `3`; zero Starshine failures | wasm-smith `10000/0`; Binaryen `9956/0`; failures `44/0` |
-| wasm-smith classification confirmation with `unreachable-control-debris` | `0x5eed` | `.tmp/pass-fuzz-reorder-globals-v131-closeout-wasm-smith-10000-unreachable-normalized-20260729` | `10000 / 9956` | `9955` | `1` | `0` | same 44 Binaryen/tool failures | wasm-smith `10000/0`; Binaryen `9956/0`; failures `44/0` |
+| regular GenValid | `0x5eed` | `.tmp/pass-fuzz-reorder-globals-perf-heap-regular-100000-20260729` | `100000 / 100000` | `100000` | `0` | `0` | validation/property/generator/command `0` | Binaryen `100000/0`; failures `0/0` |
+| dedicated `reorder-globals-all` | `0x5eed` | `.tmp/pass-fuzz-reorder-globals-perf-heap-dedicated-10000-20260729` | `10000 / 10000` | `10000` | `0` | `0` | validation/property/generator/command `0` | Binaryen `10000/0`; failures `0/0` |
+| random all-profiles | `0x5555` | `.tmp/pass-fuzz-reorder-globals-perf-heap-random-all-10000-20260729` | `10000 / 10000` | `9375` | `0` | `625` | validation/property/generator/command `0` | Binaryen `10000/0`; failures `0/0` |
+| explicit wasm-smith, required unnormalized run | `0x5eed` | `.tmp/pass-fuzz-reorder-globals-perf-heap-wasm-smith-10000-20260729` | `10000 / 9956` | `9955` | `0` | `1` | 44 Binaryen/tool failures: rec-group-zero `39`, invalid-tag-index `1`, table-index-out-of-range `1`, bad-section-size `3`; zero Starshine failures | wasm-smith `10000/0`; Binaryen `9956/0`; failures `44/0` |
+| wasm-smith classification confirmation with `unreachable-control-debris` | `0x5eed` | `.tmp/pass-fuzz-reorder-globals-perf-heap-wasm-smith-10000-unreachable-normalized-20260729` | `10000 / 9956` | `9955` | `1` | `0` | same 44 Binaryen/tool failures | wasm-smith `10000/0`; Binaryen `9956/0`; failures `44/0` |
 
 Commands used explicit `--wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt`, `--jobs auto`, `--starshine-bin _build/native/release/build/cmd/cmd.exe`, `--max-failures 2000`, `--keep-going-after-command-failures`, and `--no-reduce-mismatches`.
 
@@ -101,13 +103,20 @@ Starshine has zero validation, generator, property, or command failures in every
 
 ## Performance
 
-A retained synthetic import-heavy fixture contains 2,000 immutable imported globals and 20,000 uses of the final imported global. The input is 104,933 bytes. Nine interleaved native-release runs on the final binary report:
+The 2026-07-29 performance follow-up removes the quadratic ready-candidate scan. Dependency-constrained candidates now use a max heap, the zero-count topological order is reused for both dependent-count accumulations, and dependency-free modules compare only the original order with one sorted greedy order because summed and exponential counts equal the true counts when there are no edges.
 
-- Starshine pass-local median: `70.079 ms`
-- Binaryen-v131 pass-local median: `1.7762 ms`
-- ratio: `39.45x`
+Nine interleaved native-release command runs use two 2,000-global / 20,000-use fixtures:
 
-The implementation is much slower than Binaryen on this deliberately large ordering workload, but remains well below the repository's `<1s` pass-local acceptance target. Both tools produce externally valid, byte-identical output with SHA-256 `a3efed97a79dcce8004edd91f32828b1bcd5ee9b92f6237fbba1eba9e7d65b9f`. Reopen performance work if a representative artifact exceeds one second, this fixture regresses materially, or the global-count scale grows enough for the current quadratic ready-candidate scan to dominate the late pipeline.
+| Fixture | Starshine median | Binaryen-v131 median | Ratio | Output |
+| --- | ---: | ---: | ---: | --- |
+| 2,000 immutable imported globals, final import hot | `0.742 ms` | `1.68593 ms` | `0.440x` | byte-identical, SHA-256 `a3efed97a79dcce8004edd91f32828b1bcd5ee9b92f6237fbba1eba9e7d65b9f` |
+| 2,000-global initializer chain, final definition hot | `0.762 ms` | `1.49234 ms` | `0.511x` | byte-identical, SHA-256 `431a18bdb671ccf81c65acefc27499ce2712f63b5e6ed749d7c287ce61d1d1eb` |
+
+The import-heavy Starshine median fell from `70.079 ms` to `0.742 ms`, a `98.94%` reduction, and is about `2.27x` faster than Binaryen on that fixture. The dependency-heavy heap path is about `1.96x` faster than Binaryen. Both outputs validate externally.
+
+`src/passes_perf_long/reorder_globals_perf_test.mbt` keeps an opt-in native-release guard for both families. Its nine-sample in-process medians were `1,174 us` imported and `1,083 us` dependency-heavy, with a `20 ms` ceiling that would reject the former quadratic implementation while remaining tolerant of ordinary host variance.
+
+Reopen performance work if either retained fixture exceeds `2x` Binaryen pass-local time, the skipped native-release lane exceeds `20 ms`, output equality or validity changes, or a new dependency topology exposes heap-ordering overhead not represented by these two extremes.
 
 ## Closeout verdict and reopening criteria
 
@@ -121,4 +130,4 @@ Direct Binaryen-v131 behavior parity is closed. Reopen if:
 - table/global initializers, element offsets/items, data offsets, exports, structured names, or stale raw names regress;
 - Starshine produces any validation, generator, property, or command failure;
 - a residual contains a real reorder opportunity and cannot be classified from inspected source, input/output, size, and validity evidence;
-- pass-local time exceeds the `<1s` target on a representative large-global workload.
+- either retained large-global fixture exceeds `2x` Binaryen pass-local time or the skipped native-release guard exceeds `20 ms`.
