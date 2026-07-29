@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-29
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -16,6 +16,7 @@ related:
   - ./size-model-and-dependency-order.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./fuzzing.md
   - ../reorder-globals-always/implementation-structure-and-tests.md
   - ../string-gathering/implementation-structure-and-tests.md
   - ../directize/implementation-structure-and-tests.md
@@ -23,7 +24,7 @@ related:
 
 # `reorder-globals` implementation structure and tests
 
-This page maps the source-backed implementation and proof surface for Binaryen `reorder-globals`, then maps the exact Starshine code locations a future local port would need to read first.
+This page maps the source-backed implementation and proof surface for Binaryen `reorder-globals`, then maps the exact active Starshine implementation and closeout surfaces.
 
 Use it as the quick answer to:
 
@@ -34,11 +35,10 @@ Use it as the quick answer to:
 
 ## Current source anchor
 
-- Tagged oracle: Binaryen `version_129`.
-- Current-main bridge: the retained 2026-06-01 freshness research recheck in [research note 0689](./index.md).
-- Result: no teaching-relevant drift found in the owner/helper/test surfaces reviewed for this page.
-
-The 2026-04-25 source bridge retains the original reviewed release/source/test provenance; the retained 2026-06-01 research recheck is the current freshness layer for this implementation/test-map follow-up.
+- Tagged oracle: Binaryen `version_131`, commit `1f903c14babf829745b421b92ff0f286e93e4209`.
+- Owner SHA-256: `4b15caef4d7436e67efd1da90d1a53201e2acf029a686349f1dfd360d1a10194`.
+- Dedicated fixture SHA-256 values: `11703272b84aface8143a98544b9877be72062e5028cac79417f859445dc7c7d` for `reorder-globals.wast` and `52d0cfb47d008487f52fe1630eeb3e4484780dfc3a850948f92913d6ec63a70b` for `reorder-globals-real.wast`.
+- The 2026-07-29 source audit confirmed that Binaryen's global vector includes imports. Imports stay before definitions, but imported globals can reorder among themselves; this was the missing Starshine behavior.
 
 ## Upstream owner and helper map
 
@@ -144,8 +144,14 @@ Starshine now has a direct public-pass owner file for `reorder-globals`.
 
 | Local source | Current role |
 | --- | --- |
-| `src/passes/reorder_globals.mbt` | Active module-pass implementation: public `<128` cutoff, module/code global traffic counts, initializer dependency matrix, Binaryen-shaped candidate ordering, true ULEB-size scoring, declaration reorder, and numeric `GlobalIdx` remapping. |
-| `src/passes/reorder_globals_test.mbt` | Focused direct-pass coverage for registry status, public cutoff, 129-global reorder, dependency preservation, export remapping, and name-section remapping. |
+| `src/passes/reorder_globals.mbt` | Active module-pass implementation: public `<128` cutoff, complete imported-plus-defined traffic counts, adjacency-list initializer dependencies, Binaryen-shaped candidate ordering, exact `0.095` exponential scoring, true ULEB-size selection, import/global declaration reorder, and numeric `GlobalIdx` remapping. |
+| `src/passes/reorder_globals_test.mbt` | Focused direct coverage for registry status, public cutoff, imported-only and mixed-import sorting, preservation of non-global import positions, 129-global reorder, dependency preservation, export/global-name remapping, and stale raw-name clearing. |
+| `src/passes/reorder_globals_wbtest.mbt` | White-box proof for zero/raw/summed/exponential candidate vectors, true-cost winner selection, and candidate tie stability. |
+| `src/passes/legacy_eh_audit_wbtest.mbt` | Protected-body, typed-catch, catch-all, and delegate-preserving traffic/rewrite proof. |
+| `src/validate/gen_valid_reorder_globals.mbt` | Seven pass-owned GenValid leaves covering function traffic, candidate search, imported globals, module code, legacy EH, metadata, and threshold boundaries. |
+| `src/validate/gen_valid_reorder_globals_tests.mbt` | Resolves the aggregate and validates every seeded subfamily. |
+| `src/fuzz/main_wbtest.mbt` | Requires all seven selected leaves and all 20 family labels in the bounded manifest. |
+| `docs/wiki/binaryen/passes/reorder-globals/fuzzing.md` | Records the final explicit-v131 four-lane matrix, residual classifications, performance, and reopening criteria. |
 | `src/passes/optimize.mbt` | Registers `reorder-globals` as a module pass while keeping `reorder-globals-always` boundary-only. |
 | `src/passes/pass_manager.mbt` | Dispatches the active module pass. |
 | `src/cmd/cmd_wbtest.mbt` | Covers explicit CLI acceptance for `--reorder-globals`. |
@@ -169,7 +175,7 @@ The active direct Starshine port includes these pieces:
    - count module-level expression code that can contain globals,
    - keep static counts, not runtime profile assumptions.
 2. **Initializer dependency graph**
-   - preserve import prefix,
+   - keep every imported global before every defined global while allowing imported globals to reorder within the prefix,
    - preserve `global.get` dependencies among global initializers,
    - validate against Starshine's const-expression rules.
 3. **Binaryen-compatible ordering policy**
@@ -177,16 +183,19 @@ The active direct Starshine port includes these pieces:
    - `reorder-globals-always` kept separate as boundary-only,
    - zero/raw/sum/exponential candidate search.
 4. **Numeric `GlobalIdx` remapper**
-   - global declarations,
+   - the global-import subsequence while preserving non-global import positions,
+   - defined global declarations,
    - exports of globals,
    - function-body `global.get` / `global.set`,
    - module-code global references,
    - global-initializer dependencies,
    - binary encode/decode and validation-sensitive order.
-5. **Late-tail scheduling proof**
-   - the inner `string-gathering -> reorder-globals -> directize` neighborhood is now replayed and regression-covered,
-   - direct reduced shapes are covered now,
-   - refreshed direct oracle evidence is recorded: `.tmp/pass-fuzz-reorder-globals` has `6759` comparable normalized matches with `0` mismatches and `20` known Binaryen empty-recursion-group parser/canonicalization command failures, the older `.tmp/self-opt-reorder-globals-20260426-post-raw-name-clear` direct artifact lane remained canonical/normalized-WAT equal, and `.tmp/self-opt-string-reorder-directize-20260508` now records canonical wasm plus normalized WAT equality for the active triple.
+5. **Direct and late-tail proof**
+   - the inner `string-gathering -> reorder-globals -> directize` neighborhood remains replayed and regression-covered,
+   - the final explicit-v131 matrix is regular `100000/100000` exact and dedicated `10000/10000` exact,
+   - random-all has only 625 pass-independent canonical `-8`-byte wins on no-global inputs,
+   - wasm-smith covers all 9956 comparable cases after one established unreachable-debris normalization, with 44 Binaryen/tool failures and zero Starshine failures,
+   - the synthetic 2,000-import / 20,000-use fixture is byte-identical and externally valid; Starshine's nine-run pass-local median is `70.079 ms`, below the repository `<1s` target.
 
 ## Non-goals
 
@@ -208,13 +217,13 @@ Those are neighboring concerns with their own dossiers.
 - [research note 0367](./index.md)
 - [research note 0125](./index.md)
 - [research note 0270](./index.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-traversal.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/support/topological_sort.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals-real.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/ReorderGlobals.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/passes.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/pass.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/wasm-traversal.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/support/topological_sort.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/wasm.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/GlobalStructInference.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals-real.wast>

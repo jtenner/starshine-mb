@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-29
 sources:
   - ./index.md
 related:
@@ -17,9 +17,9 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
-- On 2026-04-23, the reviewed official Binaryen release page for `version_129` still showed publish date **2026-04-01**.
-- A focused 2026-06-01 current-`main` recheck on the same owner, helper, and dedicated test surfaces still did not reveal teaching-relevant contract drift beyond the rules summarized here; the upstream release horizon has now advanced to `version_130`, but the reviewed implementation/test surfaces still teach the same contract. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the source/test map.
+- Use official Binaryen `version_131`, tag commit `1f903c14babf829745b421b92ff0f286e93e4209`, as the current source oracle.
+- The 2026-07-29 audit re-read the owner and both dedicated lit fixtures and recorded their exact SHA-256 values in [`./fuzzing.md`](./fuzzing.md).
+- The audit also corrected one important local interpretation: Binaryen's `module->globals` vector includes imported globals. The comparator keeps imports before definitions, but imported globals are still sorted among themselves.
 - The core implementation lives in `src/passes/ReorderGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.
@@ -31,16 +31,16 @@ related:
 
 Primary source URLs:
 
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-traversal.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/support/topological_sort.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals-real.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/ReorderGlobals.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/passes.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/pass.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/wasm-traversal.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/support/topological_sort.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/wasm.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/GlobalStructInference.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals-real.wast>
 
 ## High-level intent
 
@@ -266,8 +266,12 @@ Binaryen’s comparator uses three priorities, in this exact order:
 So the actual behavior is:
 
 - keep only dependency-valid orders,
+- keep imported globals before defined globals,
+- sort imported globals among themselves using the same count and original-index rules,
 - among currently legal choices, pick the best according to this comparator,
 - make ties stable by original declaration order.
+
+This imported-within-prefix distinction is observable in the final binary. A 129-import module with traffic only on imported global 128 moves that import to global index 0 under Binaryen v131.
 
 ## Stage 6: score candidates with the *real* size model
 
@@ -343,7 +347,7 @@ A future Starshine port must preserve the same externally visible effect, whethe
 - reordering declarations with symbolic identities, or
 - explicitly remapping every global-index user if the IR stores dense indices more directly
 
-That second bullet is an inference from Binaryen’s representation and the local Starshine backlog, not a direct Binaryen source requirement.
+That second bullet is an inference from Binaryen’s representation and Starshine's numeric-index IR, not a direct Binaryen source requirement; the 2026-07-29 local implementation and tests now prove the required remap behavior.
 
 ## Analysis and helper dependencies
 
@@ -427,7 +431,7 @@ A future Starshine port should preserve all of these:
 - counting both `global.get` and `global.set`
 - counting uses in module code as well as functions
 - building dependencies only from initializer `global.get` traffic
-- imports-first ordering
+- imports-first ordering, including sorting within the imported-global prefix rather than freezing imported declarations
 - original-order tie-breaking
 - the four candidate-search families (`zero`, `raw`, `sum`, `exponential`)
 - scoring on the true counts rather than the heuristic counts
@@ -441,13 +445,13 @@ A future Starshine port should preserve all of these:
 - [research note 0367](./index.md)
 - [research note 0125](./index.md)
 - [research note 0270](./index.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-traversal.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/support/topological_sort.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals-real.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/ReorderGlobals.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/passes.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/pass.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/wasm-traversal.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/support/topological_sort.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/wasm.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/GlobalStructInference.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals-real.wast>

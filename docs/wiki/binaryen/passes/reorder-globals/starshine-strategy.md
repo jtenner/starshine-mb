@@ -1,10 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-29
 sources:
   - ./index.md
   - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
+  - ../../../../../src/passes/reorder_globals.mbt
+  - ../../../../../src/passes/reorder_globals_test.mbt
+  - ../../../../../src/passes/reorder_globals_wbtest.mbt
+  - ../../../../../src/validate/gen_valid_reorder_globals.mbt
+  - ./fuzzing.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/encode.mbt
@@ -23,6 +28,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./size-model-and-dependency-order.md
   - ./wat-shapes.md
+  - ./fuzzing.md
   - ../../../binary/leb128-and-integer-encoding.md
   - ../string-gathering/index.md
   - ../reorder-globals-always/index.md
@@ -43,10 +49,10 @@ The current local strategy is direct public-pass support plus explicit late-tail
 - keep the public pass spelling active as a module pass
 - keep `reorder-globals-always` boundary-only so the sibling policy is not collapsed into the production pass
 - preserve Binaryen's public `<128` total-global no-op
-- count whole-module global traffic and initializer dependencies
-- apply a declaration reorder plus Starshine-specific numeric `GlobalIdx` remapping
+- count whole-module global traffic and initializer dependencies over the complete imported-plus-defined index space
+- reorder imported globals within the fixed import prefix as well as defined globals, preserve non-global import positions, and apply Starshine-specific numeric `GlobalIdx` remapping
 - keep the accepted public late-tail suffix documented alongside the no-DWARF order, with any broader widening beyond it still gated on fresh evidence
-- keep refreshed direct 10000-case oracle proof recorded and the inner `string-gathering -> reorder-globals -> directize` replay explicit while broader widening beyond the accepted public suffix stays deferred
+- keep the final explicit-v131 regular `100000`, dedicated `10000`, random-all `10000`, and wasm-smith `10000` evidence recorded, alongside the inner `string-gathering -> reorder-globals -> directize` replay
 
 So this page is now an **implementation status and late-tail follow-up** page.
 
@@ -59,7 +65,7 @@ The fastest read-along path through the current Starshine status is:
     - implements public cutoff, traffic counting, dependency sorting, candidate scoring, declaration reorder, and numeric index remapping
 - focused direct-pass tests
   - [`src/passes/reorder_globals_test.mbt`](../../../../../src/passes/reorder_globals_test.mbt)
-    - covers registry status, public cutoff, hot 129th-global movement, dependency preservation, export remapping, and global-name remapping
+    - covers registry status, public cutoff, imported-only and mixed-import movement, non-global import-position preservation, hot 129th-defined-global movement, dependency preservation, export/global-name remapping, and stale raw-name clearing
 - registry status
   - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
     - `reorder-globals` is registered as a module pass; `reorder-globals-always` remains boundary-only
@@ -106,8 +112,8 @@ The implementation:
 - builds initializer dependency edges from defined-global initializer `global.get`s
 - tries the zero/raw/summed-dependent/exponential-dependent candidate families
 - scores candidates using true observed counts and estimated ULEB global-index byte widths; the shared binary byte-layer caveat is [`../../../binary/leb128-and-integer-encoding.md`](../../../binary/leb128-and-integer-encoding.md), while this pass uses encoder-size thresholds for profitability
-- keeps imported globals before defined globals
-- reorders the defined `global_sec` entries and remaps numeric global references across module/code/name surfaces
+- keeps imported globals before defined globals while sorting the imported-global subsequence by the same candidate policy
+- rewrites global imports without moving non-global imports, reorders defined `global_sec` entries, and remaps numeric global references across module/code/name surfaces
 
 ### 2. The `always` sibling still rejects honestly
 
@@ -115,14 +121,15 @@ The implementation:
 
 ### 3. The remaining work is planned as a real parity slice, not an orphan idea
 
-The old dedicated `RG` replay blocker is now closed.
-The delivered work covers the right local concerns:
+The old dedicated `RG` replay blocker is closed, and the post-legacy-EH v131 renewal is complete.
+The 2026-07-29 audit also repaired the previously missing imported-global family. The delivered work covers:
 
 - Binaryen-shaped reordering criteria
 - safe remap after string gathering and other late global cleanup
 - externally visible boundary and section invariants
 - regressions for reordered globals with string users, exports, and directized tail interaction
-- direct Binaryen comparison on the debug artifact plus the proven inner late-tail replay
+- exact pass-owned comparison for every dedicated family, plus the proven inner late-tail replay
+- bounded performance proof: `70.079 ms` Starshine pass-local median on a 2,000-import / 20,000-use fixture, with byte-identical Binaryen output
 
 That framing matches the upstream dossier better than a vague “sort globals by use count” summary would.
 
@@ -135,13 +142,13 @@ Why:
 - Binaryen runs it after `string-gathering`
 - it is the second-to-last top-level pass in the canonical no-DWARF tail
 - its correctness depends on whole-module declaration order, import-prefix preservation, initializer dependencies, and final global-index layout
-- the local backlog already makes safe remapping a first-class deliverable
+- the completed v131 audit treats safe remapping as a first-class invariant with focused and generated coverage
 
 So the local strategy should be thought of as:
 
 1. keep the direct module pass focused on whole-module global traffic and initializer dependencies
 2. choose a dependency-safe final declaration order with the reviewed Binaryen candidate families
-3. apply a declaration reorder and Starshine-specific numeric remapping
+3. apply imported-global and defined-global declaration reorders plus Starshine-specific numeric remapping
 4. keep reduced export/name/dependency coverage green
 5. validate string users, startup/global-initializer correctness, and final artifact parity in the real late-tail neighborhood once surrounding passes exist
 
@@ -222,10 +229,9 @@ So the current repo status is best summarized as:
 - reduced tests and explicit triple-neighborhood replay landed
 - refreshed direct oracle proof recorded; remaining proof debt is now the broader scheduled late tail, not the inner triple
 
-## Validation plan for the eventual port
+## Validation ladder for future changes
 
-The existing backlog plus the upstream dossier imply the right validation ladder.
-A future real implementation should validate in this order:
+The completed audit plus the upstream dossier establish this validation order for future changes:
 
 1. reduced shape tests for the main upstream families
    - hotter independent globals
@@ -243,8 +249,8 @@ A future real implementation should validate in this order:
 4. scheduler-neighborhood interaction tests
    - the full late-tail `string-gathering -> reorder-globals -> directize`
 5. artifact and oracle comparison
-   - direct pass evidence is `.tmp/pass-fuzz-reorder-globals-10000-post-raw-name-clear` and `.tmp/self-opt-reorder-globals-20260426-post-raw-name-clear`
-   - the remaining future evidence is ordered late-tail replay once neighboring passes exist
+   - current direct evidence is recorded in [`./fuzzing.md`](./fuzzing.md): regular `100000/100000`, dedicated `10000/10000`, random-all classified, and all 9956 comparable wasm-smith cases green after one established cleanup normalization
+   - the final native artifact and explicit official v131 oracle hashes are recorded there for replay
 
 That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the in-repo workflow and the exact neighboring passes that should feed the port.
 
@@ -265,4 +271,4 @@ So the right mental model today is:
 - **`always` sibling deferred**
 - **broader late-tail widening deferred**
 - **reduced reindexing tests landed**
-- **refreshed direct 10000-case compare evidence recorded; inner late-tail triple replay proven**
+- **full explicit-v131 four-lane direct matrix recorded; inner late-tail triple replay proven**

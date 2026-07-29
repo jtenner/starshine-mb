@@ -13,7 +13,7 @@
 
 ## v0.1.1 Execution Order
 
-1. Finish `[V131-LEGACY-EH]001` for the three remaining passes repaired after their last release-scale matrices.
+1. Finish `[V131-LEGACY-EH]001` for `directize`, the one remaining pass repaired after its last release-scale matrix.
 2. Resolve `[COALESCE-LOCALS]001` direct and ordered-suffix parity gaps.
 3. Complete `[O4Z-PRESET]001`, then `[O4Z-NESTED]001`.
 4. Run artifact, runtime, size, strip-debug, and wall-time signoff.
@@ -24,7 +24,6 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 | Pass | Active work | Owner |
 | --- | --- | --- |
-| `reorder-globals` | Renew direct evidence after legacy-`try` traffic/dependency/rewrite repair. | `[V131-LEGACY-EH]001` |
 | `directize` | Renew direct evidence after legacy-`try` table analysis/rewrite repair; retain thin module-shape breadth. | `[V131-LEGACY-EH]001`, `[AUDIT]004` |
 | `coalesce-locals` | Resolve four direct loop/parameter/block shape gaps and the extended O4z suffix numbering gap. | `[COALESCE-LOCALS]001` |
 | `remove-unused-brs` | Direct behavior is closed; reconcile the remaining extra early scheduler slot only. | `[O4Z-PRESET]001` |
@@ -34,19 +33,19 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 ### [V131-LEGACY-EH]001 - Renew evidence after legacy-`try` correctness repairs
 
-- **Status:** two release-scale direct matrices remain open; RUME was renewed on 2026-07-27, merge-locals on 2026-07-28, and duplicate-import-elimination on 2026-07-28.
+- **Status:** one release-scale direct matrix remains open; RUME was renewed on 2026-07-27, merge-locals and duplicate-import-elimination on 2026-07-28, and reorder-globals on 2026-07-29.
 - **Goal:** replace pre-repair closeout evidence for every pass whose correctness-sensitive analysis or rewrite changed on 2026-07-21.
 - **Why:** decoded legacy `Try` bodies and catches previously could be omitted from reachability, index rewriting, traffic analysis, or mutation guards. Passing pre-repair matrices cannot close the repaired behavior.
 - **Deliverables:**
   - [x] Run the required explicit-v131 four-lane matrix for `remove-unused-module-elements` (regular `100000/100000` and dedicated `rume-all` `10000/10000` exact; wasm-smith `9955/9956` exact plus the full-u64 memory64 Starshine win and `44` Binaryen/tool failures; random-all `9375/10000` exact plus `625` pass-independent one-byte local-run encoding residuals; zero Starshine failures).
   - [x] Run the required explicit-v131 four-lane matrix for `duplicate-import-elimination` (regular and dedicated exact; wasm-smith exact after one pass-independent unreachable-debris normalization plus 44 Binaryen/tool failures; random-all retains 625 pass-independent local-run size gaps on no-import inputs; zero Starshine failures).
-  - [ ] Run the required explicit-v131 four-lane matrix for `reorder-globals`.
+  - [x] Run the required explicit-v131 four-lane matrix for `reorder-globals` (regular `100000/100000` and seven-leaf dedicated `10000/10000` exact; wasm-smith all `9956` comparable cases green after one established unreachable-debris normalization plus `44` Binaryen/tool failures; random-all retains `625` pass-independent multivalue codec wins, uniformly `-8` canonical bytes; zero Starshine failures).
   - [ ] Run the required explicit-v131 four-lane matrix for `directize`.
   - [ ] Add or refresh a pass-owned aggregate GenValid profile before a matrix when the current profile does not exercise protected-body, typed-catch, catch-all, and delegate-bearing cases.
   - [ ] Update each pass dossier with exact counts, Binaryen/tool failures, Starshine failures, mismatch classifications, cache statistics, timing, and reopening criteria.
 - **Invariants:** preserve protected-body and catch ordering, tags, catch-all form, delegate target, block type, stack typing, and exceptional control flow; never mutate from partial legacy-EH facts.
 - **Dependencies:** none. `once-reduction`, `memory-packing`, the repaired `remove-unused-module-elements`, and `merge-locals` already have current evidence and are not part of the remaining work.
-- **Exit criteria:** all three remaining matrices have zero validation or true-semantic failures and no unclassified residuals; any discovered behavior family receives its own active parity slice.
+- **Exit criteria:** the remaining directize matrix has zero validation or true-semantic failures and no unclassified residuals; any discovered behavior family receives its own active parity slice.
 
 ### [COALESCE-LOCALS]001 - Resolve direct and suffix shape gaps
 

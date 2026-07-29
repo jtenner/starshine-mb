@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-29
 sources:
   - ./index.md
 related:
@@ -16,7 +16,7 @@ related:
 
 This page is the beginner-friendly shape catalog for Binaryen’s `reorder-globals` pass.
 
-The shape families below were rechecked on 2026-06-01 against the official Binaryen `version_129` owner/test surface plus a focused current-`main` freshness recheck; no teaching-relevant drift was found for these main positive, negative, or bailout examples. For proof ownership, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+The shape families below were rechecked on 2026-07-29 against official Binaryen `version_131`. The refresh preserved the existing positive, negative, and bailout examples and added the imported-within-prefix family that exposed the Starshine parity repair. For proof ownership, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Read this page with one mental model
 
@@ -257,6 +257,40 @@ Why:
 - imported globals are always ordered before defined globals
 - Binaryen enforces that in the comparator even before heat is considered
 
+## Shape 7a: imported globals can reorder within the import prefix
+
+Before, conceptually, with 129 imported globals:
+
+```wat
+(module
+  (import "env" "g0" (global i32))
+  ;; ... imported globals g1 through g127 ...
+  (import "env" "g128" (global i32))
+  (func
+    (drop (global.get 128))
+    (drop (global.get 128))))
+```
+
+After Binaryen v131, the hot import becomes the first global import and both uses become `global.get 0`:
+
+```wat
+(module
+  (import "env" "g128" (global i32))
+  (import "env" "g0" (global i32))
+  ;; ... remaining imported globals ...
+  (func
+    (drop (global.get 0))
+    (drop (global.get 0))))
+```
+
+Why:
+
+- imports must stay before definitions, but imported globals are still compared by count
+- Binaryen's global vector includes both imported and defined globals
+- non-global imports keep their section positions in Starshine while the global-import subsequence is reordered
+
+This is the family that exposed the 2026-07-29 Starshine parity gap.
+
 ## Shape 8: names do not matter
 
 These two modules behave the same way for sorting purposes:
@@ -358,7 +392,7 @@ If you see one of those behaviors, you are probably looking at a different pass 
 - [research note 0367](./index.md)
 - [research note 0125](./index.md)
 - [research note 0270](./index.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals-real.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/ReorderGlobals.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/GlobalStructInference.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals-real.wast>

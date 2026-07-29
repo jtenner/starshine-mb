@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-29
 sources:
   - ./index.md
   - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
@@ -23,7 +23,7 @@ This page focuses on the part of `reorder-globals` that is easiest to misunderst
 - why the public pass often does nothing,
 - and why `reorder-globals-always` exists anyway.
 
-Reviewed on 2026-06-01 against the official Binaryen `version_129` owner/test surface plus a focused current-`main` freshness recheck; no teaching-relevant drift was found for the specific cost-model, dependency-order, or `always`-variant rules summarized here. The owner/helper/test map now lives in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Reviewed on 2026-07-29 against official Binaryen `version_131`, commit `1f903c14babf829745b421b92ff0f286e93e4209`. The cost model and four candidate families remain as documented, and the refresh explicitly confirmed that imported globals participate in sorting within the required import prefix. The owner/helper/test map lives in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## One mental model
 
@@ -192,19 +192,18 @@ And when the final estimated cost is equal, Binaryen prefers the original-ish or
 
 So “keep the old order” is part of the intended search space, not just what happens when nothing changes.
 
-## Imports-first is absolute
+## Imports-first is absolute, but import order is still optimized
 
 The comparator used in `doSort(...)` always puts imported globals before defined globals.
 
-Even if a defined global is much hotter, Binaryen will not move it above an imported global in IR order.
-The source comment also notes that the binary writer would enforce imports first anyway, but doing it in the IR makes the final layout visible sooner.
+Even if a defined global is much hotter, Binaryen will not move it above an imported global in IR order. However, imported globals are not frozen: two imported globals are compared by the same custom count and original-index tie rules, so a hot imported global can move earlier within the import prefix. The source comment notes that the binary writer would enforce imports first anyway, but doing it in the IR makes the final layout visible sooner.
 
-That means there are two separate hard ordering rules before profitability even starts:
+That means there are two separate hard ordering rules before profitability starts:
 
-- import prefix ordering
+- every imported global precedes every defined global, while the imported subsequence remains sortable
 - initializer dependency ordering
 
-Only after those rules are satisfied does heat begin to matter.
+Only after those rules are satisfied does heat choose among legal positions. The 2026-07-29 parity probe made this concrete: in a module with 129 imported globals and traffic only on imported global 128, Binaryen moves that import to global index 0.
 
 ## Original order is also the tie-break inside each candidate sort
 
@@ -292,8 +291,8 @@ If Starshine chooses to deviate from any of those, the deviation should be docum
 - [research note 0367](./index.md)
 - [research note 0125](./index.md)
 - [research note 0270](./index.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/support/topological_sort.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals-real.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/ReorderGlobals.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/support/topological_sort.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/GlobalStructInference.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/reorder-globals-real.wast>
