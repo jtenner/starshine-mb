@@ -1,6 +1,6 @@
 ///|
 pub fn reorder_globals_summary() -> String {
-  "Reorder defined globals by Binaryen's public size policy and remap numeric global indices."
+  "Reorder imported and defined globals by Binaryen's public size policy and remap numeric global indices."
 }
 
 ///|
@@ -161,130 +161,138 @@ fn rg_count_global_traffic(
 }
 
 ///|
-fn rg_collect_expr_defined_deps(
-  expr : @lib.Expr,
-  imported_globals : Int,
-  defined_count : Int,
-  deps : Array[Bool],
+fn rg_note_global_dep(
+  deps : Array[Int],
+  idx : @lib.GlobalIdx,
+  total : Int,
 ) -> Unit {
-  let @lib.Expr(instrs) = expr
-  rg_collect_instrs_defined_deps(instrs, imported_globals, defined_count, deps)
-}
-
-///|
-fn rg_collect_instrs_defined_deps(
-  instrs : Array[@lib.Instruction],
-  imported_globals : Int,
-  defined_count : Int,
-  deps : Array[Bool],
-) -> Unit {
-  for instr in instrs {
-    rg_collect_instruction_defined_deps(
-      instr, imported_globals, defined_count, deps,
-    )
+  let raw = rg_global_idx_raw(idx)
+  if raw >= 0 && raw < total && !deps.contains(raw) {
+    deps.push(raw)
   }
 }
 
 ///|
-fn rg_collect_instruction_defined_deps(
+fn rg_collect_expr_global_deps(
+  expr : @lib.Expr,
+  total_globals : Int,
+  deps : Array[Int],
+) -> Unit {
+  let @lib.Expr(instrs) = expr
+  rg_collect_instrs_global_deps(instrs, total_globals, deps)
+}
+
+///|
+fn rg_collect_instrs_global_deps(
+  instrs : Array[@lib.Instruction],
+  total_globals : Int,
+  deps : Array[Int],
+) -> Unit {
+  for instr in instrs {
+    rg_collect_instruction_global_deps(instr, total_globals, deps)
+  }
+}
+
+///|
+fn rg_collect_instruction_global_deps(
   instr : @lib.Instruction,
-  imported_globals : Int,
-  defined_count : Int,
-  deps : Array[Bool],
+  total_globals : Int,
+  deps : Array[Int],
 ) -> Unit {
   match instr {
     @lib.Block(_, body) =>
-      rg_collect_expr_defined_deps(body, imported_globals, defined_count, deps)
-    @lib.Loop(_, body) =>
-      rg_collect_expr_defined_deps(body, imported_globals, defined_count, deps)
+      rg_collect_expr_global_deps(body, total_globals, deps)
+    @lib.Loop(_, body) => rg_collect_expr_global_deps(body, total_globals, deps)
     @lib.If(_, then_body, else_body) => {
-      rg_collect_instrs_defined_deps(
-        then_body, imported_globals, defined_count, deps,
-      )
+      rg_collect_instrs_global_deps(then_body, total_globals, deps)
       match else_body {
-        Some(body) =>
-          rg_collect_instrs_defined_deps(
-            body, imported_globals, defined_count, deps,
-          )
+        Some(body) => rg_collect_instrs_global_deps(body, total_globals, deps)
         None => ()
       }
     }
     @lib.Try(_, body, catches, _) => {
-      rg_collect_expr_defined_deps(body, imported_globals, defined_count, deps)
+      rg_collect_expr_global_deps(body, total_globals, deps)
       for catch_ in catches {
         match catch_ {
           @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
-            rg_collect_expr_defined_deps(
-              catch_body, imported_globals, defined_count, deps,
-            )
+            rg_collect_expr_global_deps(catch_body, total_globals, deps)
         }
       }
     }
     @lib.TryTable(_, _, body) =>
-      rg_collect_expr_defined_deps(body, imported_globals, defined_count, deps)
-    @lib.GlobalGet(idx) => {
-      let raw = rg_global_idx_raw(idx)
-      let defined_idx = raw - imported_globals
-      if defined_idx >= 0 && defined_idx < defined_count {
-        deps[defined_idx] = true
-      }
-    }
+      rg_collect_expr_global_deps(body, total_globals, deps)
+    @lib.GlobalGet(idx) => rg_note_global_dep(deps, idx, total_globals)
     _ => ()
   }
 }
 
 ///|
-fn rg_build_dependency_matrix(
+fn rg_build_dependency_graph(
   globals : Array[@lib.Global],
   imported_globals : Int,
-) -> Array[Array[Bool]] {
-  let defined_count = globals.length()
-  let matrix : Array[Array[Bool]] = []
-  for row_idx = 0; row_idx < defined_count; row_idx = row_idx + 1 {
-    ignore(row_idx)
-    matrix.push(Array::make(defined_count, false))
+) -> Array[Array[Int]] {
+  let total_globals = imported_globals + globals.length()
+  let graph : Array[Array[Int]] = Array::new(capacity=total_globals)
+  for idx = 0; idx < total_globals; idx = idx + 1 {
+    ignore(idx)
+    graph.push([])
   }
-  for idx = 0; idx < defined_count; idx = idx + 1 {
-    let @lib.Global(_, init) = globals[idx]
-    let deps = Array::make(defined_count, false)
-    rg_collect_expr_defined_deps(init, imported_globals, defined_count, deps)
-    for dep = 0; dep < defined_count; dep = dep + 1 {
-      if dep != idx && deps[dep] {
-        let row = matrix[dep]
-        row[idx] = true
+  for defined_idx = 0
+      defined_idx < globals.length()
+      defined_idx = defined_idx + 1 {
+    let @lib.Global(_, init) = globals[defined_idx]
+    let dependent = imported_globals + defined_idx
+    let dependencies : Array[Int] = []
+    rg_collect_expr_global_deps(init, total_globals, dependencies)
+    for dependency in dependencies {
+      if dependency != dependent {
+        graph[dependency].push(dependent)
       }
     }
   }
-  matrix
+  graph
+}
+
+///|
+fn rg_candidate_is_better(
+  candidate : Int,
+  best : Int,
+  custom_counts : Array[Double],
+  imported_globals : Int,
+) -> Bool {
+  if best < 0 {
+    return true
+  }
+  let candidate_imported = candidate < imported_globals
+  let best_imported = best < imported_globals
+  if candidate_imported != best_imported {
+    return candidate_imported
+  }
+  custom_counts[candidate] > custom_counts[best] ||
+  (custom_counts[candidate] == custom_counts[best] && candidate < best)
 }
 
 ///|
 fn rg_candidate_order(
-  deps : Array[Array[Bool]],
-  custom_counts : Array[Int],
+  deps : Array[Array[Int]],
+  custom_counts : Array[Double],
+  imported_globals : Int,
 ) -> Array[Int] {
   let n = custom_counts.length()
+  let indegrees = Array::make(n, 0)
+  for dependency = 0; dependency < n; dependency = dependency + 1 {
+    for dependent in deps[dependency] {
+      indegrees[dependent] += 1
+    }
+  }
   let emitted = Array::make(n, false)
   let order : Array[Int] = Array::new(capacity=n)
   while order.length() < n {
     let mut best = -1
     for candidate = 0; candidate < n; candidate = candidate + 1 {
-      if emitted[candidate] {
-        continue
-      }
-      let mut ready = true
-      for dep = 0; dep < n; dep = dep + 1 {
-        if deps[dep][candidate] && !emitted[dep] {
-          ready = false
-          break
-        }
-      }
-      if !ready {
-        continue
-      }
-      if best < 0 ||
-        custom_counts[candidate] > custom_counts[best] ||
-        (custom_counts[candidate] == custom_counts[best] && candidate < best) {
+      if !emitted[candidate] &&
+        indegrees[candidate] == 0 &&
+        rg_candidate_is_better(candidate, best, custom_counts, imported_globals) {
         best = candidate
       }
     }
@@ -300,34 +308,40 @@ fn rg_candidate_order(
     }
     emitted[best] = true
     order.push(best)
+    for dependent in deps[best] {
+      if indegrees[dependent] > 0 {
+        indegrees[dependent] -= 1
+      }
+    }
   }
   order
 }
 
 ///|
-fn rg_defined_counts(
-  counts : Array[Int],
-  imported_globals : Int,
-  defined_count : Int,
-) -> Array[Int] {
-  let out : Array[Int] = Array::new(capacity=defined_count)
-  for idx = 0; idx < defined_count; idx = idx + 1 {
-    out.push(counts[imported_globals + idx])
+fn rg_true_counts(counts : Array[Int]) -> Array[Double] {
+  let out : Array[Double] = Array::new(capacity=counts.length())
+  for count in counts {
+    out.push(count.to_double())
   }
   out
 }
 
 ///|
 fn rg_summed_dependent_counts(
-  deps : Array[Array[Bool]],
-  base : Array[Int],
-) -> Array[Int] {
+  deps : Array[Array[Int]],
+  base : Array[Double],
+  imported_globals : Int,
+) -> Array[Double] {
   let out = base.copy()
-  for idx = out.length() - 1; idx >= 0; idx = idx - 1 {
-    for dependent = 0; dependent < out.length(); dependent = dependent + 1 {
-      if deps[idx][dependent] {
-        out[idx] += out[dependent]
-      }
+  let topological = rg_candidate_order(
+    deps,
+    Array::make(base.length(), 0.0),
+    imported_globals,
+  )
+  for pos = topological.length() - 1; pos >= 0; pos = pos - 1 {
+    let dependency = topological[pos]
+    for dependent in deps[dependency] {
+      out[dependency] += out[dependent]
     }
   }
   out
@@ -335,18 +349,20 @@ fn rg_summed_dependent_counts(
 
 ///|
 fn rg_exponential_dependent_counts(
-  deps : Array[Array[Bool]],
-  base : Array[Int],
-) -> Array[Int] {
-  let out : Array[Int] = Array::new(capacity=base.length())
-  for count in base {
-    out.push(count * 1000)
-  }
-  for idx = out.length() - 1; idx >= 0; idx = idx - 1 {
-    for dependent = 0; dependent < out.length(); dependent = dependent + 1 {
-      if deps[idx][dependent] {
-        out[idx] += out[dependent] * 95 / 1000
-      }
+  deps : Array[Array[Int]],
+  base : Array[Double],
+  imported_globals : Int,
+) -> Array[Double] {
+  let out = base.copy()
+  let topological = rg_candidate_order(
+    deps,
+    Array::make(base.length(), 0.0),
+    imported_globals,
+  )
+  for pos = topological.length() - 1; pos >= 0; pos = pos - 1 {
+    let dependency = topological[pos]
+    for dependent in deps[dependency] {
+      out[dependency] += 0.095 * out[dependent]
     }
   }
   out
@@ -364,47 +380,48 @@ fn rg_uleb_size(raw : Int) -> Int {
 }
 
 ///|
-fn rg_order_cost(
-  order : Array[Int],
-  true_counts : Array[Int],
-  imported_globals : Int,
-) -> Int {
-  let mut cost = 0
-  for new_defined = 0
-      new_defined < order.length()
-      new_defined = new_defined + 1 {
-    let old_defined = order[new_defined]
-    cost += true_counts[old_defined] *
-      rg_uleb_size(imported_globals + new_defined)
+fn rg_order_cost(order : Array[Int], true_counts : Array[Double]) -> Double {
+  let mut cost = 0.0
+  for new_idx = 0; new_idx < order.length(); new_idx = new_idx + 1 {
+    let old_idx = order[new_idx]
+    cost += true_counts[old_idx] * rg_uleb_size(new_idx).to_double()
   }
   cost
 }
 
 ///|
 fn rg_choose_order(
-  deps : Array[Array[Bool]],
-  true_counts : Array[Int],
+  deps : Array[Array[Int]],
+  true_counts : Array[Double],
   imported_globals : Int,
 ) -> Array[Int] {
   let candidates : Array[Array[Int]] = []
   candidates.push(
-    rg_candidate_order(deps, Array::make(true_counts.length(), 0)),
+    rg_candidate_order(
+      deps,
+      Array::make(true_counts.length(), 0.0),
+      imported_globals,
+    ),
   )
-  candidates.push(rg_candidate_order(deps, true_counts))
+  candidates.push(rg_candidate_order(deps, true_counts, imported_globals))
   candidates.push(
-    rg_candidate_order(deps, rg_summed_dependent_counts(deps, true_counts)),
+    rg_candidate_order(
+      deps,
+      rg_summed_dependent_counts(deps, true_counts, imported_globals),
+      imported_globals,
+    ),
   )
   candidates.push(
-    rg_candidate_order(deps, rg_exponential_dependent_counts(deps, true_counts)),
+    rg_candidate_order(
+      deps,
+      rg_exponential_dependent_counts(deps, true_counts, imported_globals),
+      imported_globals,
+    ),
   )
   let mut best_idx = 0
-  let mut best_cost = rg_order_cost(
-    candidates[0],
-    true_counts,
-    imported_globals,
-  )
+  let mut best_cost = rg_order_cost(candidates[0], true_counts)
   for idx = 1; idx < candidates.length(); idx = idx + 1 {
-    let cost = rg_order_cost(candidates[idx], true_counts, imported_globals)
+    let cost = rg_order_cost(candidates[idx], true_counts)
     if cost < best_cost {
       best_cost = cost
       best_idx = idx
@@ -424,20 +441,10 @@ fn rg_order_is_identity(order : Array[Int]) -> Bool {
 }
 
 ///|
-fn rg_old_abs_to_new_abs(
-  order : Array[Int],
-  imported_globals : Int,
-  total_globals : Int,
-) -> Array[Int] {
-  let remap : Array[Int] = Array::new(capacity=total_globals)
-  for idx = 0; idx < total_globals; idx = idx + 1 {
-    remap.push(idx)
-  }
-  for new_defined = 0
-      new_defined < order.length()
-      new_defined = new_defined + 1 {
-    let old_defined = order[new_defined]
-    remap[imported_globals + old_defined] = imported_globals + new_defined
+fn rg_old_abs_to_new_abs(order : Array[Int]) -> Array[Int] {
+  let remap = Array::make(order.length(), 0)
+  for new_idx = 0; new_idx < order.length(); new_idx = new_idx + 1 {
+    remap[order[new_idx]] = new_idx
   }
   remap
 }
@@ -560,15 +567,57 @@ fn rg_rewrite_table_sec(
 }
 
 ///|
+fn rg_rewrite_import_sec(
+  import_sec : @lib.ImportSec?,
+  order : Array[Int],
+  imported_globals : Int,
+) -> @lib.ImportSec? {
+  match import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      let global_imports : Array[@lib.Import] = Array::new(
+        capacity=imported_globals,
+      )
+      for import_ in imports {
+        if import_ is @lib.Import(_, _, @lib.GlobalExternType(_)) {
+          global_imports.push(import_)
+        }
+      }
+      let reordered : Array[@lib.Import] = Array::new(capacity=imported_globals)
+      for old_global in order {
+        if old_global < imported_globals {
+          reordered.push(global_imports[old_global])
+        }
+      }
+      let out : Array[@lib.Import] = Array::new(capacity=imports.length())
+      let mut next_global = 0
+      for import_ in imports {
+        if import_ is @lib.Import(_, _, @lib.GlobalExternType(_)) {
+          out.push(reordered[next_global])
+          next_global += 1
+        } else {
+          out.push(import_)
+        }
+      }
+      Some(@lib.ImportSec::new(out))
+    }
+    None => None
+  }
+}
+
+///|
 fn rg_rewrite_globals(
   globals : Array[@lib.Global],
   order : Array[Int],
+  imported_globals : Int,
   remap : Array[Int],
 ) -> Array[@lib.Global] {
   let out : Array[@lib.Global] = Array::new(capacity=globals.length())
-  for old_defined in order {
-    let @lib.Global(global_type, init) = globals[old_defined]
-    out.push(@lib.Global::new(global_type, rg_rewrite_expr(init, remap)))
+  for old_abs in order {
+    if old_abs >= imported_globals {
+      let old_defined = old_abs - imported_globals
+      let @lib.Global(global_type, init) = globals[old_defined]
+      out.push(@lib.Global::new(global_type, rg_rewrite_expr(init, remap)))
+    }
   }
   out
 }
@@ -780,24 +829,33 @@ fn reorder_globals_run_module_pass_with_threshold(
 ) -> @lib.Module {
   let globals = match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals
-    None => return mod_
+    None => []
   }
-  let defined_count = globals.length()
   let imported_globals = rg_imported_global_count(mod_)
-  let total_globals = imported_globals + defined_count
-  if defined_count <= 1 || (enforce_public_threshold && total_globals < 128) {
+  let total_globals = imported_globals + globals.length()
+  if total_globals <= 1 || (enforce_public_threshold && total_globals < 128) {
     return mod_
   }
   let counts = rg_count_global_traffic(mod_, total_globals)
-  let true_counts = rg_defined_counts(counts, imported_globals, defined_count)
-  let deps = rg_build_dependency_matrix(globals, imported_globals)
+  let true_counts = rg_true_counts(counts)
+  let deps = rg_build_dependency_graph(globals, imported_globals)
   let order = rg_choose_order(deps, true_counts, imported_globals)
   if rg_order_is_identity(order) {
     return mod_
   }
-  let remap = rg_old_abs_to_new_abs(order, imported_globals, total_globals)
-  let rewritten_globals = rg_rewrite_globals(globals, order, remap)
-  let mut out = mod_.with_global_sec(@lib.GlobalSec::new(rewritten_globals))
+  let remap = rg_old_abs_to_new_abs(order)
+  let mut out = mod_
+  match rg_rewrite_import_sec(mod_.import_sec, order, imported_globals) {
+    Some(sec) => out = out.with_import_sec(sec)
+    None => ()
+  }
+  if globals.length() > 0 {
+    out = out.with_global_sec(
+      @lib.GlobalSec::new(
+        rg_rewrite_globals(globals, order, imported_globals, remap),
+      ),
+    )
+  }
   match rg_rewrite_table_sec(mod_.table_sec, remap) {
     Some(sec) => out = out.with_table_sec(sec)
     None => ()

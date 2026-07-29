@@ -3567,6 +3567,10 @@ fn emit_gen_valid_batch_profile_case_label(
     Some(label) => return Some(label)
     None => ()
   }
+  match gen_valid_reorder_globals_profile_case_label(leaf_profile, seed) {
+    Some(label) => return Some(label)
+    None => ()
+  }
   match gen_valid_code_folding_profile_case_label(leaf_profile, seed) {
     Some(label) => return Some(label)
     None => ()

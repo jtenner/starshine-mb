@@ -926,6 +926,14 @@ pub enum GenValidProfile {
   RumeContinuationsDescriptorsProfile
   RumeIndexRemapStressProfile
   RumeAllProfile
+  ReorderGlobalsHotTrafficProfile
+  ReorderGlobalsDependencySearchProfile
+  ReorderGlobalsImportedProfile
+  ReorderGlobalsModuleCodeProfile
+  ReorderGlobalsLegacyEhProfile
+  ReorderGlobalsMetadataRemapProfile
+  ReorderGlobalsThresholdProfile
+  ReorderGlobalsAllProfile
 } derive(Eq, Debug)
 
 ///|
@@ -1106,6 +1114,14 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     RumeContinuationsDescriptorsProfile => "rume-continuations-descriptors"
     RumeIndexRemapStressProfile => "rume-index-remap-stress"
     RumeAllProfile => "rume-all"
+    ReorderGlobalsHotTrafficProfile => "reorder-globals-hot-traffic"
+    ReorderGlobalsDependencySearchProfile => "reorder-globals-dependency-search"
+    ReorderGlobalsImportedProfile => "reorder-globals-imported"
+    ReorderGlobalsModuleCodeProfile => "reorder-globals-module-code"
+    ReorderGlobalsLegacyEhProfile => "reorder-globals-legacy-eh"
+    ReorderGlobalsMetadataRemapProfile => "reorder-globals-metadata-remap"
+    ReorderGlobalsThresholdProfile => "reorder-globals-threshold"
+    ReorderGlobalsAllProfile => "reorder-globals-all"
     CodeFoldingIfArmsProfile => "code-folding-if-arms"
     CodeFoldingBlockExitsProfile => "code-folding-block-exits"
     CodeFoldingReturnsProfile => "code-folding-returns"
@@ -1286,6 +1302,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | CodePushingAllProfile
     | MergeBlocksAllProfile
     | RumeAllProfile
+    | ReorderGlobalsAllProfile
     | CodeFoldingAllProfile
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
@@ -1447,6 +1464,16 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(RumeCallableReferencesProfile, 2),
         GenValidProfileMember::new(RumeContinuationsDescriptorsProfile, 2),
         GenValidProfileMember::new(RumeIndexRemapStressProfile, 3),
+      ]
+    ReorderGlobalsAllProfile =>
+      [
+        GenValidProfileMember::new(ReorderGlobalsHotTrafficProfile, 3),
+        GenValidProfileMember::new(ReorderGlobalsDependencySearchProfile, 3),
+        GenValidProfileMember::new(ReorderGlobalsImportedProfile, 2),
+        GenValidProfileMember::new(ReorderGlobalsModuleCodeProfile, 3),
+        GenValidProfileMember::new(ReorderGlobalsLegacyEhProfile, 3),
+        GenValidProfileMember::new(ReorderGlobalsMetadataRemapProfile, 2),
+        GenValidProfileMember::new(ReorderGlobalsThresholdProfile, 1),
       ]
     CodeFoldingAllProfile =>
       [
@@ -1923,6 +1950,14 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     RumeContinuationsDescriptorsProfile,
     RumeIndexRemapStressProfile,
     RumeAllProfile,
+    ReorderGlobalsHotTrafficProfile,
+    ReorderGlobalsDependencySearchProfile,
+    ReorderGlobalsImportedProfile,
+    ReorderGlobalsModuleCodeProfile,
+    ReorderGlobalsLegacyEhProfile,
+    ReorderGlobalsMetadataRemapProfile,
+    ReorderGlobalsThresholdProfile,
+    ReorderGlobalsAllProfile,
     CodeFoldingIfArmsProfile,
     CodeFoldingBlockExitsProfile,
     CodeFoldingReturnsProfile,
@@ -2159,6 +2194,9 @@ pub fn gen_valid_profile_by_name(
     | "rume"
     | "rume-closeout"
     | "rume-all-profiles" => Ok(RumeAllProfile)
+    "reorder-globals"
+    | "reorder-globals-closeout"
+    | "reorder-globals-all-profiles" => Ok(ReorderGlobalsAllProfile)
     "code-folding" | "code-folding-closeout" | "code-folding-all-profiles" =>
       Ok(CodeFoldingAllProfile)
     "tuple-optimization" => Ok(TupleOptimizationAllProfile)
@@ -4677,6 +4715,16 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | RumeContinuationsDescriptorsProfile
     | RumeIndexRemapStressProfile => gen_valid_rume_profile_config(profile)
     RumeAllProfile => gen_valid_rume_profile_config(RumeDeadGraphProfile)
+    ReorderGlobalsHotTrafficProfile
+    | ReorderGlobalsDependencySearchProfile
+    | ReorderGlobalsImportedProfile
+    | ReorderGlobalsModuleCodeProfile
+    | ReorderGlobalsLegacyEhProfile
+    | ReorderGlobalsMetadataRemapProfile
+    | ReorderGlobalsThresholdProfile =>
+      gen_valid_reorder_globals_profile_config(profile)
+    ReorderGlobalsAllProfile =>
+      gen_valid_reorder_globals_profile_config(ReorderGlobalsHotTrafficProfile)
     CodeFoldingIfArmsProfile
     | CodeFoldingBlockExitsProfile
     | CodeFoldingReturnsProfile
@@ -31505,6 +31553,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
   if gen_valid_is_rume_profile_config(config) {
     return gen_valid_rume_profile_module(ctx)
+  }
+  if gen_valid_is_reorder_globals_profile_config(config) {
+    return gen_valid_reorder_globals_profile_module(ctx)
   }
   if gen_valid_is_merge_blocks_profile_config(config) {
     return gen_valid_merge_blocks_profile_module(config)

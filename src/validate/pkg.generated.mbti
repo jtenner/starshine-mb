@@ -120,6 +120,8 @@ pub fn gen_valid_random_stream_label_name(GenValidRandomStreamLabel) -> String
 
 pub fn gen_valid_random_stream_labels() -> Array[GenValidRandomStreamLabel]
 
+pub fn gen_valid_reorder_globals_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_rume_profile_case_label(GenValidProfile, UInt64) -> String?
 
 pub fn gen_valid_scan_func_ssa_facts(Int, @lib.Locals, @lib.Expr) -> GenValidSsaFuncFacts
@@ -1421,6 +1423,14 @@ pub enum GenValidProfile {
   RumeContinuationsDescriptorsProfile
   RumeIndexRemapStressProfile
   RumeAllProfile
+  ReorderGlobalsHotTrafficProfile
+  ReorderGlobalsDependencySearchProfile
+  ReorderGlobalsImportedProfile
+  ReorderGlobalsModuleCodeProfile
+  ReorderGlobalsLegacyEhProfile
+  ReorderGlobalsMetadataRemapProfile
+  ReorderGlobalsThresholdProfile
+  ReorderGlobalsAllProfile
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidProfileMember {

@@ -56,6 +56,92 @@ fn rg_test_module(
 }
 
 ///|
+fn rg_test_imported_i32_global(name : String) -> @lib.Import {
+  @lib.Import::new(
+    @lib.Name::from_string("env"),
+    @lib.Name::from_string(name),
+    @lib.ExternType::global(@lib.GlobalType::new(@lib.ValType::i32(), false)),
+  )
+}
+
+///|
+fn rg_test_import_only_module(count : Int, hot : UInt) -> @lib.Module {
+  let imports : Array[@lib.Import] = Array::new(capacity=count)
+  for idx = 0; idx < count; idx = idx + 1 {
+    imports.push(rg_test_imported_i32_global("g\{idx}"))
+  }
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      ),
+    ]),
+  )
+  .with_import_sec(@lib.ImportSec::new(imports))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(hot))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rg_test_mixed_import_module() -> @lib.Module {
+  let imports : Array[@lib.Import] = [
+    rg_test_imported_i32_global("g0"),
+    @lib.Import::new(
+      @lib.Name::from_string("env"),
+      @lib.Name::from_string("f"),
+      @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+    ),
+    rg_test_imported_i32_global("g1"),
+  ]
+  for idx = 2; idx < 129; idx = idx + 1 {
+    imports.push(rg_test_imported_i32_global("g\{idx}"))
+  }
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      ),
+    ]),
+  )
+  .with_import_sec(@lib.ImportSec::new(imports))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(128U))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rg_test_global_import_bases(mod_ : @lib.Module) -> Array[String] {
+  let bases : Array[String] = []
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, @lib.Name(base), @lib.GlobalExternType(_)) =>
+            bases.push(base.to_string())
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  bases
+}
+
+///|
 fn rg_test_global_const_value(mod_ : @lib.Module, idx : Int) -> Int raise {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) =>
@@ -109,6 +195,52 @@ test "reorder-globals public pass no-ops below 128 globals" {
 }
 
 ///|
+test "reorder-globals reorders hot imported globals and remaps users" {
+  let mod_ = rg_test_import_only_module(129, 128U)
+  let optimized = reorder_globals_run_module_pass(mod_)
+
+  let bases = rg_test_global_import_bases(optimized)
+  @debug.assert_eq(bases.length(), 129)
+  @debug.assert_eq(bases[0], "g128")
+  @debug.assert_eq(bases[1], "g0")
+  @debug.assert_eq(bases[128], "g127")
+  @debug.assert_eq(try! rg_test_first_body_global_get(optimized), 0U)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected reordered imported globals to validate: \{err}")
+  }
+}
+
+///|
+test "reorder-globals preserves non-global import positions while sorting globals" {
+  let optimized = reorder_globals_run_module_pass(rg_test_mixed_import_module())
+  match optimized.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 130)
+      match imports[0] {
+        @lib.Import(_, @lib.Name("g128"), @lib.GlobalExternType(_)) => ()
+        other => fail("expected hot global in first import slot, got \{other}")
+      }
+      match imports[1] {
+        @lib.Import(_, @lib.Name("f"), @lib.FuncExternType(_)) => ()
+        other =>
+          fail("expected function import position preserved, got \{other}")
+      }
+      match imports[2] {
+        @lib.Import(_, @lib.Name("g0"), @lib.GlobalExternType(_)) => ()
+        other => fail("expected next reordered global import, got \{other}")
+      }
+    }
+    None => fail("expected mixed import section")
+  }
+  @debug.assert_eq(try! rg_test_first_body_global_get(optimized), 0U)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected mixed-import reorder to validate: \{err}")
+  }
+}
+
+///|
 test "reorder-globals moves a hot 129th global to a one-byte index and remaps users" {
   let mod_ = rg_test_module(
     rg_test_globals(129),
@@ -138,6 +270,18 @@ test "reorder-globals preserves initializer dependencies while moving hot depend
     None => fail("expected global section")
   }
   @debug.assert_eq(try! rg_test_first_body_global_get(optimized), 1U)
+}
+
+///|
+test "reorder-globals clears stale raw global-name payloads after remapping" {
+  let mod_ = rg_test_module(
+    rg_test_globals(129),
+    rg_test_body_using_global(128U, 4),
+  ).with_raw_name_sec_payload(b"stale-global-index-name-payload")
+  let optimized = reorder_globals_run_module_pass(mod_)
+
+  @debug.assert_eq(optimized.raw_name_sec_payload, None)
+  @debug.assert_eq(try! rg_test_global_const_value(optimized, 0), 128)
 }
 
 ///|

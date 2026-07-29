@@ -2205,6 +2205,49 @@ test "parse_fuzz_cli_command parses gen-valid batch profile and feature filters"
 }
 
 ///|
+test "gen-valid batch manifest labels every reorder-globals family" {
+  let args = EmitGenValidBatchArgs::new(
+    256,
+    0x5eedUL,
+    "tmp/gen-valid-reorder-globals",
+    profile="reorder-globals-all",
+    max_attempts=256,
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(selection.selected, 256)
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  for
+    profile in [
+      "reorder-globals-hot-traffic", "reorder-globals-dependency-search", "reorder-globals-imported",
+      "reorder-globals-module-code", "reorder-globals-legacy-eh", "reorder-globals-metadata-remap",
+      "reorder-globals-threshold",
+    ] {
+    assert_true(manifest.contains("\"selected_profile\":\"\{profile}\""))
+  }
+  for
+    label in [
+      "reorder-globals:function-global-get-traffic", "reorder-globals:function-global-set-traffic",
+      "reorder-globals:dependency-original-order-win", "reorder-globals:dependency-summed-count-win",
+      "reorder-globals:dependency-greedy-win", "reorder-globals:dependency-branching-dag",
+      "reorder-globals:imported-global-sort", "reorder-globals:element-offset-traffic",
+      "reorder-globals:data-offset-traffic", "reorder-globals:table-initializer-traffic",
+      "reorder-globals:element-item-traffic", "reorder-globals:legacy-eh-protected",
+      "reorder-globals:legacy-eh-typed-catch", "reorder-globals:legacy-eh-catch-all",
+      "reorder-globals:legacy-eh-delegate", "reorder-globals:try-table-protected",
+      "reorder-globals:export-and-name-remap", "reorder-globals:127-global-public-noop",
+      "reorder-globals:128-global-cost-tie", "reorder-globals:129-global-uleb-win",
+    ] {
+    assert_true(
+      manifest.contains("\"profile_case_label\":\"\{label}\""),
+      msg="missing reorder-globals family label \{label}",
+    )
+  }
+}
+
+///|
 test "gen-valid batch manifest labels every duplicate-import-elimination family" {
   let args = EmitGenValidBatchArgs::new(
     128,
