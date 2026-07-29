@@ -1,13 +1,30 @@
 ///|
+test "reorder-globals ready heap preserves imports counts and original-order ties" {
+  let counts = [1.0, 100.0, 5.0, 5.0]
+  let heap : Array[Int] = []
+  for candidate in [3, 1, 2, 0] {
+    rg_ready_heap_push(heap, candidate, counts, 1)
+  }
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), Some(0))
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), Some(1))
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), Some(2))
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), Some(3))
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), None)
+}
+
+///|
 test "reorder-globals candidate families preserve source ordering and score dependencies" {
   let deps : Array[Array[Int]] = [[2], [], []]
   let true_counts = [0.0, 5.0, 10.0]
   @debug.assert_eq(rg_candidate_order(deps, [0.0, 0.0, 0.0], 0), [0, 1, 2])
   @debug.assert_eq(rg_candidate_order(deps, true_counts, 0), [1, 0, 2])
-  let summed = rg_summed_dependent_counts(deps, true_counts, 0)
+  let topological = rg_candidate_order(deps, [0.0, 0.0, 0.0], 0)
+  let summed = rg_summed_dependent_counts(deps, true_counts, topological)
   @debug.assert_eq(summed, [10.0, 5.0, 10.0])
   @debug.assert_eq(rg_candidate_order(deps, summed, 0), [0, 2, 1])
-  let exponential = rg_exponential_dependent_counts(deps, true_counts, 0)
+  let exponential = rg_exponential_dependent_counts(
+    deps, true_counts, topological,
+  )
   @debug.assert_eq(exponential, [0.95, 5.0, 10.0])
   @debug.assert_eq(rg_candidate_order(deps, exponential, 0), [1, 0, 2])
 }

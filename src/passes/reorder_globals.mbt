@@ -273,6 +273,80 @@ fn rg_candidate_is_better(
 }
 
 ///|
+fn rg_ready_heap_push(
+  heap : Array[Int],
+  candidate : Int,
+  custom_counts : Array[Double],
+  imported_globals : Int,
+) -> Unit {
+  heap.push(candidate)
+  let mut pos = heap.length() - 1
+  while pos > 0 {
+    let parent = (pos - 1) / 2
+    if !rg_candidate_is_better(
+        heap[pos],
+        heap[parent],
+        custom_counts,
+        imported_globals,
+      ) {
+      break
+    }
+    let previous_parent = heap[parent]
+    heap[parent] = heap[pos]
+    heap[pos] = previous_parent
+    pos = parent
+  }
+}
+
+///|
+fn rg_ready_heap_pop(
+  heap : Array[Int],
+  custom_counts : Array[Double],
+  imported_globals : Int,
+) -> Int? {
+  if heap.length() == 0 {
+    return None
+  }
+  let best = heap[0]
+  let last = heap.pop().unwrap()
+  if heap.length() == 0 {
+    return Some(best)
+  }
+  heap[0] = last
+  let mut pos = 0
+  while true {
+    let left = pos * 2 + 1
+    if left >= heap.length() {
+      break
+    }
+    let right = left + 1
+    let mut better_child = left
+    if right < heap.length() &&
+      rg_candidate_is_better(
+        heap[right],
+        heap[left],
+        custom_counts,
+        imported_globals,
+      ) {
+      better_child = right
+    }
+    if !rg_candidate_is_better(
+        heap[better_child],
+        heap[pos],
+        custom_counts,
+        imported_globals,
+      ) {
+      break
+    }
+    let previous = heap[pos]
+    heap[pos] = heap[better_child]
+    heap[better_child] = previous
+    pos = better_child
+  }
+  Some(best)
+}
+
+///|
 fn rg_candidate_order(
   deps : Array[Array[Int]],
   custom_counts : Array[Double],
@@ -286,15 +360,18 @@ fn rg_candidate_order(
     }
   }
   let emitted = Array::make(n, false)
+  let ready : Array[Int] = Array::new(capacity=n)
+  for candidate = 0; candidate < n; candidate = candidate + 1 {
+    if indegrees[candidate] == 0 {
+      rg_ready_heap_push(ready, candidate, custom_counts, imported_globals)
+    }
+  }
   let order : Array[Int] = Array::new(capacity=n)
   while order.length() < n {
-    let mut best = -1
-    for candidate = 0; candidate < n; candidate = candidate + 1 {
-      if !emitted[candidate] &&
-        indegrees[candidate] == 0 &&
-        rg_candidate_is_better(candidate, best, custom_counts, imported_globals) {
-        best = candidate
-      }
+    let mut best = match
+      rg_ready_heap_pop(ready, custom_counts, imported_globals) {
+      Some(candidate) => candidate
+      None => -1
     }
     if best < 0 {
       // Invalid cycles should not appear in validated wasm, but preserve a
@@ -311,6 +388,9 @@ fn rg_candidate_order(
     for dependent in deps[best] {
       if indegrees[dependent] > 0 {
         indegrees[dependent] -= 1
+        if indegrees[dependent] == 0 && !emitted[dependent] {
+          rg_ready_heap_push(ready, dependent, custom_counts, imported_globals)
+        }
       }
     }
   }
@@ -330,14 +410,9 @@ fn rg_true_counts(counts : Array[Int]) -> Array[Double] {
 fn rg_summed_dependent_counts(
   deps : Array[Array[Int]],
   base : Array[Double],
-  imported_globals : Int,
+  topological : Array[Int],
 ) -> Array[Double] {
   let out = base.copy()
-  let topological = rg_candidate_order(
-    deps,
-    Array::make(base.length(), 0.0),
-    imported_globals,
-  )
   for pos = topological.length() - 1; pos >= 0; pos = pos - 1 {
     let dependency = topological[pos]
     for dependent in deps[dependency] {
@@ -351,14 +426,9 @@ fn rg_summed_dependent_counts(
 fn rg_exponential_dependent_counts(
   deps : Array[Array[Int]],
   base : Array[Double],
-  imported_globals : Int,
+  topological : Array[Int],
 ) -> Array[Double] {
   let out = base.copy()
-  let topological = rg_candidate_order(
-    deps,
-    Array::make(base.length(), 0.0),
-    imported_globals,
-  )
   for pos = topological.length() - 1; pos >= 0; pos = pos - 1 {
     let dependency = topological[pos]
     for dependent in deps[dependency] {
@@ -390,31 +460,75 @@ fn rg_order_cost(order : Array[Int], true_counts : Array[Double]) -> Double {
 }
 
 ///|
+fn rg_dependency_graph_is_empty(deps : Array[Array[Int]]) -> Bool {
+  for dependents in deps {
+    if dependents.length() > 0 {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn rg_identity_order(length : Int) -> Array[Int] {
+  let order : Array[Int] = Array::new(capacity=length)
+  for idx = 0; idx < length; idx = idx + 1 {
+    order.push(idx)
+  }
+  order
+}
+
+///|
+fn rg_sort_unconstrained_order(
+  order : Array[Int],
+  custom_counts : Array[Double],
+  imported_globals : Int,
+) -> Unit {
+  order.sort_by(fn(lhs, rhs) {
+    if rg_candidate_is_better(lhs, rhs, custom_counts, imported_globals) {
+      -1
+    } else if rg_candidate_is_better(rhs, lhs, custom_counts, imported_globals) {
+      1
+    } else {
+      0
+    }
+  })
+}
+
+///|
 fn rg_choose_order(
   deps : Array[Array[Int]],
   true_counts : Array[Double],
   imported_globals : Int,
 ) -> Array[Int] {
+  let original = rg_identity_order(true_counts.length())
+  if rg_dependency_graph_is_empty(deps) {
+    let greedy = original.copy()
+    rg_sort_unconstrained_order(greedy, true_counts, imported_globals)
+    if rg_order_cost(greedy, true_counts) < rg_order_cost(original, true_counts) {
+      return greedy
+    }
+    return original
+  }
   let candidates : Array[Array[Int]] = []
-  candidates.push(
-    rg_candidate_order(
-      deps,
-      Array::make(true_counts.length(), 0.0),
-      imported_globals,
-    ),
+  let topological = rg_candidate_order(
+    deps,
+    Array::make(true_counts.length(), 0.0),
+    imported_globals,
   )
+  candidates.push(topological)
   candidates.push(rg_candidate_order(deps, true_counts, imported_globals))
   candidates.push(
     rg_candidate_order(
       deps,
-      rg_summed_dependent_counts(deps, true_counts, imported_globals),
+      rg_summed_dependent_counts(deps, true_counts, topological),
       imported_globals,
     ),
   )
   candidates.push(
     rg_candidate_order(
       deps,
-      rg_exponential_dependent_counts(deps, true_counts, imported_globals),
+      rg_exponential_dependent_counts(deps, true_counts, topological),
       imported_globals,
     ),
   )
