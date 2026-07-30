@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ./index.md
   - ../../../../../src/ir/hot_core.mbt
@@ -10,7 +10,7 @@ sources:
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
-  - ../../../../../src/passes/perf_test.mbt
+  - ../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
@@ -27,7 +27,7 @@ related:
 
 # Starshine HOT-IR Strategy For `remove-unused-brs`
 
-Use this page together with the retained 2026-05-06 research bridge and the direct Binaryen `version_130` source/test URLs cited by the living dossier.
+Use this page together with the direct Binaryen `version_131` source/test URLs and the 2026-07-30 closeout evidence cited by the living dossier.
 For the compact strategy overview, see [`./starshine-strategy.md`](./starshine-strategy.md).
 The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives and how the raw-plus-HOT split is wired today.
 
@@ -42,7 +42,7 @@ The fastest read-along path through the current Starshine implementation is:
     - `remove_unused_brs_run(...)`
   - `src/passes/optimize.mbt`
     - active hot-pass registration for `remove-unused-brs`
-    - repeated `optimize` / `shrink` preset placement in the early, middle, and late cleanup slots
+    - exact `optimize` / `shrink` placement at zero-based slots `13`, `24`, and `39` in the 56-slot Binaryen-v131 roster
 - raw pre-lift integration in `src/passes/pass_manager.mbt`
   - `run_hot_pipeline_raw_remove_unused_brs(...)`
   - `run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(...)`
@@ -72,8 +72,9 @@ The fastest read-along path through the current Starshine implementation is:
   - `remove_unused_brs_try_rotate_void_block_single_loop(...)`
 - focused local evidence surfaces
   - `src/passes/remove_unused_brs_test.mbt` for reduced legality and rewrite coverage
-  - `src/passes/perf_test.mbt` for raw/hot skip behavior and trace-guided cost-control coverage
-  - `src/passes/optimize_test.mbt` for repeated preset-slot exposure
+  - `src/passes/remove_unused_brs_test.mbt` for raw/HOT skip behavior and trace-guided cost-control coverage
+  - `src/passes_perf_long/remove_unused_brs_perf_test.mbt` for the skipped native-release 3,000-block benchmark
+  - `src/passes/registry_test.mbt` for the exact 56-slot roster plus `strip-debug` extension
   - `src/cmd/cmd_wbtest.mbt` for direct `--remove-unused-brs` artifact and extracted-function replay lanes
 
 That exact code map is the main practical addition in this refresh: readers can now jump directly from the strategy summary to the owning files and helper clusters.

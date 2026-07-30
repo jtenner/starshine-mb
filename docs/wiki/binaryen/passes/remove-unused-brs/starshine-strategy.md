@@ -1,14 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
-  - ../../../../../src/passes/perf_test.mbt
+  - ../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
@@ -30,44 +30,38 @@ related:
 
 # Current Starshine `remove-unused-brs` strategy
 
-This page is the local strategy overview. A 2026-05-06 current-main recheck stayed aligned on the reviewed surfaces, so the local gap story is unchanged.
-For the exact helper walk and finer-grained code map, use [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
+This page is the local strategy overview for the 2026-07-30 Binaryen-v131 closeout. For the helper walk and raw/HOT wiring, use [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
 
 ## Short version
 
-Current Starshine `src/passes/remove_unused_brs.mbt` is a real HOT pass, but it is still narrower than the current local Binaryen `version_130` `RemoveUnusedBrs.cpp` oracle.
+Starshine's represented direct behavior is closed against Binaryen `version_131`. The implementation combines focused raw admission/no-op filters with a HOT fixpoint covering the staged upstream families:
 
-The implemented center of gravity is:
+- tail branch and return flow cleanup
+- constant and one-/two-arm branch cleanup
+- loop reshaping and block sinking
+- EH caught-throw cleanup
+- GC `br_on_*` simplification
+- jump-threading and branch-to-trap cleanup
+- `br_if`, `br_table`, `select`, `local.set`, and `local.tee` final optimization
+- exact wrapper/dead-shell cleanup where Starshine emits canonically smaller wasm
+- bounded artifact-backed raw and HOT no-op skipping for known unchanged large ladders
 
-- tail `br` / `return` cleanup
-- one-arm and two-arm `if` cleanup
-- `br_if` / `select` canonicalization
-- `br_if` equality ladders to `br_table`
-- one-target value `br_table` collapse when selector/value order is locally safe
-- block-local payload and result-block cleanup
-- `br_table` continuation-wrapper repair
-- loop rotation and block sinking
-- recursive region cleanup around explicit `nop`, pure-result `drop`, and `unreachable` residue
-- artifact-backed raw and HOT no-op skipping for very large branch/return ladders
-
-That is a meaningful implemented pass.
-But it is not yet the full upstream AST surface.
+The remaining documented differences are product-level boundaries such as expression branch-hint metadata and `remove-unused-brs-never-unconditionalize` pass-argument plumbing, not open represented behavior or scheduler gaps.
 
 ## Exact local code map
 
-| Surface | Exact code location |
+| Surface | Owner |
 | --- | --- |
-| registry descriptor and public summary | `src/passes/optimize.mbt:184-186` |
-| repeated optimize/shrink preset slots | `src/passes/optimize.mbt:287-290`, `src/passes/optimize.mbt:299-303`, `src/passes/optimize.mbt:443-447`, `src/passes/optimize.mbt:457-460` |
-| raw pre-lift gate, classifier, and writeback guard | `src/passes/pass_manager.mbt:7402-7523`, `src/passes/pass_manager.mbt:8061-8063`, `src/passes/pass_manager.mbt:8493-8495` |
-| hot-pass dispatch | `src/passes/pass_manager.mbt:8988` |
-| owner file and pass summary | `src/passes/remove_unused_brs.mbt:2-16` |
-| HOT skip-family scan | `src/passes/remove_unused_brs.mbt:148-154`, `src/passes/remove_unused_brs.mbt:518-579`, `src/passes/remove_unused_brs.mbt:5457-5597`, `src/passes/remove_unused_brs.mbt:5611-5688` |
-| region rewrite helpers | `src/passes/remove_unused_brs.mbt:1162-2473`, `src/passes/remove_unused_brs.mbt:2476-3015`, `src/passes/remove_unused_brs.mbt:3018-4188`, `src/passes/remove_unused_brs.mbt:4191-4496`, `src/passes/remove_unused_brs.mbt:4499-5608` |
-| focused reduced-pass tests | `src/passes/remove_unused_brs_test.mbt` |
-| perf / replay / preset evidence | `src/passes/perf_test.mbt`, `src/passes/optimize_test.mbt`, `src/cmd/cmd_wbtest.mbt` |
+| descriptor, public summary, HOT implementation | `src/passes/remove_unused_brs.mbt` |
+| raw pre-lift admission, focused skip classifiers, writeback guards | `src/passes/pass_manager.mbt` |
+| public registration and exact three-slot preset placement | `src/passes/optimize.mbt` |
+| focused behavior and boundary tests | `src/passes/remove_unused_brs_test.mbt` and `src/passes/remove_unused_brs_wbtest.mbt` |
+| exact scheduler contract | `src/passes/registry_test.mbt` |
+| 21-leaf generator and profile tests | `src/validate/gen_valid.mbt`, `src/validate/gen_valid_remove_unused_brs_tests.mbt`, and `src/validate/gen_valid_tests.mbt` |
+| long native-release performance lane | `src/passes_perf_long/remove_unused_brs_perf_test.mbt` |
+| ordered artifact/CLI replay | `src/cmd/cmd_wbtest.mbt` |
 
-The exact code map is the practical read-along path for the current local implementation.
+The exact helper inventory remains in [`./pattern-catalog.md`](./pattern-catalog.md).
 
 ## What the local pass already models well
 
@@ -116,7 +110,7 @@ Those names are implementation details, but they are useful because they tie the
 
 The local pass does not yet model the upstream visitor families for:
 
-- the full GC `br_on_*` surface beyond the current safe subset (`br_on_null`, `br_on_non_null`, successful/not-taken and non-null disjoint-failure `br_on_cast*`, selected branch-taking prefix payloads, the no-payload `SuccessOnlyIfNonNull` split, plus child-form ordinary unreachable-input `br_on_cast*` cleanup); notes `1380`/`1396` narrow the remaining GC entries to exact blockers/non-goals: the stack-payload fallthrough `SuccessOnlyIfNonNull` split needs `ChildLocalizer`/scratch-local repair, descriptor `br_on_cast_desc_eq*` needs local representation, broader fallthrough/local.tee cast insertion needs a localizer/refinalization proof, public stack-form unreachable-input cleanup remains blocked until child-form HOT exposure or raw proof exists, and nullable disjoint `SuccessOnlyIfNull` is a Binaryen `version_130` TODO. Note `1395` rechecked the stack-payload split for `[O4Z-AUDIT-RUB-T]` and keeps it closed as a precise localizer blocker until a scratch-local proof exists; note `1396` rechecked descriptor and public stack-form status for `[O4Z-AUDIT-RUB-U]`/`[O4Z-AUDIT-RUB-W]`.
+- the full GC `br_on_*` surface beyond the current safe subset (`br_on_null`, `br_on_non_null`, successful/not-taken and non-null disjoint-failure `br_on_cast*`, selected branch-taking prefix payloads, the no-payload `SuccessOnlyIfNonNull` split, plus child-form ordinary unreachable-input `br_on_cast*` cleanup); notes `1380`/`1396` narrow the remaining GC entries to exact blockers/non-goals: the stack-payload fallthrough `SuccessOnlyIfNonNull` split needs `ChildLocalizer`/scratch-local repair, descriptor `br_on_cast_desc_eq*` needs local representation, broader fallthrough/local.tee cast insertion needs a localizer/refinalization proof, public stack-form unreachable-input cleanup remains blocked until child-form HOT exposure or raw proof exists, and nullable disjoint `SuccessOnlyIfNull` is a Binaryen `version_131` TODO. Note `1395` rechecked the stack-payload split for `[O4Z-AUDIT-RUB-T]` and keeps it closed as a precise localizer blocker until a scratch-local proof exists; note `1396` rechecked descriptor and public stack-form status for `[O4Z-AUDIT-RUB-U]`/`[O4Z-AUDIT-RUB-W]`.
 - branch-hint propagation and `remove-unused-brs-never-unconditionalize` remain unsupported until Starshine grows expression-level code-metadata representation, parser/lowerer/binary or opaque-code-metadata policy, pass-remap tests, and public pass-argument plumbing; note `1397` closes RUB-X as a product-level representation/pass-option blocker and rejects superficial RUB-only metadata rewrites or hidden flags
 - the full `throw`/`try_table` cleanup family beyond the safe exact-catch and non-ref `catch_all` subset; legacy old-`try` remains a representation/candidate-exposure boundary because public WAT lowering turns it into synthetic block/unreachable forms before RUB (note `1376`)
 - final-optimizer behavior outside the completed `tablify` dense-ladder, late one-target value-switch collapse, direct `selectify`, local `restructureIf` self-branch, local `optimizeSetIf`, the note `1377` same-value self-target `br_if` tail subset, the note `1378` value-legality boundary audit, the note `1379` stack-representation boundary audit, and the note `1382` final adjacent/self-target closeout; metadata-aware variants, unreachable-condition HOT-lift support, child-less stack-payload switch representation, and broader expression-equality/effect variants are accepted branch-hint/helper-proof/tooling boundaries with note `1383` reopening criteria
@@ -125,7 +119,7 @@ The local pass does not yet model the upstream visitor families for:
 
 Post-RUB-X bounded perf evidence in note `1398` keeps the direct pass within the repo's pass-local target on the sampled repros: median `0.715 ms` Starshine vs `0.686 ms` Binaryen on the O4z startup sample, and median `1.154 ms` vs `0.930 ms` on the normalized-equal slot42 sample. The slot42 whole-command path is still slower because non-pass traced/untraced overhead dominates, so treat the pass-local and whole-command numbers separately.
 
-That gap is intentional and documented so readers do not mistake the current local pass for a full upstream port. As of note `1392`, RUB-Q is closed under the approved-substitute clause: current-binary regular GenValid `100000`, regular GenValid `10000`, explicit wasm-smith `10000`, and broad `pass-fuzz-stress` `10000` lanes are mismatch-free under the accepted cleanup normalizers, while the dedicated `remove-unused-brs-all` profile's remaining side-effect-free dead-shell cleanup drift is an approved Starshine win rather than a reason to preserve Binaryen's dead `block`/`unreachable` shells. RUB-R made that optimization explicit in tests/docs: `remove_unused_brs_prune_dead_suffix_after_nonfallthrough(...)` is the intended owner for pruning root suffixes after nonfallthrough branch/table cleanup, with focused coverage for constant-`br_if`, same-target value `br_table`, and same-target multivalue `br_table` representatives. RUB-S then removed the leading raw-size bloat owner by allowing exact `v128.const` payloads through the same one-target value-switch collapse; the reduced v128 case is now a raw win, saved-lane reruns have no residual Starshine `br_table` cases, and note `1395` closes the residual no-table positives as the guarded void-structured-return/result-suffix family rather than an avoidable RUB cleanup. Reopen the accepted dead-shell cleanup only under note `1392` criteria: current-binary Starshine validation failure, runtime semantic mismatch, effectful mismatch facts, mismatch outside the accepted dead-shell / pure-selector-drop / branch-payload-forwarding family, unaccepted size-losing family, or Binaryen/source drift that invalidates the proof.
+Those boundaries are intentional and documented so readers do not confuse represented behavior closeout with a literal one-to-one port of every upstream metadata and helper surface. The 2026-07-30 matrix supersedes the older approved-substitute wording: all current dedicated and random-all residuals are measured smaller Starshine outputs, and the isolated O4z-option lane contains only canonical byte matches or strictly smaller outputs. Reopen only for validation or semantic failure, loss of a measured win, a new size-losing/unclassified family, or upstream post-v131 drift.
 
 ## How to read this with the rest of the folder
 

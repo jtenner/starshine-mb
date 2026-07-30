@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-30
 sources:
   - ../release-horizon-and-oracles.md
   - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
@@ -32,10 +32,12 @@ related:
 - The broader preset still interleaves `ssa-nomerge`, `remove-unused-names`, and `remove-unused-brs` around that tail; this page keeps those supporting cleanup passes implicit to stay compact.
 - `vacuum` is a registered hot pass in `src/passes/optimize.mbt` and runs through the hot-pass dispatcher in `src/passes/pass_manager.mbt`.
 - The second early RUME slot is now present in both public presets: `global-refining -> global-struct-inference -> remove-unused-module-elements -> ssa-nomerge`. Registry tests assert all three RUME occurrences and the shifted downstream slot indices.
-- Binaryen `version_131` leaves the 56-slot top-level scheduler unchanged. The 2026-07-27 RUME renewal closes its direct behavior and missing-slot work; remaining preset differences stay under `[O4Z-PRESET]001`.
+- Binaryen `version_131` leaves the 56-slot / 38-owner top-level scheduler unchanged. Starshine now matches those 56 slots exactly and appends `strip-debug` as its documented sole extension at slot 57. `remove-unused-brs` appears exactly three times at zero-based indices `13`, `24`, and `39`; the former redundant adjacent early slot is removed. Remaining preset work under `[O4Z-PRESET]001` is the post-`code-folding` neighboring cleanup shape, not scheduler cardinality.
 
 ## Current Ordered Audit
 
+- The 2026-07-30 registry contract compares the complete first 56 Starshine entries against the Binaryen-v131 roster, asserts all three RUB indices, and separately asserts the final `strip-debug` extension. Optimize and shrink expose the same 57-entry expansion.
+- A full-preset probe over the first 1,000 expanded RUB-profile inputs produces 837 valid outputs and 163 failures. The first trace shows `flatten` creating the stack-underflow state before RUB, while isolated O4z-level `4/4` RUB is valid and no-larger for all 10,000 dedicated cases. Keep this under `[O4Z-PRESET]001`; it does not reopen RUB placement.
 - The 2026-04-18 generated `cmd.wasm` audit observed 56 top-level slots, 34 implemented Starshine slots, and 7 hard corruption slots.
 - All 7 hard corruption slots are now retired on the current tree; there is no remaining open hard-failure cluster from that saved audit.
 - The later rooted continuation chain under `.tmp/o4z-post-5d2fd48/current-chain/` is also green on the current tree: slot `43` was retired by the HOT-lower carried-prefix own-label guard in `0268`, and downstream implemented slots `44`, `45`, `47`, `50`, and `53` all validate successfully from that same chain.

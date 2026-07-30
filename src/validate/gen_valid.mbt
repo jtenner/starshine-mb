@@ -868,6 +868,16 @@ pub enum GenValidProfile {
   RemoveUnusedBrsMultivalueDropProfile
   RemoveUnusedBrsWrapperCleanupProfile
   RemoveUnusedBrsSelectifyProfile
+  RemoveUnusedBrsTailFlowProfile
+  RemoveUnusedBrsOneArmIfProfile
+  RemoveUnusedBrsLoopProfile
+  RemoveUnusedBrsSinkBlocksProfile
+  RemoveUnusedBrsEhProfile
+  RemoveUnusedBrsJumpThreadProfile
+  RemoveUnusedBrsTablifyProfile
+  RemoveUnusedBrsOptimizeSetIfProfile
+  RemoveUnusedBrsRestructureIfProfile
+  RemoveUnusedBrsAdjacentBranchProfile
   RemoveUnusedBrsWinBoundaryProfile
   RemoveUnusedBrsAllProfile
   DuplicateImportEliminationFunctionsProfile
@@ -1244,6 +1254,16 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     RemoveUnusedBrsMultivalueDropProfile => "remove-unused-brs-multivalue-drop"
     RemoveUnusedBrsWrapperCleanupProfile => "remove-unused-brs-wrapper-cleanup"
     RemoveUnusedBrsSelectifyProfile => "remove-unused-brs-selectify"
+    RemoveUnusedBrsTailFlowProfile => "remove-unused-brs-tail-flow"
+    RemoveUnusedBrsOneArmIfProfile => "remove-unused-brs-one-arm-if"
+    RemoveUnusedBrsLoopProfile => "remove-unused-brs-loop"
+    RemoveUnusedBrsSinkBlocksProfile => "remove-unused-brs-sink-blocks"
+    RemoveUnusedBrsEhProfile => "remove-unused-brs-eh"
+    RemoveUnusedBrsJumpThreadProfile => "remove-unused-brs-jump-thread"
+    RemoveUnusedBrsTablifyProfile => "remove-unused-brs-tablify"
+    RemoveUnusedBrsOptimizeSetIfProfile => "remove-unused-brs-optimize-set-if"
+    RemoveUnusedBrsRestructureIfProfile => "remove-unused-brs-restructure-if"
+    RemoveUnusedBrsAdjacentBranchProfile => "remove-unused-brs-adjacent-branch"
     RemoveUnusedBrsWinBoundaryProfile => "remove-unused-brs-win-boundary"
     RemoveUnusedBrsAllProfile => "remove-unused-brs-all"
     DuplicateImportEliminationFunctionsProfile =>
@@ -1637,6 +1657,16 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(RemoveUnusedBrsMultivalueDropProfile, 1),
         GenValidProfileMember::new(RemoveUnusedBrsWrapperCleanupProfile, 2),
         GenValidProfileMember::new(RemoveUnusedBrsSelectifyProfile, 2),
+        GenValidProfileMember::new(RemoveUnusedBrsTailFlowProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsOneArmIfProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsLoopProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsSinkBlocksProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsEhProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsJumpThreadProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsTablifyProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsOptimizeSetIfProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsRestructureIfProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsAdjacentBranchProfile, 1),
         GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 1),
         GenValidProfileMember::new(RemoveUnusedBrsSwitchProfile, 1),
         GenValidProfileMember::new(RemoveUnusedBrsCleanupProfile, 1),
@@ -2107,6 +2137,16 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     RemoveUnusedBrsMultivalueDropProfile,
     RemoveUnusedBrsWrapperCleanupProfile,
     RemoveUnusedBrsSelectifyProfile,
+    RemoveUnusedBrsTailFlowProfile,
+    RemoveUnusedBrsOneArmIfProfile,
+    RemoveUnusedBrsLoopProfile,
+    RemoveUnusedBrsSinkBlocksProfile,
+    RemoveUnusedBrsEhProfile,
+    RemoveUnusedBrsJumpThreadProfile,
+    RemoveUnusedBrsTablifyProfile,
+    RemoveUnusedBrsOptimizeSetIfProfile,
+    RemoveUnusedBrsRestructureIfProfile,
+    RemoveUnusedBrsAdjacentBranchProfile,
     RemoveUnusedBrsWinBoundaryProfile,
     RemoveUnusedBrsAllProfile,
     DuplicateImportEliminationFunctionsProfile,
@@ -4914,6 +4954,16 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | RemoveUnusedBrsMultivalueDropProfile
     | RemoveUnusedBrsWrapperCleanupProfile
     | RemoveUnusedBrsSelectifyProfile
+    | RemoveUnusedBrsTailFlowProfile
+    | RemoveUnusedBrsOneArmIfProfile
+    | RemoveUnusedBrsLoopProfile
+    | RemoveUnusedBrsSinkBlocksProfile
+    | RemoveUnusedBrsEhProfile
+    | RemoveUnusedBrsJumpThreadProfile
+    | RemoveUnusedBrsTablifyProfile
+    | RemoveUnusedBrsOptimizeSetIfProfile
+    | RemoveUnusedBrsRestructureIfProfile
+    | RemoveUnusedBrsAdjacentBranchProfile
     | RemoveUnusedBrsWinBoundaryProfile =>
       gen_valid_remove_unused_brs_profile_config(profile)
     RemoveUnusedBrsAllProfile =>
@@ -8098,6 +8148,16 @@ fn gen_valid_remove_unused_brs_profile_config(
     | RemoveUnusedBrsMultivalueDropProfile
     | RemoveUnusedBrsWrapperCleanupProfile
     | RemoveUnusedBrsSelectifyProfile
+    | RemoveUnusedBrsTailFlowProfile
+    | RemoveUnusedBrsOneArmIfProfile
+    | RemoveUnusedBrsLoopProfile
+    | RemoveUnusedBrsSinkBlocksProfile
+    | RemoveUnusedBrsEhProfile
+    | RemoveUnusedBrsJumpThreadProfile
+    | RemoveUnusedBrsTablifyProfile
+    | RemoveUnusedBrsOptimizeSetIfProfile
+    | RemoveUnusedBrsRestructureIfProfile
+    | RemoveUnusedBrsAdjacentBranchProfile
     | RemoveUnusedBrsWinBoundaryProfile =>
       config = GenValidConfig::{
         ..config,
@@ -8105,6 +8165,11 @@ fn gen_valid_remove_unused_brs_profile_config(
           3
         } else {
           2
+        },
+        max_tags: if profile == RemoveUnusedBrsEhProfile {
+          1
+        } else {
+          0
         },
         max_results: 2,
         max_locals: 8,
@@ -8118,10 +8183,21 @@ fn gen_valid_remove_unused_brs_profile_config(
           RemoveUnusedBrsWrapperCleanupProfile => 16
           RemoveUnusedBrsSelectifyProfile => 17
           RemoveUnusedBrsWinBoundaryProfile => 18
+          RemoveUnusedBrsTailFlowProfile => 19
+          RemoveUnusedBrsOneArmIfProfile => 20
+          RemoveUnusedBrsLoopProfile => 21
+          RemoveUnusedBrsSinkBlocksProfile => 22
+          RemoveUnusedBrsEhProfile => 23
+          RemoveUnusedBrsJumpThreadProfile => 24
+          RemoveUnusedBrsTablifyProfile => 25
+          RemoveUnusedBrsOptimizeSetIfProfile => 26
+          RemoveUnusedBrsRestructureIfProfile => 27
+          RemoveUnusedBrsAdjacentBranchProfile => 28
           _ => 10
         },
         features: GenValidFeatureToggles::{
           ..config.features,
+          allow_tags: profile == RemoveUnusedBrsEhProfile,
           allow_ref_types: profile == RemoveUnusedBrsResultRefinalizeProfile ||
           profile == RemoveUnusedBrsSelectifyProfile ||
           profile == RemoveUnusedBrsConstantBrIfProfile ||
@@ -8609,6 +8685,16 @@ fn gen_valid_is_remove_unused_brs_focused_config(
   config == GenValidConfig::for_profile(RemoveUnusedBrsMultivalueDropProfile) ||
   config == GenValidConfig::for_profile(RemoveUnusedBrsWrapperCleanupProfile) ||
   config == GenValidConfig::for_profile(RemoveUnusedBrsSelectifyProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsTailFlowProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsOneArmIfProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsLoopProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsSinkBlocksProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsEhProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsJumpThreadProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsTablifyProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsOptimizeSetIfProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsRestructureIfProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsAdjacentBranchProfile) ||
   config == GenValidConfig::for_profile(RemoveUnusedBrsWinBoundaryProfile)
 }
 
@@ -24394,6 +24480,16 @@ fn gen_valid_remove_unused_brs_profile_kind(
       RemoveUnusedBrsMultivalueDropProfile,
       RemoveUnusedBrsWrapperCleanupProfile,
       RemoveUnusedBrsSelectifyProfile,
+      RemoveUnusedBrsTailFlowProfile,
+      RemoveUnusedBrsOneArmIfProfile,
+      RemoveUnusedBrsLoopProfile,
+      RemoveUnusedBrsSinkBlocksProfile,
+      RemoveUnusedBrsEhProfile,
+      RemoveUnusedBrsJumpThreadProfile,
+      RemoveUnusedBrsTablifyProfile,
+      RemoveUnusedBrsOptimizeSetIfProfile,
+      RemoveUnusedBrsRestructureIfProfile,
+      RemoveUnusedBrsAdjacentBranchProfile,
       RemoveUnusedBrsWinBoundaryProfile,
     ] {
     if config == GenValidConfig::for_profile(profile) {
@@ -24534,6 +24630,123 @@ fn gen_valid_remove_unused_brs_profile_body(
       )
       out.push(Instruction::drop())
     }
+    RemoveUnusedBrsTailFlowProfile => {
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(0U))]),
+        ),
+      )
+      out.push(Instruction::return_())
+    }
+    RemoveUnusedBrsOneArmIfProfile =>
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::if_(
+              BlockType::void_(),
+              [Instruction::br(LabelIdx::new(1U))],
+              None,
+            ),
+          ]),
+        ),
+      )
+    RemoveUnusedBrsLoopProfile =>
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::loop_(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::local_get(LocalIdx::new(0U)),
+                Instruction::br_if(LabelIdx::new(1U)),
+                Instruction::br(LabelIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+      )
+    RemoveUnusedBrsSinkBlocksProfile =>
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::if_(
+              BlockType::void_(),
+              [
+                Instruction::local_get(LocalIdx::new(1U)),
+                Instruction::br_if(LabelIdx::new(1U)),
+                Instruction::nop(),
+              ],
+              Some([Instruction::nop(), Instruction::nop()]),
+            ),
+          ]),
+        ),
+      )
+    RemoveUnusedBrsEhProfile => ()
+    RemoveUnusedBrsJumpThreadProfile =>
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([Instruction::br(LabelIdx::new(1U))]),
+            ),
+          ]),
+        ),
+      )
+    RemoveUnusedBrsTablifyProfile => {
+      for value in [0, 1, 2] {
+        out.push(Instruction::local_get(LocalIdx::new(0U)))
+        out.push(Instruction::i32_const(I32(value)))
+        out.push(Instruction::i32_eq())
+        out.push(Instruction::br_if(LabelIdx::new(0U)))
+      }
+      let ladder = out.copy()
+      out.clear()
+      out.push(Instruction::block(BlockType::void_(), Expr::new(ladder)))
+    }
+    RemoveUnusedBrsOptimizeSetIfProfile => {
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::local_set(LocalIdx::new(0U)))
+      out.push(Instruction::local_get(LocalIdx::new(1U)))
+      out.push(
+        Instruction::if_(
+          BlockType::val_type(ValType::i32()),
+          [Instruction::i32_const(I32(7))],
+          Some([Instruction::local_get(LocalIdx::new(0U))]),
+        ),
+      )
+      out.push(Instruction::local_set(LocalIdx::new(0U)))
+    }
+    RemoveUnusedBrsRestructureIfProfile =>
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::br_if(LabelIdx::new(0U)),
+            Instruction::i32_const(I32(9)),
+            Instruction::drop(),
+          ]),
+        ),
+      )
+    RemoveUnusedBrsAdjacentBranchProfile =>
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::i32_const(I32(0)),
+            Instruction::br_if(LabelIdx::new(0U)),
+            Instruction::br(LabelIdx::new(0U)),
+          ]),
+        ),
+      )
     RemoveUnusedBrsWinBoundaryProfile => {
       out.push(Instruction::i32_const(I32(41)))
       out.push(Instruction::local_tee(LocalIdx::new(0U)))
@@ -24549,6 +24762,33 @@ fn gen_valid_remove_unused_brs_profile_module(ctx : GenValidContext) -> Module {
   let kind = gen_valid_remove_unused_brs_profile_kind(ctx.config)
   let void_type = gen_valid_precompute_void_func_type()
   let pair_type = gen_valid_remove_unused_brs_pair_type()
+  if kind == RemoveUnusedBrsEhProfile {
+    let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+    return Module::new()
+      .with_type_sec(TypeSec::new([tag_type, void_type]))
+      .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+      .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::block(
+                BlockType::void_(),
+                Expr::new([
+                  Instruction::try_table(
+                    BlockType::void_(),
+                    [Catch::new(TagIdx::new(0U), LabelIdx::new(0U))],
+                    Expr::new([Instruction::throw_(TagIdx::new(0U))]),
+                  ),
+                  Instruction::unreachable_(),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      )
+  }
   if kind == RemoveUnusedBrsMultiFunctionProfile {
     let first_body = gen_valid_remove_unused_brs_profile_body(
       ctx,
@@ -24580,7 +24820,13 @@ fn gen_valid_remove_unused_brs_profile_module(ctx : GenValidContext) -> Module {
         ]),
       )
   }
-  let locals = if kind == RemoveUnusedBrsWinBoundaryProfile {
+  let locals = if kind == RemoveUnusedBrsSinkBlocksProfile ||
+    kind == RemoveUnusedBrsOptimizeSetIfProfile {
+    Locals::from_types([ValType::i32(), ValType::i32()])
+  } else if kind == RemoveUnusedBrsWinBoundaryProfile ||
+    kind == RemoveUnusedBrsTablifyProfile ||
+    kind == RemoveUnusedBrsLoopProfile ||
+    kind == RemoveUnusedBrsRestructureIfProfile {
     Locals::from_types([ValType::i32()])
   } else {
     Locals::new([])

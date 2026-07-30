@@ -86,6 +86,16 @@ test "remove-unused-brs GenValid aggregate resolves focused parity families" {
       RemoveUnusedBrsMultivalueDropProfile,
       RemoveUnusedBrsWrapperCleanupProfile,
       RemoveUnusedBrsSelectifyProfile,
+      RemoveUnusedBrsTailFlowProfile,
+      RemoveUnusedBrsOneArmIfProfile,
+      RemoveUnusedBrsLoopProfile,
+      RemoveUnusedBrsSinkBlocksProfile,
+      RemoveUnusedBrsEhProfile,
+      RemoveUnusedBrsJumpThreadProfile,
+      RemoveUnusedBrsTablifyProfile,
+      RemoveUnusedBrsOptimizeSetIfProfile,
+      RemoveUnusedBrsRestructureIfProfile,
+      RemoveUnusedBrsAdjacentBranchProfile,
       RemoveUnusedBrsControlProfile,
       RemoveUnusedBrsSwitchProfile,
       RemoveUnusedBrsCleanupProfile,
@@ -126,6 +136,16 @@ test "remove-unused-brs focused GenValid leaves emit valid owned triggers" {
     RemoveUnusedBrsMultivalueDropProfile,
     RemoveUnusedBrsWrapperCleanupProfile,
     RemoveUnusedBrsSelectifyProfile,
+    RemoveUnusedBrsTailFlowProfile,
+    RemoveUnusedBrsOneArmIfProfile,
+    RemoveUnusedBrsLoopProfile,
+    RemoveUnusedBrsSinkBlocksProfile,
+    RemoveUnusedBrsEhProfile,
+    RemoveUnusedBrsJumpThreadProfile,
+    RemoveUnusedBrsTablifyProfile,
+    RemoveUnusedBrsOptimizeSetIfProfile,
+    RemoveUnusedBrsRestructureIfProfile,
+    RemoveUnusedBrsAdjacentBranchProfile,
     RemoveUnusedBrsWinBoundaryProfile,
   ]
   for i = 0; i < profiles.length(); i = i + 1 {
@@ -177,6 +197,34 @@ test "remove-unused-brs focused GenValid leaves emit valid owned triggers" {
       RemoveUnusedBrsSelectifyProfile =>
         gen_valid_rub_test_module_any(generated.wasm_module, fn(instr) {
           instr is If(_, _, _)
+        })
+      RemoveUnusedBrsTailFlowProfile =>
+        gen_valid_rub_test_module_any(generated.wasm_module, fn(instr) {
+          instr is Br(_) || instr is Return
+        })
+      RemoveUnusedBrsOneArmIfProfile
+      | RemoveUnusedBrsSinkBlocksProfile
+      | RemoveUnusedBrsOptimizeSetIfProfile =>
+        gen_valid_rub_test_module_any(generated.wasm_module, fn(instr) {
+          instr is If(_, _, _)
+        })
+      RemoveUnusedBrsLoopProfile =>
+        gen_valid_rub_test_module_any(generated.wasm_module, fn(instr) {
+          instr is Loop(_, _)
+        })
+      RemoveUnusedBrsEhProfile =>
+        gen_valid_rub_test_module_any(generated.wasm_module, fn(instr) {
+          instr is Throw(_)
+        })
+      RemoveUnusedBrsJumpThreadProfile =>
+        gen_valid_rub_test_module_any(generated.wasm_module, fn(instr) {
+          instr is Br(_)
+        })
+      RemoveUnusedBrsTablifyProfile
+      | RemoveUnusedBrsRestructureIfProfile
+      | RemoveUnusedBrsAdjacentBranchProfile =>
+        gen_valid_rub_test_module_any(generated.wasm_module, fn(instr) {
+          instr is BrIf(_)
         })
       RemoveUnusedBrsWinBoundaryProfile =>
         gen_valid_rub_test_module_any(generated.wasm_module, fn(instr) {

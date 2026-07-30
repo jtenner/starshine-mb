@@ -1332,28 +1332,32 @@ test "remove-unused-brs skips load-call-set ownership hazards" {
 }
 
 ///|
-test "remove-unused-brs skips O4z raw pass until branch rewrites are self-opt safe" {
+test "remove-unused-brs executes scheduled O4z branch cleanup" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32) (block $exit (if (local.get 0) (then (br $exit))))))",
       ["remove-unused-brs"],
       options=HotPipelineOptions::new(
         optimize_level=4,
-        shrink_level=1,
+        shrink_level=4,
         trace=Some(fn(line) { trace.push(line) }),
       ),
     ) {
-    Ok(_) => ()
-    Err(err) => fail("expected O4z remove-unused-brs skip success, got \{err}")
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected O4z remove-unused-brs execution success, got \{err}")
   }
-  assert_true(
+  assert_false(
     trace.any(fn(line) {
       line.contains(
         "pass[remove-unused-brs]:skip-raw reason=o4z-remove-unused-brs-noop",
       )
     }),
+    msg=trace.to_string(),
   )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
 }
 
 ///|
@@ -1730,6 +1734,32 @@ test "remove-unused-brs selectifies equal i31 arms and refinalizes the result" {
     }),
     msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
   )
+}
+
+///|
+test "remove-unused-brs fast-paths literal multivalue consumer-only functions" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type $pair (func (result i32 i64))) (func (local i32 i64) (block (type $pair) i32.const 1 i64.const 2) local.set 1 local.set 0 (block (type $pair) i32.const 3 i64.const 4) drop drop))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected literal multivalue fast-path success, got \{err}")
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:fast-path reason=literal-multivalue-consumers",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(block"), msg=pretty)
 }
 
 ///|
@@ -2372,7 +2402,24 @@ test "remove-unused-brs descends into control ladders nested under drop" {
 }
 
 ///|
-test "remove-unused-brs rewrites local.set if copy arms into one-armed ifs" {
+test "remove-unused-brs selectifies pure local.set if copy arms before copy-arm extraction" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (local i32 i32) (local.set 0 (i32.const 0)) (local.set 0 (if (result i32) (local.get 1) (then (i32.const 7)) (else (local.get 0))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected local.set value-if selectification success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs selectifies local.set copy-arm ifs" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32) (local i32) (local.set 1 (i32.const 0)) (local.set 1 (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.get 1))))))",
@@ -2384,9 +2431,10 @@ test "remove-unused-brs rewrites local.set if copy arms into one-armed ifs" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
   assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
-  assert_false(pretty.contains("(local.get (Local 1))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
 }
 
 ///|
@@ -2437,7 +2485,7 @@ test "remove-unused-brs boundary keeps conditional br_if set-if arms conservativ
 }
 
 ///|
-test "remove-unused-brs flips then-copy local.set if arms into one-armed ifs" {
+test "remove-unused-brs selectifies flipped local.set copy-arm ifs" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32) (local i32) (local.set 1 (i32.const 9)) (local.set 1 (if (result i32) (local.get 0) (then (local.get 1)) (else (i32.const 7))))))",
@@ -2451,14 +2499,14 @@ test "remove-unused-brs flips then-copy local.set if arms into one-armed ifs" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("(if (Void)"), msg=pretty)
-  assert_true(pretty.contains("i32.eqz"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
   assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
-  assert_false(pretty.contains("(else"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
 }
 
 ///|
-test "remove-unused-brs rewrites local.tee if copy arms through result blocks" {
+test "remove-unused-brs selectifies local.tee copy-arm ifs" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32) (result i32) (local i32) (local.set 1 (i32.const 3)) (local.tee 1 (if (result i32) (local.get 0) (then (i32.const 5)) (else (local.get 1))))))",
@@ -2470,10 +2518,10 @@ test "remove-unused-brs rewrites local.tee if copy arms through result blocks" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("(block I32"), msg=pretty)
-  assert_true(pretty.contains("(if (Void)"), msg=pretty)
-  assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("(local.tee (Local 1))"), msg=pretty)
   assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
 }
 
 ///|
@@ -3043,6 +3091,24 @@ test "remove-unused-brs flips adjacent loop exit br_if before simple backedge" {
     remove_unused_brs_test_has_childless_br_to_label(func, loop_label),
     msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
   )
+}
+
+///|
+test "remove-unused-brs removes the trivial exit block after adjacent loop branch flipping" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (local i32) (block $exit (loop $loop (br_if $exit (local.get 0)) (br $loop)))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected adjacent loop cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(loop (Void)"), msg=pretty)
+  assert_false(pretty.contains("(block (Void)"), msg=pretty)
+  assert_false(pretty.contains("(br "), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
 }
 
 ///|
@@ -4747,7 +4813,7 @@ test "remove-unused-brs lowers nested stack-style large mostly-default br_table"
     pass_test_run_pipeline(
       source,
       ["remove-unused-brs"],
-      options=HotPipelineOptions::new(optimize_level=4, shrink_level=1),
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
     ) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -5064,6 +5130,30 @@ test "remove-unused-brs rebuilds self-targeting block br_if prefixes as one-arm 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("if"), msg=pretty)
   assert_true(pretty.contains("i32.eqz"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs shrinking removes consumed restructure-if prefix nops" {
+  let source =
+    #| (module
+    #|   (func (local i32)
+    #|     (block $exit
+    #|       (br_if $exit (local.get 0))
+    #|       (drop (i32.const 9)))))
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected shrinking restructure-if success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
   assert_false(pretty.contains("br_if"), msg=pretty)
 }
 

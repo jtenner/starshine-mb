@@ -1,13 +1,12 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-21
+last_reviewed: 2026-07-30
 sources:
   - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/passes/perf_test.mbt
 related:
   - ./pattern-catalog.md
   - ./tail-and-return-cleanups.md

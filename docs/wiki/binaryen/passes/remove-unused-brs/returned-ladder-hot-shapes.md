@@ -1,12 +1,11 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
-  - ../../../../../src/passes/perf_test.mbt
 related:
   - ./pattern-catalog.md
   - ./starshine-hot-ir-strategy.md
@@ -148,5 +147,5 @@ The real question is:
 - Related strategy page: [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 - Related parity page: [`./parity.md`](./parity.md)
 - Focused tests: [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt)
-- Perf coverage: [`../../../../../src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
+- Perf and skip coverage: [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt)
 

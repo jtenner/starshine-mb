@@ -1,14 +1,33 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-26
+last_reviewed: 2026-07-30
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_remove_unused_brs_tests.mbt
+  - ../../../../../src/passes/remove_unused_brs.mbt
+  - ../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
 ---
 
 # `remove-unused-brs` Fuzzing Profile
+
+## 2026-07-30 final Binaryen v131 closeout
+
+The final native Starshine binary is SHA-256 `e748800660b375c40741181a53aaeaf2dd2c436ddbbfdf6c4ee80834a19e5090`; the explicit official oracle is `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
+
+- Regular `.tmp/pass-fuzz-remove-unused-brs-closeout-finalhash-regular-100000-20260730`: `100000/100000`, zero mismatches or failures.
+- wasm-smith `.tmp/pass-fuzz-remove-unused-brs-closeout-finalhash-wasm-smith-10000-20260730`: `9956/10000` comparable, zero mismatches or Starshine failures, with the established `44` Binaryen/tool malformed-input failures.
+- Expanded dedicated `.tmp/pass-fuzz-remove-unused-brs-closeout-finalhash-dedicated-10000-20260730`: `10000/10000`, zero command or validation failures; `2345` residual text shapes are confined to six source-backed cleanup families, and every one is canonically smaller in Starshine, totaling `-51852` bytes.
+- Random-all `.tmp/pass-fuzz-remove-unused-brs-closeout-finalhash-random-all-10000-20260730`: `10000/10000`, zero failures; all `736` residuals are smaller Starshine outputs, totaling `-3638` bytes.
+- O4z-option direct replay `.tmp/pass-fuzz-remove-unused-brs-closeout-o4z-direct-10000-20260730`: `6853` canonical byte matches plus `3147` strictly smaller Starshine outputs, aggregate delta `-54270` bytes, with zero command failures, equal-size-different-byte outputs, or Starshine-larger outputs. This lane runs only `remove-unused-brs` with `optimize_level=4` and `shrink_level=4`, isolating scheduled pass behavior from unrelated full-preset validity owners.
+- Full-preset boundary probe `.tmp/rub-o4z-schedule-validity-1000`: `837` valid outputs and `163` Starshine command failures. The first traced failure becomes invalid in `flatten` before the first RUB application; every later RUB sees the pre-existing stack-underflow state and fails closed. This remains an `[O4Z-PRESET]001` validity blocker, not a reopened RUB behavior or placement gap.
+
+`remove-unused-brs-all` now contains 21 focused leaves. In addition to the prior constant branch, single-target table, multi-function, result-refinalization, multivalue-drop, wrapper, selectification, win-boundary, control, switch, cleanup, and GC families, it covers tail flow, one-arm `if`, loop cleanup, block sinking, EH caught throws, jump-threading, tablification, `local.set`/`local.tee` optimization, restructure-if, and adjacent branch cleanup.
+
+Performance evidence is bounded and explicit. On the skipped native-release 3,000-block literal-multivalue lane, median end-to-end `run_hot_pipeline` time improved from about `609825us` before linear use accounting to `422420us` in the final replay after linear drop-use accounting and the literal-consumer fast path. Nine interleaved traced pass-local samples measure Starshine at `8117us` median versus Binaryen v131 at `12786us`, a `0.635x` ratio (about `1.58x` faster). The current whole-command fixture remains slower (`398426us` versus `14482us` median) because Starshine's decode, HOT lift/lower, validation, and emit path dominates outside the pass timer; that aggregate overhead remains `[WALL]001`, not a RUB-local performance blocker.
 
 ## 2026-07-26 post-repair Binaryen v131 renewal
 
@@ -79,7 +98,7 @@ All lanes use native Starshine SHA-256 `c64e283735f273181846a112538b926f1e281a4b
 - Random-all: `.tmp/pass-fuzz-remove-unused-brs-random-all-10000-final-renewal`, `7028` direct plus `1683` cleanup-normalized and `1289` measured wins, zero failures. Residuals are `625` `remove-unused-brs-control` cleanups (`-20..-34`), `625` `ssa-nomerge-smoke` unread-tee removals (`-2`), and `39` `local-subtyping-unreachable-tail` terminal-return removals (`-1`).
 - wasm-smith: `.tmp/pass-fuzz-remove-unused-brs-wasm-smith-10000-final-renewal`, `9956` comparable cases with `9954` direct plus `2` cleanup-normalized, zero mismatches or Starshine failures. The `44` Binaryen-only failures are `39` empty recursion groups, `3` bad section sizes, `1` invalid tag index, and `1` table index out of range.
 
-Runtime execution remained off, so this matrix is differential/validation evidence rather than exhaustive runtime execution. No true semantic mismatch is known. Direct Binaryen-v131 behavior parity is renewed; only the separately tracked extra scheduled RUB slot remains open.
+Runtime execution remained off for that historical matrix, so it is differential/validation evidence rather than exhaustive runtime execution. The 2026-07-30 closeout above supersedes its scheduler caveat: direct behavior and all three v131 RUB slots are now closed.
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 
@@ -87,7 +106,7 @@ Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pas
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-brs --out-dir .tmp/pass-fuzz-remove-unused-brs --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Dedicated GenValid profile: `remove-unused-brs-all` now exists as an experimental RUB-focused aggregate. Aliases `remove-unused-brs`, `remove-unused-brs-closeout`, `remove-unused-brs-all-profiles`, `rub`, and `rub-closeout` resolve to it. The aggregate currently samples compact `remove-unused-brs-control`, `remove-unused-brs-switch`, and `remove-unused-brs-cleanup` leaves and records the selected leaf in `genValidSelectedProfileCounts`; the targeted `remove-unused-brs-gc` singleton exists but is intentionally excluded from the closeout aggregate because early smoke evidence showed boundary-heavy GC output drift.
+Dedicated GenValid profile: `remove-unused-brs-all` is the maintained 21-leaf RUB-focused aggregate. Aliases `remove-unused-brs`, `remove-unused-brs-closeout`, `remove-unused-brs-all-profiles`, `rub`, and `rub-closeout` resolve to it, and the selected leaf is recorded in `genValidSelectedProfileCounts`.
 
 Current DAEO-prefix repair status (2026-07-17): note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md) adds rollback-capable changed-function batch validation plus fail-closed multivalue-carrier, nullable-return/non-null-result, and giant-table convergence guards. The final explicit-native regular lane is `10000/10000` with `1520` normalized plus `8480` cleanup-normalized and zero mismatches/failures. The dedicated runtime sample reproduces the accepted `115`-mismatch side-effect-free family with zero validation failures and Node runtime `89` equal results / `26` equal traps / `0` semantic mismatches. Direct current-artifact RUB falls from `580.178s` and invalid output to valid deterministic `3.239s` / `3.068s` repeats; three productive applications reach a byte-identical fixed point.
 

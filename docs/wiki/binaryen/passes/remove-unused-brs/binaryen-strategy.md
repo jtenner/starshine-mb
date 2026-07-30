@@ -1,20 +1,20 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ./index.md
   - ../../no-dwarf-default-optimize-path.md
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/RemoveUnusedBrs.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-hints.h
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/cost.h
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/drop.h
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/effects.h
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/gc-type-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/localize.h
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/properties.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedBrs.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/branch-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/branch-hints.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/cost.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/drop.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/effects.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/gc-type-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/localize.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/properties.h
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -37,7 +37,7 @@ This page is the source-backed answer to four questions:
 
 ## Upstream source rule
 
-Treat Binaryen `version_130` as the normative release oracle for this page because local `wasm-opt --version` reported `wasm-opt version 130 (version_130)` on 2026-06-18.
+Treat Binaryen `version_131` as the normative release oracle for this page. The 2026-07-30 closeout used the verified official `wasm-opt version 131 (version_131)` binary, and the tagged `RemoveUnusedBrs.cpp` is unchanged from v130.
 
 The core source stack is:
 
@@ -45,7 +45,7 @@ The core source stack is:
 - `src/passes/pass.cpp`
 - helper headers in `src/ir/`
 
-The earlier archived comparison note is still useful, but this page is now grounded directly in the official `version_130` source structure rather than only in that earlier distillation.
+The earlier archived comparison note is still useful, but this page is now grounded directly in the official `version_131` source structure rather than only in that earlier distillation.
 
 ## Scheduler placement matters
 
@@ -261,8 +261,8 @@ This stage:
 
 The 2026-06-18 source refresh changes the status of the older drift note:
 
-- local `version_130` already omits the older one-child named-block type-equality guard
-- current `main` matches `version_130` in `RemoveUnusedBrs.cpp` on this reviewed surface
+- local `version_131` already omits the older one-child named-block type-equality guard
+- current `main` matches `version_131` in `RemoveUnusedBrs.cpp` on this reviewed surface
 
 So future Starshine work should treat the relaxed JumpThreader behavior as part of the local release oracle, not as a post-release trunk-only drift.
 
@@ -446,14 +446,14 @@ That question order is much closer to the real Binaryen implementation than the 
 - [research note 0146](./index.md)
 - [research note 0070](./index.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- Binaryen `version_130` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/RemoveUnusedBrs.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-hints.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/cost.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/drop.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/effects.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/gc-type-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/localize.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/properties.h>
+- Binaryen `version_131` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedBrs.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/branch-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/branch-hints.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/cost.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/drop.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/gc-type-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/localize.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/properties.h>

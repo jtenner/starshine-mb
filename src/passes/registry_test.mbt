@@ -326,12 +326,30 @@ test "audited pass_require helper metadata contracts stay declared" {
 }
 
 ///|
-test "preset expansion stays on implemented active pass names" {
+test "preset expansion matches Binaryen v131's 56 slots plus strip-debug" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
+  let binaryen_v131 = [
+    "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
+    "once-reduction", "global-refining", "global-struct-inference", "remove-unused-module-elements",
+    "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
+    "remove-unused-names", "remove-unused-brs", "remove-unused-names", "optimize-instructions",
+    "heap-store-optimization", "pick-load-signs", "precompute-propagate", "code-pushing",
+    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+    "remove-unused-brs", "heap2local", "merge-locals", "optimize-casts", "local-subtyping",
+    "coalesce-locals", "local-cse", "simplify-locals", "vacuum", "reorder-locals",
+    "coalesce-locals", "reorder-locals", "vacuum", "code-folding", "merge-blocks",
+    "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute-propagate",
+    "optimize-instructions", "heap-store-optimization", "redundant-set-elimination",
+    "vacuum", "dae-optimizing", "inlining-optimizing", "duplicate-function-elimination",
+    "duplicate-import-elimination", "simplify-globals-optimizing", "remove-unused-module-elements",
+    "string-gathering", "reorder-globals", "directize",
+  ]
 
-  assert_true(optimize.length() > 0)
+  @debug.assert_eq(binaryen_v131.length(), 56)
   @debug.assert_eq(optimize, shrink)
+  @debug.assert_eq(optimize[:binaryen_v131.length()], binaryen_v131)
+  @debug.assert_eq(optimize[binaryen_v131.length():], ["strip-debug"])
   @debug.assert_eq(
     optimize.filter(fn(name) { name == "precompute-propagate" }).length(),
     2,
@@ -342,6 +360,14 @@ test "preset expansion stays on implemented active pass names" {
     .length(),
     3,
   )
+  @debug.assert_eq(
+    optimize.filter(fn(name) { name == "remove-unused-brs" }).length(),
+    3,
+  )
+  @debug.assert_eq(optimize.length(), 57)
+  @debug.assert_eq(optimize[13], "remove-unused-brs")
+  @debug.assert_eq(optimize[24], "remove-unused-brs")
+  @debug.assert_eq(optimize[39], "remove-unused-brs")
   assert_false(optimize.contains("precompute"))
   for name in optimize {
     match pass_registry_category(name) {
@@ -382,7 +408,7 @@ fn registry_test_assert_dae_optimizing_late_slot(
     }
   }
   @debug.assert_eq(dae_count, 1)
-  @debug.assert_eq(dae_idx, 48)
+  @debug.assert_eq(dae_idx, 47)
   assert_true(dae_idx >= 3, msg="expected \{label} DAEO cleanup prelude")
   assert_true(
     dae_idx + 1 < passes.length(),
@@ -396,7 +422,7 @@ fn registry_test_assert_dae_optimizing_late_slot(
 
 ///|
 test "O4z optimize and shrink presets schedule dae-optimizing in the late postpass slot" {
-  let options = HotPipelineOptions::new(optimize_level=4, shrink_level=1)
+  let options = HotPipelineOptions::new(optimize_level=4, shrink_level=4)
   registry_test_assert_dae_optimizing_late_slot(
     "runtime optimize",
     optimize_preset_passes(options),

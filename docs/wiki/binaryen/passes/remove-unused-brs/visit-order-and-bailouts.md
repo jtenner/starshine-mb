@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ./index.md
@@ -9,7 +9,7 @@ sources:
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
-  - ../../../../../src/passes/perf_test.mbt
+  - ../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
 related:
   - ./index.md
   - ./pattern-catalog.md
@@ -77,7 +77,7 @@ For `[O4Z-AUDIT-RUB-E]`, the raw candidate gate was extended narrowly: `try_tabl
 
 For `[O4Z-AUDIT-RUB-F]`, the final raw candidate gate now treats `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as HOT candidates. This is also not a raw rewrite: the HOT matcher owns the nullability/cast proof, including the later `[O4Z-AUDIT-RUB-Q]` no-payload nullable-source/non-null-target `br_on_cast` split to `br_on_non_null` plus appended `ref.null`, the non-null disjoint-family definite-failure `br_on_cast*` subset, selected branch-taking prefix-payload BrOn rewrites, and the child-form ordinary `br_on_cast*` unreachable-input subset. It still fails closed for fallthrough-producing payload cases, payload-bearing cast splits, nullable disjoint `SuccessOnlyIfNull`, descriptor variants not represented by local `Instruction` / `HotOp`, and public stack-form unreachable-input cleanup that does not expose a child-form HOT BrOn root. Note `1373` tightens that payload split boundary: public stack-payload `SuccessOnlyIfNonNull` shapes require a Binaryen-style `ChildLocalizer`/scratch-local repair, not a broader raw admission or a naive inner-block rewrite. Note `1374` keeps descriptor BrOn blocked on representation and keeps stack-form unreachable-input cleanup blocked on candidate-lowering/raw-proof work.
 
-For `[O4Z-AUDIT-RUB-H]`, the O4z raw no-op gate now admits only simple stack-form adjacent same-target `br_if` candidates whose two conditions are single decoded instructions such as `local.get` or `i32.const`. The raw layer does not merge them; it only avoids hiding the shrink-mode HOT `i32.or` rewrite. Broader condition safety, target equality after lift, payload rejection, and effect hazards remain in HOT.
+The former broad `o4z-remove-unused-brs-noop` gate is removed. Scheduled O4z RUB now follows the ordinary candidate and focused no-op classifiers, so adjacent same-target `br_if`, EH, switch, and other HOT-owned families are no longer hidden wholesale. The raw layer still does not perform the shrink-mode `i32.or` merge itself; target equality, payload rejection, condition speculation, and effect hazards remain in HOT.
 
 The latest example is the prefix-guard detector that cancels `structured-return-ladder-noop`.
 

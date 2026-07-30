@@ -1,12 +1,11 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
-  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
 related:

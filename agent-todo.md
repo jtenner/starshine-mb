@@ -22,7 +22,6 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 | Pass | Active work | Owner |
 | --- | --- | --- |
-| `remove-unused-brs` | Direct behavior is closed; reconcile the remaining extra early scheduler slot only. | `[O4Z-PRESET]001` |
 | `merge-blocks` / branch cleanup | Direct represented-surface behavior is closed; reconcile size-losing post-`code-folding` ordered shapes. | `[O4Z-PRESET]001` |
 
 ## v0.1.1 Primary O4z Work
@@ -33,9 +32,10 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 - **Goal:** make Starshine's `shrink`/O4z expansion intentionally match the unchanged Binaryen-v131 56-slot top-level order, with documented Starshine-only extensions.
 - **Current differences:**
   - [x] Add the second early `remove-unused-module-elements` slot after `global-struct-inference`; optimize/shrink registry tests now assert all three RUME positions (2026-07-27).
-  - [ ] Remove or prove the remaining extra early `remove-unused-brs` slot. The former noncanonical early `vacuum` has already been removed.
+  - [x] Remove the redundant adjacent early `remove-unused-brs` slot. Optimize/shrink now match Binaryen v131's 56-slot roster with RUB at indices `13`, `24`, and `39`; final `strip-debug` remains the documented Starshine-only 57th slot (2026-07-30).
   - [ ] Land the resolved `local-subtyping -> coalesce-locals -> local-cse` suffix; direct owner evidence is closed and no longer blocks preset work.
   - [ ] Reconcile post-`code-folding` ordered cleanup shapes: return/tail-call and movement fixtures are measured smaller Starshine `br_if` forms, while block-exit and EH fixtures remain size-losing neighboring cleanup gaps.
+  - [ ] Triage the full-preset validity blocker exposed by the expanded RUB corpus: the first `1000` inputs produce `837` valid `-O4z` outputs and `163` Starshine command failures. Tracing the first failure shows `flatten` creates the stack-underflow state before RUB; isolated direct RUB at O4z levels `4/4` is valid and no-larger for all `10000` cases.
   - [ ] Keep final `strip-debug` explicitly documented as a Starshine extension outside Binaryen's 56 slots.
   - [ ] Preserve feature gates, no-DWARF policy, repeated cleanup slots, canonical aliases, and exact-order tests.
 - **Already landed and removed from this active list:** the second early RUME slot, the aggressive flatten/SLNNS/local-CSE prelude, both `precompute-propagate` substitutions, `merge-locals` after `heap2local`, `code-folding` before late `merge-blocks`, removal of the noncanonical early `vacuum`, and the late `heap-store-optimization -> redundant-set-elimination -> vacuum` sequence.

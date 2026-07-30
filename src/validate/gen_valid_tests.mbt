@@ -16997,7 +16997,7 @@ test "remove-unused-brs aggregate gen-valid profile resolves focused leaves" {
       @debug.assert_eq(profile, RemoveUnusedBrsAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 11)
+      @debug.assert_eq(members.length(), 21)
       for
         expected in [
           GenValidProfileMember::new(RemoveUnusedBrsConstantBrIfProfile, 2),
@@ -17010,6 +17010,16 @@ test "remove-unused-brs aggregate gen-valid profile resolves focused leaves" {
           GenValidProfileMember::new(RemoveUnusedBrsMultivalueDropProfile, 1),
           GenValidProfileMember::new(RemoveUnusedBrsWrapperCleanupProfile, 2),
           GenValidProfileMember::new(RemoveUnusedBrsSelectifyProfile, 2),
+          GenValidProfileMember::new(RemoveUnusedBrsTailFlowProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsOneArmIfProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsLoopProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsSinkBlocksProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsEhProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsJumpThreadProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsTablifyProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsOptimizeSetIfProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsRestructureIfProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsAdjacentBranchProfile, 1),
           GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 1),
           GenValidProfileMember::new(RemoveUnusedBrsSwitchProfile, 1),
           GenValidProfileMember::new(RemoveUnusedBrsCleanupProfile, 1),
@@ -17056,6 +17066,16 @@ test "remove-unused-brs aggregate profile samples every current focused family" 
       RemoveUnusedBrsMultivalueDropProfile,
       RemoveUnusedBrsWrapperCleanupProfile,
       RemoveUnusedBrsSelectifyProfile,
+      RemoveUnusedBrsTailFlowProfile,
+      RemoveUnusedBrsOneArmIfProfile,
+      RemoveUnusedBrsLoopProfile,
+      RemoveUnusedBrsSinkBlocksProfile,
+      RemoveUnusedBrsEhProfile,
+      RemoveUnusedBrsJumpThreadProfile,
+      RemoveUnusedBrsTablifyProfile,
+      RemoveUnusedBrsOptimizeSetIfProfile,
+      RemoveUnusedBrsRestructureIfProfile,
+      RemoveUnusedBrsAdjacentBranchProfile,
       RemoveUnusedBrsControlProfile,
       RemoveUnusedBrsSwitchProfile,
       RemoveUnusedBrsCleanupProfile,

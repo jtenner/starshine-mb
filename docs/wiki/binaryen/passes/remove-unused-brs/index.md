@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-07-30
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../release-horizon-and-oracles.md
@@ -10,17 +10,17 @@ sources:
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
-  - ../../../../../src/passes/perf_test.mbt
+  - ../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/RemoveUnusedBrs.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/effects.h
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-gc.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedBrs.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/branch-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/effects.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-brs.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-brs-gc.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-brs-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -40,16 +40,18 @@ related:
 
 # `remove-unused-brs`
 
-## Binaryen v131 renewal status
+## Binaryen v131 closeout status
 
-Direct Binaryen-v131 behavior parity was renewed on 2026-07-26 after red-first repairs closed the old random gaps, admitted safe multivalue-return roots, added exact CFG-backed wrapper cleanup, flattened dropped literal multivalues, and matched null-only `br_if` result typing without narrowing selector-prefixed `br_table` blocks. The final regular lane is cleanup-normalized green at `100000/100000`; dedicated and random-all retain only measured smaller Starshine cleanups; wasm-smith is green for all `9956` comparable cases with `44` Binaryen-only failures. The separately tracked extra scheduled RUB slot remains open.
+The 2026-07-30 audit closes direct behavior, size, performance, generator breadth, and public scheduler placement against official `wasm-opt version 131 (version_131)`. `remove-unused-brs-all` now contains 21 focused leaves spanning the main flow, one-arm `if`, loop, block-sinking, EH, jump-threading, tablification, set/tee, restructure-if, adjacent-branch, GC, switch, multivalue, wrapper, and boundary families. The required regular `100000`, wasm-smith `10000`, dedicated `10000`, and random-all `10000` lanes have zero Starshine failures or unclassified size losses. A separate direct O4z-option replay is `6853` canonical byte matches plus `3147` strictly smaller Starshine outputs, totaling `-54270` bytes.
+
+Scheduler placement is also closed. Starshine's public optimize/shrink roster now matches Binaryen v131's unchanged 56-slot / 38-owner top-level order, with RUB at zero-based indices `13`, `24`, and `39`; Starshine's documented `strip-debug` extension is the sole 57th slot.
 
 ## Role
 
 - `remove-unused-brs` is an active implemented **hot pass** in Starshine.
 - Current large-artifact correctness/runtime evidence is note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md): rollback-capable changed-function batch validation plus three source-backed fail-closed guards replace a `580.178s` invalid direct output with valid byte-identical `3.239s` / `3.068s` repeats. The current artifact reaches a byte-identical fixed point after three productive applications; regular `10000` compare is fully normalized, and the dedicated `115`-mismatch accepted family is runtime-all-equal with zero validation failures.
-- The folder retains the 2026-05-06 research bridge together with direct `version_130` source and lit URLs below, so the Binaryen release/source/test provenance for this dossier does not depend on an intermediate capture.
-- In the current local upstream oracle, Binaryen `version_130`, it is a function-parallel structured-control cleanup pass.
+- The folder retains historical research plus direct `version_131` source and lit URLs below, so the release/source/test provenance does not depend on an intermediate capture.
+- In the current upstream oracle, Binaryen `version_131`, it is a function-parallel structured-control cleanup pass.
 - The short public description in `pass.cpp` says it removes breaks that are not needed.
 - That description is true, but incomplete.
 
@@ -70,7 +72,7 @@ So this is **not** just a trailing-branch stripper.
   - early `remove-unused-names` and later `merge-blocks` help RUB
   - later `coalesce-locals` opens more RUB opportunities
   - late `remove-unused-names` and another `merge-blocks` clean up after RUB again
-- The old mixed-rerun `RUB` slice was retired on 2026-05-07 after a fresh direct debug-artifact replay plus a larger mixed-generator direct-pass rerun; the still-open current-head declaration-only mismatch family now lives under focused backlog slice `[RUB]003`, while ordered-neighborhood proof stays with the broader optimize-path queue.
+- Historical direct mismatch slices are closed. Remaining O4z work belongs to neighboring post-`code-folding` cleanup and broader ordered-pipeline signoff, not to RUB behavior or placement.
 - The saved generated-artifact work also touched RUB heavily, especially the retired slot-14 and slot-40 corruption witnesses that now live in the parity history.
 
 This makes RUB relevant to:
@@ -98,7 +100,7 @@ This makes RUB relevant to:
 - Branch hints are part of the upstream Binaryen contract.
 - `never-unconditionalize` is part of the upstream Binaryen contract.
 - Starshine documents those two surfaces as RUB-N/RUB-X metadata/pass-option blockers until expression-level code metadata and pass-arg plumbing exist locally.
-- `version_130` is now the local release oracle. The older JumpThreader type-equality relaxation and branch-to-trap behavior are part of that release baseline; a 2026-06-18 `version_130` versus `main` check found no drift in `RemoveUnusedBrs.cpp` or the requested helper headers, only narrow multivalue lit expectation-text drift.
+- `version_131` is the release oracle. `RemoveUnusedBrs.cpp` is byte-identical to the retained v130 owner, so the JumpThreader relaxation, branch-to-trap behavior, helper contracts, and official transform families carry forward unchanged.
 
 ## Biggest beginner correction
 
@@ -125,7 +127,7 @@ What it sounds like:
 
 - delete useless `br`
 
-What it actually is in `version_130`:
+What it actually is in `version_131`:
 
 - a custom flow-tracking postwalk
 - a loop/body reshaper
@@ -138,9 +140,9 @@ What it actually is in `version_130`:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Direct `version_130` source-backed walkthrough of the real pass stages, helper dependencies, scheduler placement, and main bailout logic.
+  - Direct `version_131` source-backed walkthrough of the real pass stages, helper dependencies, scheduler placement, and main bailout logic.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  - Exact upstream file map, helper dependency story, official lit-family roster, and the `[O4Z-AUDIT-RUB-A]` `version_130` behavior matrix that owns the follow-up slice map.
+  - Exact upstream file map, helper dependency story, official lit-family roster, and the source-backed `version_131` behavior matrix.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT and IR shape catalog covering positive rewrites, bailout families, EH/GC shapes, and nearby pass interactions.
 - [`./pattern-catalog.md`](./pattern-catalog.md)
@@ -168,9 +170,7 @@ What it actually is in `version_130`:
 
 ## Freshness note
 
-This refreshed landing page is anchored on Binaryen `version_130`, matching local `wasm-opt --version` output on 2026-06-18: `wasm-opt version 130 (version_130)`.
-
-The 2026-06-18 source refresh re-read `RemoveUnusedBrs.cpp`, the requested helper headers, and the full official `remove-unused-brs*` lit roster. The older JumpThreader type-equality relaxation and branch-to-trap rewrite are now release-oracle behavior for this repo, not merely current-main drift. A fresh `version_130` versus `main` check found no drift in `RemoveUnusedBrs.cpp` or the requested helper headers; only `remove-unused-brs_enable-multivalue.wast` expectation text differed, with several expected `local.tee` lines on `version_130` expected as `local.set` on `main`.
+This landing page is anchored on the verified official Binaryen `version_131` binary (`wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`). The 2026-07-30 source audit confirms `RemoveUnusedBrs.cpp` is unchanged from v130; `pass.cpp` still schedules exactly three RUB applications in the 56-slot top-level optimizer roster.
 
 For `[O4Z-AUDIT-RUB-A]`, WebAssembly 3.0 baseline features are assumed enabled by default. Do not treat GC as optional gated behavior in the Starshine RUB matrix unless a local parser/tool limitation is recorded as a blocker.
 
@@ -179,7 +179,7 @@ For `[O4Z-AUDIT-RUB-A]`, WebAssembly 3.0 baseline features are assumed enabled b
 - Treat this folder as the canonical home for future RUB scheduler, shape, parity, and performance notes.
 - Keep the central beginner correction explicit:
   - upstream `remove-unused-brs` is broader than dead-tail stripping but narrower than a generic CFG optimizer.
-- Keep `version_130` release-oracle facts and current-main facts separated explicitly when they differ.
+- Keep `version_131` release-oracle facts and current-main facts separated explicitly when they differ.
 - When new local work changes artifact parity or skip behavior, update:
   - [`./pattern-catalog.md`](./pattern-catalog.md)
   - the owning detailed family page
@@ -199,17 +199,17 @@ For `[O4Z-AUDIT-RUB-A]`, WebAssembly 3.0 baseline features are assumed enabled b
 - [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
-- [`../../../../../src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
+- [`../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt`](../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - research note 0505
 - research note 0461
-- Binaryen `version_130` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/RemoveUnusedBrs.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/effects.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-gc.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-eh.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast>
+- Binaryen `version_131` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedBrs.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/branch-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-brs.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-brs-gc.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-brs-eh.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast>

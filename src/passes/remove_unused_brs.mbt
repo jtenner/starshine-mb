@@ -2668,6 +2668,26 @@ fn remove_unused_brs_trim_trailing_nops(
 }
 
 ///|
+fn remove_unused_brs_trim_leading_nops(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let mut changed = false
+  while @ir.hot_region_root_count(func, region_ref) > 0 {
+    let node_id = @ir.hot_region_get(func, region_ref, 0)
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Nop => ()
+      _ => break
+    }
+    let removed = pass_splice_region(ctx, func, region_ref, 0, 1, [])
+    remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+    changed = true
+  }
+  changed
+}
+
+///|
 fn remove_unused_brs_tail_is_nonfallthrough(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -8515,6 +8535,9 @@ fn remove_unused_brs_try_restructure_self_branch_block_prefix(
       [block_id],
     )
     ignore(@ir.hot_region_set(func, region_ref, idx, replacement))
+    if ctx.shrink_level > 0 {
+      ignore(remove_unused_brs_trim_leading_nops(ctx, func, body_ref))
+    }
     remove_unused_brs_mark_mutated(
       ctx, func, "restructure-self-branch-block-prefix",
     )
@@ -8565,6 +8588,9 @@ fn remove_unused_brs_try_restructure_self_branch_block_prefix(
       else_body=Some([block_id]),
     )
     ignore(@ir.hot_region_set(func, region_ref, idx, replacement))
+    if ctx.shrink_level > 0 {
+      ignore(remove_unused_brs_trim_leading_nops(ctx, func, body_ref))
+    }
     remove_unused_brs_mark_mutated(
       ctx, func, "restructure-self-branch-block-prefix-value-if",
     )
@@ -8584,6 +8610,9 @@ fn remove_unused_brs_try_restructure_self_branch_block_prefix(
     func, result_type, value, block_id, condition,
   )
   ignore(@ir.hot_region_set(func, region_ref, idx, replacement))
+  if ctx.shrink_level > 0 {
+    ignore(remove_unused_brs_trim_leading_nops(ctx, func, body_ref))
+  }
   remove_unused_brs_mark_mutated(
     ctx, func, "restructure-self-branch-block-prefix-select",
   )
@@ -9172,7 +9201,14 @@ fn remove_unused_brs_try_flip_single_loop_adjacent_br_if_backedge(
   )
   @ir.hot_child_set(func, br_if_id, 0, inverted)
   @ir.hot_branch_target_set(func, br_if_id, loop_label)
-  @ir.hot_branch_target_set(func, backedge_id, exit_label)
+  let removed_tail = pass_splice_region(ctx, func, loop_body_ref, 1, 1, [])
+  let removed_block = pass_splice_region(ctx, func, region_ref, idx, 1, [
+    loop_id,
+  ])
+  removed_tail.append(removed_block)
+  removed_tail.push(block_id)
+  removed_tail.push(backedge_id)
+  remove_unused_brs_delete_unused_nodes(ctx, func, removed_tail)
   remove_unused_brs_mark_mutated(ctx, func, "flip-loop-adjacent-br-if")
   true
 }
@@ -10529,6 +10565,25 @@ fn remove_unused_brs_visit_region(
         }
       }
       @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+        if @ir.hot_child_count(func, node_id) == 1 {
+          let value_id = @ir.hot_child_get(func, node_id, 0)
+          let value_is_if = if value_id >= 0 &&
+            @ir.hot_node_is_live(func, value_id) {
+            match @ir.hot_node_get(func, value_id).op {
+              @ir.HotOp::If => true
+              _ => false
+            }
+          } else {
+            false
+          }
+          if value_is_if &&
+            remove_unused_brs_try_rewrite_value_if_to_select(
+              ctx, func, value_id, reorder_cache,
+            ) {
+            changed = true
+            continue
+          }
+        }
         if remove_unused_brs_try_rewrite_region_local_set_br_arm(
             ctx, func, region_ref, current_idx,
           ) {
@@ -10676,7 +10731,23 @@ fn remove_unused_brs_has_literal_multivalue_drop_lowering(
   func : @ir.HotFunc,
 ) -> Bool {
   let scan = remove_unused_brs_compute_cycle_scan(func)
-  for block_id = 0; block_id < @ir.hot_node_count(func); block_id = block_id + 1 {
+  let node_count = @ir.hot_node_count(func)
+  let drop_uses = Array::make(node_count, 0)
+  for user_id = 0; user_id < node_count; user_id = user_id + 1 {
+    if !@ir.hot_node_is_live(func, user_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, user_id).op {
+      @ir.HotOp::Drop if @ir.hot_child_count(func, user_id) == 1 => {
+        let child_id = @ir.hot_child_get(func, user_id, 0)
+        if child_id >= 0 && child_id < node_count {
+          drop_uses[child_id] = drop_uses[child_id] + 1
+        }
+      }
+      _ => ()
+    }
+  }
+  for block_id = 0; block_id < node_count; block_id = block_id + 1 {
     if !@ir.hot_node_is_live(func, block_id) {
       continue
     }
@@ -10720,23 +10791,52 @@ fn remove_unused_brs_has_literal_multivalue_drop_lowering(
     if !literal_roots || seen_arity != result_arity {
       continue
     }
-    let mut drop_uses = 0
-    for user_id = 0; user_id < @ir.hot_node_count(func); user_id = user_id + 1 {
-      if !@ir.hot_node_is_live(func, user_id) {
-        continue
-      }
-      match @ir.hot_node_get(func, user_id).op {
-        @ir.HotOp::Drop if @ir.hot_child_count(func, user_id) == 1 &&
-          @ir.hot_child_get(func, user_id, 0) == block_id => drop_uses += 1
-        _ => ()
-      }
-    }
-    if drop_uses == result_arity &&
-      pass_node_use_count(ctx, func, block_id) == drop_uses {
+    if drop_uses[block_id] == result_arity &&
+      pass_node_use_count(ctx, func, block_id) == drop_uses[block_id] {
       return true
     }
   }
   false
+}
+
+///|
+fn remove_unused_brs_only_literal_multivalue_consumers(
+  func : @ir.HotFunc,
+) -> Bool {
+  let mut saw_multivalue_block = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block => {
+        if @ir.hot_node_result_arity(func, node_id) <= 1 {
+          return false
+        }
+        let body_ref = @ir.hot_region_body_ref(func, node_id)
+        for idx = 0
+            idx < @ir.hot_region_root_count(func, body_ref)
+            idx = idx + 1 {
+          let root_id = @ir.hot_region_get(func, body_ref, idx)
+          if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+            return false
+          }
+          match @ir.hot_node_get(func, root_id).op {
+            @ir.HotOp::Const | @ir.HotOp::RefNull => ()
+            _ => return false
+          }
+        }
+        saw_multivalue_block = true
+      }
+      @ir.HotOp::Const
+      | @ir.HotOp::RefNull
+      | @ir.HotOp::LocalSet
+      | @ir.HotOp::Drop
+      | @ir.HotOp::Nop => ()
+      _ => return false
+    }
+  }
+  saw_multivalue_block
 }
 
 ///|
@@ -10837,6 +10937,19 @@ fn remove_unused_brs_run(
     )
     return HotPassResult::unchanged()
   }
+  let literal_multivalue_drop_lowering = remove_unused_brs_has_literal_multivalue_drop_lowering(
+    ctx, func,
+  )
+  if literal_multivalue_drop_lowering &&
+    remove_unused_brs_only_literal_multivalue_consumers(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "fast-path",
+      payload="reason=literal-multivalue-consumers",
+    )
+    return HotPassResult::changed()
+  }
   let mut any_changed = false
   let mut changed = true
   let mut cycles = 0
@@ -10929,8 +11042,7 @@ fn remove_unused_brs_run(
       changed
     any_changed = any_changed || changed
   }
-  if any_changed ||
-    remove_unused_brs_has_literal_multivalue_drop_lowering(ctx, func) {
+  if any_changed || literal_multivalue_drop_lowering {
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()
