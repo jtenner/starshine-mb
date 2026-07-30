@@ -501,10 +501,10 @@ test "coalesce-locals coalesces non-adjacent loop copy-through locals" {
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::empty())
   @debug.assert_eq(
     instrs[instrs.length() - 1],
-    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   )
 }
 
@@ -776,12 +776,10 @@ test "coalesce-locals packs accessed GC refs before unused trailing refs" {
 }
 
 ///|
-test "coalesce-locals intentionally skips dense coloring above local-count guard" {
-  // Boundary test: dense coloring is intentionally not run for very large
-  // non-loop functions because the interference/copy matrices are quadratic in
-  // the flattened local count. Smaller functions keep the Binaryen-compatible
-  // coalescing path; large functions are left unchanged until a sparse coloring
-  // representation lands.
+test "coalesce-locals compacts all-unused locals above dense-coloring guard" {
+  // All-unused local groups do not need a dense interference matrix. Keep the
+  // large-function fallback scalable while still matching Binaryen's one-slot
+  // compaction for same-typed unused locals.
   let input = StringBuilder::new()
   input.write_string("(module (func (result i32) (local")
   for _idx = 0; _idx < 4097; _idx = _idx + 1 {
@@ -796,7 +794,7 @@ test "coalesce-locals intentionally skips dense coloring above local-count guard
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals.length(), 4097)
+  @debug.assert_eq(locals.length(), 1)
   @debug.assert_eq(instrs, [@lib.Instruction::i32_const(@lib.I32(0))])
 }
 
@@ -823,20 +821,16 @@ test "coalesce-locals drops structured ineffective copy sets" {
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::empty())
   match instrs[1] {
     @lib.If(_, _, Some(else_body)) => {
       @debug.assert_eq(
         else_body[1],
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       )
+      @debug.assert_eq(else_body[2], @lib.Instruction::nop())
       @debug.assert_eq(
-        else_body[2],
-        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
-      )
-      @debug.assert_eq(else_body[3], @lib.Instruction::drop())
-      @debug.assert_eq(
-        else_body[4],
+        else_body[3],
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       )
     }
@@ -1416,7 +1410,14 @@ test "coalesce-locals coalesces structured local-tee branch slots" {
   )
   @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(@lib.I32(1)))
-  @debug.assert_eq(instrs[1], @lib.Instruction::nop())
+  assert_false(
+    cl_test_instrs_contain_local_tee(instrs, @lib.LocalIdx::new(0U)),
+    msg="ineffective condition tee should be removed without a nop wrapper",
+  )
+  match instrs[1] {
+    @lib.If(_, _, _) => ()
+    other => fail("expected structured if, got \{@debug.to_string(other)}")
+  }
 }
 
 ///|
@@ -1863,8 +1864,477 @@ test "coalesce-locals prefers structured scalar scratch before simple early scra
   }
   assert_true(saw_tail_set, msg="expected tail zero set to use structured slot")
   assert_true(
-    cl_test_instrs_contain_local_tee(instrs, @lib.LocalIdx::new(2U)),
-    msg="expected tail tee to use structured slot",
+    cl_test_instrs_contain_local_tee(instrs, @lib.LocalIdx::new(1U)),
+    msg="expected effective tail tee to share the compact scalar slot",
+  )
+}
+
+///|
+test "coalesce-locals removes dropped reads of immutable default locals" {
+  let input =
+    #| (module
+    #|   (func (local i32 i32)
+    #|     local.get 1
+    #|     local.set 0
+    #|     i32.const 1
+    #|     if
+    #|       i32.const 1
+    #|       local.set 0
+    #|     end
+    #|     local.get 1
+    #|     local.set 0
+    #|     local.get 1
+    #|     local.set 0))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals.length(), 1)
+  let mut dropped_gets = 0
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (@lib.LocalGet(_), @lib.Drop) => dropped_gets += 1
+      _ => ()
+    }
+  }
+  @debug.assert_eq(dropped_gets, 0)
+}
+
+///|
+test "coalesce-locals merges an explicit zero with an implicit default" {
+  let input =
+    #| (module
+    #|   (func (local i32 i32)
+    #|     i32.const 0
+    #|     local.set 0
+    #|     local.get 0
+    #|     drop
+    #|     local.get 1
+    #|     drop))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 1)
+}
+
+///|
+test "coalesce-locals removes a nested tee with no later read" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32) (result i32) (local i32 i32)
+    #|     local.get 0
+    #|     local.tee 1
+    #|     local.tee 0
+    #|     drop
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  let mut tee_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(_) => tee_count += 1
+      _ => ()
+    }
+  }
+  @debug.assert_eq(tee_count, 1)
+}
+
+///|
+test "coalesce-locals removes a loop-prefix copy whose source is only reread" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32) (local i32 i32)
+    #|     i32.const 82
+    #|     local.set 1
+    #|     local.get 1
+    #|     local.set 2
+    #|     loop
+    #|       local.get 1
+    #|       drop
+    #|       local.get 0
+    #|       br_if 0
+    #|     end
+    #|     local.get 2))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals.length(), 1)
+  @debug.assert_eq(instrs[2], @lib.Instruction::nop())
+  @debug.assert_eq(
+    instrs[instrs.length() - 1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+}
+
+///|
+test "coalesce-locals merges read-only default locals across exclusive branches" {
+  let input =
+    #| (module
+    #|   (func (local i32 i32)
+    #|     i32.const 0
+    #|     if
+    #|       local.get 0
+    #|       drop
+    #|     else
+    #|       local.get 1
+    #|       drop
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 1)
+}
+
+///|
+test "coalesce-locals flattens dead control when all body locals are unused" {
+  let input =
+    #| (module
+    #|   (func (local i32)
+    #|     block
+    #|       return
+    #|     end
+    #|     unreachable))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(instrs, [@lib.Instruction::return_()])
+}
+
+///|
+test "coalesce-locals keeps the parent tail after a local br_table escape" {
+  let input =
+    #| (module
+    #|   (func (local i32)
+    #|     block (result i32)
+    #|       i32.const 7
+    #|       i32.const 0
+    #|       br_table 0 0
+    #|       unreachable
+    #|     end
+    #|     drop
+    #|     i32.const 42
+    #|     drop))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  assert_true(
+    instrs.any(fn(instr) { instr == @lib.Instruction::i32_const(@lib.I32(42)) }),
+    msg="a br_table to the current block must not make the parent tail dead",
+  )
+  assert_false(
+    instrs.any(fn(instr) { instr == @lib.Instruction::unreachable_() }),
+    msg="the local block escape must not become a top-level trap",
+  )
+}
+
+///|
+test "coalesce-locals keeps the parent tail after a nested branch to its label" {
+  let input =
+    #| (module
+    #|   (func (result i64) (local i32)
+    #|     block (result i32)
+    #|       block
+    #|         i32.const 7
+    #|         br 1
+    #|         unreachable
+    #|       end
+    #|       unreachable
+    #|     end
+    #|     drop
+    #|     i64.const 42))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  assert_true(
+    instrs.any(fn(instr) { instr == @lib.Instruction::i64_const(@lib.I64(42L)) }),
+    msg="a nested branch to the enclosing block must preserve its parent tail",
+  )
+}
+
+///|
+test "coalesce-locals flattens an unbranched void block around local traffic" {
+  let input =
+    #| (module
+    #|   (func (local i32)
+    #|     block
+    #|       i32.const 0
+    #|       local.set 0
+    #|     end
+    #|     local.get 0
+    #|     drop))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  assert_false(
+    instrs.any(fn(instr) {
+      match instr {
+        @lib.Block(_, _) => true
+        _ => false
+      }
+    }),
+    msg="unbranched void block should be flattened",
+  )
+  @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(@lib.I32(0)))
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+}
+
+///|
+test "coalesce-locals prefers removing a safe loop-backedge copy" {
+  let input =
+    #| (module
+    #|   (type (func (param i32)))
+    #|   (type (func (result i32)))
+    #|   (import "env" "set" (func (type 0)))
+    #|   (import "env" "get" (func (type 1)))
+    #|   (func (local i32 i32 i32)
+    #|     i32.const 2
+    #|     local.set 0
+    #|     block
+    #|       loop
+    #|         i32.const 0
+    #|         local.set 2
+    #|         local.get 2
+    #|         call 0
+    #|         local.get 0
+    #|         i32.const 1
+    #|         i32.add
+    #|         local.set 1
+    #|         call 1
+    #|         if
+    #|           local.get 1
+    #|           local.set 2
+    #|         end
+    #|         local.get 2
+    #|         br_if 1
+    #|         i32.const 100
+    #|         local.set 1
+    #|         local.get 1
+    #|         local.set 0
+    #|         br 0
+    #|       end
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 2)
+}
+
+///|
+test "coalesce-locals keeps a loop-backedge copy when a nested read sees the old value" {
+  let input =
+    #| (module
+    #|   (func (local i32 i32)
+    #|     i32.const 2
+    #|     local.set 0
+    #|     block
+    #|       loop
+    #|         i32.const 3
+    #|         local.set 1
+    #|         i32.const 1
+    #|         if
+    #|           local.get 0
+    #|           drop
+    #|         end
+    #|         local.get 1
+    #|         local.set 0
+    #|         br 0
+    #|       end
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 2)
+}
+
+///|
+test "coalesce-locals coalesces same-source copies before an inter-block copy" {
+  let input =
+    #| (module
+    #|   (func (result i32) (local i32 i32 i32 i32)
+    #|     i32.const 100
+    #|     local.set 0
+    #|     local.get 0
+    #|     local.set 1
+    #|     local.get 0
+    #|     local.set 2
+    #|     local.get 0
+    #|     if
+    #|       local.get 1
+    #|       local.set 3
+    #|     else
+    #|       local.get 2
+    #|       local.set 3
+    #|     end
+    #|     local.get 0
+    #|     drop
+    #|     local.get 1
+    #|     drop
+    #|     local.get 2
+    #|     drop
+    #|     local.get 3))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 2)
+}
+
+///|
+test "coalesce-locals flattens an unbranched void block inside a loop" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32) (local i32)
+    #|     local.get 0
+    #|     local.set 1
+    #|     block
+    #|       loop
+    #|         block
+    #|           local.get 1
+    #|           drop
+    #|         end
+    #|         br 1
+    #|       end
+    #|     end
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  let mut found_loop = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(block_body)) =>
+        for child in block_body {
+          match child {
+            @lib.Loop(_, @lib.Expr(loop_body)) => {
+              found_loop = true
+              assert_false(
+                loop_body.any(fn(loop_instr) {
+                  match loop_instr {
+                    @lib.Block(_, _) => true
+                    _ => false
+                  }
+                }),
+                msg="safe unbranched loop-body wrappers should be flattened",
+              )
+            }
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  assert_true(found_loop, msg="expected the loop fixture to remain present")
+}
+
+///|
+test "coalesce-locals preserves an unread local's default value" {
+  let input =
+    #| (module
+    #|   (func (result i32) (local i32 i32 i32)
+    #|     i32.const 100
+    #|     local.tee 2
+    #|     local.set 0
+    #|     local.get 0
+    #|     drop
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals.length(), 2)
+  @debug.assert_eq(
+    instrs[instrs.length() - 1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+}
+
+///|
+test "coalesce-locals packs an accessed abstract ref before unused locals" {
+  let input =
+    #| (module
+    #|   (type (func))
+    #|   (type (func))
+    #|   (type (struct (field (mut i32)) (field eqref)))
+    #|   (func (type 0)
+    #|     (local i32 (ref null 0) anyref anyref anyref)
+    #|     struct.new_default 2
+    #|     local.set 2
+    #|     local.get 2
+    #|     local.set 3
+    #|     local.get 3
+    #|     local.set 4
+    #|     local.get 4
+    #|     drop))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::anyref(),
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      ),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(
+    instrs[instrs.length() - 2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   )
 }
 
@@ -2146,4 +2616,164 @@ test "coalesce-locals orders a noncoalescible subtype copy destination first" {
     instrs[6],
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   )
+}
+
+///|
+test "coalesce-locals removes a live-result ineffective tee without a wrapper" {
+  let input =
+    #| (module
+    #|   (func (result i32) (local i32)
+    #|     i32.const 1
+    #|     local.tee 0
+    #|     i32.const 2
+    #|     i32.add))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
+  ])
+}
+
+///|
+test "coalesce-locals reuses a dead parameter slot across a loop copy prefix" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32) (result i32) (local i32 i32 i32)
+    #|     local.get 1
+    #|     local.set 2
+    #|     local.get 2
+    #|     local.set 3
+    #|     loop
+    #|       i32.const 0
+    #|       br_if 0
+    #|     end
+    #|     local.get 3))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(instrs[0], @lib.Instruction::nop())
+  @debug.assert_eq(instrs[1], @lib.Instruction::nop())
+  @debug.assert_eq(
+    instrs[instrs.length() - 1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+}
+
+///|
+test "coalesce-locals removes a loop-tail ineffective tee" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32 i32) (local i32 i32)
+    #|     loop
+    #|       i32.const 1
+    #|       if
+    #|         local.get 2
+    #|         drop
+    #|       end
+    #|       local.get 1
+    #|       local.set 2
+    #|       local.get 2
+    #|       local.tee 0
+    #|       br_if 0
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  assert_false(
+    cl_test_instrs_contain_local_tee(instrs, @lib.LocalIdx::new(0U)),
+    msg="ineffective loop-tail tee should be removed",
+  )
+}
+
+///|
+test "coalesce-locals rewrites copy traffic inside legacy catch-all" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::try_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([@lib.Instruction::unreachable_()]),
+              [
+                @lib.LegacyCatch::all(
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::drop(),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                  ]),
+                ),
+              ],
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = coalesce_locals_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  match instrs[0] {
+    @lib.Try(_, _, catches, _) =>
+      match catches[0] {
+        @lib.LegacyCatchAll(@lib.Expr(body)) => {
+          @debug.assert_eq(body[0], @lib.Instruction::nop())
+          @debug.assert_eq(
+            body[3],
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          )
+        }
+        _ => fail("expected catch_all")
+      }
+    other => fail("expected legacy try, got \{@debug.to_string(other)}")
+  }
+}
+
+///|
+test "coalesce-locals compacts unused locals above the dense-coloring threshold" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (result i32) (local")
+  for _idx = 0; _idx < 4097; _idx = _idx + 1 {
+    input.write_string(" i32")
+  }
+  input.write_string(") i32.const 0))")
+  let optimized = match
+    pass_test_run_pipeline(input.to_string(), ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
 }

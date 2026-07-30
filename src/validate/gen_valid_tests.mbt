@@ -4266,7 +4266,7 @@ test "coalesce-locals GenValid profiles emit validating local-copy triggers" {
   )
   @debug.assert_eq(
     gen_valid_profile_members(CoalesceLocalsAllProfile).length(),
-    3,
+    11,
   )
 }
 

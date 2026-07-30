@@ -22206,19 +22206,18 @@ test "DAEO broad-high selected linear coalescing merges a distant exact copy shu
   let (coalesced, removed) = run_hot_pipeline_dae_broad_high_coalesce_linear_subset(
     original, 0,
   )
-  @debug.assert_eq(removed, 1)
+  @debug.assert_eq(removed, 2)
   let @lib.Func(locals, @lib.Expr(body)) = match coalesced.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs[0]
     None => fail("expected coalesced code section")
   }
-  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::empty())
   @debug.assert_eq(body, [
-    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::nop(),
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::drop(),
     @lib.Instruction::nop(),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   ])
 }
 
@@ -22240,8 +22239,20 @@ test "DAEO broad-high selected linear coalescing keeps an early-read destination
   let (coalesced, removed) = run_hot_pipeline_dae_broad_high_coalesce_linear_subset(
     original, 0,
   )
-  @debug.assert_eq(removed, 0)
-  assert_true(coalesced == original)
+  @debug.assert_eq(removed, 1)
+  let @lib.Func(locals, @lib.Expr(body)) = match coalesced.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[0]
+    None => fail("expected coalesced code section")
+  }
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(body, [
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
 }
 
 ///|

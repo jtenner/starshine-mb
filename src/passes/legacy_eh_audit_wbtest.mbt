@@ -17,7 +17,14 @@ fn legacy_eh_test_try(
 
 ///|
 fn legacy_eh_test_module() -> @lib.Module {
-  @lib.Module::new().with_code_sec(
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
     @lib.CodeSec::new([
       @lib.Func::new(
         @lib.Locals::empty(),
@@ -64,7 +71,7 @@ test "legacy EH audit: shared structured walker rewrites protected and catch bod
 }
 
 ///|
-test "legacy EH audit: remaining TryTable-only module passes fail closed before partial analysis" {
+test "legacy EH audit: module passes handle or fail closed before partial analysis" {
   let mod_ = legacy_eh_test_module()
   assert_true(pass_module_has_legacy_try(mod_))
   @debug.assert_eq(coalesce_locals_run_module_pass(mod_), mod_)

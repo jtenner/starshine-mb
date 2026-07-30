@@ -1329,6 +1329,14 @@ pub enum GenValidProfile {
   CoalesceLocalsStraightLineProfile
   CoalesceLocalsStructuredProfile
   CoalesceLocalsLoopCopyThroughProfile
+  CoalesceLocalsEntryValuesProfile
+  CoalesceLocalsCopyPreferenceProfile
+  CoalesceLocalsTeeCopiesProfile
+  CoalesceLocalsInterBlockProfile
+  CoalesceLocalsUnreachableProfile
+  CoalesceLocalsLegacyEhProfile
+  CoalesceLocalsLargeUnusedProfile
+  CoalesceLocalsExactTypesProfile
   CoalesceLocalsAllProfile
   MergeLocalsForwardProfile
   MergeLocalsForwardMultipleProfile

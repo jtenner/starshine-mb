@@ -832,6 +832,14 @@ pub enum GenValidProfile {
   CoalesceLocalsStraightLineProfile
   CoalesceLocalsStructuredProfile
   CoalesceLocalsLoopCopyThroughProfile
+  CoalesceLocalsEntryValuesProfile
+  CoalesceLocalsCopyPreferenceProfile
+  CoalesceLocalsTeeCopiesProfile
+  CoalesceLocalsInterBlockProfile
+  CoalesceLocalsUnreachableProfile
+  CoalesceLocalsLegacyEhProfile
+  CoalesceLocalsLargeUnusedProfile
+  CoalesceLocalsExactTypesProfile
   CoalesceLocalsAllProfile
   MergeLocalsForwardProfile
   MergeLocalsForwardMultipleProfile
@@ -1189,6 +1197,14 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CoalesceLocalsStraightLineProfile => "coalesce-locals-straight-line"
     CoalesceLocalsStructuredProfile => "coalesce-locals-structured"
     CoalesceLocalsLoopCopyThroughProfile => "coalesce-locals-loop-copy-through"
+    CoalesceLocalsEntryValuesProfile => "coalesce-locals-entry-values"
+    CoalesceLocalsCopyPreferenceProfile => "coalesce-locals-copy-preference"
+    CoalesceLocalsTeeCopiesProfile => "coalesce-locals-tee-copies"
+    CoalesceLocalsInterBlockProfile => "coalesce-locals-inter-block"
+    CoalesceLocalsUnreachableProfile => "coalesce-locals-unreachable"
+    CoalesceLocalsLegacyEhProfile => "coalesce-locals-legacy-eh"
+    CoalesceLocalsLargeUnusedProfile => "coalesce-locals-large-unused"
+    CoalesceLocalsExactTypesProfile => "coalesce-locals-exact-types"
     CoalesceLocalsAllProfile => "coalesce-locals-all"
     MergeLocalsForwardProfile => "merge-locals-forward"
     MergeLocalsForwardMultipleProfile => "merge-locals-forward-multiple"
@@ -1566,6 +1582,14 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CoalesceLocalsStraightLineProfile, 3),
         GenValidProfileMember::new(CoalesceLocalsStructuredProfile, 2),
         GenValidProfileMember::new(CoalesceLocalsLoopCopyThroughProfile, 2),
+        GenValidProfileMember::new(CoalesceLocalsEntryValuesProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsCopyPreferenceProfile, 2),
+        GenValidProfileMember::new(CoalesceLocalsTeeCopiesProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsInterBlockProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsUnreachableProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsLegacyEhProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsLargeUnusedProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsExactTypesProfile, 1),
       ]
     MergeLocalsAllProfile =>
       [
@@ -2016,6 +2040,14 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CoalesceLocalsStraightLineProfile,
     CoalesceLocalsStructuredProfile,
     CoalesceLocalsLoopCopyThroughProfile,
+    CoalesceLocalsEntryValuesProfile,
+    CoalesceLocalsCopyPreferenceProfile,
+    CoalesceLocalsTeeCopiesProfile,
+    CoalesceLocalsInterBlockProfile,
+    CoalesceLocalsUnreachableProfile,
+    CoalesceLocalsLegacyEhProfile,
+    CoalesceLocalsLargeUnusedProfile,
+    CoalesceLocalsExactTypesProfile,
     CoalesceLocalsAllProfile,
     MergeLocalsForwardProfile,
     MergeLocalsForwardMultipleProfile,
@@ -4797,7 +4829,15 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       )
     CoalesceLocalsStraightLineProfile
     | CoalesceLocalsStructuredProfile
-    | CoalesceLocalsLoopCopyThroughProfile =>
+    | CoalesceLocalsLoopCopyThroughProfile
+    | CoalesceLocalsEntryValuesProfile
+    | CoalesceLocalsCopyPreferenceProfile
+    | CoalesceLocalsTeeCopiesProfile
+    | CoalesceLocalsInterBlockProfile
+    | CoalesceLocalsUnreachableProfile
+    | CoalesceLocalsLegacyEhProfile
+    | CoalesceLocalsLargeUnusedProfile
+    | CoalesceLocalsExactTypesProfile =>
       gen_valid_coalesce_locals_profile_config(profile)
     CoalesceLocalsAllProfile =>
       gen_valid_coalesce_locals_profile_config(
@@ -6491,40 +6531,70 @@ fn gen_valid_coalesce_locals_profile_config(
 ) -> GenValidConfig {
   let base = GenValidConfig::coverage_forced_default()
   let max_body_depth = match profile {
-    CoalesceLocalsLoopCopyThroughProfile => 3
+    CoalesceLocalsStraightLineProfile => 1
     CoalesceLocalsStructuredProfile => 2
+    CoalesceLocalsLoopCopyThroughProfile => 3
+    CoalesceLocalsEntryValuesProfile => 4
+    CoalesceLocalsCopyPreferenceProfile => 5
+    CoalesceLocalsTeeCopiesProfile => 6
+    CoalesceLocalsInterBlockProfile => 7
+    CoalesceLocalsUnreachableProfile => 8
+    CoalesceLocalsLegacyEhProfile => 9
+    CoalesceLocalsLargeUnusedProfile => 10
+    CoalesceLocalsExactTypesProfile => 11
     _ => 1
   }
+  let legacy_eh = profile == CoalesceLocalsLegacyEhProfile
   GenValidConfig::{
     ..base,
-    max_type_defs: 0,
+    max_type_defs: if legacy_eh {
+      1
+    } else {
+      0
+    },
     max_imports: 0,
     max_defined_funcs: 1,
     max_tables: 0,
-    max_mems: 0,
+    max_mems: if profile == CoalesceLocalsUnreachableProfile {
+      1
+    } else {
+      0
+    },
     max_globals: 0,
-    max_tags: 0,
+    max_tags: if legacy_eh {
+      1
+    } else {
+      0
+    },
     max_elems: 0,
     max_datas: 0,
     max_params: 0,
     max_results: 0,
-    max_locals: 4,
+    max_locals: if profile == CoalesceLocalsLargeUnusedProfile {
+      64
+    } else {
+      4
+    },
     max_body_statements: 0,
     max_body_depth,
     features: GenValidFeatureToggles::{
       ..base.features,
       allow_imports: false,
       allow_tables: false,
-      allow_mems: false,
+      allow_mems: profile == CoalesceLocalsUnreachableProfile,
       allow_globals: false,
-      allow_tags: false,
+      allow_tags: legacy_eh,
       allow_elems: false,
       allow_datas: false,
       allow_ref_types: false,
       allow_calls: false,
       allow_call_indirect: false,
       allow_tail_calls: false,
-      allow_branch_heavy_control: profile != CoalesceLocalsStraightLineProfile,
+      allow_branch_heavy_control: profile != CoalesceLocalsStraightLineProfile &&
+      profile != CoalesceLocalsCopyPreferenceProfile &&
+      profile != CoalesceLocalsTeeCopiesProfile &&
+      profile != CoalesceLocalsLargeUnusedProfile &&
+      profile != CoalesceLocalsExactTypesProfile,
       allow_v128: false,
       allow_relaxed_simd: false,
       allow_atomics: false,
@@ -8516,7 +8586,15 @@ fn gen_valid_is_local_subtyping_family_config(config : GenValidConfig) -> Bool {
 fn gen_valid_is_coalesce_locals_family_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(CoalesceLocalsStraightLineProfile) ||
   config == GenValidConfig::for_profile(CoalesceLocalsStructuredProfile) ||
-  config == GenValidConfig::for_profile(CoalesceLocalsLoopCopyThroughProfile)
+  config == GenValidConfig::for_profile(CoalesceLocalsLoopCopyThroughProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsEntryValuesProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsCopyPreferenceProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsTeeCopiesProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsInterBlockProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsUnreachableProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsLegacyEhProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsLargeUnusedProfile) ||
+  config == GenValidConfig::for_profile(CoalesceLocalsExactTypesProfile)
 }
 
 ///|
@@ -11652,11 +11730,22 @@ fn gen_valid_ensure_body_layout_locals(
   }
   if ctx.config.mode == CoverageForced &&
     gen_valid_is_coalesce_locals_family_config(ctx.config) {
-    while locals.length() < 4 {
+    let required = if ctx.config ==
+      GenValidConfig::for_profile(CoalesceLocalsLargeUnusedProfile) {
+      64
+    } else {
+      4
+    }
+    while locals.length() < required {
       locals.push(ValType::i32())
     }
-    for i = 0; i < 4; i = i + 1 {
+    for i = 0; i < required; i = i + 1 {
       locals[i] = ValType::i32()
+    }
+    if ctx.config ==
+      GenValidConfig::for_profile(CoalesceLocalsExactTypesProfile) {
+      locals[1] = ValType::f64()
+      locals[3] = ValType::f64()
     }
   }
   if ctx.config.mode == CoverageForced &&
@@ -17781,7 +17870,15 @@ fn gen_valid_append_coalesce_locals_body_slice(
   ctx : GenValidContext,
   env : GenValidBodyEnv,
 ) -> Unit {
-  if !gen_valid_coalesce_locals_has_i32_prefix(env, 4) {
+  let exact_types = ctx.config ==
+    GenValidConfig::for_profile(CoalesceLocalsExactTypesProfile)
+  if exact_types {
+    if env.local_types.length() < 4 ||
+      env.local_types[0] != ValType::i32() ||
+      env.local_types[1] != ValType::f64() {
+      return
+    }
+  } else if !gen_valid_coalesce_locals_has_i32_prefix(env, 4) {
     return
   }
   let l0 = LocalIdx::new(0U)
@@ -17822,6 +17919,94 @@ fn gen_valid_append_coalesce_locals_body_slice(
     )
     out.push(Instruction::local_get(l1))
     out.push(Instruction::drop())
+  } else if ctx.config ==
+    GenValidConfig::for_profile(CoalesceLocalsEntryValuesProfile) {
+    out.append([
+      Instruction::i32_const(I32(0)),
+      Instruction::local_set(l0),
+      Instruction::local_get(l0),
+      Instruction::drop(),
+      Instruction::local_get(l1),
+      Instruction::drop(),
+    ])
+  } else if ctx.config ==
+    GenValidConfig::for_profile(CoalesceLocalsCopyPreferenceProfile) {
+    out.append([
+      Instruction::i32_const(I32(31)),
+      Instruction::local_set(l0),
+      Instruction::local_get(l0),
+      Instruction::local_set(l1),
+      Instruction::i32_const(I32(7)),
+      Instruction::drop(),
+      Instruction::local_get(l1),
+      Instruction::local_set(l2),
+      Instruction::local_get(l2),
+      Instruction::drop(),
+    ])
+  } else if ctx.config ==
+    GenValidConfig::for_profile(CoalesceLocalsTeeCopiesProfile) {
+    out.append([
+      Instruction::i32_const(I32(41)),
+      Instruction::local_tee(l0),
+      Instruction::drop(),
+      Instruction::local_get(l0),
+      Instruction::local_tee(l1),
+      Instruction::drop(),
+      Instruction::local_get(l1),
+      Instruction::drop(),
+    ])
+  } else if ctx.config ==
+    GenValidConfig::for_profile(CoalesceLocalsInterBlockProfile) {
+    out.push(Instruction::i32_const(I32(51)))
+    out.push(Instruction::local_set(l0))
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([Instruction::local_get(l0), Instruction::local_set(l1)]),
+      ),
+    )
+    out.push(Instruction::local_get(l1))
+    out.push(Instruction::drop())
+  } else if ctx.config ==
+    GenValidConfig::for_profile(CoalesceLocalsUnreachableProfile) {
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::unreachable_(),
+          Instruction::local_get(l0),
+          Instruction::i32_const(I32(0)),
+          Instruction::local_tee(l0),
+          Instruction::i32_store(MemArg::new(2U, None, 0UL)),
+        ]),
+      ),
+    )
+  } else if ctx.config ==
+    GenValidConfig::for_profile(CoalesceLocalsLegacyEhProfile) {
+    out.push(
+      Instruction::try_(
+        BlockType::void_(),
+        Expr::new([Instruction::unreachable_()]),
+        [
+          @lib.LegacyCatch::all(
+            Expr::new([Instruction::local_get(l0), Instruction::local_set(l1)]),
+          ),
+        ],
+      ),
+    )
+    out.push(Instruction::local_get(l1))
+    out.push(Instruction::drop())
+  } else if ctx.config ==
+    GenValidConfig::for_profile(CoalesceLocalsLargeUnusedProfile) {
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  } else if exact_types {
+    out.append([
+      Instruction::local_get(l0),
+      Instruction::drop(),
+      Instruction::local_get(l1),
+      Instruction::drop(),
+    ])
   } else {
     out.push(Instruction::i32_const(I32(17)))
     out.push(Instruction::local_set(l0))

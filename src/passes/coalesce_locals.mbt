@@ -161,7 +161,7 @@ fn cl_value_source_before(
     return CLValueSource::Unique
   }
   match instrs[idx - 1] {
-    @lib.LocalGet(local_idx) =>
+    @lib.LocalGet(local_idx) | @lib.LocalTee(local_idx) =>
       CLValueSource::Local(cl_local_idx_raw(local_idx))
     other =>
       match cl_simple_const_source(other) {
@@ -186,15 +186,16 @@ fn cl_instr_is_terminal(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn cl_br_table_all_nonlocal(
+fn cl_br_table_all_past_depth(
   labels : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
+  boundary_depth : Int,
 ) -> Bool {
-  if cl_label_idx_raw(default_label) <= 0 {
+  if cl_label_idx_raw(default_label) <= boundary_depth {
     return false
   }
   for label in labels {
-    if cl_label_idx_raw(label) <= 0 {
+    if cl_label_idx_raw(label) <= boundary_depth {
       return false
     }
   }
@@ -202,41 +203,49 @@ fn cl_br_table_all_nonlocal(
 }
 
 ///|
-fn cl_instrs_end_in_nonlocal_escape(instrs : Array[@lib.Instruction]) -> Bool {
-  if instrs.length() == 0 {
-    return false
-  }
-  cl_instr_escapes_following_sibling(instrs[instrs.length() - 1])
-}
-
-///|
-fn cl_instrs_end_in_unreachable(instrs : Array[@lib.Instruction]) -> Bool {
-  if instrs.length() == 0 {
-    return false
-  }
-  match instrs[instrs.length() - 1] {
-    @lib.Unreachable => true
-    _ => false
-  }
-}
-
-///|
-fn cl_instr_escapes_following_sibling(instr : @lib.Instruction) -> Bool {
+fn cl_instr_escapes_past_depth(
+  instr : @lib.Instruction,
+  boundary_depth : Int,
+) -> Bool {
   if cl_instr_is_terminal(instr) {
     return true
   }
   match instr {
-    @lib.Br(label_idx) => cl_label_idx_raw(label_idx) > 0
+    @lib.Br(label_idx) => cl_label_idx_raw(label_idx) > boundary_depth
     @lib.BrTable(labels, default_label) =>
-      cl_br_table_all_nonlocal(labels, default_label)
-    @lib.Block(_, @lib.Expr(body)) => cl_instrs_end_in_nonlocal_escape(body)
+      cl_br_table_all_past_depth(labels, default_label, boundary_depth)
+    @lib.Block(_, @lib.Expr(body)) =>
+      cl_instrs_end_in_escape_past_depth(body, boundary_depth + 1)
     @lib.If(_, then_body, Some(else_body)) =>
-      cl_instrs_end_in_nonlocal_escape(then_body) &&
-      cl_instrs_end_in_nonlocal_escape(else_body)
+      cl_instrs_end_in_escape_past_depth(then_body, boundary_depth + 1) &&
+      cl_instrs_end_in_escape_past_depth(else_body, boundary_depth + 1)
     @lib.TryTable(_, _, @lib.Expr(body)) =>
-      cl_instrs_end_in_nonlocal_escape(body)
+      cl_instrs_end_in_escape_past_depth(body, boundary_depth + 1)
     _ => false
   }
+}
+
+///|
+fn cl_instrs_end_in_escape_past_depth(
+  instrs : Array[@lib.Instruction],
+  boundary_depth : Int,
+) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  let last_idx = instrs.length() - 1
+  // ReFinalize-style cleanup keeps an unreachable sentinel after a control
+  // transfer when an enclosing typed region still needs stack polymorphism.
+  // Look through that dead sentinel when deciding which enclosing label the
+  // transfer actually escapes; otherwise a branch to the current block is
+  // mistaken for a trap that escapes its parent as well.
+  if last_idx > 0 && instrs[last_idx] == @lib.Instruction::unreachable_() {
+    let previous = instrs[last_idx - 1]
+    if cl_instr_never_falls_through(previous) {
+      return cl_instr_escapes_past_depth(previous, boundary_depth)
+    }
+  }
+  cl_instr_escapes_past_depth(instrs[last_idx], boundary_depth)
 }
 
 ///|
@@ -246,22 +255,13 @@ fn cl_instr_never_falls_through(instr : @lib.Instruction) -> Bool {
   }
   match instr {
     @lib.Br(_) | @lib.BrTable(_, _) => true
-    @lib.Block(_, @lib.Expr(body)) => cl_instrs_end_in_nonlocal_escape(body)
+    @lib.Block(_, @lib.Expr(body)) =>
+      cl_instrs_end_in_escape_past_depth(body, 0)
     @lib.If(_, then_body, Some(else_body)) =>
-      cl_instr_escapes_following_sibling(
-        @lib.Instruction::block(
-          @lib.BlockType::void_(),
-          @lib.Expr::new(then_body),
-        ),
-      ) &&
-      cl_instr_escapes_following_sibling(
-        @lib.Instruction::block(
-          @lib.BlockType::void_(),
-          @lib.Expr::new(else_body),
-        ),
-      )
+      cl_instrs_end_in_escape_past_depth(then_body, 0) &&
+      cl_instrs_end_in_escape_past_depth(else_body, 0)
     @lib.TryTable(_, _, @lib.Expr(body)) =>
-      cl_instrs_end_in_nonlocal_escape(body)
+      cl_instrs_end_in_escape_past_depth(body, 0)
     _ => false
   }
 }
@@ -344,6 +344,16 @@ fn cl_mark_syntactic_local_accesses(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         cl_mark_syntactic_local_accesses(body, accessed, read)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        cl_mark_syntactic_local_accesses(body, accessed, read)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              cl_mark_syntactic_local_accesses(catch_body, accessed, read)
+          }
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         cl_mark_syntactic_local_accesses(then_body, accessed, read)
         match else_body {
@@ -382,6 +392,16 @@ fn cl_count_syntactic_local_accesses(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         cl_count_syntactic_local_accesses(body, gets, sets, tees)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        cl_count_syntactic_local_accesses(body, gets, sets, tees)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              cl_count_syntactic_local_accesses(catch_body, gets, sets, tees)
+          }
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         cl_count_syntactic_local_accesses(then_body, gets, sets, tees)
         match else_body {
@@ -532,6 +552,239 @@ fn cl_mark_loop_adjacent_copy_through_locals(
 }
 
 ///|
+fn cl_mark_loop_backedge_copy_aliases(
+  instrs : Array[@lib.Instruction],
+  passthrough_dest : Array[Int],
+  types : Array[@lib.ValType],
+  param_count : Int,
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(_, @lib.Expr(body)) => {
+        if body.length() >= 3 {
+          let tail = body.length() - 3
+          match (body[tail], body[tail + 1], body[tail + 2]) {
+            (
+              @lib.LocalGet(source_idx),
+              @lib.LocalSet(dest_idx),
+              @lib.Br(label_idx),
+            ) => {
+              let source = cl_local_idx_raw(source_idx)
+              let dest = cl_local_idx_raw(dest_idx)
+              if cl_label_idx_raw(label_idx) == 0 &&
+                source >= param_count &&
+                source < types.length() &&
+                dest >= param_count &&
+                dest < types.length() &&
+                source != dest &&
+                types[source] == types[dest] &&
+                passthrough_dest[dest] < 0 {
+                let mut source_write = -1
+                for idx = 0; idx < tail; idx = idx + 1 {
+                  match body[idx] {
+                    @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) =>
+                      if source_write < 0 &&
+                        cl_local_idx_raw(local_idx) == source {
+                        source_write = idx
+                      }
+                    _ => ()
+                  }
+                }
+                if source_write >= 0 {
+                  let mut safe = true
+                  for idx = 0; idx < source_write; idx = idx + 1 {
+                    if cl_instr_tree_accesses_local(body[idx], source) {
+                      safe = false
+                    }
+                  }
+                  for idx = source_write + 1; idx < tail; idx = idx + 1 {
+                    if cl_instr_tree_accesses_local(body[idx], dest) {
+                      safe = false
+                    }
+                  }
+                  if safe {
+                    // Delay the earlier destination's slot assignment until
+                    // the backedge source has been assigned. Both then reuse
+                    // the source slot and the tail copy becomes a nop.
+                    passthrough_dest[dest] = source
+                  }
+                }
+              }
+            }
+            _ => ()
+          }
+        }
+        cl_mark_loop_backedge_copy_aliases(
+          body, passthrough_dest, types, param_count,
+        )
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        cl_mark_loop_backedge_copy_aliases(
+          body, passthrough_dest, types, param_count,
+        )
+      @lib.If(_, then_body, else_body) => {
+        cl_mark_loop_backedge_copy_aliases(
+          then_body, passthrough_dest, types, param_count,
+        )
+        match else_body {
+          Some(body) =>
+            cl_mark_loop_backedge_copy_aliases(
+              body, passthrough_dest, types, param_count,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn cl_instrs_write_local(
+  instrs : Array[@lib.Instruction],
+  target : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) =>
+        if cl_local_idx_raw(local_idx) == target {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_write_local(body, target) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_write_local(then_body, target) {
+          return true
+        }
+        match else_body {
+          Some(body) => if cl_instrs_write_local(body, target) { return true }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if cl_instrs_write_local(body, target) {
+          return true
+        }
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              if cl_instrs_write_local(catch_body, target) {
+                return true
+              }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cl_instrs_suffix_writes_local(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  target : Int,
+) -> Bool {
+  for idx = start; idx < instrs.length(); idx = idx + 1 {
+    if cl_instrs_write_local([instrs[idx]], target) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cl_mark_loop_prefix_copy_aliases(
+  instrs : Array[@lib.Instruction],
+  alias_source : Array[Int],
+  sets : Array[Int],
+  tees : Array[Int],
+  types : Array[@lib.ValType],
+) -> Unit {
+  let seen = Array::make(types.length(), false)
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _) => return
+      @lib.LocalGet(source_idx) if idx + 1 < instrs.length() => {
+        let source = cl_local_idx_raw(source_idx)
+        match instrs[idx + 1] {
+          @lib.LocalSet(dest_idx) => {
+            let dest = cl_local_idx_raw(dest_idx)
+            if source >= 0 &&
+              source < types.length() &&
+              dest >= 0 &&
+              dest < types.length() &&
+              source != dest &&
+              !seen[dest] &&
+              types[source] == types[dest] &&
+              !cl_instrs_suffix_writes_local(instrs, idx + 2, source) &&
+              sets[dest] == 1 &&
+              tees[dest] == 0 {
+              alias_source[dest] = source
+            }
+            if source >= 0 && source < seen.length() {
+              seen[source] = true
+            }
+            if dest >= 0 && dest < seen.length() {
+              seen[dest] = true
+            }
+            idx += 1
+          }
+          _ => if source >= 0 && source < seen.length() { seen[source] = true }
+        }
+      }
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) => {
+        let raw = cl_local_idx_raw(local_idx)
+        if raw >= 0 && raw < seen.length() {
+          seen[raw] = true
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+}
+
+///|
+fn cl_resolve_loop_alias_source(
+  local_idx : Int,
+  alias_source : Array[Int],
+) -> Int {
+  let mut current = local_idx
+  let mut steps = 0
+  while current >= 0 &&
+        current < alias_source.length() &&
+        alias_source[current] >= 0 &&
+        steps < alias_source.length() {
+    let next = alias_source[current]
+    if next == current {
+      return local_idx
+    }
+    current = next
+    steps += 1
+  }
+  if steps >= alias_source.length() {
+    local_idx
+  } else {
+    current
+  }
+}
+
+///|
 fn cl_resolve_loop_passthrough_dest(
   local_idx : Int,
   passthrough_dest : Array[Int],
@@ -570,14 +823,24 @@ fn cl_rewrite_loop_func_unused_locals(
   let sets = Array::make(total_locals, 0)
   let tees = Array::make(total_locals, 0)
   let passthrough_dest = Array::make(total_locals, -1)
+  let alias_source = Array::make(total_locals, -1)
   cl_mark_syntactic_local_accesses(original_instrs, accessed, read)
   cl_count_syntactic_local_accesses(original_instrs, gets, sets, tees)
+  cl_mark_loop_prefix_copy_aliases(
+    original_instrs, alias_source, sets, tees, types,
+  )
   cl_mark_loop_adjacent_copy_through_locals(
     original_instrs,
     passthrough_dest,
     gets,
     sets,
     tees,
+    types,
+    params.length(),
+  )
+  cl_mark_loop_backedge_copy_aliases(
+    original_instrs,
+    passthrough_dest,
     types,
     params.length(),
   )
@@ -590,8 +853,14 @@ fn cl_rewrite_loop_func_unused_locals(
   let mut changed = false
   for idx = params.length(); idx < total_locals; idx = idx + 1 {
     let ty = types[idx]
+    let source_alias = cl_resolve_loop_alias_source(idx, alias_source)
     let passthrough = cl_resolve_loop_passthrough_dest(idx, passthrough_dest)
-    if passthrough != idx && types[passthrough] == ty {
+    if source_alias != idx &&
+      types[source_alias] == ty &&
+      old_to_new[source_alias] >= 0 {
+      old_to_new[idx] = old_to_new[source_alias]
+      changed = true
+    } else if passthrough != idx && types[passthrough] == ty {
       continue
     } else if read[idx] {
       let next_idx = slot_types.length()
@@ -669,15 +938,35 @@ fn cl_rewrite_loop_func_unused_locals(
     body_slot_types.push(slot_types[slot])
   }
   let rewritten_locals = @lib.Locals::from_types(body_slot_types)
-  if !changed && rewritten_locals == body_locals {
-    return { func, changed: false }
-  }
   let rewritten_instrs = original_instrs.copy()
   cl_rewrite_all_local_idxs_in_place(rewritten_instrs, old_to_new)
+  let flattened_control = cl_flatten_terminal_unbranched_void_blocks(
+    rewritten_instrs,
+  )
+  let rewritten_gets = Array::make(
+    params.length() + body_slot_types.length(),
+    0,
+  )
+  let rewritten_sets = Array::make(rewritten_gets.length(), 0)
+  let rewritten_tees = Array::make(rewritten_gets.length(), 0)
+  cl_count_syntactic_local_accesses(
+    rewritten_instrs, rewritten_gets, rewritten_sets, rewritten_tees,
+  )
+  let unread_tee_changed = cl_remove_unread_local_tees(
+    rewritten_instrs, rewritten_gets,
+  )
   let cleanup_changed = cl_remove_redundant_copy_pairs(rewritten_instrs)
-  {
-    func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
-    changed: changed || cleanup_changed,
+  let did_change = changed ||
+    flattened_control ||
+    unread_tee_changed ||
+    cleanup_changed
+  if !did_change && rewritten_locals == body_locals {
+    { func, changed: false }
+  } else {
+    {
+      func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
+      changed: true,
+    }
   }
 }
 
@@ -705,6 +994,32 @@ fn cl_rewrite_all_local_idxs_in_place(
         }
         instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
       }
+      @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+        cl_rewrite_all_local_idxs_in_place(body, old_to_new)
+        let rewritten_catches : Array[@lib.LegacyCatch] = []
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
+              cl_rewrite_all_local_idxs_in_place(catch_body, old_to_new)
+              rewritten_catches.push(
+                @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(catch_body)),
+              )
+            }
+            @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+              cl_rewrite_all_local_idxs_in_place(catch_body, old_to_new)
+              rewritten_catches.push(
+                @lib.LegacyCatch::all(@lib.Expr::new(catch_body)),
+              )
+            }
+          }
+        }
+        instrs[idx] = @lib.Instruction::try_(
+          block_type,
+          @lib.Expr::new(body),
+          rewritten_catches,
+          delegate~,
+        )
+      }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         cl_rewrite_all_local_idxs_in_place(body, old_to_new)
         instrs[idx] = @lib.Instruction::try_table(
@@ -728,6 +1043,89 @@ fn cl_rewrite_all_local_idxs_in_place(
       _ => ()
     }
   }
+}
+
+///|
+fn cl_remove_unread_local_tees(
+  instrs : Array[@lib.Instruction],
+  gets : Array[Int],
+) -> Bool {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    let instr = instrs[idx]
+    let mut rewritten = instr
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        changed = cl_remove_unread_local_tees(body, gets) || changed
+        rewritten = @lib.Instruction::block(block_type, @lib.Expr::new(body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        changed = cl_remove_unread_local_tees(body, gets) || changed
+        rewritten = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        changed = cl_remove_unread_local_tees(then_body, gets) || changed
+        match else_body {
+          Some(body) =>
+            changed = cl_remove_unread_local_tees(body, gets) || changed
+          None => ()
+        }
+        rewritten = @lib.Instruction::if_(block_type, then_body, else_body)
+      }
+      @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+        changed = cl_remove_unread_local_tees(body, gets) || changed
+        let rewritten_catches : Array[@lib.LegacyCatch] = []
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
+              changed = cl_remove_unread_local_tees(catch_body, gets) || changed
+              rewritten_catches.push(
+                @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(catch_body)),
+              )
+            }
+            @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+              changed = cl_remove_unread_local_tees(catch_body, gets) || changed
+              rewritten_catches.push(
+                @lib.LegacyCatch::all(@lib.Expr::new(catch_body)),
+              )
+            }
+          }
+        }
+        rewritten = @lib.Instruction::try_(
+          block_type,
+          @lib.Expr::new(body),
+          rewritten_catches,
+          delegate~,
+        )
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        changed = cl_remove_unread_local_tees(body, gets) || changed
+        rewritten = @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(body),
+        )
+      }
+      @lib.LocalTee(local_idx) => {
+        let raw = cl_local_idx_raw(local_idx)
+        if raw >= 0 && raw < gets.length() && gets[raw] == 0 {
+          changed = true
+          idx += 1
+          continue
+        }
+      }
+      _ => ()
+    }
+    out.push(rewritten)
+    idx += 1
+  }
+  if changed {
+    instrs.clear()
+    instrs.append(out)
+  }
+  changed
 }
 
 ///|
@@ -787,6 +1185,12 @@ fn cl_rewrite_func_structured_conservative(
     params.length(),
     interferences,
   )
+  cl_remove_same_source_fanout_interferences(
+    original_instrs,
+    types,
+    params.length(),
+    interferences,
+  )
   cl_remove_tail_reuse_interferences(
     original_instrs,
     actions,
@@ -801,9 +1205,13 @@ fn cl_rewrite_func_structured_conservative(
     params.length(),
     interferences,
   )
-  let preferred = cl_preferred_compaction_flags(
-    original_instrs, actions, total_locals,
+  cl_remove_read_only_default_interferences(
+    actions,
+    types,
+    params.length(),
+    interferences,
   )
+  let preferred = cl_preferred_compaction_flags(original_instrs, actions, types)
   let retained_copy_destinations = cl_retained_copy_destination_flags(
     actions,
     types,
@@ -832,16 +1240,40 @@ fn cl_rewrite_func_structured_conservative(
     rewrite_liveness.effective,
     [0],
   )
+  let ineffective_tee_changed = cl_remove_ineffective_tees(
+    rewritten_instrs,
+    original_instrs,
+    rewrite_liveness.effective,
+    [0],
+  )
+  let rewritten_total_locals = params.length() + coloring.slot_types.length()
+  let rewritten_gets = Array::make(rewritten_total_locals, 0)
+  let rewritten_sets = Array::make(rewritten_total_locals, 0)
+  let rewritten_tees = Array::make(rewritten_total_locals, 0)
+  cl_count_syntactic_local_accesses(
+    rewritten_instrs, rewritten_gets, rewritten_sets, rewritten_tees,
+  )
+  let rewritten_writes = Array::make(rewritten_total_locals, 0)
+  for local_idx = 0
+      local_idx < rewritten_total_locals
+      local_idx = local_idx + 1 {
+    rewritten_writes[local_idx] = rewritten_sets[local_idx] +
+      rewritten_tees[local_idx]
+  }
+  let dropped_default_get_changed = cl_remove_dropped_immutable_gets(
+    rewritten_instrs, rewritten_writes,
+  )
   let flattened_terminal_blocks = cl_flatten_terminal_unbranched_void_blocks(
     rewritten_instrs,
   )
-  let dead_tail_changed = if flattened_terminal_blocks {
-    cl_truncate_dead_tails(rewritten_instrs)
-  } else {
-    false
-  }
+  // ReFinalize-style block cleanup must not turn a nested local rewrite into
+  // whole-function dead-tail elimination. Binaryen's direct coalesce-locals
+  // pass preserves unrelated top-level control debris in broad modules.
+  let dead_tail_changed = false
   let cleanup_changed = cl_remove_redundant_copy_pairs(rewritten_instrs)
   let changed = cleanup_changed ||
+    ineffective_tee_changed ||
+    dropped_default_get_changed ||
     flattened_terminal_blocks ||
     dead_tail_changed ||
     rewritten_instrs != original_instrs ||
@@ -850,10 +1282,17 @@ fn cl_rewrite_func_structured_conservative(
   if !changed {
     return { func, changed: false }
   }
-  {
-    func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
-    changed: true,
+  let candidate = @lib.Func::new(
+    rewritten_locals,
+    @lib.Expr::new(rewritten_instrs),
+  )
+  if dropped_default_get_changed {
+    match cl_rewrite_all_unused_func(candidate, params) {
+      Some(rewrite) if rewrite.changed => return rewrite
+      _ => ()
+    }
   }
+  { func: candidate, changed: true }
 }
 
 ///|
@@ -1347,6 +1786,122 @@ fn cl_copy_weight_reaches(
     }
   }
   false
+}
+
+///|
+fn cl_instr_tree_accesses_local(
+  instr : @lib.Instruction,
+  local_idx : Int,
+) -> Bool {
+  if cl_instr_accesses_local(instr, local_idx) {
+    return true
+  }
+  match instr {
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      for child in body {
+        if cl_instr_tree_accesses_local(child, local_idx) {
+          return true
+        }
+      }
+    @lib.If(_, then_body, else_body) => {
+      for child in then_body {
+        if cl_instr_tree_accesses_local(child, local_idx) {
+          return true
+        }
+      }
+      match else_body {
+        Some(body) =>
+          for child in body {
+            if cl_instr_tree_accesses_local(child, local_idx) {
+              return true
+            }
+          }
+        None => ()
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      for child in body {
+        if cl_instr_tree_accesses_local(child, local_idx) {
+          return true
+        }
+      }
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+            for child in catch_body {
+              if cl_instr_tree_accesses_local(child, local_idx) {
+                return true
+              }
+            }
+        }
+      }
+    }
+    _ => ()
+  }
+  false
+}
+
+///|
+fn cl_remove_same_source_fanout_interferences(
+  instrs : Array[@lib.Instruction],
+  types : Array[@lib.ValType],
+  param_count : Int,
+  interferences : Array[Array[Bool]],
+) -> Unit {
+  let gets = Array::make(types.length(), 0)
+  let sets = Array::make(types.length(), 0)
+  let tees = Array::make(types.length(), 0)
+  cl_count_syntactic_local_accesses(instrs, gets, sets, tees)
+  for source = param_count; source < types.length(); source = source + 1 {
+    let destinations : Array[Int] = []
+    for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalGet(source_idx), @lib.LocalSet(dest_idx)) => {
+          if cl_local_idx_raw(source_idx) != source {
+            continue
+          }
+          let dest = cl_local_idx_raw(dest_idx)
+          if dest < param_count ||
+            dest >= types.length() ||
+            dest == source ||
+            types[dest] != types[source] ||
+            sets[dest] != 1 ||
+            tees[dest] != 0 ||
+            cl_instrs_suffix_writes_local(instrs, idx + 2, source) {
+            continue
+          }
+          let mut accessed_before_copy = false
+          for before = 0; before < idx; before = before + 1 {
+            if cl_instr_tree_accesses_local(instrs[before], dest) {
+              accessed_before_copy = true
+            }
+          }
+          if !accessed_before_copy {
+            destinations.push(dest)
+          }
+        }
+        _ => ()
+      }
+    }
+    if destinations.length() < 2 {
+      continue
+    }
+    for dest in destinations {
+      interferences[source][dest] = false
+      interferences[dest][source] = false
+    }
+    for lhs = 0; lhs < destinations.length(); lhs = lhs + 1 {
+      for rhs = lhs + 1; rhs < destinations.length(); rhs = rhs + 1 {
+        let left = destinations[lhs]
+        let right = destinations[rhs]
+        interferences[left][right] = false
+        interferences[right][left] = false
+      }
+    }
+  }
 }
 
 ///|
@@ -2051,6 +2606,28 @@ fn cl_remove_safe_consume_forward_interferences(
 }
 
 ///|
+fn cl_source_is_explicit_default(
+  source : CLValueSource,
+  ty : @lib.ValType,
+) -> Bool {
+  match source {
+    CLValueSource::Const(key) =>
+      if ty == @lib.ValType::i32() {
+        key == @debug.to_string(@lib.Instruction::i32_const(@lib.I32(0)))
+      } else if ty == @lib.ValType::i64() {
+        key == @debug.to_string(@lib.Instruction::i64_const(@lib.I64(0L)))
+      } else if ty == @lib.ValType::f32() {
+        key == @debug.to_string(@lib.Instruction::f32_const(0.0))
+      } else if ty == @lib.ValType::f64() {
+        key == @debug.to_string(@lib.Instruction::f64_const(0.0))
+      } else {
+        false
+      }
+    _ => false
+  }
+}
+
+///|
 fn cl_initial_value(
   interner : CLValueInterner,
   idx : Int,
@@ -2166,11 +2743,16 @@ fn cl_compute_interferences(
         }
       }
       CLActionKind::Set | CLActionKind::Tee => {
-        let new_value = cl_value_for_source(
-          action.source,
-          current_values,
-          interner,
-        )
+        let new_value = if cl_source_is_explicit_default(
+            action.source,
+            types[action.local_idx],
+          ) {
+          interner.intern(
+            "default:\{@debug.to_string(types[action.local_idx])}",
+          )
+        } else {
+          cl_value_for_source(action.source, current_values, interner)
+        }
         if liveness.effective[action_idx] {
           if live_count > 0 {
             for other = 0; other < total_locals; other = other + 1 {
@@ -2196,6 +2778,76 @@ fn cl_compute_interferences(
     }
   }
   interferences
+}
+
+///|
+fn cl_remove_read_only_default_interferences(
+  actions : Array[CLAction],
+  types : Array[@lib.ValType],
+  param_count : Int,
+  interferences : Array[Array[Bool]],
+) -> Unit {
+  let gets = Array::make(types.length(), 0)
+  let writes = Array::make(types.length(), 0)
+  for action in actions {
+    match action.kind {
+      CLActionKind::Get => gets[action.local_idx] += 1
+      CLActionKind::Set | CLActionKind::Tee => writes[action.local_idx] += 1
+    }
+  }
+  for lhs = param_count; lhs < types.length(); lhs = lhs + 1 {
+    if gets[lhs] == 0 || writes[lhs] != 0 {
+      continue
+    }
+    for rhs = lhs + 1; rhs < types.length(); rhs = rhs + 1 {
+      if gets[rhs] > 0 && writes[rhs] == 0 && types[lhs] == types[rhs] {
+        interferences[lhs][rhs] = false
+        interferences[rhs][lhs] = false
+      }
+    }
+  }
+}
+
+///|
+fn cl_add_entry_value_interferences(
+  actions : Array[CLAction],
+  types : Array[@lib.ValType],
+  param_count : Int,
+  interferences : Array[Array[Bool]],
+) -> Unit {
+  let writes = Array::make(types.length(), 0)
+  let first_get = Array::make(types.length(), -1)
+  for idx = 0; idx < actions.length(); idx = idx + 1 {
+    let action = actions[idx]
+    match action.kind {
+      CLActionKind::Get =>
+        if first_get[action.local_idx] < 0 {
+          first_get[action.local_idx] = idx
+        }
+      CLActionKind::Set | CLActionKind::Tee => writes[action.local_idx] += 1
+    }
+  }
+  for entry_local = param_count
+      entry_local < types.length()
+      entry_local = entry_local + 1 {
+    if first_get[entry_local] < 0 || writes[entry_local] != 0 {
+      continue
+    }
+    for idx = 0; idx < first_get[entry_local]; idx = idx + 1 {
+      let action = actions[idx]
+      match action.kind {
+        CLActionKind::Set | CLActionKind::Tee => {
+          let written_local = action.local_idx
+          if written_local != entry_local &&
+            types[written_local] == types[entry_local] &&
+            !cl_source_is_explicit_default(action.source, types[entry_local]) {
+            cl_add_interference(interferences, entry_local, written_local)
+          }
+        }
+        _ => ()
+      }
+    }
+  }
 }
 
 ///|
@@ -2359,7 +3011,7 @@ fn cl_color_with_order(
 ///|
 fn cl_accessed_compaction_type_eligible(ty : @lib.ValType) -> Bool {
   match ty {
-    @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.HeapType(_))) => true
+    @lib.RefTypeValType(_) => true
     _ => false
   }
 }
@@ -2524,23 +3176,41 @@ fn cl_flagged_compaction_order(
 fn cl_preferred_compaction_flags(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
-  total_locals : Int,
+  types : Array[@lib.ValType],
 ) -> Array[Bool] {
-  let preferred = Array::make(total_locals, false)
+  let preferred = Array::make(types.length(), false)
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     match (instrs[idx], instrs[idx + 1]) {
       (@lib.LocalGet(local_idx), @lib.StructGet(_, _)) => {
         let raw = cl_local_idx_raw(local_idx)
-        if raw >= 0 && raw < total_locals {
+        if raw >= 0 && raw < types.length() {
           preferred[raw] = true
         }
       }
       _ => ()
     }
   }
-  let sets = cl_local_set_counts(actions, total_locals)
-  for idx = 0; idx < total_locals; idx = idx + 1 {
-    preferred[idx] = preferred[idx] && sets[idx] > 1
+  let direct_struct_get = preferred.copy()
+  let sets = cl_local_set_counts(actions, types.length())
+  for idx = 0; idx < types.length(); idx = idx + 1 {
+    preferred[idx] = direct_struct_get[idx] && sets[idx] > 1
+  }
+  for action in actions {
+    match action.source {
+      CLValueSource::Local(source) => {
+        let destination = action.local_idx
+        if source >= 0 &&
+          source < types.length() &&
+          destination >= 0 &&
+          destination < types.length() &&
+          types[source] == types[destination] &&
+          cl_accessed_compaction_type_eligible(types[source]) {
+          preferred[source] = true
+          preferred[destination] = true
+        }
+      }
+      _ => ()
+    }
   }
   preferred
 }
@@ -2911,15 +3581,10 @@ fn cl_rewrite_instrs_in_place(
         }
       }
       @lib.LocalTee(local_idx) => {
-        let action_idx = action_cursor[0]
         action_cursor[0] += 1
-        if action_idx < effective.length() && !effective[action_idx] {
-          instrs[idx] = @lib.Instruction::nop()
-        } else {
-          instrs[idx] = @lib.Instruction::local_tee(
-            cl_rewrite_local_idx(local_idx, old_to_new),
-          )
-        }
+        instrs[idx] = @lib.Instruction::local_tee(
+          cl_rewrite_local_idx(local_idx, old_to_new),
+        )
       }
       _ => ()
     }
@@ -2930,50 +3595,205 @@ fn cl_rewrite_instrs_in_place(
 }
 
 ///|
-fn cl_instrs_reference_enclosing_label(
-  instrs : Array[@lib.Instruction],
-  depth : Int,
+fn cl_remove_ineffective_tees(
+  rewritten_instrs : Array[@lib.Instruction],
+  original_instrs : Array[@lib.Instruction],
+  effective : Array[Bool],
+  action_cursor : Array[Int],
 ) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.Br(label_idx)
-      | @lib.BrIf(label_idx)
-      | @lib.BrOnNull(label_idx)
-      | @lib.BrOnNonNull(label_idx) =>
-        if cl_label_idx_raw(label_idx) == depth {
-          return true
-        }
-      @lib.BrOnCast(label_idx, _, _, _)
-      | @lib.BrOnCastFail(label_idx, _, _, _) =>
-        if cl_label_idx_raw(label_idx) == depth {
-          return true
-        }
-      @lib.BrTable(labels, default_label) => {
-        if cl_label_idx_raw(default_label) == depth {
-          return true
-        }
-        for label in labels {
-          if cl_label_idx_raw(label) == depth {
-            return true
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for idx = 0; idx < rewritten_instrs.length(); idx = idx + 1 {
+    let original = original_instrs[idx]
+    let mut rewritten = rewritten_instrs[idx]
+    match original {
+      @lib.Block(_, @lib.Expr(original_body)) =>
+        match rewritten {
+          @lib.Block(block_type, @lib.Expr(body)) => {
+            changed = cl_remove_ineffective_tees(
+                body, original_body, effective, action_cursor,
+              ) ||
+              changed
+            rewritten = @lib.Instruction::block(
+              block_type,
+              @lib.Expr::new(body),
+            )
           }
+          _ => ()
+        }
+      @lib.Loop(_, @lib.Expr(original_body)) =>
+        match rewritten {
+          @lib.Loop(block_type, @lib.Expr(body)) => {
+            changed = cl_remove_ineffective_tees(
+                body, original_body, effective, action_cursor,
+              ) ||
+              changed
+            rewritten = @lib.Instruction::loop_(
+              block_type,
+              @lib.Expr::new(body),
+            )
+          }
+          _ => ()
+        }
+      @lib.If(_, original_then, original_else) =>
+        match rewritten {
+          @lib.If(block_type, then_body, else_body) => {
+            changed = cl_remove_ineffective_tees(
+                then_body, original_then, effective, action_cursor,
+              ) ||
+              changed
+            match (else_body, original_else) {
+              (Some(body), Some(original_body)) =>
+                changed = cl_remove_ineffective_tees(
+                    body, original_body, effective, action_cursor,
+                  ) ||
+                  changed
+              _ => ()
+            }
+            rewritten = @lib.Instruction::if_(block_type, then_body, else_body)
+          }
+          _ => ()
+        }
+      @lib.TryTable(_, _, @lib.Expr(original_body)) =>
+        match rewritten {
+          @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+            changed = cl_remove_ineffective_tees(
+                body, original_body, effective, action_cursor,
+              ) ||
+              changed
+            rewritten = @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(body),
+            )
+          }
+          _ => ()
+        }
+      @lib.LocalGet(_) | @lib.LocalSet(_) => action_cursor[0] += 1
+      @lib.LocalTee(_) => {
+        let action_idx = action_cursor[0]
+        action_cursor[0] += 1
+        if action_idx >= 0 &&
+          action_idx < effective.length() &&
+          !effective[action_idx] {
+          changed = true
+          continue
         }
       }
+      _ => ()
+    }
+    out.push(rewritten)
+  }
+  if changed {
+    rewritten_instrs.clear()
+    rewritten_instrs.append(out)
+  }
+  changed
+}
+
+///|
+fn cl_remove_dropped_immutable_gets(
+  instrs : Array[@lib.Instruction],
+  writes : Array[Int],
+) -> Bool {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    let mut instr = instrs[idx]
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        changed = cl_remove_dropped_immutable_gets(body, writes) || changed
+        instr = @lib.Instruction::block(block_type, @lib.Expr::new(body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        changed = cl_remove_dropped_immutable_gets(body, writes) || changed
+        instr = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        changed = cl_remove_dropped_immutable_gets(then_body, writes) || changed
+        match else_body {
+          Some(body) =>
+            changed = cl_remove_dropped_immutable_gets(body, writes) || changed
+          None => ()
+        }
+        instr = @lib.Instruction::if_(block_type, then_body, else_body)
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        changed = cl_remove_dropped_immutable_gets(body, writes) || changed
+        instr = @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(body),
+        )
+      }
+      _ => ()
+    }
+    if idx + 1 < instrs.length() {
+      match (instr, instrs[idx + 1]) {
+        (@lib.LocalGet(local_idx), @lib.Drop) => {
+          let raw = cl_local_idx_raw(local_idx)
+          if raw >= 0 && raw < writes.length() && writes[raw] == 0 {
+            out.push(@lib.Instruction::nop())
+            changed = true
+            idx += 2
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
+    out.push(instr)
+    idx += 1
+  }
+  if changed {
+    instrs.clear()
+    instrs.append(out)
+  }
+  changed
+}
+
+///|
+fn cl_instrs_have_branch_instruction(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) => return true
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if cl_instrs_reference_enclosing_label(body, depth + 1) {
+        if cl_instrs_have_branch_instruction(body) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
-        if cl_instrs_reference_enclosing_label(then_body, depth + 1) {
+        if cl_instrs_have_branch_instruction(then_body) {
           return true
         }
         match else_body {
           Some(body) =>
-            if cl_instrs_reference_enclosing_label(body, depth + 1) {
+            if cl_instrs_have_branch_instruction(body) {
               return true
             }
           None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if cl_instrs_have_branch_instruction(body) {
+          return true
+        }
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              if cl_instrs_have_branch_instruction(catch_body) {
+                return true
+              }
+          }
         }
       }
       _ => ()
@@ -2996,8 +3816,7 @@ fn cl_flatten_terminal_unbranched_void_blocks(
           changed = true
         }
         if block_type == @lib.BlockType::void_() &&
-          cl_instrs_end_in_unreachable(body) &&
-          !cl_instrs_reference_enclosing_label(body, 0) {
+          !cl_instrs_have_branch_instruction(body) {
           out.append(body)
           changed = true
           continue
@@ -3091,6 +3910,8 @@ fn cl_truncate_dead_tails(instrs : Array[@lib.Instruction]) -> Bool {
     out.push(instr)
     if cl_instr_makes_rest_unreachable(instr) && idx + 1 < instrs.length() {
       if !cl_instr_is_terminal(instr) {
+        // Keep typed enclosing regions valid. Escape classification looks
+        // through this dead sentinel and retains the actual branch depth.
         out.push(@lib.Instruction::unreachable_())
       }
       changed = true
@@ -3137,6 +3958,40 @@ fn cl_remove_redundant_copy_pairs(instrs : Array[@lib.Instruction]) -> Bool {
           None => ()
         }
         out.push(@lib.Instruction::if_(block_type, then_body, else_body))
+      }
+      @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+        if cl_remove_redundant_copy_pairs(body) {
+          changed = true
+        }
+        let rewritten_catches : Array[@lib.LegacyCatch] = []
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
+              if cl_remove_redundant_copy_pairs(catch_body) {
+                changed = true
+              }
+              rewritten_catches.push(
+                @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(catch_body)),
+              )
+            }
+            @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+              if cl_remove_redundant_copy_pairs(catch_body) {
+                changed = true
+              }
+              rewritten_catches.push(
+                @lib.LegacyCatch::all(@lib.Expr::new(catch_body)),
+              )
+            }
+          }
+        }
+        out.push(
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(body),
+            rewritten_catches,
+            delegate~,
+          ),
+        )
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         if cl_remove_redundant_copy_pairs(body) {
@@ -3189,6 +4044,465 @@ fn cl_old_to_new_is_identity(old_to_new : Array[Int]) -> Bool {
 }
 
 ///|
+fn cl_instrs_have_legacy_try(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Try(_, _, _, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_have_legacy_try(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_have_legacy_try(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if cl_instrs_have_legacy_try(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cl_mark_legacy_copy_aliases(
+  instrs : Array[@lib.Instruction],
+  alias_source : Array[Int],
+) -> Unit {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalGet(source_idx), @lib.LocalSet(dest_idx)) => {
+          let source = cl_local_idx_raw(source_idx)
+          let dest = cl_local_idx_raw(dest_idx)
+          if source >= 0 &&
+            source < alias_source.length() &&
+            dest >= 0 &&
+            dest < alias_source.length() &&
+            source != dest {
+            alias_source[dest] = source
+          }
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        cl_mark_legacy_copy_aliases(body, alias_source)
+      @lib.If(_, then_body, else_body) => {
+        cl_mark_legacy_copy_aliases(then_body, alias_source)
+        match else_body {
+          Some(body) => cl_mark_legacy_copy_aliases(body, alias_source)
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        cl_mark_legacy_copy_aliases(body, alias_source)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              cl_mark_legacy_copy_aliases(catch_body, alias_source)
+          }
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+}
+
+///|
+fn cl_rewrite_legacy_func_safe(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> CLFuncRewrite {
+  let @lib.Func(body_locals, @lib.Expr(original_instrs)) = func
+  let types = cl_all_local_types(params, body_locals)
+  let gets = Array::make(types.length(), 0)
+  let sets = Array::make(types.length(), 0)
+  let tees = Array::make(types.length(), 0)
+  cl_count_syntactic_local_accesses(original_instrs, gets, sets, tees)
+  let alias_source = Array::make(types.length(), -1)
+  cl_mark_legacy_copy_aliases(original_instrs, alias_source)
+  let old_to_new = Array::make(types.length(), -1)
+  let slot_types : Array[@lib.ValType] = []
+  for idx = 0; idx < params.length(); idx = idx + 1 {
+    old_to_new[idx] = idx
+    slot_types.push(types[idx])
+  }
+  let mut changed = false
+  for idx = params.length(); idx < types.length(); idx = idx + 1 {
+    let source = alias_source[idx]
+    let source_writes = if source >= 0 && source < types.length() {
+      sets[source] + tees[source]
+    } else {
+      -1
+    }
+    let mut slot = -1
+    if sets[idx] == 1 &&
+      tees[idx] == 0 &&
+      source >= 0 &&
+      source < idx &&
+      source_writes == 0 &&
+      types[source] == types[idx] &&
+      old_to_new[source] >= 0 {
+      slot = old_to_new[source]
+    } else if gets[idx] + sets[idx] + tees[idx] == 0 {
+      for candidate = 0
+          candidate < slot_types.length()
+          candidate = candidate + 1 {
+        if slot_types[candidate] == types[idx] {
+          slot = candidate
+          break
+        }
+      }
+    }
+    if slot < 0 {
+      slot = slot_types.length()
+      slot_types.push(types[idx])
+    }
+    old_to_new[idx] = slot
+    changed = changed || slot != idx
+  }
+  let body_slot_types : Array[@lib.ValType] = []
+  for slot = params.length(); slot < slot_types.length(); slot = slot + 1 {
+    body_slot_types.push(slot_types[slot])
+  }
+  let rewritten_instrs = original_instrs.copy()
+  cl_rewrite_all_local_idxs_in_place(rewritten_instrs, old_to_new)
+  let cleanup_changed = cl_remove_redundant_copy_pairs(rewritten_instrs)
+  let rewritten_locals = @lib.Locals::from_types(body_slot_types)
+  if !changed && !cleanup_changed && rewritten_locals == body_locals {
+    { func, changed: false }
+  } else {
+    {
+      func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
+      changed: true,
+    }
+  }
+}
+
+///|
+fn cl_rewrite_linear_copy_chain_fast(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> CLFuncRewrite? {
+  let @lib.Func(body_locals, @lib.Expr(instrs)) = func
+  let types = cl_all_local_types(params, body_locals)
+  let alias_source = Array::make(types.length(), -1)
+  let seen = Array::make(types.length(), false)
+  let mut alias_count = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.LocalGet(source_idx) if idx + 1 < instrs.length() => {
+        let source = cl_local_idx_raw(source_idx)
+        match instrs[idx + 1] {
+          @lib.LocalSet(dest_idx) => {
+            let dest = cl_local_idx_raw(dest_idx)
+            if source < 0 ||
+              source >= types.length() ||
+              dest < params.length() ||
+              dest >= types.length() ||
+              source >= dest ||
+              seen[dest] ||
+              types[source] != types[dest] {
+              return None
+            }
+            alias_source[dest] = source
+            alias_count += 1
+            seen[source] = true
+            seen[dest] = true
+            idx += 2
+            continue
+          }
+          _ => if source >= 0 && source < seen.length() { seen[source] = true }
+        }
+      }
+      @lib.LocalGet(source_idx) => {
+        let source = cl_local_idx_raw(source_idx)
+        if source < 0 || source >= seen.length() {
+          return None
+        }
+        seen[source] = true
+      }
+      @lib.Drop | @lib.Nop => ()
+      _ => return None
+    }
+    idx += 1
+  }
+  if alias_count == 0 {
+    return None
+  }
+  let old_to_new = Array::make(types.length(), -1)
+  let slot_types : Array[@lib.ValType] = []
+  for local_idx = 0; local_idx < params.length(); local_idx = local_idx + 1 {
+    old_to_new[local_idx] = local_idx
+    slot_types.push(types[local_idx])
+  }
+  for local_idx = params.length()
+      local_idx < types.length()
+      local_idx = local_idx + 1 {
+    // Copy-chain sources are required to precede their destinations, so the
+    // source's final slot is already known. Reusing it directly avoids walking
+    // the full alias chain once per local (quadratic on long lowered chains).
+    let source = alias_source[local_idx]
+    if source >= 0 && source < local_idx && old_to_new[source] >= 0 {
+      old_to_new[local_idx] = old_to_new[source]
+    } else {
+      old_to_new[local_idx] = slot_types.length()
+      slot_types.push(types[local_idx])
+    }
+  }
+  let body_slot_types : Array[@lib.ValType] = []
+  for slot = params.length(); slot < slot_types.length(); slot = slot + 1 {
+    body_slot_types.push(slot_types[slot])
+  }
+  let rewritten_instrs : Array[@lib.Instruction] = Array::new(
+    capacity=instrs.length(),
+  )
+  let mut rewrite_idx = 0
+  while rewrite_idx < instrs.length() {
+    match instrs[rewrite_idx] {
+      @lib.LocalGet(source_idx) if rewrite_idx + 1 < instrs.length() =>
+        match instrs[rewrite_idx + 1] {
+          @lib.LocalSet(dest_idx) => {
+            let source = cl_local_idx_raw(source_idx)
+            let dest = cl_local_idx_raw(dest_idx)
+            let rewritten_source = old_to_new[source]
+            let rewritten_dest = old_to_new[dest]
+            if rewritten_source == rewritten_dest {
+              // Match the general cleanup and Binaryen's direct pass shape.
+              rewritten_instrs.push(@lib.Instruction::nop())
+            } else {
+              rewritten_instrs.push(
+                @lib.Instruction::local_get(
+                  cl_local_idx_from_int(rewritten_source),
+                ),
+              )
+              rewritten_instrs.push(
+                @lib.Instruction::local_set(
+                  cl_local_idx_from_int(rewritten_dest),
+                ),
+              )
+            }
+            rewrite_idx += 2
+            continue
+          }
+          _ =>
+            rewritten_instrs.push(
+              @lib.Instruction::local_get(
+                cl_local_idx_from_int(old_to_new[cl_local_idx_raw(source_idx)]),
+              ),
+            )
+        }
+      @lib.LocalGet(source_idx) =>
+        rewritten_instrs.push(
+          @lib.Instruction::local_get(
+            cl_local_idx_from_int(old_to_new[cl_local_idx_raw(source_idx)]),
+          ),
+        )
+      other => rewritten_instrs.push(other)
+    }
+    rewrite_idx += 1
+  }
+  Some({
+    func: @lib.Func::new(
+      @lib.Locals::from_types(body_slot_types),
+      @lib.Expr::new(rewritten_instrs),
+    ),
+    changed: true,
+  })
+}
+
+///|
+fn cl_rewrite_all_unused_func(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> CLFuncRewrite? {
+  let @lib.Func(body_locals, body) = func
+  let types = cl_all_local_types(params, body_locals)
+  let @lib.Expr(instrs) = body
+  let accessed = Array::make(types.length(), false)
+  let read = Array::make(types.length(), false)
+  cl_mark_syntactic_local_accesses(instrs, accessed, read)
+  for idx = params.length(); idx < accessed.length(); idx = idx + 1 {
+    if accessed[idx] {
+      return None
+    }
+  }
+  let old_to_new = Array::make(types.length(), -1)
+  let slot_types : Array[@lib.ValType] = []
+  for idx = 0; idx < params.length(); idx = idx + 1 {
+    old_to_new[idx] = idx
+    slot_types.push(types[idx])
+  }
+  let mut changed = false
+  for idx = params.length(); idx < types.length(); idx = idx + 1 {
+    let mut slot = -1
+    for candidate = 0
+        candidate < slot_types.length()
+        candidate = candidate + 1 {
+      if slot_types[candidate] == types[idx] {
+        slot = candidate
+        break
+      }
+    }
+    if slot < 0 {
+      slot = slot_types.length()
+      slot_types.push(types[idx])
+    }
+    old_to_new[idx] = slot
+    changed = changed || slot != idx
+  }
+  let body_slot_types : Array[@lib.ValType] = []
+  for slot = params.length(); slot < slot_types.length(); slot = slot + 1 {
+    body_slot_types.push(slot_types[slot])
+  }
+  let rewritten_locals = @lib.Locals::from_types(body_slot_types)
+  let rewritten_instrs = instrs.copy()
+  let flattened_control = cl_flatten_terminal_unbranched_void_blocks(
+    rewritten_instrs,
+  )
+  let truncated_tail = cl_truncate_dead_tails(rewritten_instrs)
+  let control_changed = flattened_control || truncated_tail
+  if !changed && !control_changed && rewritten_locals == body_locals {
+    Some({ func, changed: false })
+  } else {
+    Some({
+      func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
+      changed: true,
+    })
+  }
+}
+
+///|
+fn cl_remove_linear_dead_tees(
+  instrs : Array[@lib.Instruction],
+  total_locals : Int,
+) -> Bool {
+  if cl_instrs_have_structured_control(instrs) {
+    return false
+  }
+  let live = Array::make(total_locals, false)
+  let reversed : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = instrs.length() - 1
+  while idx >= 0 {
+    let instr = instrs[idx]
+    match instr {
+      @lib.LocalGet(local_idx) => {
+        let raw = cl_local_idx_raw(local_idx)
+        if raw >= 0 && raw < live.length() {
+          live[raw] = true
+        }
+      }
+      @lib.LocalSet(local_idx) => {
+        let raw = cl_local_idx_raw(local_idx)
+        if raw >= 0 && raw < live.length() {
+          live[raw] = false
+        }
+      }
+      @lib.LocalTee(local_idx) => {
+        let raw = cl_local_idx_raw(local_idx)
+        if raw >= 0 && raw < live.length() {
+          if !live[raw] {
+            changed = true
+            idx -= 1
+            continue
+          }
+          live[raw] = false
+        }
+      }
+      _ => ()
+    }
+    reversed.push(instr)
+    idx -= 1
+  }
+  if changed {
+    instrs.clear()
+    let mut out_idx = reversed.length() - 1
+    while out_idx >= 0 {
+      instrs.push(reversed[out_idx])
+      out_idx -= 1
+    }
+  }
+  changed
+}
+
+///|
+fn cl_instrs_have_local_tee(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_have_local_tee(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_have_local_tee(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if cl_instrs_have_local_tee(body) { return true }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if cl_instrs_have_local_tee(body) {
+          return true
+        }
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              if cl_instrs_have_local_tee(catch_body) {
+                return true
+              }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cl_cleanup_never_read_tees(
+  rewrite : CLFuncRewrite,
+  param_count : Int,
+) -> CLFuncRewrite {
+  let @lib.Func(locals, @lib.Expr(instrs)) = rewrite.func
+  if !cl_instrs_have_local_tee(instrs) {
+    return rewrite
+  }
+  let total_locals = param_count + locals.length()
+  let gets = Array::make(total_locals, 0)
+  let sets = Array::make(total_locals, 0)
+  let tees = Array::make(total_locals, 0)
+  cl_count_syntactic_local_accesses(instrs, gets, sets, tees)
+  let unread_changed = cl_remove_unread_local_tees(instrs, gets)
+  let dead_tee_changed = cl_remove_linear_dead_tees(instrs, total_locals)
+  if unread_changed || dead_tee_changed {
+    { func: @lib.Func::new(locals, @lib.Expr::new(instrs)), changed: true }
+  } else {
+    rewrite
+  }
+}
+
+///|
 fn cl_rewrite_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -3199,12 +4513,28 @@ fn cl_rewrite_func(
     return { func, changed: false }
   }
   let @lib.Expr(original_instrs) = body
+  // Exact linear copy chains are common after lowering and can be rewritten
+  // without the general all-unused scan or dense interference machinery.
+  match cl_rewrite_linear_copy_chain_fast(func, params) {
+    Some(rewrite) => return rewrite
+    None => ()
+  }
+  match cl_rewrite_all_unused_func(func, params) {
+    Some(rewrite) => return rewrite
+    None => ()
+  }
+  if cl_instrs_have_legacy_try(original_instrs) {
+    return cl_rewrite_legacy_func_safe(func, params)
+  }
   // The flattened conservative liveness model is not path/iteration-sensitive
   // enough for loops. Non-loop structured control uses an extra plain-liveness
   // interference pass, so local.tee branch values may still share proven-dead
   // compatible slots without admitting path-sensitive overlap.
   if cl_instrs_have_loop_control(original_instrs) {
-    return cl_rewrite_loop_func_unused_locals(func, params)
+    return cl_cleanup_never_read_tees(
+      cl_rewrite_loop_func_unused_locals(func, params),
+      params.length(),
+    )
   }
   if params.length() + body_local_count > cl_dense_coloring_local_limit() {
     return { func, changed: false }
@@ -3226,10 +4556,14 @@ fn cl_rewrite_func(
     types,
     params.length(),
   )
-  let weights = cl_copy_weights(actions, liveness.effective, total_locals)
-  let preferred = cl_preferred_compaction_flags(
-    original_instrs, actions, total_locals,
+  cl_add_entry_value_interferences(
+    actions,
+    types,
+    params.length(),
+    interferences,
   )
+  let weights = cl_copy_weights(actions, liveness.effective, total_locals)
+  let preferred = cl_preferred_compaction_flags(original_instrs, actions, types)
   let retained_copy_destinations = cl_retained_copy_destination_flags(
     actions,
     types,
@@ -3258,10 +4592,17 @@ fn cl_rewrite_func(
     liveness.effective,
     [0],
   )
+  let ineffective_tee_changed = cl_remove_ineffective_tees(
+    rewritten_instrs,
+    original_instrs,
+    liveness.effective,
+    [0],
+  )
   let rewrite_changed = rewritten_instrs != original_instrs
   let dead_tail_changed = cl_truncate_dead_tails(rewritten_instrs)
   let cleanup_changed = cl_remove_redundant_copy_pairs(rewritten_instrs)
   let changed = rewrite_changed ||
+    ineffective_tee_changed ||
     dead_tail_changed ||
     cleanup_changed ||
     !cl_old_to_new_is_identity(coloring.old_to_new) ||
@@ -3408,9 +4749,6 @@ fn cl_rebuild_module(
 
 ///|
 pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
-  if pass_module_has_legacy_try(mod_) {
-    return mod_
-  }
   ignore(cl_imported_func_count(mod_))
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -3424,7 +4762,10 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           Some(params) => params
           None => abort("coalesce-locals missing defined function params")
         }
-        let rewrite = cl_rewrite_func(funcs[code_idx], params)
+        let rewrite = cl_cleanup_never_read_tees(
+          cl_rewrite_func(funcs[code_idx], params),
+          params.length(),
+        )
         rewritten_funcs.push(rewrite.func)
         if rewrite.changed {
           changed = true
