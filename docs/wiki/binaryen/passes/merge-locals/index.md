@@ -100,7 +100,7 @@ Full commands, cache counters, size counts, classifications, and reopening crite
 
 ## Reopening guide
 
-Reopen for a semantic or validation failure, an uncovered v131 source family, a generated pass-owned canonical size loss without measured benefit, an unsafe cross-region legacy-EH case, or pass-local regression behind Binaryen on the copy-heavy benchmark. Downstream `coalesce-locals` suffix numbering remains separately owned by `[COALESCE-LOCALS]001`.
+Reopen for a semantic or validation failure, an uncovered v131 source family, a generated pass-owned canonical size loss without measured benefit, an unsafe cross-region legacy-EH case, or pass-local regression behind Binaryen on the copy-heavy benchmark. The former downstream `coalesce-locals` suffix owner closed on 2026-07-30; future suffix regressions should be assigned to the directly responsible pass or preset slice.
 
 ## Page map
 

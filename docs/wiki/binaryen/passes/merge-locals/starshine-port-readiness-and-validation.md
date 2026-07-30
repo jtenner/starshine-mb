@@ -77,4 +77,4 @@ See [`fuzzing.md`](fuzzing.md) for the exact compare commands and cache counters
 
 - `[TOOL]001`: symmetric handling of no-copy unreachable-debris writer differences.
 - `[WALL]001`: whole-command decode, validation, encoding, buffering, and process-startup attribution.
-- `[COALESCE-LOCALS]001`: downstream extended local-cleanup suffix numbering and shape gaps; these are not direct `merge-locals` failures.
+- The former `[COALESCE-LOCALS]001` downstream suffix owner closed on 2026-07-30; any future local-cleanup regression should reopen its actual direct or preset owner rather than `merge-locals`.

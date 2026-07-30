@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -77,6 +77,8 @@ The local test set is small but covers the core correctness envelope.
 | Dual scheduler slot replay | Verifies both no-DWARF roles: after `local-subtyping` and after `reorder-locals`. | [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) |
 
 ## Validation ladder
+
+2026-07-30 closeout: the pass-owned direct matrix is green against explicit Binaryen v131 for regular `100000/100000`, the expanded eleven-leaf dedicated profile `10000/10000` with idempotence, and all `9956` comparable wasm-smith cases after the established one-case unreachable-debris normalization. Random-all has `8750` exact plus `1250` inspected cleanup-shape differences; every residual is skip-clean smaller and all `1250/1250` become byte-identical after common `-Oz --strip-debug`. The official v131 lit input is `1972` versus `1994` bytes: `_memcpy` wrappers, loop-backedge coloring, and inter-block fanout coloring are repaired, seven function bodies are smaller by `22` bytes aggregate, and remaining text drift is equal-size numbering. The ordered suffix is output-exact at `10000/10000`; its apparent idempotence blocker reproduces identically in Binaryen v131 and is therefore an oracle sequence property, not Starshine debt. The retained byte-identical 1000-function/32-local workload now measures `1.481ms` Starshine versus `8.77995ms` Binaryen. Direct and ordered-owner closeout is complete.
 
 Current status before moving the direct pass into public preset slots:
 

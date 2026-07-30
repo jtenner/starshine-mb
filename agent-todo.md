@@ -14,9 +14,8 @@
 ## v0.1.1 Execution Order
 
 1. Finish `[V131-LEGACY-EH]001` for `directize`, the one remaining pass repaired after its last release-scale matrix.
-2. Resolve `[COALESCE-LOCALS]001` direct and ordered-suffix parity gaps.
-3. Complete `[O4Z-PRESET]001`, then `[O4Z-NESTED]001`.
-4. Run artifact, runtime, size, strip-debug, and wall-time signoff.
+2. Complete `[O4Z-PRESET]001`, then `[O4Z-NESTED]001`.
+3. Run artifact, runtime, size, strip-debug, and wall-time signoff.
 
 ## Active O4z Pass Queue
 
@@ -25,7 +24,6 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 | Pass | Active work | Owner |
 | --- | --- | --- |
 | `directize` | Renew direct evidence after legacy-`try` table analysis/rewrite repair; retain thin module-shape breadth. | `[V131-LEGACY-EH]001`, `[AUDIT]004` |
-| `coalesce-locals` | Resolve four direct loop/parameter/block shape gaps and the extended O4z suffix numbering gap. | `[COALESCE-LOCALS]001` |
 | `remove-unused-brs` | Direct behavior is closed; reconcile the remaining extra early scheduler slot only. | `[O4Z-PRESET]001` |
 | `merge-blocks` / branch cleanup | Direct represented-surface behavior is closed; reconcile size-losing post-`code-folding` ordered shapes. | `[O4Z-PRESET]001` |
 
@@ -47,18 +45,6 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 - **Dependencies:** none. `once-reduction`, `memory-packing`, the repaired `remove-unused-module-elements`, and `merge-locals` already have current evidence and are not part of the remaining work.
 - **Exit criteria:** the remaining directize matrix has zero validation or true-semantic failures and no unclassified residuals; any discovered behavior family receives its own active parity slice.
 
-### [COALESCE-LOCALS]001 - Resolve direct and suffix shape gaps
-
-- **Status:** the retained-copy orientation repair is exact, but four pre-existing direct residuals and one ordered-suffix family remain open.
-- **Goal:** match Binaryen v131 unless a measured Starshine size, operation-count, downstream-cleanup, validity, or pass-local performance win justifies the different shape.
-- **Deliverables:**
-  - [ ] Reduce and classify the three conservative loop-copy / parameter-reuse residuals from the latest 300-case random-all lane.
-  - [ ] Reduce and classify the structured block-flattening residual.
-  - [ ] Repair every parity or size-losing gap; retain a difference only with measured Starshine-win evidence and reopening criteria.
-  - [ ] Reconcile the extended `local-subtyping -> coalesce-locals -> local-cse` suffix where local numbering can diverge even when `merge-locals` is a byte no-op in both tools.
-  - [ ] Rerun the required four-lane direct matrix after behavior changes, then rerun the ordered suffix lane.
-- **Exit criteria:** direct and suffix evidence contain no unclassified, size-losing, validation, or true-semantic residuals.
-
 ## v0.1.1 Primary O4z Work
 
 ### [O4Z-PRESET]001 - Reconcile the exact 56-slot public preset
@@ -68,7 +54,7 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 - **Current differences:**
   - [x] Add the second early `remove-unused-module-elements` slot after `global-struct-inference`; optimize/shrink registry tests now assert all three RUME positions (2026-07-27).
   - [ ] Remove or prove the remaining extra early `remove-unused-brs` slot. The former noncanonical early `vacuum` has already been removed.
-  - [ ] Land the resolved `local-subtyping -> coalesce-locals -> local-cse` suffix after `[COALESCE-LOCALS]001`.
+  - [ ] Land the resolved `local-subtyping -> coalesce-locals -> local-cse` suffix; direct owner evidence is closed and no longer blocks preset work.
   - [ ] Reconcile post-`code-folding` ordered cleanup shapes: return/tail-call and movement fixtures are measured smaller Starshine `br_if` forms, while block-exit and EH fixtures remain size-losing neighboring cleanup gaps.
   - [ ] Keep final `strip-debug` explicitly documented as a Starshine extension outside Binaryen's 56 slots.
   - [ ] Preserve feature gates, no-DWARF policy, repeated cleanup slots, canonical aliases, and exact-order tests.

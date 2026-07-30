@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -18,11 +18,19 @@ Recommended direct smoke lane:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass coalesce-locals --out-dir .tmp/pass-fuzz-coalesce-locals --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Dedicated GenValid profile: use `coalesce-locals-all` for the required pass-specific closeout lane. It is a composite over three deterministic leaves:
+Dedicated GenValid profile: use `coalesce-locals-all` for the required pass-specific closeout lane. It is a composite over eleven deterministic leaves:
 
 - `coalesce-locals-straight-line` — same-typed local copy chains without structured control.
 - `coalesce-locals-structured` — bounded block-local copy chains.
 - `coalesce-locals-loop-copy-through` — conservative loop-local single-use copy-through shapes.
+- `coalesce-locals-entry-values` — explicit-zero versus implicit-default value numbering.
+- `coalesce-locals-copy-preference` — copy-connected greedy-order profitability.
+- `coalesce-locals-tee-copies` — `local.tee`-produced copy values and cleanup.
+- `coalesce-locals-inter-block` — copy traffic across a structured block boundary.
+- `coalesce-locals-unreachable` — local traffic in unreachable control with memory effects preserved.
+- `coalesce-locals-legacy-eh` — protected-body and catch-all local-copy traversal.
+- `coalesce-locals-large-unused` — bounded large unused-local declaration compaction.
+- `coalesce-locals-exact-types` — mixed exact local types that must remain distinct.
 
 Aliases accepted by `GenValidConfig::profile(...)`: `coalesce-locals`, `coalesce-locals-closeout`, `coalesce-locals-all-profiles`, `cl`, and `cl-closeout`.
 
@@ -33,6 +41,13 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass coalesce-loc
 ```
 
 Latest closeout evidence:
+
+- 2026-07-30 closeout: native SHA-256 `0b4acafce19b6c0d96b849445a342ac67d1be891592609f8388e9e096a96231a` against official `wasm-opt version 131 (version_131)` SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. Regular `.tmp/audit-coalesce-locals-regular-100000-closeout-v131-20260730` compares `100000/100000` exactly with external wasm-tools validation and zero failures; Binaryen cache `100000` hits / `0` misses. The eleven-leaf dedicated `.tmp/audit-coalesce-locals-profile-10000-closeout-v131-20260730` compares `10000/10000` exactly with wasm-tools validation, idempotence, and zero failures; Binaryen cache `10000` hits / `0` misses. Dedicated leaf counts are straight-line `1875`, structured/copy-preference/loop-copy-through `1250` each, and `625` each for entry-values, tee-copies, inter-block, unreachable, legacy-EH, large-unused, and exact-types.
+- Final explicit wasm-smith `.tmp/audit-coalesce-locals-wasm-smith-10000-closeout-v131-20260730` compares `9956/10000`: `9955` direct plus one `unreachable-control-debris` compare-normalized match, zero mismatches or Starshine failures, and the established `44` Binaryen/tool failures (`39` zero-length rec groups, one invalid tag index, one table index out of range, and three bad section sizes). Cache: wasm-smith `10000/0`, Binaryen successes `9956/0`, Binaryen failures `44/0` hits/misses.
+- Final random-all `.tmp/audit-coalesce-locals-random-all-10000-closeout-v131-20260730` compares all `10000`: `8750` exact plus `1250` direct cleanup-shape differences, split evenly between `ssa-nomerge-smoke` and `remove-unused-brs-control`, with zero failures. Skip-clean outputs are smaller in every residual (`-5568` bytes aggregate: `-2500` SSA and `-3068` remove-unused-brs). Common Binaryen-v131 `-Oz --strip-debug` makes all `1250/1250` byte-identical. The former eleven one-byte downstream losses were caused by label-insensitive dead-tail cleanup after local `br_table`/nested block exits; label-depth-aware sentinel handling repairs the semantic hazard and closes the loss family.
+- Official v131 lit replay `.tmp/audit-coalesce-locals-v131-lit-closeout-20260730` is `1972` bytes Starshine versus `1994` Binaryen and converges byte-for-byte after common `-Oz --strip-debug`. Safe loop-body wrapper flattening, backedge-copy preference, and same-source fanout coloring close the `_memcpy`, `$loop-backedge`, and `$inter-block-copy` gaps. Per-function body measurement finds exactly seven size differences, all Starshine wins totaling `-22` bytes from immutable-default dropped-read cleanup; the remaining textual differences are equal-size local numbering only.
+- Final performance probe `.tmp/audit-coalesce-locals-perf-closeout-final-20260730` uses 1000 functions with 32-local exact copy chains. Outputs are byte-identical at `38027` bytes. Seven-run pass-local medians are `1.481ms` Starshine and `8.77995ms` Binaryen (`0.169x` Binaryen time), improving the previous `43.260ms` Starshine median by enabling the linear copy-chain path for terminal `local.get`, making alias assignment linear, and combining index rewrite with redundant-copy cleanup.
+- Ordered `local-subtyping -> coalesce-locals -> local-cse` evidence remains exact at `.tmp/audit-coalesce-locals-ordered-suffix-10000-no-property-current-v131-20260729`: `10000/10000`, external validation, zero mismatches or failures. The earlier sequence-idempotence failure is not a Starshine fixpoint gap: `.tmp/audit-coalesce-locals-ordered-suffix-idempotence-oracle-20260730` proves Binaryen v131 and Starshine both narrow the sampled `local-subtyping-null-bottom` case only on the second sequence run and produce identical WAT after each run.
 
 - 2026-07-21 orientation repair: rebuilt native SHA-256 `f5d84bb880d03780d21efdc939915bff94f6ae8e5e67d2002f9c1e0ebf2807e9`; explicit official `wasm-opt version 131 (version_131)` replay normalized all five original orientation failures (`000027`, `000034`, `000049`, `000054`, `000075`) with zero failures. `.tmp/audit-correctness-002-cl-random-300` then compared all 300 seed-`0x71c0` random-all-profile cases: `296` normalized, zero validation/property/generator/command failures, and four inspected raw mismatches outside the repaired family (three conservative loop copy/param reuse parity gaps and one structured block-flattening parity gap). Keep those four open under the existing broader coalesce shape backlog; they are not proven Starshine wins.
 - Regular GenValid: `.tmp/pass-fuzz-coalesce-locals-genvalid-100000-structured-scalar-order-final-20260704` requested/compared `100000/100000`, normalized `100000`, zero mismatches/failures, Binaryen cache `100000` hits / `0` misses. This refresh supersedes the earlier green `.tmp/pass-fuzz-coalesce-locals-nonadj-copy-genvalid-100000-20260704` lane.
