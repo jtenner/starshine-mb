@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Directize.cpp
@@ -29,7 +29,7 @@ related:
 
 The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 A focused 2026-05-05 current-`main` recheck on the owner and dedicated test surfaces below did not surface a new teaching-relevant contract drift beyond this page.
-A 2026-04-26 port-readiness bridge now maps the same owner/test split to Starshine implementation slices in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+A 2026-04-26 port-readiness bridge maps the same owner/test split to Starshine implementation slices in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The 2026-07-30 renewal re-read the official v131 owner/helpers and all four dedicated fixtures; exact hashes and the final eight-leaf generated matrix are recorded in [`./fuzzing.md`](./fuzzing.md).
 
 ## Main implementation files
 
@@ -172,6 +172,8 @@ The lit files are good, but some important facts are still easier to see from th
 - the exact ownership split between `Directize.cpp` and `call-utils.h`
 - the whole-pass early no-op when no table can optimize by entry
 - destination `table.copy` as a source-backed mutation barrier
+- explicit `ref.null` table initializers remaining unknown while an absent initializer proves the implicit-null trap
+- multivalue select lowering with reusable/interned no-parameter block signatures, plus table64 full-width indices
 - and the explicit post-edit `ReFinalize()` contract
 
 So the safest teaching split is:

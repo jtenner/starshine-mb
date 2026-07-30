@@ -13,9 +13,8 @@
 
 ## v0.1.1 Execution Order
 
-1. Finish `[V131-LEGACY-EH]001` for `directize`, the one remaining pass repaired after its last release-scale matrix.
-2. Complete `[O4Z-PRESET]001`, then `[O4Z-NESTED]001`.
-3. Run artifact, runtime, size, strip-debug, and wall-time signoff.
+1. Complete `[O4Z-PRESET]001`, then `[O4Z-NESTED]001`.
+2. Run artifact, runtime, size, strip-debug, and wall-time signoff.
 
 ## Active O4z Pass Queue
 
@@ -23,33 +22,14 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 | Pass | Active work | Owner |
 | --- | --- | --- |
-| `directize` | Renew direct evidence after legacy-`try` table analysis/rewrite repair; retain thin module-shape breadth. | `[V131-LEGACY-EH]001`, `[AUDIT]004` |
 | `remove-unused-brs` | Direct behavior is closed; reconcile the remaining extra early scheduler slot only. | `[O4Z-PRESET]001` |
 | `merge-blocks` / branch cleanup | Direct represented-surface behavior is closed; reconcile size-losing post-`code-folding` ordered shapes. | `[O4Z-PRESET]001` |
-
-## Binaryen v131 Evidence Renewal
-
-### [V131-LEGACY-EH]001 - Renew evidence after legacy-`try` correctness repairs
-
-- **Status:** one release-scale direct matrix remains open; RUME was renewed on 2026-07-27, merge-locals and duplicate-import-elimination on 2026-07-28, and reorder-globals on 2026-07-29.
-- **Goal:** replace pre-repair closeout evidence for every pass whose correctness-sensitive analysis or rewrite changed on 2026-07-21.
-- **Why:** decoded legacy `Try` bodies and catches previously could be omitted from reachability, index rewriting, traffic analysis, or mutation guards. Passing pre-repair matrices cannot close the repaired behavior.
-- **Deliverables:**
-  - [x] Run the required explicit-v131 four-lane matrix for `remove-unused-module-elements` (regular `100000/100000` and dedicated `rume-all` `10000/10000` exact; wasm-smith `9955/9956` exact plus the full-u64 memory64 Starshine win and `44` Binaryen/tool failures; random-all `9375/10000` exact plus `625` pass-independent one-byte local-run encoding residuals; zero Starshine failures).
-  - [x] Run the required explicit-v131 four-lane matrix for `duplicate-import-elimination` (regular and dedicated exact; wasm-smith exact after one pass-independent unreachable-debris normalization plus 44 Binaryen/tool failures; random-all retains 625 pass-independent local-run size gaps on no-import inputs; zero Starshine failures).
-  - [x] Run the required explicit-v131 four-lane matrix for `reorder-globals` (regular `100000/100000` and seven-leaf dedicated `10000/10000` exact; wasm-smith all `9956` comparable cases green after one established unreachable-debris normalization plus `44` Binaryen/tool failures; random-all retains `625` pass-independent multivalue codec wins, uniformly `-8` canonical bytes; zero Starshine failures).
-  - [ ] Run the required explicit-v131 four-lane matrix for `directize`.
-  - [ ] Add or refresh a pass-owned aggregate GenValid profile before a matrix when the current profile does not exercise protected-body, typed-catch, catch-all, and delegate-bearing cases.
-  - [ ] Update each pass dossier with exact counts, Binaryen/tool failures, Starshine failures, mismatch classifications, cache statistics, timing, and reopening criteria.
-- **Invariants:** preserve protected-body and catch ordering, tags, catch-all form, delegate target, block type, stack typing, and exceptional control flow; never mutate from partial legacy-EH facts.
-- **Dependencies:** none. `once-reduction`, `memory-packing`, the repaired `remove-unused-module-elements`, and `merge-locals` already have current evidence and are not part of the remaining work.
-- **Exit criteria:** the remaining directize matrix has zero validation or true-semantic failures and no unclassified residuals; any discovered behavior family receives its own active parity slice.
 
 ## v0.1.1 Primary O4z Work
 
 ### [O4Z-PRESET]001 - Reconcile the exact 56-slot public preset
 
-- **Status:** blocked on the direct evidence and parity slices above.
+- **Status:** all direct pass owners are closed; exact scheduler and ordered-neighborhood reconciliation are active.
 - **Goal:** make Starshine's `shrink`/O4z expansion intentionally match the unchanged Binaryen-v131 56-slot top-level order, with documented Starshine-only extensions.
 - **Current differences:**
   - [x] Add the second early `remove-unused-module-elements` slot after `global-struct-inference`; optimize/shrink registry tests now assert all three RUME positions (2026-07-27).
@@ -116,11 +96,6 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 - **Priority:** not an O4z blocker; O4z uses `ssa-nomerge`.
 - **Active work:** simple explicit-write merge locals; parameter/default entry inputs and prepend ordering; loop/branch/EH/typed-control classification; harness admission; dedicated profile; direct closeout.
 - **Exit criteria:** the public pass is admitted, source/test-audited, covered by a dedicated profile, and green on the required four-lane matrix.
-
-### [AUDIT]004 - Thin module-pass coverage
-
-- Add only still-useful `directize` imported/exported/passive/declarative/multi-table/tail-call positives and negatives plus coverage for any newly widened scheduler owner.
-- Do not duplicate closed duplicate-import-elimination or once-reduction breadth work.
 
 ### [AUDIT]006 - Function `TypeIdx` / `RecIdx` invariant documentation
 

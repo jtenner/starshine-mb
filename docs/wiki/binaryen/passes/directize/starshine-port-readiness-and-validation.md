@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ./index.md
   - ../late-pipeline-dispatch.md
@@ -51,7 +51,7 @@ The goal here is narrower than either page:
 
 ## Current local status in one sentence
 
-Starshine now implements the default explicit `directize` module pass with post-fuzzer-change Binaryen oracle evidence for direct calls, known traps, subtype-compatible checks, and narrow `select` lowering; the accepted public late-tail suffix is already scheduled, and the remaining work is optional `directize-initial-contents-immutable` pass-arg support plus any broader widening beyond that suffix.
+Starshine implements and has renewed the default explicit `directize` module pass against Binaryen v131 for full-width table32/table64 constants, direct/trap/unknown table facts, subtype-compatible calls, known/trap and multivalue `select` lowering, tail calls, mutation/growth boundaries, and legacy-EH traversal. The accepted public late-tail suffix is scheduled; optional `directize-initial-contents-immutable` pass-arg support remains separate.
 
 ## Why the first slice is not a peephole
 
@@ -87,7 +87,7 @@ would be teaching the wrong architecture. The first real local contract is table
 - `src/passes/pass_manager.mbt:8940`
   - `run_hot_pipeline_apply_module_pass(...)` routes `"directize"` to `directize_run_module_pass(...)`.
 - `src/passes/directize.mbt:933`
-  - implements the module-facts-driven default directize pass for constant targets, known traps, and narrow known-target `select` lowering.
+  - implements the module-facts-driven default pass for table32/table64 constant targets, known traps, and known/trap multivalue-capable `select` lowering.
 
 This is the executable local truth today: active explicit module pass with direct Binaryen oracle evidence for the default pass behavior.
 
@@ -151,8 +151,8 @@ This slice is now landed and revalidated for the explicit default pass:
 
 - `directize` is an active module pass,
 - explicit requests run the module-pass path,
-- focused tests demonstrate element-target rewrites, mutable-table bailout, defined null-hole traps, select lowering, `ref.func` and unknown table defaults, and growth boundaries; the default v131 declared-default cases are closed,
-- the 2026-05-06 mixed-generator lane `.tmp/pass-fuzz-directize` compared 6759 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+- focused tests demonstrate element/default targets, absent-hole traps, explicit-null unknowns, mutation/growth boundaries, trap/known and multivalue select lowering, tail calls, table64, GC subtyping, and legacy-EH traversal;
+- the 2026-07-30 `directize-all` lane compares `10000/10000` exact cases across all eight leaves, while the regular lane compares `100000/100000` exact cases.
 
 Future code changes should keep that active status honest by preserving Binaryen-matching behavior and not broadening beyond the accepted public suffix without replaying the neighboring late tail.
 
@@ -245,12 +245,7 @@ Minimum checks:
 
 ## Binaryen oracle validation ladder
 
-Current direct validation evidence is local and artifact-backed:
-
-1. `moon info`, `moon fmt`, `moon test src/passes`, `moon test src/cmd`, and full `moon test` are green.
-2. `.tmp/pass-fuzz-directize-genvalid-10000-final2` reports `10000/10000` normalized matches with `0` mismatches or command failures.
-3. `.tmp/pass-fuzz-directize-mixed-10000-final2` reports `9975` comparable normalized matches with `0` mismatches and `25` Binaryen-side command failures.
-4. `.tmp/self-opt-directize-debug-final2` reports canonical wasm equality and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm`.
+Current direct validation evidence is summarized in [`./fuzzing.md`](./fuzzing.md): regular `100000/100000` exact, `directize-all` `10000/10000` exact, all `9956` comparable wasm-smith cases green after one no-call cleanup normalization plus `44` Binaryen/tool failures, and zero directize-owned random-all residuals. Focused directize tests are `16/16`, the pass package is `6580/6580`, and full Moon is `10104/10104`.
 
 Use the official Binaryen files as the reduced-shape map when extending the pass:
 

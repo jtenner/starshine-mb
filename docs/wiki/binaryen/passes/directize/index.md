@@ -2,7 +2,7 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
@@ -28,7 +28,7 @@ related:
 
 ## Binaryen v131 status
 
-Default direct-pass Binaryen v131 parity is **closed**. Starshine classifies constant indirect-call targets using table initial values and element segments: `ref.func` defaults become direct calls, null/default holes and immutable out-of-range indexes become traps, imported or `global.get` defaults remain unknown, element segments override defaults, later sets block optimization, and growth preserves known initial entries while leaving newly grown indexes unknown. Optional `directize-initial-contents-immutable` pass-arg support remains separate.
+Default direct-pass Binaryen v131 parity is **closed and renewed on 2026-07-30**. Starshine classifies full-width table32/table64 constant targets using sparse element facts plus declared table defaults: segment or `ref.func` targets become direct calls, absent-initializer holes and non-growable out-of-range indexes become traps, explicit non-`ref.func` initializers (including explicit `ref.null`), imported defaults, and `global.get` defaults remain unknown, and element segments override defaults. Select lowering covers known/trap arms and multivalue results; legacy-EH traversal covers protected bodies, typed catches, catch-all, delegates, and `try_table`. Optional `directize-initial-contents-immutable` pass-arg support remains separate.
 
 ## Role
 
@@ -101,8 +101,8 @@ That is much closer to the real pass than either:
 - The implementation preserves the boundary-shaped table-analysis requirement by computing module-wide table facts before rewriting function bodies.
 - It rewrites compatible constant-index `call_indirect` / `return_call_indirect` sites through non-imported, non-exported, non-mutated tables with known active `ref.func` / function-index elements.
 - It classifies known holes, out-of-range targets, and wrong-type targets as traps and rewrites them to `unreachable` when the table facts prove the trap.
-- It lowers the narrow known-target `select` shape to an `if` with direct-call arms and fresh locals for operands, matching Binaryen's default directize shape on reduced fixtures.
-- Direct oracle evidence now includes the post-fuzzer-change 2026-05-06 lane `.tmp/pass-fuzz-directize`: 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. Earlier implementation evidence remains recorded in `.tmp/pass-fuzz-directize-genvalid-10000-final2`, `.tmp/pass-fuzz-directize-mixed-10000-final2`, and `.tmp/self-opt-directize-debug-final2`.
+- It lowers known/known, known/trap, and trap/trap constant-index `select` shapes to typed `if` expressions with direct-call or trapping arms and fresh locals preserving operand evaluation, including multivalue results.
+- The current closeout evidence is in [`./fuzzing.md`](./fuzzing.md): regular `100000/100000` exact, dedicated `directize-all` `10000/10000` exact across eight leaves and 27 labels, all `9956` comparable wasm-smith cases green after one pass-independent unreachable-wrapper normalization plus `44` Binaryen/tool failures, and zero directize-owned random-all residuals. Focused tests are `16/16`, the pass package is `6580/6580`, and full Moon is `10104/10104`.
 - The accepted public `optimize` / `shrink` late-tail suffix now includes `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` via [research note 0572](../late-pipeline-dispatch.md), and the direct five-pass neighborhood proof remains in [research note 0571](../late-pipeline-dispatch.md). The remaining caveat is the optional `directize-initial-contents-immutable` pass-arg behavior, which Starshine does not expose yet. The inner `string-gathering -> reorder-globals -> directize` triple itself still has a current-head replay recorded in [research note 0549](../reorder-globals/index.md).
 
 ## Page map

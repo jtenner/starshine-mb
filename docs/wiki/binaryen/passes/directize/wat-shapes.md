@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast
@@ -344,7 +344,7 @@ This is the single most important positive shape for the pass arg.
 (call_indirect $t (type $sig) (i32.const 0))
 ```
 
-With no element write and no explicit initializer, an in-bounds defined-table slot has the null default, so v131 can replace the call with `unreachable` while preserving operand effects.
+With no element write and **no explicit initializer**, an in-bounds defined-table slot has the implicit null default, so v131 can replace the call with `unreachable` while preserving operand effects. This does not apply to an explicit `(ref.null func)` initializer: v131 treats every explicit non-`ref.func` initializer as unknown and leaves that call indirect.
 
 ## Shape 13: a `ref.func` default can become a direct call
 
@@ -353,7 +353,7 @@ With no element write and no explicit initializer, an in-bounds defined-table sl
 (call_indirect $t (type $sig) (i32.const 0))
 ```
 
-If `$fallback` has a compatible type and no element segment overrides slot `0`, v131 rewrites this to `call $fallback`. A `global.get` default stays indirect because its value is unknown.
+If `$fallback` has a compatible type and no element segment overrides slot `0`, v131 rewrites this to `call $fallback`. Explicit `ref.null` and `global.get` defaults stay indirect because the classifier only recognizes explicit `ref.func` initializers.
 
 An imported-table hole also stays indirect: the host may supply a non-null default. A constant beyond the declared initial size becomes `unreachable` only when growth cannot later populate it; otherwise it remains `Unknown`.
 

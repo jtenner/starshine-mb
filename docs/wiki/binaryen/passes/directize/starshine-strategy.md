@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
@@ -40,7 +40,7 @@ For the first-slice order and validation ladder, use [`./starshine-port-readines
 
 ## The honest current status
 
-`directize` is implemented in Starshine as an active explicit module pass in `src/passes/directize.mbt`. Its explicit-v131 evidence now closes both the segment-driven behavior and table-initial-value known/trap/unknown classification; optional `directize-initial-contents-immutable` pass-arg support remains separate.
+`directize` is implemented in Starshine as an active explicit module pass in `src/passes/directize.mbt`. The 2026-07-30 source/profile renewal closes the released default behavior across table32/table64 addresses, sparse segment/default facts, direct/trap/unknown classification, known/trap and multivalue select lowering, tail calls, GC subtyping, mutation/growth boundaries, and legacy-EH traversal. Optional `directize-initial-contents-immutable` pass-arg support remains separate.
 
 The current local strategy is still deliberately conservative where the upstream pass is policy-sensitive:
 
@@ -48,7 +48,7 @@ The current local strategy is still deliberately conservative where the upstream
 - preserve the boundary-shaped architecture by computing whole-module table facts before any function-body rewrite
 - rewrite compatible constant-index indirect calls through non-imported, non-exported, non-mutated known table entries
 - classify known holes, out-of-range entries, and wrong-type targets as traps and rewrite them to `unreachable`
-- lower the narrow known-target `select` shape to direct-call `if` arms with fresh locals
+- lower known/known, known/trap, and trap/trap constant-index `select` shapes to direct-call or trapping `if` arms with fresh operand locals
 - keep the accepted public late-tail suffix documented alongside the no-DWARF order, with any broader widening beyond that suffix still gated on fresh evidence
 - leave optional `directize-initial-contents-immutable` pass-arg behavior for a future pass-arg surface
 
@@ -106,12 +106,12 @@ That means:
 
 ### 2. The pass rewrites the default Binaryen directize families
 
-`src/passes/directize.mbt` currently rewrites compatible `call_indirect` / `return_call_indirect` sites when the target expression is an immediate `i32.const` and the selected table entry is known from active element segments. It bails out for imported tables, exported tables, and runtime-mutated tables, and it leaves unknown entries indirect.
+`src/passes/directize.mbt` rewrites compatible `call_indirect` / `return_call_indirect` sites when the target is an immediate table-width constant (`i32.const` for table32 or `i64.const` for table64) and sparse segment/default facts classify it as known or trapping. It bails out for imported tables, exported tables, and runtime-mutated tables, and it leaves unknown entries indirect.
 
 It also handles the two important non-direct-call target classes from the default pass contract:
 
 - known holes / out-of-range / wrong-type targets become `unreachable`
-- the narrow known-target `select` index shape becomes an `if` with direct-call arms and fresh locals for operands
+- known/known, known/trap, and trap/trap constant-index `select` shapes become typed `if` expressions with direct-call or `unreachable` arms and fresh locals preserving operand evaluation
 
 ### 3. V131 table-initial-value parity is now core default-pass work
 
@@ -201,24 +201,15 @@ So the current repo status is best summarized as:
 
 ## Validation evidence and future validation plan
 
-Current direct evidence:
+Current direct evidence is recorded in [`./fuzzing.md`](./fuzzing.md):
 
-1. post-fuzzer-change local build/test gate from 2026-05-06
-   - `moon info`
-   - `moon fmt`
-   - `moon test`
-2. post-fuzzer-change mixed-generator Binaryen oracle lane from 2026-05-06
-   - `.tmp/pass-fuzz-directize`: `6759/10000` compared, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures
-3. earlier focused Binaryen oracle lanes
-   - `.tmp/pass-fuzz-directize-genvalid-10000-final2`: `10000/10000` compared, `10000` normalized matches, `0` mismatches/failures
-   - `.tmp/pass-fuzz-directize-mixed-10000-final2`: `9975` comparable normalized matches, `0` mismatches, `25` Binaryen-side command failures
-4. debug artifact oracle lane
-   - `.tmp/self-opt-directize-debug-final2`: canonical wasm equality and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm`
+1. regular GenValid: `100000/100000` exact;
+2. pass-owned `directize-all`: `10000/10000` exact, with all eight leaves and 27 source-derived labels selected;
+3. wasm-smith: all `9956` comparable cases green after classifying one no-call `drop(unreachable)` wrapper residual, plus `44` Binaryen/tool admissions;
+4. random all-profiles: zero directize-owned residuals; all `180` raw differences are no-call `remove-unused-brs-*` local reconstruction/encoding cases;
+5. pass-local artifact time: `46.973ms` versus Binaryen `42.052ms` (`1.12x`, inside the repository target).
 
-5. current-head late-tail triple replay
-   - `.tmp/self-opt-string-reorder-directize-20260508`: canonical wasm equality and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm` for `--string-gathering --reorder-globals --directize`
-
-Future changes should rerun those direct lanes when touching table facts, trap rewriting, select lowering, type matching, or local insertion. Any broader widening beyond the accepted public suffix should additionally replay the broader scheduled late tail once the remaining earlier neighbors exist locally.
+The audit repaired full-width table64 handling, address-width validation, trap-arm and multivalue select lowering, explicit-null default classification, and large-table allocation behavior. Future changes should rerun the same matrix when touching table facts, trap rewriting, select lowering, type matching, local insertion, or legacy-EH traversal.
 
 ## Bottom line
 

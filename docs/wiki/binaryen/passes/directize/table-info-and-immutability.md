@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast
@@ -130,7 +130,7 @@ The flattened element-segment view is no longer the whole initial table state. V
 
 - a defined table with `ref.func $f` can yield `Known($f)` for an in-bounds hole;
 - a defined table with no initializer has the ordinary null default, so an in-bounds hole can be a proved trap;
-- a non-`ref.func` initializer such as `global.get` remains unknown;
+- any explicit non-`ref.func` initializer, including explicit `ref.null` or `global.get`, remains unknown in v131's classifier;
 - an imported table's host-supplied default remains unknown, even under the initial-contents-immutable pass arg;
 - element segments still override the default at the slots they write.
 
@@ -182,7 +182,7 @@ This keeps the original `call_indirect`.
 
 V131 distinguishes three cases that older segment-only explanations collapsed:
 
-1. **In bounds, defined table:** use the declared default. `ref.func` may directize; no initializer means null and traps; `global.get` stays unknown.
+1. **In bounds, defined table:** use the declared default. `ref.func` may directize; no initializer means the implicit null default and traps; any explicit non-`ref.func` initializer, including explicit `ref.null` or `global.get`, stays unknown.
 2. **In bounds, imported table:** the host may have supplied a value, so a segment hole is unknown rather than a proved null trap.
 3. **Beyond the initial size:** infer a trap only when growth cannot populate that index; otherwise keep the indirect call.
 

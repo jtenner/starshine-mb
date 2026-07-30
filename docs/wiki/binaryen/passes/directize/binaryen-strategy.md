@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-30
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Directize.cpp
@@ -242,7 +242,7 @@ Binaryen returns `Unknown` when:
 
 - the target expression is not a constant;
 - no element writes the slot and an imported table may have a host-supplied default;
-- the declared default is not a statically known function, such as `global.get`; or
+- the declared default is any explicit non-`ref.func` expression, including explicit `ref.null` or `global.get`; or
 - the index is beyond the initial size and later growth may populate it.
 
 ### `Trap`
@@ -262,7 +262,7 @@ Binaryen returns `Known{name}` when:
 
 ## Important subtlety: a segment hole is not automatically null
 
-V131 resolves a missing flattened entry through the table declaration. A defined table with no initializer has a null default and can prove a trap; a defined `ref.func` default can prove a direct target; a `global.get` default remains unknown; and an imported-table hole remains unknown because the host may supply a value. Beyond the declared initial size, growth decides whether the result is `Trap` or `Unknown`.
+V131 resolves a missing flattened entry through the table declaration. A defined table with no initializer has the implicit null default and can prove a trap; a defined `ref.func` default can prove a direct target; any explicit non-`ref.func` initializer, including explicit `ref.null` or `global.get`, remains unknown; and an imported-table hole remains unknown because the host may supply a value. Beyond the declared initial size, growth decides whether the result is `Trap` or `Unknown`.
 
 ## Stage 7: direct constant rewrites
 
