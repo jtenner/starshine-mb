@@ -92,6 +92,78 @@ test "directize lowers select of known targets to direct-call branches" {
 }
 
 ///|
+test "directize discovers long select argument and condition producers in one scan" {
+  let depth = 128
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module (type (func (param i32) (result i32))) (table 2 funcref) ",
+  )
+  source.write_string(
+    "(func $a (type 0) (param i32) (result i32) local.get 0) ",
+  )
+  source.write_string(
+    "(func $b (type 0) (param i32) (result i32) local.get 0 i32.const 1 i32.add) ",
+  )
+  source.write_string("(elem (i32.const 0) $a $b) ")
+  source.write_string("(func (param i32 i32) (result i32) local.get 0 ")
+  for _ in 0..<depth {
+    source.write_string("i32.const 1 i32.add ")
+  }
+  source.write_string("i32.const 0 i32.const 1 local.get 1 ")
+  for _ in 0..<depth {
+    source.write_string("i32.const 1 i32.add ")
+  }
+  source.write_string("select call_indirect (type 0)))")
+  let optimized = match
+    pass_test_run_pipeline(source.to_string(), ["directize"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected long select directize success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid long select directize output, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_false(pretty.contains("call_indirect"), msg=pretty)
+}
+
+///|
+test "directize preserves producer provenance across rewritten call results" {
+  let source =
+    #| (module
+    #|   (type (func (param i32) (result i32)))
+    #|   (table 2 funcref)
+    #|   (func $a (type 0) (param i32) (result i32) local.get 0)
+    #|   (func $b (type 0) (param i32) (result i32)
+    #|     local.get 0 i32.const 1 i32.add)
+    #|   (elem (i32.const 0) $a $b)
+    #|   (func (param i32 i32) (result i32)
+    #|     i32.const 5
+    #|     i32.const 0
+    #|     i32.const 1
+    #|     local.get 0
+    #|     select
+    #|     call_indirect (type 0)
+    #|     i32.const 0
+    #|     i32.const 1
+    #|     local.get 1
+    #|     select
+    #|     call_indirect (type 0)))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["directize"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected chained select directize success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid chained select output, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("call_indirect"), msg=pretty)
+}
+
+///|
 test "directize lowers multi-result select of known targets" {
   let source =
     #|(module

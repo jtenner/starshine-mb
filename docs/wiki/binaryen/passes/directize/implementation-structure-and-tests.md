@@ -181,6 +181,14 @@ So the safest teaching split is:
 - lit files for concrete observable behavior families
 - source files for owner boundaries and helper responsibilities
 
+## Starshine select-discovery complexity guard
+
+Starshine's select lowering must recover the flattened stack producers for all call arguments, the target, and the select condition. A 2026-07-30 review found that the earlier implementation repeatedly copied and typechecked progressively longer backward suffixes while searching for those boundaries, making long argument/condition producers quadratic or cubic in practice.
+
+The active implementation in `src/passes/directize.mbt` now performs one forward producer/provenance stack scan per flat region. It records each produced value's starting instruction, uses direct pop-count classification for common scalar/local/table instructions, and materializes plus typechecks only the final argument and condition slices after a candidate select is found. Scan provenance advances at call boundaries while preserving result producers that feed a later indirect call; an immediate result `drop` resets the region cheaply, avoiding repeated rescans of earlier rewritten calls.
+
+`src/passes/directize_test.mbt` contains a long argument/condition producer regression that must still trigger directization. The manual skipped native-release lane in `src/passes_perf_long/directize_perf_test.mbt` builds `256` indirect calls with depth-`64` argument and condition expressions; the final measured median is `17.415ms` under a `22ms` bound.
+
 ## Practical reading order for future Starshine port work
 
 1. `src/passes/Directize.cpp`

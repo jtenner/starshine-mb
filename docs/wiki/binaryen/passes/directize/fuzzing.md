@@ -110,6 +110,8 @@ The table model was also changed from an initial-size allocation to sparse expli
 
 ## Artifact and performance evidence
 
+A 2026-07-30 performance review replaced repeated backward suffix allocation/typechecking in select discovery with a single producer/provenance stack scan. The trigger-bearing skipped native-release lane `src/passes_perf_long/directize_perf_test.mbt` uses `256` indirect calls with depth-`64` argument and condition expressions and reports a final median of `17.415ms` under its `22ms` bound; the pre-repair fixture measured roughly `28–30ms`. Fresh rebuilt native SHA-256 `84bcf115d3ce400923aa7b239c94d20f278eb1bd6455bb031c87b284f12006fd` preserves exact Binaryen-v131 parity in `.tmp/review-fix-directize-regular-100000-20260730-final` (`100000/100000`) and `.tmp/review-fix-directize-dedicated-10000-20260730-final` (`10000/10000`), with zero failures or mismatches. Focused directize tests now pass `18/18`, including chained rewritten-call result provenance.
+
 `.tmp/directize-v131-final-artifact-20260730` reports:
 
 - Starshine pass-local `46.973ms`;

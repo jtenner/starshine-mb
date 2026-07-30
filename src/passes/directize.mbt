@@ -47,6 +47,7 @@ priv struct DirectizeInfo {
 priv struct DirectizeFuncContext {
   info : DirectizeInfo
   base_local_count : Int
+  locals : @lib.Locals
   extra_locals : Array[@lib.ValType]
 }
 
@@ -57,9 +58,16 @@ priv struct DirectizeSelectRewrite {
   condition_instrs : Array[@lib.Instruction]
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
+  has_stack_prefix : Bool
   is_return : Bool
   then_target : DirectizeTarget
   else_target : DirectizeTarget
+}
+
+///|
+priv struct DirectizeProducerValue {
+  ty : @lib.ValType
+  start : Int
 }
 
 ///|
@@ -721,6 +729,7 @@ fn directize_allocate_local(
   vt : @lib.ValType,
 ) -> @lib.LocalIdx {
   let slot = ctx.base_local_count + ctx.extra_locals.length()
+  ctx.locals.push(vt)
   ctx.extra_locals.push(vt)
   @lib.LocalIdx::new(slot.reinterpret_as_uint())
 }
@@ -870,32 +879,320 @@ fn directize_rewrite_nested_instr(
 }
 
 ///|
-fn directize_find_arg_start(
-  out : Array[@lib.Instruction],
-  end : Int,
-  params : Array[@lib.ValType],
-  info : DirectizeInfo,
+fn directize_stack_suffix(
+  stack : Array[@lib.ValType],
+  count : Int,
+) -> Array[@lib.ValType] {
+  let suffix : Array[@lib.ValType] = Array::new(capacity=count)
+  let start = stack.length() - count
+  for idx = start; idx < stack.length(); idx = idx + 1 {
+    suffix.push(stack[idx])
+  }
+  suffix
+}
+
+///|
+fn directize_candidate_after_matches(
+  before_stack : Array[@lib.ValType],
+  after : @validate.TcState,
+  pop_count : Int,
+  candidate_after : @validate.TcState,
+) -> Bool {
+  if candidate_after.reachable != after.reachable ||
+    candidate_after.escape != after.escape {
+    return false
+  }
+  let prefix_len = before_stack.length() - pop_count
+  if prefix_len + candidate_after.stack.length() != after.stack.length() {
+    return false
+  }
+  for idx = 0; idx < prefix_len; idx = idx + 1 {
+    if before_stack[idx] != after.stack[idx] {
+      return false
+    }
+  }
+  for idx = 0; idx < candidate_after.stack.length(); idx = idx + 1 {
+    if candidate_after.stack[idx] != after.stack[prefix_len + idx] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn directize_fast_pop_count(instr : @lib.Instruction) -> Int? {
+  match instr {
+    @lib.Nop
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.StringConst(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.MemorySize(_)
+    | @lib.TableSize(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.DataDrop(_)
+    | @lib.ElemDrop(_) => Some(0)
+    @lib.LocalSet(_)
+    | @lib.LocalTee(_)
+    | @lib.GlobalSet(_)
+    | @lib.TableGet(_)
+    | @lib.MemoryGrow(_)
+    | @lib.Drop
+    | @lib.RefIsNull
+    | @lib.I32Eqz
+    | @lib.I64Eqz
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I32TruncF32S
+    | @lib.I32TruncF32U
+    | @lib.I32TruncF64S
+    | @lib.I32TruncF64U
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.I64TruncF32S
+    | @lib.I64TruncF32U
+    | @lib.I64TruncF64S
+    | @lib.I64TruncF64U
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.I32TruncSatF32S
+    | @lib.I32TruncSatF32U
+    | @lib.I32TruncSatF64S
+    | @lib.I32TruncSatF64U
+    | @lib.I64TruncSatF32S
+    | @lib.I64TruncSatF32U
+    | @lib.I64TruncSatF64S
+    | @lib.I64TruncSatF64U => Some(1)
+    @lib.TableSet(_)
+    | @lib.TableGrow(_)
+    | @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64DivS
+    | @lib.I64DivU
+    | @lib.I64RemS
+    | @lib.I64RemU
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign => Some(2)
+    @lib.TableFill(_)
+    | @lib.TableCopy(_, _)
+    | @lib.TableInit(_, _)
+    | @lib.MemoryCopy(_, _)
+    | @lib.MemoryFill(_)
+    | @lib.MemoryInit(_, _) => Some(3)
+    _ => None
+  }
+}
+
+///|
+fn directize_instr_pop_count(
+  instr : @lib.Instruction,
+  before : @validate.TcState,
+  after : @validate.TcState,
 ) -> Int? {
-  for start = end; start >= 0; start = start - 1 {
-    let suffix = directize_instr_slice(out, start, end)
-    if directize_suffix_produces_params(suffix, params, info) {
-      return Some(start)
+  match directize_fast_pop_count(instr) {
+    Some(count) if count <= before.stack.length() => return Some(count)
+    _ => ()
+  }
+  for count = 0; count <= before.stack.length(); count = count + 1 {
+    let candidate = @validate.tc_state_with_owned_stack(
+      before,
+      directize_stack_suffix(before.stack, count),
+    )
+    match @validate.Typecheck::typecheck(instr, candidate) {
+      Ok(candidate_after) =>
+        if directize_candidate_after_matches(
+            before.stack,
+            after,
+            count,
+            candidate_after,
+          ) {
+          return Some(count)
+        }
+      Err(_) => ()
     }
   }
   None
 }
 
 ///|
-fn directize_condition_suffix_is_i32(
-  suffix : Array[@lib.Instruction],
+fn directize_scan_producer_instr(
+  instr : @lib.Instruction,
+  instr_idx : Int,
+  state : @validate.TcState,
+  values : Array[DirectizeProducerValue],
+) -> @validate.TcState? {
+  let before = @validate.tc_state_with_stack(state, state.stack)
+  let typecheck_state = @validate.tc_state_with_stack(state, state.stack)
+  let after = match @validate.Typecheck::typecheck(instr, typecheck_state) {
+    Ok(next) => next
+    Err(_) => return None
+  }
+  if !after.reachable || after.escape != @validate.tc_escape_none() {
+    return None
+  }
+  let pop_count = match directize_instr_pop_count(instr, before, after) {
+    Some(count) => count
+    None => return None
+  }
+  if values.length() != before.stack.length() || pop_count > values.length() {
+    return None
+  }
+  let prefix_len = values.length() - pop_count
+  let mut producer_start = instr_idx
+  for idx = prefix_len; idx < values.length(); idx = idx + 1 {
+    if values[idx].start < producer_start {
+      producer_start = values[idx].start
+    }
+  }
+  while values.length() > prefix_len {
+    ignore(values.pop())
+  }
+  for idx = prefix_len; idx < after.stack.length(); idx = idx + 1 {
+    values.push({ ty: after.stack[idx], start: producer_start })
+  }
+  Some(after)
+}
+
+///|
+fn directize_producer_stack_before(
+  out : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
   info : DirectizeInfo,
-) -> Bool {
-  directize_suffix_produces_params(suffix, [@lib.ValType::i32()], info)
+) -> Array[DirectizeProducerValue] {
+  let values : Array[DirectizeProducerValue] = []
+  let mut state = @validate.make_state(info.env, [])
+  for idx = start; idx < end; idx = idx + 1 {
+    match directize_scan_producer_instr(out[idx], idx, state, values) {
+      Some(next) => state = next
+      None => {
+        values.clear()
+        state = @validate.make_state(info.env, [])
+        match directize_scan_producer_instr(out[idx], idx, state, values) {
+          Some(next) => state = next
+          None => {
+            values.clear()
+            state = @validate.make_state(info.env, [])
+          }
+        }
+      }
+    }
+  }
+  values
 }
 
 ///|
 fn directize_find_select_rewrite(
   out : Array[@lib.Instruction],
+  scan_start : Int,
   type_idx : @lib.TypeIdx,
   table_idx : @lib.TableIdx,
   ctx : DirectizeFuncContext,
@@ -913,50 +1210,91 @@ fn directize_find_select_rewrite(
     None => return None
   }
   let select_idx = out.length() - 1
-  for cond_start = select_idx - 1; cond_start >= 2; cond_start = cond_start - 1 {
-    let if_true = match directize_target_const(out[cond_start - 2]) {
-      Some(value) => value
-      None => continue
-    }
-    let if_false = match directize_target_const(out[cond_start - 1]) {
-      Some(value) => value
-      None => continue
-    }
-    let condition_instrs = directize_instr_slice(out, cond_start, select_idx)
-    if !directize_condition_suffix_is_i32(condition_instrs, ctx.info) {
-      continue
-    }
-    let true_target = directize_classify_target(
-      ctx.info,
-      table_idx,
-      if_true,
-      type_idx,
-    )
-    let false_target = directize_classify_target(
-      ctx.info,
-      table_idx,
-      if_false,
-      type_idx,
-    )
-    if true_target is DirectizeUnknown || false_target is DirectizeUnknown {
-      continue
-    }
-    match directize_find_arg_start(out, cond_start - 2, params, ctx.info) {
-      Some(arg_start) =>
-        return Some({
-          arg_start,
-          arg_instrs: directize_instr_slice(out, arg_start, cond_start - 2),
-          condition_instrs,
-          params,
-          results,
-          is_return,
-          then_target: true_target,
-          else_target: false_target,
-        })
-      None => ()
+  let values = directize_producer_stack_before(
+    out,
+    scan_start,
+    select_idx,
+    ctx.info,
+  )
+  let required = params.length() + 3
+  if values.length() < required {
+    return None
+  }
+  let condition_slot = values.length() - 1
+  let false_slot = condition_slot - 1
+  let true_slot = condition_slot - 2
+  let arg_slot = true_slot - params.length()
+  if !directize_stack_matches(
+      [values[condition_slot].ty],
+      [@lib.ValType::i32()],
+      ctx.info.env,
+    ) {
+    return None
+  }
+  let cond_start = values[condition_slot].start
+  if cond_start < scan_start + 2 ||
+    values[true_slot].start != cond_start - 2 ||
+    values[false_slot].start != cond_start - 1 {
+    return None
+  }
+  let if_true = match directize_target_const(out[cond_start - 2]) {
+    Some(value) => value
+    None => return None
+  }
+  let if_false = match directize_target_const(out[cond_start - 1]) {
+    Some(value) => value
+    None => return None
+  }
+  let actual_params : Array[@lib.ValType] = []
+  let mut arg_start = cond_start - 2
+  for idx = 0; idx < params.length(); idx = idx + 1 {
+    let value = values[arg_slot + idx]
+    actual_params.push(value.ty)
+    if value.start < arg_start {
+      arg_start = value.start
     }
   }
-  None
+  if !directize_stack_matches(actual_params, params, ctx.info.env) {
+    return None
+  }
+  let true_target = directize_classify_target(
+    ctx.info,
+    table_idx,
+    if_true,
+    type_idx,
+  )
+  let false_target = directize_classify_target(
+    ctx.info,
+    table_idx,
+    if_false,
+    type_idx,
+  )
+  if true_target is DirectizeUnknown || false_target is DirectizeUnknown {
+    return None
+  }
+  let arg_instrs = directize_instr_slice(out, arg_start, cond_start - 2)
+  let condition_instrs = directize_instr_slice(out, cond_start, select_idx)
+  // Validate only the two materialized matches. Discovery itself performs one
+  // stack-effect scan and does not allocate or typecheck every candidate suffix.
+  if !directize_suffix_produces_params(arg_instrs, params, ctx.info) ||
+    !directize_suffix_produces_params(
+      condition_instrs,
+      [@lib.ValType::i32()],
+      ctx.info,
+    ) {
+    return None
+  }
+  Some({
+    arg_start,
+    arg_instrs,
+    condition_instrs,
+    params,
+    results,
+    has_stack_prefix: values.length() > required,
+    is_return,
+    then_target: true_target,
+    else_target: false_target,
+  })
 }
 
 ///|
@@ -1023,21 +1361,55 @@ fn directize_apply_select_rewrite(
 }
 
 ///|
+fn directize_call_input_producer(
+  out : Array[@lib.Instruction],
+  scan_start : Int,
+  type_idx : @lib.TypeIdx,
+  info : DirectizeInfo,
+) -> (Int, Int, Bool)? {
+  let (params, results) = match directize_call_signature(info, type_idx) {
+    Some(signature) => signature
+    None => return None
+  }
+  let values = directize_producer_stack_before(
+    out,
+    scan_start,
+    out.length(),
+    info,
+  )
+  let required = params.length() + 1
+  if values.length() < required {
+    return None
+  }
+  let mut producer_start = out.length()
+  for idx = values.length() - required; idx < values.length(); idx = idx + 1 {
+    if values[idx].start < producer_start {
+      producer_start = values[idx].start
+    }
+  }
+  Some((producer_start, results.length(), values.length() > required))
+}
+
+///|
 fn directize_try_rewrite_call_tail(
   out : Array[@lib.Instruction],
+  scan_start : Int,
   instr : @lib.Instruction,
   ctx : DirectizeFuncContext,
-) -> Bool {
+) -> (Int, Bool)? {
   let info = ctx.info
   if out.length() == 0 {
-    return false
+    return None
   }
   match instr {
     @lib.CallIndirect(type_idx, table_idx)
     | @lib.ReturnCallIndirect(type_idx, table_idx) => {
       let is_return = instr is @lib.ReturnCallIndirect(_, _)
       match directize_target_const(out[out.length() - 1]) {
-        Some(offset) =>
+        Some(offset) => {
+          let input_producer = directize_call_input_producer(
+            out, scan_start, type_idx, info,
+          )
           match directize_classify_target(info, table_idx, offset, type_idx) {
             DirectizeKnown(func_idx) => {
               ignore(out.pop())
@@ -1048,36 +1420,53 @@ fn directize_try_rewrite_call_tail(
                   @lib.Instruction::call(func_idx)
                 },
               )
-              true
+              match input_producer {
+                Some((producer_start, result_count, has_stack_prefix)) if !is_return &&
+                  result_count > 0 =>
+                  Some((producer_start, result_count == 1 && !has_stack_prefix))
+                _ => Some((out.length(), false))
+              }
             }
             DirectizeTrap =>
               match directize_call_param_types(info, type_idx) {
                 Some(params) => {
                   directize_push_trap_replacement(out, params, info)
-                  true
+                  Some((out.length(), false))
                 }
-                None => false
+                None => None
               }
-            DirectizeUnknown => false
+            DirectizeUnknown => None
           }
+        }
         None =>
           match out[out.length() - 1] {
             @lib.Select(_) =>
               match
                 directize_find_select_rewrite(
-                  out, type_idx, table_idx, ctx, is_return,
+                  out, scan_start, type_idx, table_idx, ctx, is_return,
                 ) {
                 Some(rewrite) => {
+                  let next_scan_start = if !is_return &&
+                    rewrite.results.length() > 0 {
+                    rewrite.arg_start
+                  } else {
+                    out.length()
+                  }
                   directize_apply_select_rewrite(out, rewrite, ctx)
-                  true
+                  Some(
+                    (
+                      next_scan_start,
+                      rewrite.results.length() == 1 && !rewrite.has_stack_prefix,
+                    ),
+                  )
                 }
-                None => false
+                None => None
               }
-            _ => false
+            _ => None
           }
       }
     }
-    _ => false
+    _ => None
   }
 }
 
@@ -1136,15 +1525,47 @@ fn directize_rewrite_instrs(
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
+  let mut scan_start = 0
+  let mut reset_scan_after_drop = false
   for instr in instrs {
     let (current, nested_changed) = directize_rewrite_nested_instr(instr, ctx)
     if nested_changed {
       changed = true
     }
-    if directize_try_rewrite_call_tail(out, current, ctx) {
-      changed = true
-    } else {
-      out.push(current)
+    if reset_scan_after_drop {
+      reset_scan_after_drop = false
+      if current is @lib.Drop {
+        out.push(current)
+        scan_start = out.length()
+        continue
+      }
+    }
+    match directize_try_rewrite_call_tail(out, scan_start, current, ctx) {
+      Some((next_scan_start, reset_after_drop)) => {
+        changed = true
+        scan_start = next_scan_start
+        reset_scan_after_drop = reset_after_drop
+      }
+      None => {
+        let input_producer = match current {
+          @lib.CallIndirect(type_idx, _) =>
+            directize_call_input_producer(out, scan_start, type_idx, ctx.info)
+          _ => None
+        }
+        out.push(current)
+        match input_producer {
+          Some((producer_start, result_count, has_stack_prefix)) if result_count >
+            0 => {
+            scan_start = producer_start
+            reset_scan_after_drop = result_count == 1 && !has_stack_prefix
+          }
+          Some((_, _, _)) => scan_start = out.length()
+          None =>
+            if current is @lib.ReturnCallIndirect(_, _) {
+              scan_start = out.length()
+            }
+        }
+      }
     }
   }
   (out, changed)
@@ -1167,13 +1588,25 @@ fn directize_context_for_func(
           {
             info: { ..base, env, },
             base_local_count: all_locals.length(),
+            locals: all_locals,
             extra_locals: [],
           }
         }
         Err(_) =>
-          { info: base, base_local_count: locals.length(), extra_locals: [] }
+          {
+            info: base,
+            base_local_count: locals.length(),
+            locals: locals.copy(),
+            extra_locals: [],
+          }
       }
-    None => { info: base, base_local_count: locals.length(), extra_locals: [] }
+    None =>
+      {
+        info: base,
+        base_local_count: locals.length(),
+        locals: locals.copy(),
+        extra_locals: [],
+      }
   }
 }
 
