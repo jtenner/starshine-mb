@@ -2187,6 +2187,46 @@ test "coalesce-locals keeps a loop-backedge copy when a nested read sees the old
 }
 
 ///|
+test "coalesce-locals keeps a loop-backedge copy when an earlier branch skips it" {
+  // On the first iteration, the inner br_if returns to the loop before the
+  // tail copy. The second iteration reads the destination's old value (7).
+  // Sharing source and destination would overwrite that value with 9.
+  let input =
+    #| (module
+    #|   (func (result i32) (local i32 i32 i32)
+    #|     i32.const 7
+    #|     local.set 0
+    #|     i32.const 0
+    #|     local.set 2
+    #|     block (result i32)
+    #|       loop
+    #|         local.get 2
+    #|         if
+    #|           local.get 0
+    #|           br 2
+    #|         end
+    #|         i32.const 1
+    #|         local.set 2
+    #|         i32.const 9
+    #|         local.set 1
+    #|         i32.const 1
+    #|         br_if 0
+    #|         local.get 1
+    #|         local.set 0
+    #|         br 0
+    #|       end
+    #|       unreachable
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 3)
+}
+
+///|
 test "coalesce-locals coalesces same-source copies before an inter-block copy" {
   let input =
     #| (module
@@ -2701,6 +2741,146 @@ test "coalesce-locals removes a loop-tail ineffective tee" {
     cl_test_instrs_contain_local_tee(instrs, @lib.LocalIdx::new(0U)),
     msg="ineffective loop-tail tee should be removed",
   )
+}
+
+///|
+test "coalesce-locals keeps a legacy conditional copy separate when the false arm bypasses it" {
+  let input =
+    #| (module
+    #|   (tag $e)
+    #|   (func (param i32 i32) (result i32) (local i32)
+    #|     (try (do nop) (catch $e))
+    #|     local.get 1
+    #|     if
+    #|       local.get 0
+    #|       local.set 2
+    #|     end
+    #|     local.get 2))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected legacy false-arm pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
+    instrs[instrs.length() - 1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  )
+}
+
+///|
+test "coalesce-locals keeps a legacy copy separate after an early destination read" {
+  let input =
+    #| (module
+    #|   (tag $e)
+    #|   (func (param i32) (result i32) (local i32)
+    #|     (try (do nop) (catch $e))
+    #|     local.get 1
+    #|     drop
+    #|     local.get 0
+    #|     local.set 1
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected legacy early-read pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
+    instrs[instrs.length() - 1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+}
+
+///|
+test "coalesce-locals keeps a protected-body copy separate when a throw can bypass it" {
+  let input =
+    #| (module
+    #|   (tag $e)
+    #|   (func (param i32 i32) (result i32) (local i32)
+    #|     (try (result i32)
+    #|       (do
+    #|         local.get 1
+    #|         if
+    #|           throw $e
+    #|         end
+    #|         local.get 0
+    #|         local.set 2
+    #|         local.get 2)
+    #|       (catch $e
+    #|         local.get 2))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected legacy throwing-body pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  match instrs[0] {
+    @lib.Try(_, _, [@lib.LegacyCatch(_, @lib.Expr(catch_body))], _) =>
+      @debug.assert_eq(
+        catch_body[0],
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      )
+    other =>
+      fail("expected tagged legacy catch, got \{@debug.to_string(other)}")
+  }
+}
+
+///|
+test "coalesce-locals keeps sibling legacy catches from sharing a path-local copy" {
+  let input =
+    #| (module
+    #|   (tag $a)
+    #|   (tag $b)
+    #|   (func (param i32 i32) (result i32) (local i32)
+    #|     (try (result i32)
+    #|       (do
+    #|         local.get 1
+    #|         if
+    #|           throw $a
+    #|         else
+    #|           throw $b
+    #|         end
+    #|         unreachable)
+    #|       (catch $a
+    #|         local.get 0
+    #|         local.set 2
+    #|         local.get 2)
+    #|       (catch $b
+    #|         local.get 2))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected legacy sibling-catch pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  match instrs[0] {
+    @lib.Try(_, _, catches, _) =>
+      match catches[1] {
+        @lib.LegacyCatch(_, @lib.Expr(catch_body)) =>
+          @debug.assert_eq(
+            catch_body[0],
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          )
+        other =>
+          fail("expected second tagged catch, got \{@debug.to_string(other)}")
+      }
+    other => fail("expected legacy try, got \{@debug.to_string(other)}")
+  }
 }
 
 ///|

@@ -172,6 +172,22 @@ fn cl_value_source_before(
 }
 
 ///|
+fn cl_instr_is_branch_instruction(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _) => true
+    _ => false
+  }
+}
+
+///|
 fn cl_instr_is_terminal(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Unreachable
@@ -180,7 +196,23 @@ fn cl_instr_is_terminal(instr : @lib.Instruction) -> Bool {
     | @lib.ReturnCallIndirect(_, _)
     | @lib.ReturnCallRef(_)
     | @lib.Throw(_)
-    | @lib.ThrowRef => true
+    | @lib.ThrowRef
+    | @lib.Rethrow(_) => true
+    _ => false
+  }
+}
+
+///|
+fn cl_instr_is_control_transfer_barrier(instr : @lib.Instruction) -> Bool {
+  if cl_instr_is_branch_instruction(instr) || cl_instr_is_terminal(instr) {
+    return true
+  }
+  match instr {
+    @lib.Suspend(_)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.StackSwitch(_, _) => true
     _ => false
   }
 }
@@ -439,11 +471,34 @@ fn cl_instr_blocks_loop_copy_through(instr : @lib.Instruction) -> Bool {
     @lib.Block(_, _)
     | @lib.Loop(_, _)
     | @lib.If(_, _, _)
-    | @lib.TryTable(_, _, _)
-    | @lib.Br(_)
-    | @lib.BrIf(_)
-    | @lib.BrTable(_, _) => true
-    _ => cl_instr_is_terminal(instr)
+    | @lib.Try(_, _, _, _)
+    | @lib.TryTable(_, _, _) => true
+    _ => cl_instr_is_control_transfer_barrier(instr)
+  }
+}
+
+///|
+test "coalesce-locals copy-through barriers include every GC branch family" {
+  let label = @lib.LabelIdx::new(0U)
+  let any = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let eq = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let nullable_any = @lib.RefType::new(true, any)
+  let nullable_eq = @lib.RefType::new(true, eq)
+  for
+    instr in [
+      @lib.Instruction::br_on_null(label),
+      @lib.Instruction::br_on_non_null(label),
+      @lib.Instruction::br_on_cast(label, true, any, true, eq),
+      @lib.Instruction::br_on_cast_fail(label, true, any, true, eq),
+      @lib.Instruction::br_on_cast_desc_eq(label, nullable_any, nullable_eq),
+      @lib.Instruction::br_on_cast_desc_eq_fail(
+        label, nullable_any, nullable_eq,
+      ),
+    ] {
+    assert_true(
+      cl_instr_blocks_loop_copy_through(instr),
+      msg="expected GC branch barrier for \{@debug.to_string(instr)}",
+    )
   }
 }
 
@@ -552,9 +607,146 @@ fn cl_mark_loop_adjacent_copy_through_locals(
 }
 
 ///|
+fn cl_instr_tree_has_control_transfer(instr : @lib.Instruction) -> Bool {
+  if cl_instr_is_control_transfer_barrier(instr) {
+    return true
+  }
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      body.any(cl_instr_tree_has_control_transfer)
+    @lib.If(_, then_body, else_body) => {
+      if then_body.any(cl_instr_tree_has_control_transfer) {
+        return true
+      }
+      match else_body {
+        Some(body) => body.any(cl_instr_tree_has_control_transfer)
+        None => false
+      }
+    }
+    @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn cl_label_targets_depth(label_idx : @lib.LabelIdx, depth : Int) -> Bool {
+  cl_label_idx_raw(label_idx) == depth
+}
+
+///|
+fn cl_instr_tree_branches_to_depth(
+  instr : @lib.Instruction,
+  depth : Int,
+) -> Bool {
+  match instr {
+    @lib.Br(label_idx)
+    | @lib.BrIf(label_idx)
+    | @lib.BrOnNull(label_idx)
+    | @lib.BrOnNonNull(label_idx) => cl_label_targets_depth(label_idx, depth)
+    @lib.BrOnCast(label_idx, _, _, _)
+    | @lib.BrOnCastFail(label_idx, _, _, _)
+    | @lib.BrOnCastDescEq(label_idx, _, _)
+    | @lib.BrOnCastDescEqFail(label_idx, _, _) =>
+      cl_label_targets_depth(label_idx, depth)
+    @lib.BrTable(labels, default_label) => {
+      if cl_label_targets_depth(default_label, depth) {
+        return true
+      }
+      labels.any(fn(label_idx) { cl_label_targets_depth(label_idx, depth) })
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      body.any(fn(child) { cl_instr_tree_branches_to_depth(child, depth + 1) })
+    @lib.If(_, then_body, else_body) => {
+      if then_body.any(fn(child) {
+          cl_instr_tree_branches_to_depth(child, depth + 1)
+        }) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          body.any(fn(child) {
+            cl_instr_tree_branches_to_depth(child, depth + 1)
+          })
+        None => false
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if body.any(fn(child) {
+          cl_instr_tree_branches_to_depth(child, depth + 1)
+        }) {
+        return true
+      }
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+        }
+        if catch_body.any(fn(child) {
+            cl_instr_tree_branches_to_depth(child, depth + 1)
+          }) {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn cl_instr_tree_get_count(instr : @lib.Instruction, local_idx : Int) -> Int {
+  match instr {
+    @lib.LocalGet(idx) => if cl_local_idx_raw(idx) == local_idx { 1 } else { 0 }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) => {
+      let mut count = 0
+      for child in body {
+        count += cl_instr_tree_get_count(child, local_idx)
+      }
+      count
+    }
+    @lib.If(_, then_body, else_body) => {
+      let mut count = 0
+      for child in then_body {
+        count += cl_instr_tree_get_count(child, local_idx)
+      }
+      match else_body {
+        Some(body) =>
+          for child in body {
+            count += cl_instr_tree_get_count(child, local_idx)
+          }
+        None => ()
+      }
+      count
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      let mut count = 0
+      for child in body {
+        count += cl_instr_tree_get_count(child, local_idx)
+      }
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+        }
+        for child in catch_body {
+          count += cl_instr_tree_get_count(child, local_idx)
+        }
+      }
+      count
+    }
+    _ => 0
+  }
+}
+
+///|
 fn cl_mark_loop_backedge_copy_aliases(
   instrs : Array[@lib.Instruction],
   passthrough_dest : Array[Int],
+  gets : Array[Int],
   types : Array[@lib.ValType],
   param_count : Int,
 ) -> Unit {
@@ -592,6 +784,18 @@ fn cl_mark_loop_backedge_copy_aliases(
                 }
                 if source_write >= 0 {
                   let mut safe = true
+                  let mut has_control_transfer = false
+                  let mut has_bypass_backedge = false
+                  let mut loop_dest_gets = 0
+                  for idx = 0; idx < tail; idx = idx + 1 {
+                    if cl_instr_tree_has_control_transfer(body[idx]) {
+                      has_control_transfer = true
+                    }
+                    if cl_instr_tree_branches_to_depth(body[idx], 0) {
+                      has_bypass_backedge = true
+                    }
+                    loop_dest_gets += cl_instr_tree_get_count(body[idx], dest)
+                  }
                   for idx = 0; idx < source_write; idx = idx + 1 {
                     if cl_instr_tree_accesses_local(body[idx], source) {
                       safe = false
@@ -601,6 +805,17 @@ fn cl_mark_loop_backedge_copy_aliases(
                     if cl_instr_tree_accesses_local(body[idx], dest) {
                       safe = false
                     }
+                  }
+                  // Every earlier edge back to this loop skips the final copy.
+                  // Other exits are safe only when all destination reads stay
+                  // inside this loop; otherwise an outer continuation or
+                  // exceptional handler can observe the skipped old value.
+                  if gets[dest] > 0 &&
+                    (
+                      has_bypass_backedge ||
+                      (has_control_transfer && gets[dest] > loop_dest_gets)
+                    ) {
+                    safe = false
                   }
                   if safe {
                     // Delay the earlier destination's slot assignment until
@@ -615,21 +830,21 @@ fn cl_mark_loop_backedge_copy_aliases(
           }
         }
         cl_mark_loop_backedge_copy_aliases(
-          body, passthrough_dest, types, param_count,
+          body, passthrough_dest, gets, types, param_count,
         )
       }
       @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
         cl_mark_loop_backedge_copy_aliases(
-          body, passthrough_dest, types, param_count,
+          body, passthrough_dest, gets, types, param_count,
         )
       @lib.If(_, then_body, else_body) => {
         cl_mark_loop_backedge_copy_aliases(
-          then_body, passthrough_dest, types, param_count,
+          then_body, passthrough_dest, gets, types, param_count,
         )
         match else_body {
           Some(body) =>
             cl_mark_loop_backedge_copy_aliases(
-              body, passthrough_dest, types, param_count,
+              body, passthrough_dest, gets, types, param_count,
             )
           None => ()
         }
@@ -841,6 +1056,7 @@ fn cl_rewrite_loop_func_unused_locals(
   cl_mark_loop_backedge_copy_aliases(
     original_instrs,
     passthrough_dest,
+    gets,
     types,
     params.length(),
   )
@@ -3756,14 +3972,10 @@ fn cl_remove_dropped_immutable_gets(
 ///|
 fn cl_instrs_have_branch_instruction(instrs : Array[@lib.Instruction]) -> Bool {
   for instr in instrs {
+    if cl_instr_is_branch_instruction(instr) {
+      return true
+    }
     match instr {
-      @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_, _)
-      | @lib.BrOnNull(_)
-      | @lib.BrOnNonNull(_)
-      | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => return true
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -4070,6 +4282,149 @@ fn cl_instrs_have_legacy_try(instrs : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
+priv struct CLLegacyDefAssignFlow {
+  safe : Bool
+  falls_through : Bool
+  assigned : Bool
+}
+
+///|
+fn cl_legacy_flow(
+  safe : Bool,
+  falls_through : Bool,
+  assigned : Bool,
+) -> CLLegacyDefAssignFlow {
+  { safe, falls_through, assigned }
+}
+
+///|
+fn cl_legacy_merge_fallthrough(
+  left : CLLegacyDefAssignFlow,
+  right : CLLegacyDefAssignFlow,
+) -> CLLegacyDefAssignFlow {
+  let falls_through = left.falls_through || right.falls_through
+  let assigned = if left.falls_through && right.falls_through {
+    left.assigned && right.assigned
+  } else if left.falls_through {
+    left.assigned
+  } else if right.falls_through {
+    right.assigned
+  } else {
+    false
+  }
+  cl_legacy_flow(left.safe && right.safe, falls_through, assigned)
+}
+
+///|
+fn cl_legacy_definite_assignment_scan(
+  instrs : Array[@lib.Instruction],
+  source : Int,
+  dest : Int,
+  assigned_at_entry : Bool,
+) -> CLLegacyDefAssignFlow {
+  let mut assigned = assigned_at_entry
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalGet(source_idx), @lib.LocalSet(dest_idx)) if cl_local_idx_raw(
+            source_idx,
+          ) ==
+          source &&
+          cl_local_idx_raw(dest_idx) == dest => {
+          assigned = true
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    let instr = instrs[idx]
+    match instr {
+      @lib.LocalGet(local_idx) if cl_local_idx_raw(local_idx) == dest =>
+        if !assigned {
+          return cl_legacy_flow(false, true, assigned)
+        }
+      @lib.Block(_, @lib.Expr(body)) => {
+        let body_flow = cl_legacy_definite_assignment_scan(
+          body, source, dest, assigned,
+        )
+        if !body_flow.safe {
+          return body_flow
+        }
+        assigned = if cl_instrs_have_branch_instruction(body) {
+          assigned && body_flow.assigned
+        } else if body_flow.falls_through {
+          body_flow.assigned
+        } else {
+          assigned
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let body_flow = cl_legacy_definite_assignment_scan(
+          body, source, dest, assigned,
+        )
+        if !body_flow.safe {
+          return body_flow
+        }
+        assigned = assigned && body_flow.assigned
+      }
+      @lib.If(_, then_body, else_body) => {
+        let then_flow = cl_legacy_definite_assignment_scan(
+          then_body, source, dest, assigned,
+        )
+        let else_flow = match else_body {
+          Some(body) =>
+            cl_legacy_definite_assignment_scan(body, source, dest, assigned)
+          None => cl_legacy_flow(true, true, assigned)
+        }
+        let merged = cl_legacy_merge_fallthrough(then_flow, else_flow)
+        if !merged.safe || !merged.falls_through {
+          return merged
+        }
+        assigned = merged.assigned
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        let mut merged = cl_legacy_definite_assignment_scan(
+          body, source, dest, assigned,
+        )
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          // A protected-body throw may enter a catch before a copy in the body
+          // executes. Only facts from before the try dominate catch entry.
+          let catch_flow = cl_legacy_definite_assignment_scan(
+            catch_body, source, dest, assigned,
+          )
+          merged = cl_legacy_merge_fallthrough(merged, catch_flow)
+        }
+        if !merged.safe || !merged.falls_through {
+          return merged
+        }
+        assigned = merged.assigned
+      }
+      _ =>
+        if cl_instr_is_terminal(instr) {
+          return cl_legacy_flow(true, false, assigned)
+        }
+    }
+    idx += 1
+  }
+  cl_legacy_flow(true, true, assigned)
+}
+
+///|
+fn cl_legacy_copy_dominates_all_reads(
+  instrs : Array[@lib.Instruction],
+  source : Int,
+  dest : Int,
+) -> Bool {
+  cl_legacy_definite_assignment_scan(instrs, source, dest, false).safe
+}
+
+///|
 fn cl_mark_legacy_copy_aliases(
   instrs : Array[@lib.Instruction],
   alias_source : Array[Int],
@@ -4133,6 +4488,13 @@ fn cl_rewrite_legacy_func_safe(
   cl_count_syntactic_local_accesses(original_instrs, gets, sets, tees)
   let alias_source = Array::make(types.length(), -1)
   cl_mark_legacy_copy_aliases(original_instrs, alias_source)
+  for dest = params.length(); dest < alias_source.length(); dest = dest + 1 {
+    let source = alias_source[dest]
+    if source >= 0 &&
+      !cl_legacy_copy_dominates_all_reads(original_instrs, source, dest) {
+      alias_source[dest] = -1
+    }
+  }
   let old_to_new = Array::make(types.length(), -1)
   let slot_types : Array[@lib.ValType] = []
   for idx = 0; idx < params.length(); idx = idx + 1 {
