@@ -64,6 +64,8 @@ pub fn gen_valid_dead_argument_elimination_profile_config(GenValidProfile) -> Ge
 
 pub fn gen_valid_derive_stream_seed(UInt64, GenValidRandomStreamLabel) -> UInt64
 
+pub fn gen_valid_directize_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_duplicate_import_elimination_profile_case_label(GenValidProfile, UInt64) -> String?
 
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
@@ -1422,6 +1424,15 @@ pub enum GenValidProfile {
   PassOiTupleProfile
   PassOiAllProfile
   FlattenAllProfile
+  DirectizeConstantProfile
+  DirectizeSelectProfile
+  DirectizeTableFactsProfile
+  DirectizeTailCallProfile
+  DirectizeGcProfile
+  DirectizeTable64Profile
+  DirectizeLegacyEhProfile
+  DirectizeBoundaryProfile
+  DirectizeAllProfile
   RandomAllProfilesProfile
   RumeDeadGraphProfile
   RumeTableTrapProfile

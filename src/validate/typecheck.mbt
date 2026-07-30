@@ -958,7 +958,7 @@ fn typecheck_call_indirect(
   }
 
   // Table must exist and have element type compatible with funcref
-  let TableType(elem_rt, _) = match st.env.get_table_type(tid) {
+  let TableType(elem_rt, limits) = match st.env.get_table_type(tid) {
     None => return Err("invalid table index")
     Some(tt) => tt
   }
@@ -970,8 +970,8 @@ fn typecheck_call_indirect(
     return Err("call_indirect table element type is not funcref-compatible")
   }
 
-  // Pop table element index (i32)
-  let st1 = match st.pop_expect(ValType::i32()) {
+  // Pop the table's address-width index (i32 for table32, i64 for table64).
+  let st1 = match st.pop_expect(limits.addr_valtype()) {
     Err(e) => return Err(e)
     Ok(s) => s
   }

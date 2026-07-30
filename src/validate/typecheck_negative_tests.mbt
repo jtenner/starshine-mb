@@ -384,6 +384,41 @@ test "Typecheck CallIndirect rejects non-funcref-compatible table element types"
 }
 
 ///|
+test "Typecheck CallIndirect accepts an i64 index for table64" {
+  let func_type = tcneg_single_functype_subtype([], [])
+  let table64 = TableType::new(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+    Limits::i64(1UL, None),
+  )
+  let env = Env::{ ..empty_env(), global_types: [func_type], tables: [table64] }
+  let state = tcneg_make_state(env, [ValType::i64()])
+  match
+    Typecheck::typecheck(
+      Instruction::call_indirect(TypeIdx::new(0), TableIdx::new(0)),
+      state,
+    ) {
+    Ok(next) => assert_stack(next, [])
+    Err(err) => fail("expected table64 call_indirect to validate, got \{err}")
+  }
+}
+
+///|
+test "Typecheck CallIndirect rejects an i32 index for table64" {
+  let func_type = tcneg_single_functype_subtype([], [])
+  let table64 = TableType::new(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+    Limits::i64(1UL, None),
+  )
+  let env = Env::{ ..empty_env(), global_types: [func_type], tables: [table64] }
+  let state = tcneg_make_state(env, [ValType::i32()])
+  let result = Typecheck::typecheck(
+    Instruction::call_indirect(TypeIdx::new(0), TableIdx::new(0)),
+    state,
+  )
+  tcneg_assert_err_contains(result, "type mismatch")
+}
+
+///|
 test "Typecheck CallIndirect rejects invalid table index" {
   let func_type = tcneg_single_functype_subtype([ValType::i32()], [
     ValType::i64(),

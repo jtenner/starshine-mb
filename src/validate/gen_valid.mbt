@@ -925,6 +925,15 @@ pub enum GenValidProfile {
   PassOiTupleProfile
   PassOiAllProfile
   FlattenAllProfile
+  DirectizeConstantProfile
+  DirectizeSelectProfile
+  DirectizeTableFactsProfile
+  DirectizeTailCallProfile
+  DirectizeGcProfile
+  DirectizeTable64Profile
+  DirectizeLegacyEhProfile
+  DirectizeBoundaryProfile
+  DirectizeAllProfile
   RandomAllProfilesProfile
   RumeDeadGraphProfile
   RumeTableTrapProfile
@@ -1301,6 +1310,15 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PassOiTupleProfile => "pass-oi-tuple"
     PassOiAllProfile => "pass-oi-all"
     FlattenAllProfile => "flatten-all"
+    DirectizeConstantProfile => "directize-constant"
+    DirectizeSelectProfile => "directize-select"
+    DirectizeTableFactsProfile => "directize-table-facts"
+    DirectizeTailCallProfile => "directize-tail-call"
+    DirectizeGcProfile => "directize-gc"
+    DirectizeTable64Profile => "directize-table64"
+    DirectizeLegacyEhProfile => "directize-legacy-eh"
+    DirectizeBoundaryProfile => "directize-boundaries"
+    DirectizeAllProfile => "directize-all"
     RandomAllProfilesProfile => "random-all-profiles"
   }
 }
@@ -1342,6 +1360,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PassOiAllProfile
     | SgoAllProfile
     | FlattenAllProfile
+    | DirectizeAllProfile
     | RandomAllProfilesProfile => true
     _ => false
   }
@@ -1760,6 +1779,17 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CoalesceLocalsStructuredProfile, 1),
         GenValidProfileMember::new(DaeConvergenceProfile, 1),
       ]
+    DirectizeAllProfile =>
+      [
+        GenValidProfileMember::new(DirectizeConstantProfile, 3),
+        GenValidProfileMember::new(DirectizeSelectProfile, 3),
+        GenValidProfileMember::new(DirectizeTableFactsProfile, 3),
+        GenValidProfileMember::new(DirectizeTailCallProfile, 2),
+        GenValidProfileMember::new(DirectizeGcProfile, 2),
+        GenValidProfileMember::new(DirectizeTable64Profile, 2),
+        GenValidProfileMember::new(DirectizeLegacyEhProfile, 3),
+        GenValidProfileMember::new(DirectizeBoundaryProfile, 2),
+      ]
     RandomAllProfilesProfile =>
       [
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
@@ -1776,6 +1806,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(MergeLocalsAllProfile, 1),
         GenValidProfileMember::new(RemoveUnusedBrsAllProfile, 1),
         GenValidProfileMember::new(DuplicateImportEliminationAllProfile, 1),
+        GenValidProfileMember::new(DirectizeAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
       ]
@@ -2133,6 +2164,15 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PassOiTupleProfile,
     PassOiAllProfile,
     FlattenAllProfile,
+    DirectizeConstantProfile,
+    DirectizeSelectProfile,
+    DirectizeTableFactsProfile,
+    DirectizeTailCallProfile,
+    DirectizeGcProfile,
+    DirectizeTable64Profile,
+    DirectizeLegacyEhProfile,
+    DirectizeBoundaryProfile,
+    DirectizeAllProfile,
     RandomAllProfilesProfile,
   ]
 }
@@ -2283,6 +2323,8 @@ pub fn gen_valid_profile_by_name(
     "flatten" => Ok(FlattenAllProfile)
     "flatten-closeout" => Ok(FlattenAllProfile)
     "flatten-all-profiles" => Ok(FlattenAllProfile)
+    "directize" | "directize-closeout" | "directize-all-profiles" =>
+      Ok(DirectizeAllProfile)
     "all-profiles" => Ok(RandomAllProfilesProfile)
     "random-profiles" => Ok(RandomAllProfilesProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
@@ -4947,6 +4989,16 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     PassOiAllProfile => gen_valid_oi_profile_config(PassOiDefaultScalarProfile)
     FlattenAllProfile =>
       GenValidConfig::binaryen_oracle_coverage_forced_default()
+    DirectizeConstantProfile
+    | DirectizeSelectProfile
+    | DirectizeTableFactsProfile
+    | DirectizeTailCallProfile
+    | DirectizeGcProfile
+    | DirectizeTable64Profile
+    | DirectizeLegacyEhProfile
+    | DirectizeBoundaryProfile => gen_valid_directize_profile_config(profile)
+    DirectizeAllProfile =>
+      gen_valid_directize_profile_config(DirectizeConstantProfile)
     RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
   }
 }
@@ -31741,6 +31793,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_reorder_globals_profile_config(config) {
     return gen_valid_reorder_globals_profile_module(ctx)
+  }
+  if gen_valid_is_directize_profile_config(config) {
+    return gen_valid_directize_profile_module(ctx)
   }
   if gen_valid_is_merge_blocks_profile_config(config) {
     return gen_valid_merge_blocks_profile_module(config)

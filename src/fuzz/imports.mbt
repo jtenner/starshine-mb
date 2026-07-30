@@ -26,6 +26,7 @@ using @validate {
   gen_valid_config_label,
   gen_valid_code_folding_profile_case_label,
   gen_valid_dae_optimizing_profile_case_label,
+  gen_valid_directize_profile_case_label,
   gen_valid_derive_stream_seed,
   gen_valid_duplicate_import_elimination_profile_case_label,
   gen_valid_module_result,

@@ -6,11 +6,31 @@ priv enum DirectizeTarget {
 }
 
 ///|
+priv enum DirectizeTableEntry {
+  DirectizeEntryFunc(@lib.FuncIdx)
+  DirectizeEntryNull
+}
+
+///|
+priv enum DirectizeTableDefault {
+  DirectizeDefaultFunc(@lib.FuncIdx)
+  DirectizeDefaultNull
+  DirectizeDefaultUnknown
+}
+
+///|
 priv struct DirectizeTableInfo {
   can_optimize : Bool
   has_grow : Bool
-  entries : Array[@lib.FuncIdx?]
-  unknown_entries : Array[Bool]
+  initial_size : UInt64
+  entries : @hashmap.HashMap[UInt64, DirectizeTableEntry]
+  default_entry : DirectizeTableDefault
+}
+
+///|
+priv struct DirectizeBlockSignature {
+  results : Array[@lib.ValType]
+  type_idx : @lib.TypeIdx
 }
 
 ///|
@@ -18,6 +38,9 @@ priv struct DirectizeInfo {
   env : @validate.Env
   func_types : Array[@lib.TypeIdx]
   tables : Array[DirectizeTableInfo]
+  base_type_count : Int
+  block_signatures : Array[DirectizeBlockSignature]
+  extra_block_types : Array[@lib.RecType]
 }
 
 ///|
@@ -35,8 +58,8 @@ priv struct DirectizeSelectRewrite {
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
   is_return : Bool
-  then_func : @lib.FuncIdx
-  else_func : @lib.FuncIdx
+  then_target : DirectizeTarget
+  else_target : DirectizeTarget
 }
 
 ///|
@@ -59,9 +82,12 @@ fn directize_func_slot(func_idx : @lib.FuncIdx) -> Int {
 }
 
 ///|
-fn directize_const_i32(expr : @lib.Expr) -> Int? {
+fn directize_const_table_offset(expr : @lib.Expr) -> UInt64? {
   match expr {
-    @lib.Expr([@lib.I32Const(@lib.I32(value))]) => Some(value)
+    @lib.Expr([@lib.I32Const(@lib.I32(value))]) =>
+      Some(value.reinterpret_as_uint().to_uint64())
+    @lib.Expr([@lib.I64Const(@lib.I64(value))]) =>
+      Some(value.reinterpret_as_uint64())
     _ => None
   }
 }
@@ -134,16 +160,10 @@ fn directize_table_types(mod_ : @lib.Module) -> Array[@lib.TableType] {
 }
 
 ///|
-fn directize_table_initial_size(table_type : @lib.TableType) -> Int? {
+fn directize_table_initial_size(table_type : @lib.TableType) -> UInt64 {
   match table_type {
-    @lib.TableType(_, @lib.I32Limits(initial, _)) =>
-      Some(initial.reinterpret_as_int())
-    @lib.TableType(_, @lib.I64Limits(initial, _)) =>
-      if initial > 2147483647UL {
-        None
-      } else {
-        Some(initial.to_int())
-      }
+    @lib.TableType(_, @lib.I32Limits(initial, _)) => initial.to_uint64()
+    @lib.TableType(_, @lib.I64Limits(initial, _)) => initial
   }
 }
 
@@ -276,22 +296,12 @@ fn directize_base_table_infos(mod_ : @lib.Module) -> Array[DirectizeTableInfo] {
   }
   let infos : Array[DirectizeTableInfo] = []
   for idx = 0; idx < table_types.length(); idx = idx + 1 {
-    let size = directize_table_initial_size(table_types[idx])
-    let can_optimize = idx >= imported_tables &&
-      !mutated[idx] &&
-      !exported[idx] &&
-      size is Some(_)
     infos.push({
-      can_optimize,
+      can_optimize: idx >= imported_tables && !mutated[idx] && !exported[idx],
       has_grow: grown[idx],
-      entries: match size {
-        Some(n) => Array::make(n, None)
-        None => []
-      },
-      unknown_entries: match size {
-        Some(n) => Array::make(n, false)
-        None => []
-      },
+      initial_size: directize_table_initial_size(table_types[idx]),
+      entries: @hashmap.new(),
+      default_entry: DirectizeDefaultNull,
     })
   }
   infos
@@ -311,32 +321,40 @@ fn directize_disable_table(
 fn directize_write_table_entry(
   tables : Array[DirectizeTableInfo],
   table_slot : Int,
-  offset : Int,
-  value : @lib.FuncIdx?,
+  offset : UInt64,
+  value : DirectizeTableEntry,
 ) -> Unit {
   if table_slot < 0 || table_slot >= tables.length() {
     return
   }
   let info = tables[table_slot]
-  if !info.can_optimize || offset < 0 || offset >= info.entries.length() {
+  if !info.can_optimize || offset >= info.initial_size {
     directize_disable_table(tables, table_slot)
     return
   }
-  info.entries[offset] = value
-  info.unknown_entries[offset] = false
+  info.entries.set(offset, value)
 }
 
 ///|
 fn directize_record_elem_funcs(
   tables : Array[DirectizeTableInfo],
   table_slot : Int,
-  base : Int,
+  base : UInt64,
   funcs : Array[@lib.FuncIdx],
 ) -> Unit {
-  let mut rel = 0
+  let mut rel = 0UL
   for func_idx in funcs {
-    directize_write_table_entry(tables, table_slot, base + rel, Some(func_idx))
-    rel += 1
+    if base > 0xFFFF_FFFF_FFFF_FFFFUL - rel {
+      directize_disable_table(tables, table_slot)
+      return
+    }
+    directize_write_table_entry(
+      tables,
+      table_slot,
+      base + rel,
+      DirectizeEntryFunc(func_idx),
+    )
+    rel += 1UL
   }
 }
 
@@ -344,17 +362,33 @@ fn directize_record_elem_funcs(
 fn directize_record_elem_exprs(
   tables : Array[DirectizeTableInfo],
   table_slot : Int,
-  base : Int,
+  base : UInt64,
   exprs : Array[@lib.Expr],
 ) -> Unit {
-  let mut rel = 0
+  let mut rel = 0UL
   for expr in exprs {
+    if base > 0xFFFF_FFFF_FFFF_FFFFUL - rel {
+      directize_disable_table(tables, table_slot)
+      return
+    }
     match directize_func_from_elem_expr(expr) {
-      Some(value) =>
-        directize_write_table_entry(tables, table_slot, base + rel, value)
+      Some(Some(func_idx)) =>
+        directize_write_table_entry(
+          tables,
+          table_slot,
+          base + rel,
+          DirectizeEntryFunc(func_idx),
+        )
+      Some(None) =>
+        directize_write_table_entry(
+          tables,
+          table_slot,
+          base + rel,
+          DirectizeEntryNull,
+        )
       None => directize_disable_table(tables, table_slot)
     }
-    rel += 1
+    rel += 1UL
   }
 }
 
@@ -371,20 +405,14 @@ fn directize_apply_table_initializers(
         let slot = imported_tables + def_idx
         if slot >= 0 && slot < tables.length() && tables[slot].can_optimize {
           let @lib.Table(_, init) = table
-          match init {
-            Some(@lib.Expr([@lib.RefFunc(func_idx)])) => {
-              let entries = tables[slot].entries
-              for idx = 0; idx < entries.length(); idx = idx + 1 {
-                entries[idx] = Some(func_idx)
-              }
-            }
-            Some(@lib.Expr([@lib.RefNull(_)])) | None => ()
-            Some(_) => {
-              let unknown_entries = tables[slot].unknown_entries
-              for idx = 0; idx < unknown_entries.length(); idx = idx + 1 {
-                unknown_entries[idx] = true
-              }
-            }
+          tables[slot] = {
+            ..tables[slot],
+            default_entry: match init {
+              Some(@lib.Expr([@lib.RefFunc(func_idx)])) =>
+                DirectizeDefaultFunc(func_idx)
+              None => DirectizeDefaultNull
+              Some(_) => DirectizeDefaultUnknown
+            },
           }
         }
         def_idx += 1
@@ -405,7 +433,7 @@ fn directize_populate_table_infos(
         match elem {
           @lib.Elem(@lib.Active(table_idx, offset_expr), kind) => {
             let table_slot = directize_table_slot(table_idx)
-            match directize_const_i32(offset_expr) {
+            match directize_const_table_offset(offset_expr) {
               Some(base) =>
                 match kind {
                   @lib.FuncsElemKind(funcs) =>
@@ -425,6 +453,54 @@ fn directize_populate_table_infos(
 }
 
 ///|
+fn directize_type_count(mod_ : @lib.Module) -> Int {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) => {
+      let mut count = 0
+      for rec_type in rec_types {
+        count += match rec_type {
+          @lib.SingleRecType(_) => 1
+          @lib.GroupRecType(subtypes) => subtypes.length()
+        }
+      }
+      count
+    }
+    None => 0
+  }
+}
+
+///|
+fn directize_block_signatures(
+  mod_ : @lib.Module,
+) -> Array[DirectizeBlockSignature] {
+  let signatures : Array[DirectizeBlockSignature] = []
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) => {
+      let mut flat_idx = 0
+      for rec_type in rec_types {
+        let subtypes = match rec_type {
+          @lib.SingleRecType(subtype) => [subtype]
+          @lib.GroupRecType(group) => group
+        }
+        for subtype in subtypes {
+          match subtype.get_comptype() {
+            @lib.FuncCompType(params, results) if params.length() == 0 =>
+              signatures.push({
+                results,
+                type_idx: @lib.TypeIdx::new(flat_idx.reinterpret_as_uint()),
+              })
+            _ => ()
+          }
+          flat_idx += 1
+        }
+      }
+    }
+    None => ()
+  }
+  signatures
+}
+
+///|
 fn directize_build_info(mod_ : @lib.Module) -> DirectizeInfo {
   let tables = directize_base_table_infos(mod_)
   directize_apply_table_initializers(mod_, tables)
@@ -433,6 +509,9 @@ fn directize_build_info(mod_ : @lib.Module) -> DirectizeInfo {
     env: @validate.Env::new().with_module(mod_),
     func_types: directize_func_types(mod_),
     tables,
+    base_type_count: directize_type_count(mod_),
+    block_signatures: directize_block_signatures(mod_),
+    extra_block_types: [],
   }
 }
 
@@ -467,10 +546,23 @@ fn directize_func_type_matches(
 }
 
 ///|
+fn directize_classify_func(
+  info : DirectizeInfo,
+  func_idx : @lib.FuncIdx,
+  call_type : @lib.TypeIdx,
+) -> DirectizeTarget {
+  if directize_func_type_matches(info, func_idx, call_type) {
+    DirectizeKnown(func_idx)
+  } else {
+    DirectizeTrap
+  }
+}
+
+///|
 fn directize_classify_target(
   info : DirectizeInfo,
   table_idx : @lib.TableIdx,
-  offset : Int,
+  offset : UInt64,
   call_type : @lib.TypeIdx,
 ) -> DirectizeTarget {
   let table_slot = directize_table_slot(table_idx)
@@ -481,20 +573,30 @@ fn directize_classify_target(
   if !table_info.can_optimize {
     return DirectizeUnknown
   }
-  if offset < 0 || offset >= table_info.entries.length() {
+  match table_info.entries.get(offset) {
+    Some(DirectizeEntryFunc(func_idx)) =>
+      return directize_classify_func(info, func_idx, call_type)
+    Some(DirectizeEntryNull) => return DirectizeTrap
+    None => ()
+  }
+  if offset >= table_info.initial_size {
     return if table_info.has_grow { DirectizeUnknown } else { DirectizeTrap }
   }
-  if table_info.unknown_entries[offset] {
-    return DirectizeUnknown
+  match table_info.default_entry {
+    DirectizeDefaultFunc(func_idx) =>
+      directize_classify_func(info, func_idx, call_type)
+    DirectizeDefaultNull => DirectizeTrap
+    DirectizeDefaultUnknown => DirectizeUnknown
   }
-  match table_info.entries[offset] {
-    Some(func_idx) =>
-      if directize_func_type_matches(info, func_idx, call_type) {
-        DirectizeKnown(func_idx)
-      } else {
-        DirectizeTrap
-      }
-    None => DirectizeTrap
+}
+
+///|
+fn directize_target_const(instr : @lib.Instruction) -> UInt64? {
+  match instr {
+    @lib.I32Const(@lib.I32(value)) =>
+      Some(value.reinterpret_as_uint().to_uint64())
+    @lib.I64Const(@lib.I64(value)) => Some(value.reinterpret_as_uint64())
+    _ => None
   }
 }
 
@@ -626,13 +728,28 @@ fn directize_allocate_local(
 ///|
 fn directize_blocktype_for_results(
   results : Array[@lib.ValType],
-) -> @lib.BlockType? {
+  info : DirectizeInfo,
+) -> @lib.BlockType {
   if results.length() == 0 {
-    Some(@lib.BlockType::void_())
+    @lib.BlockType::void_()
   } else if results.length() == 1 {
-    Some(@lib.BlockType::val_type(results[0]))
+    @lib.BlockType::val_type(results[0])
   } else {
-    None
+    for signature in info.block_signatures {
+      if signature.results == results {
+        return @lib.BlockType::type_idx(signature.type_idx)
+      }
+    }
+    let type_idx = @lib.TypeIdx::new(
+      (info.base_type_count + info.extra_block_types.length()).reinterpret_as_uint(),
+    )
+    info.extra_block_types.push(
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], results)),
+      ),
+    )
+    info.block_signatures.push({ results, type_idx })
+    @lib.BlockType::type_idx(type_idx)
   }
 }
 
@@ -795,61 +912,48 @@ fn directize_find_select_rewrite(
     Some(sig) => sig
     None => return None
   }
-  let block_type = if is_return {
-    Some(@lib.BlockType::void_())
-  } else {
-    directize_blocktype_for_results(results)
-  }
-  if block_type is None {
-    return None
-  }
   let select_idx = out.length() - 1
   for cond_start = select_idx - 1; cond_start >= 2; cond_start = cond_start - 1 {
-    match (out[cond_start - 2], out[cond_start - 1]) {
-      (@lib.I32Const(@lib.I32(if_true)), @lib.I32Const(@lib.I32(if_false))) => {
-        let condition_instrs = directize_instr_slice(
-          out, cond_start, select_idx,
-        )
-        if !directize_condition_suffix_is_i32(condition_instrs, ctx.info) {
-          continue
-        }
-        let true_target = directize_classify_target(
-          ctx.info,
-          table_idx,
-          if_true,
-          type_idx,
-        )
-        let false_target = directize_classify_target(
-          ctx.info,
-          table_idx,
-          if_false,
-          type_idx,
-        )
-        match (true_target, false_target) {
-          (DirectizeKnown(then_func), DirectizeKnown(else_func)) =>
-            match
-              directize_find_arg_start(out, cond_start - 2, params, ctx.info) {
-              Some(arg_start) =>
-                return Some({
-                  arg_start,
-                  arg_instrs: directize_instr_slice(
-                    out,
-                    arg_start,
-                    cond_start - 2,
-                  ),
-                  condition_instrs,
-                  params,
-                  results,
-                  is_return,
-                  then_func,
-                  else_func,
-                })
-              None => ()
-            }
-          _ => ()
-        }
-      }
-      _ => ()
+    let if_true = match directize_target_const(out[cond_start - 2]) {
+      Some(value) => value
+      None => continue
+    }
+    let if_false = match directize_target_const(out[cond_start - 1]) {
+      Some(value) => value
+      None => continue
+    }
+    let condition_instrs = directize_instr_slice(out, cond_start, select_idx)
+    if !directize_condition_suffix_is_i32(condition_instrs, ctx.info) {
+      continue
+    }
+    let true_target = directize_classify_target(
+      ctx.info,
+      table_idx,
+      if_true,
+      type_idx,
+    )
+    let false_target = directize_classify_target(
+      ctx.info,
+      table_idx,
+      if_false,
+      type_idx,
+    )
+    if true_target is DirectizeUnknown || false_target is DirectizeUnknown {
+      continue
+    }
+    match directize_find_arg_start(out, cond_start - 2, params, ctx.info) {
+      Some(arg_start) =>
+        return Some({
+          arg_start,
+          arg_instrs: directize_instr_slice(out, arg_start, cond_start - 2),
+          condition_instrs,
+          params,
+          results,
+          is_return,
+          then_target: true_target,
+          else_target: false_target,
+        })
+      None => ()
     }
   }
   None
@@ -858,19 +962,25 @@ fn directize_find_select_rewrite(
 ///|
 fn directize_make_call_body(
   locals : Array[@lib.LocalIdx],
-  func_idx : @lib.FuncIdx,
+  target : DirectizeTarget,
   is_return : Bool,
 ) -> Array[@lib.Instruction] {
-  let body : Array[@lib.Instruction] = []
-  for local_idx in locals {
-    body.push(@lib.Instruction::local_get(local_idx))
+  match target {
+    DirectizeKnown(func_idx) => {
+      let body : Array[@lib.Instruction] = []
+      for local_idx in locals {
+        body.push(@lib.Instruction::local_get(local_idx))
+      }
+      if is_return {
+        body.push(@lib.Instruction::return_call(func_idx))
+      } else {
+        body.push(@lib.Instruction::call(func_idx))
+      }
+      body
+    }
+    DirectizeTrap => [@lib.Instruction::unreachable_()]
+    DirectizeUnknown => []
   }
-  if is_return {
-    body.push(@lib.Instruction::return_call(func_idx))
-  } else {
-    body.push(@lib.Instruction::call(func_idx))
-  }
-  body
 }
 
 ///|
@@ -894,30 +1004,21 @@ fn directize_apply_select_rewrite(
     out.push(instr)
   }
   let block_type = if rewrite.is_return {
-    Some(@lib.BlockType::void_())
+    @lib.BlockType::void_()
   } else {
-    directize_blocktype_for_results(rewrite.results)
+    directize_blocktype_for_results(rewrite.results, ctx.info)
   }
-  match block_type {
-    Some(block_type) => {
-      out.push(
-        @lib.Instruction::if_(
-          block_type,
-          directize_make_call_body(locals, rewrite.then_func, rewrite.is_return),
-          Some(
-            directize_make_call_body(
-              locals,
-              rewrite.else_func,
-              rewrite.is_return,
-            ),
-          ),
-        ),
-      )
-      if rewrite.is_return {
-        out.push(@lib.Instruction::unreachable_())
-      }
-    }
-    None => ()
+  out.push(
+    @lib.Instruction::if_(
+      block_type,
+      directize_make_call_body(locals, rewrite.then_target, rewrite.is_return),
+      Some(
+        directize_make_call_body(locals, rewrite.else_target, rewrite.is_return),
+      ),
+    ),
+  )
+  if rewrite.is_return {
+    out.push(@lib.Instruction::unreachable_())
   }
 }
 
@@ -931,61 +1032,51 @@ fn directize_try_rewrite_call_tail(
   if out.length() == 0 {
     return false
   }
-  match (out[out.length() - 1], instr) {
-    (@lib.I32Const(@lib.I32(offset)), @lib.CallIndirect(type_idx, table_idx)) =>
-      match directize_classify_target(info, table_idx, offset, type_idx) {
-        DirectizeKnown(func_idx) => {
-          ignore(out.pop())
-          out.push(@lib.Instruction::call(func_idx))
-          true
-        }
-        DirectizeTrap =>
-          match directize_call_param_types(info, type_idx) {
-            Some(params) => {
-              directize_push_trap_replacement(out, params, info)
+  match instr {
+    @lib.CallIndirect(type_idx, table_idx)
+    | @lib.ReturnCallIndirect(type_idx, table_idx) => {
+      let is_return = instr is @lib.ReturnCallIndirect(_, _)
+      match directize_target_const(out[out.length() - 1]) {
+        Some(offset) =>
+          match directize_classify_target(info, table_idx, offset, type_idx) {
+            DirectizeKnown(func_idx) => {
+              ignore(out.pop())
+              out.push(
+                if is_return {
+                  @lib.Instruction::return_call(func_idx)
+                } else {
+                  @lib.Instruction::call(func_idx)
+                },
+              )
               true
             }
-            None => false
+            DirectizeTrap =>
+              match directize_call_param_types(info, type_idx) {
+                Some(params) => {
+                  directize_push_trap_replacement(out, params, info)
+                  true
+                }
+                None => false
+              }
+            DirectizeUnknown => false
           }
-        DirectizeUnknown => false
-      }
-    (
-      @lib.I32Const(@lib.I32(offset)),
-      @lib.ReturnCallIndirect(type_idx, table_idx),
-    ) =>
-      match directize_classify_target(info, table_idx, offset, type_idx) {
-        DirectizeKnown(func_idx) => {
-          ignore(out.pop())
-          out.push(@lib.Instruction::return_call(func_idx))
-          true
-        }
-        DirectizeTrap =>
-          match directize_call_param_types(info, type_idx) {
-            Some(params) => {
-              directize_push_trap_replacement(out, params, info)
-              true
-            }
-            None => false
+        None =>
+          match out[out.length() - 1] {
+            @lib.Select(_) =>
+              match
+                directize_find_select_rewrite(
+                  out, type_idx, table_idx, ctx, is_return,
+                ) {
+                Some(rewrite) => {
+                  directize_apply_select_rewrite(out, rewrite, ctx)
+                  true
+                }
+                None => false
+              }
+            _ => false
           }
-        DirectizeUnknown => false
       }
-    (@lib.Select(_), @lib.CallIndirect(type_idx, table_idx)) =>
-      match
-        directize_find_select_rewrite(out, type_idx, table_idx, ctx, false) {
-        Some(rewrite) => {
-          directize_apply_select_rewrite(out, rewrite, ctx)
-          true
-        }
-        None => false
-      }
-    (@lib.Select(_), @lib.ReturnCallIndirect(type_idx, table_idx)) =>
-      match directize_find_select_rewrite(out, type_idx, table_idx, ctx, true) {
-        Some(rewrite) => {
-          directize_apply_select_rewrite(out, rewrite, ctx)
-          true
-        }
-        None => false
-      }
+    }
     _ => false
   }
 }
@@ -1087,6 +1178,24 @@ fn directize_context_for_func(
 }
 
 ///|
+fn directize_append_block_types(
+  mod_ : @lib.Module,
+  extra : Array[@lib.RecType],
+) -> @lib.Module {
+  if extra.length() == 0 {
+    return mod_
+  }
+  let rec_types = match mod_.type_sec {
+    Some(@lib.TypeSec(existing)) => existing.copy()
+    None => []
+  }
+  for rec_type in extra {
+    rec_types.push(rec_type)
+  }
+  mod_.with_type_sec(@lib.TypeSec::new(rec_types))
+}
+
+///|
 fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -1129,7 +1238,10 @@ fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
   }
   if changed {
-    mod_.with_code_sec(@lib.CodeSec::new(rewritten))
+    directize_append_block_types(
+      mod_.with_code_sec(@lib.CodeSec::new(rewritten)),
+      info.extra_block_types,
+    )
   } else {
     mod_
   }
