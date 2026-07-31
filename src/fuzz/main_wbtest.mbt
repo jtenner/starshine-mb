@@ -2816,6 +2816,35 @@ test "emit gen-valid composite profile records requested and selected profiles" 
 }
 
 ///|
+test "emit gen-valid flatten leaves record transform-family case labels" {
+  let entries = [
+    ("flatten-function-results", "flatten:function-results"),
+    ("flatten-operands", "flatten:ordinary-operands"),
+    ("flatten-blocks", "flatten:block-results"),
+    ("flatten-ifs", "flatten:if-results"),
+    ("flatten-loops", "flatten:loop-entry-and-results"),
+    ("flatten-tee", "flatten:local-tee"),
+    ("flatten-br", "flatten:br-payload"),
+    ("flatten-br-if", "flatten:br-if-payload-and-false-flow"),
+    ("flatten-br-table", "flatten:br-table-payload"),
+    ("flatten-unreachable", "flatten:unreachable-placeholders"),
+    ("flatten-multivalue", "flatten:multivalue-results-and-payloads"),
+    ("flatten-legacy-eh", "flatten:legacy-try-results"),
+  ]
+  for entry in entries {
+    let (profile_name, expected_label) = entry
+    let profile = match @validate.gen_valid_profile_by_name(profile_name) {
+      Ok(value) => value
+      Err(msg) => fail(msg)
+    }
+    @debug.assert_eq(
+      emit_gen_valid_batch_profile_case_label(profile, 0x5eedUL),
+      Some(expected_label),
+    )
+  }
+}
+
+///|
 #skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid optimize-instructions aggregate records selected families" {
   let args = EmitGenValidBatchArgs::new(

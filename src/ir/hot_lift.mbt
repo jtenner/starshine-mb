@@ -12,11 +12,12 @@ pub enum HotLiftError {
 ///|
 priv struct HotLiftLabelFrames {
   active : Array[LabelId]
+  mut legacy_catch_depth : Int
 }
 
 ///|
 fn hot_lift_impl_new_label_frames() -> HotLiftLabelFrames {
-  { active: [] }
+  { active: [], legacy_catch_depth: 0 }
 }
 
 ///|
@@ -1982,6 +1983,181 @@ fn hot_lift_impl_lift_control(
       hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }
+    Instruction::Try(block_type, body, catches, delegate) => {
+      if catches.length() > 1 || (catches.length() > 0 && delegate is Some(_)) {
+        return Err(HotLiftError::UnsupportedInstruction(instr.to_string()))
+      }
+      let checked_state = match
+        hot_lift_impl_typecheck(instr, tc_state_clone(tc_state)) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
+      let (params, results) = match
+        hot_lift_impl_block_results(tc_state.env, block_type) {
+        Ok(types) => types
+        Err(err) => return Err(err)
+      }
+      let entry_state = match tc_state_pop_types(tc_state, params) {
+        Ok(next) => next
+        Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
+      }
+      let (entry_values, entry_types) = match
+        hot_lift_impl_pop_typed_values_for_instr(
+          instr,
+          values,
+          concrete_values,
+          params.length(),
+          "legacy try entry values",
+        ) {
+        Ok(entry_values) => entry_values
+        Err(err) => return Err(err)
+      }
+      let ty = hot_lift_impl_intern_control_result_type(
+        func, block_type, params, results,
+      )
+      let result_arity = results.length()
+      let id = hot_build_node(func, HotOp::Try, ty)
+      let label_id = hot_label_alloc(
+        func,
+        HotLabelKind::TryLabel,
+        ty,
+        id,
+        result_arity,
+      )
+      let next_stack = hot_lift_impl_push_label(
+        label_frames, label_stack_head, label_id,
+      )
+      let region_env = entry_state.env.with_label(results)
+      let body_state = hot_lift_impl_region_state(
+        entry_state, region_env, entry_types,
+      )
+      let (body_roots, _, body_exit_state) = match
+        hot_lift_impl_lift_region(
+          func,
+          body,
+          body_state,
+          label_frames,
+          next_stack,
+          initial_values=entry_values,
+          initial_value_types=entry_types,
+        ) {
+        Ok(state) => state
+        Err(err) => return Err(err)
+      }
+      match tc_state_validate_end_stack(body_exit_state, results) {
+        Ok(_) => ()
+        Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
+      }
+      let catch_roots : Array[NodeId] = []
+      let mut catch_kind = 0
+      match delegate {
+        Some(target_depth) => {
+          catch_kind = -2
+          let @lib.LabelIdx(raw_depth) = target_depth
+          let target = match
+            hot_lift_impl_resolve_label(
+              label_frames,
+              label_stack_head,
+              @lib.LabelIdx::new(raw_depth + 1U),
+            ) {
+            Ok(target) => target
+            Err(err) => return Err(err)
+          }
+          catch_roots.push(hot_build_delegate(func, target))
+        }
+        None =>
+          match catches {
+            [catch_] => {
+              let (payload_types, catch_body) = match catch_ {
+                @lib.LegacyCatch(tag_idx, catch_body) => {
+                  let @lib.FuncType(payload_types, _) = match
+                    entry_state.env.resolve_tag_functype(tag_idx) {
+                    Some(type_) => type_
+                    None =>
+                      return Err(
+                        hot_lift_impl_invalid_body_state(
+                          "legacy catch tag must resolve to a function type",
+                        ),
+                      )
+                  }
+                  let raw_tag = tag_idx.0.reinterpret_as_int()
+                  if raw_tag == 0x7FFFFFFF {
+                    return Err(
+                      hot_lift_impl_invalid_body_state(
+                        "legacy catch tag index cannot be encoded in HOT",
+                      ),
+                    )
+                  }
+                  catch_kind = raw_tag + 1
+                  (payload_types, catch_body)
+                }
+                @lib.LegacyCatchAll(catch_body) => {
+                  catch_kind = -1
+                  ([], catch_body)
+                }
+              }
+              let payload_values : Array[NodeId] = []
+              for payload_type in payload_types {
+                let payload = hot_build_catch_payload(
+                  func,
+                  match catch_ {
+                    @lib.LegacyCatch(tag_idx, _) => tag_idx
+                    @lib.LegacyCatchAll(_) => @lib.TagIdx::new(0U)
+                  },
+                  payload_type,
+                )
+                payload_values.push(payload)
+                catch_roots.push(payload)
+              }
+              label_frames.legacy_catch_depth += 1
+              let catch_env = region_env.with_legacy_catch_depth(
+                label_frames.legacy_catch_depth,
+              )
+              let catch_state = hot_lift_impl_region_state(
+                entry_state, catch_env, payload_types,
+              )
+              let lifted_catch = hot_lift_impl_lift_region(
+                func,
+                catch_body,
+                catch_state,
+                label_frames,
+                next_stack,
+                initial_values=payload_values,
+                initial_value_types=payload_types,
+              )
+              label_frames.legacy_catch_depth -= 1
+              let (lifted_roots, _, catch_exit_state) = match lifted_catch {
+                Ok(state) => state
+                Err(err) => return Err(err)
+              }
+              match tc_state_validate_end_stack(catch_exit_state, results) {
+                Ok(_) => ()
+                Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
+              }
+              catch_roots.append(lifted_roots)
+            }
+            [] =>
+              return Err(
+                HotLiftError::UnsupportedInstruction(instr.to_string()),
+              )
+            _ => abort("legacy try catch count checked above")
+          }
+      }
+      hot_lift_impl_pop_label(label_frames, next_stack)
+      ignore(
+        hot_replace_child_span(func, id, [
+          hot_lift_impl_make_region(func, body_roots, result_arity),
+          hot_lift_impl_make_region(func, catch_roots, result_arity),
+        ]),
+      )
+      hot_node_set(func, id, {
+        ..hot_node_get(func, id),
+        imm0: label_id,
+        imm1: catch_kind,
+      })
+      hot_lift_impl_push_node(roots, values, concrete_values, id, results)
+      Ok(checked_state)
+    }
     Instruction::TryTable(block_type, catches, body) => {
       let (params, results) = match
         hot_lift_impl_block_results(tc_state.env, block_type) {
@@ -2106,6 +2282,7 @@ fn hot_lift_impl_lift_instruction(
     Instruction::Block(_, _)
     | Instruction::Loop(_, _)
     | Instruction::If(_, _, _)
+    | Instruction::Try(_, _, _, _)
     | Instruction::TryTable(_, _, _) =>
       return hot_lift_impl_lift_control(
         func, instr, tc_state, label_frames, label_stack_head, roots, values, concrete_values,
@@ -2294,6 +2471,23 @@ fn hot_lift_impl_lift_instruction(
           HotOp::Return,
           hot_type_void(func),
           children=payload,
+        ),
+      )
+      values.clear()
+      concrete_values.clear()
+      return Ok(after_state)
+    }
+    Instruction::Rethrow(@lib.LabelIdx(raw_depth)) => {
+      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
+      roots.push(
+        hot_build_node(
+          func,
+          HotOp::Rethrow,
+          hot_type_void(func),
+          imm0=raw_depth.reinterpret_as_int(),
         ),
       )
       values.clear()

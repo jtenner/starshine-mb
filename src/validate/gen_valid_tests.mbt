@@ -17138,46 +17138,205 @@ test "optimize-instructions aggregate profile samples every OI family" {
 }
 
 ///|
-test "flatten aggregate profile samples scalar control GC and call families" {
+fn gen_valid_test_flatten_multivalue_branch_mask(
+  instrs : Array[Instruction],
+) -> Int {
+  let mut mask = 0
+  for instr in instrs {
+    let nested = match instr {
+      Br(_) => 0b001
+      BrIf(_) => 0b010
+      BrTable(_, _) => 0b100
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        gen_valid_test_flatten_multivalue_branch_mask(body)
+      If(_, then_body, else_body) => {
+        let mut arm_mask = gen_valid_test_flatten_multivalue_branch_mask(
+          then_body,
+        )
+        match else_body {
+          Some(body) =>
+            arm_mask = arm_mask |
+              gen_valid_test_flatten_multivalue_branch_mask(body)
+          None => ()
+        }
+        arm_mask
+      }
+      Try(_, Expr(body), _, _) =>
+        gen_valid_test_flatten_multivalue_branch_mask(body)
+      _ => 0
+    }
+    mask = mask | nested
+  }
+  mask
+}
+
+///|
+fn gen_valid_test_flatten_module_multivalue_branch_mask(mod_ : Module) -> Int {
+  let mut mask = 0
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        mask = mask | gen_valid_test_flatten_multivalue_branch_mask(instrs)
+      }
+    None => ()
+  }
+  mask
+}
+
+///|
+fn gen_valid_test_flatten_instrs_contain_family_marker(
+  instrs : Array[Instruction],
+  profile : GenValidProfile,
+) -> Bool {
+  for instr in instrs {
+    let matched = match profile {
+      FlattenFunctionResultsProfile =>
+        match instr {
+          Return => true
+          _ => false
+        }
+      FlattenOperandsProfile =>
+        match instr {
+          I32Mul => true
+          _ => false
+        }
+      FlattenBlocksProfile =>
+        match instr {
+          Block(_, _) => true
+          _ => false
+        }
+      FlattenIfsProfile =>
+        match instr {
+          If(_, _, _) => true
+          _ => false
+        }
+      FlattenLoopsProfile =>
+        match instr {
+          Loop(_, _) => true
+          _ => false
+        }
+      FlattenTeeProfile =>
+        match instr {
+          LocalTee(_) => true
+          _ => false
+        }
+      FlattenBrProfile =>
+        match instr {
+          Br(_) => true
+          _ => false
+        }
+      FlattenBrIfProfile =>
+        match instr {
+          BrIf(_) => true
+          _ => false
+        }
+      FlattenBrTableProfile =>
+        match instr {
+          BrTable(_, _) => true
+          _ => false
+        }
+      FlattenUnreachableProfile =>
+        match instr {
+          Unreachable => true
+          _ => false
+        }
+      FlattenMultivalueProfile =>
+        match instr {
+          I64Const(_) => true
+          _ => false
+        }
+      FlattenLegacyEhProfile =>
+        match instr {
+          Try(_, _, _, _) => true
+          _ => false
+        }
+      _ => false
+    }
+    if matched {
+      return true
+    }
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_flatten_instrs_contain_family_marker(body, profile) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_flatten_instrs_contain_family_marker(
+            then_body, profile,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_flatten_instrs_contain_family_marker(
+              body, profile,
+            ) => return true
+          _ => ()
+        }
+      }
+      Try(_, Expr(body), _, _) =>
+        if gen_valid_test_flatten_instrs_contain_family_marker(body, profile) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_flatten_module_contains_family_marker(
+  mod_ : Module,
+  profile : GenValidProfile,
+) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_flatten_instrs_contain_family_marker(instrs, profile) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+test "flatten aggregate contains every dedicated transform-family profile" {
   @debug.assert_eq(gen_valid_profile_name(FlattenAllProfile), "flatten-all")
+  let expected = [
+    FlattenFunctionResultsProfile,
+    FlattenOperandsProfile,
+    FlattenBlocksProfile,
+    FlattenIfsProfile,
+    FlattenLoopsProfile,
+    FlattenTeeProfile,
+    FlattenBrProfile,
+    FlattenBrIfProfile,
+    FlattenBrTableProfile,
+    FlattenUnreachableProfile,
+    FlattenMultivalueProfile,
+    FlattenLegacyEhProfile,
+  ]
   match gen_valid_profile_by_name("flatten") {
     Ok(profile) => {
       @debug.assert_eq(profile, FlattenAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      assert_true(
-        members.contains(
-          GenValidProfileMember::new(BinaryenOraclePortableProfile, 4),
-        ),
-      )
-      assert_true(
-        members.contains(GenValidProfileMember::new(PassFuzzStressProfile, 3)),
-      )
-      assert_true(
-        members.contains(GenValidProfileMember::new(SsaNomergeSmokeProfile, 2)),
-      )
-      assert_true(
-        members.contains(GenValidProfileMember::new(Heap2LocalStructProfile, 1)),
-      )
-      assert_true(
-        members.contains(
-          GenValidProfileMember::new(LocalSubtypingStraightLineProfile, 1),
-        ),
-      )
-      assert_true(
-        members.contains(
-          GenValidProfileMember::new(CoalesceLocalsStructuredProfile, 1),
-        ),
-      )
-      assert_true(
-        members.contains(GenValidProfileMember::new(DaeConvergenceProfile, 1)),
-      )
+      @debug.assert_eq(members.length(), expected.length())
+      for leaf in expected {
+        assert_true(
+          members.contains(GenValidProfileMember::new(leaf, 1)),
+          msg="missing flatten aggregate member \{gen_valid_profile_name(leaf)}",
+        )
+      }
     }
     Err(msg) => fail(msg)
   }
   let seen : Array[GenValidProfile] = []
   let mut index = 1
-  while index <= 256 {
+  while index <= 512 {
     let leaf = gen_valid_profile_leaf_for_case(
       FlattenAllProfile,
       0x5eedUL,
@@ -17189,20 +17348,76 @@ test "flatten aggregate profile samples scalar control GC and call families" {
     }
     index += 1
   }
-  for
-    profile in [
-      BinaryenOraclePortableProfile,
-      PassFuzzStressProfile,
-      SsaNomergeSmokeProfile,
-      Heap2LocalStructProfile,
-      LocalSubtypingStraightLineProfile,
-      CoalesceLocalsStructuredProfile,
-      DaeConvergenceProfile,
-    ] {
+  for profile in expected {
     assert_true(
       seen.contains(profile),
-      msg="missing flatten aggregate leaf \{gen_valid_profile_name(profile)}",
+      msg="missing sampled flatten leaf \{gen_valid_profile_name(profile)}",
     )
+  }
+}
+
+///|
+test "dedicated flatten profiles resolve by name and generate valid modules" {
+  let profiles = [
+    (FlattenFunctionResultsProfile, "flatten-function-results"),
+    (FlattenOperandsProfile, "flatten-operands"),
+    (FlattenBlocksProfile, "flatten-blocks"),
+    (FlattenIfsProfile, "flatten-ifs"),
+    (FlattenLoopsProfile, "flatten-loops"),
+    (FlattenTeeProfile, "flatten-tee"),
+    (FlattenBrProfile, "flatten-br"),
+    (FlattenBrIfProfile, "flatten-br-if"),
+    (FlattenBrTableProfile, "flatten-br-table"),
+    (FlattenUnreachableProfile, "flatten-unreachable"),
+    (FlattenMultivalueProfile, "flatten-multivalue"),
+    (FlattenLegacyEhProfile, "flatten-legacy-eh"),
+  ]
+  let mut seed = 0xF1A77000UL
+  for entry in profiles {
+    let (profile, name) = entry
+    @debug.assert_eq(gen_valid_profile_name(profile), name)
+    match gen_valid_profile_by_name(name) {
+      Ok(resolved) => @debug.assert_eq(resolved, profile)
+      Err(msg) => fail(msg)
+    }
+    match
+      gen_valid_module_result_from_seed(
+        seed,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(generated) => {
+        @debug.assert_eq(generated.config_label, name)
+        assert_true(
+          gen_valid_test_has_any_export(generated.wasm_module),
+          msg="flatten profile \{name} must preserve an exported runtime root",
+        )
+        assert_true(
+          gen_valid_test_flatten_module_contains_family_marker(
+            generated.wasm_module,
+            profile,
+          ),
+          msg="flatten profile \{name} omitted its family marker",
+        )
+        if profile == FlattenMultivalueProfile {
+          @debug.assert_eq(
+            gen_valid_test_flatten_module_multivalue_branch_mask(
+              generated.wasm_module,
+            ),
+            0b111,
+          )
+          match generated.wasm_module.code_sec {
+            Some(CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 4)
+            None =>
+              fail("flatten multivalue profile must isolate four functions")
+          }
+        }
+      }
+      Err(failure) =>
+        fail(
+          "flatten profile \{name} failed: \{failure.validation_error_message}",
+        )
+    }
+    seed += 1UL
   }
 }
 

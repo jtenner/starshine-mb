@@ -2233,6 +2233,133 @@ test "run_cmd_with_adapter accepts merge-blocks" {
 }
 
 ///|
+test "run_cmd_with_adapter flatten keeps carried br_table dead suffix output valid" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (drop (block (result i32) i32.const 243 i32.const 2 br_table 0 0 unreachable))))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["flatten-dead-suffix.wasm"] },
+    file_exists=fn(path) { path == "flatten-dead-suffix.wasm" },
+    read_file=fn(path) {
+      if path == "flatten-dead-suffix.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--flatten", "--out", "out.wasm", "flatten-dead-suffix.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected flatten dead-suffix run failure: \{e}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["flatten"])
+  @debug.assert_eq(writes.length(), 1)
+  match @validate.validate_module(decode_module_bytes(writes[0].1)) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected flatten dead-suffix output to validate, got \{err}")
+  }
+}
+
+///|
+test "run_cmd_with_adapter flatten lowers dropped multivalue br_if results" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (block (result i32 i64) i32.const 35 i64.const 36 i32.const 0 br_if 0 drop drop i32.const 37 i64.const 38) drop drop))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["flatten-multivalue.wasm"] },
+    file_exists=fn(path) { path == "flatten-multivalue.wasm" },
+    read_file=fn(path) {
+      if path == "flatten-multivalue.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--flatten", "--out", "out.wasm", "flatten-multivalue.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected flatten multivalue run failure: \{e}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["flatten"])
+  @debug.assert_eq(writes.length(), 1)
+  assert_not_eq(writes[0].1, wasm)
+  let out = decode_module_bytes(writes[0].1)
+  let pretty = out.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected flatten multivalue output to validate, got \{err}")
+  }
+}
+
+///|
+test "run_cmd_with_adapter O4z keeps carried br_table dead suffix output valid" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (drop (block (result i32) i32.const 243 i32.const 2 br_table 0 0 unreachable))))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["o4z-flatten-dead-suffix.wasm"] },
+    file_exists=fn(path) { path == "o4z-flatten-dead-suffix.wasm" },
+    read_file=fn(path) {
+      if path == "o4z-flatten-dead-suffix.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["-O4z", "--out", "out.wasm", "o4z-flatten-dead-suffix.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected O4z flatten dead-suffix run failure: \{e}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["shrink"])
+  @debug.assert_eq(summary.optimize_level, 4)
+  @debug.assert_eq(summary.shrink_level, 4)
+  @debug.assert_eq(writes.length(), 1)
+  match @validate.validate_module(decode_module_bytes(writes[0].1)) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected O4z flatten dead-suffix output to validate, got \{err}")
+  }
+}
+
+///|
 test "run_cmd_with_adapter accepts tuple-optimization" {
   let wasm = encode_module_bytes(
     @passes.pass_test_module_from_wat(

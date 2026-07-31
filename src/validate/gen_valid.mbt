@@ -934,6 +934,18 @@ pub enum GenValidProfile {
   PassOiDescriptorGcProfile
   PassOiTupleProfile
   PassOiAllProfile
+  FlattenFunctionResultsProfile
+  FlattenOperandsProfile
+  FlattenBlocksProfile
+  FlattenIfsProfile
+  FlattenLoopsProfile
+  FlattenTeeProfile
+  FlattenBrProfile
+  FlattenBrIfProfile
+  FlattenBrTableProfile
+  FlattenUnreachableProfile
+  FlattenMultivalueProfile
+  FlattenLegacyEhProfile
   FlattenAllProfile
   DirectizeConstantProfile
   DirectizeSelectProfile
@@ -1329,6 +1341,18 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PassOiDescriptorGcProfile => "pass-oi-descriptor-gc"
     PassOiTupleProfile => "pass-oi-tuple"
     PassOiAllProfile => "pass-oi-all"
+    FlattenFunctionResultsProfile => "flatten-function-results"
+    FlattenOperandsProfile => "flatten-operands"
+    FlattenBlocksProfile => "flatten-blocks"
+    FlattenIfsProfile => "flatten-ifs"
+    FlattenLoopsProfile => "flatten-loops"
+    FlattenTeeProfile => "flatten-tee"
+    FlattenBrProfile => "flatten-br"
+    FlattenBrIfProfile => "flatten-br-if"
+    FlattenBrTableProfile => "flatten-br-table"
+    FlattenUnreachableProfile => "flatten-unreachable"
+    FlattenMultivalueProfile => "flatten-multivalue"
+    FlattenLegacyEhProfile => "flatten-legacy-eh"
     FlattenAllProfile => "flatten-all"
     DirectizeConstantProfile => "directize-constant"
     DirectizeSelectProfile => "directize-select"
@@ -1801,13 +1825,18 @@ pub fn gen_valid_profile_members(
       ]
     FlattenAllProfile =>
       [
-        GenValidProfileMember::new(BinaryenOraclePortableProfile, 4),
-        GenValidProfileMember::new(PassFuzzStressProfile, 3),
-        GenValidProfileMember::new(SsaNomergeSmokeProfile, 2),
-        GenValidProfileMember::new(Heap2LocalStructProfile, 1),
-        GenValidProfileMember::new(LocalSubtypingStraightLineProfile, 1),
-        GenValidProfileMember::new(CoalesceLocalsStructuredProfile, 1),
-        GenValidProfileMember::new(DaeConvergenceProfile, 1),
+        GenValidProfileMember::new(FlattenFunctionResultsProfile, 1),
+        GenValidProfileMember::new(FlattenOperandsProfile, 1),
+        GenValidProfileMember::new(FlattenBlocksProfile, 1),
+        GenValidProfileMember::new(FlattenIfsProfile, 1),
+        GenValidProfileMember::new(FlattenLoopsProfile, 1),
+        GenValidProfileMember::new(FlattenTeeProfile, 1),
+        GenValidProfileMember::new(FlattenBrProfile, 1),
+        GenValidProfileMember::new(FlattenBrIfProfile, 1),
+        GenValidProfileMember::new(FlattenBrTableProfile, 1),
+        GenValidProfileMember::new(FlattenUnreachableProfile, 1),
+        GenValidProfileMember::new(FlattenMultivalueProfile, 1),
+        GenValidProfileMember::new(FlattenLegacyEhProfile, 1),
       ]
     DirectizeAllProfile =>
       [
@@ -2203,6 +2232,18 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PassOiDescriptorGcProfile,
     PassOiTupleProfile,
     PassOiAllProfile,
+    FlattenFunctionResultsProfile,
+    FlattenOperandsProfile,
+    FlattenBlocksProfile,
+    FlattenIfsProfile,
+    FlattenLoopsProfile,
+    FlattenTeeProfile,
+    FlattenBrProfile,
+    FlattenBrIfProfile,
+    FlattenBrTableProfile,
+    FlattenUnreachableProfile,
+    FlattenMultivalueProfile,
+    FlattenLegacyEhProfile,
     FlattenAllProfile,
     DirectizeConstantProfile,
     DirectizeSelectProfile,
@@ -5037,8 +5078,20 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | PassOiDescriptorGcProfile
     | PassOiTupleProfile => gen_valid_oi_profile_config(profile)
     PassOiAllProfile => gen_valid_oi_profile_config(PassOiDefaultScalarProfile)
+    FlattenFunctionResultsProfile
+    | FlattenOperandsProfile
+    | FlattenBlocksProfile
+    | FlattenIfsProfile
+    | FlattenLoopsProfile
+    | FlattenTeeProfile
+    | FlattenBrProfile
+    | FlattenBrIfProfile
+    | FlattenBrTableProfile
+    | FlattenUnreachableProfile
+    | FlattenMultivalueProfile
+    | FlattenLegacyEhProfile => gen_valid_flatten_profile_config(profile)
     FlattenAllProfile =>
-      GenValidConfig::binaryen_oracle_coverage_forced_default()
+      gen_valid_flatten_profile_config(FlattenFunctionResultsProfile)
     DirectizeConstantProfile
     | DirectizeSelectProfile
     | DirectizeTableFactsProfile
@@ -7272,6 +7325,632 @@ fn gen_valid_rume_profile_module(ctx : GenValidContext) -> Module {
     gen_valid_rume_index_remap_stress_module(ctx.root_seed)
   } else {
     gen_valid_rume_dead_graph_module(ctx.root_seed)
+  }
+}
+
+///|
+fn gen_valid_flatten_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let profile_tag = match profile {
+    FlattenFunctionResultsProfile => 81
+    FlattenOperandsProfile => 82
+    FlattenBlocksProfile => 83
+    FlattenIfsProfile => 84
+    FlattenLoopsProfile => 85
+    FlattenTeeProfile => 86
+    FlattenBrProfile => 87
+    FlattenBrIfProfile => 88
+    FlattenBrTableProfile => 89
+    FlattenUnreachableProfile => 90
+    FlattenMultivalueProfile => 91
+    FlattenLegacyEhProfile => 92
+    _ => 81
+  }
+  let needs_two_types = profile == FlattenLoopsProfile ||
+    profile == FlattenMultivalueProfile ||
+    profile == FlattenLegacyEhProfile
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if needs_two_types {
+      2
+    } else {
+      1
+    },
+    max_imports: 0,
+    max_defined_funcs: if profile == FlattenFunctionResultsProfile {
+      2
+    } else {
+      1
+    },
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: if profile == FlattenLegacyEhProfile {
+      1
+    } else {
+      0
+    },
+    max_elems: 0,
+    max_datas: 0,
+    max_params: if profile == FlattenLoopsProfile {
+      1
+    } else {
+      0
+    },
+    max_results: if profile == FlattenMultivalueProfile {
+      2
+    } else {
+      1
+    },
+    max_locals: if profile == FlattenTeeProfile {
+      1
+    } else {
+      0
+    },
+    max_body_statements: profile_tag,
+    max_body_depth: 6,
+    features: {
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: profile == FlattenLegacyEhProfile,
+      allow_start: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: true,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_const_expr_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_flatten_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(FlattenFunctionResultsProfile) ||
+  config == GenValidConfig::for_profile(FlattenOperandsProfile) ||
+  config == GenValidConfig::for_profile(FlattenBlocksProfile) ||
+  config == GenValidConfig::for_profile(FlattenIfsProfile) ||
+  config == GenValidConfig::for_profile(FlattenLoopsProfile) ||
+  config == GenValidConfig::for_profile(FlattenTeeProfile) ||
+  config == GenValidConfig::for_profile(FlattenBrProfile) ||
+  config == GenValidConfig::for_profile(FlattenBrIfProfile) ||
+  config == GenValidConfig::for_profile(FlattenBrTableProfile) ||
+  config == GenValidConfig::for_profile(FlattenUnreachableProfile) ||
+  config == GenValidConfig::for_profile(FlattenMultivalueProfile) ||
+  config == GenValidConfig::for_profile(FlattenLegacyEhProfile)
+}
+
+///|
+pub fn gen_valid_flatten_profile_case_label(
+  profile : GenValidProfile,
+  _seed : UInt64,
+) -> String? {
+  match profile {
+    FlattenFunctionResultsProfile => Some("flatten:function-results")
+    FlattenOperandsProfile => Some("flatten:ordinary-operands")
+    FlattenBlocksProfile => Some("flatten:block-results")
+    FlattenIfsProfile => Some("flatten:if-results")
+    FlattenLoopsProfile => Some("flatten:loop-entry-and-results")
+    FlattenTeeProfile => Some("flatten:local-tee")
+    FlattenBrProfile => Some("flatten:br-payload")
+    FlattenBrIfProfile => Some("flatten:br-if-payload-and-false-flow")
+    FlattenBrTableProfile => Some("flatten:br-table-payload")
+    FlattenUnreachableProfile => Some("flatten:unreachable-placeholders")
+    FlattenMultivalueProfile => Some("flatten:multivalue-results-and-payloads")
+    FlattenLegacyEhProfile => Some("flatten:legacy-try-results")
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_flatten_void_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [])))
+}
+
+///|
+fn gen_valid_flatten_i32_result_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
+}
+
+///|
+fn gen_valid_flatten_run_export_sec() -> ExportSec {
+  ExportSec::new([
+    Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(0U))),
+  ])
+}
+
+///|
+fn gen_valid_flatten_function_results_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_i32_result_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(
+        Name::from_string("implicit"),
+        ExternIdx::func(FuncIdx::new(0U)),
+      ),
+      Export::new(
+        Name::from_string("explicit"),
+        ExternIdx::func(FuncIdx::new(1U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(2)),
+          Instruction::i32_const(I32(3)),
+          Instruction::i32_add(),
+          Instruction::i32_const(I32(4)),
+          Instruction::i32_mul(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(5)),
+          Instruction::i32_const(I32(6)),
+          Instruction::i32_sub(),
+          Instruction::return_(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_operands_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(1)),
+          Instruction::i32_const(I32(2)),
+          Instruction::i32_add(),
+          Instruction::i32_const(I32(3)),
+          Instruction::i32_const(I32(4)),
+          Instruction::i32_sub(),
+          Instruction::i32_mul(),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_blocks_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(7)),
+              Instruction::drop(),
+              Instruction::i32_const(I32(8)),
+              Instruction::i32_const(I32(9)),
+              Instruction::i32_add(),
+            ]),
+          ),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_ifs_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(1)),
+          Instruction::i32_const(I32(2)),
+          Instruction::i32_lt_s(),
+          Instruction::if_(
+            BlockType::val_type(ValType::i32()),
+            [
+              Instruction::i32_const(I32(10)),
+              Instruction::i32_const(I32(11)),
+              Instruction::i32_add(),
+            ],
+            Some([
+              Instruction::i32_const(I32(12)),
+              Instruction::i32_const(I32(13)),
+              Instruction::i32_sub(),
+            ]),
+          ),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_loops_module() -> Module {
+  let loop_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type(), loop_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::loop_(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(14)),
+              Instruction::i32_const(I32(15)),
+              Instruction::i32_add(),
+            ]),
+          ),
+          Instruction::drop(),
+          Instruction::i32_const(I32(16)),
+          Instruction::loop_(
+            BlockType::type_idx(TypeIdx::new(1U)),
+            Expr::new([Instruction::i32_const(I32(1)), Instruction::i32_add()]),
+          ),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_tee_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([ValType::i32()]),
+        Expr::new([
+          Instruction::i32_const(I32(17)),
+          Instruction::i32_const(I32(18)),
+          Instruction::i32_add(),
+          Instruction::local_tee(LocalIdx::new(0U)),
+          Instruction::i32_const(I32(19)),
+          Instruction::i32_mul(),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_br_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(20)),
+              Instruction::br(LabelIdx::new(0U)),
+              Instruction::i32_const(I32(21)),
+              Instruction::i32_eqz(),
+              Instruction::drop(),
+            ]),
+          ),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_br_if_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(22)),
+              Instruction::i32_const(I32(23)),
+              Instruction::i32_add(),
+              Instruction::i32_const(I32(24)),
+              Instruction::i32_const(I32(25)),
+              Instruction::i32_lt_s(),
+              Instruction::br_if(LabelIdx::new(0U)),
+              Instruction::drop(),
+              Instruction::i32_const(I32(26)),
+            ]),
+          ),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_br_table_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(27)),
+              Instruction::i32_const(I32(28)),
+              Instruction::i32_add(),
+              Instruction::i32_const(I32(2)),
+              Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+              Instruction::i32_const(I32(29)),
+              Instruction::i32_eqz(),
+              Instruction::drop(),
+            ]),
+          ),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_unreachable_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([Instruction::unreachable_()]),
+          ),
+          Instruction::drop(),
+          Instruction::i32_const(I32(0)),
+          Instruction::if_(
+            BlockType::val_type(ValType::i32()),
+            [Instruction::unreachable_()],
+            Some([Instruction::i32_const(I32(30))]),
+          ),
+          Instruction::drop(),
+          Instruction::loop_(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([Instruction::unreachable_()]),
+          ),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_multivalue_module() -> Module {
+  let result_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_void_type(), result_type]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("plain"), ExternIdx::func(FuncIdx::new(0U))),
+      Export::new(Name::from_string("br"), ExternIdx::func(FuncIdx::new(1U))),
+      Export::new(Name::from_string("br_if"), ExternIdx::func(FuncIdx::new(2U))),
+      Export::new(
+        Name::from_string("br_table"),
+        ExternIdx::func(FuncIdx::new(3U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::type_idx(TypeIdx::new(1U)),
+            Expr::new([
+              Instruction::i32_const(I32(31)),
+              Instruction::i64_const(I64(32L)),
+            ]),
+          ),
+          Instruction::drop(),
+          Instruction::drop(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::type_idx(TypeIdx::new(1U)),
+            Expr::new([
+              Instruction::i32_const(I32(33)),
+              Instruction::i64_const(I64(34L)),
+              Instruction::br(LabelIdx::new(0U)),
+              Instruction::unreachable_(),
+            ]),
+          ),
+          Instruction::drop(),
+          Instruction::drop(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::type_idx(TypeIdx::new(1U)),
+            Expr::new([
+              Instruction::i32_const(I32(35)),
+              Instruction::i64_const(I64(36L)),
+              Instruction::i32_const(I32(0)),
+              Instruction::br_if(LabelIdx::new(0U)),
+              Instruction::drop(),
+              Instruction::drop(),
+              Instruction::i32_const(I32(37)),
+              Instruction::i64_const(I64(38L)),
+            ]),
+          ),
+          Instruction::drop(),
+          Instruction::drop(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::type_idx(TypeIdx::new(1U)),
+            Expr::new([
+              Instruction::i32_const(I32(39)),
+              Instruction::i64_const(I64(40L)),
+              Instruction::i32_const(I32(2)),
+              Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+              Instruction::i32_const(I32(41)),
+              Instruction::i32_eqz(),
+              Instruction::drop(),
+            ]),
+          ),
+          Instruction::drop(),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_legacy_eh_module() -> Module {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_flatten_i32_result_type(), tag_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1U))]))
+  .with_export_sec(gen_valid_flatten_run_export_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::try_(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(35)),
+              Instruction::i32_const(I32(36)),
+              Instruction::i32_add(),
+            ]),
+            [
+              @lib.LegacyCatch::tagged(
+                TagIdx::new(0U),
+                Expr::new([Instruction::i32_const(I32(37))]),
+              ),
+            ],
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_flatten_profile_module(config : GenValidConfig) -> Module {
+  if config == GenValidConfig::for_profile(FlattenOperandsProfile) {
+    gen_valid_flatten_operands_module()
+  } else if config == GenValidConfig::for_profile(FlattenBlocksProfile) {
+    gen_valid_flatten_blocks_module()
+  } else if config == GenValidConfig::for_profile(FlattenIfsProfile) {
+    gen_valid_flatten_ifs_module()
+  } else if config == GenValidConfig::for_profile(FlattenLoopsProfile) {
+    gen_valid_flatten_loops_module()
+  } else if config == GenValidConfig::for_profile(FlattenTeeProfile) {
+    gen_valid_flatten_tee_module()
+  } else if config == GenValidConfig::for_profile(FlattenBrProfile) {
+    gen_valid_flatten_br_module()
+  } else if config == GenValidConfig::for_profile(FlattenBrIfProfile) {
+    gen_valid_flatten_br_if_module()
+  } else if config == GenValidConfig::for_profile(FlattenBrTableProfile) {
+    gen_valid_flatten_br_table_module()
+  } else if config == GenValidConfig::for_profile(FlattenUnreachableProfile) {
+    gen_valid_flatten_unreachable_module()
+  } else if config == GenValidConfig::for_profile(FlattenMultivalueProfile) {
+    gen_valid_flatten_multivalue_module()
+  } else if config == GenValidConfig::for_profile(FlattenLegacyEhProfile) {
+    gen_valid_flatten_legacy_eh_module()
+  } else {
+    gen_valid_flatten_function_results_module()
   }
 }
 
@@ -32042,6 +32721,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_directize_profile_config(config) {
     return gen_valid_directize_profile_module(ctx)
+  }
+  if gen_valid_is_flatten_profile_config(config) {
+    return gen_valid_flatten_profile_module(config)
   }
   if gen_valid_is_merge_blocks_profile_config(config) {
     return gen_valid_merge_blocks_profile_module(config)

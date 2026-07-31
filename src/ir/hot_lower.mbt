@@ -1318,10 +1318,14 @@ fn hot_lower_impl_emit_instruction(
       } else {
         match label_frames.legacy_rethrow_locals[slot] {
           Some(local_idx) => local_idx
-          None =>
-            abort(
-              "hot lower legacy rethrow requires its target catch exception reference",
+          None => {
+            out.push(
+              Instruction::rethrow(
+                LabelIdx::new(node.imm0.reinterpret_as_uint()),
+              ),
             )
+            return
+          }
         }
       }
       out.push(Instruction::local_get(local_idx))
@@ -1424,12 +1428,73 @@ fn hot_lower_impl_emit_instruction(
       }
     }
     HotOp::Try => {
+      let catch_region = func.children[node.child_base + 1]
+      if node.imm1 != 0 {
+        if catch_region == HOT_NONE_NODE {
+          abort("hot lower lifted legacy try requires a catch region")
+        }
+        let label_id = hot_control_node_label(func, id)
+        let try_stack = hot_lower_impl_push_label(
+          label_frames, label_stack_head, label_id,
+        )
+        let body = hot_lower_impl_region_body(
+          func,
+          func.children[node.child_base],
+          use_def,
+          label_frames,
+          try_stack,
+          extra_locals,
+          options,
+        )
+        let catches : Array[@lib.LegacyCatch] = []
+        let mut delegate = None
+        if node.imm1 == -2 {
+          let target = match
+            hot_lower_impl_direct_delegate_target(func, catch_region) {
+            Some(target) => target
+            None =>
+              abort(
+                "hot lower lifted legacy delegate requires a direct delegate root",
+              )
+          }
+          delegate = Some(
+            hot_lower_impl_label_depth(label_frames, label_stack_head, target),
+          )
+        } else {
+          label_frames.legacy_rethrow_locals.push(None)
+          let catch_body = hot_lower_impl_region_body(
+            func, catch_region, use_def, label_frames, try_stack, extra_locals, options,
+          )
+          ignore(label_frames.legacy_rethrow_locals.pop())
+          if node.imm1 == -1 {
+            catches.push(@lib.LegacyCatch::all(Expr::new(catch_body)))
+          } else if node.imm1 > 0 {
+            catches.push(
+              @lib.LegacyCatch::tagged(
+                TagIdx::new((node.imm1 - 1).reinterpret_as_uint()),
+                Expr::new(catch_body),
+              ),
+            )
+          } else {
+            abort("hot lower invalid lifted legacy catch kind")
+          }
+        }
+        hot_lower_impl_pop_label(label_frames, try_stack)
+        out.push(
+          Instruction::try_(
+            hot_lower_impl_control_block_type(func, id),
+            Expr::new(body),
+            catches,
+            delegate~,
+          ),
+        )
+        return
+      }
       if hot_node_result_arity(func, id) != 0 {
         abort(
           "hot lower only supports resultless synthetic catch-all try nodes",
         )
       }
-      let catch_region = func.children[node.child_base + 1]
       if catch_region == HOT_NONE_NODE {
         abort("hot lower synthetic catch-all try requires a catch region")
       }

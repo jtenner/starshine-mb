@@ -3127,6 +3127,49 @@ test "flatten preserves a depth-one rethrow through a rich-conditional targeted 
 }
 
 ///|
+test "flatten routes scalar legacy try results through a direct delegate" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let outer = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(0))]),
+  )
+  let target = @ir.hot_control_node_label(func, outer)
+  let delegate_id = @ir.hot_build_delegate(func, target)
+  let inner = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(7))],
+    catch_body=Some([delegate_id]),
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, outer), [
+    inner,
+  ])
+  @ir.hot_root_append(func, outer)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    _ => fail("expected result-typed direct delegate admission")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_get(func, delegate_id).imm0, target)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected result-typed delegate HOT to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten preserves direct delegate target through nested block lowering" {
   let func = @ir.HotFunc::new()
   let outer = @ir.hot_build_try(
@@ -9640,6 +9683,44 @@ test "flatten terminal proof caches allocate only inspected owners" {
 }
 
 ///|
+test "flatten no-fallthrough proof sees an unconditional branch before arbitrary dead roots" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) i32.const 7 br 0 i32.const 1 i32.eqz drop))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_region_has_no_fallthrough(
+      func,
+      @ir.hot_region_body_ref(func, block_id),
+      state=Some(state),
+    ),
+  )
+  assert_false(
+    flatten_node_has_no_fallthrough(func, block_id),
+    msg="structured roots require a separate owning-region continuation proof",
+  )
+}
+
+///|
+test "flatten no-fallthrough proof preserves conditional branch fallthrough" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) i32.const 7 i32.const 0 br_if 0 drop i32.const 9))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  let state = FlattenRewriteState::new(func)
+  assert_false(
+    flatten_region_has_no_fallthrough(
+      func,
+      @ir.hot_region_body_ref(func, block_id),
+      state=Some(state),
+    ),
+  )
+}
+
+///|
 test "flatten terminal proof caches keep sparse entries sorted" {
   let func = @ir.HotFunc::new()
   let label_ids : Array[Int] = []
@@ -12213,4 +12294,159 @@ test "flatten typed catch root ownership requires one same-tag payload prefix" {
       child_bearing, child_bearing_try, child_bearing_root,
     ),
   )
+}
+
+///|
+test "flatten public lifted dropped multivalue block becomes flat" {
+  let func = pass_test_lift_first_func(
+    "(module (func (block (result i32 i64) i32.const 31 i64.const 32) drop drop))",
+  )
+  let before = flatten_classify_hot(func)
+  assert_true(before.value_control_count > 0)
+  match flatten_run_admission(func, before) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::UpstreamHardUnsupported =>
+      fail("expected admission, got unsupported")
+    FlattenRunAdmission::DeferredCatchPayloadRepair =>
+      fail("expected admission, got catch-payload repair")
+    FlattenRunAdmission::DeferredExceptionalTransferRepair =>
+      fail("expected admission, got exceptional-transfer repair")
+    FlattenRunAdmission::DeferredInputfulLoop =>
+      fail("expected admission, got inputful-loop repair")
+    FlattenRunAdmission::DeferredLegacyTry =>
+      fail("expected admission, got legacy-try repair")
+    FlattenRunAdmission::DeferredBranchPayload =>
+      fail("expected admission, got branch-payload repair")
+  }
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected dropped multivalue block to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten public lifted dropped multivalue br_if block becomes flat" {
+  let func = pass_test_lift_first_func(
+    "(module (func (block (result i32 i64) i32.const 35 i64.const 36 i32.const 0 br_if 0 drop drop i32.const 37 i64.const 38) drop drop))",
+  )
+  let before = flatten_classify_hot(func)
+  assert_true(before.value_control_count > 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected dropped multivalue br_if block to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten stages an earlier rich stack root before an intervening effect" {
+  let func = pass_test_lift_first_func(
+    "(module (global (mut i32) i32.const 0) (func (result i32) i32.const 1 i32.const 2 i32.add i32.const 99 global.set 0 i32.const 7 i32.add))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut first_add_set_idx = -1
+  let mut global_set_idx = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet => {
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        match @ir.hot_node_get(func, value_id).op {
+          @ir.HotOp::Binary if first_add_set_idx < 0 => first_add_set_idx = idx
+          _ => ()
+        }
+      }
+      @ir.HotOp::GlobalSet => global_set_idx = idx
+      _ => ()
+    }
+  }
+  assert_true(first_add_set_idx >= 0)
+  assert_true(global_set_idx >= 0)
+  assert_true(
+    first_add_set_idx < global_set_idx,
+    msg="flatten must preserve a live stack root before intervening effects",
+  )
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected sequenced stack root to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten stages an earlier global.get before a later control operand effect" {
+  let func = pass_test_lift_first_func(
+    "(module (memory 1) (global (mut i32) i32.const 0) (func block block i32.const 7 drop end end global.get 0 block (result i32) i32.const 1 global.set 0 i32.const 7 end i32.store))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut address_set_idx = -1
+  let mut global_effect_idx = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet => {
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        match @ir.hot_node_get(func, value_id).op {
+          @ir.HotOp::GlobalGet => address_set_idx = idx
+          _ => ()
+        }
+      }
+      @ir.HotOp::GlobalSet => global_effect_idx = idx
+      @ir.HotOp::Block => {
+        let body_ref = @ir.hot_region_body_ref(func, root_id)
+        for body_idx = 0
+            body_idx < @ir.hot_region_root_count(func, body_ref)
+            body_idx = body_idx + 1 {
+          let body_root = @ir.hot_region_get(func, body_ref, body_idx)
+          match @ir.hot_node_get(func, body_root).op {
+            @ir.HotOp::GlobalSet => global_effect_idx = idx
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(address_set_idx >= 0)
+  assert_true(global_effect_idx >= 0)
+  assert_true(
+    address_set_idx < global_effect_idx,
+    msg="flatten must preserve left-to-right store operand effects",
+  )
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected effect-ordered operand routing to verify, got \{err}")
+  }
 }

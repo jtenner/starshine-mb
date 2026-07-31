@@ -70,6 +70,8 @@ pub fn gen_valid_duplicate_import_elimination_profile_case_label(GenValidProfile
 
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
 
+pub fn gen_valid_flatten_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_heap_store_optimization_profile_case_label(GenValidProfile) -> String?
 
 pub fn gen_valid_inlining_optimizing_profile_case_label(GenValidProfile, UInt64) -> String?
@@ -149,6 +151,8 @@ pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats,
 pub fn tc_escape_none() -> TcEscape
 
 pub fn tc_escape_terminal() -> TcEscape
+
+pub fn tc_state_clone(TcState) -> TcState
 
 pub fn tc_state_merge_nonfallthrough_if_exits(TcEscape, TcEscape) -> TcEscape
 
@@ -1433,6 +1437,18 @@ pub enum GenValidProfile {
   PassOiDescriptorGcProfile
   PassOiTupleProfile
   PassOiAllProfile
+  FlattenFunctionResultsProfile
+  FlattenOperandsProfile
+  FlattenBlocksProfile
+  FlattenIfsProfile
+  FlattenLoopsProfile
+  FlattenTeeProfile
+  FlattenBrProfile
+  FlattenBrIfProfile
+  FlattenBrTableProfile
+  FlattenUnreachableProfile
+  FlattenMultivalueProfile
+  FlattenLegacyEhProfile
   FlattenAllProfile
   DirectizeConstantProfile
   DirectizeSelectProfile

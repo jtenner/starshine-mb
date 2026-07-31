@@ -43,6 +43,7 @@ using @validate {
   make_state_owned,
   tc_escape_none,
   tc_escape_terminal,
+  tc_state_clone,
   tc_state_merge_nonfallthrough_if_exits,
   tc_state_new,
   tc_state_normalize_untyped_block_exit,

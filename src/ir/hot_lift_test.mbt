@@ -1058,3 +1058,171 @@ test "hot lift keeps unreachable compare conditions wired to typed block results
   @debug.assert_eq(hot_node_result_arity(func, lhs), 1)
   @debug.assert_eq(hot_node_get(func, rhs).op.to_string(), "Const")
 }
+
+///|
+fn hot_lift_test_legacy_try_module(
+  catch_all : Bool,
+  delegate : Bool,
+) -> @lib.Module {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let tag_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let copy_body = @lib.Expr::new([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+  let try_instr = if delegate {
+    @lib.Instruction::try_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::try_(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          copy_body,
+          [],
+          delegate=Some(@lib.LabelIdx::new(0U)),
+        ),
+      ]),
+      [
+        @lib.LegacyCatch::tagged(
+          @lib.TagIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ],
+    )
+  } else if catch_all {
+    @lib.Instruction::try_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::throw_(@lib.TagIdx::new(0U))]),
+      [@lib.LegacyCatch::all(copy_body)],
+    )
+  } else {
+    @lib.Instruction::try_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::throw_(@lib.TagIdx::new(0U))]),
+      [@lib.LegacyCatch::tagged(@lib.TagIdx::new(0U), copy_body)],
+    )
+  }
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([func_type, tag_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(1U))]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new([try_instr]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "hot lift preserves a scalar tagged legacy try" {
+  let module_ = hot_lift_test_legacy_try_module(false, false)
+  let ctx = hot_module_context_from_module(module_)
+  let func = match
+    hot_lift_func_with_context_result(module_, @lib.FuncIdx::new(0U), ctx) {
+    Ok(func) => func
+    Err(err) => fail("expected tagged legacy try lift, got \{err}")
+  }
+  @debug.assert_eq(hot_root_count(func), 1)
+  let try_id = hot_root_get(func, 0)
+  @debug.assert_eq(hot_node_get(func, try_id).op.to_string(), "Try")
+  @debug.assert_eq(hot_node_result_arity(func, try_id), 1)
+  @debug.assert_eq(hot_node_get(func, try_id).imm1, 1)
+  assert_true(hot_region_catch_ref(func, try_id) is Some(_))
+}
+
+///|
+test "hot lift preserves a scalar catch_all legacy try" {
+  let module_ = hot_lift_test_legacy_try_module(true, false)
+  let ctx = hot_module_context_from_module(module_)
+  let func = match
+    hot_lift_func_with_context_result(module_, @lib.FuncIdx::new(0U), ctx) {
+    Ok(func) => func
+    Err(err) => fail("expected catch_all legacy try lift, got \{err}")
+  }
+  let try_id = hot_root_get(func, 0)
+  @debug.assert_eq(hot_node_get(func, try_id).op.to_string(), "Try")
+  @debug.assert_eq(hot_node_get(func, try_id).imm1, -1)
+}
+
+///|
+test "hot lift preserves a result-typed legacy delegate" {
+  let module_ = hot_lift_test_legacy_try_module(false, true)
+  let ctx = hot_module_context_from_module(module_)
+  let func = match
+    hot_lift_func_with_context_result(module_, @lib.FuncIdx::new(0U), ctx) {
+    Ok(func) => func
+    Err(err) => fail("expected legacy delegate lift, got \{err}")
+  }
+  let outer = hot_root_get(func, 0)
+  let outer_body = hot_region_body_ref(func, outer)
+  let inner = hot_region_get(func, outer_body, 0)
+  let catch_ref = hot_region_catch_ref(func, inner).unwrap()
+  let delegate_id = hot_region_get(func, catch_ref, 0)
+  @debug.assert_eq(hot_node_get(func, delegate_id).op.to_string(), "Delegate")
+  @debug.assert_eq(
+    hot_node_get(func, delegate_id).imm0,
+    hot_control_node_label(func, outer),
+  )
+}
+
+///|
+test "hot lift seeds tagged legacy catch payload lanes" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let tag_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type, tag_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(1U))]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::try_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(41)),
+                @lib.Instruction::throw_(@lib.TagIdx::new(0U)),
+              ]),
+              [
+                @lib.LegacyCatch::tagged(
+                  @lib.TagIdx::new(0U),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  ]),
+                ),
+              ],
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let ctx = hot_module_context_from_module(module_)
+  let func = match
+    hot_lift_func_with_context_result(module_, @lib.FuncIdx::new(0U), ctx) {
+    Ok(func) => func
+    Err(err) => fail("expected tagged payload lift, got \{err}")
+  }
+  let try_id = hot_root_get(func, 0)
+  let catch_ref = hot_region_catch_ref(func, try_id).unwrap()
+  let payload = hot_region_get(func, catch_ref, 0)
+  let consume = hot_region_get(func, catch_ref, 1)
+  @debug.assert_eq(hot_node_get(func, payload).op.to_string(), "Catch")
+  @debug.assert_eq(hot_node_result_arity(func, payload), 1)
+  @debug.assert_eq(hot_node_get(func, consume).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_child_get(func, consume, 0), payload)
+}

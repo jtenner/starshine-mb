@@ -4,16 +4,16 @@ fn flatten_test_classify(text : String) -> FlattenFlatnessReport {
 }
 
 ///|
-fn flatten_test_validate_lowered_single_result(
+fn flatten_test_validate_lowered_results(
   func : @ir.HotFunc,
-  result_type : @lib.ValType,
+  result_types : Array[@lib.ValType],
 ) -> Unit raise {
   let lowered = @ir.hot_lower_func(func)
   let module_ = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
         @lib.RecType::new(
-          @lib.SubType::comp_type(@lib.CompType::func([], [result_type])),
+          @lib.SubType::comp_type(@lib.CompType::func([], result_types)),
         ),
       ]),
     )
@@ -23,6 +23,19 @@ fn flatten_test_validate_lowered_single_result(
     Ok(_) => ()
     Err(err) => fail(@validate.validation_error_message(err))
   }
+}
+
+///|
+fn flatten_test_validate_lowered_single_result(
+  func : @ir.HotFunc,
+  result_type : @lib.ValType,
+) -> Unit raise {
+  flatten_test_validate_lowered_results(func, [result_type])
+}
+
+///|
+fn flatten_test_validate_lowered_void(func : @ir.HotFunc) -> Unit raise {
+  flatten_test_validate_lowered_results(func, [])
 }
 
 ///|
@@ -836,10 +849,10 @@ test "flatten routes one repeated-target scalar br_table to a legacy try" {
 }
 
 ///|
-test "flatten boundary: first-class legacy try remains unsupported by HOT pipelines" {
-  // Old EH is admitted in raw IR, but flatten/optimize/shrink do not yet lift
-  // legacy catch regions into HOT. Fail closed instead of using the former
-  // synthetic block scaffold, which was not semantically faithful.
+test "flatten and neighboring HOT pipelines admit first-class legacy try" {
+  // Legacy catch regions now lift into HOT directly. Flatten rewrites the
+  // result channel, while unrelated HOT pipelines must preserve and lower the
+  // original result-typed try without rejecting the function.
   let input =
     #| (module
     #|   (tag $e)
@@ -860,12 +873,57 @@ test "flatten boundary: first-class legacy try remains unsupported by HOT pipeli
     #|     return))
     #|
   for pipeline in [["flatten"], ["optimize"], ["shrink"]] {
-    match pass_test_run_pipeline(input, pipeline) {
-      Ok(_) =>
+    let output = match pass_test_run_pipeline(input, pipeline) {
+      Ok(output) => output
+      Err(err) =>
         fail(
-          "expected first-class legacy try to remain unsupported by \{@debug.to_string(pipeline)}",
+          "expected first-class legacy try support in \{@debug.to_string(pipeline)}, got \{err}",
         )
-      Err(_) => ()
+    }
+    match @validate.validate_module(output) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected valid first-class legacy try output from \{@debug.to_string(pipeline)}, got \{err}",
+        )
+    }
+  }
+}
+
+///|
+test "flatten preserves tagged legacy catch payloads and rethrow depth" {
+  let input =
+    #| (module
+    #|   (tag $e (param i32))
+    #|   (func (export "f") (result i32)
+    #|     (local i32)
+    #|     (try (result i32)
+    #|       (do
+    #|         (try (result i32)
+    #|           (do
+    #|             i32.const 41
+    #|             throw $e)
+    #|           (catch $e
+    #|             local.set 0
+    #|             rethrow 0)))
+    #|       (catch $e
+    #|         local.set 0
+    #|         local.get 0))))
+    #|
+  for pipeline in [["flatten"], ["optimize"], ["shrink"]] {
+    let output = match pass_test_run_pipeline(input, pipeline) {
+      Ok(output) => output
+      Err(err) =>
+        fail(
+          "expected tagged payload/rethrow support in \{@debug.to_string(pipeline)}, got \{err}",
+        )
+    }
+    match @validate.validate_module(output) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected valid tagged payload/rethrow output from \{@debug.to_string(pipeline)}, got \{err}",
+        )
     }
   }
 }
@@ -9588,6 +9646,60 @@ test "flatten materializes an implicit scalar function result before return" {
 }
 
 ///|
+test "flatten routes a lifted multivalue branch through a nested void block" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) block (result i32 i64) block i32.const 1 i64.const 2 br 1 end unreachable end))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected nested multivalue branch to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten materializes an implicit rich multivalue function result before return" {
+  let func = pass_test_lift_first_func(
+    "(module (func $pair (result i32 i64) call $pair))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_local_count(func), 2)
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  let high_set = @ir.hot_root_get(func, 0)
+  let low_set = @ir.hot_root_get(func, 1)
+  let return_id = @ir.hot_root_get(func, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, high_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, high_set).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, low_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, low_set).imm0, 0)
+  let tuple_id = @ir.hot_child_get(func, high_set, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, tuple_id).op.to_string(), "Call")
+  @debug.assert_eq(@ir.hot_child_get(func, low_set, 0), tuple_id)
+  @debug.assert_eq(@ir.hot_node_get(func, return_id).op.to_string(), "Return")
+  @debug.assert_eq(@ir.hot_child_count(func, return_id), 2)
+  @debug.assert_eq(flatten_classify_hot(func).body_value_flow_count, 0)
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected flattened multivalue body to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten materializes the declared scalar result after a polymorphic unreachable tail" {
   let i64_type = @lib.ValType::i64()
   let func = pass_test_lift_first_func(
@@ -9647,6 +9759,26 @@ test "flatten materializes the declared scalar result after a nested unreachable
 }
 
 ///|
+test "flatten routes subtype reference values through anyref controls" {
+  let func = pass_test_lift_first_func(
+    "(module (func i32.const 1 if (result anyref) i32.const 3 ref.i31 else i32.const 5 ref.i31 end drop block (result anyref) i32.const 7 ref.i31 br 0 i32.const 9 ref.i31 end drop))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected subtype-routed controls to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten keeps polymorphic unreachable if arms type-correct" {
   let i64_type = @lib.ValType::i64()
   let func = pass_test_lift_first_func(
@@ -9680,6 +9812,33 @@ test "flatten keeps polymorphic unreachable loop tails type-correct" {
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
   assert_true(flatten_classify_hot(func).is_flat())
   flatten_test_validate_lowered_single_result(func, i64_type)
+}
+
+///|
+test "flatten keeps polymorphic unreachable multivalue loop tails type-correct" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (loop (result i32 i64) unreachable) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, return_id, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected multivalue unreachable loop routing to verify, got \{err}")
+  }
+  flatten_test_validate_lowered_results(func, [i32_type, i64_type])
 }
 
 ///|
@@ -9865,6 +10024,130 @@ test "flatten routes a carried scalar br through its block target temp" {
     Ok(_) => ()
     Err(err) => fail("expected carried scalar br routing to verify, got \{err}")
   }
+}
+
+///|
+test "flatten routes a carried scalar br before an unreachable sentinel" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) i32.const 7 br 0 unreachable))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let branch = @ir.hot_region_get(func, body_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 1), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected carried scalar br before unreachable to verify, got \{err}",
+      )
+  }
+  flatten_test_validate_lowered_void(func)
+}
+
+///|
+test "flatten preserves an arbitrary dead suffix while routing its payload branch" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) i32.const 7 br 0 i32.const 1 i32.eqz drop))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let branch = @ir.hot_region_get(func, body_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 1), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected arbitrary dead suffix routing to stay valid, got \{err}")
+  }
+  flatten_test_validate_lowered_void(func)
+}
+
+///|
+test "flatten routes a nested carried scalar br before an outer unreachable tail" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) (block i32.const 7 br 1 unreachable) unreachable))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let outer_block = @ir.hot_child_get(func, drop_id, 0)
+  let outer_ref = @ir.hot_region_body_ref(func, outer_block)
+  let inner_block = @ir.hot_region_get(func, outer_ref, 0)
+  let inner_ref = @ir.hot_region_body_ref(func, inner_block)
+  let branch = @ir.hot_region_get(func, inner_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, outer_block), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested scalar br unreachable tail to verify, got \{err}")
+  }
+  flatten_test_validate_lowered_void(func)
+}
+
+///|
+test "flatten routes a nested carried scalar br_table before an outer unreachable tail" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) (block i32.const 7 i32.const 0 br_table 1 1 unreachable) unreachable))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let outer_block = @ir.hot_child_get(func, drop_id, 0)
+  let outer_ref = @ir.hot_region_body_ref(func, outer_block)
+  let inner_block = @ir.hot_region_get(func, outer_ref, 0)
+  let inner_ref = @ir.hot_region_body_ref(func, inner_block)
+  let branch = @ir.hot_region_get(func, inner_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, outer_block), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested scalar br_table unreachable tail to verify, got \{err}",
+      )
+  }
+  flatten_test_validate_lowered_void(func)
 }
 
 ///|
@@ -10132,6 +10415,172 @@ test "flatten fans one scalar br_table value out to unique target temps" {
     Ok(_) => ()
     Err(err) => fail("expected scalar br_table fanout to verify, got \{err}")
   }
+}
+
+///|
+test "flatten routes a carried scalar br_table before an unreachable sentinel" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) i32.const 243 i32.const 2 br_table 0 0 unreachable))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let branch = @ir.hot_region_get(func, body_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 1), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected carried scalar br_table before unreachable to verify, got \{err}",
+      )
+  }
+  flatten_test_validate_lowered_void(func)
+}
+
+///|
+test "flatten preserves an arbitrary dead suffix after a carried scalar br_table" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) i32.const 243 i32.const 2 br_table 0 0 i32.const 1 i32.eqz drop))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let branch = @ir.hot_region_get(func, body_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 1), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected arbitrary scalar br_table suffix routing to verify, got \{err}",
+      )
+  }
+  flatten_test_validate_lowered_void(func)
+}
+
+///|
+test "flatten routes a carried multivalue br before an unreachable sentinel" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (block (result i32 i64) i32.const 7 i64.const 9 br 0 unreachable) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, return_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let branch = @ir.hot_region_get(func, body_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected carried multivalue br before unreachable to verify, got \{err}",
+      )
+  }
+  flatten_test_validate_lowered_results(func, [i32_type, i64_type])
+}
+
+///|
+test "flatten routes a carried multivalue br_table before an unreachable sentinel" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (block (result i32 i64) i32.const 7 i64.const 9 i32.const 0 br_table 0 0 unreachable) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, return_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let branch = @ir.hot_region_get(func, body_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected carried multivalue br_table before unreachable to verify, got \{err}",
+      )
+  }
+  flatten_test_validate_lowered_results(func, [i32_type, i64_type])
+}
+
+///|
+test "flatten routes a nested carried multivalue br_table before an outer unreachable tail" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (block (result i32 i64) (block i32.const 7 i64.const 9 i32.const 0 br_table 1 1 unreachable) unreachable) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let outer_block = @ir.hot_child_get(func, return_id, 0)
+  let outer_ref = @ir.hot_region_body_ref(func, outer_block)
+  let inner_block = @ir.hot_region_get(func, outer_ref, 0)
+  let inner_ref = @ir.hot_region_body_ref(func, inner_block)
+  let branch = @ir.hot_region_get(func, inner_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, outer_block), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested multivalue br_table unreachable tail to verify, got \{err}",
+      )
+  }
+  flatten_test_validate_lowered_results(func, [i32_type, i64_type])
 }
 
 ///|
@@ -10606,6 +11055,68 @@ test "flatten routes scalar br_if flow through a carried if arm" {
     Err(err) =>
       fail("expected carried scalar if br_if flow to verify, got \{err}")
   }
+}
+
+///|
+test "flatten routes a carried scalar if branch before an unreachable sentinel" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (if (result i32) (i32.const 1) (then i32.const 7 br 0 unreachable) (else i32.const 9)))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let if_id = @ir.hot_child_get(func, drop_id, 0)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let branch = @ir.hot_region_get(func, then_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, then_ref, 1), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar if dead-suffix routing to verify, got \{err}")
+  }
+  flatten_test_validate_lowered_void(func)
+}
+
+///|
+test "flatten routes a carried multivalue if branch before an unreachable sentinel" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) i32.const 1 if (result i32 i64) i32.const 7 i64.const 9 br 0 unreachable else i32.const 11 i64.const 13 end return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let if_id = @ir.hot_child_get(func, return_id, 0)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let branch = @ir.hot_region_get(func, then_ref, 0)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 4)
+  @debug.assert_eq(@ir.hot_region_get(func, then_ref, 2), branch)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected multivalue if dead-suffix routing to verify, got \{err}")
+  }
+  flatten_test_validate_lowered_results(func, [i32_type, i64_type])
 }
 
 ///|
@@ -11459,10 +11970,12 @@ test "flatten routes ordered two-parameter loop br_table payloads" {
   @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
   @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch)
   @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 7)
-  let result_set = @ir.hot_region_get(func, body_ref, 6)
-  let result_local = @ir.hot_node_get(func, result_set).imm0
-  assert_false(result_local == first_entry_local)
-  assert_false(result_local == second_entry_local)
+  let dead_suffix_set = @ir.hot_region_get(func, body_ref, 6)
+  let dead_suffix_local = @ir.hot_node_get(func, dead_suffix_set).imm0
+  @debug.assert_eq(
+    @ir.hot_local_type(func, dead_suffix_local),
+    Some(@lib.ValType::i32()),
+  )
   let use_def = @ir.use_def_build(func)
   @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
   @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)

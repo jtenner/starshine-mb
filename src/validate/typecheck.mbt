@@ -5141,6 +5141,18 @@ pub fn tc_state_with_stack(state : TcState, stack : Array[ValType]) -> TcState {
 }
 
 ///|
+pub fn tc_state_clone(state : TcState) -> TcState {
+  {
+    env: state.env,
+    stack: state.stack.copy(),
+    reachable: state.reachable,
+    escape: state.escape,
+    reachable_escape_depths: state.reachable_escape_depths.copy(),
+    initialized_locals: state.initialized_locals.copy(),
+  }
+}
+
+///|
 pub fn tc_state_with_owned_stack(
   state : TcState,
   stack : Array[ValType],
