@@ -23,7 +23,7 @@ fn merge_blocks_has_candidate(func : @ir.HotFunc) -> Bool {
       continue
     }
     match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Block => return true
+      @ir.HotOp::Block | @ir.HotOp::Loop => return true
       _ => ()
     }
   }
@@ -638,6 +638,42 @@ fn merge_blocks_flatten_region_root_block(
 }
 
 ///|
+fn merge_blocks_flatten_branch_free_loop_body(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_used : @bitset.BitSet,
+  flattened_roots : Array[Int],
+  module_ctx : @ir.HotModuleContext?,
+) -> Bool {
+  let loop_id = @ir.hot_region_get(func, region_ref, idx)
+  if loop_id < 0 || !@ir.hot_node_is_live(func, loop_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, loop_id).op {
+    @ir.HotOp::Loop => ()
+    _ => return false
+  }
+  if pass_label_is_used(@ir.hot_control_node_label(func, loop_id), label_used) ||
+    merge_blocks_block_has_params(func, loop_id, module_ctx) ||
+    @ir.hot_type_results(func, @ir.hot_node_type(func, loop_id)).length() > 0 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  if @ir.hot_region_root_count(func, body_ref) < 2 ||
+    merge_blocks_region_contains_loop(func, body_ref) {
+    return false
+  }
+  merge_blocks_collect_region_roots(func, body_ref, flattened_roots)
+  if !merge_blocks_rewrite_dead_unreachable_suffix_roots(func, flattened_roots) {
+    return false
+  }
+  ignore(@ir.hot_region_splice(func, region_ref, idx, 1, flattened_roots))
+  @ir.hot_region_replace_body(func, body_ref, [])
+  true
+}
+
+///|
 fn merge_blocks_flatten_branch_free_loop_block_body(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -691,6 +727,178 @@ fn merge_blocks_flatten_branch_free_loop_block_body(
 }
 
 ///|
+fn merge_blocks_try_remove_o4z_self_br_if_void_block(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  let block_id = @ir.hot_region_get(func, region_ref, idx)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, block_id) != 0 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let branch_id = @ir.hot_region_get(func, body_ref, 0)
+  if branch_id < 0 || !@ir.hot_node_is_live(func, branch_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, branch_id).op {
+    @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+  if @ir.hot_branch_target(func, branch_id) !=
+    Some(@ir.hot_control_node_label(func, block_id)) ||
+    @ir.hot_child_count(func, branch_id) != 1 {
+    return false
+  }
+  let condition = @ir.hot_child_get(func, branch_id, 0)
+  let dropped_condition = @ir.hot_build_drop(func, condition)
+  ignore(@ir.hot_region_splice(func, region_ref, idx, 1, [dropped_condition]))
+  @ir.hot_region_replace_body(func, body_ref, [])
+  true
+}
+
+///|
+fn merge_blocks_cleanup_o4z_self_br_if_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let mut changed = false
+  let mut idx = 0
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    if merge_blocks_try_remove_o4z_self_br_if_void_block(func, region_ref, idx) {
+      changed = true
+      idx += 1
+      continue
+    }
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::Block | @ir.HotOp::Loop =>
+          changed = merge_blocks_cleanup_o4z_self_br_if_region(
+              func,
+              @ir.hot_region_body_ref(func, node_id),
+            ) ||
+            changed
+        @ir.HotOp::If => {
+          changed = merge_blocks_cleanup_o4z_self_br_if_region(
+              func,
+              @ir.hot_region_then_ref(func, node_id),
+            ) ||
+            changed
+          match @ir.hot_region_else_ref(func, node_id) {
+            Some(else_ref) =>
+              changed = merge_blocks_cleanup_o4z_self_br_if_region(
+                  func, else_ref,
+                ) ||
+                changed
+            None => ()
+          }
+        }
+        @ir.HotOp::Try => {
+          changed = merge_blocks_cleanup_o4z_self_br_if_region(
+              func,
+              @ir.hot_region_body_ref(func, node_id),
+            ) ||
+            changed
+          match @ir.hot_region_catch_ref(func, node_id) {
+            Some(catch_ref) =>
+              changed = merge_blocks_cleanup_o4z_self_br_if_region(
+                  func, catch_ref,
+                ) ||
+                changed
+            None => ()
+          }
+        }
+        @ir.HotOp::TryTable => {
+          changed = merge_blocks_cleanup_o4z_self_br_if_region(
+              func,
+              @ir.hot_region_body_ref(func, node_id),
+            ) ||
+            changed
+          changed = merge_blocks_cleanup_o4z_self_br_if_region(
+              func,
+              @ir.hot_region_catch_list_ref(func, node_id),
+            ) ||
+            changed
+        }
+        _ => ()
+      }
+    }
+    idx += 1
+  }
+  changed
+}
+
+///|
+fn merge_blocks_try_cleanup_dropped_self_branch(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  let drop_id = @ir.hot_region_get(func, region_ref, idx)
+  if drop_id < 0 || !@ir.hot_node_is_live(func, drop_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, drop_id).op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, drop_id) != 1 {
+    return false
+  }
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if merge_blocks_block_param_count(func, block_id, None) != 0 ||
+    @ir.hot_node_result_arity(func, block_id) != 1 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let branch_id = @ir.hot_region_get(func, body_ref, 0)
+  if branch_id < 0 || !@ir.hot_node_is_live(func, branch_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, branch_id).op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+  if @ir.hot_branch_target(func, branch_id) !=
+    Some(@ir.hot_control_node_label(func, block_id)) ||
+    @ir.hot_child_count(func, branch_id) != 1 {
+    return false
+  }
+  let payload = @ir.hot_child_get(func, branch_id, 0)
+  if !@ir.effects_is_pure(@ir.effects_for_node(func, payload)) {
+    return false
+  }
+  let payload_drop = @ir.hot_build_drop(func, payload)
+  ignore(@ir.hot_replace_child_span(func, branch_id, []))
+  @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
+  @ir.hot_region_replace_body(func, body_ref, [payload_drop, branch_id])
+  ignore(@ir.hot_region_splice(func, region_ref, idx, 1, [block_id]))
+  true
+}
+
+///|
 fn merge_blocks_visit_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -703,6 +911,15 @@ fn merge_blocks_visit_region(
   let mut changed = false
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
+    if merge_blocks_try_cleanup_dropped_self_branch(func, region_ref, idx) {
+      changed = true
+    }
+    if merge_blocks_flatten_branch_free_loop_body(
+        func, region_ref, idx, label_used, flattened_roots, module_ctx,
+      ) {
+      changed = true
+      continue
+    }
     if merge_blocks_flatten_branch_free_loop_block_body(
         func, region_ref, idx, label_used, flattened_roots, module_ctx,
       ) {
@@ -740,9 +957,16 @@ fn merge_blocks_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if !merge_blocks_has_candidate(func) {
     return HotPassResult::unchanged()
   }
+  let mut changed = false
+  if ctx.optimize_level >= 4 && ctx.shrink_level >= 4 {
+    changed = merge_blocks_cleanup_o4z_self_br_if_region(
+      func,
+      @ir.HotRegionRef::root(),
+    )
+  }
   let label_used = pass_compute_label_used(func)
   let flattened_roots : Array[Int] = []
-  if !merge_blocks_visit_region(
+  changed = merge_blocks_visit_region(
       func,
       @ir.HotRegionRef::root(),
       label_used,
@@ -750,7 +974,9 @@ fn merge_blocks_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
       ctx.module_ctx,
       false,
       false,
-    ) {
+    ) ||
+    changed
+  if !changed {
     return HotPassResult::unchanged()
   }
   pass_mark_mutated(ctx, func)

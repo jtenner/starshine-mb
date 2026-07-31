@@ -1356,6 +1356,7 @@ test "simplify-locals-nostructure lowered cleanup skips stack-root call hazards"
     func,
     "simplify-locals-nostructure",
     None,
+    @lib.FuncIdx::new(1U),
     mod_,
   )
   @debug.assert_eq(cleaned, func)
@@ -1379,6 +1380,7 @@ test "simplify-locals-nostructure lowered cleanup refinalizes ref.func null if r
     func,
     "simplify-locals-nostructure",
     Some(func),
+    @lib.FuncIdx::new(1U),
     mod_,
   )
   let optimized = mod_.with_code_sec(@lib.CodeSec::new([dummy_func, cleaned]))
@@ -1460,6 +1462,7 @@ test "simplify-locals-nostructure lowered cleanup directizes ref.func local call
     func,
     "simplify-locals-nostructure",
     Some(func),
+    @lib.FuncIdx::new(1U),
     mod_,
   )
   let optimized = mod_.with_code_sec(
@@ -19442,6 +19445,364 @@ test "merge-blocks keeps O4z slot-42 no-data func 1355 witness valid" {
   }
   assert_true(pretty.contains("local.tee (Local 131)"), msg=pretty)
   assert_true(pretty.contains("local.tee (Local 88)"), msg=pretty)
+}
+
+///|
+#cfg(target="native")
+test "merge-blocks matches v131 generic call and dropped-branch fixture" {
+  let input_path = "tests/repros/merge-blocks-v131-main.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in v131 main fixture at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 main fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["merge-blocks"]) {
+    Ok(result) => result
+    Err(err) => fail("expected v131 main merge-blocks success, got \{err}")
+  }
+  let funcs = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected v131 main fixture code section")
+  }
+  for func_idx in [7, 11] {
+    let body = match funcs[func_idx] {
+      @lib.Func(_, @lib.Expr(body)) => body
+    }
+    assert_false(
+      body.any(fn(instr) {
+        match instr {
+          @lib.Block(_, _) => true
+          _ => false
+        }
+      }),
+      msg="expected flat extracted call prefixes for Func \{func_idx}: \{body}",
+    )
+  }
+  match funcs[12] {
+    @lib.Func(_, @lib.Expr([@lib.Block(@lib.VoidBlockType, _)])) => ()
+    other =>
+      fail("expected dropped branch value to become a void block, got \{other}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected v131 main merge-blocks validity, got \{@validate.validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "merge-blocks lowered cleanup restores bottom-ref block results" {
+  let bottom_heap = @lib.HeapType::abs(@lib.AbsHeapType::no_func())
+  let bottom_ref = @lib.RefType::new(true, bottom_heap)
+  let func = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::funcref()),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(bottom_heap),
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+          @lib.Instruction::ref_cast_type(bottom_ref),
+        ]),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let cleaned = run_hot_pipeline_merge_blocks_refinalize_lowered_null_blocks(
+    func,
+  )
+  match cleaned {
+    @lib.Func(
+      _,
+      @lib.Expr(
+        [
+          @lib.Block(
+            @lib.ValTypeBlockType(@lib.RefTypeValType(actual_ref)),
+            @lib.Expr(body)
+          ),
+          @lib.Drop,
+        ]
+      )
+    ) => {
+      assert_eq(actual_ref, bottom_ref)
+      assert_eq(body.length(), 3)
+      assert_false(body.any(fn(instr) { instr is @lib.RefCast(_, _, _) }))
+    }
+    other => fail("expected refinalized bottom-ref block, got \{other}")
+  }
+}
+
+///|
+test "merge-blocks lowered cleanup narrows all-null branch result families" {
+  let broad_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
+  let bottom_ref = @lib.RefType::new(
+    true,
+    @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+  )
+  let func = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::funcref()),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(broad_heap),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::funcref()),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(broad_heap),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_table(
+            [@lib.LabelIdx::new(0U)],
+            @lib.LabelIdx::new(0U),
+          ),
+          @lib.Instruction::unreachable_(),
+          @lib.Instruction::ref_null(broad_heap),
+        ]),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::funcref()),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::ref_null(broad_heap),
+              @lib.Instruction::i32_const(@lib.I32(1)),
+              @lib.Instruction::br_if(@lib.LabelIdx::new(1U)),
+              @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              @lib.Instruction::unreachable_(),
+            ]),
+          ),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let cleaned = run_hot_pipeline_merge_blocks_refinalize_lowered_null_blocks(
+    func,
+  )
+  match cleaned {
+    @lib.Func(_, @lib.Expr(body)) => {
+      for idx in [0, 2, 4] {
+        match body[idx] {
+          @lib.Block(@lib.ValTypeBlockType(@lib.RefTypeValType(actual)), _) =>
+            assert_eq(actual, bottom_ref)
+          other =>
+            fail("expected narrowed all-null block at \{idx}, got \{other}")
+        }
+      }
+      match body[2] {
+        @lib.Block(_, @lib.Expr(table_body)) =>
+          assert_eq(table_body.length(), 3)
+        _ => fail("expected narrowed br_table block")
+      }
+      match body[4] {
+        @lib.Block(_, @lib.Expr([@lib.Block(_, @lib.Expr(inner)), _])) =>
+          assert_eq(inner.length(), 4)
+        _ => fail("expected narrowed nested branch block")
+      }
+    }
+  }
+}
+
+///|
+test "merge-blocks lowered cleanup flattens scalar spill blocks before consumers" {
+  let func = @lib.Func::new(
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::i32(),
+    ]),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(11)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::i64_const(@lib.I64(13L)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let cleaned = run_hot_pipeline_merge_blocks_flatten_lowered_spill_blocks(
+    func,
+    @ir.hot_module_context_from_module(pass_test_module_from_wat("(module)")),
+  )
+  match cleaned {
+    @lib.Func(_, @lib.Expr(body)) => {
+      assert_eq(body.length(), 7)
+      assert_false(body.any(fn(instr) { instr is @lib.Block(_, _) }))
+      assert_true(body[4] is @lib.LocalGet(@lib.LocalIdx(0U)))
+      assert_true(body[5] is @lib.LocalTee(@lib.LocalIdx(2U)))
+    }
+  }
+}
+
+///|
+test "merge-blocks pipeline flattens scalar spill blocks introduced beside dropped branches" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func
+      #|    (local i32 i32 i32 i64)
+      #|    i32.const 11
+      #|    local.set 0
+      #|    i64.const 13
+      #|    local.set 3
+      #|    local.get 0
+      #|    local.tee 1
+      #|    local.set 2
+      #|    (drop
+      #|      (block (result (ref null nofunc))
+      #|        (br_if 0 (ref.null nofunc) (i32.const 1))))))
+      #|,
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["merge-blocks"]) {
+    Ok(next) => next
+    Err(err) => fail("expected scalar-spill integration cleanup, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      assert_false(
+        body.any(fn(instr) {
+          match instr {
+            @lib.Block(@lib.ValTypeBlockType(ty), _) =>
+              ty == @lib.ValType::i32()
+            _ => false
+          }
+        }),
+      )
+    other => fail("expected one optimized function, got \{other}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("ref.cast"), msg=pretty)
+}
+
+///|
+test "merge-blocks lowered cleanup flattens type-indexed scalar spill blocks" {
+  let func = @lib.Func::new(
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::i32(),
+    ]),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(11)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::i64_const(@lib.I64(13L)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        ]),
+      ),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let cleaned = run_hot_pipeline_merge_blocks_flatten_lowered_spill_blocks(
+    func,
+    @ir.hot_module_context_from_module(
+      pass_test_module_from_wat("(module (type (func (result i32))))"),
+    ),
+  )
+  match cleaned {
+    @lib.Func(_, @lib.Expr(body)) => {
+      assert_eq(body.length(), 7)
+      assert_false(body.any(fn(instr) { instr is @lib.Block(_, _) }))
+    }
+  }
+}
+
+///|
+#cfg(target="native")
+test "merge-blocks matches v131 acquire and release ordering fixture" {
+  let input_path = "tests/repros/merge-blocks-v131-atomics.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in v131 atomic fixture at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 atomic fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["merge-blocks"]) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected ordered merge-blocks pipeline success, got \{err}")
+  }
+  let funcs = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected ordered fixture code section")
+  }
+  match funcs[1] {
+    @lib.Func(
+      _,
+      @lib.Expr(
+        [
+          @lib.I32Const(_),
+          @lib.I32AtomicLoad(@lib.AcqRel, _),
+          @lib.Drop,
+          @lib.LocalGet(_),
+          @lib.StructGet(_, _),
+          @lib.Drop,
+          @lib.I32Const(_),
+          @lib.I32Const(_),
+          @lib.Call(_),
+        ]
+      )
+    ) => ()
+    other =>
+      fail("expected acquire load before shared struct read, got \{other}")
+  }
+  match funcs[2] {
+    @lib.Func(
+      _,
+      @lib.Expr(
+        [
+          @lib.I32Const(_),
+          @lib.I32Const(_),
+          @lib.I32AtomicStore(@lib.AcqRel, _),
+          @lib.LocalGet(_),
+          @lib.StructGet(_, _),
+          @lib.Drop,
+          @lib.I32Const(_),
+          @lib.I32Const(_),
+          @lib.Call(_),
+        ]
+      )
+    ) => ()
+    other =>
+      fail("expected the binary-oracle release store order, got \{other}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected ordered merge-blocks fixture validity, got \{@validate.validation_error_message(err)}",
+      )
+  }
 }
 
 ///|

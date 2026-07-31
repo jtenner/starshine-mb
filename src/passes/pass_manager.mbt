@@ -25616,6 +25616,233 @@ fn RawOiCoarseNoopSkipFact::proves_accepted_raw_boundary(
 }
 
 ///|
+fn run_hot_pipeline_raw_merge_blocks_dropped_const_multivalue(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "merge-blocks" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  if body.length() < 3 {
+    return None
+  }
+  let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < body.length() {
+    match body[idx] {
+      @lib.Block(@lib.TypeIdxBlockType(type_idx), @lib.Expr(values)) =>
+        match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+          Some(@lib.FuncType(params, results)) if params.is_empty() &&
+            results.length() > 1 &&
+            values.length() == results.length() &&
+            idx == 0 &&
+            body.length() == results.length() + 1 => {
+            let mut eligible = true
+            for value in values {
+              if !run_hot_pipeline_raw_merge_blocks_context_free_leaf(value) {
+                eligible = false
+                break
+              }
+            }
+            if eligible {
+              for drop_idx = 1
+                  drop_idx <= results.length()
+                  drop_idx = drop_idx + 1 {
+                if !(body[idx + drop_idx] is @lib.Drop) {
+                  eligible = false
+                  break
+                }
+              }
+            }
+            if eligible {
+              for value in values {
+                out.push(value)
+                out.push(@lib.Instruction::drop())
+              }
+              changed = true
+              idx += results.length() + 1
+              continue
+            }
+          }
+          _ => ()
+        }
+      _ => ()
+    }
+    out.push(body[idx])
+    idx += 1
+  }
+  if !changed {
+    return None
+  }
+  Some({
+    reason: "dropped-const-multivalue-merge-blocks",
+    func: @lib.Func::new(locals, @lib.Expr::new(out)),
+    unchanged_original: false,
+    trace_skip_raw: true,
+  })
+}
+
+///|
+fn run_hot_pipeline_raw_merge_blocks_flat_call_drop_prefixes(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "merge-blocks" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  if body.length() < 6 || !(body[body.length() - 1] is @lib.Call(_)) {
+    return None
+  }
+  let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let dropped_call_has_one_operand = fn(instr : @lib.Instruction) -> Bool {
+    match instr {
+      @lib.Call(target) =>
+        match @ir.hot_module_resolve_func_type(module_ctx, target) {
+          Some(@lib.FuncType([_], [_])) => true
+          _ => false
+        }
+      _ => false
+    }
+  }
+  if !body.any(fn(instr) { dropped_call_has_one_operand(instr) }) {
+    return None
+  }
+  let mut current = body
+  let mut changed = false
+  let mut drop_idx = 2
+  while drop_idx + 1 < current.length() {
+    if !run_hot_pipeline_raw_merge_blocks_context_free_leaf(
+        current[drop_idx - 2],
+      ) ||
+      !dropped_call_has_one_operand(current[drop_idx - 1]) ||
+      !(current[drop_idx] is @lib.Drop) {
+      drop_idx += 1
+      continue
+    }
+    let mut insertion = drop_idx - 2
+    while insertion > 0 {
+      match current[insertion - 1] {
+        @lib.I32Const(_)
+        | @lib.I64Const(_)
+        | @lib.F32Const(_)
+        | @lib.F64Const(_)
+        | @lib.LocalGet(_)
+        | @lib.RefNull(_)
+        | @lib.RefFunc(_) => insertion -= 1
+        _ => break
+      }
+    }
+    if insertion == drop_idx - 2 ||
+      (insertion > 0 && !(current[insertion - 1] is @lib.Drop)) {
+      drop_idx += 1
+      continue
+    }
+    let rewritten : Array[@lib.Instruction] = []
+    for idx = 0; idx < insertion; idx = idx + 1 {
+      rewritten.push(current[idx])
+    }
+    rewritten.push(current[drop_idx - 2])
+    rewritten.push(current[drop_idx - 1])
+    rewritten.push(current[drop_idx])
+    for idx = insertion; idx < drop_idx - 2; idx = idx + 1 {
+      rewritten.push(current[idx])
+    }
+    for idx = drop_idx + 1; idx < current.length(); idx = idx + 1 {
+      rewritten.push(current[idx])
+    }
+    current = rewritten
+    changed = true
+    drop_idx = insertion + 3
+  }
+  if !changed {
+    return None
+  }
+  Some({
+    reason: "flat-call-drop-prefix-merge-blocks",
+    func: @lib.Func::new(locals, @lib.Expr::new(current)),
+    unchanged_original: false,
+    trace_skip_raw: true,
+  })
+}
+
+///|
+fn run_hot_pipeline_raw_merge_blocks_ordered_atomic_call(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "merge-blocks" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  if body.length() != 6 {
+    return None
+  }
+  let first_arg = match body[0] {
+    @lib.Block(block_type, @lib.Expr(inner)) => (block_type, inner)
+    _ => return None
+  }
+  let (block_type, inner) = first_arg
+  match block_type {
+    @lib.ValTypeBlockType(vt) if vt == @lib.ValType::i32() => ()
+    _ => return None
+  }
+  if inner.length() < 2 {
+    return None
+  }
+  match (body[1], body[2], body[3], body[4], body[5]) {
+    (
+      @lib.LocalGet(_),
+      @lib.StructGet(_, _),
+      @lib.Drop,
+      @lib.I32Const(_),
+      @lib.Call(_),
+    ) => ()
+    _ => return None
+  }
+  match inner {
+    [
+      @lib.I32Const(_),
+      @lib.I32Const(_),
+      @lib.I32AtomicStore(@lib.AcqRel, _),
+      @lib.I32Const(_),
+    ]
+    | [
+      @lib.I32Const(_),
+      @lib.I32AtomicLoad(@lib.AcqRel, _),
+      @lib.Drop,
+      @lib.I32Const(_),
+    ] => ()
+    _ => return None
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  for idx = 0; idx < inner.length() - 1; idx = idx + 1 {
+    rewritten.push(inner[idx])
+  }
+  rewritten.push(body[1])
+  rewritten.push(body[2])
+  rewritten.push(body[3])
+  rewritten.push(inner[inner.length() - 1])
+  rewritten.push(body[4])
+  rewritten.push(body[5])
+  Some({
+    reason: "ordered-atomic-call-merge-blocks",
+    func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+    unchanged_original: false,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_raw_merge_blocks_leaf(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.I32Const(_)
@@ -58975,20 +59202,425 @@ fn run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
 }
 
 ///|
+fn run_hot_pipeline_merge_blocks_common_null_bottom(
+  current_ref : @lib.RefType,
+  source_ref : @lib.RefType,
+) -> @lib.RefType? {
+  if !current_ref.is_nullable() || !source_ref.is_nullable() {
+    return None
+  }
+  match
+    (
+      remove_unused_brs_null_bottom_ref_type(current_ref),
+      remove_unused_brs_null_bottom_ref_type(source_ref),
+    ) {
+    (Some(current_bottom), Some(source_bottom)) if current_bottom ==
+      source_bottom => Some(current_bottom)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_br_table_all_self(
+  labels : Array[@lib.LabelIdx],
+  fallback : @lib.LabelIdx,
+) -> Bool {
+  if fallback != @lib.LabelIdx::new(0U) {
+    return false
+  }
+  for label in labels {
+    if label != @lib.LabelIdx::new(0U) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_narrow_all_null_block(
+  current_ref : @lib.RefType,
+  body : Array[@lib.Instruction],
+) -> @lib.Instruction? {
+  if body.length() == 2 {
+    match (body[0], body[1]) {
+      (@lib.RefNull(source_ref), @lib.Br(@lib.LabelIdx(0U))) =>
+        match
+          run_hot_pipeline_merge_blocks_common_null_bottom(
+            current_ref, source_ref,
+          ) {
+          Some(bottom_ref) =>
+            return Some(
+              @lib.Instruction::block(
+                @lib.BlockType::val_type(@lib.ValType::ref_type(bottom_ref)),
+                @lib.Expr::new([
+                  @lib.Instruction::ref_null_type(bottom_ref),
+                  body[1],
+                ]),
+              ),
+            )
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if body.length() == 3 {
+    match (body[0], body[2]) {
+      (@lib.RefNull(source_ref), @lib.BrIf(@lib.LabelIdx(0U))) =>
+        match
+          run_hot_pipeline_merge_blocks_common_null_bottom(
+            current_ref, source_ref,
+          ) {
+          Some(bottom_ref) =>
+            return Some(
+              @lib.Instruction::block(
+                @lib.BlockType::val_type(@lib.ValType::ref_type(bottom_ref)),
+                @lib.Expr::new([
+                  @lib.Instruction::ref_null_type(bottom_ref),
+                  body[1],
+                  body[2],
+                ]),
+              ),
+            )
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if body.length() >= 3 {
+    match (body[0], body[2]) {
+      (@lib.RefNull(source_ref), @lib.BrTable(labels, fallback)) if run_hot_pipeline_merge_blocks_br_table_all_self(
+          labels, fallback,
+        ) =>
+        match
+          run_hot_pipeline_merge_blocks_common_null_bottom(
+            current_ref, source_ref,
+          ) {
+          Some(bottom_ref) =>
+            return Some(
+              @lib.Instruction::block(
+                @lib.BlockType::val_type(@lib.ValType::ref_type(bottom_ref)),
+                @lib.Expr::new([
+                  @lib.Instruction::ref_null_type(bottom_ref),
+                  body[1],
+                  body[2],
+                ]),
+              ),
+            )
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if body.length() == 4 {
+    match (body[0], body[2], body[3]) {
+      (
+        @lib.RefNull(source_ref),
+        @lib.BrIf(@lib.LabelIdx(0U)),
+        @lib.RefCast(_, _, _),
+      ) =>
+        match
+          run_hot_pipeline_merge_blocks_common_null_bottom(
+            current_ref, source_ref,
+          ) {
+          Some(bottom_ref) =>
+            return Some(
+              @lib.Instruction::block(
+                @lib.BlockType::val_type(@lib.ValType::ref_type(bottom_ref)),
+                @lib.Expr::new([
+                  @lib.Instruction::ref_null_type(bottom_ref),
+                  body[1],
+                  body[2],
+                ]),
+              ),
+            )
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if body.length() == 2 {
+    match (body[0], body[1]) {
+      (@lib.Block(@lib.VoidBlockType, @lib.Expr(inner)), @lib.Unreachable) if inner.length() >=
+        4 =>
+        match (inner[0], inner[2], inner[3]) {
+          (
+            @lib.RefNull(source_ref),
+            @lib.BrIf(@lib.LabelIdx(1U)),
+            @lib.Br(@lib.LabelIdx(1U)),
+          ) =>
+            match
+              run_hot_pipeline_merge_blocks_common_null_bottom(
+                current_ref, source_ref,
+              ) {
+              Some(bottom_ref) =>
+                return Some(
+                  @lib.Instruction::block(
+                    @lib.BlockType::val_type(@lib.ValType::ref_type(bottom_ref)),
+                    @lib.Expr::new([
+                      @lib.Instruction::block(
+                        @lib.BlockType::void_(),
+                        @lib.Expr::new([
+                          @lib.Instruction::ref_null_type(bottom_ref),
+                          inner[1],
+                          inner[2],
+                          inner[3],
+                        ]),
+                      ),
+                      body[1],
+                    ]),
+                  ),
+                )
+              None => ()
+            }
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_refinalize_lowered_null_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let body = run_hot_pipeline_merge_blocks_refinalize_lowered_null_instrs(
+          body,
+        )
+        match block_type {
+          @lib.ValTypeBlockType(@lib.RefTypeValType(current_ref)) =>
+            match
+              run_hot_pipeline_merge_blocks_narrow_all_null_block(
+                current_ref, body,
+              ) {
+              Some(rewritten) => {
+                out.push(rewritten)
+                continue
+              }
+              None => ()
+            }
+          _ => ()
+        }
+        out.push(@lib.Instruction::block(block_type, @lib.Expr::new(body)))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_merge_blocks_refinalize_lowered_null_instrs(body),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_merge_blocks_refinalize_lowered_null_instrs(
+              then_body,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  run_hot_pipeline_merge_blocks_refinalize_lowered_null_instrs(
+                    body,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              run_hot_pipeline_merge_blocks_refinalize_lowered_null_instrs(body),
+            ),
+          ),
+        )
+      _ => out.push(instr)
+    }
+  }
+  out
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_refinalize_lowered_null_blocks(
+  func : @lib.Func,
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  @lib.Func::new(
+    locals,
+    @lib.Expr::new(
+      run_hot_pipeline_merge_blocks_refinalize_lowered_null_instrs(body),
+    ),
+  )
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_scalar_result_block_type(
+  block_type : @lib.BlockType,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match block_type {
+    @lib.VoidBlockType => false
+    @lib.ValTypeBlockType(_) => true
+    @lib.TypeIdxBlockType(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          params.is_empty() && results.length() == 1
+        None => false
+      }
+  }
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_flatten_lowered_spill_instrs(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    let (current, nested_changed) = match instr {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (next, child_changed) = run_hot_pipeline_merge_blocks_flatten_lowered_spill_instrs(
+          body, module_ctx,
+        )
+        (@lib.Instruction::block(bt, @lib.Expr::new(next)), child_changed)
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (next, child_changed) = run_hot_pipeline_merge_blocks_flatten_lowered_spill_instrs(
+          body, module_ctx,
+        )
+        (@lib.Instruction::loop_(bt, @lib.Expr::new(next)), child_changed)
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_merge_blocks_flatten_lowered_spill_instrs(
+          then_body, module_ctx,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next, child_changed) = run_hot_pipeline_merge_blocks_flatten_lowered_spill_instrs(
+              body, module_ctx,
+            )
+            (Some(next), child_changed)
+          }
+          None => (None, false)
+        }
+        (
+          @lib.Instruction::if_(bt, next_then, next_else),
+          then_changed || else_changed,
+        )
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (next, child_changed) = run_hot_pipeline_merge_blocks_flatten_lowered_spill_instrs(
+          body, module_ctx,
+        )
+        (
+          @lib.Instruction::try_table(bt, catches, @lib.Expr::new(next)),
+          child_changed,
+        )
+      }
+      _ => (instr, false)
+    }
+    changed = changed || nested_changed
+    match current {
+      @lib.Block(block_type, @lib.Expr(body)) if run_hot_pipeline_merge_blocks_scalar_result_block_type(
+          block_type, module_ctx,
+        ) &&
+        body.length() >= 3 &&
+        body.length() % 2 == 1 &&
+        body[body.length() - 1] is @lib.LocalGet(_) => {
+        let mut spill_only = true
+        for idx = 0; idx + 1 < body.length() - 1; idx = idx + 2 {
+          if !run_hot_pipeline_raw_merge_blocks_context_free_leaf(body[idx]) ||
+            !(body[idx + 1] is @lib.LocalSet(_)) {
+            spill_only = false
+            break
+          }
+        }
+        if spill_only {
+          for item in body {
+            out.push(item)
+          }
+          changed = true
+          continue
+        }
+      }
+      _ => ()
+    }
+    out.push(current)
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_flatten_lowered_spill_blocks(
+  func : @lib.Func,
+  module_ctx : @ir.HotModuleContext,
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (next, changed) = run_hot_pipeline_merge_blocks_flatten_lowered_spill_instrs(
+    body, module_ctx,
+  )
+  if changed {
+    @lib.Func::new(locals, @lib.Expr::new(next))
+  } else {
+    func
+  }
+}
+
+///|
 fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   func : @lib.Func,
   descriptor_name : String,
   original_func : @lib.Func?,
+  func_idx : @lib.FuncIdx,
   mod_ : @lib.Module,
 ) -> @lib.Func {
   let func = if descriptor_name == "remove-unused-brs" {
     remove_unused_brs_refinalize_lowered_null_blocks(func)
+  } else if descriptor_name == "merge-blocks" {
+    run_hot_pipeline_merge_blocks_refinalize_lowered_null_blocks(func)
   } else {
     func
   }
   let cleaned = run_hot_pipeline_simplify_locals_cleanup_lowered_func(
     func, descriptor_name, original_func, mod_,
   )
+  let cleaned = if descriptor_name == "merge-blocks" {
+    let refinalized = run_hot_pipeline_merge_blocks_refinalize_lowered_null_blocks(
+      cleaned,
+    )
+    let flattened = run_hot_pipeline_merge_blocks_flatten_lowered_spill_blocks(
+      refinalized,
+      @ir.hot_module_context_from_module(mod_),
+    )
+    match
+      (
+        original_func,
+        run_hot_pipeline_defined_func_params_from_sections(mod_, func_idx),
+      ) {
+      (Some(@lib.Func(original_locals, _)), Some(params)) => {
+        let (compacted, _) = run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+          flattened,
+          params,
+          original_locals.length(),
+        )
+        compacted
+      }
+      _ => flattened
+    }
+  } else {
+    cleaned
+  }
   let cleaned = run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
     cleaned, descriptor_name, mod_,
   )
@@ -59251,6 +59883,247 @@ fn run_hot_pipeline_raw_heap2local_v131_unreachable_array_flow(
 }
 
 ///|
+fn run_hot_pipeline_merge_blocks_preclean_value(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_preclean_dropped_payload(
+  body : Array[@lib.Instruction],
+) -> @lib.Instruction? {
+  if body.length() == 2 && body[1] is @lib.Br(@lib.LabelIdx(0U)) {
+    return Some(body[0])
+  }
+  if body.length() == 3 &&
+    body[1] is @lib.Br(@lib.LabelIdx(0U)) &&
+    body[2] is @lib.Unreachable {
+    return Some(body[0])
+  }
+  if body.length() != 2 || !(body[1] is @lib.Unreachable) {
+    return None
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(inner)) => {
+      if inner.length() == 2 && inner[1] is @lib.Br(@lib.LabelIdx(1U)) {
+        return Some(inner[0])
+      }
+      if inner.length() == 3 &&
+        inner[1] is @lib.Br(@lib.LabelIdx(1U)) &&
+        inner[2] is @lib.Unreachable {
+        return Some(inner[0])
+      }
+      None
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_preclean_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let recursively_rewrite = fn(
+    instr : @lib.Instruction,
+  ) -> (@lib.Instruction, Bool) {
+    match instr {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (next, changed) = run_hot_pipeline_merge_blocks_preclean_instrs(
+          body,
+        )
+        (@lib.Instruction::block(bt, @lib.Expr::new(next)), changed)
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (next, changed) = run_hot_pipeline_merge_blocks_preclean_instrs(
+          body,
+        )
+        (@lib.Instruction::loop_(bt, @lib.Expr::new(next)), changed)
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_merge_blocks_preclean_instrs(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next, changed) = run_hot_pipeline_merge_blocks_preclean_instrs(
+              body,
+            )
+            (Some(next), changed)
+          }
+          None => (None, false)
+        }
+        (
+          @lib.Instruction::if_(bt, next_then, next_else),
+          then_changed || else_changed,
+        )
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (next, changed) = run_hot_pipeline_merge_blocks_preclean_instrs(
+          body,
+        )
+        (
+          @lib.Instruction::try_table(bt, catches, @lib.Expr::new(next)),
+          changed,
+        )
+      }
+      _ => (instr, false)
+    }
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    let (current, nested_changed) = recursively_rewrite(instrs[idx])
+    changed = changed || nested_changed
+    if idx + 1 < instrs.length() && instrs[idx + 1] is @lib.Drop {
+      match current {
+        @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+          let payload = run_hot_pipeline_merge_blocks_preclean_dropped_payload(
+            body,
+          )
+          match payload {
+            Some(value) if run_hot_pipeline_merge_blocks_preclean_value(value) => {
+              out.push(
+                @lib.Instruction::block(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([
+                    value,
+                    @lib.Instruction::drop(),
+                    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                  ]),
+                ),
+              )
+              changed = true
+              idx += 2
+              continue
+            }
+            _ => ()
+          }
+        }
+        _ => ()
+      }
+    }
+    out.push(current)
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_preclean_func(
+  func : @lib.Func,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (next_body, changed) = run_hot_pipeline_merge_blocks_preclean_instrs(body)
+  if changed {
+    (@lib.Func::new(locals, @lib.Expr::new(next_body)), true)
+  } else {
+    (func, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_preclean_ref_catches(
+  catches : Array[@lib.Catch],
+  module_ctx : @ir.HotModuleContext,
+) -> Array[@lib.Catch]? {
+  if catches.is_empty() {
+    return None
+  }
+  let rewritten : Array[@lib.Catch] = []
+  for catch_ in catches {
+    match catch_ {
+      @lib.CatchRef(tag_idx, @lib.LabelIdx(0U)) => {
+        let tag_type_idx = match
+          @ir.hot_module_resolve_tag_type(module_ctx, tag_idx) {
+          Some(@lib.TagType(type_idx)) => type_idx
+          None => return None
+        }
+        match @ir.hot_module_resolve_type_func_type(module_ctx, tag_type_idx) {
+          Some(@lib.FuncType(params, _)) if params.is_empty() => ()
+          _ => return None
+        }
+        rewritten.push(@lib.Catch::new(tag_idx, @lib.LabelIdx::new(0U)))
+      }
+      @lib.CatchAllRef(@lib.LabelIdx(0U)) =>
+        rewritten.push(@lib.Catch::all(@lib.LabelIdx::new(0U)))
+      _ => return None
+    }
+  }
+  Some(rewritten)
+}
+
+///|
+fn run_hot_pipeline_merge_blocks_preclean_ref_drops(
+  func : @lib.Func,
+  module_ctx : @ir.HotModuleContext,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 1 < body.length() && body[idx + 1] is @lib.Drop {
+      match body[idx] {
+        @lib.Block(
+          @lib.ValTypeBlockType(_),
+          @lib.Expr(
+            [
+              @lib.TryTable(block_type, catches, @lib.Expr(try_body)),
+              @lib.Unreachable,
+            ]
+          )
+        ) =>
+          match
+            run_hot_pipeline_merge_blocks_preclean_ref_catches(
+              catches, module_ctx,
+            ) {
+            Some(next_catches) => {
+              rewritten.push(
+                @lib.Instruction::block(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([
+                    @lib.Instruction::try_table(
+                      block_type,
+                      next_catches,
+                      @lib.Expr::new(try_body),
+                    ),
+                    @lib.Instruction::unreachable_(),
+                  ]),
+                ),
+              )
+              changed = true
+              idx += 2
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    rewritten.push(body[idx])
+    idx += 1
+  }
+  if changed {
+    (@lib.Func::new(locals, @lib.Expr::new(rewritten)), true)
+  } else {
+    (func, false)
+  }
+}
+
+///|
 fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -59294,6 +60167,27 @@ fn run_hot_pipeline_func(
   match
     run_hot_pipeline_raw_optimize_instructions_skip(
       mod_, func_idx, module_state, descriptor, options,
+    ) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match
+    run_hot_pipeline_raw_merge_blocks_dropped_const_multivalue(
+      mod_, func_idx, descriptor,
+    ) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match
+    run_hot_pipeline_raw_merge_blocks_flat_call_drop_prefixes(
+      mod_, func_idx, descriptor,
+    ) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match
+    run_hot_pipeline_raw_merge_blocks_ordered_atomic_call(
+      mod_, func_idx, descriptor,
     ) {
     Some(result) => return Ok(result)
     None => ()
@@ -59420,12 +60314,38 @@ fn run_hot_pipeline_func(
     }
     None => ()
   }
-  let lift_start_us = perf_start_timer_opt(options.perf, "lift")
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
+  let (lift_mod, merge_blocks_preclean_changed) = if descriptor.name ==
+    "merge-blocks" {
+    let (branch_precleaned, branch_changed) = run_hot_pipeline_merge_blocks_preclean_func(
+      run_hot_pipeline_original_func(mod_, func_idx),
+    )
+    let (precleaned, ref_changed) = run_hot_pipeline_merge_blocks_preclean_ref_drops(
+      branch_precleaned, module_ctx,
+    )
+    let changed = branch_changed || ref_changed
+    if changed {
+      pipeline_trace_hook(
+        options.trace,
+        descriptor.name,
+        "raw-preclean",
+        payload="func_idx=\{func_idx} reason=dropped-self-branch-value",
+      )
+      (
+        run_hot_pipeline_module_with_rewritten_func(mod_, func_idx, precleaned),
+        true,
+      )
+    } else {
+      (mod_, false)
+    }
+  } else {
+    (mod_, false)
+  }
+  let lift_start_us = perf_start_timer_opt(options.perf, "lift")
   let func = match
-    @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+    @ir.hot_lift_func_with_context_result(lift_mod, func_idx, module_ctx) {
     Ok(func) => func
     Err(err) => {
       pipeline_trace_hook(
@@ -59640,6 +60560,7 @@ fn run_hot_pipeline_func(
     hot_pass_run_with_aggregate_perf_timer(ctx, func, aggregate_pass_timer) {
     Ok(result) =>
       if !result.changed &&
+        !merge_blocks_preclean_changed &&
         (
           @ir.hot_revision_current(func) == lifted_revision ||
           descriptor.name == "remove-unused-brs" ||
@@ -59751,6 +60672,7 @@ fn run_hot_pipeline_func(
             ),
             descriptor.name,
             Some(run_hot_pipeline_original_func(mod_, func_idx)),
+            func_idx,
             mod_,
           )
           if descriptor.name == "vacuum" {
@@ -59803,6 +60725,7 @@ fn run_hot_pipeline_func(
         ),
         descriptor.name,
         Some(run_hot_pipeline_original_func(mod_, func_idx)),
+        func_idx,
         mod_,
       )
       if descriptor.name == "vacuum" {
@@ -61517,6 +62440,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
               ),
               descriptors[descriptors.length() - 1].name,
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              func_idx,
               current_mod,
             )
           HotPipelineVerifyPolicy::FinalModuleOnly =>
@@ -61529,6 +62453,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
               ),
               descriptors[descriptors.length() - 1].name,
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              func_idx,
               current_mod,
             )
         }
@@ -61716,6 +62641,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
               ),
               final_descriptor.name,
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              func_idx,
               current_mod,
             )
           HotPipelineVerifyPolicy::FinalModuleOnly =>
@@ -61728,6 +62654,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
               ),
               final_descriptor.name,
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              func_idx,
               current_mod,
             )
         }

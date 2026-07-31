@@ -6414,6 +6414,59 @@ test "code-folding reaches a root-anchored terminating-tail fixpoint" {
 }
 
 ///|
+test "code-folding O4z late branch-cleanup removes redundant inner block exits" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32)
+        #|    (block $outer
+        #|      (block $out
+        #|        (if (local.get 0)
+        #|          (then
+        #|            (i32.const 1)
+        #|            (drop)
+        #|            (i32.const 2)
+        #|            (drop)
+        #|            (local.get 0)
+        #|            (br_if $outer)
+        #|            (br $out)))
+        #|        (i32.const 1)
+        #|        (drop)
+        #|        (i32.const 2)
+        #|        (drop)
+        #|        (local.get 0)
+        #|        (br_if $outer)))))
+        #|,
+      ),
+      [
+        "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "merge-blocks",
+      ],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z inner block-exit cleanup, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr([@lib.Block(@lib.VoidBlockType, @lib.Expr(body))])
+          ),
+        ]
+      )
+    ) => {
+      assert_false(body.any(fn(instr) { instr is @lib.Block(_, _) }))
+      assert_true(body.any(fn(instr) { instr is @lib.Drop }))
+    }
+    other => fail("expected one surviving outer block, got \{other}")
+  }
+}
+
+///|
 test "code-folding late branch-cleanup neighborhood keeps fixpoint-exposed return tails valid" {
   let optimized = match
     pass_test_run_pipeline(
@@ -7217,6 +7270,55 @@ test "code-folding folds catch-ref try-table throwing-body if-arm suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding late branch-cleanup neighborhood drops unused catch-ref payloads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (func $sink (param i32))
+        #|  (func (param i32 i32)
+        #|    (block $h (result exnref)
+        #|      (try_table (catch_ref $e $h)
+        #|        (if (local.get 0)
+        #|          (then
+        #|            (i32.const 1)
+        #|            (drop)
+        #|            (local.get 1)
+        #|            (call $sink)
+        #|            (i32.const 7)
+        #|            (drop))
+        #|          (else
+        #|            (i32.const 2)
+        #|            (drop)
+        #|            (local.get 1)
+        #|            (call $sink)
+        #|            (i32.const 7)
+        #|            (drop)))
+        #|        (throw $e))
+        #|      (unreachable))
+        #|    (drop)))
+        #|,
+      ),
+      [
+        "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "merge-blocks",
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected catch-ref late cleanup success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("catch_ref"), msg=pretty)
+  assert_true(pretty.contains("catch (Tag 0)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
     1,
     msg=pretty,
   )

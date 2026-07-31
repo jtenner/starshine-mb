@@ -155,6 +155,21 @@ test "merge-blocks removes branch-free untyped loops with explicit block bodies 
 }
 
 ///|
+test "merge-blocks removes branch-free untyped loops without wrapper blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (loop (drop (i32.const 7)) (drop (i32.const 8)))))",
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected plain branch-free loop cleanup, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(loop"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "merge-blocks flattens inner blocks inside loops without dropping continue targets" {
   let optimized = match
     pass_test_run_pipeline("(module (func (loop $l (block (nop)) (br $l))))", [
@@ -2631,6 +2646,355 @@ test "merge-blocks moves pure block prefixes out of throw operands like Binaryen
   assert_true(pretty.contains("throw"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
   assert_true(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "merge-blocks removes pure values from dropped self-target branches" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (drop (block $exit (result i32) (br $exit (i32.const 42))))))",
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks dropped-branch cleanup success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Block(_, _)]))])) => ()
+    _ =>
+      fail(
+        "expected Binaryen-shaped top-level void block after dropped branch cleanup, got \{optimized.pretty_print_func(@lib.FuncIdx::new(0U))}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(42)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "merge-blocks removes pure scalar values from dropped self-target branches" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (func (drop (block $i64 (result i64) (br $i64 (i64.const 42)))))
+        #|   (func (drop (block $f32 (result f32) (br $f32 (f32.const 4)))))
+        #|   (func (drop (block $f64 (result f64) (br $f64 (f64.const 4))))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected scalar dropped-branch cleanup success, got \{err}")
+  }
+  for func_idx = 0U; func_idx < 3U; func_idx = func_idx + 1U {
+    let body = match optimized.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        match funcs[func_idx.reinterpret_as_int()] {
+          @lib.Func(_, @lib.Expr(body)) => body
+        }
+      None => fail("expected scalar dropped-branch code section")
+    }
+    match body {
+      [@lib.Block(@lib.VoidBlockType, _)] => ()
+      _ => fail("expected scalar dropped branch to become void: \{body}")
+    }
+  }
+}
+
+///|
+test "merge-blocks drops pure multivalue block results without spill locals" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (func
+        #|     (block (result i32 i64)
+        #|       (i32.const 11)
+        #|       (i64.const 13)
+        #|     )
+        #|     (drop)
+        #|     (drop)
+        #|   )
+        #| )
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped multivalue cleanup success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(body))])) => {
+      assert_eq(locals.length(), 0)
+      assert_eq(body.length(), 4)
+      assert_true(body[0] is @lib.I32Const(_))
+      assert_true(body[1] is @lib.Drop)
+      assert_true(body[2] is @lib.I64Const(_))
+      assert_true(body[3] is @lib.Drop)
+    }
+    _ => fail("expected one optimized multivalue function")
+  }
+}
+
+///|
+test "merge-blocks preserves stacked arguments around multi-parameter dropped calls" {
+  let source =
+    #| (module
+    #|   (func $pair (param i32 i32) (result i32) (local.get 0))
+    #|   (func (result i32)
+    #|     (i32.const 7)
+    #|     (i32.const 8)
+    #|     (call $pair)
+    #|     (drop)
+    #|     (i32.const 9)
+    #|     (i32.const 10)
+    #|     (call $pair)
+    #|   )
+    #| )
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stacked call arguments to remain valid, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected stacked call argument validity, got \{@validate.validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "merge-blocks removes pure values from nested dropped self-target branches" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (func
+        #|     (drop
+        #|       (block $exit (result i64)
+        #|         (block
+        #|           (br $exit (i64.const 42))
+        #|         )
+        #|         unreachable
+        #|       )
+        #|     )
+        #|   )
+        #| )
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested dropped-branch cleanup success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([@lib.Block(@lib.VoidBlockType, _)]))]
+      )
+    ) => ()
+    _ =>
+      fail(
+        "expected nested dropped branch to become a void block, got \{optimized.pretty_print_func(@lib.FuncIdx::new(0U))}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I64(42)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("(block (I64)"), msg=pretty)
+}
+
+///|
+test "merge-blocks keeps effectful values on dropped self-target branches" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (func $effect (result i32) (i32.const 7))
+        #|   (func
+        #|     (drop
+        #|       (block $exit (result i32)
+        #|         (br $exit (call $effect))))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks effectful branch bailout, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec([_, @lib.Func(_, @lib.Expr([@lib.Block(_, _), @lib.Drop]))])
+    ) => ()
+    _ =>
+      fail(
+        "expected effectful branch payload to keep the dropped result block, got \{optimized.pretty_print_func(@lib.FuncIdx::new(1U))}",
+      )
+  }
+}
+
+///|
+fn merge_blocks_ordered_atomic_test_module() -> @lib.Module {
+  let shared_struct = @lib.TypeIdx::new(0U)
+  let shared_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(shared_struct)),
+  )
+  let shared_field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::var_(),
+  )
+  let memarg = @lib.MemArg::new(2U, None, 0UL)
+  let call_body = fn(ordered_prefix : Array[@lib.Instruction]) -> @lib.Func {
+    let first_arg = ordered_prefix.copy()
+    first_arg.push(@lib.Instruction::i32_const(@lib.I32(0)))
+    @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new(first_arg),
+        ),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get(shared_struct, @lib.U32(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+          ]),
+        ),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ]),
+    )
+  }
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::struct_([shared_field]),
+          metadata=@lib.TypeMetadata::new(shared=true),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([shared_ref], [])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(2U),
+      @lib.TypeIdx::new(1U),
+      @lib.TypeIdx::new(1U),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([
+      @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      call_body([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_atomic_load(
+          memarg,
+          order=@lib.AtomicOrder::acq_rel(),
+        ),
+        @lib.Instruction::drop(),
+      ]),
+      call_body([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::i32_atomic_store(
+          memarg,
+          order=@lib.AtomicOrder::acq_rel(),
+        ),
+      ]),
+    ]),
+  )
+}
+
+///|
+fn merge_blocks_test_top_level_instr_index(
+  body : Array[@lib.Instruction],
+  predicate : (@lib.Instruction) -> Bool,
+) -> Int {
+  for idx = 0; idx < body.length(); idx = idx + 1 {
+    if predicate(body[idx]) {
+      return idx
+    }
+  }
+  -1
+}
+
+///|
+test "merge-blocks respects acquire loads while keeping release-store motion" {
+  let optimized = match
+    run_hot_pipeline(
+      merge_blocks_ordered_atomic_test_module(),
+      HotPipelineOptions::new(),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ordered merge-blocks success, got \{err}")
+  }
+  let funcs = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected ordered merge-blocks code section")
+  }
+  let disallowed = match funcs[1] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  let allowed = match funcs[2] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  let is_struct_get = fn(instr : @lib.Instruction) -> Bool {
+    match instr {
+      @lib.StructGet(_, _) => true
+      _ => false
+    }
+  }
+  let is_atomic_load = fn(instr : @lib.Instruction) -> Bool {
+    match instr {
+      @lib.I32AtomicLoad(_, _) => true
+      _ => false
+    }
+  }
+  let is_atomic_store = fn(instr : @lib.Instruction) -> Bool {
+    match instr {
+      @lib.I32AtomicStore(_, _) => true
+      _ => false
+    }
+  }
+  let disallowed_load = merge_blocks_test_top_level_instr_index(
+    disallowed, is_atomic_load,
+  )
+  let disallowed_struct = merge_blocks_test_top_level_instr_index(
+    disallowed, is_struct_get,
+  )
+  assert_true(disallowed_load >= 0, msg=disallowed.to_string())
+  assert_true(
+    disallowed_struct < 0 || disallowed_load < disallowed_struct,
+    msg=disallowed.to_string(),
+  )
+  assert_true(
+    merge_blocks_test_top_level_instr_index(allowed, is_atomic_store) >= 0,
+    msg=allowed.to_string(),
+  )
+  assert_true(
+    merge_blocks_test_top_level_instr_index(allowed, is_struct_get) >= 0,
+    msg=allowed.to_string(),
+  )
 }
 
 ///|
