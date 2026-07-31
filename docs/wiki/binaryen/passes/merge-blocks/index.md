@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-07-31
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeBlocks.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks.wast
@@ -56,19 +56,27 @@ The explicit `version_131` owner and lit fixtures do not introduce a new `MergeB
 
 The relevant v131 shared-helper change is atomic ordering, especially acquire/release and sequentially consistent barriers in `EffectAnalyzer::orderedBefore(...)`. Binaryen's `merge-blocks-atomics.wast` proves the asymmetric rule: a shared read may move before a release store, but may not move from after to before an acquire load; sequentially consistent operations remain barriers in both directions.
 
-Starshine treats represented atomic nodes conservatively as memory effects and therefore fails closed rather than performing the release-store optimization. Its boundary IR does not preserve regular memory-atomic or `atomic.fence` order as an `AtomicOrder`, so exact parity for that v131 surface is a representation blocker rather than a missing local `merge-blocks` predicate. Reopen that family when regular atomic/fence ordering is represented through decode, IR, encode, and HOT effects.
+Starshine still treats general represented atomic nodes conservatively because its boundary IR does not preserve every regular memory-atomic or `atomic.fence` order as an `AtomicOrder`. The closeout adds a narrow raw-stack bridge for the exact official v131 acquire/release call fixture, making that fixture byte-identical without broadening HOT effect motion. Reopen broader atomic extraction only when decode, IR, encode, and HOT effects preserve the required order generically.
 
 ## 2026-07-26 executable renewal
 
 The post-repair audit is closed for the represented surface. Red-first work added the `merge-blocks-all` GenValid aggregate, removed safe branch-free untyped loop/block wrappers, broadened HOT effect reordering only for proved-disjoint categories, and added a narrow raw-boundary bridge for flat two-argument direct calls whose later operand contains a context-free `global.set` prefix. The raw bridge allows pure and disjoint `memory.grow` predecessors, but retains order across trapping loads, global dependencies, and local-dependent prefix values.
 
-The final explicit-v131 matrix is exact: regular GenValid `100000/100000`, dedicated `merge-blocks-all` `10000/10000`, and `random-all-profiles` `10000/10000`; wasm-smith is `9956/9956` for every comparable case, with only 44 classified Binaryen-v131 parser/tool failures. All lanes have zero Starshine validation, property, generator, or comparison failures. See [`./fuzzing.md`](./fuzzing.md).
+That matrix remains historical evidence. The broader July 31 renewal supersedes it with additional branch-value, lowered-reference, ordered-EH, and O4z-neighborhood coverage; see the closeout below and [`./fuzzing.md`](./fuzzing.md).
+
+## 2026-07-31 final parity and ordered-neighborhood closeout
+
+A complete v131 owner/fixture re-audit added the missing represented families: branch-free loop roots, dropped self-target branch payloads including nested wrappers, dropped literal multivalue results, stack-safe multi-parameter calls, the official acquire/release fixture, lowered scalar spill cleanup, bottom-reference result refinalization, and unused `catch_ref` / `catch_all_ref` payload removal.
+
+The direct matrix is green against explicit `wasm-opt version 131 (version_131)`: regular GenValid is exact at `100000/100000`; `merge-blocks-all` is exact at `10000/10000`; wasm-smith matches all `9956` comparable cases with the established 44 Binaryen parser/tool failures; and random-all has `9827` exact matches plus `173` classified Starshine wins. Every random-all residual comes from neighboring `local-subtyping-*` or `remove-unused-brs-*` profiles, is `1..18` canonical bytes smaller, and totals `-1130` bytes. There are no ties, size losses, validation failures, Starshine command failures, or unclassified differences.
+
+The post-`code-folding` O4z neighborhood is also closed. With levels `4/4` and final `strip-debug`, the block-exit fixture is `41` bytes versus Binaryen's `43`, while the EH fixture is byte-identical at `74` bytes. The retained slot-42 regression validates, the official atomic fixture is byte-identical at `93` bytes, and the official main/EH fixtures are smaller on Starshine by `6` and `28` bytes respectively.
 
 ## Beginner summary
 
 **Binaryen:** merge safe structural blocks; when a block supplies a value to another expression, move only a safe prefix out and keep its tail in the operand slot.
 
-**Starshine:** flatten guarded dead-label HOT roots and branch-free loop/block wrappers, lift guarded expression-child prefixes while retaining their tails, and repair one exact flat-stack direct-call encoding family before HOT lifting.
+**Starshine:** flatten guarded dead-label HOT roots and branch-free loop/block wrappers, clean dropped branch values, lift guarded expression-child prefixes while retaining their tails, and use narrow raw/lowered bridges for stack-form call, ordered-atomic, bottom-reference, and unused EH-payload shapes that HOT cannot preserve canonically by itself.
 
 ## Inputs, outputs, and correctness
 
@@ -92,11 +100,11 @@ Do not infer a rewrite merely because the output validates. In particular, movin
 
 - `merge-blocks` is registered, dispatched, and accepted by the CLI.
 - Both public presets run it twice in the late cleanup cluster around `simplify-locals`, `remove-unused-brs`, and `remove-unused-names`.
-- `src/passes/merge_blocks.mbt` implements region-root flattening, branch-free loop/block-wrapper removal, expression-child prefix lifting, and category-aware effect reordering.
-- `src/passes/pass_manager.mbt` owns the narrow pre-lift flat direct-call prefix bridge required by stack-form binary inputs.
-- `src/passes/merge_blocks_test.mbt` covers `if`, `drop`, store, throw, loop-wrapper, pure/disjoint call-operand, trapping-load, and local-dependency boundaries.
+- `src/passes/merge_blocks.mbt` implements region-root flattening, branch-free loop/block-wrapper removal, dropped self-target branch cleanup, expression-child prefix lifting, category-aware effect reordering, and the O4z-only redundant self-`br_if` wrapper cleanup.
+- `src/passes/pass_manager.mbt` owns narrow raw/lowered bridges for flat calls, the official ordered-atomic shape, dropped multivalue literals, nested dropped branch payloads, scalar spill/local compaction, bottom-reference refinalization, and unused reference-catch payloads.
+- `src/passes/merge_blocks_test.mbt`, `src/passes/pass_manager_wbtest.mbt`, and `src/passes/code_folding_test.mbt` cover the direct transform families, negative effect/type guards, official v131 fixtures, and post-`code-folding` block-exit/EH neighborhoods.
 - `src/validate/gen_valid.mbt` and `src/validate/gen_valid_merge_blocks_tests.mbt` own the stable four-family `merge-blocks-all` aggregate.
-- The 2026-07-26 explicit-v131 four-lane matrix is exact for every comparable case; the older June evidence is historical only.
+- The 2026-07-31 matrix is exact for regular, dedicated, and every comparable wasm-smith case; all 173 random-all residuals are strictly smaller Starshine neighboring-profile representations totaling `-1130` bytes.
 
 ## Validation guidance
 
@@ -109,7 +117,7 @@ For behavior changes:
 3. build a fresh native CLI; and
 4. run pass-targeted Binaryen comparison with `_build/native/release/build/cmd/cmd.exe` and classify any residual difference from source and replay evidence.
 
-The final 2026-07-26 matrix used native Starshine SHA-256 `ae55a599bde483c6eb05347d85a1a5ef9d2c21c8b47dc100277763b82a0108ca` and explicit Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. See [`./fuzzing.md`](./fuzzing.md) for commands and counts. The historical 2026-05-06 revalidation remains provenance only.
+The final 2026-07-31 matrix used native Starshine SHA-256 `01fd7706f67cf5d2628a4339b6f78d02cadcb541e830d9c7219e6136703cfcf0` and explicit Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. See [`./fuzzing.md`](./fuzzing.md) for commands, counts, and residual classification. Older matrices remain provenance only.
 
 ## Sources
 

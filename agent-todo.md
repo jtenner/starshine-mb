@@ -18,11 +18,7 @@
 
 ## Active O4z Pass Queue
 
-The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and the pass dossiers. This table lists only owners with active v0.1.1 work.
-
-| Pass | Active work | Owner |
-| --- | --- | --- |
-| `merge-blocks` / branch cleanup | Direct represented-surface behavior is closed; reconcile size-losing post-`code-folding` ordered shapes. | `[O4Z-PRESET]001` |
+The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and the pass dossiers. No direct pass-owner closeout remains active: `merge-blocks` and its post-`code-folding` block-exit/EH neighborhood are closed. Remaining v0.1.1 work is scheduler integration, the existing pre-RUB `flatten` validity blocker, and nested-rerun ownership.
 
 ## v0.1.1 Primary O4z Work
 
@@ -34,7 +30,7 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
   - [x] Add the second early `remove-unused-module-elements` slot after `global-struct-inference`; optimize/shrink registry tests now assert all three RUME positions (2026-07-27).
   - [x] Remove the redundant adjacent early `remove-unused-brs` slot. Optimize/shrink now match Binaryen v131's 56-slot roster with RUB at indices `13`, `24`, and `39`; final `strip-debug` remains the documented Starshine-only 57th slot (2026-07-30).
   - [ ] Land the resolved `local-subtyping -> coalesce-locals -> local-cse` suffix; direct owner evidence is closed and no longer blocks preset work.
-  - [ ] Reconcile post-`code-folding` ordered cleanup shapes: return/tail-call and movement fixtures are measured smaller Starshine `br_if` forms, while block-exit and EH fixtures remain size-losing neighboring cleanup gaps.
+  - [x] Reconcile post-`code-folding` ordered cleanup shapes. At O4z levels `4/4` with final `strip-debug`, return/tail-call and movement fixtures remain smaller Starshine forms, block-exit is `41` versus Binaryen `43` bytes, and EH is byte-identical at `74` bytes (2026-07-31).
   - [ ] Triage the full-preset validity blocker exposed by the expanded RUB corpus: the first `1000` inputs produce `837` valid `-O4z` outputs and `163` Starshine command failures. Tracing the first failure shows `flatten` creates the stack-underflow state before RUB; isolated direct RUB at O4z levels `4/4` is valid and no-larger for all `10000` cases.
   - [ ] Keep final `strip-debug` explicitly documented as a Starshine extension outside Binaryen's 56 slots.
   - [ ] Preserve feature gates, no-DWARF policy, repeated cleanup slots, canonical aliases, and exact-order tests.

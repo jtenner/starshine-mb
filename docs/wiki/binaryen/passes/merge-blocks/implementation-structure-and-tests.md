@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-07-31
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
@@ -75,8 +75,10 @@ Primary owner:
 | `350-402` | effect ordering | Permit pure/disjoint categories while rejecting control, call, throw, trap/write, local/global, memory, and table conflicts. |
 | `404-490` | child-prefix lifting | Replace a child block with its tail and splice legal prefixes before the parent expression. |
 | `492-577` | branch scanners | Reject lift candidates whose prefixes contain branches. |
-| `579-758` | root/wrapper flatten and run | Region-root splice, branch-free loop/block removal, traversal order, mutation marking. |
-| `src/passes/pass_manager.mbt:25600-25750` | raw flat-call bridge | Repair the exact two-argument stack-form `global.set` prefix family before HOT lifting. |
+| root/wrapper cleanup | Region-root splice, branch-free loop/block removal, dropped self-target branch values, and an O4z-only redundant self-`br_if` wrapper cleanup. |
+| pass-manager raw admission | Repair flat call/drop prefixes, the exact v131 ordered-atomic call fixture, and dropped literal multivalue blocks before HOT lifting. |
+| pass-manager preclean | Recursively normalize direct and nested dropped self-branch payloads plus unused reference-catch payloads before lifting. |
+| pass-manager lowered cleanup | Refinalize all-null reference blocks, flatten scalar spill blocks, compact unused appended locals, and preserve valid stack order. |
 
 ## Local direct tests
 
@@ -86,13 +88,29 @@ Primary proof file:
 
 | Lines | Test family |
 | --- | --- |
-| `38-2319` | Region-root flattening; loop/live-label, typed-carrier, multivalue, reference, `unreachable`, and expression-child stability. |
-| `132-157` | Branch-free untyped loop/block-wrapper removal. |
-| `2322-2354` | Effectful prefix crossing a pure earlier call operand. |
-| `2356-2569` | Direct flat stack-form call fixture: pure and `memory.grow` positives; trapping-load and local-dependency negatives; repeated eligible calls. |
-| `2571+` | Disjoint memory/global HOT case plus throw and remaining expression families. |
+| Structural roots | Nested blocks, branch-free multi-root loops, loop/live-label negatives, typed carriers, multivalue/reference results, and unreachable suffixes. |
+| Dropped branches | Pure scalar and reference payloads, nested wrappers, dropped literal multivalue blocks, and effectful-value negative guards. |
+| Expression/effect order | `drop`, `if`, store, throw, direct calls, pure/disjoint predecessors, trapping loads, local/global dependencies, and repeated candidates. |
+| Official v131 fixtures | Checked-in main and atomic binaries plus direct EH-focused regressions; the atomic fixture is byte-identical. |
+| Lowered/writeback cleanup | Bottom-reference block results, scalar and type-indexed spill blocks, local compaction, and stack-safe multi-parameter calls. |
+| Ordered neighborhood | O4z post-`code-folding` block-exit cleanup and unused `catch_ref` / `catch_all_ref` payload removal. |
 
-These tests establish the represented direct-call and effect-order families; regular acquire/release memory-atomic ordering remains outside the boundary representation.
+General atomic-order reasoning remains conservative in HOT. The exact official v131 acquire/release fixture is handled by a narrow raw bridge rather than unsupported broad effect relaxation.
+
+## Transform-family coverage matrix
+
+| Binaryen-v131 family | Starshine route | Positive proof | Negative/boundary proof | Generated coverage |
+| --- | --- | --- | --- | --- |
+| Nested block roots | HOT region-root splice | direct nested/root tests | live labels, parameters, loops, typed carriers | `merge-blocks-structural` |
+| Loop-tail / loop-wrapper merge | HOT branch-free multi-root loop flattening | direct loop removal and wrapper tests | single-root loops, backedges, nested loops, results/params | `merge-blocks-structural` |
+| Dropped block and branch values | HOT dropped self-branch cleanup plus recursive preclean | scalar, reference, nested, and literal multivalue tests | effectful payloads, invalid stack/call signatures | structural + expression + EH/atomic leaves |
+| `if` condition | expression-child prefix lift | direct condition fixtures | arms stay regional; branch/effect conflicts reject | `merge-blocks-expression` |
+| `throw` operands | expression-child prefix lift | direct throw fixture | effect-order and control barriers | `merge-blocks-expression` |
+| Generic non-control operands | expression-child lift plus flat-call bridge | store, call, pure/disjoint predecessor, repeated-call tests | trapping loads, local/global dependencies, structured/unknown effects | expression + effect-order leaves |
+| Ordered atomics | exact raw official-fixture bridge | checked-in v131 atomic fixture, byte-identical `93` bytes | broad HOT atomic movement remains disabled | `merge-blocks-eh-atomic` |
+| EH reference catches | recursive raw preclean | ordered `catch_ref` and `catch_all_ref` payload tests | nonempty tag payloads and nonlocal targets reject | `merge-blocks-eh-atomic` plus ordered neighborhood |
+| Refinalization/lowering | descriptor-specific lowered cleanup | bottom refs, all-null `br_if`/`br_table`/nested branches, scalar/type-indexed spills | incompatible hierarchies, parameterized/multivalue spill blocks | random-all neighboring GC/control profiles |
+| O4z post-`code-folding` cleanup | O4z-gated self-`br_if` removal plus EH preclean | block-exit `41 < 43`; EH `74 == 74` | non-O4z direct pass remains v131-exact | ordered tests in `code_folding_test.mbt` |
 
 ## Registry, dispatch, and integration evidence
 
@@ -100,7 +118,7 @@ These tests establish the represented direct-call and effect-order families; reg
 | --- | --- |
 | `src/passes/optimize.mbt:256-259` | Active hot-pass registry entry. |
 | `src/passes/optimize.mbt:322-323`, `340-341` | Repeated late preset slots. |
-| `src/passes/pass_manager.mbt:25580-25780`, dispatcher pipeline | Prefiltered raw flat-call bridge followed by `merge_blocks_run(ctx, func)`. |
+| `src/passes/pass_manager.mbt`, dispatcher pipeline | Prefiltered raw bridges, recursive preclean, `merge_blocks_run(ctx, func)`, and descriptor-specific lowered canonicalization. |
 | `src/passes/registry_test.mbt:64`, `189-190`, `206-207`, `214-215` | Active category, descriptor, and preset tests. |
 | `src/passes/optimize_test.mbt:382-403`, `407-428`, `469-512` | Repeated slot and `simplify-locals` handoff coverage. |
 | `src/cmd/cmd_wbtest.mbt:1959-1993` | Direct `--merge-blocks` CLI coverage. |
@@ -123,9 +141,11 @@ Do not use a stale `target/native/...` artifact as current signoff evidence; see
 
 ## Correctness hardening and closeout
 
-The 2026-07-21 HOT unreachable-root repair moves only effect-free, nontrapping values before an `unreachable`; ambiguous effectful roots fail closed. The 2026-07-26 closeout additionally removes safe branch-free untyped loop/block wrappers, admits only proved-disjoint HOT effect motion, and repairs the exact flat two-argument direct-call encoding family. Red-first tests cover each positive and negative boundary.
+The 2026-07-21 HOT unreachable-root repair moves only effect-free, nontrapping values before an `unreachable`; ambiguous effectful roots fail closed. The July 31 closeout completes the represented v131 family map with red-first coverage for branch-free loops, dropped direct/nested branch payloads, multivalue drops, stack-safe calls, ordered atomics, lowered all-null references, scalar spills, and unused reference catches. Broad HOT effect relaxation was tested and rejected; narrow raw or lowered rewrites are used where stack form or type finalization is the actual owner.
 
-Final validation: focused `55/55`, `src/validate` `1719/1719`, `src/passes` `6445/6445`, native and wasm-gc full Moon `9933/9933`, direct wasm-gc check, README/API sync, and the full CI fuzz suite including `86820` binary roundtrips; native SHA-256 `ae55a599bde483c6eb05347d85a1a5ef9d2c21c8b47dc100277763b82a0108ca`, regular `100000/100000`, dedicated `10000/10000`, random-all `10000/10000`, and wasm-smith `9956/9956` comparable matches with 44 classified Binaryen-only failures.
+Final focused validation is `63/63` for `merge_blocks_test.mbt`, `195/195` for `code_folding_test.mbt`, and `311/311` for `pass_manager_wbtest.mbt`; full Moon is `10131/10131`, README/API sync passes, and the direct native CI fuzz profile passes every suite including `86820` binary roundtrips. The aggregate wasm-gc validation gate completed its Moon stages before reproducing the repository's documented fuzz-runner `RuntimeError: unreachable`. Native SHA-256 `01fd7706f67cf5d2628a4339b6f78d02cadcb541e830d9c7219e6136703cfcf0` against explicit Binaryen v131 gives regular `100000/100000` exact, dedicated `10000/10000` exact, wasm-smith `9956/9956` comparable exact with 44 Binaryen-only failures, and random-all `9827` exact plus `173` strictly smaller Starshine outputs totaling `-1130` bytes. The slot-42 repro validates. O4z ordered block-exit is `41` versus `43` bytes and ordered EH is byte-identical at `74` bytes after `strip-debug`.
+
+On the 13,118,096-byte debug-WASI artifact, the traced Starshine pass body totals `258707us`, below the repository's absolute one-second pass-local target. Whole-command wall time remains about `11.63s` because per-function raw scanning, HOT lift/lower, validation, and emit dominate; that cross-pass/runtime infrastructure cost remains owned by `[WALL]001` rather than the local transform.
 
 ## Sources
 

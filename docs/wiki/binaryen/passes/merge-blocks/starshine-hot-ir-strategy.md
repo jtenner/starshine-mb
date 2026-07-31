@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-07-31
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
@@ -24,13 +24,14 @@ Read [`./starshine-strategy.md`](./starshine-strategy.md) for the design. This p
 
 ## What the local pass does
 
-Starshine has three local rewrite routes:
+Starshine has four local rewrite routes:
 
-- **region-root and loop/block-wrapper flattening:** splice legal dead-label bodies into the parent region;
-- **expression-child prefix lifting:** move a legal block prefix before an expression and replace the child with its tail; and
-- **raw flat-call repair:** reorder one exact stack-form direct-call `global.set` prefix before HOT lifting.
+- **region-root and loop/block-wrapper cleanup:** splice legal dead-label bodies, flatten branch-free loops, and clean dropped self-target branch payloads;
+- **expression-child prefix lifting:** move a legal block prefix before an expression and replace the child with its tail;
+- **raw/pre-lift repair:** handle exact flat calls, call/drop prefixes, the official ordered-atomic fixture, literal multivalue drops, nested dropped branches, and unused reference catches; and
+- **lowered canonicalization:** narrow all-null reference results, remove redundant casts/dead suffixes, flatten scalar spills, and compact unused appended locals.
 
-The second route covers `if` conditions, `drop`, `i32.store`, and `throw`. The third exists because flat binary operand order can be reconstructed differently from equivalent nested WAT.
+Expression-child lifting covers `if` conditions, `drop`, `i32.store`, and `throw`. The boundary routes exist because flat binary operand order and reference typing can be reconstructed differently from equivalent nested WAT.
 
 ## Exact local code map
 
@@ -48,30 +49,35 @@ The second route covers `if` conditions, `drop`, `i32.store`, and `throw`. The t
 | `src/passes/merge_blocks.mbt:404-490` | `merge_blocks_lift_expression_block_children(...)` | Preserve the tail child, splice prefixes before its parent, and apply the ordered-effect gate. `if` admits only condition slot `0`. |
 | `src/passes/merge_blocks.mbt:492-577` | branch scanners | Reject any candidate prefix containing a branch. |
 | `src/passes/merge_blocks.mbt:579-639` | `merge_blocks_flatten_region_root_block(...)` | Main region-root splice and typed-carrier gate. |
-| `src/passes/merge_blocks.mbt:641-692` | `merge_blocks_flatten_branch_free_loop_block_body(...)` | Remove branch-free, parameterless, resultless loop/block wrappers. |
-| `src/passes/merge_blocks.mbt:694-758` | traversal and run | Visit structured children, lift prefixes, flatten wrappers/roots, and mark mutation. |
-| `src/passes/pass_manager.mbt:25600-25750` | raw flat-call bridge | Reorder the exact context-free `global.set` prefix family before lifting; trap/state dependencies fail closed. |
+| `src/passes/merge_blocks.mbt` | structural and dropped-branch helpers | Remove branch-free parameterless/resultless loops and wrappers, clean dropped self-branch payloads, and apply the O4z-only redundant self-`br_if` cleanup. |
+| `src/passes/merge_blocks.mbt` | traversal and run | Visit structured children, lift prefixes, flatten wrappers/roots, and mark mutation. |
+| `src/passes/pass_manager.mbt` | raw/preclean/lowered helpers | Repair exact stack-form families before lifting and canonicalize reference/spill/local shapes after lowering; unsafe or unknown forms fail closed. |
 | `src/passes/optimize.mbt:256-259` | registry entry | Active hot-pass registration. |
 | `src/passes/optimize.mbt:322-323` / `340-341` | public preset arrays | Repeated late `merge-blocks` placement in `optimize` and `shrink`. |
 | `src/passes/pass_manager.mbt:9002` | dispatcher | `merge_blocks_run(ctx, func)` call site. |
 
 ## Local safety model
 
-A reader following the code should notice five different safety layers:
+A reader following the code should notice six different safety layers:
 
 1. **labels:** any referenced label keeps its block or loop;
 2. **control/type shape:** typed parameters, unsafe loop-containing candidates, and non-one-result tails are rejected;
 3. **prefix semantics:** nested branches and conflicting/trapping effect order are rejected;
-4. **raw-boundary narrowing:** only flat two-argument direct calls with context-free prefix values and proved-safe earlier slices are reordered; and
-5. **writeback stability:** region-root flattening repairs dead-before-`unreachable` values and uses the existing HOT lowering path.
+4. **raw-boundary narrowing:** only exact call/drop, atomic, multivalue, branch-payload, and reference-catch shapes are rewritten;
+5. **lowered-type proof:** all-null result narrowing requires one compatible abstract hierarchy bottom and exact branch structure; scalar spill flattening requires a no-parameter single-result block containing only context-free value/set pairs plus its final get; and
+6. **writeback stability:** region-root flattening repairs dead-before-`unreachable` values and uses validated HOT lowering/writeback.
 
 This is deliberately more explicit than an AST rewrite. It also means a source-aligned upstream WAT shape must still pass every local guard before Starshine rewrites it.
 
 ## Validation surfaces
 
 - `src/passes/merge_blocks_test.mbt`
-  - root flattening, branch-free loop-wrapper removal, loop/live-label, typed-carrier, `unreachable`, reference, and multivalue stability;
-  - live-label prefix boundary plus `if`, `drop`, store, throw, pure/disjoint call operands, flat stack-form calls, trapping loads, and local-dependent prefix negatives.
+  - root flattening, branch-free loop removal, loop/live-label, typed-carrier, `unreachable`, reference, multivalue, and dropped-branch behavior;
+  - live-label prefix boundary plus `if`, `drop`, store, throw, pure/disjoint call operands, flat stack-form calls, ordered atomics, trapping loads, and local-dependent negatives.
+- `src/passes/pass_manager_wbtest.mbt`
+  - checked-in v131 main/atomic fixtures, stack-safe call/drop repair, bottom-reference refinalization, scalar/type-indexed spill flattening, and local compaction.
+- `src/passes/code_folding_test.mbt`
+  - O4z post-`code-folding` block-exit cleanup and unused reference-catch payload conversion.
 - `src/validate/gen_valid_merge_blocks_tests.mbt`
   - aggregate membership, aliases, labels, validity, deterministic routing, and random-all membership.
 - `src/passes/optimize_test.mbt:382-403`, `407-428`, `469-512`
