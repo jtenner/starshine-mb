@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-31
 sources:
   - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
@@ -137,7 +137,7 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 ## The honest current status
 
-`flatten` is a public active HOT pass in Starshine. The implementation is registered, dispatched, reachable from the CLI, mapped by the pass-fuzz harness to Binaryen `--flatten`, and covered by the dedicated `flatten-all` GenValid aggregate.
+`flatten` is a public active HOT pass in Starshine. The implementation is registered, dispatched, reachable from the CLI, mapped by the pass-fuzz harness to Binaryen `--flatten`, and covered by twelve dedicated transform-family GenValid leaves composed by `flatten-all`.
 
 The implementation follows Binaryen v130's postorder, owner-specific strategy:
 
@@ -153,20 +153,22 @@ A generic spill-every-value experiment was rejected because it regressed establi
 
 The 2026-07-17 fuzz closeout found and fixed stack-polymorphic unreachable tails whose incidental transformed type differed from the declared function/control result. Equal or validator-proven subtype values still flow normally; incompatible dead values are dropped and the declared defaultable result uses its own typed temporary. Reference compatibility uses the validator environment and module type context.
 
-Current signoff is:
+The July 17 signoff is now historical baseline evidence:
 
 - focused behavior: 270/270;
 - whitebox: 228/228;
-- `flatten-all` generator tests: covered in the 149-test GenValid suite;
+- the former broad `flatten-all` generator aggregate: covered in the then-current 149-test GenValid suite;
 - default GenValid: 10,000/10,000, zero mismatches;
 - `flatten-all`: 10,000/10,000, zero mismatches;
 - random all profiles: 8,596 comparable, zero mismatches;
 - wasm-smith: 6,719 comparable, zero mismatches and no Starshine command failures;
 - idempotence: 1,000/1,000.
 
+A July 31 expanded O4z replay found 163 Starshine command failures among the first 1,000 inputs. The first traced failure was a carried `br_table` payload followed by dead unreachable suffix work: payload routing succeeded, but the concrete result owner was not voided, and lowering produced stack underflow. Effective-terminal/no-fallthrough routing, exact dropped-multivalue ownership, multivalue function-result materialization, subtype-reference routing, and ordered rich-root staging are now green at focused `286/286`, whitebox `235/235`, CLI `111/111`, and full default `10,163/10,163`. The exact historical repro succeeds through public `--flatten` and `-O4z`, and the original saved first-1,000 O4z corpus is `1,000/1,000` valid with zero failures. First-class HOT lifting now admits single-arm tagged catches with ordered payload lanes, `catch_all`, result-typed legacy tries, direct delegates, and legacy `rethrow`; lowering directly reconstructs those forms when another HOT pass leaves them result-typed. Native SHA-256 `4b60d4b09f573a82419cef9d5ef5a6d88018a4a7edf6c18f7e44b97e017bb217` gives default GenValid `10,000/10,000` exact/normalized and idempotent, dedicated `flatten-legacy-eh` and `merge-locals-legacy-eh` `10,000/10,000` compare-normalized/runtime-equal/idempotent lanes, and `flatten-all` with `1,632` direct plus `6,701` compare-normalized matches. Its only `1,667` residuals are the measured `842` scalar-`br_if` and `825` multivalue smaller forms; all `820` legacy-EH bridge gaps are gone. Random-all remains `9,629` comparable with `371` Binaryen-only failures, but residuals fall from `819` to `781`, removing all `38` `merge-locals-legacy-eh` gaps. A representative legacy result try is `67` versus Binaryen `71` bytes and both converge to `37` under v131 `-Oz`. Multi-arm legacy tries remain a declared HOT representation boundary. Coverage-forced canonical encoding, final smaller-form classification, deeper ownership/failure-atomicity review, and exact historical performance still require work before signoff is restored.
+
 The compare contract uses `drop-consts`, `unreachable-control-debris`, and `local-cleanup-debris`, each backed by exact fixtures and inspected discrepancy families. See [`./fuzzing.md`](./fuzzing.md) and [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
 
-Current native-release requalification measures `1,140 us` versus Binaryen v130's `285.236 us` on the historical 120-function representative (`4.00x`). The approximately `1.14 ms` absolute cost is accepted under a maintainer-reviewed pass-specific exception; the relative result remains useful optional optimization evidence. See [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
+The accepted historical native-release checkpoint is `1,140 us` versus Binaryen v130's `285.236 us` on the 120-function candidate-dense representative (`4.00x`). The approximately `1.14 ms` absolute cost was accepted under a maintainer-reviewed pass-specific exception. A distinct 120-function/960-branch payload-suffix stress lane now measures `8,987 us` Starshine versus `926.059 us` Binaryen v131 (`9.70x`, about `8.99 ms` absolute); it demonstrates bounded scaling but cannot replace the exact historical corpus qualification. See [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
 
 ## Historical pre-admission code and doc map (superseded)
 
@@ -598,6 +600,6 @@ Current Starshine `flatten` is an active, compared, and top-level preset-schedul
 - `flatten-all` and the documented normalizers protect the current behavior contract;
 - both public presets schedule `flatten -> simplify-locals-notee-nostructure -> local-cse` immediately after `ssa-nomerge`;
 - the WAST frontend's non-executable legacy-try validation scaffold is detected before mutation and intentionally left unchanged;
-- the current 120-function native-release benchmark measures `1,140 us` versus Binaryen v130's `285.236 us`, or `4.00x`.
+- the accepted historical 120-function native-release benchmark measures `1,140 us` versus Binaryen v130's `285.236 us`, or `4.00x`.
 
-Behavior, top-level scheduling, and timing review are closed. `[O4Z-FLAT]001` is closed with an explicit exception because `1,140 us` over 120 functions is operationally acceptable even though Binaryen is `4.00x` faster on the representative. The scheduling and accepted measurement source is [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
+Behavior and timing closeout are reopened by the July 31 expanded O4z validity failure. The effective-terminal/no-fallthrough repair must pass focused and full tests, replay the original 1,000-case corpus with zero Starshine failures, complete the direct Binaryen matrix and idempotence lane, and remeasure the representative before `flatten` can be closed again. The active status and historical measurement source are [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).

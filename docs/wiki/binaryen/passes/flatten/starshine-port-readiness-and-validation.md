@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-31
 sources:
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
@@ -116,7 +116,7 @@ This page preserves the staged proof history for the question: **what did the fi
 
 ## Current status
 
-The pre-admission hold point below is superseded. `flatten` is now public, compared, and scheduled in both top-level presets as `flatten -> simplify-locals-notee-nostructure -> local-cse`. Behavior closeout is in [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md); scheduling and the accepted `1,140 us` / `4.00x` Binaryen measurement are in [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md). No flatten release gate remains open.
+The pre-admission hold point below is superseded. `flatten` is public and scheduled in both top-level presets as `flatten -> simplify-locals-notee-nostructure -> local-cse`. The July 17, 2026 behavior closeout and accepted `1,140 us` / `4.00x` Binaryen measurement remain historical baselines. The July 31 payload-branch dead-suffix repair makes the exact repro and saved first-1,000 O4z corpus fully valid, exact dropped-result ownership flattens isolated public multivalue plain/`br`/`br_if`/`br_table` forms, and first-class HOT lifting now carries single-arm tagged/catch-all legacy tries, payload lanes, delegates, and rethrows into the pass. Fresh `10,000`-case legacy lanes are compare-normalized, runtime-equal, and idempotent; `flatten-all` no longer has a legacy-EH residual family. Multi-arm legacy tries, final classification of the remaining smaller/canonical-encoding families, deeper ownership review, and exact historical performance refresh remain open before closeout can be restored. See [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
 
 ## Historical pre-admission hold point (superseded)
 

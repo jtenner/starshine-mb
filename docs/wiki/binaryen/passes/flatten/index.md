@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-31
 sources:
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
@@ -164,10 +164,10 @@ related:
 - Starshine now exposes an active HOT implementation through the registry, dispatcher, and CLI.
 - The pass rewrites rich nested operands into ordered preludes, routes value-carrying control and branches through typed temporaries, removes `local.tee`, preserves exceptional-transfer semantics, and materializes explicit function results.
 - Starshine follows Binaryen v130's owner-specific postorder strategy rather than applying an unsafe generic spill-every-position rewrite.
-- The public implementation has focused function/block/if/loop/try/branch/table/EH coverage, a dedicated `flatten-all` generator aggregate, four compare lanes, and idempotence evidence.
-- Current behavior signoff is recorded in [`./fuzzing.md`](./fuzzing.md) and `docs/wiki/binaryen/passes/flatten/index.md`.
+- The public implementation has focused function/block/if/loop/try/branch/table/EH coverage, twelve dedicated transform-family GenValid leaves composed by `flatten-all`, four historical compare lanes, and historical idempotence evidence.
+- The July 17 behavior signoff is recorded in [`./fuzzing.md`](./fuzzing.md), but a July 31 expanded O4z replay exposed a carried payload-branch dead-suffix validity gap. The repair recognizes direct unconditional roots before arbitrary dead suffix work, routes carried payloads, voids the concrete owner, and preserves unrecognized dead roots unless an existing exact ownership proof permits deletion. The exact historical repro and saved first-1,000 O4z corpus are valid (`1,000/1,000`). First-class HOT lifting now admits single-arm tagged catches with ordered payload lanes, `catch_all`, result-typed legacy tries, direct delegates, and legacy `rethrow`; lowering preserves those forms for unrelated HOT pipelines. Fresh native SHA-256 `4b60d4b09f573a82419cef9d5ef5a6d88018a4a7edf6c18f7e44b97e017bb217` gives exact/default `10,000/10,000`, `flatten-legacy-eh` and `merge-locals-legacy-eh` `10,000/10,000` compare-normalized/runtime-equal/idempotent lanes, and `flatten-all` with `1,632` direct plus `6,701` compare-normalized matches. Its only `1,667` residuals are the already measured `842` scalar-`br_if` and `825` multivalue smaller forms; all `820` legacy-EH bridge gaps are gone. Random-all residuals fall from `819` to `781`, removing all `38` `merge-locals-legacy-eh` gaps and leaving only the eight documented non-EH families. A representative legacy result try is `67` versus Binaryen `71` bytes and converges to `37` bytes on both sides under v131 `-Oz`. Multi-arm legacy tries, coverage-forced canonical encoding, final smaller-form classification, deeper ownership/failure-atomicity review, and exact historical performance refresh remain active before closeout is restored.
 - Starshine now schedules the aggressive local-cleanup trio `flatten -> simplify-locals-notee-nostructure -> local-cse` immediately after `ssa-nomerge` in both public presets, matching Binaryen v130's aggressive order.
-- Current pass-local timing is `1,140 us` versus Binaryen v130's `285.236 us` on the 120-function representative (`4.00x`). This approximately `1.14 ms` absolute cost is accepted under an explicit pass-specific timing exception; see `docs/wiki/binaryen/passes/flatten/index.md`.
+- The latest accepted pass-local baseline is `1,140 us` versus Binaryen v130's `285.236 us` on the historical 120-function candidate-dense representative (`4.00x`). A new 120-function/960-branch payload-suffix stress lane measures medians of `8,987 us` Starshine versus `926.059 us` Binaryen v131 (`9.70x`, about `8.99 ms` absolute). That stress result is useful scaling evidence but is not the same corpus, so the exact historical qualification still requires reconstruction and remeasurement before renewed closeout.
 
 ## Why it matters
 
@@ -185,7 +185,7 @@ related:
   - `src/passes/pass_manager.mbt` dispatches the pass and lowers with Flat-IR spill preservation;
   - the CLI spelling executes the pass;
   - `scripts/lib/pass-fuzz-compare-task.ts` maps the pass to Binaryen `--flatten`;
-  - `src/validate/gen_valid.mbt` exposes the `flatten-all` aggregate;
+  - `src/validate/gen_valid.mbt` exposes twelve dedicated transform-family leaves and the `flatten-all` aggregate;
   - `optimize_preset_passes(...)` and `shrink_preset_passes(...)` schedule the complete aggressive trio.
 
 The 2026-07-11 current-main/local-status recheck remains useful historical evidence about the former removed boundary. The 2026-07-17 closeout supersedes its local-status conclusion; see research note 1569.

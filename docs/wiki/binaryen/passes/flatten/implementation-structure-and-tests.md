@@ -234,17 +234,18 @@ This is not optional cleanup: flatten can insert blocks inside `catch`, and lega
 | Local surface | Meaning |
 | --- | --- |
 | `src/passes/flatten.mbt` | HOT classifier, admission, owner-specific rewrite, EH repair, and pass descriptor. |
-| `src/passes/flatten_test.mbt` | 270 focused public behavior, lowering-validity, and legacy-WAST scaffold tests. |
-| `src/passes/flatten_wbtest.mbt` | 228 private proof-boundary, cache, ownership, scaffold-detector, and failure-atomicity tests. |
+| `src/passes/flatten_test.mbt` | 286 focused public behavior, lowering-validity, first-class legacy-try, payload, rethrow, and legacy-WAST scaffold tests. |
+| `src/passes/flatten_wbtest.mbt` | 235 private proof-boundary, cache, ownership, scaffold-detector, public-lifted multivalue, operand-effect-order, and failure-atomicity tests. |
 | `src/passes/optimize.mbt` | Active HOT-pass registry entry, public pass metadata, and aggressive-trio preset placement. |
 | `src/passes/pass_manager.mbt` | Dispatcher and module-to-HOT execution bridge. |
-| `src/ir/hot_lower.mbt` | `preserve_flat_ir_spills` lowering option used to retain required flatten local traffic. |
-| `src/validate/gen_valid.mbt` | `flatten-all` aggregate across portable, stress, SSA, GC, subtyping, local, and call/convergence profiles. |
+| `src/ir/hot_lift.mbt` | First-class single-arm legacy `Try` lifting, including tagged/catch-all handlers, ordered tag payload pseudo-values, result types, direct delegates, and `rethrow`. |
+| `src/ir/hot_lower.mbt` | Direct lowering for lifted legacy tries plus the `preserve_flat_ir_spills` option used to retain required flatten local traffic. |
+| `src/validate/gen_valid.mbt` | Twelve dedicated deterministic exported-root leaves for function results, operands, block/if/loop/legacy-try owners, tee, branch payloads, unreachable placeholders, and isolated multivalue plain/`br`/`br_if`/`br_table` flow, composed by `flatten-all`. |
 | `scripts/lib/pass-fuzz-compare-task.ts` | Binaryen `--flatten` mapping and compare normalization. |
 | `scripts/test/pass-fuzz-normalization-fixtures.ts` | Exact local-copy, producer-temp, reference-temp, block-shell, naming, and cleanup normalization fixtures. |
 | `docs/wiki/binaryen/passes/flatten/index.md` | Current behavior/fuzz closeout evidence. |
 
-The generated API snapshot intentionally exposes `HotLowerOptions.preserve_flat_ir_spills` and `GenValidProfile::FlattenAllProfile`.
+The generated API snapshot intentionally exposes `HotLowerOptions.preserve_flat_ir_spills`, the twelve dedicated `GenValidProfile::Flatten*Profile` leaves, `GenValidProfile::FlattenAllProfile`, `gen_valid_flatten_profile_case_label(...)`, and the validator-state clone helper used to typecheck legacy control without aliasing mutable stack or definite-initialization state.
 
 ## Latest internal output, ownership, proof-cache, and batch-mutation slices
 
