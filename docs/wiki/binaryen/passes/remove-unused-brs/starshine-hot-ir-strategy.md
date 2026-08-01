@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-30
+last_reviewed: 2026-07-31
 sources:
   - ./index.md
   - ../../../../../src/ir/hot_core.mbt
@@ -45,6 +45,7 @@ The fastest read-along path through the current Starshine implementation is:
     - exact `optimize` / `shrink` placement at zero-based slots `13`, `24`, and `39` in the 56-slot Binaryen-v131 roster
 - raw pre-lift integration in `src/passes/pass_manager.mbt`
   - `run_hot_pipeline_raw_remove_unused_brs(...)`
+  - `run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(...)`
   - `run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(...)`
   - the raw no-lift classifier family such as
     - `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_result_br_table_dispatch_ladder(...)`
@@ -61,18 +62,22 @@ The fastest read-along path through the current Starshine implementation is:
   - `remove_unused_brs_can_skip_call_heavy_mixed_if_mesh(...)`
   - `remove_unused_brs_can_skip_localset_heavy_value_if_mesh(...)`
   - `remove_unused_brs_compute_cycle_scan(...)`
+  - `remove_unused_brs_region_has_result_local_set_stack_hazard_with_caches(...)`
+  - `remove_unused_brs_prune_one_nested_dead_suffix_with_seen(...)`
+  - `remove_unused_brs_prune_cfg_get(...)`
   - `remove_unused_brs_visit_region(...)`
 - representative rewrite helpers in `src/passes/remove_unused_brs.mbt`
   - `remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(...)`
   - `remove_unused_brs_try_rewrite_value_if_to_select(...)`
   - `remove_unused_brs_try_rewrite_one_arm_payload_branch_if(...)`
+  - `remove_unused_brs_try_rewrite_two_arm_branch_if(...)`, whose same-target case must preserve condition evaluation as `drop(condition)` before the unconditional branch
   - `remove_unused_brs_try_rewrite_br_table_continuation_wrappers(...)`
   - `remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(...)`
   - `remove_unused_brs_try_restructure_one_arm_return_if_suffix(...)`
   - `remove_unused_brs_try_rotate_void_block_single_loop(...)`
 - focused local evidence surfaces
-  - `src/passes/remove_unused_brs_test.mbt` for reduced legality and rewrite coverage
-  - `src/passes/remove_unused_brs_test.mbt` for raw/HOT skip behavior and trace-guided cost-control coverage
+  - `src/passes/remove_unused_brs_test.mbt` for reduced legality, rewrite coverage, and raw/HOT skip behavior
+  - `src/passes/remove_unused_brs_wbtest.mbt` for literal-multivalue and lazy nested-suffix CFG invariants
   - `src/passes_perf_long/remove_unused_brs_perf_test.mbt` for the skipped native-release 3,000-block benchmark
   - `src/passes/registry_test.mbt` for the exact 56-slot roster plus `strip-debug` extension
   - `src/cmd/cmd_wbtest.mbt` for direct `--remove-unused-brs` artifact and extracted-function replay lanes
@@ -96,10 +101,11 @@ The raw layer does three kinds of work:
 - Candidate detection.
   It checks whether the original instruction tree even contains `nop`, `if`, `br`, `br_if`, `br_table`, or `return` surfaces worth considering.
 - A narrow raw normalization.
-  `run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(...)` rewrites a cheap `local.get` / `i32.eq const` / `if(result i32)` chain into a raw `select` when that lets the function skip lift cleanly.
+  `run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(...)` first records branch-table and exact decision-ladder presence in one traversal. `run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(...)` runs only when both facts are present, rewriting a cheap `local.get` / `i32.eq const` / `if(result i32)` chain into a raw `select` when that lets the function skip lift cleanly.
 - Skip decisions.
   The raw layer recognizes several families where lifting used to cost a lot while doing no useful work:
   - `decision-ladder-selects`
+  - `giant-br-table-convergence-noop`
   - `large-result-br-table-dispatch-ladder-noop`
   - `large-value-if-branch-ladder-noop`
   - `large-drop-heavy-branch-ladder-noop`
@@ -253,6 +259,8 @@ Several guards recur across the implementation:
   A transformation usually refuses to touch a control node if its label is still referenced somewhere else.
 - Branch-arity checks.
   Multi-value payload rewrites are only legal when the surviving payload side still supplies the exact arity the destination label expects.
+- Condition-preservation checks.
+  Collapsing a two-arm `if` whose arms branch to the same target still evaluates and drops the original condition before branching; calls, local writes, mutable reads, and traps are not discarded.
 - Reorder-safety checks.
   `select` formation is intentionally narrow. The pass only reorders conditions or value arms when the involved nodes are known to be safe, or when the condition is proven safe over the value-arm local-read surface.
 - Branch-payload-child checks.
@@ -281,6 +289,17 @@ Several guards recur across the implementation:
   - prefix-guard payload result blocks
   - dropped carried wrappers
   - self-target arm-local block cleanup
+
+## 2026-08-01 performance follow-up
+
+- Giant `br_table` no-ops now stop at the raw boundary after the existing decision-ladder rewrite opportunity is preserved.
+- The decision-ladder rewriter is gated by early facts rather than rebuilding every candidate function speculatively.
+- Stack-effect and result/local-set hazards memoize shared HOT DAG nodes; exact root hazards now stop at the raw boundary before lift.
+- Nested dead-suffix cleanup carries a seen bitset and obtains CFG lazily only after an exact syntactic candidate survives.
+- The initial HOT summary gates literal-multivalue accounting, which uses lightweight exact node-use counts instead of eager full use-def. Single-result refinalization also skips whole-function scans when the cycle label count proves there are no branch references.
+- The debug artifact remains byte-identical while five-run medians improve from `595.227ms` to `227.250ms` pass-local and from about `11.565s` to `3.328s` whole-command. Current Binaryen-v131 pass median is `289.650ms`, making Starshine `0.785x` by independent medians (`0.780x` paired median), about `1.27x` Binaryen throughput.
+- Remaining aggregate raw-boundary work still reflects several independent recursive classifiers. The next architectural step is one reusable per-function raw-facts index, not another artifact-specific skip.
+- `[RUB-PERF]001` is removed from the active backlog under a maintainer-approved bounded re-sign. The 2026-07-31 full matrix remains the behavior baseline; future artifact-byte, validation, runtime, or residual-family drift reopens the pass.
 
 ## Current Maintenance Rule
 

@@ -7,7 +7,7 @@
 - Bare `wasm-opt` currently resolves to TinyGo's Binaryen `version_116`. Every v131 compare or self-opt command must pass an official verified v131 binary with `--wasm-opt-bin` and record `wasm-opt version 131 (version_131)`.
 - Direct pass behavior comes before ordered-neighborhood proof; preset scheduling comes last.
 - Behavior parity is the target. Every remaining difference must be source-backed, measured, classified, and covered by reopening criteria.
-- A pass closes only after source/test breadth, pass-specific generation, validity, performance, and the required four-lane matrix are complete.
+- A pass closes only after source/test breadth, pass-specific generation, validity, performance, and the required four-lane matrix are complete, unless a maintainer explicitly approves a documented bounded closeout.
 - Build the native CLI before compare lanes and use `_build/native/release/build/cmd/cmd.exe`; treat `target/native/...` as stale unless explicitly proven fresh.
 - Moon commands must run serially.
 
@@ -18,7 +18,7 @@
 
 ## Active O4z Pass Queue
 
-The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and the pass dossiers. `merge-blocks` and its post-`code-folding` block-exit/EH neighborhood remain closed. The pre-RUB `flatten` validity failure and single-arm legacy-EH lift gap are repaired, but full `flatten` closeout remains open on residual classification, the deeper ownership/failure-atomicity audit, and exact historical performance remeasurement. Remaining v0.1.1 work is that closeout, scheduler integration, and nested-rerun ownership.
+The full 56-slot roster and historical closeout evidence live in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and the pass dossiers. The 2026-07-31 direct `remove-unused-brs` / `merge-blocks` correctness and indexing review is reclosed with focused runtime, full Moon, explicit-v131 four-lane, and native-release benchmark evidence; scheduler placement remains unchanged. The pre-RUB `flatten` validity failure and single-arm legacy-EH lift gap are repaired, but full `flatten` closeout remains open on residual classification, the deeper ownership/failure-atomicity audit, and exact historical performance remeasurement. Remaining v0.1.1 work is that flatten closeout, scheduler integration, and nested-rerun ownership.
 
 ## v0.1.1 Primary O4z Work
 

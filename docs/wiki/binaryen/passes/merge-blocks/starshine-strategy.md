@@ -5,8 +5,13 @@ last_reviewed: 2026-07-31
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
+  - ../../../../../src/ir/effects.mbt
+  - ../../../../../src/ir/effects_test.mbt
+  - ../../../../../src/passes/pass_common.mbt
+  - ../../../../../src/passes/pass_common_wbtest.mbt
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
+  - ../../../../../src/passes_perf_long/merge_blocks_perf_test.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -63,7 +68,7 @@ The HOT helper requires more than Binaryen's AST-level shape:
 - at least two body roots;
 - one-result tail whose result type matches the block's result type;
 - no branch in the lifted prefix;
-- no effect-order violation: pure operands reorder freely; local/global conflicts, hard control/call/throw barriers, trap-versus-write pairs, and overlapping memory/table categories do not; disjoint represented categories may reorder.
+- no effect-order violation: pure operands reorder freely; local/global conflicts, hard control/call/throw barriers, trap/trap and trap/write pairs, and overlapping memory/table categories do not; disjoint represented categories may reorder.
 
 These guards make the local rewrite safe for the present HOT representation. General regular memory atomics remain conservative because their acquire/release ordering is not represented at the boundary; the official v131 atomic fixture is handled by a narrow exact raw bridge instead. A matching WAT outline is therefore not evidence that arbitrary atomic extraction is implemented.
 
@@ -85,25 +90,30 @@ Current Binaryen has generic non-control expression-child extraction alongside s
 | prefix branch policy | source-level structural proof | explicit recursive branch rejection |
 | type repair | AST refinalization | HOT guards plus later lowering/validation |
 
-Do not infer arbitrary operand or atomic extraction from one matching fixture. The July 31 closeout claims parity only for the audited source families, focused tests, checked-in v131 fixtures, dedicated aggregate, and classified four-lane matrix.
+Do not infer arbitrary operand or atomic extraction from one matching fixture. The historical July 31 closeout covered the audited source families but missed a distinct-trap-order case. The refreshed focused runtime, four-lane matrix, and benchmark now reclose direct behavior and performance; the load/division replay is intentionally stricter than Binaryen v131 because Starshine preserves the source program's first trap.
 
 ## Exact current locations
 
 | File | Lines | Role |
 | --- | --- | --- |
-| `src/passes/merge_blocks.mbt` | `293-402` | Child legality and category-aware effect-order proof. |
-| `src/passes/merge_blocks.mbt` | `404-490` | Prefix lift and ordered-child replacement. |
-| `src/passes/merge_blocks.mbt` | `492-577` | Recursive branch detection for prefixes. |
+| `src/ir/effects.mbt` | exact numeric effects | Integer division/remainder and non-saturating float-to-int conversions carry the shared trap bit. |
+| `src/passes/pass_common.mbt` | shared reorder predicate | Conservative category proof, including mandatory trap/trap ordering. |
+| `src/passes/merge_blocks.mbt` | child legality / prefix lift | Ordered-child replacement through the shared predicate. |
+| `src/passes/merge_blocks.mbt` | drop-parent index | Lazily build at most one function-snapshot bitset and use constant-time multivalue hazard lookup; scalar-only functions avoid the full scan. |
+| `src/passes/merge_blocks.mbt` | branch detection | Recursive branch rejection for prefixes. |
 | `src/passes/merge_blocks.mbt` | root cleanup and traversal | Region roots, branch-free loops/wrappers, dropped branch payloads, expression-child lifting, and O4z self-`br_if` cleanup. |
 | `src/passes/pass_manager.mbt` | raw/preclean/lowered helpers | Flat calls, call/drop, atomics, multivalue drops, nested dropped branches, reference catches, bottom types, spill flattening, and local compaction. |
-| `src/passes/merge_blocks_test.mbt` | direct behavior | Structural, expression, effect-order, branch-value, loop, call, atomic, and negative boundaries. |
+| `src/passes/merge_blocks_test.mbt` | direct behavior | Structural, expression, load/division, two-load, table/division, atomic/division, branch-value, loop, call, and negative boundaries. |
+| `src/passes_perf_long/merge_blocks_perf_test.mbt` | manual performance | 4,000 call-backed partial-drop multivalue blocks across four valid 1,000-result functions, pass-local timer output, pipeline median, and one full-function scan per indexed function. |
 | `src/passes/pass_manager_wbtest.mbt` / `code_folding_test.mbt` | boundary and ordered behavior | Checked-in fixtures, lowered canonicalization, O4z block-exit, and EH payload cleanup. |
 
-## Current validation evidence
+## 2026-07-31 review reclose evidence
 
-The 2026-07-31 focused signoff passes `63/63` direct tests, `195/195` ordered `code-folding` tests, and `311/311` pass-manager white-box tests. The retained slot-42 repro validates.
+Full current Moon validation passes `10174/10174`, including `68/68` focused `merge_blocks_test.mbt` cases and the shared effect-predicate/numeric-trap tests. A Node runtime replay of the load/division fixture observes `memory access out of bounds` before and after current Starshine, while pre-review Starshine and Binaryen v131 observe `divide by zero`; preserving the source program's earlier load trap is an intentional correctness win rather than an unclassified parity gap.
 
-Using native SHA-256 `01fd7706f67cf5d2628a4339b6f78d02cadcb541e830d9c7219e6136703cfcf0` and explicit Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, regular GenValid is exact `100000/100000`, `merge-blocks-all` exact `10000/10000`, and wasm-smith exact for all `9956` comparable cases. Random-all is `9827` exact plus `173` strictly smaller Starshine outputs totaling `-1130` bytes, with no ties or losses. The 44 excluded wasm-smith cases are classified Binaryen-v131 parser/tool failures. See [`./fuzzing.md`](./fuzzing.md).
+Using native SHA-256 `11322ff39e52cef842f0fdf263fc3d35ec3b823ab84f0540ff5984f8a8806174` and explicit Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, regular GenValid is exact `100000/100000`, `merge-blocks-all` exact `10000/10000`, and wasm-smith is exact for all `9956` comparable cases. Random-all is `9827` exact plus `173` strictly smaller Starshine outputs totaling `-1130` bytes, with no ties or losses; the 44 excluded wasm-smith cases are classified Binaryen-v131 parser/tool failures.
+
+The retained valid native-release 4,000-block benchmark uses four 1,000-result functions and builds exactly one drop-parent index per function. Each trace reports `6000` live nodes and `1000` drop-child slots (`24000` / `4000` aggregate per run). Aggregate pass-local totals are `43830`, `42598`, `43598`, `42905`, and `42789us` (median `42905us`); pipeline median is `73010us`. Five debug-artifact comparisons report a `258.437ms` Starshine pass median versus `670.026ms` Binaryen (`0.386x`). Lazy index construction recovers the eager draft's artifact regression, improving `298.319ms` to `258.437ms` and finishing `0.7%` faster than pre-review HEAD's `260.186ms` median. See [`./fuzzing.md`](./fuzzing.md).
 
 ## Sources
 

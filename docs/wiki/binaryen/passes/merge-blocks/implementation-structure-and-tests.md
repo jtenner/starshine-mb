@@ -5,9 +5,13 @@ last_reviewed: 2026-07-31
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
+  - ../../../../../src/ir/effects.mbt
+  - ../../../../../src/ir/effects_test.mbt
   - ../../../../../src/passes/pass_common.mbt
+  - ../../../../../src/passes/pass_common_wbtest.mbt
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
+  - ../../../../../src/passes_perf_long/merge_blocks_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
 related:
@@ -72,9 +76,10 @@ Primary owner:
 | `88-154` | loop scan | Reject a candidate body containing a loop. |
 | `155-292` | unreachable repair / control traversal | Maintain writeback-safe dead-value shape, then recurse through regions. |
 | `293-348` | child eligibility | Require a dead label, no params/loops, at least two roots, one-result tail, and matching result type. |
-| `350-402` | effect ordering | Permit pure/disjoint categories while rejecting control, call, throw, trap/write, local/global, memory, and table conflicts. |
-| `404-490` | child-prefix lifting | Replace a child block with its tail and splice legal prefixes before the parent expression. |
-| `492-577` | branch scanners | Reject lift candidates whose prefixes contain branches. |
+| shared `effects.mbt` classification plus `pass_common.mbt` predicate | effect ordering | Mark exact trapping numeric operations and permit pure/disjoint categories while rejecting control, call, throw, trap/trap, trap/write, local/global, memory, and table conflicts. |
+| child-prefix lifting | Replace a child block with its tail and splice legal prefixes before the parent expression through the shared reorder predicate. |
+| drop-parent index | Build one function-snapshot bitset and use constant-time multivalue-root hazard queries instead of a full scan per candidate. |
+| branch scanners | Reject lift candidates whose prefixes contain branches. |
 | root/wrapper cleanup | Region-root splice, branch-free loop/block removal, dropped self-target branch values, and an O4z-only redundant self-`br_if` wrapper cleanup. |
 | pass-manager raw admission | Repair flat call/drop prefixes, the exact v131 ordered-atomic call fixture, and dropped literal multivalue blocks before HOT lifting. |
 | pass-manager preclean | Recursively normalize direct and nested dropped self-branch payloads plus unused reference-catch payloads before lifting. |
@@ -90,7 +95,7 @@ Primary proof file:
 | --- | --- |
 | Structural roots | Nested blocks, branch-free multi-root loops, loop/live-label negatives, typed carriers, multivalue/reference results, and unreachable suffixes. |
 | Dropped branches | Pure scalar and reference payloads, nested wrappers, dropped literal multivalue blocks, and effectful-value negative guards. |
-| Expression/effect order | `drop`, `if`, store, throw, direct calls, pure/disjoint predecessors, trapping loads, local/global dependencies, and repeated candidates. |
+| Expression/effect order | `drop`, `if`, store, throw, direct calls, pure/disjoint predecessors, load/division, two trapping loads, table/division, atomic/division, local/global dependencies, and repeated candidates. |
 | Official v131 fixtures | Checked-in main and atomic binaries plus direct EH-focused regressions; the atomic fixture is byte-identical. |
 | Lowered/writeback cleanup | Bottom-reference block results, scalar and type-indexed spill blocks, local compaction, and stack-safe multi-parameter calls. |
 | Ordered neighborhood | O4z post-`code-folding` block-exit cleanup and unused `catch_ref` / `catch_all_ref` payload removal. |
@@ -141,11 +146,13 @@ Do not use a stale `target/native/...` artifact as current signoff evidence; see
 
 ## Correctness hardening and closeout
 
+The 2026-07-31 post-closeout review is reclosed. The source forbids trap/trap prefix crossings and replaces the quadratic drop-parent query with a lazily built function snapshot; scalar-only functions avoid the extra full scan. Focused runtime preserves an earlier out-of-bounds load trap where pre-review Starshine and Binaryen v131 expose the later divide-by-zero trap. Full Moon, the explicit-v131 four-lane matrix, and the retained native-release benchmark are green or fully classified.
+
 The 2026-07-21 HOT unreachable-root repair moves only effect-free, nontrapping values before an `unreachable`; ambiguous effectful roots fail closed. The July 31 closeout completes the represented v131 family map with red-first coverage for branch-free loops, dropped direct/nested branch payloads, multivalue drops, stack-safe calls, ordered atomics, lowered all-null references, scalar spills, and unused reference catches. Broad HOT effect relaxation was tested and rejected; narrow raw or lowered rewrites are used where stack form or type finalization is the actual owner.
 
-Final focused validation is `63/63` for `merge_blocks_test.mbt`, `195/195` for `code_folding_test.mbt`, and `311/311` for `pass_manager_wbtest.mbt`; full Moon is `10131/10131`, README/API sync passes, and the direct native CI fuzz profile passes every suite including `86820` binary roundtrips. The aggregate wasm-gc validation gate completed its Moon stages before reproducing the repository's documented fuzz-runner `RuntimeError: unreachable`. Native SHA-256 `01fd7706f67cf5d2628a4339b6f78d02cadcb541e830d9c7219e6136703cfcf0` against explicit Binaryen v131 gives regular `100000/100000` exact, dedicated `10000/10000` exact, wasm-smith `9956/9956` comparable exact with 44 Binaryen-only failures, and random-all `9827` exact plus `173` strictly smaller Starshine outputs totaling `-1130` bytes. The slot-42 repro validates. O4z ordered block-exit is `41` versus `43` bytes and ordered EH is byte-identical at `74` bytes after `strip-debug`.
+Current focused validation is `68/68` for `merge_blocks_test.mbt`; shared numeric-effect and reorder-predicate coverage also passes, `moon test src/passes` is `6640/6640`, and full Moon is `10174/10174`. Native SHA-256 `11322ff39e52cef842f0fdf263fc3d35ec3b823ab84f0540ff5984f8a8806174` against explicit Binaryen v131 gives regular `100000/100000` exact, dedicated `10000/10000` exact, wasm-smith `9956/9956` comparable exact with 44 Binaryen-only failures, and random-all `9827` exact plus `173` strictly smaller Starshine outputs totaling `-1130` bytes. The historical slot-42 and ordered-neighborhood evidence remains placement evidence.
 
-On the 13,118,096-byte debug-WASI artifact, the traced Starshine pass body totals `258707us`, below the repository's absolute one-second pass-local target. Whole-command wall time remains about `11.63s` because per-function raw scanning, HOT lift/lower, validation, and emit dominate; that cross-pass/runtime infrastructure cost remains owned by `[WALL]001` rather than the local transform.
+The retained valid 4,000-block native-release lane uses four 1,000-result functions and reports one function-snapshot scan per function: `6000` live nodes and `1000` drop-child slots each, `24000` / `4000` aggregate per run, `42905us` aggregate pass median, and `73010us` pipeline median. On the 13,118,096-byte debug-WASI artifact, five-run pass-local medians are `258.437ms` Starshine and `670.026ms` Binaryen (`0.386x`, about `2.59x` Binaryen throughput). Whole-command medians remain about `11.565s` versus `1.423s` because decode, HOT lift/lower, validation, canonicalization, and emit dominate outside the pass body; that cross-pass/runtime infrastructure cost remains owned by `[WALL]001`.
 
 ## Sources
 

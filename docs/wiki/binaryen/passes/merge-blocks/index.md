@@ -8,8 +8,13 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks-atomics.wast
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks-eh.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
+  - ../../../../../src/ir/effects.mbt
+  - ../../../../../src/ir/effects_test.mbt
+  - ../../../../../src/passes/pass_common.mbt
+  - ../../../../../src/passes/pass_common_wbtest.mbt
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
+  - ../../../../../src/passes_perf_long/merge_blocks_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
 related:
@@ -24,6 +29,12 @@ supersedes:
 ---
 
 # `merge-blocks`
+
+## 2026-07-31 correctness and performance reclose
+
+A post-closeout review found two direct-owner defects. Expression-child lifting could move a later trapping prefix before an earlier distinct trap, changing which trap is observed first. Multivalue root candidates also performed a full live-node/drop-child scan per block, producing `O(blocks × nodes)` behavior. Starshine now classifies exact integer division/remainder and non-saturating float-to-int conversions as trapping in shared HOT effects, routes lifting through a shared conservative effect-mask predicate that forbids trap/trap crossings, and lazily builds at most one drop-parent bitset for a function that actually reaches a zero-parameter multivalue root hazard.
+
+The review is **reclosed** on native SHA-256 `11322ff39e52cef842f0fdf263fc3d35ec3b823ab84f0540ff5984f8a8806174` against official Binaryen v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. Focused runtime proves the original/current Starshine outputs trap first on the out-of-bounds load while the pre-fix Starshine and Binaryen-v131 outputs trap first on division by zero; this is an intentional Starshine correctness win because WebAssembly evaluates the earlier call operand first. Full Moon passes `10174/10174`. The required matrix is regular `100000/100000` exact, dedicated `10000/10000` exact, wasm-smith `9956/9956` comparable exact with the established 44 Binaryen-only failures, and random-all `9827` exact plus the same 173 strictly smaller neighboring-profile Starshine outputs totaling `-1130` bytes. The valid native-release 4,000-block call-backed partial-drop benchmark spreads the load across four 1,000-result functions and reports exactly one scan per function (`6000` live nodes and `1000` drop-child slots each; `24000` / `4000` aggregate per run), aggregate pass-local median `42905us`, and pipeline median `73010us`. On the 13,118,096-byte debug artifact, five-run pass-local medians are `258.437ms` Starshine versus `670.026ms` Binaryen (`0.386x`, about `2.59x` Binaryen throughput); lazy construction improves the first eager-index draft by `13.4%` and is `0.7%` faster than pre-review HEAD. Scheduler and ordered-neighborhood placement remain unchanged.
 
 ## Role
 
@@ -60,11 +71,11 @@ Starshine still treats general represented atomic nodes conservatively because i
 
 ## 2026-07-26 executable renewal
 
-The post-repair audit is closed for the represented surface. Red-first work added the `merge-blocks-all` GenValid aggregate, removed safe branch-free untyped loop/block wrappers, broadened HOT effect reordering only for proved-disjoint categories, and added a narrow raw-boundary bridge for flat two-argument direct calls whose later operand contains a context-free `global.set` prefix. The raw bridge allows pure and disjoint `memory.grow` predecessors, but retains order across trapping loads, global dependencies, and local-dependent prefix values.
+The historical post-repair audit was closed for the then-represented surface. Red-first work added the `merge-blocks-all` GenValid aggregate, removed safe branch-free untyped loop/block wrappers, broadened HOT effect reordering only for proved-disjoint categories, and added a narrow raw-boundary bridge for flat two-argument direct calls whose later operand contains a context-free `global.set` prefix. The raw bridge allows pure and disjoint `memory.grow` predecessors, but retains order across trapping loads, global dependencies, and local-dependent prefix values.
 
 That matrix remains historical evidence. The broader July 31 renewal supersedes it with additional branch-value, lowered-reference, ordered-EH, and O4z-neighborhood coverage; see the closeout below and [`./fuzzing.md`](./fuzzing.md).
 
-## 2026-07-31 final parity and ordered-neighborhood closeout
+## Historical 2026-07-31 parity and ordered-neighborhood closeout
 
 A complete v131 owner/fixture re-audit added the missing represented families: branch-free loop roots, dropped self-target branch payloads including nested wrappers, dropped literal multivalue results, stack-safe multi-parameter calls, the official acquire/release fixture, lowered scalar spill cleanup, bottom-reference result refinalization, and unused `catch_ref` / `catch_all_ref` payload removal.
 
@@ -104,7 +115,7 @@ Do not infer a rewrite merely because the output validates. In particular, movin
 - `src/passes/pass_manager.mbt` owns narrow raw/lowered bridges for flat calls, the official ordered-atomic shape, dropped multivalue literals, nested dropped branch payloads, scalar spill/local compaction, bottom-reference refinalization, and unused reference-catch payloads.
 - `src/passes/merge_blocks_test.mbt`, `src/passes/pass_manager_wbtest.mbt`, and `src/passes/code_folding_test.mbt` cover the direct transform families, negative effect/type guards, official v131 fixtures, and post-`code-folding` block-exit/EH neighborhoods.
 - `src/validate/gen_valid.mbt` and `src/validate/gen_valid_merge_blocks_tests.mbt` own the stable four-family `merge-blocks-all` aggregate.
-- The 2026-07-31 matrix is exact for regular, dedicated, and every comparable wasm-smith case; all 173 random-all residuals are strictly smaller Starshine neighboring-profile representations totaling `-1130` bytes.
+- The refreshed review matrix is exact for regular, dedicated, and every comparable wasm-smith case; all 173 random-all residuals are the unchanged strictly smaller Starshine neighboring-profile representations totaling `-1130` bytes. Focused runtime and the retained native-release benchmark reclose the trap-order and drop-parent-index review.
 
 ## Validation guidance
 
@@ -117,7 +128,7 @@ For behavior changes:
 3. build a fresh native CLI; and
 4. run pass-targeted Binaryen comparison with `_build/native/release/build/cmd/cmd.exe` and classify any residual difference from source and replay evidence.
 
-The final 2026-07-31 matrix used native Starshine SHA-256 `01fd7706f67cf5d2628a4339b6f78d02cadcb541e830d9c7219e6136703cfcf0` and explicit Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. See [`./fuzzing.md`](./fuzzing.md) for commands, counts, and residual classification. Older matrices remain provenance only.
+The review reclose matrix uses native Starshine SHA-256 `11322ff39e52cef842f0fdf263fc3d35ec3b823ab84f0540ff5984f8a8806174` and explicit Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. See [`./fuzzing.md`](./fuzzing.md) for commands, counts, and residual classification. Older matrices remain provenance only.
 
 ## Sources
 

@@ -5,9 +5,13 @@ last_reviewed: 2026-07-31
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
+  - ../../../../../src/ir/effects.mbt
+  - ../../../../../src/ir/effects_test.mbt
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/pass_common.mbt
+  - ../../../../../src/passes/pass_common_wbtest.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
+  - ../../../../../src/passes_perf_long/merge_blocks_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
 related:
@@ -45,10 +49,12 @@ Expression-child lifting covers `if` conditions, `drop`, `i32.store`, and `throw
 | `src/passes/merge_blocks.mbt:155-198` | `merge_blocks_rewrite_dead_unreachable_suffix_roots(...)` | Preserve dead values before `unreachable` as explicit `drop`s. |
 | `src/passes/merge_blocks.mbt:199-292` | `merge_blocks_visit_control_node(...)` | Recurse through block, loop, `if`, `try`, and `try-table` regions. |
 | `src/passes/merge_blocks.mbt:293-348` | `merge_blocks_can_lift_block_child(...)` | Child-block legality: dead label, no params/loops, multi-root, one-result tail, matching result types. |
-| `src/passes/merge_blocks.mbt:350-402` | effect helpers | Category-aware reorder proof; overlapping memory remains ordered because regular atomic order is not represented. |
-| `src/passes/merge_blocks.mbt:404-490` | `merge_blocks_lift_expression_block_children(...)` | Preserve the tail child, splice prefixes before its parent, and apply the ordered-effect gate. `if` admits only condition slot `0`. |
-| `src/passes/merge_blocks.mbt:492-577` | branch scanners | Reject any candidate prefix containing a branch. |
-| `src/passes/merge_blocks.mbt:579-639` | `merge_blocks_flatten_region_root_block(...)` | Main region-root splice and typed-carrier gate. |
+| `src/ir/effects.mbt` | exact numeric effect classification | Mark integer division/remainder and non-saturating float-to-int conversions as trapping. |
+| `src/passes/pass_common.mbt` | `pass_effect_masks_can_reorder(...)` | Shared conservative reorder proof; two represented potentially trapping expressions stay ordered, and overlapping memory remains ordered because regular atomic order is not represented. |
+| `src/passes/merge_blocks.mbt` | `merge_blocks_lift_expression_block_children(...)` | Preserve the tail child, splice prefixes before its parent, and apply the shared ordered-effect gate. `if` admits only condition slot `0`. |
+| `src/passes/merge_blocks.mbt` | `merge_blocks_compute_drop_parent_index(...)` / `merge_blocks_drop_parent_index_contains(...)` | Lazily build one function-snapshot bitset on the first relevant multivalue root instead of rescanning every live node per candidate; scalar-only functions avoid the scan. |
+| `src/passes/merge_blocks.mbt` | branch scanners | Reject any candidate prefix containing a branch. |
+| `src/passes/merge_blocks.mbt` | `merge_blocks_flatten_region_root_block(...)` | Main region-root splice and typed-carrier gate, including constant-time drop-parent lookup. |
 | `src/passes/merge_blocks.mbt` | structural and dropped-branch helpers | Remove branch-free parameterless/resultless loops and wrappers, clean dropped self-branch payloads, and apply the O4z-only redundant self-`br_if` cleanup. |
 | `src/passes/merge_blocks.mbt` | traversal and run | Visit structured children, lift prefixes, flatten wrappers/roots, and mark mutation. |
 | `src/passes/pass_manager.mbt` | raw/preclean/lowered helpers | Repair exact stack-form families before lifting and canonicalize reference/spill/local shapes after lowering; unsafe or unknown forms fail closed. |
@@ -62,7 +68,7 @@ A reader following the code should notice six different safety layers:
 
 1. **labels:** any referenced label keeps its block or loop;
 2. **control/type shape:** typed parameters, unsafe loop-containing candidates, and non-one-result tails are rejected;
-3. **prefix semantics:** nested branches and conflicting/trapping effect order are rejected;
+3. **prefix semantics:** nested branches, conflicting effects, and every trap/trap crossing are rejected through the shared pass predicate;
 4. **raw-boundary narrowing:** only exact call/drop, atomic, multivalue, branch-payload, and reference-catch shapes are rewritten;
 5. **lowered-type proof:** all-null result narrowing requires one compatible abstract hierarchy bottom and exact branch structure; scalar spill flattening requires a no-parameter single-result block containing only context-free value/set pairs plus its final get; and
 6. **writeback stability:** region-root flattening repairs dead-before-`unreachable` values and uses validated HOT lowering/writeback.
@@ -73,7 +79,9 @@ This is deliberately more explicit than an AST rewrite. It also means a source-a
 
 - `src/passes/merge_blocks_test.mbt`
   - root flattening, branch-free loop removal, loop/live-label, typed-carrier, `unreachable`, reference, multivalue, and dropped-branch behavior;
-  - live-label prefix boundary plus `if`, `drop`, store, throw, pure/disjoint call operands, flat stack-form calls, ordered atomics, trapping loads, and local-dependent negatives.
+  - live-label prefix boundary plus `if`, `drop`, store, throw, pure/disjoint call operands, flat stack-form calls, load/division, two-load, table/division, atomic/division trap-order guards, and local-dependent negatives.
+- `src/passes_perf_long/merge_blocks_perf_test.mbt`
+  - skipped native-release 4,000-block call-backed partial-drop multivalue benchmark across four valid 1,000-result functions, pass-local timer output, pipeline median, and the one full-function scan per indexed function invariant.
 - `src/passes/pass_manager_wbtest.mbt`
   - checked-in v131 main/atomic fixtures, stack-safe call/drop repair, bottom-reference refinalization, scalar/type-indexed spill flattening, and local compaction.
 - `src/passes/code_folding_test.mbt`

@@ -250,7 +250,7 @@ related:
 
 ## Closeout And Reopening Rule
 
-Direct behavior and scheduler placement are closed as of 2026-07-30.
+Scheduler placement remains closed as of 2026-07-30, and direct behavior is reclosed as of 2026-07-31 after repairing the same-target two-arm `if` condition-evaluation defect. Runtime distinguishes the old failure and current repair: call/global mutation is `0 -> 7`, `local.tee` is `0 -> 9`, and trapping load/division conditions change from old Starshine's normal `1` return to the original/Binaryen trap. Focused RUB passes `247/247`, `src/passes` passes `6640/6640`, and full Moon passes `10174/10174`. The explicit-v131 matrix is fully compared and classified: regular `100000/100000`, wasm-smith `9956` comparable plus 44 Binaryen-only failures, dedicated `10000/10000` with `2345` strictly smaller Starshine residuals totaling `-51852` bytes, and random-all `10000/10000` with `736` strictly smaller residuals totaling `-3638` bytes. There are zero Starshine failures or true semantic mismatches.
 
 1. Keep all 21 focused profile leaves covered and preserve the source-backed smaller dedicated, random-all, and O4z-option families.
 2. Keep the exact v131 scheduler assertion: 56 Binaryen slots, RUB at `13`, `24`, and `39`, then Starshine `strip-debug`.

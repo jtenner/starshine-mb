@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-30
+last_reviewed: 2026-07-31
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -14,16 +14,33 @@ sources:
 
 # `remove-unused-brs` Fuzzing Profile
 
-## 2026-07-30 final Binaryen v131 closeout
+## 2026-07-31 condition-preservation review reclose
 
-The final native Starshine binary is SHA-256 `e748800660b375c40741181a53aaeaf2dd2c436ddbbfdf6c4ee80834a19e5090`; the explicit official oracle is `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
+The repaired pass uses native Starshine SHA-256 `11322ff39e52cef842f0fdf263fc3d35ec3b823ab84f0540ff5984f8a8806174`, official `wasm-opt version 131 (version_131)` SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, and the `drop-consts` plus `unreachable-control-debris` normalizers.
+
+| Lane | Result | Classification |
+| --- | --- | --- |
+| Regular GenValid, count `100000`, seed `0x5eed` | `14604` direct plus `85396` cleanup-normalized | Zero residuals or failures. |
+| wasm-smith, count `10000`, seed `0x5eed` | `9954` direct plus `2` cleanup-normalized across `9956` comparable | Zero Starshine failures; 44 Binaryen-only cached parser/tool failures. |
+| `remove-unused-brs-all`, count `10000`, seed `0x5eed` | `7251` direct, `404` cleanup-normalized, `2345` residuals | Every residual is a strictly smaller Starshine cleanup, range `-51..-1`, total `-51852` bytes; zero ties or losses. |
+| Random all-profiles, count `10000`, seed `0x5555` | `7669` direct, `1595` cleanup-normalized, `736` residuals | Every residual is smaller, range `-49..-1`, total `-3638` bytes; zero ties or losses. |
+
+Dedicated residuals are exactly the source-backed GC, sink-block, switch, cleanup, control, and literal multivalue-drop families. Random-all residuals add the established unread-tee and terminal-return wins. Focused Node runtime separately confirms that call/global mutation, `local.tee`, out-of-bounds load, and division-by-zero conditions are evaluated before the common branch. There are zero Starshine validation, generator, property, or command failures and zero true semantic mismatches.
+
+The 2026-07-31 closeout measured `595.227ms` Starshine and `294.046ms` Binaryen pass medians, a marginal `2.024x` relative-floor miss. The completed 2026-08-01 speedup slice preserves the reviewed artifact bytes and now measures `227.250ms` Starshine versus `289.650ms` Binaryen (`0.785x` by independent medians, `0.780x` paired median), a `61.8%` Starshine pass improvement and about `1.27x` Binaryen throughput. Whole-command median falls from about `11.565s` to `3.328s` (`71.2%`), and the current 3,000-block native pipeline median is `377390us`, `4.5%` below the prior `395298us` result. This performance re-sign is a maintainer-approved bounded closeout rather than a replacement full matrix. Near-final `100`-case smokes are regular `13` direct plus `87` cleanup-normalized, wasm-smith `99/99` comparable exact with one Binaryen-only failure, dedicated `72` direct plus `3` cleanup-normalized plus `25` residuals, and random-all `65` direct plus `20` cleanup-normalized plus `15` residuals, with zero Starshine failures. The corrected final binary repeats the dedicated `100/100` result exactly, and a prior-slice dedicated `1000/1000` smoke also had zero failures. Full dedicated attempts timed out at `1713/10000` and `2274/10000`; the 2026-07-31 full matrix remains the behavior baseline, and future output-byte or residual-family drift reopens the pass.
+
+## Historical 2026-07-30 Binaryen v131 closeout
+
+This matrix predates the 2026-07-31 same-target condition-evaluation review. It remains provenance; the refreshed runtime and matrix above supersede its direct closeout status.
+
+The historical native Starshine binary is SHA-256 `e748800660b375c40741181a53aaeaf2dd2c436ddbbfdf6c4ee80834a19e5090`; the explicit official oracle is `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
 
 - Regular `.tmp/pass-fuzz-remove-unused-brs-closeout-finalhash-regular-100000-20260730`: `100000/100000`, zero mismatches or failures.
 - wasm-smith `.tmp/pass-fuzz-remove-unused-brs-closeout-finalhash-wasm-smith-10000-20260730`: `9956/10000` comparable, zero mismatches or Starshine failures, with the established `44` Binaryen/tool malformed-input failures.
 - Expanded dedicated `.tmp/pass-fuzz-remove-unused-brs-closeout-finalhash-dedicated-10000-20260730`: `10000/10000`, zero command or validation failures; `2345` residual text shapes are confined to six source-backed cleanup families, and every one is canonically smaller in Starshine, totaling `-51852` bytes.
 - Random-all `.tmp/pass-fuzz-remove-unused-brs-closeout-finalhash-random-all-10000-20260730`: `10000/10000`, zero failures; all `736` residuals are smaller Starshine outputs, totaling `-3638` bytes.
 - O4z-option direct replay `.tmp/pass-fuzz-remove-unused-brs-closeout-o4z-direct-10000-20260730`: `6853` canonical byte matches plus `3147` strictly smaller Starshine outputs, aggregate delta `-54270` bytes, with zero command failures, equal-size-different-byte outputs, or Starshine-larger outputs. This lane runs only `remove-unused-brs` with `optimize_level=4` and `shrink_level=4`, isolating scheduled pass behavior from unrelated full-preset validity owners.
-- Full-preset boundary probe `.tmp/rub-o4z-schedule-validity-1000`: `837` valid outputs and `163` Starshine command failures. The first traced failure becomes invalid in `flatten` before the first RUB application; every later RUB sees the pre-existing stack-underflow state and fails closed. This remains an `[O4Z-PRESET]001` validity blocker, not a reopened RUB behavior or placement gap.
+- Full-preset boundary probe `.tmp/rub-o4z-schedule-validity-1000`: `837` valid outputs and `163` Starshine command failures. The first traced failure becomes invalid in `flatten` before the first RUB application; every later RUB sees the pre-existing stack-underflow state and fails closed. This remains an `[O4Z-PRESET]001` validity blocker separate from the then-reopened, now-reclosed direct RUB condition-preservation gap; placement itself remains closed.
 
 `remove-unused-brs-all` now contains 21 focused leaves. In addition to the prior constant branch, single-target table, multi-function, result-refinalization, multivalue-drop, wrapper, selectification, win-boundary, control, switch, cleanup, and GC families, it covers tail flow, one-arm `if`, loop cleanup, block sinking, EH caught throws, jump-threading, tablification, `local.set`/`local.tee` optimization, restructure-if, and adjacent branch cleanup.
 

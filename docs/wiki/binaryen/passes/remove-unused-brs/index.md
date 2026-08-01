@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-30
+last_reviewed: 2026-08-01
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../release-horizon-and-oracles.md
@@ -40,9 +40,23 @@ related:
 
 # `remove-unused-brs`
 
-## Binaryen v131 closeout status
+## 2026-08-01 performance follow-up
 
-The 2026-07-30 audit closes direct behavior, size, performance, generator breadth, and public scheduler placement against official `wasm-opt version 131 (version_131)`. `remove-unused-brs-all` now contains 21 focused leaves spanning the main flow, one-arm `if`, loop, block-sinking, EH, jump-threading, tablification, set/tee, restructure-if, adjacent-branch, GC, switch, multivalue, wrapper, and boundary families. The required regular `100000`, wasm-smith `10000`, dedicated `10000`, and random-all `10000` lanes have zero Starshine failures or unclassified size losses. A separate direct O4z-option replay is `6853` canonical byte matches plus `3147` strictly smaller Starshine outputs, totaling `-54270` bytes.
+`[RUB-PERF]001` is complete with a maintainer-approved bounded performance re-sign layered on the 2026-07-31 full correctness closeout. The raw boundary now recognizes giant `br_table` convergence no-ops before HOT lift while preserving the existing decision-ladder rewrite, and an early-facts scan avoids recursively rebuilding functions that cannot contain that rewrite. HOT hazard scans memoize shared DAG nodes, nested dead-suffix traversal visits each node once, and CFG construction is lazy until an exact eligible suffix reaches the reachability proof.
+
+Current native SHA-256 `8ac6819cfd7deaa3786a4996e47c13bc76e8f2a796f5d4876d4559efeea5b6ee` preserves the reviewed debug artifact byte-for-byte. Five native-release runs measure a `227.250ms` Starshine pass median versus `289.650ms` Binaryen v131 (`0.785x` by independent medians; `0.780x` paired-run median), improving Starshine by `61.8%` from the prior `595.227ms` median and delivering about `1.27x` Binaryen throughput. Whole-command median improves from about `11.565s` to `3.328s` (`71.2%`), while the retained 3,000-block native pipeline median is `377390us`, `4.5%` below the prior `395298us` measurement. Moon passes `247/247` focused RUB, `4/4` RUB white-box, `6643/6643` pass tests, and full `10177/10177`.
+
+The 2026-08-01 performance re-sign uses an explicit maintainer-approved bounded exception to the ordinary full-matrix rule. Near-final `100`-case smokes are regular `13` direct plus `87` cleanup-normalized, wasm-smith `99/99` comparable exact with one Binaryen-only failure, dedicated `72` direct plus `3` cleanup-normalized plus `25` residuals, and random-all `65` direct plus `20` cleanup-normalized plus `15` residuals. There are zero Starshine command, generator, validation, or property failures; the corrected final binary repeats the dedicated `100/100` result exactly (`72` direct, `3` cleanup-normalized, `25` residuals), and a prior-slice dedicated `1000/1000` smoke also had zero failures. Full explicit-v131 dedicated attempts timed out after `1713/10000` and `2274/10000` completed cases, so those partial runs are recorded only as operational evidence. The 2026-07-31 full matrix remains the behavioral provenance; reopen RUB if a future change alters artifact bytes, runtime repros, validation, or residual families.
+
+## 2026-07-31 correctness reclose
+
+A post-closeout review found that the same-target two-arm `if` rewrite discarded condition evaluation. That is a correctness defect for calls, local writes, mutable-state reads, and trapping conditions. Starshine now emits `drop(condition)` before the unconditional branch. Focused Node runtime replays prove the repair against the original module, pre-review Starshine, current Starshine, and Binaryen v131: call/global mutation returns `7` instead of the old Starshine `0`; `local.tee` returns `9` instead of `0`; and the load/division condition fixtures trap instead of the old Starshine returning `1`. Current Starshine matches the original and Binaryen on all four RUB outcomes.
+
+Direct behavior is **reclosed** on native SHA-256 `11322ff39e52cef842f0fdf263fc3d35ec3b823ab84f0540ff5984f8a8806174` against official Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. Focused RUB passes `247/247`, `src/passes` passes `6640/6640`, and full Moon passes `10174/10174`. The required matrix is regular `14604` direct plus `85396` cleanup-normalized, wasm-smith `9954` direct plus `2` cleanup-normalized across `9956` comparable cases, dedicated `7251` direct plus `404` cleanup-normalized and `2345` strictly smaller Starshine outputs totaling `-51852` bytes, and random-all `7669` direct plus `1595` cleanup-normalized and `736` strictly smaller outputs totaling `-3638` bytes. There are zero Starshine validation, generator, property, or command failures. Scheduler placement remains unchanged.
+
+## Historical Binaryen v131 closeout evidence
+
+The 2026-07-30 audit previously closed direct behavior, size, performance, generator breadth, and public scheduler placement against official `wasm-opt version 131 (version_131)`. `remove-unused-brs-all` now contains 21 focused leaves spanning the main flow, one-arm `if`, loop, block-sinking, EH, jump-threading, tablification, set/tee, restructure-if, adjacent-branch, GC, switch, multivalue, wrapper, and boundary families. The required regular `100000`, wasm-smith `10000`, dedicated `10000`, and random-all `10000` lanes have zero Starshine failures or unclassified size losses. A separate direct O4z-option replay is `6853` canonical byte matches plus `3147` strictly smaller Starshine outputs, totaling `-54270` bytes.
 
 Scheduler placement is also closed. Starshine's public optimize/shrink roster now matches Binaryen v131's unchanged 56-slot / 38-owner top-level order, with RUB at zero-based indices `13`, `24`, and `39`; Starshine's documented `strip-debug` extension is the sole 57th slot.
 
@@ -72,7 +86,7 @@ So this is **not** just a trailing-branch stripper.
   - early `remove-unused-names` and later `merge-blocks` help RUB
   - later `coalesce-locals` opens more RUB opportunities
   - late `remove-unused-names` and another `merge-blocks` clean up after RUB again
-- Historical direct mismatch slices are closed. Remaining O4z work belongs to neighboring post-`code-folding` cleanup and broader ordered-pipeline signoff, not to RUB behavior or placement.
+- The 2026-07-31 condition-evaluation review is reclosed by focused runtime and the refreshed four-lane matrix. Placement remains closed.
 - The saved generated-artifact work also touched RUB heavily, especially the retired slot-14 and slot-40 corruption witnesses that now live in the parity history.
 
 This makes RUB relevant to:

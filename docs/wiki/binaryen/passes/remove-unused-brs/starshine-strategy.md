@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-30
+last_reviewed: 2026-07-31
 sources:
   - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -30,11 +30,11 @@ related:
 
 # Current Starshine `remove-unused-brs` strategy
 
-This page is the local strategy overview for the 2026-07-30 Binaryen-v131 closeout. For the helper walk and raw/HOT wiring, use [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
+This page is the local strategy overview for the Binaryen-v131 closeout, the 2026-07-31 condition-evaluation review reclose, and the completed 2026-08-01 performance re-signoff. For the helper walk and raw/HOT wiring, use [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
 
 ## Short version
 
-Starshine's represented direct behavior is closed against Binaryen `version_131`. The implementation combines focused raw admission/no-op filters with a HOT fixpoint covering the staged upstream families:
+Starshine's represented direct behavior was closed against Binaryen `version_131` on the 2026-07-31 reviewed binary. The same-target two-arm `if` rewrite emits `drop(condition)` before the branch, preserving calls, local/global mutation, reads, and traps. The completed 2026-08-01 speedup slice preserves those artifact bytes, passes full Moon `10177/10177`, and improves pass-local median from `595.227ms` to `227.250ms`; current Binaryen-v131 median is `289.650ms`, so Starshine is now comfortably faster at `0.785x` by independent medians and about `1.27x` Binaryen throughput. A maintainer-approved bounded re-sign removes `[RUB-PERF]001` from the active backlog while retaining the 2026-07-31 full matrix as behavioral provenance. The implementation combines focused raw admission/no-op filters with a HOT fixpoint covering the staged upstream families:
 
 - tail branch and return flow cleanup
 - constant and one-/two-arm branch cleanup
@@ -45,6 +45,11 @@ Starshine's represented direct behavior is closed against Binaryen `version_131`
 - `br_if`, `br_table`, `select`, `local.set`, and `local.tee` final optimization
 - exact wrapper/dead-shell cleanup where Starshine emits canonically smaller wasm
 - bounded artifact-backed raw and HOT no-op skipping for known unchanged large ladders
+- early raw giant-table and decision-ladder facts that avoid unnecessary HOT lift or recursive reconstruction
+- shared-DAG memoization plus lazy CFG construction for hazard and nested-suffix proofs
+- raw root stack/local-set hazard rejection before lift
+- summary-gated literal multivalue accounting with lightweight exact node-use counts instead of eager full use-def
+- zero-reference label gating before single-result block refinalization scans
 
 The remaining documented differences are product-level boundaries such as expression branch-hint metadata and `remove-unused-brs-never-unconditionalize` pass-argument plumbing, not open represented behavior or scheduler gaps.
 
