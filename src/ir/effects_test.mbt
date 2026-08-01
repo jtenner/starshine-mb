@@ -14,6 +14,34 @@ test "effect summaries distinguish pure arithmetic from memory access" {
 }
 
 ///|
+test "effect summaries mark exact trapping numeric instructions" {
+  let div_func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_div_s(),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(),
+  )
+  let div_drop = hot_root_get(div_func, 0)
+  let div = hot_child_get(div_func, div_drop, 0)
+  assert_true((effects_for_node(div_func, div) & EFFECT_MASK_TRAP) != 0U)
+
+  let trunc_func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::f32_const(@lib.F32(0.0)),
+      @lib.Instruction::i32_trunc_f32s(),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(),
+  )
+  let trunc_drop = hot_root_get(trunc_func, 0)
+  let trunc = hot_child_get(trunc_func, trunc_drop, 0)
+  assert_true((effects_for_node(trunc_func, trunc) & EFFECT_MASK_TRAP) != 0U)
+}
+
+///|
 test "effect summaries expose call throw and exact heap payload categories" {
   let func = HotFunc::new()
   let arg = hot_build_const_i32(func, @lib.I32(7))

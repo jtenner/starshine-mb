@@ -49,6 +49,60 @@ pub fn pass_label_is_used(label_id : Int, label_used : @bitset.BitSet) -> Bool {
 }
 
 ///|
+fn pass_effect_masks_can_reorder(
+  first : @ir.EffectMask,
+  second : @ir.EffectMask,
+) -> Bool {
+  if @ir.effects_is_pure(first) || @ir.effects_is_pure(second) {
+    return true
+  }
+  let hard_barriers = @ir.EFFECT_MASK_CONTROL |
+    @ir.EFFECT_MASK_CALL |
+    @ir.EFFECT_MASK_THROW
+  if (first & hard_barriers) != 0U || (second & hard_barriers) != 0U {
+    return false
+  }
+  if (first & @ir.EFFECT_MASK_TRAP) != 0U &&
+    (second & @ir.EFFECT_MASK_TRAP) != 0U {
+    // WebAssembly observes the first trap. Two potentially trapping expressions
+    // must not cross even when their state categories are otherwise disjoint.
+    return false
+  }
+  let global_writes = @ir.EFFECT_MASK_GLOBAL_STATE |
+    @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_TABLE_WRITE
+  if ((first & @ir.EFFECT_MASK_TRAP) != 0U && (second & global_writes) != 0U) ||
+    ((second & @ir.EFFECT_MASK_TRAP) != 0U && (first & global_writes) != 0U) {
+    return false
+  }
+  if (first & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
+    (second & @ir.EFFECT_MASK_LOCAL_STATE) != 0U {
+    return false
+  }
+  if (first & @ir.EFFECT_MASK_GLOBAL_STATE) != 0U &&
+    (second & @ir.EFFECT_MASK_GLOBAL_STATE) != 0U {
+    return false
+  }
+  let first_memory = first &
+    (@ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_MEMORY_WRITE)
+  let second_memory = second &
+    (@ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_MEMORY_WRITE)
+  if first_memory != 0U && second_memory != 0U {
+    // The boundary IR does not retain regular atomic ordering, so keep even
+    // read/read memory pairs ordered instead of accidentally crossing seqcst.
+    return false
+  }
+  let first_table = first &
+    (@ir.EFFECT_MASK_TABLE_READ | @ir.EFFECT_MASK_TABLE_WRITE)
+  let second_table = second &
+    (@ir.EFFECT_MASK_TABLE_READ | @ir.EFFECT_MASK_TABLE_WRITE)
+  if first_table != 0U && second_table != 0U {
+    return false
+  }
+  true
+}
+
+///|
 pub fn pass_rewrite_structured_instr(
   instr : @lib.Instruction,
   rewrite_instrs : (Array[@lib.Instruction]) -> (Array[@lib.Instruction], Bool),

@@ -47,7 +47,7 @@ test "remove-unused-brs admits literal multivalue blocks consumed only by drops 
   let ctx = remove_unused_brs_wbtest_ctx()
 
   assert_true(
-    remove_unused_brs_has_literal_multivalue_drop_lowering(ctx, func),
+    remove_unused_brs_has_literal_multivalue_drop_lowering(func),
     msg="expected exact dropped literal multivalue shape:\n\{remove_unused_brs_wbtest_dump(func)}",
   )
   let result = remove_unused_brs_run(ctx, func)
@@ -60,6 +60,34 @@ test "remove-unused-brs admits literal multivalue blocks consumed only by drops 
     body.any(fn(instr) { instr is @lib.Block(_, _) }),
     msg="expected RUB lowering to flatten dropped literal multivalue block: \{body}",
   )
+}
+
+///|
+test "remove-unused-brs summary distinguishes multivalue blocks" {
+  let scalar = @ir.ir_test_build_hot_from_wat(
+    "(module (func (result i32) (block (result i32) i32.const 7)))",
+  )
+  let multivalue = @ir.ir_test_build_hot_from_wat(
+    "(module (type $pair (func (result i32 i64))) (func (result i32 i64) (block (type $pair) i32.const 7 i64.const 9)))",
+  )
+  let multivalue_if = @ir.ir_test_build_hot_from_wat(
+    "(module (type $pair (func (result i32 i64))) (func (param i32) (result i32 i64) local.get 0 if (type $pair) i32.const 1 i64.const 2 else i32.const 3 i64.const 4 end))",
+  )
+
+  assert_eq(
+    remove_unused_brs_collect_hot_void_return_ladder_summary(scalar.hot_func).shape.multivalue_block_count,
+    0,
+  )
+  let block_summary = remove_unused_brs_collect_hot_void_return_ladder_summary(
+      multivalue.hot_func,
+    ).shape
+  assert_eq(block_summary.multivalue_block_count, 1)
+  assert_eq(block_summary.multivalue_control_count, 1)
+  let if_summary = remove_unused_brs_collect_hot_void_return_ladder_summary(
+      multivalue_if.hot_func,
+    ).shape
+  assert_eq(if_summary.multivalue_block_count, 0)
+  assert_eq(if_summary.multivalue_control_count, 1)
 }
 
 ///|
@@ -77,15 +105,35 @@ test "remove-unused-brs nested cleanup admits outward branch wrappers" {
   let fixture = @ir.ir_test_build_hot_from_wat(source)
   let func = fixture.hot_func
   let ctx = remove_unused_brs_wbtest_ctx()
-  let cfg = @ir.cfg_build(func)
+  let prune_cfg = RemoveUnusedBrsPruneCfg::new()
 
   assert_true(
     remove_unused_brs_prune_one_nested_dead_suffix(
       ctx,
       func,
-      cfg,
+      prune_cfg,
       @ir.HotRegionRef::root(),
     ),
     msg="expected exact outward branch plus unreachable wrapper to prune:\n\{@ir.ir_test_dump_cfg(func)}\{remove_unused_brs_wbtest_dump(func)}",
   )
+  assert_eq(prune_cfg.values.length(), 1)
+}
+
+///|
+test "remove-unused-brs nested cleanup leaves CFG lazy without an eligible suffix" {
+  let fixture = @ir.ir_test_build_hot_from_wat(
+    "(module (func (drop (block (result i32) i32.const 7))))",
+  )
+  let func = fixture.hot_func
+  let prune_cfg = RemoveUnusedBrsPruneCfg::new()
+
+  assert_false(
+    remove_unused_brs_prune_one_nested_dead_suffix(
+      remove_unused_brs_wbtest_ctx(),
+      func,
+      prune_cfg,
+      @ir.HotRegionRef::root(),
+    ),
+  )
+  assert_eq(prune_cfg.values.length(), 0)
 }

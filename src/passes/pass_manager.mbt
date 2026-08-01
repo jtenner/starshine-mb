@@ -54976,6 +54976,119 @@ fn run_hot_pipeline_raw_remove_unused_brs_refcount_payload_stats(
 }
 
 ///|
+priv struct RawRemoveUnusedBrsEarlyFacts {
+  mut has_br_table : Bool
+  mut has_giant_br_table : Bool
+  mut has_decision_ladder : Bool
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(
+  instrs : Array[@lib.Instruction],
+  facts : RawRemoveUnusedBrsEarlyFacts,
+) -> Unit {
+  if facts.has_giant_br_table && facts.has_decision_ladder {
+    return
+  }
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if !facts.has_decision_ladder && idx + 3 < instrs.length() {
+      match instrs[idx] {
+        @lib.LocalGet(_) =>
+          match instrs[idx + 1] {
+            @lib.I32Const(_) =>
+              match instrs[idx + 2] {
+                @lib.I32Eq =>
+                  match instrs[idx + 3] {
+                    @lib.If(
+                      @lib.ValTypeBlockType(result_type),
+                      then_body,
+                      Some(else_body)
+                    ) if result_type == @lib.ValType::i32() &&
+                      then_body.length() == 1 &&
+                      else_body.length() == 1 =>
+                      match (then_body[0], else_body[0]) {
+                        (@lib.I32Const(_), @lib.I32Const(_)) =>
+                          facts.has_decision_ladder = true
+                        _ => ()
+                      }
+                    _ => ()
+                  }
+                _ => ()
+              }
+            _ => ()
+          }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.BrTable(targets, _) => {
+        facts.has_br_table = true
+        if targets.length() >= 128 {
+          facts.has_giant_br_table = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(body, facts)
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(
+          then_body, facts,
+        )
+        match else_body {
+          Some(else_body) =>
+            run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(
+              else_body, facts,
+            )
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(body, facts)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(
+            catch_body, facts,
+          )
+        }
+      }
+      _ => ()
+    }
+    if facts.has_giant_br_table && facts.has_decision_ladder {
+      return
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_root_stack_local_set_hazard(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() <= 1 {
+    return false
+  }
+  let mut has_local_set = false
+  let mut has_stack_effect = false
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(_) => has_local_set = true
+      @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.MemoryCopy(_, _)
+      | @lib.MemoryFill(_) => has_stack_effect = true
+      _ => ()
+    }
+    if has_local_set && has_stack_effect {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -54990,6 +55103,16 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   if run_hot_pipeline_dce_raw_has_load_call_set_hazard(instrs) {
     return Some({
       reason: "load-call-set-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_has_root_stack_local_set_hazard(
+      instrs,
+    ) {
+    return Some({
+      reason: "result-local-set-stack-hazard-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -55017,9 +55140,28 @@ fn run_hot_pipeline_raw_remove_unused_brs(
       trace_skip_raw: true,
     })
   }
-  let (rewritten_instrs, rewrite_count, saw_br_table) = run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
-    instrs,
-  )
+  let early_facts : RawRemoveUnusedBrsEarlyFacts = {
+    has_br_table: false,
+    has_giant_br_table: false,
+    has_decision_ladder: false,
+  }
+  run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(instrs, early_facts)
+  if early_facts.has_giant_br_table && !early_facts.has_decision_ladder {
+    return Some({
+      reason: "giant-br-table-convergence-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let (rewritten_instrs, rewrite_count, saw_br_table) = if early_facts.has_br_table &&
+    early_facts.has_decision_ladder {
+    run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
+      instrs,
+    )
+  } else {
+    (instrs, 0, early_facts.has_br_table)
+  }
   if rewrite_count > 0 &&
     saw_br_table &&
     !run_hot_pipeline_raw_remove_unused_brs_has_hot_only_candidates(
@@ -55029,6 +55171,14 @@ fn run_hot_pipeline_raw_remove_unused_brs(
       reason: "decision-ladder-selects",
       func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
       unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
+  if early_facts.has_giant_br_table {
+    return Some({
+      reason: "giant-br-table-convergence-noop",
+      func: original,
+      unchanged_original: true,
       trace_skip_raw: true,
     })
   }

@@ -2779,7 +2779,7 @@ test "remove-unused-brs skips void-root stack/local-set call hazards" {
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[remove-unused-brs]:skip-hot reason=result-local-set-stack-hazard-noop",
+        "pass[remove-unused-brs]:skip-raw reason=result-local-set-stack-hazard-noop",
       )
     }),
   )
@@ -2916,7 +2916,7 @@ test "remove-unused-brs intentionally preserves giant br_tables for convergence"
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[remove-unused-brs]:skip-hot reason=giant-br-table-convergence-noop",
+        "pass[remove-unused-brs]:skip-raw reason=giant-br-table-convergence-noop",
       )
     }),
     msg=trace.to_string(),
@@ -6740,4 +6740,117 @@ test "remove-unused-brs preserves return payload effects while pruning its fille
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("I32(19)"), msg=pretty)
   assert_false(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves side-effecting calls in same-target if conditions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (global $g (mut i32) (i32.const 0))
+        #|   (func $side (result i32)
+        #|     (global.set $g (i32.const 9))
+        #|     (i32.const 1))
+        #|   (func (result i32)
+        #|     (block $exit
+        #|       (if (call $side)
+        #|         (then (br $exit))
+        #|         (else (br $exit))))
+        #|     (global.get $g)))
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected same-target call condition cleanup, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves local.tee writes in same-target if conditions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (func (result i32) (local i32)
+        #|     (block $exit
+        #|       (if (local.tee 0 (i32.const 7))
+        #|         (then (br $exit))
+        #|         (else (br $exit))))
+        #|     (local.get 0)))
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected same-target local.tee condition cleanup, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(
+    pretty.contains("local.tee") || pretty.contains("local.set"),
+    msg=pretty,
+  )
+  assert_true(
+    pretty.contains("drop") || pretty.contains("local.set"),
+    msg=pretty,
+  )
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves trapping loads in same-target if conditions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (memory 1)
+        #|   (func
+        #|     (block $exit
+        #|       (if (i32.load (i32.const 65536))
+        #|         (then (br $exit))
+        #|         (else (br $exit))))))
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected same-target load condition cleanup, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves division traps in same-target if conditions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (func
+        #|     (block $exit
+        #|       (if (i32.div_s (i32.const 1) (i32.const 0))
+        #|         (then (br $exit))
+        #|         (else (br $exit))))))
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected same-target division condition cleanup, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
 }

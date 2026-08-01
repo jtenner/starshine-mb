@@ -206,6 +206,7 @@ fn merge_blocks_visit_control_node(
   func : @ir.HotFunc,
   node_id : Int,
   label_used : @bitset.BitSet,
+  drop_parent_index : MergeBlocksDropParentIndex,
   flattened_roots : Array[Int],
   module_ctx : @ir.HotModuleContext?,
 ) -> Bool {
@@ -223,6 +224,7 @@ fn merge_blocks_visit_control_node(
         func,
         @ir.hot_region_body_ref(func, node_id),
         label_used,
+        drop_parent_index,
         flattened_roots,
         module_ctx,
         control_has_params,
@@ -233,6 +235,7 @@ fn merge_blocks_visit_control_node(
         func,
         @ir.hot_region_then_ref(func, node_id),
         label_used,
+        drop_parent_index,
         flattened_roots,
         module_ctx,
         false,
@@ -241,8 +244,8 @@ fn merge_blocks_visit_control_node(
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           changed = merge_blocks_visit_region(
-              func, else_region, label_used, flattened_roots, module_ctx, false,
-              false,
+              func, else_region, label_used, drop_parent_index, flattened_roots,
+              module_ctx, false, false,
             ) ||
             changed
         None => ()
@@ -254,6 +257,7 @@ fn merge_blocks_visit_control_node(
         func,
         @ir.hot_region_body_ref(func, node_id),
         label_used,
+        drop_parent_index,
         flattened_roots,
         module_ctx,
         control_has_params,
@@ -262,8 +266,8 @@ fn merge_blocks_visit_control_node(
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           changed = merge_blocks_visit_region(
-              func, catch_region, label_used, flattened_roots, module_ctx, control_has_params,
-              false,
+              func, catch_region, label_used, drop_parent_index, flattened_roots,
+              module_ctx, control_has_params, false,
             ) ||
             changed
         None => ()
@@ -275,6 +279,7 @@ fn merge_blocks_visit_control_node(
         func,
         @ir.hot_region_body_ref(func, node_id),
         label_used,
+        drop_parent_index,
         flattened_roots,
         module_ctx,
         control_has_params,
@@ -284,6 +289,7 @@ fn merge_blocks_visit_control_node(
         func,
         @ir.hot_region_catch_list_ref(func, node_id),
         label_used,
+        drop_parent_index,
         flattened_roots,
         module_ctx,
         control_has_params,
@@ -339,68 +345,6 @@ fn merge_blocks_can_lift_block_child(
 }
 
 ///|
-fn merge_blocks_effects_have(
-  mask : @ir.EffectMask,
-  bit : @ir.EffectMask,
-) -> Bool {
-  (mask & bit) != 0U
-}
-
-///|
-fn merge_blocks_effects_can_reorder(
-  first : @ir.EffectMask,
-  second : @ir.EffectMask,
-) -> Bool {
-  if @ir.effects_is_pure(first) || @ir.effects_is_pure(second) {
-    return true
-  }
-  let hard_barriers = @ir.EFFECT_MASK_CONTROL |
-    @ir.EFFECT_MASK_CALL |
-    @ir.EFFECT_MASK_THROW
-  if (first & hard_barriers) != 0U || (second & hard_barriers) != 0U {
-    return false
-  }
-  let global_writes = @ir.EFFECT_MASK_GLOBAL_STATE |
-    @ir.EFFECT_MASK_MEMORY_WRITE |
-    @ir.EFFECT_MASK_TABLE_WRITE
-  if (
-      merge_blocks_effects_have(first, @ir.EFFECT_MASK_TRAP) &&
-      (second & global_writes) != 0U
-    ) ||
-    (
-      merge_blocks_effects_have(second, @ir.EFFECT_MASK_TRAP) &&
-      (first & global_writes) != 0U
-    ) {
-    return false
-  }
-  if merge_blocks_effects_have(first, @ir.EFFECT_MASK_LOCAL_STATE) &&
-    merge_blocks_effects_have(second, @ir.EFFECT_MASK_LOCAL_STATE) {
-    return false
-  }
-  if merge_blocks_effects_have(first, @ir.EFFECT_MASK_GLOBAL_STATE) &&
-    merge_blocks_effects_have(second, @ir.EFFECT_MASK_GLOBAL_STATE) {
-    return false
-  }
-  let first_memory = first &
-    (@ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_MEMORY_WRITE)
-  let second_memory = second &
-    (@ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_MEMORY_WRITE)
-  if first_memory != 0U && second_memory != 0U {
-    // The boundary IR does not retain regular atomic ordering, so keep even
-    // read/read memory pairs ordered instead of accidentally crossing seqcst.
-    return false
-  }
-  let first_table = first &
-    (@ir.EFFECT_MASK_TABLE_READ | @ir.EFFECT_MASK_TABLE_WRITE)
-  let second_table = second &
-    (@ir.EFFECT_MASK_TABLE_READ | @ir.EFFECT_MASK_TABLE_WRITE)
-  if first_table != 0U && second_table != 0U {
-    return false
-  }
-  true
-}
-
-///|
 fn merge_blocks_lift_expression_block_children(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -453,7 +397,7 @@ fn merge_blocks_lift_expression_block_children(
         }
       }
       if !prefix_has_branch &&
-        merge_blocks_effects_can_reorder(previous_effects, prefix_effects) {
+        pass_effect_masks_can_reorder(previous_effects, prefix_effects) {
         for prefix_id in prefix {
           lifted_prefixes.push(prefix_id)
         }
@@ -477,25 +421,60 @@ fn merge_blocks_lift_expression_block_children(
 }
 
 ///|
-fn merge_blocks_node_has_drop_parent_use(
+priv struct MergeBlocksDropParentIndex {
+  uses : Array[@bitset.BitSet]
+  mut live_nodes_scanned : Int
+  mut drop_child_slots : Int
+}
+
+///|
+fn MergeBlocksDropParentIndex::new() -> MergeBlocksDropParentIndex {
+  { uses: [], live_nodes_scanned: 0, drop_child_slots: 0 }
+}
+
+///|
+fn merge_blocks_compute_drop_parent_index(
   func : @ir.HotFunc,
-  target_id : Int,
-) -> Bool {
+) -> (@bitset.BitSet, Int, Int) {
+  let used_by_drop = @bitset.BitSet::new(@ir.hot_node_count(func))
+  let mut live_nodes_scanned = 0
+  let mut drop_child_slots = 0
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
+    live_nodes_scanned = live_nodes_scanned + 1
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::Drop =>
         for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-          if @ir.hot_child_get(func, node_id, slot) == target_id {
-            return true
+          let child_id = @ir.hot_child_get(func, node_id, slot)
+          if child_id >= 0 && child_id < used_by_drop.length() {
+            used_by_drop[child_id] = true
+            drop_child_slots = drop_child_slots + 1
           }
         }
       _ => ()
     }
   }
-  false
+  (used_by_drop, live_nodes_scanned, drop_child_slots)
+}
+
+///|
+fn merge_blocks_drop_parent_index_contains(
+  index : MergeBlocksDropParentIndex,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if index.uses.length() == 0 {
+    let (uses, live_nodes_scanned, drop_child_slots) = merge_blocks_compute_drop_parent_index(
+      func,
+    )
+    index.uses.push(uses)
+    index.live_nodes_scanned = live_nodes_scanned
+    index.drop_child_slots = drop_child_slots
+  }
+  let uses = index.uses[0]
+  node_id >= 0 && node_id < uses.length() && uses[node_id]
 }
 
 ///|
@@ -581,6 +560,7 @@ fn merge_blocks_flatten_region_root_block(
   region_ref : @ir.HotRegionRef,
   idx : Int,
   label_used : @bitset.BitSet,
+  drop_parent_index : MergeBlocksDropParentIndex,
   flattened_roots : Array[Int],
   module_ctx : @ir.HotModuleContext?,
   enclosing_control_has_params : Bool,
@@ -617,7 +597,7 @@ fn merge_blocks_flatten_region_root_block(
   }
   if param_count == 0 &&
     result_count > 1 &&
-    merge_blocks_node_has_drop_parent_use(func, block_id) {
+    merge_blocks_drop_parent_index_contains(drop_parent_index, func, block_id) {
     // Zero-param multivalue root blocks can be shared with a sibling `drop`
     // that discards one lane while another stays live. Flattening the rooted
     // copy empties the shared node out from under the drop user and lowers
@@ -903,6 +883,7 @@ fn merge_blocks_visit_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   label_used : @bitset.BitSet,
+  drop_parent_index : MergeBlocksDropParentIndex,
   flattened_roots : Array[Int],
   module_ctx : @ir.HotModuleContext?,
   enclosing_control_has_params : Bool,
@@ -929,7 +910,7 @@ fn merge_blocks_visit_region(
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
       changed = merge_blocks_visit_control_node(
-          func, node_id, label_used, flattened_roots, module_ctx,
+          func, node_id, label_used, drop_parent_index, flattened_roots, module_ctx,
         ) ||
         changed
     }
@@ -941,8 +922,8 @@ fn merge_blocks_visit_region(
       idx += lifted_count
     }
     if merge_blocks_flatten_region_root_block(
-        func, region_ref, idx, label_used, flattened_roots, module_ctx, enclosing_control_has_params,
-        enclosing_control_is_loop,
+        func, region_ref, idx, label_used, drop_parent_index, flattened_roots, module_ctx,
+        enclosing_control_has_params, enclosing_control_is_loop,
       ) {
       changed = true
     } else {
@@ -965,17 +946,31 @@ fn merge_blocks_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     )
   }
   let label_used = pass_compute_label_used(func)
+  // Build the function-wide relation lazily on the first zero-param multivalue
+  // root that can need it. Scalar-only functions avoid the extra full scan;
+  // functions with relevant roots still build at most one immutable snapshot.
+  let drop_parent_index = MergeBlocksDropParentIndex::new()
   let flattened_roots : Array[Int] = []
   changed = merge_blocks_visit_region(
       func,
       @ir.HotRegionRef::root(),
       label_used,
+      drop_parent_index,
       flattened_roots,
       ctx.module_ctx,
       false,
       false,
     ) ||
     changed
+  match ctx.perf {
+    Some(_) =>
+      if drop_parent_index.uses.length() > 0 {
+        (ctx.trace)(
+          "pass[merge-blocks]:drop-parent-index full_function_scans=1 live_nodes_scanned=\{drop_parent_index.live_nodes_scanned} drop_child_slots=\{drop_parent_index.drop_child_slots}",
+        )
+      }
+    None => ()
+  }
   if !changed {
     return HotPassResult::unchanged()
   }

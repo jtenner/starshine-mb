@@ -2836,6 +2836,7 @@ fn perf_test_make_large_br_table_return_ladder_hot_skip_module(
     local_idx = local_idx + 1
   }
   out.write_string(")\n")
+  out.write_string("    block (result i32)\n")
   out.write_string("    i32.const 0\n")
   out.write_string("    local.set 0\n")
   let mut i = 0
@@ -2911,6 +2912,7 @@ fn perf_test_make_large_br_table_return_ladder_hot_skip_module(
       out.write_string("      br $exit\n")
     }
   }
+  out.write_string("    end\n")
   out.write_string("    end)\n")
   out.write_string(")\n")
   out.to_string()
@@ -4418,6 +4420,29 @@ test "remove-unused-brs skips raw lift when the original function has no candida
 }
 
 ///|
+test "remove-unused-brs avoids full use-def for scalar HOT functions" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (block $exit (if (i32.const 1) (then (br $exit))))))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar HOT remove-unused-brs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:remove-unused-brs"), msg=text)
+  assert_false(text.contains("perf:timer name=analysis:use-def"), msg=text)
+}
+
+///|
 test "remove-unused-brs rewrites decision ladders without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
@@ -4800,7 +4825,7 @@ test "remove-unused-brs skips structured return ladders when a false prefix guar
 }
 
 ///|
-test "remove-unused-brs declared metadata builds use-def before rewriting tail returns" {
+test "remove-unused-brs rewrites scalar tail returns without full use-def" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -4819,7 +4844,7 @@ test "remove-unused-brs declared metadata builds use-def before rewriting tail r
   let text = perf_test_join_lines(lines)
   assert_true(text.contains("perf:timer name=lift"))
   assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
-  assert_true(text.contains("perf:timer name=analysis:use-def"), msg=text)
+  assert_false(text.contains("perf:timer name=analysis:use-def"), msg=text)
 }
 
 ///|

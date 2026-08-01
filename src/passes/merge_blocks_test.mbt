@@ -60,6 +60,30 @@ test "merge-blocks skips large local-heavy json-as shaped functions" {
 }
 
 ///|
+test "merge-blocks defers the drop-parent index when no multivalue block needs it" {
+  let trace : Array[String] = []
+  let trace_fn = fn(line) { trace.push(line) }
+  let perf = HotPerfSession::new(
+    trace=trace_fn,
+    dump_options=HotPerfDumpOptions::new(),
+  )
+  match
+    pass_test_run_pipeline(
+      "(module (func (block (nop) (block (nop)) (nop))))",
+      ["merge-blocks"],
+      options=HotPipelineOptions::new(trace=Some(trace_fn), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar merge-blocks perf fixture success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[merge-blocks]:drop-parent-index") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "merge-blocks re-lifts multivalue call blocks with trailing drop" {
   let source =
     #|(module
@@ -3022,4 +3046,176 @@ test "merge-blocks does not execute effectful roots after unreachable" {
   }
 
   @debug.assert_eq(optimized, baseline)
+}
+
+///|
+test "merge-blocks preserves load-before-division trap order" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (type $pick_t (func (param i32 i32) (result i32)))
+        #|   (memory 1)
+        #|   (func $pick (type $pick_t) (param i32 i32) (result i32)
+        #|     (local.get 1))
+        #|   (func (result i32)
+        #|     (call $pick
+        #|       (i32.load (i32.const 65536))
+        #|       (block (result i32)
+        #|         (drop (i32.div_s (i32.const 1) (i32.const 0)))
+        #|         (i32.const 7)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected load/division trap-order success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("(block"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+}
+
+///|
+test "merge-blocks preserves the order of two trapping loads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (type $pick_t (func (param i32 i32) (result i32)))
+        #|   (memory 1)
+        #|   (func $pick (type $pick_t) (param i32 i32) (result i32)
+        #|     (local.get 1))
+        #|   (func (result i32)
+        #|     (call $pick
+        #|       (i32.load (i32.const 65536))
+        #|       (block (result i32)
+        #|         (drop (i32.load (i32.const 65540)))
+        #|         (i32.const 7)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected two-load trap-order success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("(block"), msg=pretty)
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "i32.load"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "merge-blocks preserves table-access-before-division trap order" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (type $pick_t (func (param funcref i32) (result i32)))
+        #|   (table 1 funcref)
+        #|   (func $pick (type $pick_t) (param funcref i32) (result i32)
+        #|     (local.get 1))
+        #|   (func (result i32)
+        #|     (call $pick
+        #|       (table.get 0 (i32.const 1))
+        #|       (block (result i32)
+        #|         (drop (i32.div_s (i32.const 1) (i32.const 0)))
+        #|         (i32.const 7)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected table/division trap-order success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("(block"), msg=pretty)
+  assert_true(pretty.contains("table.get"), msg=pretty)
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+}
+
+///|
+fn merge_blocks_atomic_trap_order_module() -> @lib.Module {
+  let pick_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+        @lib.ValType::i32(),
+      ]),
+    ),
+  )
+  let result_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([pick_type, result_type]))
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([
+      @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(65536)),
+          @lib.Instruction::i32_atomic_load(
+            @lib.MemArg::new(2U, None, 0UL),
+            order=@lib.AtomicOrder::acq_rel(),
+          ),
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(1)),
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::i32_div_s(),
+              @lib.Instruction::drop(),
+              @lib.Instruction::i32_const(@lib.I32(7)),
+            ]),
+          ),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "merge-blocks preserves atomic-access-before-division trap order" {
+  let optimized = match
+    run_hot_pipeline(
+      merge_blocks_atomic_trap_order_module(),
+      HotPipelineOptions::new(),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected atomic/division trap-order success, got \{err}")
+  }
+  let body = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[1] {
+        @lib.Func(_, @lib.Expr(body)) => body
+      }
+    None => fail("expected atomic trap-order code section")
+  }
+  assert_true(
+    body.any(fn(instr) {
+      match instr {
+        @lib.Block(_, _) => true
+        _ => false
+      }
+    }),
+    msg=body.to_string(),
+  )
 }

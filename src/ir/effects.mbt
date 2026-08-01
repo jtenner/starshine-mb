@@ -98,6 +98,29 @@ fn effects_mask_for_atomic_exact(instr : Instruction?) -> EffectMask {
 }
 
 ///|
+fn effects_mask_for_numeric_exact(instr : Instruction?) -> EffectMask {
+  match instr {
+    Some(Instruction::I32DivS)
+    | Some(Instruction::I32DivU)
+    | Some(Instruction::I32RemS)
+    | Some(Instruction::I32RemU)
+    | Some(Instruction::I64DivS)
+    | Some(Instruction::I64DivU)
+    | Some(Instruction::I64RemS)
+    | Some(Instruction::I64RemU)
+    | Some(Instruction::I32TruncF32S)
+    | Some(Instruction::I32TruncF32U)
+    | Some(Instruction::I32TruncF64S)
+    | Some(Instruction::I32TruncF64U)
+    | Some(Instruction::I64TruncF32S)
+    | Some(Instruction::I64TruncF32U)
+    | Some(Instruction::I64TruncF64S)
+    | Some(Instruction::I64TruncF64U) => EFFECT_MASK_TRAP
+    _ => 0U
+  }
+}
+
+///|
 fn effects_mask_for_heap_exact(instr : Instruction?) -> EffectMask {
   match instr {
     Some(Instruction::StructGet(_, _))
@@ -138,6 +161,18 @@ fn effects_mask_for_heap_exact(instr : Instruction?) -> EffectMask {
 }
 
 ///|
+fn effects_node_exact_instr_opt(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Instruction? {
+  if hot_verify_node_exact_instr_payload(func, node_id) {
+    hot_node_exact_instr(func, node_id)
+  } else {
+    None
+  }
+}
+
+///|
 fn effects_mask_for_node_exact(func : HotFunc, node_id : NodeId) -> EffectMask {
   let node = hot_node_get(func, node_id)
   match node.op {
@@ -156,10 +191,14 @@ fn effects_mask_for_node_exact(func : HotFunc, node_id : NodeId) -> EffectMask {
       EFFECT_MASK_TABLE_WRITE
     HotOp::TableCopy | HotOp::TableInit =>
       EFFECT_MASK_TABLE_READ | EFFECT_MASK_TABLE_WRITE
+    HotOp::Binary | HotOp::Convert =>
+      effects_mask_for_numeric_exact(
+        effects_node_exact_instr_opt(func, node_id),
+      )
     HotOp::Atomic =>
-      effects_mask_for_atomic_exact(hot_node_exact_instr(func, node_id))
+      effects_mask_for_atomic_exact(effects_node_exact_instr_opt(func, node_id))
     HotOp::Heap =>
-      effects_mask_for_heap_exact(hot_node_exact_instr(func, node_id))
+      effects_mask_for_heap_exact(effects_node_exact_instr_opt(func, node_id))
     _ => 0U
   }
 }
