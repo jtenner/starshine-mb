@@ -1154,6 +1154,46 @@ fn flatten_sequenced_root_record(
 }
 
 ///|
+priv struct FlattenRegionFlowSummary {
+  first_unconditional_root : Int
+  first_unconditional_node : Int
+  effective_terminal_branch : Int
+  dead_suffix_start : Int
+  normal_fallthrough_possible : Bool
+}
+
+///|
+fn FlattenRegionFlowSummary::new(
+  first_unconditional_root : Int,
+  first_unconditional_node : Int,
+  effective_terminal_branch : Int,
+  dead_suffix_start : Int,
+  normal_fallthrough_possible : Bool,
+) -> FlattenRegionFlowSummary {
+  {
+    first_unconditional_root,
+    first_unconditional_node,
+    effective_terminal_branch,
+    dead_suffix_start,
+    normal_fallthrough_possible,
+  }
+}
+
+///|
+priv struct FlattenRegionFlowEntry {
+  holder : Int
+  summary : FlattenRegionFlowSummary
+}
+
+///|
+fn FlattenRegionFlowEntry::new(
+  holder : Int,
+  summary : FlattenRegionFlowSummary,
+) -> FlattenRegionFlowEntry {
+  { holder, summary }
+}
+
+///|
 priv struct FlattenRewriteState {
   label_temps : Array[Array[Int]]
   terminal_payloads : Array[Int]
@@ -1188,6 +1228,8 @@ priv struct FlattenRewriteState {
   terminal_table_entries : Array[FlattenTerminalTableEntry]
   scalar_try_entries : Array[FlattenScalarTryEntry]
   inputful_loop_support_entries : Array[FlattenInputfulLoopSupportEntry]
+  region_flow_entries : Array[FlattenRegionFlowEntry]
+  mut region_flow_scan_count : Int
   flatness_report : FlattenFlatnessReport
   mut rewrites_started : Bool
 }
@@ -1243,6 +1285,8 @@ fn FlattenRewriteState::new(
     terminal_table_entries: [],
     scalar_try_entries: [],
     inputful_loop_support_entries: [],
+    region_flow_entries: [],
+    region_flow_scan_count: 0,
     flatness_report: node_index.flatness_report,
     rewrites_started: false,
   }
@@ -1493,6 +1537,105 @@ fn flatten_region_effective_terminal_branch_to_label(
 }
 
 ///|
+fn flatten_region_flow_entry_lower_bound(
+  entries : Array[FlattenRegionFlowEntry],
+  holder : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = entries.length()
+  while low < high {
+    let middle = low + (high - low) / 2
+    if entries[middle].holder < holder {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  low
+}
+
+///|
+fn flatten_region_flow_summary_compute(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> FlattenRegionFlowSummary {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, root_idx)
+    if flatten_node_has_no_fallthrough(func, node_id) {
+      let effective_terminal_branch = match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Br | @ir.HotOp::BrTable => node_id
+        _ => -1
+      }
+      return FlattenRegionFlowSummary::new(
+        root_idx,
+        node_id,
+        effective_terminal_branch,
+        root_idx + 1,
+        false,
+      )
+    }
+  }
+  FlattenRegionFlowSummary::new(-1, -1, -1, root_count, true)
+}
+
+///|
+/// Returns one cached region summary. Positive no-fallthrough facts revalidate
+/// their exact recorded terminator and recompute after a root replacement or
+/// shift. Negative facts remain conservative, and an unseen post-mutation
+/// region fails closed instead of widening support from a partial view.
+fn flatten_region_flow_summary(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  state? : FlattenRewriteState? = None,
+) -> FlattenRegionFlowSummary? {
+  match state {
+    Some(state) => {
+      let entry_idx = flatten_region_flow_entry_lower_bound(
+        state.region_flow_entries,
+        region_ref.holder,
+      )
+      if entry_idx < state.region_flow_entries.length() &&
+        state.region_flow_entries[entry_idx].holder == region_ref.holder {
+        let summary = state.region_flow_entries[entry_idx].summary
+        if summary.normal_fallthrough_possible {
+          return Some(summary)
+        }
+        if summary.first_unconditional_root >= 0 &&
+          summary.first_unconditional_root <
+          @ir.hot_region_root_count(func, region_ref) &&
+          @ir.hot_region_get(func, region_ref, summary.first_unconditional_root) ==
+          summary.first_unconditional_node &&
+          flatten_node_has_no_fallthrough(
+            func,
+            summary.first_unconditional_node,
+          ) {
+          return Some(summary)
+        }
+        state.region_flow_scan_count += 1
+        let refreshed = flatten_region_flow_summary_compute(func, region_ref)
+        state.region_flow_entries[entry_idx] = FlattenRegionFlowEntry::new(
+          region_ref.holder,
+          refreshed,
+        )
+        return Some(refreshed)
+      }
+      if state.rewrites_started {
+        return None
+      }
+      state.region_flow_scan_count += 1
+      let summary = flatten_region_flow_summary_compute(func, region_ref)
+      state.region_flow_entries.insert(
+        entry_idx,
+        FlattenRegionFlowEntry::new(region_ref.holder, summary),
+      )
+      Some(summary)
+    }
+    None => Some(flatten_region_flow_summary_compute(func, region_ref))
+  }
+}
+
+///|
 /// Proves that the current region enters stack-polymorphic unreachable state
 /// at a direct unconditional root. Structured children are deliberately not
 /// inferred here: their binary continuation may still require an explicit
@@ -1502,18 +1645,100 @@ fn flatten_region_has_no_fallthrough(
   region_ref : @ir.HotRegionRef,
   state? : FlattenRewriteState? = None,
 ) -> Bool {
-  ignore(state)
-  for root_idx = 0
-      root_idx < @ir.hot_region_root_count(func, region_ref)
-      root_idx = root_idx + 1 {
-    if flatten_node_has_no_fallthrough(
-        func,
-        @ir.hot_region_get(func, region_ref, root_idx),
-      ) {
-      return true
+  match flatten_region_flow_summary(func, region_ref, state~) {
+    Some(summary) => {
+      if summary.effective_terminal_branch >= 0 {
+        return true
+      }
+      summary.first_unconditional_root >= 0 &&
+      summary.dead_suffix_start > summary.first_unconditional_root &&
+      !summary.normal_fallthrough_possible
+    }
+    None => false
+  }
+}
+
+///|
+fn flatten_prime_region_flow_summaries(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+) -> Unit {
+  ignore(
+    flatten_region_flow_summary(
+      func,
+      @ir.HotRegionRef::root(),
+      state=Some(state),
+    ),
+  )
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        ignore(
+          flatten_region_flow_summary(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            state=Some(state),
+          ),
+        )
+      @ir.HotOp::If => {
+        ignore(
+          flatten_region_flow_summary(
+            func,
+            @ir.hot_region_then_ref(func, node_id),
+            state=Some(state),
+          ),
+        )
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            ignore(
+              flatten_region_flow_summary(func, else_ref, state=Some(state)),
+            )
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        ignore(
+          flatten_region_flow_summary(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            state=Some(state),
+          ),
+        )
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            ignore(
+              flatten_region_flow_summary(func, catch_ref, state=Some(state)),
+            )
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable => {
+        ignore(
+          flatten_region_flow_summary(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            state=Some(state),
+          ),
+        )
+        ignore(
+          flatten_region_flow_summary(
+            func,
+            @ir.hot_region_catch_list_ref(func, node_id),
+            state=Some(state),
+          ),
+        )
+      }
+      _ => ()
     }
   }
-  false
+  if state.region_flow_scan_count != state.region_flow_entries.length() {
+    abort(
+      "flatten region-flow summaries must scan each cached region exactly once",
+    )
+  }
 }
 
 ///|
@@ -9243,14 +9468,97 @@ fn flatten_node_needs_postorder_branch_routing(
 }
 
 ///|
-fn flatten_operand_is_stable_across_preludes(
+fn flatten_mark_local_writes_in_subtree(
   func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::GlobalGet => false
-    _ => true
+  root_id : Int,
+  written_locals : Array[Bool],
+) -> Unit {
+  let pending = [root_id]
+  while !pending.is_empty() {
+    let node_id = pending.pop().unwrap()
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        if node.imm0 >= 0 && node.imm0 < written_locals.length() {
+          written_locals[node.imm0] = true
+        }
+      _ => ()
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      pending.push(@ir.hot_child_get(func, node_id, slot))
+    }
   }
+}
+
+///|
+fn flatten_new_prelude_local_writes(
+  func : @ir.HotFunc,
+  preludes : Array[Int],
+  start : Int,
+) -> Array[Bool] {
+  let written_locals = Array::make(@ir.hot_local_count(func), false)
+  for idx = start; idx < preludes.length(); idx = idx + 1 {
+    flatten_mark_local_writes_in_subtree(func, preludes[idx], written_locals)
+  }
+  written_locals
+}
+
+///|
+fn flatten_stage_operand_reads_before_local_writes(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  owner_slot : Int,
+  written_locals : Array[Bool],
+  preludes : Array[Int],
+  insert_at : Int,
+) -> Int {
+  let node_id = @ir.hot_child_get(func, owner_id, owner_slot)
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return 0
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let should_stage = match node.op {
+    @ir.HotOp::GlobalGet => true
+    @ir.HotOp::LocalGet =>
+      node.imm0 >= 0 &&
+      node.imm0 < written_locals.length() &&
+      written_locals[node.imm0]
+    _ => false
+  }
+  if should_stage {
+    let value_type = match flatten_single_result_type(func, node.ty) {
+      Some(value_type) => value_type
+      None => return 0
+    }
+    let local_id = @ir.hot_append_body_local(func, value_type)
+    preludes.insert(insert_at, @ir.hot_build_local_set(func, local_id, node_id))
+    @ir.hot_child_set(
+      func,
+      owner_id,
+      owner_slot,
+      @ir.hot_build_local_get(func, local_id),
+    )
+    return 1
+  }
+  if @ir.hot_node_exact_instr(func, node_id) !=
+    Some(@lib.Instruction::ref_as_non_null()) {
+    return 0
+  }
+  let mut inserted = 0
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    inserted += flatten_stage_operand_reads_before_local_writes(
+      func,
+      node_id,
+      slot,
+      written_locals,
+      preludes,
+      insert_at + inserted,
+    )
+  }
+  inserted
 }
 
 ///|
@@ -9261,35 +9569,21 @@ fn flatten_stage_prior_operands_before_new_preludes(
   preludes : Array[Int],
   insert_at : Int,
 ) -> Bool {
+  let written_locals = flatten_new_prelude_local_writes(
+    func, preludes, insert_at,
+  )
   let mut inserted = 0
-  let mut changed = false
   for slot = 0; slot < end_slot; slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, parent_id, slot)
-    if child_id < 0 ||
-      !@ir.hot_node_is_live(func, child_id) ||
-      flatten_operand_is_stable_across_preludes(func, child_id) {
-      continue
-    }
-    let value_type = match
-      flatten_single_result_type(func, @ir.hot_node_get(func, child_id).ty) {
-      Some(value_type) => value_type
-      None => continue
-    }
-    let local_id = @ir.hot_append_body_local(func, value_type)
-    preludes.insert(
-      insert_at + inserted,
-      @ir.hot_build_local_set(func, local_id, child_id),
-    )
-    inserted += 1
-    @ir.hot_child_set(
+    inserted += flatten_stage_operand_reads_before_local_writes(
       func,
       parent_id,
       slot,
-      @ir.hot_build_local_get(func, local_id),
+      written_locals,
+      preludes,
+      insert_at + inserted,
     )
-    changed = true
   }
-  changed
+  inserted > 0
 }
 
 ///|
@@ -10835,6 +11129,7 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     state.eh_repair_requirement.needs_catch_payload_tracking = false
     changed = true
   }
+  flatten_prime_region_flow_summaries(func, state)
   state.rewrites_started = true
   if flatten_rewrite_region_operands(ctx, func, state, @ir.HotRegionRef::root()) {
     changed = true

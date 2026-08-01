@@ -44,6 +44,61 @@ test "flatten long perf lane measures effective-terminal suffix routing" {
 }
 
 ///|
+fn flatten_perf_nested_no_fallthrough_module(
+  function_count : Int,
+  regions_per_function : Int,
+  dead_roots_per_region : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for function_idx = 0
+      function_idx < function_count
+      function_idx = function_idx + 1 {
+    out.write_string("  (func\n")
+    for region_idx = 0
+        region_idx < regions_per_function
+        region_idx = region_idx + 1 {
+      let value = function_idx + region_idx
+      out.write_string("    (drop (block (result i32)\n")
+      out.write_string("      (drop (block (result i32) (i32.const ")
+      out.write_string(value.to_string())
+      out.write_string(") br 0")
+      for dead_idx = 0
+          dead_idx < dead_roots_per_region
+          dead_idx = dead_idx + 1 {
+        out.write_string(" (i32.const ")
+        out.write_string((value + dead_idx + 1).to_string())
+        out.write_string(") drop")
+      }
+      out.write_string(" (i32.const 0)))\n")
+      out.write_string("      (i32.const ")
+      out.write_string(value.to_string())
+      out.write_string(")))\n")
+    }
+    out.write_string("  )\n")
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+#skip("manual native-release nested no-fallthrough summary benchmark")
+test "flatten long perf lane measures candidate-dense region summaries" {
+  let input = flatten_perf_nested_no_fallthrough_module(24, 32, 64)
+  for sample = 0; sample < 15; sample = sample + 1 {
+    let start = @lib.trace_now_us()
+    match @passes.pass_test_run_pipeline(input, ["flatten"]) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected flatten region-summary benchmark success, got \{err}")
+    }
+    println(
+      "sample=\{sample} us=\{@lib.trace_elapsed_us_since(start)} functions=24 regions=768 dead_roots=49152",
+    )
+  }
+}
+
+///|
 #skip("manual native-release sequenced-root lookup benchmark")
 test "flatten long perf lane measures sequenced-root pair lookup" {
   for candidate_count in [256, 512] {

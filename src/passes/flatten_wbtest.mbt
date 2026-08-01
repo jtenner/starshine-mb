@@ -9721,6 +9721,85 @@ test "flatten no-fallthrough proof preserves conditional branch fallthrough" {
 }
 
 ///|
+test "flatten caches one complete no-fallthrough summary per inspected region" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) i32.const 7 br 0 i32.const 1 i32.eqz drop))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let state = FlattenRewriteState::new(func)
+  @debug.assert_eq(state.region_flow_entries.length(), 0)
+  @debug.assert_eq(state.region_flow_scan_count, 0)
+  for iteration = 0; iteration < 128; iteration = iteration + 1 {
+    assert_true(
+      flatten_region_has_no_fallthrough(func, body_ref, state=Some(state)),
+    )
+  }
+  @debug.assert_eq(state.region_flow_entries.length(), 1)
+  @debug.assert_eq(state.region_flow_scan_count, 1)
+  let summary = state.region_flow_entries[0].summary
+  @debug.assert_eq(summary.first_unconditional_root, 0)
+  @debug.assert_eq(
+    summary.effective_terminal_branch,
+    @ir.hot_region_get(func, body_ref, 0),
+  )
+  @debug.assert_eq(summary.dead_suffix_start, 1)
+  assert_false(summary.normal_fallthrough_possible)
+}
+
+///|
+test "flatten recomputes a cached positive region summary after its terminator changes" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) i32.const 7 br 0 i32.const 1))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, drop_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_region_has_no_fallthrough(func, body_ref, state=Some(state)),
+  )
+  ignore(@ir.hot_region_set(func, body_ref, 0, @ir.hot_build_nop(func)))
+  assert_false(
+    flatten_region_has_no_fallthrough(func, body_ref, state=Some(state)),
+  )
+  @debug.assert_eq(state.region_flow_entries.length(), 1)
+  @debug.assert_eq(state.region_flow_scan_count, 2)
+  assert_true(state.region_flow_entries[0].summary.normal_fallthrough_possible)
+}
+
+///|
+test "flatten no-fallthrough cache fails closed for unseen post-mutation regions" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) i32.const 7 br 0)) (drop (block (result i32) i32.const 9))))",
+  )
+  let first_drop = @ir.hot_root_get(func, 0)
+  let second_drop = @ir.hot_root_get(func, 1)
+  let first_ref = @ir.hot_region_body_ref(
+    func,
+    @ir.hot_child_get(func, first_drop, 0),
+  )
+  let second_ref = @ir.hot_region_body_ref(
+    func,
+    @ir.hot_child_get(func, second_drop, 0),
+  )
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_region_has_no_fallthrough(func, first_ref, state=Some(state)),
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_region_has_no_fallthrough(func, first_ref, state=Some(state)),
+  )
+  assert_false(
+    flatten_region_has_no_fallthrough(func, second_ref, state=Some(state)),
+  )
+  @debug.assert_eq(state.region_flow_entries.length(), 1)
+  @debug.assert_eq(state.region_flow_scan_count, 1)
+}
+
+///|
 test "flatten terminal proof caches keep sparse entries sorted" {
   let func = @ir.HotFunc::new()
   let label_ids : Array[Int] = []
@@ -12448,5 +12527,237 @@ test "flatten stages an earlier global.get before a later control operand effect
     Ok(_) => ()
     Err(err) =>
       fail("expected effect-ordered operand routing to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten snapshots an earlier local.get before a later tee writes that local" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param $x i32) (result i32) local.get $x i32.const 1 local.tee $x i32.add))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut snapshot_idx = -1
+  let mut snapshot_local = -1
+  let mut write_idx = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet => {
+        let target = @ir.hot_node_get(func, root_id).imm0
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        if target == 0 {
+          write_idx = idx
+        } else {
+          match @ir.hot_node_get(func, value_id).op {
+            @ir.HotOp::LocalGet if @ir.hot_node_get(func, value_id).imm0 == 0 => {
+              snapshot_idx = idx
+              snapshot_local = target
+            }
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(snapshot_idx >= 0)
+  assert_true(write_idx >= 0)
+  assert_true(snapshot_idx < write_idx)
+  let mut preserved_read_count = 0
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::LocalGet if @ir.hot_node_get(func, node_id).imm0 ==
+          snapshot_local => preserved_read_count += 1
+        _ => ()
+      }
+    }
+  }
+  assert_true(preserved_read_count > 0)
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected local-read snapshot routing to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten dependency staging preserves a local read below ref.as_non_null" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param $r (ref null eq)) (result i32) local.get $r ref.as_non_null local.get $r ref.as_non_null ref.eq))",
+  )
+  let parent_id = @ir.hot_root_get(func, @ir.hot_root_count(func) - 1)
+  let wrapper_id = @ir.hot_child_get(func, parent_id, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, wrapper_id),
+    Some(@lib.Instruction::ref_as_non_null()),
+  )
+  let preludes = [
+    @ir.hot_build_local_set(func, 0, @ir.hot_build_local_get(func, 0)),
+  ]
+  assert_true(
+    flatten_stage_prior_operands_before_new_preludes(
+      func, parent_id, 1, preludes, 0,
+    ),
+  )
+  @debug.assert_eq(preludes.length(), 2)
+  let snapshot_set = preludes[0]
+  @debug.assert_eq(
+    @ir.hot_node_get(func, snapshot_set).op.to_string(),
+    "LocalSet",
+  )
+  let snapshot_local = @ir.hot_node_get(func, snapshot_set).imm0
+  assert_true(snapshot_local > 0)
+  let preserved_read = @ir.hot_child_get(func, wrapper_id, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, preserved_read).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(@ir.hot_node_get(func, preserved_read).imm0, snapshot_local)
+}
+
+///|
+test "flatten snapshots a local.get below ref.as_non_null before a later local write" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param $r (ref null eq)) (result i32) local.get $r ref.as_non_null i32.const 1 ref.i31 local.tee $r ref.eq))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut snapshot_local = -1
+  let mut snapshot_idx = -1
+  let mut write_idx = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet => {
+        let target = @ir.hot_node_get(func, root_id).imm0
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        if target == 0 {
+          write_idx = idx
+        } else if @ir.hot_node_exact_instr(func, value_id) ==
+          Some(@lib.Instruction::ref_as_non_null()) {
+          let source_id = @ir.hot_child_get(func, value_id, 0)
+          match @ir.hot_node_get(func, source_id).op {
+            @ir.HotOp::LocalGet if @ir.hot_node_get(func, source_id).imm0 == 0 => {
+              snapshot_local = target
+              snapshot_idx = idx
+            }
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(snapshot_local >= 0)
+  assert_true(snapshot_idx < write_idx)
+  let mut preserved_read_count = 0
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::LocalGet if @ir.hot_node_get(func, node_id).imm0 ==
+          snapshot_local => preserved_read_count += 1
+        _ => ()
+      }
+    }
+  }
+  assert_true(preserved_read_count > 0)
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected wrapped local-read snapshot to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten snapshots every earlier read before one later local mutation" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param $x i32) (result i32) local.get $x local.get $x i32.const 1 local.tee $x select))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut snapshot_count = 0
+  let mut write_idx = -1
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet => {
+        let target = @ir.hot_node_get(func, root_id).imm0
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        if target == 0 {
+          write_idx = idx
+        } else {
+          match @ir.hot_node_get(func, value_id).op {
+            @ir.HotOp::LocalGet if @ir.hot_node_get(func, value_id).imm0 == 0 => {
+              snapshot_count += 1
+              assert_true(idx < write_idx || write_idx < 0)
+            }
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  @debug.assert_eq(snapshot_count, 2)
+  assert_true(write_idx >= 2)
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected multiple local snapshots to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten does not snapshot an earlier local.get for a nonmatching local write" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param $x i32) (param $y i32) (result i32) local.get $x i32.const 1 local.tee $y i32.add))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let mut matching_snapshot_count = 0
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let root_id = @ir.hot_root_get(func, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet if @ir.hot_node_get(func, root_id).imm0 != 0 => {
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        match @ir.hot_node_get(func, value_id).op {
+          @ir.HotOp::LocalGet if @ir.hot_node_get(func, value_id).imm0 == 0 =>
+            matching_snapshot_count += 1
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  @debug.assert_eq(matching_snapshot_count, 0)
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nonmatching local write routing to verify, got \{err}")
   }
 }

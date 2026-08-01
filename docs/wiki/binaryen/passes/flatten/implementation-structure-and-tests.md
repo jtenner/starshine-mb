@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-01
 sources:
   - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
@@ -130,7 +130,7 @@ Read it when you want to move from the conceptual pages to exact files.
 
 ## Status in one sentence
 
-Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel Flat-IR normalizer; Starshine now has a public active HOT implementation with registry/dispatcher/CLI wiring, top-level aggressive-preset scheduling, a Flat-IR-preserving lowering mode, 270 focused tests, 228 whitebox tests, a `flatten-all` GenValid aggregate, four compare lanes, and idempotence signoff.
+Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel Flat-IR normalizer; Starshine now has a public active HOT implementation with registry/dispatcher/CLI wiring, top-level aggressive-preset scheduling, a Flat-IR-preserving lowering mode, 286 focused tests, 243 whitebox tests, a `flatten-all` GenValid aggregate, four compare lanes, and idempotence signoff.
 
 ## Upstream owner map
 
@@ -175,6 +175,10 @@ The central implementation map is `preludes`: expressions that must execute imme
 The postorder walker lets each child flatten itself first, then lets the parent decide whether those preludes can migrate upward or must be placed inside a control-flow region.
 
 This is the main source-backed reason the pass preserves side-effect order while changing expression shape.
+
+Starshine's sibling-prelude staging is dependency-aware. A later prelude first records every local written by its `local.set`/`local.tee` subtree. Earlier direct reads of those locals are snapshotted before the prelude, and allowed `ref.as_non_null` wrappers preserve their nullable source read through the snapshot local. Reads of unrelated locals remain in place. This prevents a later lowered tee from making an earlier operand observe the new local value.
+
+Repeated no-fallthrough queries use a sparse cached region summary rather than rescanning all roots. Each summary records the first direct unconditional root, an effective terminal branch when present, the dead-suffix start, and whether normal fallthrough remains possible. Admission scans an inspected region once; all remaining regions are primed before mutation, rewrite fails closed for any unseen post-mutation region, and a cached positive fact is recomputed if its recorded terminator root is replaced or shifted. Whitebox counters lock one scan per cached region, and the skipped `passes_perf_long` lane retains a large nested/dead-suffix workload for native-release measurement.
 
 ### 4. `breakTemps` make branch payload channels explicit
 

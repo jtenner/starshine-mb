@@ -23,6 +23,10 @@ related:
 
 `flatten` remains admitted by the compare harness and has a dedicated `flatten-all` GenValid aggregate. A July 31, 2026 expanded O4z replay exposed a carried payload-branch dead-suffix validity gap that the July 17 direct matrix did not cover. The repair treats a direct unconditional root as the no-fallthrough proof, routes its payload before clearing branch arity, and preserves arbitrary later dead roots unless an existing exact ownership proof permits deletion. The focused fix, expanded aggregate, direct comparison matrix, original O4z corpus, and single-arm legacy-EH bridge have now been rerun with a rebuilt binary. Full closeout still requires classification of the remaining residual families, the deeper ownership/failure-atomicity audit, and exact historical candidate-dense performance remeasurement.
 
+The August 1 local-read-order and region-summary review was replayed with native SHA-256 `65c8298709b14006bcf2c07da970aaf15e0a5125f96eb71def75305740a10ee6` against explicit Binaryen v131. The restarted `flatten-all` lane completed `10,000/10,000`: `1,632` direct normalized matches, `6,701` cleanup-normalized matches, and the same `1,667` residual population split exactly into `842` `flatten-br-if` and `825` `flatten-multivalue` cases. There were zero command, generator, validation, or property failures; idempotence was `10,000/10,000`; Node executed `13,270` exports with `12,461` equal results, `809` equal traps, and zero semantic mismatches or unsupported runtimes. Binaryen artifacts were `10,000` cache hits. This confirms that the review repair did not create a new dedicated-profile mismatch family; the two residual families retain their prior classification evidence rather than being reclassified by this run alone. Artifacts: `.tmp/pass-fuzz-flatten-review-20260801`.
+
+A fresh default `10,000` lane was also started, but it timed out during input generation before producing case results. It is not counted as evidence and should be rerun before closeout.
+
 Always compare with an explicitly rebuilt native release binary:
 
 ```text
