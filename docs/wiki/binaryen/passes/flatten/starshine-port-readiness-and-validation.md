@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-02
 sources:
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
@@ -116,7 +116,7 @@ This page preserves the staged proof history for the question: **what did the fi
 
 ## Current status
 
-The pre-admission hold point below is superseded. `flatten` is public and scheduled in both top-level presets as `flatten -> simplify-locals-notee-nostructure -> local-cse`. The July 17, 2026 behavior closeout and accepted `1,140 us` / `4.00x` Binaryen measurement remain historical baselines. The July 31 payload-branch dead-suffix repair makes the exact repro and saved first-1,000 O4z corpus fully valid, exact dropped-result ownership flattens isolated public multivalue plain/`br`/`br_if`/`br_table` forms, and first-class HOT lifting now carries single-arm tagged/catch-all legacy tries, payload lanes, delegates, and rethrows into the pass. Fresh `10,000`-case legacy lanes are compare-normalized, runtime-equal, and idempotent; `flatten-all` no longer has a legacy-EH residual family. Multi-arm legacy tries, final classification of the remaining smaller/canonical-encoding families, deeper ownership review, and exact historical performance refresh remain open before closeout can be restored. See [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
+The pre-admission hold point below is superseded. `flatten` is public, directly closed, and scheduled in both top-level presets as `flatten -> simplify-locals-notee-nostructure -> local-cse`; exact preset/neighborhood reconciliation remains separate. The July 31 payload-branch dead-suffix and single-arm legacy-EH repairs are covered by the final explicit-v131 matrix. Regular GenValid is `100,000/100,000`; wasm-smith has `9,955` comparable cases and only `45` Binaryen/tool failures; `flatten-all` is `10,000/10,000` valid and idempotent; random-all has `9,641` comparable cases and `359` Binaryen failures. All `2,468` dedicated/random residual pairs converge byte-for-byte under verified Binaryen v131 `-Oz --strip-debug`, and every canonical Starshine residual is smaller, so the documented families are classified as direct cleanup wins. The ownership audit confirms immutable pre-mutation facts, admission-before-repair, rewrite-only cached proof, and atomic target/deletion preflight; a combined regression proves a later deferred branch leaves an earlier repairable catch and local state untouched. The reconstructed historical 120-function candidate-dense lane measures `1,392 us` Starshine versus `126.709 us` Binaryen v131 (`10.99x`), retaining the prior bounded exception because absolute pass-local cost remains about `1.4 ms`, far below the repository's `<1 s` target. Multi-arm legacy tries remain an explicit HOT representation boundary rather than a direct-pass closeout blocker. See [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md) and [`./fuzzing.md`](./fuzzing.md).
 
 ## Historical pre-admission hold point (superseded)
 

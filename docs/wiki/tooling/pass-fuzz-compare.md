@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-23
+last_reviewed: 2026-08-02
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen
@@ -237,7 +237,7 @@ Each failure directory includes:
 - `input.print.wat` when `wasm-tools print` succeeds;
 - `failure-metadata.json` with `caseIndex`, `generator`, failure `status`, `detail`, copied artifact names, relative replay input plus pass flags, the per-input GenValid manifest entry when the failing case came from a manifest-backed `gen-valid` batch, and a `runtimeExecutionMatrix` block for runtime-enabled mismatches after the Node export matrix has run.
 
-For fresh `gen-valid` normalized mismatches, pass-fuzz also attempts a byte-slice reduction after the mismatch has already been classified by the ordinary oracle. Successful reductions add `reduced-input.wasm`, `reduction.txt`, and a `reduction` block in `failure-metadata.json`; the reduction metadata includes original/final sizes, predicate-evaluation count, and `delete-byte-slice` steps. `input.wasm` remains the original replay input, so this artifact path does not change mismatch counting or replay semantics. Use `--no-reduce-mismatches` for broad triage lanes where already-known mismatch families would otherwise spend the run budget reducing every GenValid case before aggregate counts can complete; the flag preserves the original mismatch artifacts and records `reduceMismatches: false` in `result.json`. The reducer contract, log schema, and predicate-preservation caveats are centralized in [`../fuzzing/reduction-backends.md`](../fuzzing/reduction-backends.md).
+For fresh `gen-valid` normalized mismatches, pass-fuzz also attempts a byte-slice reduction after the mismatch has already been classified by the ordinary oracle. Successful reductions add `reduced-input.wasm`, `reduction.txt`, and a `reduction` block in `failure-metadata.json`; the reduction metadata includes original/final sizes, predicate-evaluation count, and `delete-byte-slice` steps. `input.wasm` remains the original replay input, so this artifact path does not change mismatch counting or replay semantics. Use `--no-reduce-mismatches` for broad triage or signoff lanes where already-known mismatch families would otherwise spend the run budget reducing every GenValid case before aggregate counts can complete; the flag preserves the original mismatch artifacts and records `reduceMismatches: false` in `result.json`. The byte-slice predicate launches validation, both optimizers, canonicalization, and print work synchronously for each candidate. A measured `flatten` random-profile example required `42,233` to `69,224` predicate evaluations on 20–31 KiB inputs to remove only 4–32 bytes, while replaying the unreduced case took `0.184 s`; disable aggregate reduction and reduce selected representatives separately when this pattern appears. The reducer contract, log schema, and predicate-preservation caveats are centralized in [`../fuzzing/reduction-backends.md`](../fuzzing/reduction-backends.md).
 
 The generator ledger records this as `[FZG]029`; see [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 

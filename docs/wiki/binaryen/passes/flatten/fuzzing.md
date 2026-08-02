@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-02
 sources:
   - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
@@ -19,13 +19,26 @@ related:
 
 # `flatten` Fuzzing Status
 
-## Current state: active; full closeout remains open
+## Current state: closed for direct-pass ownership
 
-`flatten` remains admitted by the compare harness and has a dedicated `flatten-all` GenValid aggregate. A July 31, 2026 expanded O4z replay exposed a carried payload-branch dead-suffix validity gap that the July 17 direct matrix did not cover. The repair treats a direct unconditional root as the no-fallthrough proof, routes its payload before clearing branch arity, and preserves arbitrary later dead roots unless an existing exact ownership proof permits deletion. The focused fix, expanded aggregate, direct comparison matrix, original O4z corpus, and single-arm legacy-EH bridge have now been rerun with a rebuilt binary. Full closeout still requires classification of the remaining residual families, the deeper ownership/failure-atomicity audit, and exact historical candidate-dense performance remeasurement.
+`flatten` is closed again for direct-pass behavior, validity, generation breadth, residual classification, ownership/failure atomicity, and pass-local performance. Preset order and nested reruns remain separate scheduler work.
 
-The August 1 local-read-order and region-summary review was replayed with native SHA-256 `65c8298709b14006bcf2c07da970aaf15e0a5125f96eb71def75305740a10ee6` against explicit Binaryen v131. The restarted `flatten-all` lane completed `10,000/10,000`: `1,632` direct normalized matches, `6,701` cleanup-normalized matches, and the same `1,667` residual population split exactly into `842` `flatten-br-if` and `825` `flatten-multivalue` cases. There were zero command, generator, validation, or property failures; idempotence was `10,000/10,000`; Node executed `13,270` exports with `12,461` equal results, `809` equal traps, and zero semantic mismatches or unsupported runtimes. Binaryen artifacts were `10,000` cache hits. This confirms that the review repair did not create a new dedicated-profile mismatch family; the two residual families retain their prior classification evidence rather than being reclassified by this run alone. Artifacts: `.tmp/pass-fuzz-flatten-review-20260801`.
+The final matrix used native SHA-256 `96d0ad4aff0e0a759faa887f5879fc7eac731adbb91fdfb3ac014549ee52e903`, official Binaryen SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, and `wasm-opt version 131 (version_131)`:
 
-A fresh default `10,000` lane was also started, but it timed out during input generation before producing case results. It is not counted as evidence and should be rerun before closeout.
+| Lane | Requested | Compared | Direct | Cleanup-normalized | Residuals | Command failures |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| regular GenValid, seed `0x5eed` | 100,000 | 100,000 | 41,302 | 58,698 | 0 | 0 |
+| wasm-smith, seed `0x5eed` | 10,000 | 9,955 | 9,950 | 5 | 0 | 45 Binaryen/tool |
+| `flatten-all`, seed `0x5eed` | 10,000 | 10,000 | 1,632 | 6,701 | 1,667 | 0 |
+| random-all-profiles, seed `0x5555` | 10,000 | 9,641 | 2,997 | 5,843 | 801 | 359 Binaryen |
+
+Every lane has zero Starshine command, generator, validation, or property failures. The dedicated lane is `10,000/10,000` idempotent. Its residuals are exactly `842` `flatten-br-if` and `825` `flatten-multivalue` cases; every Starshine raw and canonical output is smaller, saving `233,679` raw and `335,154` canonical bytes in aggregate. The random residuals span the same eight non-EH families, led by `551` `coverage-forced-portable` cases; every canonical Starshine output is smaller, saving `1,203,683` bytes in aggregate. Reoptimizing all `2,468` residual pairs independently with verified Binaryen v131 `-Oz --strip-debug` makes every pair byte-identical. Together with the transform contracts, focused runtime/idempotence evidence, full validation, and inspected family shapes, those residuals are classified as direct canonical cleanup wins rather than parity gaps. Reopen if any residual stops validating, loses canonical size, fails common `-Oz` convergence, changes runtime behavior, or appears outside the classified families.
+
+The ownership audit confirms that the immutable node/label/region index and all EH, loop, legacy-try, and payload admission checks complete before mutation; `rewrites_started` prevents discovery of new proof after rewriting begins; target-local and detached-subtree helpers preflight complete vectors/forests before allocation or deletion; and current-owner/current-structure checks guard every cached mutation site. A combined white-box regression now places a repairable typed catch before a later unsupported `local.tee` branch payload and proves `DeferredBranchPayload` returns with the catch, branch ownership, children, and local count unchanged.
+
+The exact reconstructed historical 120-function candidate-dense native-release lane covers 40 one-multiply, 40 two-multiply, and 40 deeper-multiply legacy-EH/dead-call-argument functions. Twenty measured Starshine samples have a `1,392 us` median (`1,330..1,471 us`); Binaryen v131 has a `126.709 us` median (`122.001..227.149 us`), or `10.99x`. The ratio is slower than the historical v130 `4.00x`, but the Starshine absolute cost remains about `1.4 ms` and well below the repository's `<1 s` pass-local target, so the existing bounded performance exception remains qualified. The separate 120-function/960-branch stress lane remains `8,987 us` versus `926.059 us` and is scaling evidence, not the representative gate.
+
+Artifacts are `.tmp/pass-fuzz-flatten-closeout-current-default-100000-20260802`, `.tmp/pass-fuzz-flatten-closeout-current-wasm-smith-10000-20260802`, `.tmp/pass-fuzz-flatten-closeout-current-all-10000-20260802`, `.tmp/pass-fuzz-flatten-closeout-current-random-all-10000-20260802`, `.tmp/flatten-current-all-residual-oz-20260802`, and `.tmp/flatten-current-random-residual-oz-20260802`.
 
 Always compare with an explicitly rebuilt native release binary:
 
@@ -39,6 +52,8 @@ bun scripts/pass-fuzz-compare.ts \
   --normalize local-cleanup-debris \
   --jobs auto \
   --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --wasm-opt-bin <official-version-131-wasm-opt> \
+  --no-reduce-mismatches \
   --out-dir .tmp/pass-fuzz-flatten
 ```
 
@@ -47,6 +62,8 @@ The three normalizers are part of the documented compare contract:
 - `local-cleanup-debris` removes Binaryen local-copy/forwarding preludes, adjacent one-use producer temporaries, rich reference producer temporaries, untargeted void block shells, unused local declarations, and local/label numbering differences.
 - `unreachable-control-debris` removes structurally dead control shells around guaranteed unreachable paths.
 - `drop-consts` removes pure dropped constants that Binaryen retains before guaranteed `unreachable` while Starshine deletes them.
+
+Use `--no-reduce-mismatches` for aggregate signoff lanes with known residual populations, then reduce selected representatives separately. The generic byte-slice reducer is intentionally exhaustive and synchronous: on three 20–31 KiB random-profile residuals it performed `42,233`, `46,552`, and `69,224` full mismatch-predicate evaluations to remove only `32`, `4`, and `4` bytes. A saved case replay without reduction took `0.184 s`, and the full random 10,000 lane completed in `164.393 s` once automatic reduction was disabled; the interrupted reducing run had not reached 4,000 cases after multiple hours. This is harness reduction cost, not `flatten` pass-local cost.
 
 These normalizers do not waive semantic differences. Their exact families have fixtures in [`scripts/test/pass-fuzz-normalization-fixtures.ts`](../../../../../scripts/test/pass-fuzz-normalization-fixtures.ts). The two final wasm-smith cases needing `drop-consts` are downstream-size nonregressing under matched `--vacuum --dce`: one is 71 Starshine bytes versus 72 Binaryen bytes, and one is 62 bytes on both sides.
 
