@@ -130,3 +130,127 @@ test "flatten long perf lane measures sequenced-root pair lookup" {
     }
   }
 }
+
+///|
+fn flatten_perf_candidate_binary(
+  func : @ir.HotFunc,
+  instr : @lib.Instruction,
+  left : Int,
+  right : Int,
+) -> Int {
+  let node = @ir.hot_build_binary(func, @lib.ValType::i32(), left, right)
+  @ir.hot_node_exact_instr_set(func, node, instr)
+  node
+}
+
+///|
+fn flatten_perf_candidate_argument(func : @ir.HotFunc, family : Int) -> Int {
+  let mul0 = flatten_perf_candidate_binary(
+    func,
+    @lib.Instruction::i32_mul(),
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+    @ir.hot_build_const_i32(func, @lib.I32(10)),
+  )
+  if family == 0 {
+    return flatten_perf_candidate_binary(
+      func,
+      @lib.Instruction::i32_add(),
+      mul0,
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+    )
+  }
+  let mul1 = flatten_perf_candidate_binary(
+    func,
+    @lib.Instruction::i32_mul(),
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+    @ir.hot_build_const_i32(func, @lib.I32(12)),
+  )
+  let pair = flatten_perf_candidate_binary(
+    func,
+    if family == 1 {
+      @lib.Instruction::i32_sub()
+    } else {
+      @lib.Instruction::i32_add()
+    },
+    mul0,
+    mul1,
+  )
+  if family == 1 {
+    pair
+  } else {
+    flatten_perf_candidate_binary(
+      func,
+      @lib.Instruction::i32_add(),
+      pair,
+      @ir.hot_build_const_i32(func, @lib.I32(13)),
+    )
+  }
+}
+
+///|
+fn flatten_perf_candidate_func(family : Int) -> @ir.HotFunc {
+  let func = @ir.HotFunc::new()
+  let i32_type = @lib.ValType::i32()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(27))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let argument = flatten_perf_candidate_argument(func, family)
+  let call = @ir.hot_build_call(func, 99, [], [argument])
+  let dead_end = @ir.hot_build_unreachable(func)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table, call, dead_end,
+  ])
+  @ir.hot_delete_node(func, fallback)
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  func
+}
+
+///|
+fn flatten_perf_candidate_batch() -> Array[@ir.HotFunc] {
+  let funcs : Array[@ir.HotFunc] = []
+  for index = 0; index < 120; index = index + 1 {
+    funcs.push(flatten_perf_candidate_func(index / 40))
+  }
+  funcs
+}
+
+///|
+#skip("manual native-release historical 120-function candidate-dense benchmark")
+test "flatten long perf lane remeasures the historical candidate-dense contract" {
+  let batches : Array[Array[@ir.HotFunc]] = []
+  for batch_idx = 0; batch_idx < 25; batch_idx = batch_idx + 1 {
+    batches.push(flatten_perf_candidate_batch())
+  }
+  for sample = 0; sample < batches.length(); sample = sample + 1 {
+    let start = @lib.trace_now_us()
+    for func in batches[sample] {
+      let ctx = @passes.HotPassContext::new(
+        @passes.flatten_descriptor(),
+        @ir.HotAnalysisCache::new(),
+        @passes.HotPipelineVerifyPolicy::after_each_pass(),
+        false,
+        fn(_) { () },
+      )
+      ignore(@passes.flatten_run(ctx, func))
+    }
+    let elapsed = @lib.trace_elapsed_us_since(start)
+    if sample >= 5 {
+      println(
+        "sample=\{sample - 5} us=\{elapsed} functions=120 families=40,40,40",
+      )
+    }
+  }
+}

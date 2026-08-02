@@ -185,6 +185,74 @@ test "flatten intentionally gates missing legacy EH repair before any mutation" 
 }
 
 ///|
+test "flatten keeps repairable catches unchanged when a later branch owner is deferred" {
+  let func = @ir.HotFunc::new()
+  let payload = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let payload_drop = @ir.hot_build_drop(func, payload)
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([payload, payload_drop]),
+  )
+  let block_id = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let local_id = @ir.hot_append_body_local(func, @lib.ValType::i32())
+  let tee_value = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let tee = @ir.hot_build_local_tee(func, local_id, tee_value)
+  let branch = @ir.hot_build_br(
+    func,
+    @ir.hot_control_node_label(func, block_id),
+    values=[tee],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+    branch,
+  ])
+  let block_drop = @ir.hot_build_drop(func, block_id)
+  @ir.hot_root_append(func, try_id)
+  @ir.hot_root_append(func, block_drop)
+  let before_local_count = @ir.hot_local_count(func)
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::DeferredBranchPayload => ()
+    FlattenRunAdmission::Admitted =>
+      fail("expected deferred branch payload, got admitted")
+    FlattenRunAdmission::UpstreamHardUnsupported =>
+      fail("expected deferred branch payload, got hard unsupported")
+    FlattenRunAdmission::DeferredCatchPayloadRepair =>
+      fail("expected deferred branch payload, got catch repair")
+    FlattenRunAdmission::DeferredExceptionalTransferRepair =>
+      fail("expected deferred branch payload, got transfer repair")
+    FlattenRunAdmission::DeferredInputfulLoop =>
+      fail("expected deferred branch payload, got inputful loop")
+    FlattenRunAdmission::DeferredLegacyTry =>
+      fail("expected deferred branch payload, got legacy try")
+  }
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_local_count(func), before_local_count)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 2)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 0), payload)
+  @debug.assert_eq(@ir.hot_child_get(func, payload_drop, 0), payload)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_child_get(func, branch, 0), tee)
+  @debug.assert_eq(@ir.hot_child_get(func, tee, 0), tee_value)
+}
+
+///|
 test "flatten repairs one scalar typed catch payload before nested block flattening" {
   let func = @ir.HotFunc::new()
   let outer = @ir.hot_build_block(func, @lib.BlockType::void_(), [])

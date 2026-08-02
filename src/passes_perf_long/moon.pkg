@@ -1,4 +1,5 @@
 import {
+  "jtenner/starshine/ir",
   "jtenner/starshine/lib",
   "jtenner/starshine/passes",
 }
