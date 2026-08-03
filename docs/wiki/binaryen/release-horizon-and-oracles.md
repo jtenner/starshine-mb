@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-02
 sources:
   - https://github.com/WebAssembly/binaryen/releases/tag/version_131
   - https://github.com/WebAssembly/binaryen/compare/version_130...version_131
@@ -37,8 +37,8 @@ The current answer is:
 
 - the newest public Binaryen release baseline is `version_131`, published on **2026-07-15** and resolving to commit `1f903c14babf829745b421b92ff0f286e93e4209`;
 - the v130-to-v131 range contains `92` commits, adds public `constraint-analysis` plus hidden test pass `remove-start`, and leaves the default optimization scheduler unchanged;
-- six accepted Starshine implementation areas are reopened for released behavior changes: `optimize-instructions`, `memory-packing`, `remove-unused-module-elements`, `directize`, `heap2local`, and the shared `inlining` / `inlining-optimizing` engine;
-- `pick-load-signs` has already completed an explicit v131 audit and remains closed;
+- the v131 audit reopened `optimize-instructions`, `memory-packing`, `remove-unused-module-elements`, `directize`, `heap2local`, and the shared `inlining` / `inlining-optimizing` engine; the represented/direct surfaces for the first five are now reclosed, while deferred inlining breadth remains explicitly separate from the current scheduler integration;
+- `pick-load-signs` and the later targeted owner reviews remain closed unless new v131 evidence meets their dossier reopening criteria;
 - the live `main` changelog and pass-specific current-main reads are now the drift watch for anything beyond `version_131`;
 - detailed pass pages may still stay anchored to `version_129`, `version_130`, or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
@@ -78,7 +78,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## Current state
 
-Direct official sources establish `version_131` as the newest public tag. The v131 audit found no default scheduler change, so the existing no-DWARF 56-slot O4z roster remains current, but several direct-pass contracts changed and old v130 closeout evidence is not sufficient for those owners.
+Direct official sources establish `version_131` as the newest public tag. The v131 audit found no default scheduler change, so the no-DWARF 56-slot O4z roster remains current. Starshine's O4z scheduler now locks those 56 slots and appends `strip-debug`; lower public levels and nested reruns are generated from the same level- and feature-aware scheduler rather than inheriting the O4z list.
 
 The key wiki-maintenance consequence is that `version_131` is the public release baseline, but it does **not** force every detailed pass dossier to pretend it has been re-audited. Keep older source anchors explicit until a dedicated v131 read exists. Current-main findings already captured before the release—such as `memory-packing` imported overlap, open-world `unsubtyping`, recursive-safe `print-boundary`, and toolchain inline hints—should now be relabeled as released v131 behavior rather than post-v130 drift.
 

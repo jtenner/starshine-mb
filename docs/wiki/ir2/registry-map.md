@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-02
 sources:
   - ../binaryen/passes/reorder-locals/index.md
   - ../../../src/passes/optimize.mbt
@@ -34,40 +34,26 @@ related:
 
 These have `HotPass` category and a hot descriptor where applicable:
 
-`ssa-nomerge`, `ssa`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-blocks`, and `redundant-set-elimination`.
+The registry currently has 28 hot entries: `flatten`, `ssa-nomerge`, `ssa`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `precompute-propagate`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-notee`, `simplify-locals-no-tee`, `simplify-locals-nonesting`, `simplify-locals-no-nesting`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-locals`, `merge-blocks`, and `redundant-set-elimination`.
 
 ### Active module passes
 
 These have `ModulePass` category and are runnable through the same pass request path, but apply module-level logic or module-shaped adapters:
 
-`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `strip-debug`, `simplify-globals-optimizing`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, and `directize`.
+The registry currently has 30 module entries: `local-cse`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `global-struct-inference-desc-cast`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `strip-debug`, `simplify-globals-optimizing`, `dead-argument-elimination`, `dae`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inline-main`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, and `directize`.
 
 ### Active presets
 
-`optimize` and `shrink` currently expand to the same implemented sequence:
+`optimize` and `shrink` are wall-time-first scheduler entry points outside O4z. O1/O2 expand to `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz expand to `duplicate-function-elimination -> vacuum -> reorder-locals -> strip-debug`. `--optimize` resolves to O2, while `--shrink` and literal `-Oz` resolve to `(2, 2)`; literal `-Os` resolves to `(2, 1)`. Direct passes remain runnable independently.
 
-```text
-duplicate-function-elimination -> remove-unused-module-elements -> memory-packing ->
-once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge ->
-dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names ->
-vacuum -> remove-unused-brs -> optimize-instructions -> heap-store-optimization ->
-pick-load-signs -> precompute -> code-pushing -> tuple-optimization ->
-simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs ->
-heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse ->
-simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals ->
-vacuum -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks ->
-precompute -> optimize-instructions -> heap-store-optimization -> dae-optimizing ->
-inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination ->
-simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering ->
-reorder-globals -> directize -> strip-debug
-```
+At O4z with all features enabled, both presets retain the full compatibility scheduler and expose Binaryen v131's exact 56-slot sequence. The prelude is `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference`; the function phase includes the aggressive `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse` prelude, both `precompute-propagate` slots, all three `remove-unused-brs` slots, and the late cleanup cluster; the post phase ends `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`. Starshine then appends its intentional `strip-debug` extension as slot 57.
 
-The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the three public `reorder-locals` cleanup slots, repeated `remove-unused-brs`, repeated `merge-blocks`, repeated `precompute`, and the accepted late tail `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize -> strip-debug`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt). The 2026-07-12 scheduling note [`1561`](../binaryen/passes/reorder-locals/index.md) is the current source for the public three-slot `reorder-locals` policy.
+Registry preset metadata is generated from the same scheduler instead of retaining duplicate hard-coded arrays. Exact O4z order, fast non-O4z rosters, repeated-slot counts, feature-gated O4z runtime execution, and the final extension are locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt) and [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt).
 
 ## Boundary-Only And Removed Behavior
 
 - Boundary-only names are recognized but rejected as not implemented in the hot pipeline. Examples include the closed-world type/signature families (`type-refining`, `signature-pruning`, `unsubtyping`, `reorder-types`) and broader ABI/layout families (`alignment-lowering`, `i64-to-i32-lowering`, `reorder-functions`).
-- Removed names are recognized but rejected as absent from the active hot pipeline registry. Current removed examples include `flatten`, `re-reloop`, `loop-invariant-code-motion`, `const-hoisting`, `dataflow-optimization`, `precompute-propagate`, `de-nan`, and legacy `simplify-locals-no-tee*` variants.
+- Removed names are recognized but rejected as absent from the active hot pipeline registry. Current removed examples include `re-reloop`, `loop-invariant-code-motion`, `const-hoisting`, `dataflow-optimization`, `optimize-added-constants`, `optimize-added-constants-propagate`, `de-nan`, and the legacy `simplify-locals-no-tee-no-structure` spelling. `flatten`, `precompute-propagate`, and the supported SimplifyLocals aliases are active.
 - The original March batch map is now partially stale because many former Batch 2/3 names have since landed as hot or module passes. Treat research note 0063 as the archived planning map, not a reason to ignore live code.
 
 ## Practical Rule

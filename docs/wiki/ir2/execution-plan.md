@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-02
 sources:
   - ../binaryen/passes/reorder-locals/index.md
   - ./registry-map.md
@@ -34,39 +34,21 @@ related:
 
 ### Hot passes
 
-`flatten`, `ssa-nomerge`, `ssa`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-blocks`, and `redundant-set-elimination`.
+There are 28 active hot entries. The full list, including `precompute-propagate`, every supported SimplifyLocals policy spelling, and hot `merge-locals`, is maintained in [`./registry-map.md`](./registry-map.md) from the live registry.
 
 ### Module passes
 
-`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `strip-debug`, `simplify-globals-optimizing`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, and `directize`.
+There are 30 active module entries. They include the plain and optimizing DAE spellings, `inline-main`, `global-struct-inference-desc-cast`, and the module-shaped local/global/index adapters listed in [`./registry-map.md`](./registry-map.md).
 
 ### Presets
 
-`optimize` and `shrink` currently expand to the same implemented mixed sequence:
+`optimize` and `shrink` use measured wall-time-first rosters outside O4z. O1/O2/default optimize run DFE plus final debug stripping; O3/O4/Os/Oz/default shrink add only Vacuum and ReorderLocals. Expensive direct passes remain available but are not paid automatically by those public presets.
 
-```text
-duplicate-function-elimination -> remove-unused-module-elements -> memory-packing ->
-once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge ->
-flatten -> simplify-locals-notee-nostructure -> local-cse -> dead-code-elimination ->
-remove-unused-names -> remove-unused-brs -> remove-unused-names ->
-vacuum -> remove-unused-brs -> optimize-instructions -> heap-store-optimization ->
-pick-load-signs -> precompute -> code-pushing -> tuple-optimization ->
-simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs ->
-heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse ->
-simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals ->
-vacuum -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks ->
-precompute -> optimize-instructions -> heap-store-optimization -> dae-optimizing ->
-inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination ->
-simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering ->
-reorder-globals -> directize -> strip-debug
-```
+O4z remains the locked full compatibility point: Binaryen v131's 56 slots, followed by Starshine-only `strip-debug` at slot 57. Its early module order is `global-refining -> remove-unused-module-elements -> global-struct-inference`; its function phase contains the aggressive `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse` prelude, both propagating-precompute slots, and the three-slot RUB placement; its post phase ends with the accepted global/string/reorder/directize tail.
 
-Slot caveats:
+Nested optimizing owners use the same function scheduler with the parent levels and module features. DAE and optimizing inlining prepend their required `precompute-propagate`; SGO does not. All three retain touched-function application, and SGO no longer suppresses the required roster solely because a touched function exceeds 192 locals or 1,000 instructions.
 
-- The aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude is scheduled immediately after `ssa-nomerge` in both presets. The measured `1,140 us` flatten cost is accepted under a pass-specific timing exception; see [research note 1570](../binaryen/passes/flatten/index.md).
-- `reorder-locals` now uses the public three-slot Binaryen-shaped cleanup schedule: the early tuple/no-structure lane plus the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. [research note 1561](../binaryen/passes/reorder-locals/index.md) is the current reconciliation source for that live policy.
-- `optimize` and `shrink` should stay identical until a tested size-specific divergence lands.
-- The current shared late tail is `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize -> strip-debug`; this is registry- and slot-tested and should not be shortened in docs when summarizing the live preset.
+Production runtime smoke also defines an explicit fail-closed boundary for large typed-loop modules. Until path-sensitive loop/local interference is proven end to end, DAE optimizing falls back to plain DAE, optimizing inlining falls back to plain inlining, SGO returns the original module, and the scheduled `flatten` / `merge-locals` owners trace a no-op. This is a correctness boundary discovered by runtime execution after validation succeeded; it must not be removed from size-only or validation-only evidence.
 
 ## Current Migration Gaps
 
@@ -78,11 +60,8 @@ The old Batch 1/2/3 labels are no longer the live implementation frontier. Many 
 - `re-reloop`
 - `optimize-added-constants`
 - `optimize-added-constants-propagate`
-- `precompute-propagate`
 - `de-nan`
-- `simplify-locals-no-tee`
 - `simplify-locals-no-tee-no-structure`
-- `simplify-locals-no-nesting`
 
 Boundary-only families, such as closed-world type/signature passes, ABI/lowering passes, and function/type ordering passes, need a module/type/ABI rewrite contract before they can become active implementation slices.
 

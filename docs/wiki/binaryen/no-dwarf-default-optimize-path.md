@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-02
 sources:
   - ./release-horizon-and-oracles.md
   - ./passes/ssa-nomerge/index.md
@@ -19,7 +19,7 @@ related:
 
 ## Durable Conclusions
 
-- For Binaryen `version_129`, `-O` and `-Os` both mean `optimizeLevel=2` and `shrinkLevel=1`.
+- For Binaryen v131, `-O` / `-O2` use `optimizeLevel=2, shrinkLevel=0`; `-Os` uses `(2, 1)`; and `-Oz` uses `(2, 2)`. Starshine accepts the same literal `-Os` / `-Oz` spellings; its `--optimize` and `--shrink` shortcuts resolve to O2 and Oz respectively.
 - The default optimizer is phase-structured, not a flat pass bag:
   - global pre-passes
   - function optimization passes
@@ -29,14 +29,25 @@ related:
 - A `2026-04-09` source review found the open-world no-DWARF `-O` / `-Os` path for this artifact unchanged between the archived `version_125` note and upstream `version_129`.
 - The public Binaryen release horizon is now `version_131`. The v130-to-v131 `pass.cpp` diff changes only pass registration (`constraint-analysis` and hidden `remove-start`), so the default no-DWARF optimization order and the 56-slot O4z roster are unchanged.
 
-## Canonical Top-Level Shape
+## Canonical Full Top-Level Shape
 
-- Pre-pass phase:
-  `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> gsi`
-- Function phase:
-  `ssa-nomerge -> dce -> remove-unused-names -> remove-unused-brs -> remove-unused-names -> optimize-instructions -> heap-store-optimization -> pick-load-signs -> precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs -> heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum -> code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> precompute -> optimize-instructions -> heap-store-optimization -> rse -> vacuum`
-- Post-pass phase:
-  `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`
+Binaryen's scheduler, and Starshine's O4z compatibility lane, remain conditional rather than one flat default list:
+
+- Pre-pass phase starts with DFE and memory packing; O2+ adds the early RUME and once-reduction slots; GC-enabled O2+ adds `global-refining -> remove-unused-module-elements -> global-struct-inference`.
+- The shared function phase runs its baseline DCE/name/branch/instruction/local/block cleanup. `ssa-nomerge`, `flatten`, `local-cse`, `merge-locals`, `code-folding`, and propagating precompute enter at their Binaryen level thresholds. GC and multivalue owners are admitted only when the module uses those features.
+- Post-pass phase conditionally adds DAE, optimizing inlining, SGO, string gathering, and global reordering, then ends in `directize`. Starshine appends `strip-debug` after the Binaryen-shaped phase.
+
+At O4z with all features enabled, Starshine's first 56 slots exactly match Binaryen v131. Direct passes and nested optimizing owners retain the full level/feature-aware scheduler.
+
+## 2026-08-03 Starshine wall-time-first public presets
+
+By explicit user direction, non-O4z public presets no longer execute the full Binaryen-shaped roster. O1/O2 run only `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz run `duplicate-function-elimination -> vacuum -> reorder-locals -> strip-debug`. The removed preset work remains available as direct passes and through the full O4z compatibility lane.
+
+On the 13,118,096-byte / 11,999-function debug-WASI artifact, the new presets complete in 1.944-5.729 seconds, validate externally, and pass Node/WASI runtime. O1/O2 emit 4,889,183 bytes; O3/O4/Os/Oz emit 4,753,316 bytes. O4z remains the exact 57-slot compatibility lane and still takes 142.144 seconds.
+
+## 2026-08-02 Starshine level and nested-scheduler integration
+
+The full scheduler remains the source for O4z and nested default-function reruns. DAE and optimizing inlining prepend `precompute-propagate` before the shared touched-function roster; SGO uses the same roster without that prefix and no longer omits it solely at 192-local or 1,000-instruction thresholds.
 
 ## 2026-07-20 Starshine late-tail integration
 
@@ -54,7 +65,7 @@ Binaryen `version_131` preserves the v130 default scheduler exactly. The detaile
 | --- | --- | --- |
 | Binaryen `version_131` registration | `pass.cpp` still registers public `ssa-nomerge` through `createSSAifyNoMergePass`. | Research note 1573 confirms no v130-to-v131 scheduler drift. |
 | Binaryen early function-pipeline slot | `addDefaultFunctionOptimizationPasses()` still schedules `ssa-nomerge` when `optimizeLevel >= 3 || shrinkLevel >= 1`, subject to DWARF gating. For `-O4z`, that condition is true before the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude and before `dce -> remove-unused-names -> remove-unused-brs`. | [research note 1573](./release-horizon-and-oracles.md). |
-| Starshine public preset expansion | `optimize` and `shrink` contain the early `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse` aggressive prelude, followed by the ordinary cleanup cluster. | [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [research note 1570](./passes/flatten/index.md). |
+| Starshine public preset expansion | O4z contains the early `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse` aggressive prelude. Wall-time-first O1/O2 omit the function phase entirely; O3/O4/Os/Oz retain only `vacuum -> reorder-locals` between DFE and final debug stripping. | [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [research note 1570](./passes/flatten/index.md). |
 | Starshine O4z no-op guard | Superseded on 2026-06-15 by `[SSANM-010c]` / `[SSANM-010d]`: the `o4z-ssa-nomerge-noop` raw-dispatch guard was removed, so `ssa-nomerge` now runs when the public preset queue reaches the early O4z-shaped slot. `-O4z` still resolves to a shrink preset with both optimize and shrink levels set. | [`../../../src/passes/pass_manager.mbt`](../../../src/passes/pass_manager.mbt) raw dispatch no longer contains the guard; [`../../../src/passes/ssa_nomerge_test.mbt`](../../../src/passes/ssa_nomerge_test.mbt) `ssa-nomerge runs in O4z scheduling mode`; [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt) `resolve_optimize_levels`. |
 | Decision boundary | `[SSANM-010c]` is decided by explicit user approval on 2026-06-15: remove the broad O4z no-op and treat any exposed correctness issue as release-blocking follow-up work rather than silently bypassing the scheduled pass. Reopening criteria: restore or narrow a guard only for a minimized validation/correctness blocker with an owning test and documented scope. | [`../../../agent-todo.md`](../../../agent-todo.md) `[SSANM-010c]` / `[SSANM-010d]`. |
 
@@ -80,8 +91,8 @@ The JSON-AS `strip-debug` investigation established two durable boundaries. Dire
 ## Nested Rerun Rule
 
 - Top-level order alone is not enough for parity.
-- `dae-optimizing` and `inlining-optimizing` both trigger the same post-inlining cleanup helper on changed functions.
-- `simplify-globals-optimizing` also reruns the default function pipeline on changed functions, but without prepending `precompute-propagate`.
+- `dae-optimizing` and optimizing inlining prepend `precompute-propagate`, then run the shared default function roster on changed functions using the parent optimization/shrink levels and module features.
+- `simplify-globals-optimizing` runs that same level/feature-aware roster on touched functions without the prefix.
 - A Starshine scheduler that models only the top-level pass list will still miss real Binaryen behavior.
 
 ## Current Project Rule
