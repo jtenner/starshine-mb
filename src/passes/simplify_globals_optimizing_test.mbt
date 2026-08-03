@@ -1,6 +1,11 @@
 ///|
 fn sgo_test_run(text : String) -> @lib.Module {
-  match pass_test_run_pipeline(text, ["simplify-globals-optimizing"]) {
+  match
+    run_hot_pipeline(
+      pass_test_module_from_wat(text),
+      HotPipelineOptions::new(),
+      ["simplify-globals-optimizing"],
+    ) {
     Ok(mod_) => mod_
     Err(err) =>
       abort("expected simplify-globals-optimizing success, got \{err}")
@@ -10,9 +15,11 @@ fn sgo_test_run(text : String) -> @lib.Module {
 ///|
 fn sgo_test_run_twice(text : String) -> @lib.Module {
   match
-    pass_test_run_pipeline(text, [
-      "simplify-globals-optimizing", "simplify-globals-optimizing",
-    ]) {
+    run_hot_pipeline(
+      pass_test_module_from_wat(text),
+      HotPipelineOptions::new(),
+      ["simplify-globals-optimizing", "simplify-globals-optimizing"],
+    ) {
     Ok(mod_) => mod_
     Err(err) =>
       abort("expected two simplify-globals-optimizing runs success, got \{err}")
@@ -20,12 +27,20 @@ fn sgo_test_run_twice(text : String) -> @lib.Module {
 }
 
 ///|
-fn sgo_test_run_with_trace(text : String) -> (@lib.Module, Array[String]) {
+fn sgo_test_run_with_trace_at_levels(
+  text : String,
+  optimize_level : Int,
+  shrink_level : Int,
+) -> (@lib.Module, Array[String]) {
   let trace : Array[String] = []
   let mod_ = match
     run_hot_pipeline(
       pass_test_module_from_wat(text),
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      HotPipelineOptions::new(
+        optimize_level~,
+        shrink_level~,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
       ["simplify-globals-optimizing"],
     ) {
     Ok(mod_) => mod_
@@ -33,6 +48,11 @@ fn sgo_test_run_with_trace(text : String) -> (@lib.Module, Array[String]) {
       abort("expected traced simplify-globals-optimizing success, got \{err}")
   }
   (mod_, trace)
+}
+
+///|
+fn sgo_test_run_with_trace(text : String) -> (@lib.Module, Array[String]) {
+  sgo_test_run_with_trace_at_levels(text, 4, 4)
 }
 
 ///|
@@ -46,7 +66,12 @@ fn sgo_test_run_with_perf_trace(text : String) -> (@lib.Module, Array[String]) {
   let mod_ = match
     run_hot_pipeline(
       pass_test_module_from_wat(text),
-      HotPipelineOptions::new(trace=Some(trace_fn), perf=Some(perf)),
+      HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(trace_fn),
+        perf=Some(perf),
+      ),
       ["simplify-globals-optimizing"],
     ) {
     Ok(mod_) => mod_
@@ -330,7 +355,7 @@ test "simplify-globals-optimizing promotes private never-written globals and rer
     ),
     msg=trace.to_string(),
   )
-  assert_false(
+  assert_true(
     trace.any(fn(line) { line.contains("precompute-propagate") }),
     msg=trace.to_string(),
   )
@@ -406,11 +431,14 @@ fn sgo_test_make_large_safe_trunc_prefix_before_unreachable_fixture(
 
 ///|
 test "simplify-globals-optimizing cleans large touched dead tail after unreachable" {
-  let optimized = sgo_test_run(
+  let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_large_dead_tail_after_unreachable_fixture(1100),
   )
   let instrs = try! sgo_test_first_defined_func_instrs(optimized)
-  @debug.assert_eq(instrs, [@lib.Instruction::unreachable_()])
+  assert_true(
+    instrs == [@lib.Instruction::unreachable_()],
+    msg="instrs=\{instrs} trace=\{trace}",
+  )
 }
 
 ///|
@@ -498,46 +526,86 @@ test "simplify-globals-optimizing removes no-global unreachable drop debris" {
 }
 
 ///|
-test "simplify-globals-optimizing traces artifact-tuned nested cleanup pass order" {
+test "simplify-globals-optimizing fails closed for typed loop parameters" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 7))
+    #|  (func (export "run") (param $limit i32) (local $i i32)
+    #|    global.get $g
+    #|    drop
+    #|    i32.const 0
+    #|    loop (param i32)
+    #|      local.tee $i
+    #|      local.get $limit
+    #|      i32.lt_s
+    #|      if
+    #|        local.get $i
+    #|        i32.const 1
+    #|        i32.add
+    #|        br 1
+    #|      end
+    #|    end))
+    #|
+  let trace = match
+    pass_test_capture_trace(source, ["simplify-globals-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected typed-loop SGO boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:fallback-noop reason=typed-loop-param-control",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-globals-optimizing uses the shared O4z nested function pipeline" {
   let (_, trace) = sgo_test_run_with_trace(
     sgo_test_make_touched_cleanup_fixture(1),
   )
-  let nested_passes : Array[String] = []
-  for line in trace {
-    if line.contains("pass[simplify-globals-optimizing]:nested-pass") {
-      nested_passes.push(line)
-    }
+  let text = trace.to_string()
+  for
+    pass_name in [
+      "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "optimize-instructions",
+      "precompute-propagate", "merge-locals", "coalesce-locals", "local-cse", "code-folding",
+      "redundant-set-elimination", "vacuum",
+    ] {
+    assert_true(text.contains("name=\{pass_name}"), msg=text)
   }
-  @debug.assert_eq(nested_passes, [
-    "pass[simplify-globals-optimizing]:nested-pass name=optimize-instructions", "pass[simplify-globals-optimizing]:nested-pass-skip name=local-cse reason=no-touched-candidates",
-    "pass[simplify-globals-optimizing]:nested-pass-skip name=pick-load-signs reason=no-touched-candidates",
-    "pass[simplify-globals-optimizing]:nested-pass-skip name=merge-blocks reason=no-touched-candidates",
-    "pass[simplify-globals-optimizing]:nested-pass name=remove-unused-names", "pass[simplify-globals-optimizing]:nested-pass-skip name=merge-blocks reason=no-touched-candidates",
-    "pass[simplify-globals-optimizing]:nested-pass-skip name=coalesce-locals reason=no-touched-candidates",
-    "pass[simplify-globals-optimizing]:nested-pass-skip name=reorder-locals reason=no-touched-candidates",
-    "pass[simplify-globals-optimizing]:nested-pass-skip name=redundant-set-elimination reason=no-touched-candidates",
-    "pass[simplify-globals-optimizing]:nested-pass name=vacuum",
-  ])
-  assert_false(
-    trace.any(fn(line) { line.contains("precompute-propagate") }),
-    msg=trace.to_string(),
+  for
+    pass_name in [
+      "heap-store-optimization", "heap2local", "optimize-casts", "local-subtyping",
+      "tuple-optimization",
+    ] {
+    assert_false(text.contains("name=\{pass_name}"), msg=text)
+  }
+}
+
+///|
+test "simplify-globals-optimizing nested cleanup uses the active O2 levels" {
+  let (_, trace) = sgo_test_run_with_trace_at_levels(
+    sgo_test_make_touched_cleanup_fixture(1),
+    2,
+    0,
   )
-  assert_false(
-    trace.any(fn(line) { line.contains("nested-pass name=simplify-locals") }),
-    msg=trace.to_string(),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("nested-pass name=remove-unused-brs") }),
-    msg=trace.to_string(),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("nested-pass name=precompute") }),
-    msg=trace.to_string(),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("nested-pass name=heap2local") }),
-    msg=trace.to_string(),
-  )
+  let text = trace.to_string()
+  for
+    pass_name in [
+      "optimize-instructions", "pick-load-signs", "precompute", "code-pushing", "simplify-locals-nostructure",
+      "vacuum", "reorder-locals", "remove-unused-brs", "coalesce-locals",
+    ] {
+    assert_true(text.contains("name=\{pass_name}"), msg=text)
+  }
+  for
+    pass_name in [
+      "ssa-nomerge", "flatten", "local-cse", "code-folding", "precompute-propagate",
+      "heap-store-optimization", "tuple-optimization",
+    ] {
+    assert_false(text.contains("name=\{pass_name}"), msg=text)
+  }
 }
 
 ///|
@@ -701,27 +769,20 @@ test "simplify-globals-optimizing nested cleanup runs in modules with more than 
 }
 
 ///|
-test "simplify-globals-optimizing reports large touched function in large modules" {
+test "simplify-globals-optimizing does not suppress large touched functions in large modules" {
   let (_, trace) = sgo_test_run_with_trace(
     sgo_test_make_large_touched_function_fixture(193, extra_untouched_count=100),
   )
-
+  let text = trace.to_string()
   assert_true(
-    trace.contains(
+    text.contains(
       "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
     ),
-    msg=trace.to_string(),
+    msg=text,
   )
-  assert_true(
-    trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-function touched=1",
-    ),
-    msg=trace.to_string(),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("reason=large-module") }),
-    msg=trace.to_string(),
-  )
+  assert_true(text.contains("cleaned=1 filtered-large=0"), msg=text)
+  assert_true(text.contains("nested-pass name=optimize-instructions"), msg=text)
+  assert_false(text.contains("nested-cleanup-skip"), msg=text)
 }
 
 ///|
@@ -754,71 +815,34 @@ test "simplify-globals-optimizing nested cleanup runs at touched function local 
 }
 
 ///|
-test "simplify-globals-optimizing nested cleanup skips touched functions above local threshold" {
+test "simplify-globals-optimizing nested cleanup runs above the former local threshold" {
   let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_large_touched_function_fixture(193),
   )
-
-  assert_true(
-    trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
-    ),
-    msg=trace.to_string(),
-  )
-  assert_true(
-    trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-function touched=1",
-    ),
-    msg=trace.to_string(),
-  )
-  assert_false(
-    trace.any(fn(line) {
-      line.contains("pass[simplify-globals-optimizing]:nested-pass")
-    }),
-    msg=trace.to_string(),
-  )
+  let text = trace.to_string()
+  assert_true(text.contains("cleaned=1 filtered-large=0"), msg=text)
+  assert_true(text.contains("nested-pass name=optimize-instructions"), msg=text)
+  assert_false(text.contains("nested-cleanup-skip"), msg=text)
   let pretty = optimized.pretty_print_defined_func(0U)
   assert_false(pretty.contains("global.get"), msg=pretty)
-  assert_true(pretty.contains("I32(7)"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
 }
 
 ///|
-test "simplify-globals-optimizing nested cleanup filters large touched functions" {
+test "simplify-globals-optimizing cleans mixed large and small touched functions" {
   let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_mixed_large_and_small_touched_fixture(193),
   )
-
+  let text = trace.to_string()
   assert_true(
-    trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup touched=2 prefix=default",
-    ),
-    msg=trace.to_string(),
+    text.contains("nested-cleanup touched=2 prefix=default"),
+    msg=text,
   )
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("nested-cleanup") &&
-      line.contains("cleaned=1") &&
-      line.contains("filtered-large=1")
-    }),
-    msg=trace.to_string(),
-  )
-  assert_true(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[simplify-globals-optimizing]:nested-pass-skip name=local-cse reason=no-touched-candidates",
-      )
-    }),
-    msg=trace.to_string(),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("nested-cleanup-skip") }),
-    msg=trace.to_string(),
-  )
+  assert_true(text.contains("cleaned=2 filtered-large=0"), msg=text)
+  assert_false(text.contains("nested-cleanup-skip"), msg=text)
   let large = optimized.pretty_print_defined_func(0U)
   assert_false(large.contains("global.get"), msg=large)
-  assert_true(large.contains("I32(7)"), msg=large)
-  assert_true(large.contains("drop"), msg=large)
+  assert_false(large.contains("drop"), msg=large)
   let small = optimized.pretty_print_defined_func(1U)
   assert_false(small.contains("global.get"), msg=small)
   assert_false(small.contains("drop"), msg=small)
@@ -854,33 +878,17 @@ test "simplify-globals-optimizing nested cleanup runs at touched function instru
 }
 
 ///|
-test "simplify-globals-optimizing nested cleanup skips touched functions above instruction threshold" {
+test "simplify-globals-optimizing nested cleanup runs above the former instruction threshold" {
   let (optimized, trace) = sgo_test_run_with_trace(
     sgo_test_make_large_touched_body_fixture(999),
   )
-
-  assert_true(
-    trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup touched=1 prefix=default",
-    ),
-    msg=trace.to_string(),
-  )
-  assert_true(
-    trace.contains(
-      "pass[simplify-globals-optimizing]:nested-cleanup-skip reason=large-touched-function touched=1",
-    ),
-    msg=trace.to_string(),
-  )
-  assert_false(
-    trace.any(fn(line) {
-      line.contains("pass[simplify-globals-optimizing]:nested-pass")
-    }),
-    msg=trace.to_string(),
-  )
+  let text = trace.to_string()
+  assert_true(text.contains("cleaned=1 filtered-large=0"), msg=text)
+  assert_true(text.contains("nested-pass name=optimize-instructions"), msg=text)
+  assert_false(text.contains("nested-cleanup-skip"), msg=text)
   let pretty = optimized.pretty_print_defined_func(0U)
   assert_false(pretty.contains("global.get"), msg=pretty)
-  assert_true(pretty.contains("I32(7)"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
 }
 
 ///|
@@ -3218,16 +3226,11 @@ test "simplify-globals-optimizing drops effectful result-if after removing guard
   match instrs {
     [
       @lib.LocalGet(_),
-      @lib.If(
-        @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
-        _,
-        Some(_)
-      ),
-      @lib.Drop,
+      @lib.If(@lib.VoidBlockType, [@lib.Call(_), @lib.Drop], Some([])),
     ] => ()
     other =>
       fail(
-        "expected effectful result-if followed by drop, got \{@debug.to_string(other)}",
+        "expected effect-preserving void if cleanup, got \{@debug.to_string(other)}",
       )
   }
 }

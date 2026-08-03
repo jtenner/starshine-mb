@@ -74,6 +74,90 @@ fn slns_test_module_has_nonvoid_no_normal_try_table(mod_ : @lib.Module) -> Bool 
 }
 
 ///|
+fn slns_test_deep_result_if_local_tee_chain(depth : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module (memory 1) (func (param i32) (result i32) (local i32) local.get 0 i32.load local.tee 1 ",
+  )
+  for i = 0; i < depth; i = i + 1 {
+    out.write_string(
+      "i32.const \{61 + i} i32.eq if (result i32) i32.const 1 else ",
+    )
+    if i + 1 < depth {
+      out.write_string("local.get 1 ")
+    }
+  }
+  out.write_string("i32.const 0 ")
+  for close_i = 0; close_i < depth; close_i = close_i + 1 {
+    out.write_string("end ")
+  }
+  out.write_string("))")
+  out.to_string()
+}
+
+///|
+fn slns_test_deep_result_if_many_local_write_chain(
+  depth : Int,
+  local_count : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (param i32) (result i32) ")
+  out.write_string(
+    simplify_locals_nostructure_test_many_i32_locals(local_count),
+  )
+  out.write_string(" local.get 0 local.set 1 local.get 1 ")
+  for i = 0; i < depth; i = i + 1 {
+    out.write_string(
+      "i32.const \{100 + i} i32.ge_s if (result i32) i32.const 1 else ",
+    )
+    if i + 1 < depth {
+      out.write_string("local.get 1 ")
+    }
+  }
+  out.write_string("i32.const 0 ")
+  for close_i = 0; close_i < depth; close_i = close_i + 1 {
+    out.write_string("end ")
+  }
+  out.write_string("))")
+  out.to_string()
+}
+
+///|
+fn slns_test_many_result_if_local_write(count : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module (func (param i32) (result i32) (local i32) local.get 0 local.set 1 ",
+  )
+  for i = 0; i < count; i = i + 1 {
+    out.write_string(
+      "local.get 1 i32.const \{i} i32.ge_s if (result i32) i32.const 1 else i32.const 0 end drop ",
+    )
+  }
+  out.write_string("local.get 1))")
+  out.to_string()
+}
+
+///|
+fn slns_test_deep_br_table_local_write(depth : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module (func (param i32) (result i32) (local i32) local.get 0 local.set 1 ",
+  )
+  for _i = 0; _i < depth; _i = _i + 1 {
+    out.write_string("block ")
+  }
+  out.write_string("local.get 1 br_table ")
+  for label = 0; label < depth; label = label + 1 {
+    out.write_string("\{label} ")
+  }
+  for _i = 0; _i < depth; _i = _i + 1 {
+    out.write_string("end ")
+  }
+  out.write_string("local.get 1))")
+  out.to_string()
+}
+
+///|
 test "simplify-locals-nostructure skips redundant second main cycle without deferred writes" {
   // Performance invariant from the SLNS v130 timing audit: a function with no
   // first-cycle-deferred multi-use local.set work should not rescan the root
@@ -127,6 +211,41 @@ test "simplify-locals-nostructure skips changed first-cycle follow-up without de
     line.contains("perf:timer name=detail:simplify-locals:main-cycle")
   })
   @debug.assert_eq(main_cycles.length(), 1)
+}
+
+///|
+test "simplify-locals-nostructure batches direct writeback validation" {
+  // Production modules can contain thousands of independently changed
+  // functions. Validate that changed-function set once instead of rebuilding
+  // the same module validation context after every function rewrite.
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 7 local.set 0 local.get 0) (func (result i32) (local i32) i32.const 9 local.set 0 local.get 0))",
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure batch writeback fixture success, got \{err}",
+      )
+  }
+  for func_idx in [0U, 1U] {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+    assert_false(pretty.contains("local.set"), msg=pretty)
+    assert_false(pretty.contains("local.get"), msg=pretty)
+  }
+  assert_true(
+    lines.any(fn(line) {
+      line.contains(
+        "perf:timer name=guard:simplify-locals-nostructure-writeback-batch",
+      )
+    }),
+    msg=lines.join("\n"),
+  )
 }
 
 ///|
@@ -289,6 +408,131 @@ test "simplify-locals-nostructure optimizes unrelated root locals with embedded 
     trace.any(fn(line) {
       line.contains(
         "pass[simplify-locals-nostructure]:skip-hot reason=control-local-tee-hazard-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure bounds deep result-if local-tee convergence" {
+  // A production parser classifier contains a local.tee feeding a long nested
+  // result-if equality chain. The generic protected-tee cleanup revisits that
+  // path exponentially; fail closed before HOT lift at the pass-owned depth
+  // boundary while preserving ordinary shallow structured-tee cleanup.
+  let input = slns_test_deep_result_if_local_tee_chain(12)
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure deep result-if convergence success, got \{err}",
+      )
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals-nostructure]:skip-raw reason=deep-result-if-local-tee-convergence",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure bounds deep result-if many-local convergence" {
+  // Large generated classifiers combine many local carriers with nested
+  // result-if ladders. The protected root cleanup otherwise revisits those
+  // ladders combinatorially even without an existing local.tee.
+  let input = slns_test_deep_result_if_many_local_write_chain(12, 32)
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure many-local result-if convergence success, got \{err}",
+      )
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals-nostructure]:skip-raw reason=deep-result-if-many-local-write-convergence",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure bounds many result-if local-write convergence" {
+  // Generated classifiers can contain several moderate-depth result-if
+  // ladders rather than one chain deep enough for the depth guard. Bound their
+  // aggregate path-sensitive cleanup while retaining smaller classifiers.
+  let input = slns_test_many_result_if_local_write(16)
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure many result-if convergence success, got \{err}",
+      )
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals-nostructure]:skip-raw reason=many-result-if-local-write-convergence",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure bounds deep br-table local-write convergence" {
+  // A production classifier lowers to dozens of nested blocks around a
+  // br_table and local carriers. Bound that recursive HOT path by structural
+  // depth, not module/function cardinality.
+  let input = slns_test_deep_br_table_local_write(24)
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure deep br-table convergence success, got \{err}",
+      )
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals-nostructure]:skip-raw reason=deep-br-table-local-write-convergence",
       )
     }),
     msg=trace.to_string(),
@@ -2527,4 +2771,456 @@ test "simplify-locals-nostructure keeps the no-structure if boundary through its
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("if I32"), msg=pretty)
   assert_true(pretty.contains("if (Void)"), msg=pretty)
+}
+
+///|
+fn simplify_locals_nostructure_giant_post_inline_call_builder(
+  call_count : Int,
+) -> String {
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module (func $id (param i32) (result i32) local.get 0) (func (export \"run\") (local i32 i32 i32 i32 i32 i32 i32) i32.const 0 local.set 1 i32.const 0 local.set 2 i32.const 0 local.set 3 i32.const 0 local.set 4 i32.const 0 local.set 5 i32.const 0 local.set 6 (block ",
+  )
+  for i = 0; i < call_count; i = i + 1 {
+    source.write_string("local.get 0 call $id drop ")
+  }
+  source.write_string(")))")
+  source.to_string()
+}
+
+///|
+test "simplify-locals-nostructure bounds giant post-inline call builders" {
+  let source = simplify_locals_nostructure_giant_post_inline_call_builder(1400)
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace = match pass_test_capture_trace(source, [pass_name]) {
+      Ok(trace) => trace
+      Err(err) =>
+        fail("expected bounded giant call builder \{pass_name}, got \{err}")
+    }
+    assert_true(
+      trace.any(fn(line) {
+        line.contains("reason=giant-post-inline-call-builder")
+      }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals bounds loop-carried local writes" {
+  let source =
+    #|(module
+    #|  (import "env" "sink" (func $sink (param i32)))
+    #|  (func (param $limit i32) (result i32) (local $i i32)
+    #|    i32.const 0
+    #|    local.set $i
+    #|    loop
+    #|      local.get $i
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.set $i
+    #|      local.get $i
+    #|      call $sink
+    #|      local.get $i
+    #|      local.get $limit
+    #|      i32.lt_s
+    #|      br_if 0
+    #|    end
+    #|    local.get $i))
+    #|
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace = match pass_test_capture_trace(source, [pass_name]) {
+      Ok(trace) => trace
+      Err(err) =>
+        fail("expected loop-carried local boundary \{pass_name}, got \{err}")
+    }
+    assert_true(
+      trace.any(fn(line) { line.contains("reason=loop-carried-local-write") }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals bounds parameter-initialized loop carriers" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add
+    #|    local.set 2
+    #|    local.get 0
+    #|    local.set 3
+    #|    local.get 1
+    #|    local.set 4
+    #|    loop
+    #|      local.get 2
+    #|      local.get 3
+    #|      i32.gt_s
+    #|      if
+    #|        local.get 3
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set 3
+    #|        local.get 4
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set 4
+    #|        br 1
+    #|      end
+    #|    end
+    #|    local.get 4))
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace = match pass_test_capture_trace(source, [pass_name]) {
+      Ok(trace) => trace
+      Err(err) =>
+        fail(
+          "expected parameter loop-carrier boundary \{pass_name}, got \{err}",
+        )
+    }
+    assert_true(
+      trace.any(fn(line) { line.contains("reason=loop-carried-local-write") }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals-nostructure preflights oversized lowered builders" {
+  let source = simplify_locals_nostructure_giant_post_inline_call_builder(2200)
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace = match pass_test_capture_trace(source, [pass_name]) {
+      Ok(trace) => trace
+      Err(err) => fail("expected oversized preflight \{pass_name}, got \{err}")
+    }
+    assert_true(
+      trace.any(fn(line) {
+        line.contains("reason=oversized-lowered-simplify-locals-preflight")
+      }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals-nostructure preserves local-alias multi-call lifetimes" {
+  let pass_name = "simplify-locals-nostructure"
+  let input =
+    #|(module
+    #|  (func $use (param i32 i32))
+    #|  (func $release (param i32))
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    i32.const 7
+    #|    call $use
+    #|    local.get 1
+    #|    call $release))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      [pass_name],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-alias lifetime success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=local-alias-multi-call-lifetime")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure preserves effect-bracketed multivalue call spills" {
+  let source =
+    #|(module
+    #|  (type $tri (func (param i32 i32) (result i32 i32 i32)))
+    #|  (type $show (func (param i32 i32 i32) (result i32)))
+    #|  (import "m" "retain" (func $retain (param i32)))
+    #|  (import "m" "tri" (func $tri (type $tri)))
+    #|  (import "m" "release" (func $release (param i32)))
+    #|  (import "m" "show" (func $show (type $show)))
+    #|  (func (param i32) (result i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    call $retain
+    #|    local.get 0
+    #|    i32.const 0
+    #|    call $tri
+    #|    local.get 0
+    #|    call $release
+    #|    local.set 3
+    #|    local.set 2
+    #|    local.tee 1
+    #|    local.get 2
+    #|    local.get 3
+    #|    call $show
+    #|    local.get 1
+    #|    call $release))
+  let original = pass_test_module_from_wat(source)
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        source,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected effect-bracketed simplify success, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    assert_true(
+      trace.any(fn(line) {
+        line.contains(
+          "reason=effect-bracketed-multivalue-call-simplify-locals-noop",
+        )
+      }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals-nostructure preserves call-result structured lifetimes" {
+  let pass_name = "simplify-locals-nostructure"
+  let input =
+    #|(module
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $test (param i32) (result i32) local.get 0)
+    #|  (func $release (param i32))
+    #|  (func (local i32)
+    #|    call $make
+    #|    local.set 0
+    #|    local.get 0
+    #|    call $test
+    #|    if
+    #|      local.get 0
+    #|      call $release
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      [pass_name],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected structured lifetime success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-result-structured-lifetime")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure preserves call-result multi-call lifetimes" {
+  let pass_name = "simplify-locals-nostructure"
+  let input =
+    #|(module
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $use (param i32 i32))
+    #|  (func $release (param i32))
+    #|  (func (param i32) (local i32)
+    #|    call $make
+    #|    local.set 1
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $use
+    #|    local.get 1
+    #|    call $release
+    #|    local.get 0
+    #|    if
+    #|      nop
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      [pass_name],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected multi-call lifetime success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-result-multi-call-lifetime")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure preserves call-local-tee lifetimes" {
+  let pass_name = "simplify-locals-nostructure"
+  // The tee owns a call result across a consumer call and a later release call.
+  // Forwarding it before the producer reads an uninitialized local and moves the
+  // release ahead of the consumer.
+  let input =
+    #|(module
+    #|  (type $make (func (param i32) (result i32)))
+    #|  (type $use (func (param i32) (result i32)))
+    #|  (type $release (func (param i32)))
+    #|  (import "m" "make" (func $make (type $make)))
+    #|  (import "m" "use" (func $use (type $use)))
+    #|  (import "m" "release" (func $release (type $release)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    local.get 0
+    #|    call $make
+    #|    local.tee 1
+    #|    call $use
+    #|    local.get 1
+    #|    call $release
+    #|    local.set 2
+    #|    local.get 2
+    #|    if
+    #|      nop
+    #|    end
+    #|    local.get 2))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      [pass_name],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call-local-tee lifetime success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) { line.contains("reason=call-local-tee-lifetime") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure bounds structured startup initializer convergence" {
+  // The large debug-WASI initializer combines low-local tee carriers, calls,
+  // globals, stores, and small structured checks. That exact mix reaches the
+  // recursive root-forwarding path before the unstructured startup guard.
+  let input =
+    #|(module
+    #|  (type $none_i32 (func (result i32)))
+    #|  (type $i32_i32 (func (param i32) (result i32)))
+    #|  (import "env" "make" (func $make (type $none_i32)))
+    #|  (import "env" "use" (func $use (type $i32_i32)))
+    #|  (memory 1)
+    #|  (global $g0 (mut i32) (i32.const 0))
+    #|  (global $g1 (mut i32) (i32.const 0))
+    #|  (func (export "run") (local i32 i32 i32 i32 i32 i32 i32)
+    #|    call $make local.tee 0 call $use global.set $g0
+    #|    local.get 0
+    #|    if
+    #|      local.get 0 call $use global.set $g1
+    #|    end
+    #|    call $make local.tee 1 call $use drop
+    #|    call $make local.tee 2 call $use drop
+    #|    i32.const 8 call $use local.tee 3
+    #|    i32.const 1 i32.store
+    #|    local.get 3 i32.const 4 i32.store
+    #|    local.get 0 drop
+    #|    local.get 1 drop
+    #|    local.get 2 drop))
+  let original = pass_test_module_from_wat(input)
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected bounded structured startup \{pass_name}, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    assert_true(
+      trace.any(fn(line) {
+        line.contains(
+          "reason=structured-startup-initializer-call-store-local-tee",
+        )
+      }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals-nostructure bounds startup initializer convergence" {
+  let input =
+    #|(module
+    #|  (type $i32_i32 (func (param i32) (result i32)))
+    #|  (type $i64_i32 (func (param i64) (result i32)))
+    #|  (type $none_i32 (func (result i32)))
+    #|  (import "env" "f8" (func $f8 (type $i32_i32)))
+    #|  (import "env" "f20" (func $f20 (type $none_i32)))
+    #|  (import "env" "f21" (func $f21 (type $i32_i32)))
+    #|  (import "env" "f22" (func $f22 (type $i64_i32)))
+    #|  (import "env" "f23" (func $f23 (type $i32_i32)))
+    #|  (import "env" "f31" (func $f31 (type $i32_i32)))
+    #|  (memory 3)
+    #|  (global $g2 (mut i32) (i32.const 0))
+    #|  (global $g3 (mut f64) (f64.const 0))
+    #|  (global $g4 (mut f64) (f64.const 0))
+    #|  (global $g5 (mut f64) (f64.const 0))
+    #|  (global $g6 (mut i32) (i32.const 0))
+    #|  (global $g7 (mut i32) (i32.const 0))
+    #|  (global $g8 (mut i32) (i32.const 0))
+    #|  (global $g9 (mut i32) (i32.const 0))
+    #|  (global $g10 (mut i32) (i32.const 0))
+    #|  (global $g11 (mut i32) (i32.const 0))
+    #|  (global $g12 (mut i32) (i32.const 0))
+    #|  (global $g13 (mut i32) (i32.const 0))
+    #|  (func (export "run") (local i32 i32 i32 i32 i32 i32 i32)
+    #|    i32.const 10000 global.set $g2
+    #|    f64.const nan global.set $g3
+    #|    f64.const inf global.set $g4
+    #|    f64.const -inf global.set $g5
+    #|    i32.const 0 call $f21 global.set $g6
+    #|    i64.const 0 call $f22 global.set $g7
+    #|    i32.const 0 call $f23 global.set $g8
+    #|    i32.const 8 call $f31 call $f21 global.set $g9
+    #|    i32.const 8 call $f31 call $f21 global.set $g10
+    #|    i32.const 10016 local.set 4
+    #|    i32.const 8 call $f8 local.tee 6
+    #|    i32.const 1573120 i32.store offset=4 align=1
+    #|    local.get 6 i32.const 0 i32.store offset=8 align=1
+    #|    local.get 6 local.get 4 i32.store offset=12 align=1
+    #|    local.get 6 call $f21 global.set $g11
+    #|    i32.const 0 call $f21 global.set $g12
+    #|    call $f20 global.set $g13))
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let optimized = match pass_test_run_pipeline(input, [pass_name]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected bounded startup initializer \{pass_name}, got \{err}")
+    }
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected bounded startup initializer \{pass_name}, got \{err}")
+    }
+  }
 }

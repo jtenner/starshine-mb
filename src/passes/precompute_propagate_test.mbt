@@ -1,4 +1,273 @@
 ///|
+test "precompute-propagate preserves call-local-tee ownership lifetimes" {
+  let source =
+    #|(module
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $consume (param i32) (result i32) local.get 0)
+    #|  (func $release (param i32)
+    #|    local.get 0
+    #|    i32.eqz
+    #|    if unreachable end)
+    #|  (func (export "run") (result i32) (local i32 i32 i32)
+    #|    call $make
+    #|    local.tee 0
+    #|    call $consume
+    #|    local.get 0
+    #|    call $release
+    #|    local.tee 1
+    #|    call $consume
+    #|    local.get 1
+    #|    call $release
+    #|    local.set 2
+    #|    local.get 2))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["precompute-propagate"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ownership lifetime preservation, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-local-tee-lifetime-precompute-propagate-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "precompute-propagate preserves structured call-result lifetimes" {
+  let source =
+    #|(module
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $convert (param i32) (result i32) local.get 0)
+    #|  (func $release (param i32))
+    #|  (func (result i32) (local i32 i32)
+    #|    call $make
+    #|    local.set 0
+    #|    local.get 0
+    #|    call $convert
+    #|    local.get 0
+    #|    if
+    #|      local.get 0
+    #|      call $release
+    #|    end
+    #|    local.set 1
+    #|    local.get 1))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["precompute-propagate"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected structured lifetime preservation, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(3U)),
+    original.pretty_print_func(@lib.FuncIdx::new(3U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-result-structured-lifetime-precompute-propagate-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "precompute-propagate preserves effect-bracketed multivalue spills" {
+  let source =
+    #|(module
+    #|  (func $side)
+    #|  (func $make (result i32 i32 i32)
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    i32.const 3)
+    #|  (func $consume (param i32 i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func $release (param i32))
+    #|  (func (result i32) (local i32 i32 i32)
+    #|    call $side
+    #|    call $make
+    #|    local.set 2
+    #|    local.set 1
+    #|    local.tee 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $consume
+    #|    drop
+    #|    local.get 0
+    #|    call $release
+    #|    local.get 1))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["precompute-propagate"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected multivalue spill preservation, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(4U)),
+    original.pretty_print_func(@lib.FuncIdx::new(4U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=effect-bracketed-multivalue-call-precompute-propagate-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "precompute-propagate preserves call arguments until structured release" {
+  let source =
+    #|(module
+    #|  (func $use (param i32 i32 i32))
+    #|  (func $release (param i32))
+    #|  (func (param i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    local.tee 2
+    #|    local.set 3
+    #|    i32.const 0
+    #|    local.set 1
+    #|    i32.const 70608
+    #|    local.get 1
+    #|    local.get 3
+    #|    call $use
+    #|    local.get 1
+    #|    if
+    #|      local.get 1
+    #|      call $release
+    #|    end
+    #|    local.get 3
+    #|    if
+    #|      local.get 3
+    #|      call $release
+    #|    end))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["precompute-propagate"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call argument lifetime preservation, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+    original.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-argument-structured-release-precompute-propagate-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "precompute-propagate preserves call arguments until direct release" {
+  let source =
+    #|(module
+    #|  (func $use (param i32 i32 i32))
+    #|  (func $release (param i32))
+    #|  (func (param i32 i32)
+    #|    i32.const 70032
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $use
+    #|    local.get 0
+    #|    call $release
+    #|    local.get 1
+    #|    call $release))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["precompute-propagate"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected direct release lifetime preservation, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+    original.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-argument-direct-release-precompute-propagate-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "precompute-propagate preserves parameters read before later writes" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    i32.load
+    #|    drop
+    #|    local.get 0
+    #|    i32.const 0
+    #|    i32.gt_s
+    #|    local.set 1
+    #|    i32.const 7
+    #|    local.set 0
+    #|    local.get 1))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["precompute-propagate"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected parameter lifetime preservation, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+    original.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=parameter-read-before-write-precompute-propagate-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "precompute-propagate folds local-carried constants that plain precompute leaves" {
   let source = "(module (func (result i32) (local i32) i32.const 10 local.set 0 local.get 0 local.get 0 i32.add))"
   let plain = match pass_test_run_pipeline(source, ["precompute"]) {
@@ -413,6 +682,40 @@ test "precompute-propagate raw control propagation keeps loop invariants" {
   }
   assert_true(pretty.contains("I32(290192)"), msg=pretty)
   assert_false(pretty.contains("(local.get (Local 1))"), msg=pretty)
+}
+
+///|
+test "precompute-propagate preserves typed loop-carried local tees" {
+  let source =
+    #|(module
+    #|  (func (param $limit i32) (local $i i32)
+    #|    i32.const 0
+    #|    loop (param i32)
+    #|      local.tee $i
+    #|      local.get $limit
+    #|      i32.lt_s
+    #|      if
+    #|        local.get $i
+    #|        i32.const 1
+    #|        i32.add
+    #|        br 1
+    #|      end
+    #|    end))
+    #|
+  let trace = match pass_test_capture_trace(source, ["precompute-propagate"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected typed-loop propagation boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) { line.contains("reason=typed-loop-param-control") }),
+    msg=trace.to_string(),
+  )
+  let pretty = match pass_test_run_pipeline(source, ["precompute-propagate"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected typed-loop local preservation, got \{err}")
+  }
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
 }
 
 ///|

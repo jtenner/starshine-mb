@@ -46765,6 +46765,7 @@ fn dae_run_core(
   perf? : HotPerfSession? = None,
   single_caller_throttle_consumed? : Bool = false,
   traps_never_happen? : Bool = false,
+  results_only? : Bool = false,
 ) -> DaeCoreRunResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
@@ -46802,14 +46803,18 @@ fn dae_run_core(
   perf_stop_timer_opt(perf, "detail:dae:core:setup", setup_start_us)
   let mut dropped_result_post_graph : DaeCurrentBoundaryGraph? = None
   if !optimize && original_defined >= 1024 {
-    let application = dae_apply_dropped_result_batch_transaction(
-      original_boundary_snapshot,
-      current,
-      touched,
-      changed,
-      retain_post_graph=true,
-    )
-    if application.applied {
+    let mut dropped_result_batch_wave = 0
+    while true {
+      let application = dae_apply_dropped_result_batch_transaction(
+        original_boundary_snapshot,
+        current,
+        touched,
+        changed,
+        retain_post_graph=true,
+      )
+      if !application.applied {
+        break
+      }
       current = application.mod_out
       touched = application.touched
       changed = application.changed
@@ -46818,8 +46823,9 @@ fn dae_run_core(
       dae_diagnostics_record_commit_effects(diagnostics, application.effects)
       dae_diagnostics_record_applied_effects(diagnostics, application.effects)
       trace(
-        "pass[dae]:dropped-result-batch first_def=\{application.primary_def}",
+        "pass[dae]:dropped-result-batch wave=\{dropped_result_batch_wave} first_def=\{application.primary_def}",
       )
+      dropped_result_batch_wave += 1
     }
   }
   if optimize {
@@ -47006,6 +47012,18 @@ fn dae_run_core(
         None => break
       }
       diagnostics.boundaries_analyzed += 1
+      // A fresh frontier is usually a contiguous definition range. Analyze that
+      // range with one core setup instead of rebuilding the same boundary
+      // contexts once per definition. Stop at the first committed candidate;
+      // dependency invalidation can then requeue any earlier definitions whose
+      // facts changed.
+      let mut batch_end_exclusive = def_idx + 1
+      let mut batch_queue_end = core_worklist.cursor
+      while batch_queue_end < wave_end &&
+            core_worklist.queue[batch_queue_end] == batch_end_exclusive {
+        batch_end_exclusive += 1
+        batch_queue_end += 1
+      }
       let before_call_facts = current_boundary_graph.snapshot.call_facts
       let call_epoch = current_boundary_graph.call_epoch
       let boundary_facts = current_boundary_graph.snapshot.boundary_facts
@@ -47020,7 +47038,7 @@ fn dae_run_core(
         original_boundary_snapshot,
         current_boundary_graph,
         expected_call_epoch=call_epoch,
-        max_def_exclusive=def_idx + 1,
+        max_def_exclusive=batch_end_exclusive,
         start_def_inclusive=def_idx,
         boundary_facts_override=Some(boundary_facts),
         dependencies=Some(current_dependencies),
@@ -47030,6 +47048,27 @@ fn dae_run_core(
         has_current_dropped_result_candidate~,
         traps_never_happen~,
       )
+      let consumed_end_exclusive = if result.changed &&
+        result.primary_def >= def_idx &&
+        result.primary_def < batch_end_exclusive {
+        result.primary_def + 1
+      } else {
+        batch_end_exclusive
+      }
+      while core_worklist.cursor < batch_queue_end &&
+            core_worklist.queue[core_worklist.cursor] < consumed_end_exclusive {
+        ignore(dae_boundary_worklist_take(core_worklist))
+        diagnostics.boundaries_analyzed += 1
+      }
+      let scanned = consumed_end_exclusive - def_idx
+      if scanned > 1 {
+        trace(
+          "pass[dae]:core-worklist-batch start=\{def_idx} primary_def=\{result.primary_def} scanned=\{scanned}",
+        )
+        for _i = 1; _i < scanned; _i = _i + 1 {
+          dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+        }
+      }
       let before_primary_param_count = if result.primary_def >= 0 {
         let before_type_indices = dae_collect_func_type_indices(current)
         match
@@ -47159,6 +47198,22 @@ fn dae_run_core(
     }
   }
   perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
+  if results_only {
+    trace("pass[dae]:results-only-fallback stop=after-core-worklist")
+    return {
+      mod_out: current,
+      touched: if changed {
+        touched
+      } else {
+        []
+      },
+      changed,
+      primary_def: -1,
+      effects,
+      diagnostics,
+      single_caller_throttle_consumed: unprofitable_removal_iters > 0,
+    }
+  }
   let mut current_boundary_graph_stale = false
   if dae_should_run_computed_unread_dependency_worklist(
       original_defined,
@@ -48414,12 +48469,22 @@ fn dae_run_module_pass_with_trap_policy(
   optimize? : Bool = false,
   trace? : ((String) -> Unit)? = None,
   traps_never_happen? : Bool = false,
+  perf? : HotPerfSession? = None,
+  skip_param_removal? : Bool = false,
 ) -> @lib.Module {
   let trace_fn = match trace {
     Some(cb) => cb
     None => fn(_line : String) { () }
   }
-  let result = dae_run_core(mod_, trace_fn, optimize~, traps_never_happen~)
+  let result = dae_run_core(
+    mod_,
+    trace_fn,
+    optimize~,
+    perf~,
+    single_caller_throttle_consumed=skip_param_removal,
+    traps_never_happen~,
+    results_only=skip_param_removal,
+  )
   dae_trace_diagnostics(
     trace_fn,
     if optimize {

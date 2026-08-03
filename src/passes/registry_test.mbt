@@ -326,12 +326,13 @@ test "audited pass_require helper metadata contracts stay declared" {
 }
 
 ///|
-test "preset expansion matches Binaryen v131's 56 slots plus strip-debug" {
-  let optimize = optimize_preset_passes(HotPipelineOptions::new())
-  let shrink = shrink_preset_passes(HotPipelineOptions::new())
+test "O4z preset expansion matches Binaryen v131's 56 slots plus strip-debug" {
+  let options = HotPipelineOptions::new(optimize_level=4, shrink_level=4)
+  let optimize = optimize_preset_passes(options)
+  let shrink = shrink_preset_passes(options)
   let binaryen_v131 = [
     "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
-    "once-reduction", "global-refining", "global-struct-inference", "remove-unused-module-elements",
+    "once-reduction", "global-refining", "remove-unused-module-elements", "global-struct-inference",
     "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
     "remove-unused-names", "remove-unused-brs", "remove-unused-names", "optimize-instructions",
     "heap-store-optimization", "pick-load-signs", "precompute-propagate", "code-pushing",
@@ -381,15 +382,47 @@ test "preset expansion matches Binaryen v131's 56 slots plus strip-debug" {
 }
 
 ///|
+test "public non-O4z presets keep only measured fast-payoff passes" {
+  let o1 = optimize_preset_passes(HotPipelineOptions::new(optimize_level=1))
+  let o2 = optimize_preset_passes(HotPipelineOptions::new(optimize_level=2))
+  let o3 = optimize_preset_passes(HotPipelineOptions::new(optimize_level=3))
+  let o4 = optimize_preset_passes(HotPipelineOptions::new(optimize_level=4))
+  let os = shrink_preset_passes(
+    HotPipelineOptions::new(optimize_level=2, shrink_level=1),
+  )
+  let oz = shrink_preset_passes(
+    HotPipelineOptions::new(optimize_level=2, shrink_level=2),
+  )
+
+  let fast_default = ["duplicate-function-elimination", "strip-debug"]
+  @debug.assert_eq(o1, fast_default)
+  @debug.assert_eq(o2, fast_default)
+  let fast_size_or_aggressive = [
+    "duplicate-function-elimination", "vacuum", "reorder-locals", "strip-debug",
+  ]
+  @debug.assert_eq(o3, fast_size_or_aggressive)
+  @debug.assert_eq(o4, fast_size_or_aggressive)
+  @debug.assert_eq(os, fast_size_or_aggressive)
+  @debug.assert_eq(oz, fast_size_or_aggressive)
+  for passes in [o1, o2, o3, o4, os, oz] {
+    assert_false(passes.contains("dae-optimizing"))
+    assert_false(passes.contains("inlining-optimizing"))
+    assert_false(passes.contains("optimize-casts"))
+    assert_false(passes.contains("merge-blocks"))
+  }
+}
+
+///|
 test "aggressive presets schedule the Binaryen flatten cleanup prelude" {
   assert_true(simplify_locals_notee_nostructure_exact_neighborhood_ready())
   let expected_prefix = [
     "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
-    "once-reduction", "global-refining", "global-struct-inference", "remove-unused-module-elements",
+    "once-reduction", "global-refining", "remove-unused-module-elements", "global-struct-inference",
     "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
   ]
-  let optimize = optimize_preset_passes(HotPipelineOptions::new())
-  let shrink = shrink_preset_passes(HotPipelineOptions::new())
+  let options = HotPipelineOptions::new(optimize_level=4, shrink_level=4)
+  let optimize = optimize_preset_passes(options)
+  let shrink = shrink_preset_passes(options)
   @debug.assert_eq(optimize[:expected_prefix.length()], expected_prefix)
   @debug.assert_eq(shrink[:expected_prefix.length()], expected_prefix)
 }

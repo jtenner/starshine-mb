@@ -366,19 +366,28 @@ fn code_pushing_effects_safe_to_cross_for_heap_read(mask : UInt) -> Bool {
 }
 
 ///|
-fn code_pushing_node_has_rethrow(func : @ir.HotFunc, node_id : Int) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+fn code_pushing_node_has_rethrow_with_visited(
+  func : @ir.HotFunc,
+  node_id : Int,
+  visited : Array[Bool],
+) -> Bool {
+  if node_id < 0 ||
+    node_id >= visited.length() ||
+    visited[node_id] ||
+    !@ir.hot_node_is_live(func, node_id) {
     return false
   }
+  visited[node_id] = true
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Rethrow => return true
     _ => ()
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if code_pushing_node_has_rethrow(
+    if code_pushing_node_has_rethrow_with_visited(
         func,
         @ir.hot_child_get(func, node_id, slot),
+        visited,
       ) {
       return true
     }
@@ -387,9 +396,10 @@ fn code_pushing_node_has_rethrow(func : @ir.HotFunc, node_id : Int) -> Bool {
     for idx = 0
         idx < @ir.hot_region_root_count(func, region_ref)
         idx = idx + 1 {
-      if code_pushing_node_has_rethrow(
+      if code_pushing_node_has_rethrow_with_visited(
           func,
           @ir.hot_region_get(func, region_ref, idx),
+          visited,
         ) {
         return true
       }
@@ -422,6 +432,15 @@ fn code_pushing_node_has_rethrow(func : @ir.HotFunc, node_id : Int) -> Bool {
       region_has_rethrow(@ir.hot_region_catch_list_ref(func, node_id))
     _ => false
   }
+}
+
+///|
+fn code_pushing_node_has_rethrow(func : @ir.HotFunc, node_id : Int) -> Bool {
+  code_pushing_node_has_rethrow_with_visited(
+    func,
+    node_id,
+    Array::make(@ir.hot_node_count(func), false),
+  )
 }
 
 ///|
@@ -809,15 +828,17 @@ fn code_pushing_count_unique_local_gets_writes_in_node_bounded(
   local_id : Int,
   max_gets : Int,
   max_writes : Int,
-  visited : Array[Int],
+  visited : Array[Bool],
 ) -> (Int, Int) {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+  if node_id < 0 ||
+    node_id >= visited.length() ||
+    !@ir.hot_node_is_live(func, node_id) {
     return (0, 0)
   }
-  if visited.any(fn(existing) { existing == node_id }) {
+  if visited[node_id] {
     return (0, 0)
   }
-  visited.push(node_id)
+  visited[node_id] = true
   let node = @ir.hot_node_get(func, node_id)
   let mut gets = 0
   let mut writes = 0
@@ -855,7 +876,7 @@ fn code_pushing_count_unique_total_local_gets_writes_bounded(
   max_gets : Int,
   max_writes : Int,
 ) -> (Int, Int) {
-  let visited : Array[Int] = []
+  let visited = Array::make(@ir.hot_node_count(func), false)
   let mut gets = 0
   let mut writes = 0
   for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
@@ -874,6 +895,72 @@ fn code_pushing_count_unique_total_local_gets_writes_bounded(
     }
   }
   (gets, writes)
+}
+
+///|
+priv struct CodePushingLocalInventory {
+  func : @ir.HotFunc
+  total_gets : Array[Int]
+  total_writes : Array[Int]
+  unique_gets : Array[Int]
+  unique_writes : Array[Int]
+  scan_seen : Array[Bool]
+}
+
+///|
+fn CodePushingLocalInventory::from_func(
+  func : @ir.HotFunc,
+) -> CodePushingLocalInventory {
+  let local_count = @ir.hot_local_count(func)
+  let total_gets = Array::make(local_count, 0)
+  let total_writes = Array::make(local_count, 0)
+  for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+    let (gets, writes) = code_pushing_count_total_local_gets_writes_bounded(
+      func, local_id, 1_000_000, 1_000_000,
+    )
+    total_gets[local_id] = gets
+    total_writes[local_id] = writes
+  }
+  {
+    func,
+    total_gets,
+    total_writes,
+    unique_gets: Array::make(local_count, -1),
+    unique_writes: Array::make(local_count, -1),
+    scan_seen: Array::make(@ir.hot_node_count(func), false),
+  }
+}
+
+///|
+fn CodePushingLocalInventory::total(
+  self : CodePushingLocalInventory,
+  local_id : Int,
+) -> (Int, Int) {
+  if local_id < 0 || local_id >= self.total_gets.length() {
+    return (0, 0)
+  }
+  (self.total_gets[local_id], self.total_writes[local_id])
+}
+
+///|
+fn CodePushingLocalInventory::unique_total(
+  self : CodePushingLocalInventory,
+  local_id : Int,
+) -> (Int, Int) {
+  if local_id < 0 || local_id >= self.unique_gets.length() {
+    return (0, 0)
+  }
+  if self.unique_gets[local_id] < 0 {
+    let (gets, writes) = code_pushing_count_unique_total_local_gets_writes_bounded(
+      self.func,
+      local_id,
+      1_000_000,
+      1_000_000,
+    )
+    self.unique_gets[local_id] = gets
+    self.unique_writes[local_id] = writes
+  }
+  (self.unique_gets[local_id], self.unique_writes[local_id])
 }
 
 ///|
@@ -946,6 +1033,7 @@ fn code_pushing_segment_window_diagnostic(
   set_idx : Int,
   traps_never_happen? : Bool = false,
   ignore_implicit_traps? : Bool = false,
+  inventory? : CodePushingLocalInventory? = None,
 ) -> String {
   if set_idx < 0 || set_idx >= @ir.hot_region_root_count(func, region_ref) {
     return "reject:no-local-set"
@@ -969,9 +1057,13 @@ fn code_pushing_segment_window_diagnostic(
   if prefix_gets != 0 {
     return "reject:prefix-local-read"
   }
-  let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-    func, local_id, 1_000_000, 2,
-  )
+  let (total_gets, total_writes) = match inventory {
+    Some(inventory) => inventory.total(local_id)
+    None =>
+      code_pushing_count_total_local_gets_writes_bounded(
+        func, local_id, 1_000_000, 2,
+      )
+  }
   if total_writes != 1 {
     return "reject:multiple-local-writes"
   }
@@ -1264,6 +1356,7 @@ fn code_pushing_try_sink_set_before_later_barrier(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   if set_idx + 1 >= @ir.hot_region_root_count(func, region_ref) {
     return false
@@ -1294,9 +1387,7 @@ fn code_pushing_try_sink_set_before_later_barrier(
     return false
   }
   let local_id = set_node.imm0
-  let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-    func, local_id, 1_000_000, 2,
-  )
+  let (total_gets, total_writes) = inventory.total(local_id)
   if total_writes != 1 || total_gets == 0 {
     return false
   }
@@ -1438,6 +1529,7 @@ fn code_pushing_try_sink_local_get_set_after_if(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   if set_idx + 1 >= @ir.hot_region_root_count(func, region_ref) {
     return false
@@ -1463,9 +1555,7 @@ fn code_pushing_try_sink_local_get_set_after_if(
   if source_local == dest_local {
     return false
   }
-  let (dest_total_gets, dest_total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-    func, dest_local, 1_000_000, 1,
-  )
+  let (dest_total_gets, dest_total_writes) = inventory.total(dest_local)
   // Binaryen does not move an unused copy after a final if: there is no later
   // consumer to justify segment pushing, and optimizeIntoIf has no using arm.
   if dest_total_gets == 0 || dest_total_writes != 1 {
@@ -1530,6 +1620,7 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   if set_idx + 2 >= @ir.hot_region_root_count(func, region_ref) {
     return false
@@ -1623,9 +1714,7 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
         if !safe_to_branch {
           continue
         }
-        let (total_gets, total_writes) = code_pushing_count_unique_total_local_gets_writes_bounded(
-          func, local_id, 1_000_000, 1,
-        )
+        let (total_gets, total_writes) = inventory.unique_total(local_id)
         if total_writes != 1 || total_gets == 0 {
           continue
         }
@@ -1678,6 +1767,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   if set_idx + 2 >= @ir.hot_region_root_count(func, region_ref) {
     return false
@@ -1735,9 +1825,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
         if prefix_gets != 0 {
           return false
         }
-        let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-          func, local_id, 1_000_000, 1,
-        )
+        let (total_gets, total_writes) = inventory.total(local_id)
         if total_writes != 1 || total_gets == 0 {
           return false
         }
@@ -1865,9 +1953,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
         return false
       }
     }
-    let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-      func, local_id, 1_000_000, 1,
-    )
+    let (total_gets, total_writes) = inventory.total(local_id)
     if total_writes != 1 || total_gets == 0 {
       return false
     }
@@ -1941,6 +2027,7 @@ fn code_pushing_try_sink_zero_read_set_after_push_point(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if set_idx < 0 || set_idx + 2 >= root_count {
@@ -1959,9 +2046,7 @@ fn code_pushing_try_sink_zero_read_set_after_push_point(
     return false
   }
   let local_id = set_node.imm0
-  let (total_gets, total_writes) = code_pushing_count_unique_total_local_gets_writes_bounded(
-    func, local_id, 0, 1,
-  )
+  let (total_gets, total_writes) = inventory.unique_total(local_id)
   if total_gets != 0 || total_writes != 1 {
     return false
   }
@@ -2019,13 +2104,58 @@ fn code_pushing_try_sink_set_after_if_push_point(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
+  if set_idx < 0 || set_idx >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let preflight_set_id = @ir.hot_region_get(func, region_ref, set_idx)
+  if preflight_set_id < 0 || !@ir.hot_node_is_live(func, preflight_set_id) {
+    return false
+  }
+  let preflight_set = @ir.hot_node_get(func, preflight_set_id)
+  match preflight_set.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, preflight_set_id) != 0 {
+    return false
+  }
+  let preflight_value_id = @ir.hot_child_get(func, preflight_set_id, 0)
+  // Reject the common nonmovable and no-push-point cases before the diagnostic's
+  // whole-function local-use inventory. The diagnostic still owns exact
+  // candidate classification once this behavior-preserving preflight succeeds.
+  if !code_pushing_node_is_movable_value(
+      func,
+      preflight_value_id,
+      traps_never_happen=ctx.traps_never_happen,
+      ignore_implicit_traps=ctx.ignore_implicit_traps,
+    ) {
+    return false
+  }
+  let mut has_later_push_point = false
+  for scan = set_idx + 1
+      scan < @ir.hot_region_root_count(func, region_ref)
+      scan = scan + 1 {
+    if code_pushing_push_point_kind(
+        func,
+        @ir.hot_region_get(func, region_ref, scan),
+      ) !=
+      "none" {
+      has_later_push_point = true
+      break
+    }
+  }
+  if !has_later_push_point {
+    return false
+  }
   let diagnostic = code_pushing_segment_window_diagnostic(
     func,
     region_ref,
     set_idx,
     traps_never_happen=ctx.traps_never_happen,
     ignore_implicit_traps=ctx.ignore_implicit_traps,
+    inventory=Some(inventory),
   )
   if diagnostic != "candidate:if" &&
     diagnostic != "candidate:dropped-if" &&
@@ -2124,9 +2254,7 @@ fn code_pushing_try_sink_set_after_if_push_point(
       return false
     }
   }
-  let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-    func, local_id, 1_000_000, 1,
-  )
+  let (total_gets, total_writes) = inventory.total(local_id)
   if total_writes != 1 || total_gets == 0 {
     return false
   }
@@ -2156,6 +2284,7 @@ fn code_pushing_try_sink_consecutive_sets_into_if_arm(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   if set_idx + 2 >= @ir.hot_region_root_count(func, region_ref) {
     return false
@@ -2277,9 +2406,7 @@ fn code_pushing_try_sink_consecutive_sets_into_if_arm(
     if code_pushing_if_arms_write_local_deep_limited(func, if_id, local_id, 8) {
       return false
     }
-    let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-      func, local_id, 1_000_000, 1,
-    )
+    let (total_gets, total_writes) = inventory.total(local_id)
     if total_writes != 1 || total_gets == 0 {
       return false
     }
@@ -2352,6 +2479,7 @@ fn code_pushing_try_sink_set_into_if_then(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   if set_idx + 1 >= @ir.hot_region_root_count(func, region_ref) {
     return false
@@ -2368,17 +2496,6 @@ fn code_pushing_try_sink_set_into_if_then(
   if @ir.hot_node_result_arity(func, set_id) != 0 {
     return false
   }
-  // Keep the non-mutating segment inventory exercised in normal builds while
-  // mutation remains governed by the stricter source-backed checks below.
-  ignore(
-    code_pushing_segment_window_diagnostic(
-      func,
-      region_ref,
-      set_idx,
-      traps_never_happen=ctx.traps_never_happen,
-      ignore_implicit_traps=ctx.ignore_implicit_traps,
-    ),
-  )
   let value_id = @ir.hot_child_get(func, set_id, 0)
   if !code_pushing_node_is_movable_value(
       func,
@@ -2467,9 +2584,7 @@ fn code_pushing_try_sink_set_into_if_then(
   if arm_gets == 0 || (then_gets > 0 && else_gets > 0) {
     return false
   }
-  let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-    func, local_id, 1_000_000, 1,
-  )
+  let (total_gets, total_writes) = inventory.total(local_id)
   if total_writes != 1 {
     return false
   }
@@ -2528,21 +2643,27 @@ fn code_pushing_scan_node_children_once(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
-    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+    if child_id < 0 ||
+      child_id >= inventory.scan_seen.length() ||
+      inventory.scan_seen[child_id] ||
+      !@ir.hot_node_is_live(func, child_id) {
       continue
     }
+    inventory.scan_seen[child_id] = true
     match @ir.hot_node_get(func, child_id).op {
       @ir.HotOp::Block | @ir.HotOp::Loop =>
         if code_pushing_scan_region_once(
             ctx,
             func,
             @ir.hot_region_body_ref(func, child_id),
+            inventory,
           ) {
           return true
         }
@@ -2551,12 +2672,13 @@ fn code_pushing_scan_node_children_once(
             ctx,
             func,
             @ir.hot_region_then_ref(func, child_id),
+            inventory,
           ) {
           return true
         }
         match @ir.hot_region_else_ref(func, child_id) {
           Some(else_ref) =>
-            if code_pushing_scan_region_once(ctx, func, else_ref) {
+            if code_pushing_scan_region_once(ctx, func, else_ref, inventory) {
               return true
             }
           None => ()
@@ -2564,7 +2686,7 @@ fn code_pushing_scan_node_children_once(
       }
       _ => ()
     }
-    if code_pushing_scan_node_children_once(ctx, func, child_id) {
+    if code_pushing_scan_node_children_once(ctx, func, child_id, inventory) {
       return true
     }
   }
@@ -2576,6 +2698,7 @@ fn code_pushing_scan_region_once(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
@@ -2585,37 +2708,43 @@ fn code_pushing_scan_region_once(
       return true
     }
     if code_pushing_try_sink_set_before_later_barrier(
-        ctx, func, region_ref, idx,
+        ctx, func, region_ref, idx, inventory,
       ) {
       return true
     }
     if code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
-        ctx, func, region_ref, idx,
+        ctx, func, region_ref, idx, inventory,
       ) {
       return true
     }
     if code_pushing_try_sink_ordered_sets_after_push_point(
-        ctx, func, region_ref, idx,
+        ctx, func, region_ref, idx, inventory,
       ) {
       return true
     }
-    if code_pushing_try_sink_local_get_set_after_if(ctx, func, region_ref, idx) {
+    if code_pushing_try_sink_local_get_set_after_if(
+        ctx, func, region_ref, idx, inventory,
+      ) {
       return true
     }
     if code_pushing_try_sink_zero_read_set_after_push_point(
-        ctx, func, region_ref, idx,
+        ctx, func, region_ref, idx, inventory,
       ) {
       return true
     }
-    if code_pushing_try_sink_set_after_if_push_point(ctx, func, region_ref, idx) {
+    if code_pushing_try_sink_set_after_if_push_point(
+        ctx, func, region_ref, idx, inventory,
+      ) {
       return true
     }
     if code_pushing_try_sink_consecutive_sets_into_if_arm(
-        ctx, func, region_ref, idx,
+        ctx, func, region_ref, idx, inventory,
       ) {
       return true
     }
-    if code_pushing_try_sink_set_into_if_then(ctx, func, region_ref, idx) {
+    if code_pushing_try_sink_set_into_if_then(
+        ctx, func, region_ref, idx, inventory,
+      ) {
       return true
     }
     idx += 1
@@ -2623,9 +2752,13 @@ fn code_pushing_scan_region_once(
 
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
-    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    if node_id < 0 ||
+      node_id >= inventory.scan_seen.length() ||
+      inventory.scan_seen[node_id] ||
+      !@ir.hot_node_is_live(func, node_id) {
       continue
     }
+    inventory.scan_seen[node_id] = true
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::Block | @ir.HotOp::Loop =>
@@ -2633,6 +2766,7 @@ fn code_pushing_scan_region_once(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            inventory,
           ) {
           return true
         }
@@ -2641,12 +2775,13 @@ fn code_pushing_scan_region_once(
             ctx,
             func,
             @ir.hot_region_then_ref(func, node_id),
+            inventory,
           ) {
           return true
         }
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_ref) =>
-            if code_pushing_scan_region_once(ctx, func, else_ref) {
+            if code_pushing_scan_region_once(ctx, func, else_ref, inventory) {
               return true
             }
           None => ()
@@ -2657,12 +2792,13 @@ fn code_pushing_scan_region_once(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            inventory,
           ) {
           return true
         }
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(catch_ref) =>
-            if code_pushing_scan_region_once(ctx, func, catch_ref) {
+            if code_pushing_scan_region_once(ctx, func, catch_ref, inventory) {
               return true
             }
           None => ()
@@ -2673,6 +2809,7 @@ fn code_pushing_scan_region_once(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            inventory,
           ) {
           return true
         }
@@ -2680,12 +2817,13 @@ fn code_pushing_scan_region_once(
             ctx,
             func,
             @ir.hot_region_catch_list_ref(func, node_id),
+            inventory,
           ) {
           return true
         }
       }
       _ =>
-        if code_pushing_scan_node_children_once(ctx, func, node_id) {
+        if code_pushing_scan_node_children_once(ctx, func, node_id, inventory) {
           return true
         }
     }
@@ -2697,17 +2835,23 @@ fn code_pushing_scan_region_once(
 fn code_pushing_scan_all_control_nodes_once(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  inventory : CodePushingLocalInventory,
 ) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    if node_id < 0 ||
+      node_id >= inventory.scan_seen.length() ||
+      inventory.scan_seen[node_id] ||
+      !@ir.hot_node_is_live(func, node_id) {
       continue
     }
+    inventory.scan_seen[node_id] = true
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::Block | @ir.HotOp::Loop =>
         if code_pushing_scan_region_once(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            inventory,
           ) {
           return true
         }
@@ -2716,12 +2860,13 @@ fn code_pushing_scan_all_control_nodes_once(
             ctx,
             func,
             @ir.hot_region_then_ref(func, node_id),
+            inventory,
           ) {
           return true
         }
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_ref) =>
-            if code_pushing_scan_region_once(ctx, func, else_ref) {
+            if code_pushing_scan_region_once(ctx, func, else_ref, inventory) {
               return true
             }
           None => ()
@@ -3080,13 +3225,17 @@ fn code_pushing_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut changed_any = false
   let mut changed_round = true
   while changed_round {
+    let inventory = CodePushingLocalInventory::from_func(func)
     changed_round = code_pushing_scan_region_once(
       ctx,
       func,
       @ir.HotRegionRef::root(),
+      inventory,
     )
     if !changed_round {
-      changed_round = code_pushing_scan_all_control_nodes_once(ctx, func)
+      changed_round = code_pushing_scan_all_control_nodes_once(
+        ctx, func, inventory,
+      )
     }
     if changed_round {
       changed_any = true

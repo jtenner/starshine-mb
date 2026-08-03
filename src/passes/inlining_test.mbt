@@ -3770,6 +3770,43 @@ test "inlining nested pipeline matches Binaryen v131 default function order" {
 }
 
 ///|
+test "inlining-optimizing falls back to plain inlining for typed loop parameters" {
+  let source =
+    #|(module
+    #|  (func $callee (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $callee)
+    #|  (func (param $limit i32) (local $i i32)
+    #|    i32.const 0
+    #|    loop (param i32)
+    #|      local.tee $i
+    #|      local.get $limit
+    #|      i32.lt_s
+    #|      if
+    #|        local.get $i
+    #|        i32.const 1
+    #|        i32.add
+    #|        br 1
+    #|      end
+    #|    end))
+    #|
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected typed-loop inlining fallback, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[inlining-optimizing]:fallback-plain reason=typed-loop-param-control",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "inlining-optimizing emits nested cleanup trace for touched functions" {
   let source =
     #|(module

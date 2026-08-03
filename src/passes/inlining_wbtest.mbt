@@ -1,4 +1,11 @@
 ///|
+test "inlining iteration requires a touched body or function-count change" {
+  assert_false(inl_iteration_has_progress([false, false], 4, 4))
+  assert_true(inl_iteration_has_progress([false, true], 4, 4))
+  assert_true(inl_iteration_has_progress([false, false], 4, 3))
+}
+
+///|
 test "inlining graph reachability preserves cycle-only self reachability" {
   let graph : Array[Array[Int]] = [[1], [2], [1], []]
   let reachability = inl_build_graph_reachability(graph)

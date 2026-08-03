@@ -246,6 +246,15 @@ test "parse_cli_args parses optimize presets and -O flags" {
 }
 
 ///|
+test "parse_cli_args accepts Binaryen Os and Oz aliases" {
+  let parsed = parse_ok(["-Os", "-Oz"])
+  @debug.assert_eq(parsed.optimize_flags, [
+    CliOptimizationFlag::osize(),
+    CliOptimizationFlag::olevel(2, true),
+  ])
+}
+
+///|
 test "parse_cli_args accepts trap-mode values and keeps them out of pass flags" {
   let parsed = parse_ok([
     "--trap-mode=never", "--trap-mode", "allow", "--validate",

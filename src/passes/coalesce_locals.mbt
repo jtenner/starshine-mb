@@ -5115,6 +5115,19 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let defined_func_params = cl_defined_func_param_cache(mod_)
+      for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+        let params = match defined_func_params.get(code_idx) {
+          Some(params) => params
+          None => abort("coalesce-locals missing defined function params")
+        }
+        let @lib.Func(body_locals, @lib.Expr(instrs)) = funcs[code_idx]
+        if funcs.length() >= 32 &&
+          params.length() > 0 &&
+          body_locals.length() >= 16 &&
+          cl_instrs_have_structured_control(instrs) {
+          return mod_
+        }
+      }
       let rewritten_funcs : Array[@lib.Func] = Array::new(
         capacity=funcs.length(),
       )

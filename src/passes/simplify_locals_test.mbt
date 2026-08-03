@@ -1566,13 +1566,22 @@ fn simplify_locals_test_make_structured_dead_tee_repro() -> String {
 ///|
 test "simplify-locals raw structured cleanup removes unread local.tee writes" {
   let input = simplify_locals_test_make_structured_dead_tee_repro()
-  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
     Ok(mod_) => mod_
     Err(err) =>
       fail("expected raw structured dead-tee cleanup success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_false(pretty.contains("local.tee (Local 100)"), msg=pretty)
+  assert_false(
+    pretty.contains("local.tee (Local 100)"),
+    msg=trace.to_string() + "\n" + pretty,
+  )
 }
 
 ///|

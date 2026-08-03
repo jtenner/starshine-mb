@@ -15077,6 +15077,111 @@ test "filtered touched batch writeback restores only invalid changed functions" 
 }
 
 ///|
+test "tuple-optimization validates changed function writeback" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+        ),
+      ]),
+    )
+  let invalid_result : HotPipelineFuncResult = {
+    reason: "tuple-test-invalid",
+    func: @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+    unchanged_original: false,
+    trace_skip_raw: false,
+  }
+  let reason = run_hot_pipeline_skip_invalid_lower_reason(
+    input, input, 0, "tuple-optimization", invalid_result,
+  )
+  match reason {
+    Some(reason) =>
+      assert_true(reason.contains("writeback-validate:"), msg=reason)
+    None => fail("expected tuple-optimization writeback validation failure")
+  }
+}
+
+///|
+test "optimize-instructions validates changed function writeback" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+        ),
+      ]),
+    )
+  let invalid_result : HotPipelineFuncResult = {
+    reason: "optimize-instructions-test-invalid",
+    func: @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+    unchanged_original: false,
+    trace_skip_raw: false,
+  }
+  let reason = run_hot_pipeline_skip_invalid_lower_reason(
+    input, input, 0, "optimize-instructions", invalid_result,
+  )
+  match reason {
+    Some(reason) =>
+      assert_true(reason.contains("writeback-validate:"), msg=reason)
+    None => fail("expected optimize-instructions writeback validation failure")
+  }
+}
+
+///|
+test "optimize-instructions batches direct writeback validation" {
+  let trace : Array[String] = []
+  let trace_fn = fn(line) { trace.push(line) }
+  let perf = HotPerfSession::new(
+    trace=trace_fn,
+    dump_options=HotPerfDumpOptions::new(),
+  )
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) local.get 0 i32.const 0 i32.add) (func (param i32) (result i32) local.get 0 i32.const 0 i32.add))",
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(trace_fn), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected optimize-instructions batch success, got \{err}")
+  }
+  for func_idx in [0U, 1U] {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+    assert_false(pretty.contains("i32.add"), msg=pretty)
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "perf:timer name=guard:optimize-instructions-writeback-batch",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "filtered hot pass stack rewrites only touched functions" {
   let input = pass_test_module_from_wat(
     (
@@ -15247,6 +15352,50 @@ test "dead-code-elimination fails closed on result-control self-branch fallthrou
     trace.any(fn(line) {
       line.contains(
         "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dead-code-elimination preserves call-result multi-call lifetimes" {
+  // A production string/collection helper stores an owned call result, passes
+  // it to another call, then releases it through a second call. Rebuilding the
+  // stack/local carrier must not move the release before the first consumer.
+  let input =
+    #|(module
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $use (param i32 i32))
+    #|  (func $release (param i32))
+    #|  (func (param i32) (local i32)
+    #|    call $make
+    #|    local.set 1
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $use
+    #|    local.get 1
+    #|    call $release
+    #|    local.get 0
+    #|    if
+    #|      nop
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call lifetime DCE success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=call-result-multi-call-lifetime-dce-noop",
       )
     }),
     msg=trace.to_string(),

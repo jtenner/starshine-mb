@@ -7202,6 +7202,8 @@ fn inl_run_nested_cleanup(
     HotPipelineVerifyPolicy::FinalModuleOnly
   }
   let options = HotPipelineOptions::new(
+    optimize_level~,
+    shrink_level~,
     verify_policy=nested_verify_policy,
     validate_final_module=false,
     trace~,
@@ -7220,8 +7222,10 @@ fn inl_run_nested_cleanup(
     Ok(next) => next
     Err(_) => prepared
   }
-  let passes = inlining_nested_function_pipeline_passes(
-    optimize_level, shrink_level,
+  let passes = default_function_optimization_passes_with_features(
+    optimize_level,
+    shrink_level,
+    hot_pipeline_module_feature_facts(prefixed),
   )
   let cleaned = match
     inl_run_nested_cleanup_passes(prefixed, passes, def_touched, options, trace) {
@@ -7550,6 +7554,15 @@ pub fn inline_main_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn inl_iteration_has_progress(
+  touched : Array[Bool],
+  before_defined : Int,
+  after_defined : Int,
+) -> Bool {
+  before_defined != after_defined || touched.any(fn(value) { value })
+}
+
+///|
 fn inl_run_module_pass_once(
   mod_ : @lib.Module,
   optimize : Bool,
@@ -7664,7 +7677,15 @@ fn inl_run_module_pass_once(
     removal.original_abs,
   )
   if !optimize {
-    return (removal.mod_out, true, touched_original_abs)
+    return (
+      removal.mod_out,
+      inl_iteration_has_progress(
+        removal.touched,
+        inl_defined_func_count(mod_),
+        inl_defined_func_count(removal.mod_out),
+      ),
+      touched_original_abs,
+    )
   }
   let nested_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:nested-cleanup",
@@ -7742,6 +7763,17 @@ fn inl_run_module_pass_once(
 }
 
 ///|
+fn inl_module_has_typeidx_loop(mod_ : @lib.Module) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      funcs.any(fn(func) {
+        run_hot_pipeline_lowered_func_has_typeidx_loop(func)
+      })
+    None => false
+  }
+}
+
+///|
 fn inlining_run_module_pass_with_perf(
   mod_ : @lib.Module,
   optimize? : Bool = false,
@@ -7759,6 +7791,30 @@ fn inlining_run_module_pass_with_perf(
 ) -> @lib.Module {
   if pass_module_has_legacy_try(mod_) {
     return mod_
+  }
+  if optimize && inl_module_has_typeidx_loop(mod_) {
+    match trace {
+      Some(cb) =>
+        cb(
+          "pass[inlining-optimizing]:fallback-plain reason=typed-loop-param-control",
+        )
+      None => ()
+    }
+    return inlining_run_module_pass_with_perf(
+      mod_,
+      optimize=false,
+      trace~,
+      pass_name~,
+      optimize_level~,
+      shrink_level~,
+      always_inline_max_size~,
+      one_caller_inline_max_size~,
+      flexible_inline_max_size~,
+      max_combined_binary_size~,
+      allow_functions_with_loops~,
+      partial_inlining_ifs~,
+      perf~,
+    )
   }
   let initial_graph_start_us = perf_start_timer_opt(
     perf, "detail:inlining:initial-original-reachable-private-cycle-funcs",

@@ -4,6 +4,43 @@ fn code_pushing_wbtest_lift_hot_raw(text : String) -> @ir.HotFunc {
 }
 
 ///|
+test "code-pushing round inventory matches bounded local scans" {
+  let func = code_pushing_wbtest_lift_hot_raw(
+    (
+      #|(module
+      #|  (func (param i32) (local i32 i32)
+      #|    i32.const 7 local.set 1
+      #|    local.get 0
+      #|    if
+      #|      local.get 1 drop
+      #|      i32.const 9 local.set 2
+      #|    else
+      #|      local.get 1 drop
+      #|    end
+      #|    local.get 2 drop))
+      #|
+    ),
+  )
+  let inventory = CodePushingLocalInventory::from_func(func)
+  for local_id = 0
+      local_id < @ir.hot_local_count(func)
+      local_id = local_id + 1 {
+    @debug.assert_eq(
+      inventory.total(local_id),
+      code_pushing_count_total_local_gets_writes_bounded(
+        func, local_id, 1_000_000, 1_000_000,
+      ),
+    )
+    @debug.assert_eq(
+      inventory.unique_total(local_id),
+      code_pushing_count_unique_total_local_gets_writes_bounded(
+        func, local_id, 1_000_000, 1_000_000,
+      ),
+    )
+  }
+}
+
+///|
 test "code-pushing segment inventory recognizes if push-point windows" {
   let func = code_pushing_wbtest_lift_hot_raw(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop end))",

@@ -1935,6 +1935,21 @@ fn code_folding_try_remove_unreachable_after_exit_at_region(
     return false
   }
   let prev_id = @ir.hot_region_get(func, region_ref, idx - 1)
+  // A result block needs this bottom marker after a void loop even when every
+  // currently visible loop path exits. At a loop `end`, validation restores the
+  // parent frame rather than propagating the body's unreachable state; deleting
+  // the marker can therefore leave the block's fallthrough result unsatisfied.
+  if idx == @ir.hot_region_root_count(func, region_ref) - 1 &&
+    region_ref.holder >= 0 &&
+    @ir.hot_node_is_live(func, region_ref.holder) &&
+    @ir.hot_node_result_arity(func, region_ref.holder) > 0 &&
+    prev_id >= 0 &&
+    @ir.hot_node_is_live(func, prev_id) {
+    match @ir.hot_node_get(func, prev_id).op {
+      @ir.HotOp::Loop => return false
+      _ => ()
+    }
+  }
   if !code_folding_node_always_exits(func, prev_id) {
     return false
   }

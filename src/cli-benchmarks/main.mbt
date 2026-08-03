@@ -272,7 +272,14 @@ fn cli_benchmark_resolve_optimize_levels(
       }
       @cli.OptimizePreset =>
         optimize_level = cli_benchmark_max_int(optimize_level, 2)
-      @cli.ShrinkPreset => shrink_level = cli_benchmark_max_int(shrink_level, 2)
+      @cli.OptimizeSizePreset => {
+        optimize_level = cli_benchmark_max_int(optimize_level, 2)
+        shrink_level = cli_benchmark_max_int(shrink_level, 1)
+      }
+      @cli.ShrinkPreset => {
+        optimize_level = cli_benchmark_max_int(optimize_level, 2)
+        shrink_level = cli_benchmark_max_int(shrink_level, 2)
+      }
     }
   }
   (optimize_level, shrink_level)

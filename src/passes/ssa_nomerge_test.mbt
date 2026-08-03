@@ -8293,6 +8293,62 @@ fn ssa_test_expect_loop_param_br_table_proxy(
 }
 
 ///|
+test "ssa-nomerge preserves distinct carriers for multiple typed loops" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 0
+    #|      loop $up (type $loop_t)
+    #|        local.tee 1
+    #|        local.get 0
+    #|        i32.lt_s
+    #|        if
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          br $up
+    #|        end
+    #|      end
+    #|      local.get 1
+    #|    else
+    #|      i32.const 2
+    #|      loop $down (type $loop_t)
+    #|        local.tee 1
+    #|        i32.const 0
+    #|        i32.gt_s
+    #|        if
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.sub
+    #|          br $down
+    #|        end
+    #|      end
+    #|      local.get 1
+    #|    end))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected multiple typed-loop preservation, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=multiple-typed-loop-parameter-control-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites direct scalar typed loop-param br backedge" {
   let source =
     #|(module

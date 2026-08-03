@@ -342,44 +342,16 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_preset(
       "optimize",
       "Run the default hot optimization preset.",
-      [
-        "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
-        "once-reduction", "global-refining", "global-struct-inference", "remove-unused-module-elements",
-        "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse",
-        "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
-        "optimize-instructions", "heap-store-optimization", "pick-load-signs", "precompute-propagate",
-        "code-pushing", "tuple-optimization", "simplify-locals-nostructure", "vacuum",
-        "reorder-locals", "remove-unused-brs", "heap2local", "merge-locals", "optimize-casts",
-        "local-subtyping", "coalesce-locals", "local-cse", "simplify-locals", "vacuum",
-        "reorder-locals", "coalesce-locals", "reorder-locals", "vacuum", "code-folding",
-        "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks",
-        "precompute-propagate", "optimize-instructions", "heap-store-optimization",
-        "redundant-set-elimination", "vacuum", "dae-optimizing", "inlining-optimizing",
-        "duplicate-function-elimination", "duplicate-import-elimination", "simplify-globals-optimizing",
-        "remove-unused-module-elements", "string-gathering", "reorder-globals", "directize",
-        "strip-debug",
-      ],
+      optimize_preset_passes(
+        HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ),
     ),
     pass_registry_entry_preset(
       "shrink",
       "Run the default size-biased hot optimization preset.",
-      [
-        "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
-        "once-reduction", "global-refining", "global-struct-inference", "remove-unused-module-elements",
-        "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse",
-        "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
-        "optimize-instructions", "heap-store-optimization", "pick-load-signs", "precompute-propagate",
-        "code-pushing", "tuple-optimization", "simplify-locals-nostructure", "vacuum",
-        "reorder-locals", "remove-unused-brs", "heap2local", "merge-locals", "optimize-casts",
-        "local-subtyping", "coalesce-locals", "local-cse", "simplify-locals", "vacuum",
-        "reorder-locals", "coalesce-locals", "reorder-locals", "vacuum", "code-folding",
-        "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks",
-        "precompute-propagate", "optimize-instructions", "heap-store-optimization",
-        "redundant-set-elimination", "vacuum", "dae-optimizing", "inlining-optimizing",
-        "duplicate-function-elimination", "duplicate-import-elimination", "simplify-globals-optimizing",
-        "remove-unused-module-elements", "string-gathering", "reorder-globals", "directize",
-        "strip-debug",
-      ],
+      shrink_preset_passes(
+        HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ),
     ),
   ]
   for name in pass_registry_boundary_only_names() {
@@ -517,9 +489,68 @@ pub fn simplify_locals_nostructure_exact_slot_passes() -> Array[String] {
 }
 
 ///|
-pub fn inlining_nested_function_pipeline_passes(
+priv struct HotPipelineFeatureFacts {
+  has_gc : Bool
+  has_multivalue : Bool
+  has_strings : Bool
+}
+
+///|
+fn HotPipelineFeatureFacts::all() -> HotPipelineFeatureFacts {
+  { has_gc: true, has_multivalue: true, has_strings: true }
+}
+
+///|
+fn hot_pipeline_record_comp_type_features(
+  comp_type : @lib.CompType,
+  facts : HotPipelineFeatureFacts,
+) -> HotPipelineFeatureFacts {
+  match comp_type {
+    @lib.ArrayCompType(_) | @lib.StructCompType(_) =>
+      HotPipelineFeatureFacts::{ ..facts, has_gc: true }
+    @lib.FuncCompType(_, results) if results.length() > 1 =>
+      HotPipelineFeatureFacts::{ ..facts, has_multivalue: true }
+    _ => facts
+  }
+}
+
+///|
+fn hot_pipeline_module_feature_facts(
+  mod_ : @lib.Module,
+) -> HotPipelineFeatureFacts {
+  let mut facts = HotPipelineFeatureFacts::{
+    has_gc: false,
+    has_multivalue: false,
+    has_strings: mod_.stringrefs_sec is Some(_),
+  }
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(subtype) =>
+            facts = hot_pipeline_record_comp_type_features(
+              subtype.get_comptype(),
+              facts,
+            )
+          @lib.GroupRecType(subtypes) =>
+            for subtype in subtypes {
+              facts = hot_pipeline_record_comp_type_features(
+                subtype.get_comptype(),
+                facts,
+              )
+            }
+        }
+      }
+    None => ()
+  }
+  facts
+}
+
+///|
+fn default_function_optimization_passes_with_features(
   optimize_level : Int,
   shrink_level : Int,
+  features : HotPipelineFeatureFacts,
 ) -> Array[String] {
   let passes : Array[String] = []
   if optimize_level >= 3 || shrink_level >= 1 {
@@ -530,8 +561,11 @@ pub fn inlining_nested_function_pipeline_passes(
   }
   passes.append([
     "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
-    "optimize-instructions", "heap-store-optimization",
+    "optimize-instructions",
   ])
+  if features.has_gc {
+    passes.push("heap-store-optimization")
+  }
   if optimize_level >= 2 || shrink_level >= 2 {
     passes.push("pick-load-signs")
   }
@@ -543,17 +577,19 @@ pub fn inlining_nested_function_pipeline_passes(
   if optimize_level >= 2 || shrink_level >= 2 {
     passes.push("code-pushing")
   }
+  if features.has_multivalue {
+    passes.push("tuple-optimization")
+  }
   passes.append([
-    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
-    "remove-unused-brs",
+    "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
   ])
-  if optimize_level > 1 {
+  if optimize_level > 1 && features.has_gc {
     passes.push("heap2local")
   }
   if optimize_level >= 3 || shrink_level >= 2 {
     passes.push("merge-locals")
   }
-  if optimize_level > 1 {
+  if optimize_level > 1 && features.has_gc {
     passes.push("optimize-casts")
     passes.push("local-subtyping")
   }
@@ -576,7 +612,10 @@ pub fn inlining_nested_function_pipeline_passes(
   } else {
     passes.push("precompute")
   }
-  passes.append(["optimize-instructions", "heap-store-optimization"])
+  passes.push("optimize-instructions")
+  if features.has_gc {
+    passes.push("heap-store-optimization")
+  }
   if optimize_level >= 2 || shrink_level >= 1 {
     passes.push("redundant-set-elimination")
   }
@@ -585,43 +624,163 @@ pub fn inlining_nested_function_pipeline_passes(
 }
 
 ///|
-pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
-  [
-    "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
-    "once-reduction", "global-refining", "global-struct-inference", "remove-unused-module-elements",
-    "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
-    "remove-unused-names", "remove-unused-brs", "remove-unused-names", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute-propagate", "code-pushing",
-    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
-    "remove-unused-brs", "heap2local", "merge-locals", "optimize-casts", "local-subtyping",
-    "coalesce-locals", "local-cse", "simplify-locals", "vacuum", "reorder-locals",
-    "coalesce-locals", "reorder-locals", "vacuum", "code-folding", "merge-blocks",
-    "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute-propagate",
-    "optimize-instructions", "heap-store-optimization", "redundant-set-elimination",
-    "vacuum", "dae-optimizing", "inlining-optimizing", "duplicate-function-elimination",
-    "duplicate-import-elimination", "simplify-globals-optimizing", "remove-unused-module-elements",
-    "string-gathering", "reorder-globals", "directize", "strip-debug",
-  ]
+pub fn default_function_optimization_passes(
+  optimize_level : Int,
+  shrink_level : Int,
+) -> Array[String] {
+  default_function_optimization_passes_with_features(
+    optimize_level,
+    shrink_level,
+    HotPipelineFeatureFacts::all(),
+  )
 }
 
 ///|
-pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
-  [
-    "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
-    "once-reduction", "global-refining", "global-struct-inference", "remove-unused-module-elements",
-    "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
-    "remove-unused-names", "remove-unused-brs", "remove-unused-names", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute-propagate", "code-pushing",
-    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
-    "remove-unused-brs", "heap2local", "merge-locals", "optimize-casts", "local-subtyping",
-    "coalesce-locals", "local-cse", "simplify-locals", "vacuum", "reorder-locals",
-    "coalesce-locals", "reorder-locals", "vacuum", "code-folding", "merge-blocks",
-    "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute-propagate",
-    "optimize-instructions", "heap-store-optimization", "redundant-set-elimination",
-    "vacuum", "dae-optimizing", "inlining-optimizing", "duplicate-function-elimination",
-    "duplicate-import-elimination", "simplify-globals-optimizing", "remove-unused-module-elements",
-    "string-gathering", "reorder-globals", "directize", "strip-debug",
-  ]
+pub fn default_function_optimization_passes_for_module(
+  mod_ : @lib.Module,
+  optimize_level : Int,
+  shrink_level : Int,
+) -> Array[String] {
+  default_function_optimization_passes_with_features(
+    optimize_level,
+    shrink_level,
+    hot_pipeline_module_feature_facts(mod_),
+  )
+}
+
+///|
+pub fn inlining_nested_function_pipeline_passes(
+  optimize_level : Int,
+  shrink_level : Int,
+) -> Array[String] {
+  default_function_optimization_passes(optimize_level, shrink_level)
+}
+
+///|
+fn hot_pipeline_full_preset_passes_with_features(
+  options : HotPipelineOptions,
+  features : HotPipelineFeatureFacts,
+) -> Array[String] {
+  let optimize_level = options.optimize_level
+  let shrink_level = options.shrink_level
+  let passes = ["duplicate-function-elimination"]
+  if optimize_level >= 2 {
+    passes.push("remove-unused-module-elements")
+  }
+  passes.push("memory-packing")
+  if optimize_level >= 2 {
+    passes.push("once-reduction")
+  }
+  if features.has_gc && optimize_level >= 2 {
+    passes.push("global-refining")
+    passes.push("remove-unused-module-elements")
+    passes.push("global-struct-inference")
+  }
+  passes.append(
+    default_function_optimization_passes_with_features(
+      optimize_level, shrink_level, features,
+    ),
+  )
+  if optimize_level >= 2 || shrink_level >= 1 {
+    passes.push("dae-optimizing")
+  }
+  if optimize_level >= 2 || shrink_level >= 2 {
+    passes.push("inlining-optimizing")
+  }
+  passes.push("duplicate-function-elimination")
+  passes.push("duplicate-import-elimination")
+  // Binaryen runs merge-similar-functions at shrink level 2+, but that pass is
+  // still boundary-only in Starshine. Keep the preset runnable and leave the
+  // unsupported owner explicit in the backlog instead of silently accepting a
+  // requested no-op.
+  if optimize_level >= 2 || shrink_level >= 2 {
+    passes.push("simplify-globals-optimizing")
+  }
+  // Binaryen uses plain simplify-globals below the optimizing threshold. That
+  // sibling remains boundary-only, so the implemented preset omits it.
+  passes.push("remove-unused-module-elements")
+  if optimize_level >= 2 && features.has_strings {
+    passes.push("string-gathering")
+  }
+  if optimize_level >= 2 || shrink_level >= 1 {
+    passes.push("reorder-globals")
+  }
+  passes.push("directize")
+  // Starshine intentionally strips debug/name metadata after its public
+  // presets. This is an extension outside Binaryen's scheduler.
+  passes.push("strip-debug")
+  passes
+}
+
+///|
+// Non-O4z public presets are intentionally wall-time-first. Production
+// attribution found that the full function/module queue cost 81-162 seconds on
+// the debug-WASI artifact while often increasing output size. Keep the two
+// measured high-payoff tiers here; every omitted owner remains directly
+// runnable, and O4z retains the full compatibility scheduler below.
+fn hot_pipeline_fast_preset_passes(
+  options : HotPipelineOptions,
+) -> Array[String] {
+  let optimize_level = options.optimize_level
+  let shrink_level = options.shrink_level
+  let passes = ["duplicate-function-elimination"]
+  if optimize_level >= 3 || shrink_level >= 1 {
+    passes.append(["vacuum", "reorder-locals"])
+  }
+  passes.push("strip-debug")
+  passes
+}
+
+///|
+// O4z is the locked Binaryen-v131 compatibility lane. Other public levels use
+// the measured fast spine rather than paying the full compatibility roster.
+fn hot_pipeline_preset_passes_with_features(
+  options : HotPipelineOptions,
+  features : HotPipelineFeatureFacts,
+) -> Array[String] {
+  if options.optimize_level >= 4 && options.shrink_level >= 4 {
+    hot_pipeline_full_preset_passes_with_features(options, features)
+  } else {
+    hot_pipeline_fast_preset_passes(options)
+  }
+}
+
+///|
+pub fn optimize_preset_passes(options : HotPipelineOptions) -> Array[String] {
+  hot_pipeline_preset_passes_with_features(
+    options,
+    HotPipelineFeatureFacts::all(),
+  )
+}
+
+///|
+pub fn shrink_preset_passes(options : HotPipelineOptions) -> Array[String] {
+  hot_pipeline_preset_passes_with_features(
+    options,
+    HotPipelineFeatureFacts::all(),
+  )
+}
+
+///|
+fn optimize_preset_passes_for_module(
+  options : HotPipelineOptions,
+  mod_ : @lib.Module,
+) -> Array[String] {
+  hot_pipeline_preset_passes_with_features(
+    options,
+    hot_pipeline_module_feature_facts(mod_),
+  )
+}
+
+///|
+fn shrink_preset_passes_for_module(
+  options : HotPipelineOptions,
+  mod_ : @lib.Module,
+) -> Array[String] {
+  hot_pipeline_preset_passes_with_features(
+    options,
+    hot_pipeline_module_feature_facts(mod_),
+  )
 }
 
 ///|
@@ -665,6 +824,7 @@ fn run_hot_pipeline_module_has_memory(mod_ : @lib.Module) -> Bool {
 
 ///|
 fn run_hot_pipeline_expand_passes(
+  mod_ : @lib.Module,
   options : HotPipelineOptions,
   requested_passes : Array[String],
 ) -> Result[Array[HotPassRegistryEntry], String] {
@@ -696,9 +856,9 @@ fn run_hot_pipeline_expand_passes(
         )
       HotPassRegistryCategory::Preset => {
         let preset_passes = if name == "optimize" {
-          optimize_preset_passes(options)
+          optimize_preset_passes_for_module(options, mod_)
         } else {
-          shrink_preset_passes(options)
+          shrink_preset_passes_for_module(options, mod_)
         }
         for expanded_name in preset_passes {
           match pass_registry_lookup_cached(expanded_name) {
@@ -755,7 +915,7 @@ pub fn run_hot_pipeline(
   requested_passes : Array[String],
 ) -> Result[@lib.Module, String] {
   let entries = match
-    run_hot_pipeline_expand_passes(options, requested_passes) {
+    run_hot_pipeline_expand_passes(mod_, options, requested_passes) {
     Ok(entries) => entries
     Err(err) => return Err(err)
   }

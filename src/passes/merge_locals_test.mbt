@@ -60,8 +60,12 @@ fn merge_locals_test_index_of(passes : Array[String], name : String) -> Int {
 test "merge-locals owns the exact O4z slot after heap2local" {
   for
     passes in [
-      optimize_preset_passes(HotPipelineOptions::new()),
-      shrink_preset_passes(HotPipelineOptions::new()),
+      optimize_preset_passes(
+        HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ),
+      shrink_preset_passes(
+        HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ),
     ] {
     let idx = merge_locals_test_index_of(passes, "merge-locals")
     assert_true(idx > 0)

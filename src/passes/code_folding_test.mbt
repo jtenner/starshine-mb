@@ -64,13 +64,57 @@ test "code-folding owns the exact late O4z cleanup neighborhood" {
   ]
   for
     passes in [
-      optimize_preset_passes(HotPipelineOptions::new()),
-      shrink_preset_passes(HotPipelineOptions::new()),
+      optimize_preset_passes(
+        HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ),
+      shrink_preset_passes(
+        HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ),
     ] {
     let idx = code_folding_test_index_of(passes, "code-folding")
     assert_true(idx > 0)
     @debug.assert_eq(passes[idx - 1:idx + 5], expected)
   }
+}
+
+///|
+test "code-folding preserves same-local distinct-call lifetimes" {
+  let source =
+    #|(module
+    #|  (func $use (param i32))
+    #|  (func $release (param i32))
+    #|  (func (param i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    local.get 0
+    #|    if nop end
+    #|    local.get 0
+    #|    call $use
+    #|    local.get 0
+    #|    call $release))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["code-folding"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call lifetime preservation, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+    original.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=same-local-distinct-call-lifetime-code-folding-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
 }
 
 ///|
@@ -7862,6 +7906,40 @@ test "code-folding keeps root trailing unreachable for exiting result functions"
       #|      return
       #|    end
       #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "code-folding keeps bottom unreachable after folding a loop exit" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32)
+      #|    block $out (result i32)
+      #|      loop
+      #|        block $done
+      #|          local.get 0
+      #|          if
+      #|            i32.const 1
+      #|            local.set 1
+      #|            br $done
+      #|          else
+      #|            i32.const 1
+      #|            local.set 1
+      #|            br $done
+      #|          end
+      #|          unreachable
+      #|        end
+      #|        local.get 1
+      #|        br $out
+      #|      end
+      #|      unreachable
+      #|    end))
       #|,
     ),
   )

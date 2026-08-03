@@ -47,11 +47,13 @@ pub impl Show for CliInputFormat
 
 pub enum CliOptimizationFlag {
   OptimizePreset
+  OptimizeSizePreset
   ShrinkPreset
   OLevel(Int, Bool)
 } derive(Eq, @debug.Debug)
 pub fn CliOptimizationFlag::olevel(Int, Bool) -> Self
 pub fn CliOptimizationFlag::optimize() -> Self
+pub fn CliOptimizationFlag::osize() -> Self
 pub fn CliOptimizationFlag::shrink() -> Self
 pub impl Show for CliOptimizationFlag
 

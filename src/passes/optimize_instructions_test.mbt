@@ -80803,6 +80803,53 @@ test "optimize-instructions keeps multi-use and multi-result struct.new boundari
 }
 
 ///|
+test "optimize-instructions preserves dynamic store offsets independently of value arithmetic" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param $ptr i32) (param $value i32)
+    #|    local.get $ptr
+    #|    local.get $value
+    #|    i32.const 1
+    #|    i32.sub
+    #|    i32.store offset=12 align=1))
+    #|
+  let hot_func = optimize_instructions_test_run_hot(source)
+  let store = @ir.hot_root_get(hot_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(hot_func, store),
+    Some(
+      @lib.Instruction::i32_store(
+        @lib.MemArg::new(@lib.U32(0), None, @lib.U64(12)),
+      ),
+    ),
+  )
+  let trace = match pass_test_capture_trace(source, ["optimize-instructions"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected dynamic store-offset trace, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=dynamic-store-offset-value-arithmetic-alias-hazard")
+    }),
+    msg=trace.to_string(),
+  )
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dynamic store-offset optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.const I32(1)"), msg=pretty)
+  assert_true(
+    pretty.contains("i32.store align=U32(0) offset=U64(12)"),
+    msg=pretty,
+  )
+  assert_false(pretty.contains("i32.const I32(13)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds constant memory access offset into i32 address" {
   let load_func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (result i32) i32.const 8 i32.load offset=4))",
@@ -85064,4 +85111,50 @@ test "optimize-instructions v131 does not materialize non-concrete select arms" 
     2,
     msg=pretty,
   )
+}
+
+///|
+test "optimize-instructions rebases duplicate branch labels after removing an if" {
+  // The duplicate branches are nested inside a result `if`. Collapsing that
+  // `if` moves the retained branch out by one label scope, so its relative
+  // depth must decrease from 2 to 1. Keeping depth 2 branches to the outer
+  // result block without a value and produces a stack-underflow module.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32 i32) (result i32)
+        #|    (block (result i32)
+        #|      (block
+        #|        local.get 0
+        #|        if (result i32)
+        #|          local.get 1
+        #|        else
+        #|          local.get 0
+        #|          if (result i32)
+        #|            br 2
+        #|          else
+        #|            br 2
+        #|          end
+        #|        end
+        #|        br 1)
+        #|      i32.const 42)))
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected duplicate-branch label rebasing to stay valid, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected rebased duplicate branch output, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "if I32"),
+    1,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("br (Label 1)"), msg=pretty)
 }

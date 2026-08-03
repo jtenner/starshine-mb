@@ -37,6 +37,10 @@ pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor
 
 pub fn dead_code_elimination_summary() -> String
 
+pub fn default_function_optimization_passes(Int, Int) -> Array[String]
+
+pub fn default_function_optimization_passes_for_module(@lib.Module, Int, Int) -> Array[String]
+
 pub fn dfe_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn dfe_summary() -> String

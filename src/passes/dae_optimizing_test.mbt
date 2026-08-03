@@ -139,6 +139,92 @@ test "plain DAE emits canonical worklist diagnostics" {
 }
 
 ///|
+test "dae-optimizing intentionally keeps parameters in large typed-loop fallback" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (type $loop_t (func (param i32)))
+      #|  (func $typed (param i32) (result i32) (local i32)
+      #|    i32.const 0
+      #|    loop $again (type $loop_t)
+      #|      local.tee 1
+      #|      local.get 0
+      #|      i32.lt_s
+      #|      if
+      #|        local.get 1
+      #|        i32.const 1
+      #|        i32.add
+      #|        br $again
+      #|      end
+      #|    end
+      #|    local.get 1)
+      #|  (func $target (param i32) nop)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $target)
+      #|
+    ),
+  )
+  for def_idx = 3; def_idx < 32; def_idx = def_idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")\n")
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source.to_string()),
+      HotPipelineOptions::new(
+        optimize_level=3,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed-loop results-only fallback, got \{err}")
+  }
+  assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:fallback-plain-results-only reason=typed-loop-param-control",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "plain DAE batches contiguous boundary scan before a late candidate" {
+  let source = StringBuilder::new()
+  source.write_string("(module\n")
+  for i = 0; i < 64; i = i + 1 {
+    source.write_string("  (func nop)\n")
+  }
+  source.write_string(
+    (
+      #|  (func $target (param i32) nop)
+      #|  (func (export "run") i32.const 7 call $target))
+      #|
+    ),
+  )
+  let (optimized, trace) = dae_test_run_with_perf_trace(
+    source.to_string(),
+    pass_name="dead-argument-elimination",
+  )
+  assert_eq(dae_test_func_params(optimized, 64).length(), 0)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dae]:core-worklist-batch") &&
+      line.contains("start=0") &&
+      line.contains("primary_def=64") &&
+      line.contains("scanned=65")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dae-optimizing emits canonical worklist diagnostics" {
   let source =
     #|(module
@@ -158,7 +244,7 @@ test "dae-optimizing emits canonical worklist diagnostics" {
       line.contains("parameters_removed=1") &&
       line.contains("candidate_requeues=1") &&
       line.contains("nested_functions_touched=1") &&
-      line.contains("nested_passes_executed=41") &&
+      line.contains("nested_passes_executed=25") &&
       line.contains("reason.candidate-produced=1") &&
       line.contains("reason.candidate-applied=1")
     }),
@@ -15659,9 +15745,20 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     #|    i32.const 10
     #|    i32.const 20
     #|    call $f))
-  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
-    Ok(trace) => trace
-    Err(err) => fail("expected traced DAE success, got \{err}")
+  let input = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["dae-optimizing"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected traced O4z DAE success, got \{err}")
   }
   let nested_passes : Array[String] = []
   for line in trace {
@@ -15670,10 +15767,60 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     }
   }
   let expected = ["pass[dae-optimizing]:nested-pass name=precompute-propagate"]
-  for pass_name in inlining_nested_function_pipeline_passes(4, 4) {
+  for pass_name in default_function_optimization_passes_for_module(input, 4, 4) {
     expected.push("pass[dae-optimizing]:nested-pass name=\{pass_name}")
   }
   @debug.assert_eq(nested_passes, expected)
+}
+
+///|
+test "dae-optimizing nested cleanup uses active levels and module features" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 10
+    #|    i32.const 20
+    #|    call $f))
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(
+        optimize_level=2,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["dae-optimizing"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected traced O2 DAE success, got \{err}")
+  }
+  let text = trace.to_string()
+  assert_true(
+    text.contains("pass[dae-optimizing]:nested-pass name=precompute-propagate"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("pass[dae-optimizing]:nested-pass name=precompute"),
+    msg=text,
+  )
+  for
+    pass_name in [
+      "ssa-nomerge", "flatten", "merge-locals", "local-cse", "code-folding", "precompute-propagate",
+      "heap-store-optimization", "heap2local", "optimize-casts", "local-subtyping",
+      "tuple-optimization",
+    ] {
+    if pass_name != "precompute-propagate" {
+      assert_false(
+        text.contains("pass[dae-optimizing]:nested-pass name=\{pass_name}"),
+        msg=text,
+      )
+    }
+  }
 }
 
 ///|
@@ -15801,9 +15948,20 @@ test "dae-optimizing traces shared Binaryen v131 nested function prelude" {
     #|    local.get 1
     #|    local.get 2
     #|    call $f))
-  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
-    Ok(trace) => trace
-    Err(err) => fail("expected traced DAE success, got \{err}")
+  let input = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["dae-optimizing"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected traced O4z DAE success, got \{err}")
   }
   let expected_prelude = [
     "pass[dae-optimizing]:nested-pass name=precompute-propagate", "pass[dae-optimizing]:nested-pass name=ssa-nomerge",
@@ -15868,9 +16026,14 @@ test "dae-optimizing nested local-cse only rewrites touched functions" {
     #|    local.get 1
     #|    i32.add
     #|    call $use))
-  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["dae-optimizing"],
+    ) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected DAE local-cse pipeline success, got \{err}")
+    Err(err) => fail("expected O4z DAE local-cse pipeline success, got \{err}")
   }
   let @lib.Func(touched_locals, @lib.Expr(touched_instrs)) = dae_test_defined_func(
     optimized, 0,
@@ -16595,9 +16758,14 @@ test "dae-optimizing nested heap2local only rewrites touched functions" {
     #|    (struct.get $pair 0
     #|      (local.tee $ref
     #|        (struct.new_default $pair)))))
-  let optimized = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["dae-optimizing"],
+    ) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected DAE heap2local pipeline success, got \{err}")
+    Err(err) => fail("expected O4z DAE heap2local pipeline success, got \{err}")
   }
   let touched = optimized.pretty_print_defined_func(0U)
   let untouched = optimized.pretty_print_defined_func(2U)
@@ -18932,7 +19100,15 @@ test "dae-optimizing revisits a written forwarding parameter after shared cleanu
     #|    i32.const 7
     #|    i32.const 9
     #|    call $a))
-  let optimized = dae_test_run(source)
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z written-forwarding DAE success, got \{err}")
+  }
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
 }

@@ -34,6 +34,57 @@ test "tuple-optimization skips load-call-set ownership hazards" {
 }
 
 ///|
+test "tuple-optimization preserves effect-bracketed multivalue call spills" {
+  // The produced lanes remain live while an owned input is retained/released,
+  // and the host lane itself is released after the consumer call. Scalarizing
+  // the spill must not move either release across the multivalue producer.
+  let source =
+    #|(module
+    #|  (type $tri (func (param i32 i32) (result i32 i32 i32)))
+    #|  (type $show (func (param i32 i32 i32) (result i32)))
+    #|  (import "m" "retain" (func $retain (param i32)))
+    #|  (import "m" "tri" (func $tri (type $tri)))
+    #|  (import "m" "release" (func $release (param i32)))
+    #|  (import "m" "show" (func $show (type $show)))
+    #|  (func (param i32) (result i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    call $retain
+    #|    local.get 0
+    #|    i32.const 0
+    #|    call $tri
+    #|    local.get 0
+    #|    call $release
+    #|    local.set 3
+    #|    local.set 2
+    #|    local.tee 1
+    #|    local.get 2
+    #|    local.get 3
+    #|    call $show
+    #|    local.get 1
+    #|    call $release))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected effect-bracketed tuple success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[tuple-optimization]:skip-raw reason=effect-bracketed-multivalue-call-tuple-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 fn tuple_optimization_test_analyze(
   text : String,
 ) -> HotTupleOptimizationAnalysis {

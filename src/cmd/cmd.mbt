@@ -739,6 +739,13 @@ fn parse_olevel_text(raw : String) -> CliOptimizationFlag? {
   }
   let mut size_bias = false
   if i < end {
+    if raw[i] == 's' && !saw_digit {
+      i += 1
+      if i != end {
+        return None
+      }
+      return Some(CliOptimizationFlag::osize())
+    }
     if raw[i] != 'z' {
       return None
     }
@@ -765,6 +772,7 @@ test "parse_olevel_text parses direct raw O-level forms" {
     parse_olevel_text("  O3z  "),
     Some(CliOptimizationFlag::olevel(3, true)),
   )
+  @debug.assert_eq(parse_olevel_text("-Os"), Some(CliOptimizationFlag::osize()))
   @debug.assert_eq(
     parse_olevel_text("-Oz"),
     Some(CliOptimizationFlag::olevel(2, true)),
@@ -1859,10 +1867,33 @@ fn resolve_optimize_levels(flags : Array[CliOptimizationFlag]) -> (Int, Int) {
         }
       }
       OptimizePreset => optimize_level = max_int(optimize_level, 2)
-      ShrinkPreset => shrink_level = max_int(shrink_level, 2)
+      OptimizeSizePreset => {
+        optimize_level = max_int(optimize_level, 2)
+        shrink_level = max_int(shrink_level, 1)
+      }
+      ShrinkPreset => {
+        optimize_level = max_int(optimize_level, 2)
+        shrink_level = max_int(shrink_level, 2)
+      }
     }
   }
   (optimize_level, shrink_level)
+}
+
+///|
+test "Os preset resolves to Binaryen Os levels" {
+  @debug.assert_eq(
+    resolve_optimize_levels([CliOptimizationFlag::osize()]),
+    (2, 1),
+  )
+}
+
+///|
+test "shrink preset resolves to Binaryen Oz levels" {
+  @debug.assert_eq(
+    resolve_optimize_levels([CliOptimizationFlag::shrink()]),
+    (2, 2),
+  )
 }
 
 ///|
@@ -3455,7 +3486,7 @@ fn cmd_build_help_text() -> String {
     out, "--shrink", "Apply the default size-oriented shrink preset pipeline.",
   )
   append_help_line(
-    out, "-O[level][z]", "Set optimization level; optional trailing z applies size bias.",
+    out, "-O[level][z], -Os", "Set optimization level; trailing z applies maximum size bias, while -Os uses shrink level 1.",
   )
   append_help_line(out, "--optimize-level <N>", "Set explicit optimize level.")
   append_help_line(out, "--shrink-level <N>", "Set explicit shrink level.")

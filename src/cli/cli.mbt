@@ -48,6 +48,7 @@ pub fn CliOutputTarget::dir(path : String) -> CliOutputTarget {
 ///|
 pub enum CliOptimizationFlag {
   OptimizePreset
+  OptimizeSizePreset
   ShrinkPreset
   OLevel(Int, Bool)
 } derive(Eq, Debug)
@@ -55,6 +56,11 @@ pub enum CliOptimizationFlag {
 ///|
 pub fn CliOptimizationFlag::optimize() -> CliOptimizationFlag {
   OptimizePreset
+}
+
+///|
+pub fn CliOptimizationFlag::osize() -> CliOptimizationFlag {
+  OptimizeSizePreset
 }
 
 ///|
@@ -571,7 +577,13 @@ fn parse_opt_level_flag(
   }
   let mut size_bias = false
   if i < flag.length() {
-    if flag[i] == 'z' {
+    if flag[i] == 's' && !saw_digit {
+      i += 1
+      if i != flag.length() {
+        return Err(CliParseError::invalid_optimization_flag(flag))
+      }
+      return Ok(CliOptimizationFlag::osize())
+    } else if flag[i] == 'z' {
       size_bias = true
       i += 1
     } else {

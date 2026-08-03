@@ -1,5 +1,5 @@
 ///|
-test "run_hot_pipeline applies optimize preset through the hot pass manager" {
+test "run_hot_pipeline applies the fast optimize preset spine" {
   let input = pass_test_module_from_wat(
     "(module (func (export \"run\") (result i32) nop i32.const 7))",
   )
@@ -13,9 +13,45 @@ test "run_hot_pipeline applies optimize preset through the hot pass manager" {
     Err(err) => fail("expected optimized module to validate, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("nop"))
+  assert_true(pretty.contains("nop"))
   assert_true(pretty.contains("i32.const"))
   assert_true(pretty.contains("I32(7)"))
+}
+
+///|
+test "public presets feature-gate GC multivalue and string passes" {
+  let input = pass_test_module_from_wat(
+    "(module (func (export \"run\") (result i32) i32.const 7))",
+  )
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["optimize"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected feature-gated optimize success, got \{err}")
+  }
+  let text = trace.to_string()
+  for
+    pass_name in [
+      "global-refining", "global-struct-inference", "heap-store-optimization", "heap2local",
+      "optimize-casts", "local-subtyping", "tuple-optimization", "string-gathering",
+    ] {
+    assert_false(text.contains("pass[\{pass_name}]:start"), msg=text)
+  }
+  for
+    pass_name in [
+      "optimize-instructions", "dae-optimizing", "inlining-optimizing", "merge-blocks",
+    ] {
+    assert_false(text.contains("pass[\{pass_name}]:start"), msg=text)
+  }
+  assert_true(text.contains("pass[vacuum]"), msg=text)
+  assert_true(text.contains("pass[strip-debug]:start"), msg=text)
 }
 
 ///|

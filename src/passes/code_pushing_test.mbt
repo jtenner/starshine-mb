@@ -219,6 +219,117 @@ fn code_pushing_expect_op(
 }
 
 ///|
+test "code-pushing preserves structured call-result lifetimes" {
+  let input =
+    #|(module
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $convert (param i32) (result i32) local.get 0)
+    #|  (func $release (param i32))
+    #|  (func (result i32) (local i32 i32)
+    #|    call $make
+    #|    local.set 0
+    #|    local.get 0
+    #|    call $convert
+    #|    local.get 0
+    #|    if
+    #|      local.get 0
+    #|      call $release
+    #|    end
+    #|    local.set 1
+    #|    local.get 1))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected structured lifetime preservation, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-result-structured-lifetime-code-pushing-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing preserves typed-loop parameter spills" {
+  // A loop parameter spill executes on every iteration. Moving the second spill
+  // into a conditional arm reads stale state on the non-consuming path and
+  // changes the carried values used by the backedge.
+  let input =
+    #|(module
+    #|  (type $loop (func (param i32 i32)))
+    #|  (memory 1)
+    #|  (func (param i32 i32 i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32)
+    #|    local.get 3
+    #|    local.get 4
+    #|    i32.add
+    #|    local.set 5
+    #|    local.get 3
+    #|    local.get 1
+    #|    loop (type $loop)
+    #|      local.set 7
+    #|      local.set 6
+    #|      local.get 5
+    #|      local.get 6
+    #|      i32.gt_s
+    #|      if
+    #|        local.get 2
+    #|        local.get 6
+    #|        i32.const 1
+    #|        i32.shl
+    #|        i32.add
+    #|        i32.load16_u
+    #|        local.set 8
+    #|        local.get 0
+    #|        local.get 7
+    #|        i32.const 1
+    #|        i32.shl
+    #|        i32.add
+    #|        local.get 8
+    #|        i32.store16
+    #|        local.get 6
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set 9
+    #|        local.get 7
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set 10
+    #|        local.get 9
+    #|        local.get 10
+    #|        br 1
+    #|      end
+    #|    end
+    #|    i32.const 0))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed-loop preservation, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=typed-loop-parameter-code-pushing-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-pushing sinks const local.set into the only using if arm" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop end))",
