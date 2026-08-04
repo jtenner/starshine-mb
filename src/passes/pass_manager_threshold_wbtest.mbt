@@ -99,6 +99,12 @@ test "threshold guard reasons expose correctness and performance policy" {
     ),
     Some("correctness"),
   )
+  assert_eq(
+    run_hot_pipeline_threshold_guard_class(
+      "simplify-locals", "parameter-result-if-late-alias-lifetime",
+    ),
+    Some("correctness"),
+  )
   assert_true(
     threshold_test_all_guard_class(
       "remove-unused-brs",
@@ -116,12 +122,12 @@ test "threshold guard reasons expose correctness and performance policy" {
     threshold_test_all_guard_class(
       "simplify-locals",
       [
-        "large-module-simplify-locals-noop", "straight-line-builder-churn", "huge-straight-line-call-builder",
-        "multivalue-call-heavy-ladder", "giant-validator-structured-call-heavy-noop",
-        "branch-dense-structured-call-heavy-noop", "low-local-decision-ladder-noop",
-        "low-local-loop-return-call-ladder-noop", "mid-local-structured-call-ladder-noop",
-        "low-local-structured-call-heavy-noop", "parser-structured-call-heavy", "decode-structured-call-heavy",
-        "encode-structured-call-heavy", "branchy-decode-structured-call-heavy", "transformer-catch-structured-call-heavy",
+        "straight-line-builder-churn", "huge-straight-line-call-builder", "multivalue-call-heavy-ladder",
+        "giant-validator-structured-call-heavy-noop", "branch-dense-structured-call-heavy-noop",
+        "low-local-decision-ladder-noop", "low-local-loop-return-call-ladder-noop",
+        "mid-local-structured-call-ladder-noop", "low-local-structured-call-heavy-noop",
+        "parser-structured-call-heavy", "decode-structured-call-heavy", "encode-structured-call-heavy",
+        "branchy-decode-structured-call-heavy", "transformer-catch-structured-call-heavy",
         "branchy-structured-call-heavy", "dense-structured-call-heavy", "stringview-trim-loop-churn",
         "transformer-structured-call-heavy", "small-loop-call-heavy", "block-rich-structured-call-heavy-noop",
         "call-dense-structured-walker-noop", "medium-structured-call-heavy", "loop-heavy-structured-call-heavy",
@@ -286,13 +292,6 @@ test "remove-unused-brs unchecked mesh bounds are inclusive and hazard sensitive
       24, 400, true, true, true, true, shape, false, true,
     ),
   )
-}
-
-///|
-test "simplify-locals module skip begins at 2048 functions" {
-  assert_false(run_hot_pipeline_simplify_locals_should_skip_module_count(2047))
-  assert_true(run_hot_pipeline_simplify_locals_should_skip_module_count(2048))
-  assert_true(run_hot_pipeline_simplify_locals_should_skip_module_count(2049))
 }
 
 ///|

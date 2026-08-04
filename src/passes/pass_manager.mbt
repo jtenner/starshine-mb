@@ -111,11 +111,11 @@ fn run_hot_pipeline_threshold_guard_class(
   }
   if pass_name == "simplify-locals" {
     if reason == "root-local-set-stack-hazard-noop" ||
+      reason == "parameter-result-if-late-alias-lifetime" ||
       reason == "unchecked-small-structured-call-mesh-noop" {
       return Some("correctness")
     }
-    if reason == "large-module-simplify-locals-noop" ||
-      reason == "straight-line-builder-churn" ||
+    if reason == "straight-line-builder-churn" ||
       reason == "huge-straight-line-call-builder" ||
       reason == "multivalue-call-heavy-ladder" ||
       reason == "giant-validator-structured-call-heavy-noop" ||
@@ -3084,14 +3084,19 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate
 
 ///|
 priv struct RawSimplifyLocalsShape {
+  mut instr_count : Int
   mut if_count : Int
   mut block_count : Int
   mut loop_count : Int
   mut local_set_count : Int
+  mut local_tee_count : Int
   mut local_get_count : Int
   mut call_count : Int
   mut return_count : Int
   mut exact_tail_count : Int
+  mut has_global_state : Bool
+  mut has_memory_size : Bool
+  mut has_stack_effect_hazard : Bool
 }
 
 ///|
@@ -3103,10 +3108,14 @@ priv struct RawSimplifyLocalsGateStats {
   block_count : Int
   loop_count : Int
   local_set_count : Int
+  local_tee_count : Int
   local_get_count : Int
   call_count : Int
   return_count : Int
   exact_tail_count : Int
+  has_global_state : Bool
+  has_memory_size : Bool
+  has_stack_effect_hazard : Bool
 }
 
 ///|
@@ -3118,10 +3127,14 @@ fn RawSimplifyLocalsGateStats::new(
   block_count? : Int = 0,
   loop_count? : Int = 0,
   local_set_count? : Int = 0,
+  local_tee_count? : Int = 0,
   local_get_count? : Int = 0,
   call_count? : Int = 0,
   return_count? : Int = 0,
   exact_tail_count? : Int = 0,
+  has_global_state? : Bool = false,
+  has_memory_size? : Bool = false,
+  has_stack_effect_hazard? : Bool = false,
 ) -> RawSimplifyLocalsGateStats {
   {
     locals_count,
@@ -3131,25 +3144,70 @@ fn RawSimplifyLocalsGateStats::new(
     block_count,
     loop_count,
     local_set_count,
+    local_tee_count,
     local_get_count,
     call_count,
     return_count,
     exact_tail_count,
+    has_global_state,
+    has_memory_size,
+    has_stack_effect_hazard,
   }
 }
 
 ///|
 fn RawSimplifyLocalsShape::new() -> RawSimplifyLocalsShape {
   {
+    instr_count: 0,
     if_count: 0,
     block_count: 0,
     loop_count: 0,
     local_set_count: 0,
+    local_tee_count: 0,
     local_get_count: 0,
     call_count: 0,
     return_count: 0,
     exact_tail_count: 0,
+    has_global_state: false,
+    has_memory_size: false,
+    has_stack_effect_hazard: false,
   }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_full_lifetime_guard(
+  original : @lib.Func,
+  instrs : Array[@lib.Instruction],
+) -> HotPipelineFuncResult? {
+  if run_hot_pipeline_raw_simplify_locals_has_local_alias_multi_call_lifetime(
+      instrs,
+    ) {
+    return Some({
+      reason: "local-alias-multi-call-lifetime",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
+      instrs,
+    ) {
+    return Some({
+      reason: "call-result-structured-lifetime",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_simplify_locals_has_call_local_tee_lifetime(instrs) {
+    return Some({
+      reason: "call-local-tee-lifetime",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  None
 }
 
 ///|
@@ -3466,32 +3524,47 @@ fn run_hot_pipeline_raw_simplify_locals_has_initialized_loop_carrier(
 }
 
 ///|
-fn run_hot_pipeline_raw_simplify_locals_has_local_tee(
+fn run_hot_pipeline_raw_simplify_locals_has_parameter_result_if_late_alias_lifetime(
   instrs : Array[@lib.Instruction],
+  parameter_count : Int,
 ) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.LocalTee(_) => return true
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_simplify_locals_has_local_tee(body) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_simplify_locals_has_local_tee(then_body) {
-          return true
-        }
-        match else_body {
-          Some(else_body) =>
-            if run_hot_pipeline_raw_simplify_locals_has_local_tee(else_body) {
-              return true
-            }
-          None => ()
+  if parameter_count <= 0 {
+    return false
+  }
+  let read_before_result_if = Array::make(parameter_count, false)
+  let mut saw_result_if = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.LocalGet(@lib.LocalIdx(raw)) if !saw_result_if => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= 0 && local_id < parameter_count {
+          read_before_result_if[local_id] = true
         }
       }
+      @lib.If(block_type, _, _) =>
+        if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+          saw_result_if = true
+        }
+      @lib.LocalTee(@lib.LocalIdx(alias_raw)) if saw_result_if &&
+        idx + 2 < instrs.length() =>
+        match (instrs[idx + 1], instrs[idx + 2]) {
+          (
+            @lib.LocalGet(@lib.LocalIdx(read_alias_raw)),
+            @lib.LocalSet(@lib.LocalIdx(parameter_raw)),
+          ) if alias_raw == read_alias_raw => {
+            let parameter_id = parameter_raw.reinterpret_as_int()
+            if parameter_id >= 0 &&
+              parameter_id < parameter_count &&
+              read_before_result_if[parameter_id] {
+              return true
+            }
+          }
+          _ => ()
+        }
       _ => ()
     }
+    idx += 1
   }
   false
 }
@@ -4242,68 +4315,6 @@ fn run_hot_pipeline_raw_simplify_locals_has_stack_effect_local_write(
 }
 
 ///|
-fn run_hot_pipeline_raw_simplify_locals_has_memory_size(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.MemorySize(_) => return true
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_simplify_locals_has_memory_size(body) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_simplify_locals_has_memory_size(then_body) {
-          return true
-        }
-        match else_body {
-          Some(else_body) =>
-            if run_hot_pipeline_raw_simplify_locals_has_memory_size(else_body) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn run_hot_pipeline_raw_simplify_locals_has_global_state(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.GlobalGet(_) | @lib.GlobalSet(_) => return true
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_simplify_locals_has_global_state(body) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_simplify_locals_has_global_state(then_body) {
-          return true
-        }
-        match else_body {
-          Some(else_body) =>
-            if run_hot_pipeline_raw_simplify_locals_has_global_state(else_body) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn run_hot_pipeline_simplify_locals_descriptor_is_nostructure(
   descriptor_name : String,
 ) -> Bool {
@@ -4400,7 +4411,7 @@ fn run_hot_pipeline_raw_simplify_locals_convergence_guard(
     })
   }
   let deep_result_if_many_local_write_convergence = stats.locals_count >= 32 &&
-    run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) &&
+    (stats.local_set_count > 0 || stats.local_tee_count > 0) &&
     run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(instrs, 0)
   if deep_result_if_many_local_write_convergence && !allow_existing_ladder {
     return Some({
@@ -4410,8 +4421,8 @@ fn run_hot_pipeline_raw_simplify_locals_convergence_guard(
       trace_skip_raw: true,
     })
   }
-  let deep_br_table_local_write_convergence = run_hot_pipeline_raw_simplify_locals_has_local_write(
-      instrs,
+  let deep_br_table_local_write_convergence = (
+      stats.local_set_count > 0 || stats.local_tee_count > 0
     ) &&
     run_hot_pipeline_raw_simplify_locals_has_deep_br_table(instrs, 0)
   if deep_br_table_local_write_convergence {
@@ -4422,9 +4433,7 @@ fn run_hot_pipeline_raw_simplify_locals_convergence_guard(
       trace_skip_raw: true,
     })
   }
-  let deep_result_if_local_tee_convergence = run_hot_pipeline_raw_simplify_locals_has_local_tee(
-      instrs,
-    ) &&
+  let deep_result_if_local_tee_convergence = stats.local_tee_count > 0 &&
     run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(instrs, 0)
   if deep_result_if_local_tee_convergence && !allow_existing_ladder {
     return Some({
@@ -4434,8 +4443,8 @@ fn run_hot_pipeline_raw_simplify_locals_convergence_guard(
       trace_skip_raw: true,
     })
   }
-  let many_result_if_local_write_convergence = run_hot_pipeline_raw_simplify_locals_has_local_write(
-      instrs,
+  let many_result_if_local_write_convergence = (
+      stats.local_set_count > 0 || stats.local_tee_count > 0
     ) &&
     run_hot_pipeline_raw_simplify_locals_result_if_count_at_most(instrs, 16) >=
     16
@@ -4453,7 +4462,7 @@ fn run_hot_pipeline_raw_simplify_locals_convergence_guard(
     stats.locals_count >= 8 &&
     stats.locals_count <= 64 &&
     stats.has_structured_control &&
-    run_hot_pipeline_raw_simplify_locals_has_local_tee(instrs)
+    stats.local_tee_count > 0
   if structured_local_tee_hot_protect {
     return Some({
       reason: "structured-local-tee-hot-protect",
@@ -4475,7 +4484,18 @@ fn run_hot_pipeline_raw_simplify_locals_scan_shape(
     None => ()
   }
   for instr in instrs {
+    shape.instr_count = shape.instr_count + 1
     match instr {
+      @lib.GlobalGet(_) | @lib.GlobalSet(_) => shape.has_global_state = true
+      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) =>
+        shape.has_stack_effect_hazard = true
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
+        shape.call_count = shape.call_count + 1
+        shape.has_stack_effect_hazard = true
+      }
+      @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => shape.call_count = shape.call_count + 1
       @lib.If(_, then_body, else_body) => {
         shape.if_count = shape.if_count + 1
         run_hot_pipeline_raw_simplify_locals_scan_shape(then_body, shape)
@@ -4498,13 +4518,9 @@ fn run_hot_pipeline_raw_simplify_locals_scan_shape(
         run_hot_pipeline_raw_simplify_locals_scan_shape(body, shape)
       }
       @lib.LocalSet(_) => shape.local_set_count = shape.local_set_count + 1
+      @lib.LocalTee(_) => shape.local_tee_count = shape.local_tee_count + 1
       @lib.LocalGet(_) => shape.local_get_count = shape.local_get_count + 1
-      @lib.Call(_)
-      | @lib.CallIndirect(_, _)
-      | @lib.CallRef(_)
-      | @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_) => shape.call_count = shape.call_count + 1
+      @lib.MemorySize(_) => shape.has_memory_size = true
       @lib.Return => shape.return_count = shape.return_count + 1
       _ => ()
     }
@@ -4512,66 +4528,30 @@ fn run_hot_pipeline_raw_simplify_locals_scan_shape(
 }
 
 ///|
-fn run_hot_pipeline_raw_simplify_locals_preflight_budget_remaining(
-  instrs : Array[@lib.Instruction],
-  budget : Int,
-) -> Int {
-  let mut remaining = budget
-  for instr in instrs {
-    if remaining <= 0 {
-      return 0
-    }
-    remaining -= 1
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        remaining = run_hot_pipeline_raw_simplify_locals_preflight_budget_remaining(
-          body, remaining,
-        )
-      @lib.If(_, then_body, else_body) => {
-        remaining = run_hot_pipeline_raw_simplify_locals_preflight_budget_remaining(
-          then_body, remaining,
-        )
-        match else_body {
-          Some(else_body) =>
-            remaining = run_hot_pipeline_raw_simplify_locals_preflight_budget_remaining(
-              else_body, remaining,
-            )
-          None => ()
-        }
-      }
-      _ => ()
-    }
-    if remaining <= 0 {
-      return 0
-    }
-  }
-  remaining
-}
-
-///|
 fn run_hot_pipeline_raw_simplify_locals_gate_stats(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
 ) -> RawSimplifyLocalsGateStats {
-  let (_, has_structured_control, _, _, _, instr_count) = run_hot_pipeline_instr_scan(
-    instrs,
-  )
   let shape = RawSimplifyLocalsShape::new()
   run_hot_pipeline_raw_simplify_locals_scan_shape(instrs, shape)
   RawSimplifyLocalsGateStats::new(
     locals_count=locals.length(),
-    instr_count~,
-    has_structured_control~,
+    instr_count=shape.instr_count,
+    has_structured_control=shape.if_count > 0 ||
+      shape.block_count > 0 ||
+      shape.loop_count > 0,
     if_count=shape.if_count,
     block_count=shape.block_count,
     loop_count=shape.loop_count,
     local_set_count=shape.local_set_count,
+    local_tee_count=shape.local_tee_count,
     local_get_count=shape.local_get_count,
     call_count=shape.call_count,
     return_count=shape.return_count,
     exact_tail_count=shape.exact_tail_count,
+    has_global_state=shape.has_global_state,
+    has_memory_size=shape.has_memory_size,
+    has_stack_effect_hazard=shape.has_stack_effect_hazard,
   )
 }
 
@@ -8276,14 +8256,8 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
-  let preflight_remaining = if locals.length() <= 64 {
-    run_hot_pipeline_raw_simplify_locals_preflight_budget_remaining(
-      instrs, 6144,
-    )
-  } else {
-    1
-  }
-  if locals.length() <= 64 && preflight_remaining == 0 {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  if locals.length() <= 64 && stats.instr_count >= 6144 {
     return Some({
       reason: "oversized-lowered-simplify-locals-preflight",
       func: original,
@@ -8291,7 +8265,6 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
-  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
   if stats.loop_count > 0 &&
     run_hot_pipeline_raw_simplify_locals_has_initialized_loop_carrier(instrs) {
     return Some({
@@ -8302,7 +8275,7 @@ fn run_hot_pipeline_raw_simplify_locals(
     })
   }
   if stats.locals_count >= 32 &&
-    run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) &&
+    (stats.local_set_count > 0 || stats.local_tee_count > 0) &&
     run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(instrs, 0) {
     match
       run_hot_pipeline_raw_simplify_locals_deep_result_if_unread_tee_cleanup(
@@ -8316,9 +8289,9 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.has_structured_control &&
     stats.instr_count >= 24 &&
     stats.call_count >= 4 &&
-    run_hot_pipeline_raw_simplify_locals_has_local_tee(instrs) &&
-    run_hot_pipeline_raw_simplify_locals_has_global_state(instrs) &&
-    run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(instrs)
+    stats.local_tee_count > 0 &&
+    stats.has_global_state &&
+    stats.has_stack_effect_hazard
   if structured_startup_initializer_hot_lift_hazard {
     return Some({
       reason: "structured-startup-initializer-call-store-local-tee",
@@ -8330,7 +8303,7 @@ fn run_hot_pipeline_raw_simplify_locals(
   let structured_memory_builder_local_carrier = stats.locals_count >= 8 &&
     stats.locals_count <= 32 &&
     stats.has_structured_control &&
-    run_hot_pipeline_raw_simplify_locals_has_memory_size(instrs)
+    stats.has_memory_size
   if structured_memory_builder_local_carrier {
     return Some({
       reason: "structured-memory-builder-local-carrier",
@@ -8345,8 +8318,8 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.local_set_count <= 24 &&
     stats.local_get_count <= 24 &&
     stats.call_count >= 2 &&
-    run_hot_pipeline_raw_simplify_locals_has_global_state(instrs) &&
-    run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(instrs)
+    stats.has_global_state &&
+    stats.has_stack_effect_hazard
   if startup_initializer_hot_lift_hazard {
     return Some({
       reason: "startup-initializer-call-store-hot-lift",
@@ -8354,6 +8327,22 @@ fn run_hot_pipeline_raw_simplify_locals(
       unchanged_original: true,
       trace_skip_raw: true,
     })
+  }
+  if descriptor.name == "simplify-locals" {
+    let params = run_hot_pipeline_required_raw_func_params(
+      mod_, module_ctx, func_idx,
+    )
+    if run_hot_pipeline_raw_simplify_locals_has_parameter_result_if_late_alias_lifetime(
+        instrs,
+        params.length(),
+      ) {
+      return Some({
+        reason: "parameter-result-if-late-alias-lifetime",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
   }
   if no_structure_variant &&
     run_hot_pipeline_raw_simplify_locals_has_local_alias_multi_call_lifetime(
@@ -8395,7 +8384,7 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
-  if !run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) {
+  if stats.local_set_count == 0 && stats.local_tee_count == 0 {
     let (flattened_instrs, flattened_count) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
       instrs,
     )
@@ -8518,9 +8507,9 @@ fn run_hot_pipeline_raw_simplify_locals(
   )
   let raw_simplify_locals_stack_global_hazard = descriptor.name ==
     "simplify-locals" &&
-    run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) &&
-    run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(instrs) &&
-    run_hot_pipeline_raw_simplify_locals_has_global_state(instrs)
+    (stats.local_set_count > 0 || stats.local_tee_count > 0) &&
+    stats.has_stack_effect_hazard &&
+    stats.has_global_state
   let should_rewrite_ladder = if stats.locals_count < 16 ||
     stats.locals_count > 512 {
     false
@@ -9256,12 +9245,28 @@ fn run_hot_pipeline_raw_simplify_locals(
         })
       }
     }
+    if descriptor.name == "simplify-locals" {
+      match
+        run_hot_pipeline_raw_simplify_locals_full_lifetime_guard(
+          original, instrs,
+        ) {
+        Some(result) => return Some(result)
+        None => ()
+      }
+    }
     match
       run_hot_pipeline_raw_simplify_locals_convergence_guard(
         descriptor, original, instrs, stats, should_rewrite_ladder,
       ) {
       Some(result) => return Some(result)
       None => return None
+    }
+  }
+  if descriptor.name == "simplify-locals" {
+    match
+      run_hot_pipeline_raw_simplify_locals_full_lifetime_guard(original, instrs) {
+      Some(result) => return Some(result)
+      None => ()
     }
   }
   match
@@ -63227,16 +63232,6 @@ fn run_hot_pipeline_vacuum_repair_batch_writeback(
 }
 
 ///|
-// The whole-module SimplifyLocals cutoff is a performance guard. It avoids
-// per-function setup on artifact-scale modules; it is not a semantic limit.
-// Keep the 2047/2048/2049 boundary test and the classified trace in sync.
-fn run_hot_pipeline_simplify_locals_should_skip_module_count(
-  defined_function_count : Int,
-) -> Bool {
-  defined_function_count >= 2048
-}
-
-///|
 fn run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
   original_mod : @lib.Module,
   candidate_mod : @lib.Module,
@@ -63628,20 +63623,6 @@ fn run_hot_pipeline_apply_hot_pass(
       payload="reason=large-typed-loop-module-interference",
     )
     return Ok(mod_)
-  }
-  match mod_.code_sec {
-    Some(@lib.CodeSec(defs)) =>
-      if descriptor.name == "simplify-locals" &&
-        run_hot_pipeline_simplify_locals_should_skip_module_count(defs.length()) {
-        pipeline_trace_hook(
-          options.trace,
-          descriptor.name,
-          "skip-large-module",
-          payload="\{run_hot_pipeline_threshold_trace_payload(descriptor.name, "large-module-simplify-locals-noop")} funcs=\{defs.length()}",
-        )
-        return Ok(mod_)
-      }
-    None => ()
   }
   let module_state = HotPipelineModuleState::new()
   let defer_this_vacuum_writeback_guard = defer_vacuum_writeback_guard &&

@@ -254,6 +254,22 @@ fn perf_long_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
 }
 
 ///|
+fn perf_long_make_simplify_locals_2048_function_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  let mut i = 0
+  while i < 2047 {
+    out.write_string("  (func (param i32) (result i32) local.get 0)\n")
+    i += 1
+  }
+  out.write_string(
+    "  (func (result i32) (local i32) i32.const 7 local.set 0 local.get 0)\n",
+  )
+  out.write_string(")")
+  out.to_string()
+}
+
+///|
 test "optimize-instructions long perf lane scans nested blocks without exponential local write marking" {
   let input = perf_long_make_optimize_instructions_nested_block_module(50)
   let start_us = @lib.trace_now_us()
@@ -435,4 +451,30 @@ test "simplify-locals long perf lane skips flat dense multivalue call-heavy ladd
   )
   assert_false(text.contains("perf:timer name=lift"), msg=text)
   assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+#skip("manual artifact-scale full SimplifyLocals 2048-function breadth lane")
+test "simplify-locals long perf lane processes 2048-function modules" {
+  let lines : Array[String] = []
+  let optimized = match
+    @passes.pass_test_run_pipeline(
+      perf_long_make_simplify_locals_2048_function_module(),
+      ["simplify-locals"],
+      options=@passes.HotPipelineOptions::new(
+        trace=Some(fn(line) { lines.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected full SimplifyLocals large-module success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_defined_func(2047U)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+  assert_false(
+    perf_long_join_lines(lines).contains("skip-large-module"),
+    msg=perf_long_join_lines(lines),
+  )
 }

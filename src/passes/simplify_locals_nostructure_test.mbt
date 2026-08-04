@@ -2925,7 +2925,6 @@ test "simplify-locals-nostructure preflights oversized lowered builders" {
 
 ///|
 test "simplify-locals-nostructure preserves local-alias multi-call lifetimes" {
-  let pass_name = "simplify-locals-nostructure"
   let input =
     #|(module
     #|  (func $use (param i32 i32))
@@ -2939,23 +2938,27 @@ test "simplify-locals-nostructure preserves local-alias multi-call lifetimes" {
     #|    local.get 1
     #|    call $release))
   let original = pass_test_module_from_wat(input)
-  let trace : Array[String] = []
-  let optimized = match
-    pass_test_run_pipeline(
-      input,
-      [pass_name],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected local-alias lifetime success, got \{err}")
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected local-alias lifetime success, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    assert_true(
+      trace.any(fn(line) {
+        line.contains("reason=local-alias-multi-call-lifetime")
+      }),
+      msg=trace.to_string(),
+    )
   }
-  @debug.assert_eq(optimized, original)
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("reason=local-alias-multi-call-lifetime")
-    }),
-    msg=trace.to_string(),
-  )
 }
 
 ///|
@@ -3012,7 +3015,6 @@ test "simplify-locals-nostructure preserves effect-bracketed multivalue call spi
 
 ///|
 test "simplify-locals-nostructure preserves call-result structured lifetimes" {
-  let pass_name = "simplify-locals-nostructure"
   let input =
     #|(module
     #|  (func $make (result i32) i32.const 1)
@@ -3028,23 +3030,27 @@ test "simplify-locals-nostructure preserves call-result structured lifetimes" {
     #|      call $release
     #|    end))
   let original = pass_test_module_from_wat(input)
-  let trace : Array[String] = []
-  let optimized = match
-    pass_test_run_pipeline(
-      input,
-      [pass_name],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected structured lifetime success, got \{err}")
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected structured lifetime success, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    assert_true(
+      trace.any(fn(line) {
+        line.contains("reason=call-result-structured-lifetime")
+      }),
+      msg=trace.to_string(),
+    )
   }
-  @debug.assert_eq(optimized, original)
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("reason=call-result-structured-lifetime")
-    }),
-    msg=trace.to_string(),
-  )
 }
 
 ///|
@@ -3089,7 +3095,6 @@ test "simplify-locals-nostructure preserves call-result multi-call lifetimes" {
 
 ///|
 test "simplify-locals-nostructure preserves call-local-tee lifetimes" {
-  let pass_name = "simplify-locals-nostructure"
   // The tee owns a call result across a consumer call and a later release call.
   // Forwarding it before the producer reads an uninitialized local and moves the
   // release ahead of the consumer.
@@ -3115,21 +3120,25 @@ test "simplify-locals-nostructure preserves call-local-tee lifetimes" {
     #|    end
     #|    local.get 2))
   let original = pass_test_module_from_wat(input)
-  let trace : Array[String] = []
-  let optimized = match
-    pass_test_run_pipeline(
-      input,
-      [pass_name],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected call-local-tee lifetime success, got \{err}")
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected call-local-tee lifetime success, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    assert_true(
+      trace.any(fn(line) { line.contains("reason=call-local-tee-lifetime") }),
+      msg=trace.to_string(),
+    )
   }
-  @debug.assert_eq(optimized, original)
-  assert_true(
-    trace.any(fn(line) { line.contains("reason=call-local-tee-lifetime") }),
-    msg=trace.to_string(),
-  )
 }
 
 ///|

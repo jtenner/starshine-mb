@@ -15590,10 +15590,14 @@ test "raw simplify-locals branchy structured gate accepts target-like stats" {
     block_count: 24,
     loop_count: 0,
     local_set_count: 69,
+    local_tee_count: 0,
     local_get_count: 315,
     call_count: 107,
     return_count: 7,
     exact_tail_count: 0,
+    has_global_state: false,
+    has_memory_size: false,
+    has_stack_effect_hazard: false,
   }
   assert_true(
     run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats(
@@ -15630,10 +15634,14 @@ test "raw simplify-locals unchecked small structured call mesh gate accepts arti
     block_count: 2,
     loop_count: 1,
     local_set_count: 6,
+    local_tee_count: 0,
     local_get_count: 94,
     call_count: 59,
     return_count: 7,
     exact_tail_count: 0,
+    has_global_state: false,
+    has_memory_size: false,
+    has_stack_effect_hazard: false,
   }
   assert_true(
     run_hot_pipeline_raw_simplify_locals_unchecked_small_structured_call_mesh_stats(
@@ -15666,10 +15674,14 @@ test "raw simplify-locals giant validator gate accepts artifact-like stats" {
     block_count: 136,
     loop_count: 4,
     local_set_count: 1577,
+    local_tee_count: 0,
     local_get_count: 2853,
     call_count: 1227,
     return_count: 14,
     exact_tail_count: 0,
+    has_global_state: false,
+    has_memory_size: false,
+    has_stack_effect_hazard: false,
   }
   assert_true(
     run_hot_pipeline_raw_simplify_locals_giant_validator_structured_call_heavy_stats(
@@ -15702,10 +15714,14 @@ test "raw simplify-locals block-rich structured call-heavy gate accepts target-l
     block_count: 32,
     loop_count: 0,
     local_set_count: 67,
+    local_tee_count: 0,
     local_get_count: 165,
     call_count: 130,
     return_count: 0,
     exact_tail_count: 0,
+    has_global_state: false,
+    has_memory_size: false,
+    has_stack_effect_hazard: false,
   }
   assert_true(
     run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats(
@@ -15752,10 +15768,14 @@ test "raw simplify-locals call-dense structured walker gate accepts target-like 
     block_count: 14,
     loop_count: 3,
     local_set_count: 37,
+    local_tee_count: 0,
     local_get_count: 1068,
     call_count: 552,
     return_count: 3,
     exact_tail_count: 0,
+    has_global_state: false,
+    has_memory_size: false,
+    has_stack_effect_hazard: false,
   }
   assert_true(
     run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats(
@@ -19408,10 +19428,14 @@ test "raw simplify-locals branch-dense structured call-heavy gate accepts target
     block_count: 0,
     loop_count: 0,
     local_set_count: 3,
+    local_tee_count: 0,
     local_get_count: 289,
     call_count: 193,
     return_count: 0,
     exact_tail_count: 0,
+    has_global_state: false,
+    has_memory_size: false,
+    has_stack_effect_hazard: false,
   }
   assert_true(
     run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(

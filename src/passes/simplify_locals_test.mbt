@@ -235,37 +235,50 @@ test "simplify-locals skips mid-local structured call ladders" {
 }
 
 ///|
-fn simplify_locals_test_large_module_fixture() -> String {
-  let out = StringBuilder::new()
-  out.write_string("(module\n")
-  let mut i = 0
-  while i < 2048 {
-    out.write_string("  (func (param i32) (result i32) local.get 0)\n")
-    i += 1
-  }
-  out.write_string(")")
-  out.to_string()
-}
-
-///|
-test "simplify-locals skips very large modules conservatively" {
+test "simplify-locals preserves parameter reads before later result-if aliases" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32) (result i32) (local i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.eqz
+    #|    if (result i32)
+    #|      i32.const 4
+    #|    else
+    #|      i32.const 8
+    #|    end
+    #|    i32.add
+    #|    i32.load
+    #|    i32.const -1
+    #|    local.get 1
+    #|    i32.shl
+    #|    i32.and
+    #|    local.tee 3
+    #|    local.get 3
+    #|    local.set 1
+    #|    if (result i32)
+    #|      local.get 0
+    #|    else
+    #|      i32.const 0
+    #|    end))
+  let original = pass_test_module_from_wat(input)
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
-      simplify_locals_test_large_module_fixture(),
+      input,
       ["simplify-locals"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
-    Err(err) =>
-      fail("expected large-module simplify-locals skip success, got \{err}")
+    Ok(mod_) => mod_
+    Err(err) => fail("expected parameter lifetime preservation, got \{err}")
   }
+  @debug.assert_eq(optimized, original)
   assert_true(
     trace.any(fn(line) {
-      line.contains(
-        "pass[simplify-locals]:skip-large-module reason=large-module-simplify-locals-noop guard=performance funcs=2048",
-      )
+      line.contains("reason=parameter-result-if-late-alias-lifetime")
     }),
+    msg=trace.to_string(),
   )
 }
 
