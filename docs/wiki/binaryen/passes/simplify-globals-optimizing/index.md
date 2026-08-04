@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-04
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -77,6 +77,7 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
   - startup-time constant propagation into later globals and offsets
   - runtime constant propagation into function code with a cheap linear-trace model
 - The `optimizing` part really matters: Binaryen reruns the default function optimization pipeline on changed functions after constant replacement or removed writes.
+- The August 3 SGO nontermination was nested SimplifyLocalsNoStructure false progress on a byte-identical `f32.const nan`: structural float equality treats NaN as unequal to itself. Root carrier forwarding, nop hoisting, and root finalization now report explicit mutation facts. The reduced trapping-conversion fixture converges while preserving `f32.const nan -> i32.trunc_f32_s`; the complete SGO test file is `321/321` and completes in normal repository-test time. The August 4 source reconstruction restored the same behavior and focused results.
 - That nested rerun is **not** the same helper used by `dae-optimizing` and `inlining-optimizing`:
   - it does **not** prepend `precompute-propagate`
   - it reruns per changed function through a nested `PassRunner`

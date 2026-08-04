@@ -43,7 +43,7 @@ At O4z with all features enabled, Starshine's first 56 slots exactly match Binar
 
 By explicit user direction, non-O4z public presets no longer execute the full Binaryen-shaped roster. O1/O2 run only `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz run `duplicate-function-elimination -> vacuum -> reorder-locals -> strip-debug`. The removed preset work remains available as direct passes and through the full O4z compatibility lane.
 
-On the 13,118,096-byte / 11,999-function debug-WASI artifact, the new presets complete in 1.944-5.729 seconds, validate externally, and pass Node/WASI runtime. O1/O2 emit 4,889,183 bytes; O3/O4/Os/Oz emit 4,753,316 bytes. O4z remains the exact 57-slot compatibility lane and still takes 142.144 seconds.
+On the 13,118,096-byte / 11,999-function debug-WASI artifact, the new presets complete in 1.944-5.729 seconds, validate externally, and pass Node/WASI runtime. O1/O2 emit 4,889,183 bytes; O3/O4/Os/Oz emit 4,753,316 bytes. O4z remains the exact 57-slot compatibility lane; the SimplifyLocals owner-priority, scan-cache, full-module breadth, and parameter-lifetime recovery improves its original August 3 result from 142.144 seconds / 5,997,701 bytes to 115.435 seconds / 5,912,452 bytes. The August 4 reconstructed source emits byte-identical output with external validation and runtime green.
 
 ## 2026-08-02 Starshine level and nested-scheduler integration
 

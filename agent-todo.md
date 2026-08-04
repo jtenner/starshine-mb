@@ -23,7 +23,7 @@
 
 1. Complete `[WALL]001` pass-local attribution so every slow-pass item separates optimizer work from the 0.615-second Starshine command floor.
 2. Execute `[SIZE]001` together with the overlapping performance items: CoalesceLocals correctness first; SimplifyLocals with `[PERF-SLNS]001`; optimizing inlining with `[PERF-INL-OPT]001`; then DAE with `[PERF-DAE]001` and `[PERF-DAEO]001`.
-3. Repair the remaining direct slow passes in descending measured cost: `[PERF-DCE]001`, `[PERF-OPTINST]001`, `[PERF-VACUUM]001`, `[PERF-CODEFOLD]001`, `[PERF-PRECOMPUTE]001`, `[PERF-RUB]001`, and `[PERF-PRECOMPUTE-PROP]001`; bound `[PERF-SGO]001` independently.
+3. Repair the remaining direct slow passes in descending measured cost: `[PERF-DCE]001`, `[PERF-OPTINST]001`, `[PERF-VACUUM]001`, `[PERF-CODEFOLD]001`, `[PERF-PRECOMPUTE]001`, `[PERF-RUB]001`, and `[PERF-PRECOMPUTE-PROP]001`.
 4. Run `[JSON-AS]001`, `[TOOL]001`, and `[STRIP-DEBUG]001` final release evidence.
 5. Revisit focused startup fallbacks only with smaller regressions and runtime proof.
 
@@ -48,7 +48,7 @@
 - Separate pass-local time from decode, validation, HOT lift/lower, parse/emit, buffering, caching, and process startup.
 - The wall-time-first public presets clear the production blocker on the 13,118,096-byte / 11,999-function debug-WASI artifact: O1 1.944 seconds, O2 1.962, O3 5.578, O4 5.729, Os 5.611, and Oz 5.597. Every output validates externally and passes Node/WASI runtime.
 - O1/O2 emit 4,889,183 bytes; O3/O4/Os/Oz emit 4,753,316 bytes. The speed-focused rosters intentionally trade some Binaryen size parity for practical wall time; direct passes remain available for targeted use.
-- O4z remains the full 57-slot compatibility lane and is still the active aggregate wall-time owner: 142.144 seconds / 5,997,701 bytes on the same artifact versus verified-v131 combined `-O4 -Oz` at 17.795 seconds / 4,514,743 bytes. Preserve its exact order while attributing and repairing pass-local costs.
+- O4z remains the full 57-slot compatibility lane and is still the active aggregate wall-time owner. The SimplifyLocals scan-cache, full-module breadth, owner-priority, and parameter-lifetime work improves the lane from 142.144 seconds / 5,997,701 bytes to the original August 3 result of 115.435 seconds / 5,912,452 bytes; the August 4 reconstruction emits byte-identical output and remains external-validation/runtime green. Verified-v131 combined `-O4 -Oz` remains 17.795 seconds / 4,514,743 bytes. Preserve the exact order while attributing and repairing pass-local costs.
 
 ## v0.1.1 Pass Performance Work
 
@@ -99,10 +99,11 @@ The measurements below are whole-command medians on the 4,977,401-byte canonical
 
 ### [PERF-SLNS]001 - Reduce SimplifyLocalsNoStructure guard and rewrite cost
 
-- **Evidence:** median 3.922 seconds versus verified-v131 0.618 seconds; incremental costs are about 3.307 versus 0.103 seconds.
-- **Work:** combine duplicate raw ownership/control scans, cache local-use inventories, preflight functions before HOT lifting, batch writeback, and make guard evaluation proportional to touched candidates rather than all nested control.
-- **Dependencies:** coordinate with `[SIZE]001` because reducing guard cost must not entrench the current 424,954-byte transformation gap.
-- **Exit criteria:** direct production time is below 1.5 seconds while increasing or preserving safe transformation breadth and keeping all initialized-loop, local-tee, call-result, and multivalue lifetime regressions green.
+- **Evidence:** one shared raw shape inventory replaces the former duplicate generic/shape scans and caches local-write, local-tee, global-state, memory-size, and stack-effect facts. Folding the small-local preflight into that scan reduced the original August 3 median from 3.792 seconds to 1.710 seconds versus verified-v131 0.618 seconds; August 4 reconstruction rechecks are 1.823/1.867/1.878 seconds and byte-identical to the preserved binary. The direct artifact still saves 21,162 bytes.
+- **Work:** profile the remaining HOT-pass total, especially lifted unchanged functions and control-embedded-tee root-only functions. Add a candidate preflight only when it is cheaper than the work it avoids; the attempted post-lift local-get inventory reuse and an extra no-root-candidate scan produced no measured win and were reverted.
+- **Dependencies:** coordinate with `[SIZE]001` because reducing guard cost must not entrench the remaining 421,733-byte no-structure transformation gap.
+- **Regression status:** the 12 bounded default perf expectations reach their specific multivalue, adjacent-local, structured-tail, stringview, and decision-ladder owners before generic convergence guards. Four multivalue stress tests plus the synthetic 2,048-function breadth test are explicit `#skip` manual lanes in `passes_perf_long`, and all five pass when selected directly. Full `moon test` is green at `10230/10230`; fresh regular GenValid lanes are `10000/10000` normalized matches for both full and no-structure variants with zero failures.
+- **Exit criteria:** direct no-structure production time is below 1.5 seconds while increasing or preserving safe transformation breadth and keeping all initialized-loop, local-tee, call-result, parameter-alias, multivalue, and owner-priority regressions green.
 
 ### [PERF-PRECOMPUTE]001 - Reduce Precompute analysis cost
 
@@ -122,18 +123,12 @@ The measurements below are whole-command medians on the 4,977,401-byte canonical
 - **Work:** profile label-use inventory, recursive control traversal, repeated branch-target rewriting, fixpoint convergence, and unchanged-function emission. Cache stable label facts per mutation round.
 - **Exit criteria:** direct production time is below 1.25 seconds while preserving all three locked O4z slots, direct behavior, validation, and runtime correctness.
 
-### [PERF-SGO]001 - Bound SimplifyGlobalsOptimizing tests and direct execution
-
-- **Evidence:** the full `simplify_globals_optimizing_test.mbt` lane still exceeds 1,200 seconds even though focused SGO behavior is green; the large typed-loop production lane currently no-ops, so its apparently cheap direct timing does not represent implemented optimizing work.
-- **Work:** identify unbounded synthetic cases, separate default behavior tests from dedicated fuzz/perf stress, profile nested touched-function cleanup and module/function rescans, and preserve the typed-loop fail-closed boundary until runtime-safe admission exists.
-- **Exit criteria:** the bounded default SGO suite completes in normal repository-test time, stress cases live in explicit skipped perf/fuzz lanes, and any restored production transformation has pass-local timing, size, external validation, and runtime evidence.
-
 ### [SIZE]001 - Match or beat Binaryen output size
 
 - **Measurement protocol:** use `.tmp/production-smoke/size-attribution-accurate/common-star-canonical.wasm` as the shared debug-free input. Compare every direct pass against its own tool's no-op `--strip-debug` roundtrip: Starshine 4,977,401 bytes, verified Binaryen v131 5,300,041 bytes. This removes the 322,640-byte codec/roundtrip bias before attributing pass savings. Validate every output externally; use one warmup plus three measured serial runs for timing claims.
 - **Debug conclusion:** the 13,118,096-byte source contains only one custom section, `name`, occupying 7,841,984 bytes including framing. It is fully removed in the compared outputs. Remaining gaps are code transformations, not hidden DWARF or custom-section debris.
 - **Priority 1 — local coalescing:** Binaryen direct `coalesce-locals` saves 517,553 bytes across 9,264 functions; Starshine saves 0 because one large structured function causes `coalesce_locals_run_module_pass` to return the entire original module. The obvious function-local isolation is not safe yet: protecting only 16+-local hazards produced an invalid local index in function 152; lowering protection to 12 exposed function 225; protecting every parameterized structured function validated and saved 8,611 bytes but failed Node/WASI with an out-of-bounds memory access. The experiment was reverted. Recover exact live-range/coloring correctness before replacing the module-wide boundary. The largest sampled Binaryen function drops from 8,249 body locals to 18.
-- **Priority 2 — SimplifyLocals breadth:** Binaryen direct no-structure/full variants save 442,895 / 442,185 bytes. Starshine saves 17,941 / 0. Full `simplify-locals` skips modules with at least 2,048 definitions; no-structure reports more than ten thousand protection/fail-closed reasons, led by structured local-tee and typed-loop control families. Remove the whole-module cutoff and narrow guards one proven family at a time with runtime tests.
+- **Priority 2 — SimplifyLocals breadth:** Binaryen direct no-structure/full variants save 442,895 / 442,185 bytes. Starshine now saves 21,162 / 54,211 bytes. The full-pass 2,048-definition cutoff is removed; production recovery required extending local-alias, call-result, and call-local-tee lifetime protection to full SimplifyLocals, then deferring those broad guards behind specific bounded owners. The O4z prefix additionally exposed an early parameter read being replaced by a later result-if alias; the focused correctness guard preserves that lifetime. Remaining direct gaps are 421,733 / 387,974 bytes, led by structured local-tee and typed-loop control families.
 - **Priority 3 — optimizing inlining:** Starshine direct `inlining-optimizing` expands by 1,249,559 bytes while Binaryen shrinks by 1,119,242 bytes. Both reach roughly 5.9K defined functions, but 5,864 common named bodies are 2,039,427 bytes larger in Starshine. Repair typed-loop fallback, profitability, nested cleanup, and helper deletion before restoring inlining to wall-time-first presets.
 - **Priority 4 — DAE optimizing:** Starshine direct DAE/DAEO exceed 150 seconds at default options; Binaryen DAEO takes 0.888 seconds and saves 102,216 bytes. Preserve result-removal correctness while replacing the typed-loop full-parameter fallback and repeated graph work.
 - **Secondary direct gaps:** precompute-propagate 66,206 bytes, precompute 55,840, optimize-instructions 34,192, vacuum 24,295, code-folding 23,564, remove-unused-brs 21,805, simplify-globals-optimizing 7,885, reorder-locals 5,901, and RSE 4,196. Treat these as overlapping families, not additive totals.

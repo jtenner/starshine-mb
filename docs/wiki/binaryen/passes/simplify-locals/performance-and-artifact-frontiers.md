@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-04
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -19,6 +19,16 @@ related:
 # `simplify-locals` Performance And Artifact Frontiers
 
 The 2026-07-27 v131 renewal is a behavioral, validity, idempotence, and canonical-size closeout. It does not replace the historical large-artifact timing caveat below; renewed wall-time work remains owned by `[WALL]001` and is not a simplify-locals v131 parity blocker.
+
+## 2026-08-03 owner-priority, breadth, and scan-cache recovery
+
+- A nested SGO fixture exposed false progress on byte-identical `f32.const nan`: structural float equality treats NaN as unequal to itself. Lowered root forwarding, nop hoisting, and finalization now report explicit mutation facts, and no-local-write functions avoid equality-based local rewrites. The 321-test SGO file completes in normal repository-test time instead of exceeding 1,200 seconds.
+- Broad production convergence guards had shadowed older bounded raw owners. Specific multivalue ladders, call-heavy ladders, adjacent local tee/drop builders, structured pure-call tails, stringview trim loops, low-local decision ladders, and branch-dense walkers now run first. Safe deep result-if unread-tee cleanup remains early; generic convergence fallbacks still own unmatched hazardous shapes.
+- One shared lowered shape inventory now replaces the duplicate generic/shape scans and records instruction/control counts plus local-write, local-tee, global-state, memory-size, and stack-effect facts. The small-local 6,144-instruction preflight uses that same scan. A proposed post-lift local-get cache and an extra no-root-candidate scan had no measured payoff and were reverted.
+- The full-pass 2,048-definition cutoff is removed. Production runtime recovery extended local-alias, call-result, and call-local-tee lifetime protection to full SimplifyLocals, but keeps those broad guards behind specific bounded raw owners. The O4z prefix exposed one additional wrong-code family where an early parameter read was replaced by a later result-if alias; `parameter-result-if-late-alias-lifetime` protects that ownership boundary.
+- The default suite is green at `10230/10230`. Four multivalue stress tests plus the synthetic 2,048-function breadth test are explicitly skipped manual lanes under `passes_perf_long`; all five direct index replays are green. Fresh regular GenValid runs for full and no-structure SimplifyLocals each report `10000/10000` normalized matches with zero validation, property, generator, command, or mismatch failures.
+- On the 4,977,401-byte canonical production artifact, direct `simplify-locals-nostructure` emits 4,956,239 bytes, a 21,162-byte reduction. The original August 3 measured median was 1.710 seconds, down from 3.792 seconds; the August 4 reconstruction emits byte-identical output and rechecks at a 1.867-second median on the current machine. Full `simplify-locals` emits 4,923,190 bytes (−54,211); the original median was 2.047 seconds and the reconstruction rechecks at 2.093 seconds. Both artifacts validate externally and pass Node/WASI runtime.
+- Full O4z on the 13,118,096-byte debug-WASI artifact originally completed in 115.435 seconds and emitted 5,912,452 bytes, improving the prior 129.709-second / 5,993,829-byte result without changing the locked schedule. The August 4 reconstructed source emits a byte-identical 5,912,452-byte artifact that validates externally and passes runtime.
 
 ## Scope
 
