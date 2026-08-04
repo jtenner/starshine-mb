@@ -158,6 +158,26 @@ fn slns_test_deep_br_table_local_write(depth : Int) -> String {
 }
 
 ///|
+test "simplify-locals-nostructure treats NaN constants as unchanged" {
+  // Structural equality is not reflexive for NaN-bearing instructions. Both
+  // variants must converge without treating a byte-identical lowered cleanup
+  // result as fresh progress.
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let optimized = match
+      pass_test_run_pipeline(
+        "(module (func f32.const nan i32.trunc_f32_s drop unreachable))",
+        [pass_name],
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected \{pass_name} NaN convergence, got \{err}")
+    }
+    let pretty = optimized.pretty_print_defined_func(0U)
+    assert_true(pretty.contains("F32(NaN)"), msg=pretty)
+    assert_true(pretty.contains("i32.trunc_f32s"), msg=pretty)
+  }
+}
+
+///|
 test "simplify-locals-nostructure skips redundant second main cycle without deferred writes" {
   // Performance invariant from the SLNS v130 timing audit: a function with no
   // first-cycle-deferred multi-use local.set work should not rescan the root

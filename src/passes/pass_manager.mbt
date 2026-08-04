@@ -8358,10 +8358,46 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
-  let root_forwarded = run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers(
+  if !run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) {
+    let (flattened_instrs, flattened_count) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
+      instrs,
+    )
+    if flattened_count > 0 {
+      return Some({
+        reason: "no-local-writes-no-normal-result-block",
+        func: @lib.Func::new(locals, @lib.Expr::new(flattened_instrs)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+    // Binaryen's nesting-enabled siblings all move a trailing constant after a
+    // result-loop nop and reserve the temporary local type, while nonesting
+    // deliberately retains the explicit carrier. This raw shape avoids the
+    // native stackifier recreating a larger local.set/nop/local.get sequence.
+    let (rewritten_instrs, added_locals, changed) = run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
+      instrs,
+    )
+    if changed {
+      let rewritten_locals = locals.copy()
+      rewritten_locals.append_types(added_locals)
+      return Some({
+        reason: "no-local-writes-const-nop",
+        func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
+        unchanged_original: false,
+        trace_skip_raw: false,
+      })
+    }
+    return Some({
+      reason: "no-local-writes",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let (root_forwarded, root_forwarded_changed) = run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers_with_changed(
     instrs,
   )
-  if root_forwarded != instrs {
+  if root_forwarded_changed {
     let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
       @lib.Func::new(locals, @lib.Expr::new(root_forwarded)),
     )
@@ -8417,42 +8453,6 @@ fn run_hot_pipeline_raw_simplify_locals(
       reason: "straight-line-i32-add-accumulator",
       func: @lib.Func::new(locals, @lib.Expr::new(i32_accumulator_instrs)),
       unchanged_original: false,
-      trace_skip_raw: true,
-    })
-  }
-  if !run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) {
-    let (flattened_instrs, flattened_count) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
-      instrs,
-    )
-    if flattened_count > 0 {
-      return Some({
-        reason: "no-local-writes-no-normal-result-block",
-        func: @lib.Func::new(locals, @lib.Expr::new(flattened_instrs)),
-        unchanged_original: false,
-        trace_skip_raw: true,
-      })
-    }
-    // Binaryen's nesting-enabled siblings all move a trailing constant after a
-    // result-loop nop and reserve the temporary local type, while nonesting
-    // deliberately retains the explicit carrier. This raw shape avoids the
-    // native stackifier recreating a larger local.set/nop/local.get sequence.
-    let (rewritten_instrs, added_locals, changed) = run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
-      instrs,
-    )
-    if changed {
-      let rewritten_locals = locals.copy()
-      rewritten_locals.append_types(added_locals)
-      return Some({
-        reason: "no-local-writes-const-nop",
-        func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
-        unchanged_original: false,
-        trace_skip_raw: false,
-      })
-    }
-    return Some({
-      reason: "no-local-writes",
-      func: original,
-      unchanged_original: true,
       trace_skip_raw: true,
     })
   }
@@ -57056,19 +57056,22 @@ fn run_hot_pipeline_simplify_locals_lowered_rewrite_split_value_wrapper_body(
 }
 
 ///|
-fn run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
+fn run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values_with_changed(
   instrs : Array[@lib.Instruction],
-) -> Array[@lib.Instruction] {
+) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
   let mut idx = 0
   while idx < instrs.length() {
     let mut end_ = idx
     let mut saw_nop = false
     let mut saw_dupable = false
+    let mut saw_dupable_before_nop = false
     while end_ < instrs.length() {
       match instrs[end_] {
         @lib.Nop => {
           saw_nop = true
+          saw_dupable_before_nop = saw_dupable_before_nop || saw_dupable
           end_ = end_ + 1
         }
         instr =>
@@ -57083,6 +57086,7 @@ fn run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
       }
     }
     if saw_nop && saw_dupable {
+      changed = changed || saw_dupable_before_nop
       for run_idx = idx; run_idx < end_; run_idx = run_idx + 1 {
         match instrs[run_idx] {
           @lib.Nop => rewritten.push(instrs[run_idx])
@@ -57105,6 +57109,16 @@ fn run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
       idx = idx + 1
     }
   }
+  (rewritten, changed)
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let (rewritten, _) = run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values_with_changed(
+    instrs,
+  )
   rewritten
 }
 
@@ -58858,10 +58872,10 @@ fn run_hot_pipeline_simplify_locals_cleanup_exact_func(
     changed = true
   }
   let cleaned = @lib.Func::new(locals, @lib.Expr::new(current_body))
-  let finalized = run_hot_pipeline_simplify_locals_finalize_lowered_root(
+  let (finalized, finalized_changed) = run_hot_pipeline_simplify_locals_finalize_lowered_root_with_changed(
     cleaned,
   )
-  (finalized, changed || finalized != cleaned)
+  (finalized, changed || finalized_changed)
 }
 
 ///|
@@ -58928,10 +58942,11 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
 }
 
 ///|
-fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers(
+fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers_with_changed(
   body : Array[@lib.Instruction],
-) -> Array[@lib.Instruction] {
+) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
   let mut idx = 0
   while idx < body.length() {
     if idx + 2 < body.length() {
@@ -58964,6 +58979,7 @@ fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers(
             ) => {
             rewritten.push(@lib.Instruction::nop())
             rewritten.push(body[idx])
+            changed = true
             idx += 3
             continue
           }
@@ -58974,33 +58990,50 @@ fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers(
     rewritten.push(body[idx])
     idx += 1
   }
-  rewritten
+  (rewritten, changed)
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_finalize_lowered_root_with_changed(
+  func : @lib.Func,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (forwarded, forwarded_changed) = run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers_with_changed(
+    body,
+  )
+  let reachable : Array[@lib.Instruction] = []
+  let mut reachable_changed = false
+  let mut terminated = false
+  for instr in forwarded {
+    if terminated {
+      reachable_changed = true
+      continue
+    }
+    reachable.push(instr)
+    match instr {
+      @lib.Return => terminated = true
+      _ => ()
+    }
+  }
+  let (reordered, reordered_changed) = run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values_with_changed(
+    reachable,
+  )
+  let changed = forwarded_changed || reachable_changed || reordered_changed
+  if changed {
+    (@lib.Func::new(locals, @lib.Expr::new(reordered)), true)
+  } else {
+    (func, false)
+  }
 }
 
 ///|
 fn run_hot_pipeline_simplify_locals_finalize_lowered_root(
   func : @lib.Func,
 ) -> @lib.Func {
-  let @lib.Func(locals, @lib.Expr(body)) = func
-  let forwarded = run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers(
-    body,
+  let (finalized, _) = run_hot_pipeline_simplify_locals_finalize_lowered_root_with_changed(
+    func,
   )
-  let reachable : Array[@lib.Instruction] = []
-  for instr in forwarded {
-    reachable.push(instr)
-    match instr {
-      @lib.Return => break
-      _ => ()
-    }
-  }
-  let reordered = run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
-    reachable,
-  )
-  if reordered == body {
-    func
-  } else {
-    @lib.Func::new(locals, @lib.Expr::new(reordered))
-  }
+  finalized
 }
 
 ///|
@@ -61811,10 +61844,10 @@ fn run_hot_pipeline_func(
       mod_, func_idx, module_state, descriptor, options,
     ) {
     Some(result) => {
-      let finalized = run_hot_pipeline_simplify_locals_finalize_lowered_root(
+      let (finalized, finalized_changed) = run_hot_pipeline_simplify_locals_finalize_lowered_root_with_changed(
         result.func,
       )
-      if finalized == result.func {
+      if !finalized_changed {
         return Ok(result)
       }
       return Ok({
