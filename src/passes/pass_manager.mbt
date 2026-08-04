@@ -4344,6 +4344,128 @@ fn run_hot_pipeline_simplify_locals_initial_should_skip_stack_hazard(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_deep_result_if_unread_tee_cleanup(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  options : HotPipelineOptions,
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> HotPipelineFuncResult? {
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  let params = run_hot_pipeline_required_raw_func_params(
+    mod_, module_ctx, func_idx,
+  )
+  let local_gets : Array[Int] = Array::make(
+    params.length() + locals.length(),
+    0,
+  )
+  let local_sets : Array[Int] = Array::make(local_gets.length(), 0)
+  let local_tees : Array[Int] = Array::make(local_gets.length(), 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  let (dead_tee_instrs, dead_tee_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+    instrs, local_gets,
+  )
+  if dead_tee_rewrites == 0 {
+    return None
+  }
+  Some({
+    reason: "deep-result-if-unread-local-tee-cleanup",
+    func: @lib.Func::new(locals, @lib.Expr::new(dead_tee_instrs)),
+    unchanged_original: false,
+    trace_skip_raw: true,
+  })
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_convergence_guard(
+  descriptor : @ir.HotPassDescriptor,
+  original : @lib.Func,
+  instrs : Array[@lib.Instruction],
+  stats : RawSimplifyLocalsGateStats,
+  allow_existing_ladder : Bool,
+) -> HotPipelineFuncResult? {
+  let giant_post_inline_call_builder = stats.instr_count >= 4096 &&
+    stats.call_count >= 1024
+  if giant_post_inline_call_builder {
+    return Some({
+      reason: "giant-post-inline-call-builder",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let deep_result_if_many_local_write_convergence = stats.locals_count >= 32 &&
+    run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) &&
+    run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(instrs, 0)
+  if deep_result_if_many_local_write_convergence && !allow_existing_ladder {
+    return Some({
+      reason: "deep-result-if-many-local-write-convergence",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let deep_br_table_local_write_convergence = run_hot_pipeline_raw_simplify_locals_has_local_write(
+      instrs,
+    ) &&
+    run_hot_pipeline_raw_simplify_locals_has_deep_br_table(instrs, 0)
+  if deep_br_table_local_write_convergence {
+    return Some({
+      reason: "deep-br-table-local-write-convergence",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let deep_result_if_local_tee_convergence = run_hot_pipeline_raw_simplify_locals_has_local_tee(
+      instrs,
+    ) &&
+    run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(instrs, 0)
+  if deep_result_if_local_tee_convergence && !allow_existing_ladder {
+    return Some({
+      reason: "deep-result-if-local-tee-convergence",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let many_result_if_local_write_convergence = run_hot_pipeline_raw_simplify_locals_has_local_write(
+      instrs,
+    ) &&
+    run_hot_pipeline_raw_simplify_locals_result_if_count_at_most(instrs, 16) >=
+    16
+  if many_result_if_local_write_convergence && !allow_existing_ladder {
+    return Some({
+      reason: "many-result-if-local-write-convergence",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let structured_local_tee_hot_protect = run_hot_pipeline_descriptor_is_simplify_locals_family(
+      descriptor.name,
+    ) &&
+    stats.locals_count >= 8 &&
+    stats.locals_count <= 64 &&
+    stats.has_structured_control &&
+    run_hot_pipeline_raw_simplify_locals_has_local_tee(instrs)
+  if structured_local_tee_hot_protect {
+    return Some({
+      reason: "structured-local-tee-hot-protect",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  None
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_scan_shape(
   instrs : Array[@lib.Instruction],
   shape : RawSimplifyLocalsShape,
@@ -8179,86 +8301,16 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
-  let giant_post_inline_call_builder = stats.instr_count >= 4096 &&
-    stats.call_count >= 1024
-  if giant_post_inline_call_builder {
-    return Some({
-      reason: "giant-post-inline-call-builder",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
-  let deep_result_if_many_local_write_convergence = stats.locals_count >= 32 &&
+  if stats.locals_count >= 32 &&
     run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) &&
-    run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(instrs, 0)
-  if deep_result_if_many_local_write_convergence {
-    let params = run_hot_pipeline_required_raw_func_params(
-      mod_, module_ctx, func_idx,
-    )
-    let local_gets : Array[Int] = Array::make(
-      params.length() + locals.length(),
-      0,
-    )
-    let local_sets : Array[Int] = Array::make(local_gets.length(), 0)
-    let local_tees : Array[Int] = Array::make(local_gets.length(), 0)
-    run_hot_pipeline_raw_collect_local_ref_counts(
-      instrs, local_gets, local_sets, local_tees,
-    )
-    let (dead_tee_instrs, dead_tee_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
-      instrs, local_gets,
-    )
-    if dead_tee_rewrites > 0 {
-      return Some({
-        reason: "deep-result-if-unread-local-tee-cleanup",
-        func: @lib.Func::new(locals, @lib.Expr::new(dead_tee_instrs)),
-        unchanged_original: false,
-        trace_skip_raw: true,
-      })
+    run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(instrs, 0) {
+    match
+      run_hot_pipeline_raw_simplify_locals_deep_result_if_unread_tee_cleanup(
+        mod_, func_idx, module_state, options, locals, instrs,
+      ) {
+      Some(result) => return Some(result)
+      None => ()
     }
-    return Some({
-      reason: "deep-result-if-many-local-write-convergence",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
-  let deep_br_table_local_write_convergence = run_hot_pipeline_raw_simplify_locals_has_local_write(
-      instrs,
-    ) &&
-    run_hot_pipeline_raw_simplify_locals_has_deep_br_table(instrs, 0)
-  if deep_br_table_local_write_convergence {
-    return Some({
-      reason: "deep-br-table-local-write-convergence",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
-  let deep_result_if_local_tee_convergence = run_hot_pipeline_raw_simplify_locals_has_local_tee(
-      instrs,
-    ) &&
-    run_hot_pipeline_raw_simplify_locals_has_deep_result_if_chain(instrs, 0)
-  if deep_result_if_local_tee_convergence {
-    return Some({
-      reason: "deep-result-if-local-tee-convergence",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
-  let many_result_if_local_write_convergence = run_hot_pipeline_raw_simplify_locals_has_local_write(
-      instrs,
-    ) &&
-    run_hot_pipeline_raw_simplify_locals_result_if_count_at_most(instrs, 16) >=
-    16
-  if many_result_if_local_write_convergence {
-    return Some({
-      reason: "many-result-if-local-write-convergence",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
   }
   let structured_startup_initializer_hot_lift_hazard = stats.locals_count <= 8 &&
     stats.has_structured_control &&
@@ -8270,21 +8322,6 @@ fn run_hot_pipeline_raw_simplify_locals(
   if structured_startup_initializer_hot_lift_hazard {
     return Some({
       reason: "structured-startup-initializer-call-store-local-tee",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
-  let structured_local_tee_hot_protect = run_hot_pipeline_descriptor_is_simplify_locals_family(
-      descriptor.name,
-    ) &&
-    stats.locals_count >= 8 &&
-    stats.locals_count <= 64 &&
-    stats.has_structured_control &&
-    run_hot_pipeline_raw_simplify_locals_has_local_tee(instrs)
-  if structured_local_tee_hot_protect {
-    return Some({
-      reason: "structured-local-tee-hot-protect",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -9219,7 +9256,20 @@ fn run_hot_pipeline_raw_simplify_locals(
         })
       }
     }
-    return None
+    match
+      run_hot_pipeline_raw_simplify_locals_convergence_guard(
+        descriptor, original, instrs, stats, should_rewrite_ladder,
+      ) {
+      Some(result) => return Some(result)
+      None => return None
+    }
+  }
+  match
+    run_hot_pipeline_raw_simplify_locals_convergence_guard(
+      descriptor, original, instrs, stats, should_rewrite_ladder,
+    ) {
+    Some(result) => return Some(result)
+    None => ()
   }
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,

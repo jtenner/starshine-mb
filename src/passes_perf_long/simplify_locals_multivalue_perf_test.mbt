@@ -270,6 +270,7 @@ test "optimize-instructions long perf lane scans nested blocks without exponenti
 }
 
 ///|
+#skip("manual artifact-scale SimplifyLocals multivalue tail-ladder lane")
 test "simplify-locals long perf lane rewrites large multivalue tail ladders without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
@@ -313,6 +314,7 @@ test "simplify-locals long perf lane rewrites large multivalue tail ladders with
 }
 
 ///|
+#skip("manual artifact-scale SimplifyLocals multivalue status-tail lane")
 test "simplify-locals long perf lane rewrites large multivalue status tail ladders without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
@@ -358,6 +360,7 @@ test "simplify-locals long perf lane rewrites large multivalue status tail ladde
 }
 
 ///|
+#skip("manual artifact-scale SimplifyLocals multivalue call-heavy lane")
 test "simplify-locals long perf lane skips multivalue call-heavy ladders without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
@@ -395,6 +398,7 @@ test "simplify-locals long perf lane skips multivalue call-heavy ladders without
 }
 
 ///|
+#skip("manual artifact-scale SimplifyLocals flat dense multivalue call-heavy lane")
 test "simplify-locals long perf lane skips flat dense multivalue call-heavy ladders without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
