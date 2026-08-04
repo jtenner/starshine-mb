@@ -9789,6 +9789,32 @@ test "flatten no-fallthrough proof preserves conditional branch fallthrough" {
 }
 
 ///|
+test "flatten region-flow cache stores the root separately and lazily" {
+  let func = @ir.HotFunc::new()
+  @ir.hot_root_append(func, @ir.hot_build_unreachable(func))
+  let state = FlattenRewriteState::new(func)
+  assert_true(state.root_region_flow_entry is None)
+  assert_true(
+    flatten_region_has_no_fallthrough(
+      func,
+      @ir.HotRegionRef::root(),
+      state=Some(state),
+    ),
+  )
+  assert_true(state.root_region_flow_entry is Some(_))
+  @debug.assert_eq(state.region_flow_scan_count, 1)
+  assert_true(
+    flatten_region_has_no_fallthrough(
+      func,
+      @ir.HotRegionRef::root(),
+      state=Some(state),
+    ),
+  )
+  @debug.assert_eq(state.region_flow_scan_count, 1)
+  @debug.assert_eq(state.region_flow_cache_hit_count, 1)
+}
+
+///|
 test "flatten caches one complete no-fallthrough summary per inspected region" {
   let func = pass_test_lift_first_func(
     "(module (func (drop (block (result i32) i32.const 7 br 0 i32.const 1 i32.eqz drop))))",
@@ -9797,16 +9823,17 @@ test "flatten caches one complete no-fallthrough summary per inspected region" {
   let block_id = @ir.hot_child_get(func, drop_id, 0)
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   let state = FlattenRewriteState::new(func)
-  @debug.assert_eq(state.region_flow_entries.length(), 0)
+  @debug.assert_eq(state.region_flow_entries.length(), @ir.hot_node_count(func))
+  assert_true(state.region_flow_entries[body_ref.holder] is None)
   @debug.assert_eq(state.region_flow_scan_count, 0)
   for iteration = 0; iteration < 128; iteration = iteration + 1 {
     assert_true(
       flatten_region_has_no_fallthrough(func, body_ref, state=Some(state)),
     )
   }
-  @debug.assert_eq(state.region_flow_entries.length(), 1)
   @debug.assert_eq(state.region_flow_scan_count, 1)
-  let summary = state.region_flow_entries[0].summary
+  @debug.assert_eq(state.region_flow_cache_hit_count, 127)
+  let summary = state.region_flow_entries[body_ref.holder].unwrap().summary
   @debug.assert_eq(summary.first_unconditional_root, 0)
   @debug.assert_eq(
     summary.effective_terminal_branch,
@@ -9832,13 +9859,14 @@ test "flatten recomputes a cached positive region summary after its terminator c
   assert_false(
     flatten_region_has_no_fallthrough(func, body_ref, state=Some(state)),
   )
-  @debug.assert_eq(state.region_flow_entries.length(), 1)
   @debug.assert_eq(state.region_flow_scan_count, 2)
-  assert_true(state.region_flow_entries[0].summary.normal_fallthrough_possible)
+  assert_true(
+    state.region_flow_entries[body_ref.holder].unwrap().summary.normal_fallthrough_possible,
+  )
 }
 
 ///|
-test "flatten no-fallthrough cache fails closed for unseen post-mutation regions" {
+test "flatten lazily computes an unseen stable region after mutation" {
   let func = pass_test_lift_first_func(
     "(module (func (drop (block (result i32) i32.const 7 br 0)) (drop (block (result i32) i32.const 9))))",
   )
@@ -9863,8 +9891,9 @@ test "flatten no-fallthrough cache fails closed for unseen post-mutation regions
   assert_false(
     flatten_region_has_no_fallthrough(func, second_ref, state=Some(state)),
   )
-  @debug.assert_eq(state.region_flow_entries.length(), 1)
-  @debug.assert_eq(state.region_flow_scan_count, 1)
+  assert_true(state.region_flow_entries[first_ref.holder] is Some(_))
+  assert_true(state.region_flow_entries[second_ref.holder] is Some(_))
+  @debug.assert_eq(state.region_flow_scan_count, 2)
 }
 
 ///|
@@ -12657,22 +12686,43 @@ test "flatten snapshots an earlier local.get before a later tee writes that loca
 }
 
 ///|
-test "flatten dependency staging preserves a local read below ref.as_non_null" {
-  let func = pass_test_lift_first_func(
-    "(module (func (param $r (ref null eq)) (result i32) local.get $r ref.as_non_null local.get $r ref.as_non_null ref.eq))",
+test "flatten dependency staging materializes ref.as_non_null before later writes" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      ),
+    ]),
   )
-  let parent_id = @ir.hot_root_get(func, @ir.hot_root_count(func) - 1)
-  let wrapper_id = @ir.hot_child_get(func, parent_id, 0)
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(func, wrapper_id),
-    Some(@lib.Instruction::ref_as_non_null()),
+  let nullable = @ir.hot_build_local_get(func, 0)
+  let wrapper = @ir.hot_build_unary(
+    func,
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+    ),
+    nullable,
   )
+  @ir.hot_node_exact_instr_set(
+    func,
+    wrapper,
+    @lib.Instruction::ref_as_non_null(),
+  )
+  let later = @ir.hot_build_local_get(func, 0)
+  let parent_id = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    wrapper,
+    later,
+  )
+  @ir.hot_node_exact_instr_set(func, parent_id, @lib.Instruction::ref_eq())
+  @ir.hot_root_append(func, parent_id)
+  let state = FlattenRewriteState::new(func)
   let preludes = [
     @ir.hot_build_local_set(func, 0, @ir.hot_build_local_get(func, 0)),
   ]
   assert_true(
     flatten_stage_prior_operands_before_new_preludes(
-      func, parent_id, 1, preludes, 0,
+      func, state, parent_id, 1, preludes, 0,
     ),
   )
   @debug.assert_eq(preludes.length(), 2)
@@ -12681,14 +12731,167 @@ test "flatten dependency staging preserves a local read below ref.as_non_null" {
     @ir.hot_node_get(func, snapshot_set).op.to_string(),
     "LocalSet",
   )
+  @debug.assert_eq(@ir.hot_child_get(func, snapshot_set, 0), wrapper)
   let snapshot_local = @ir.hot_node_get(func, snapshot_set).imm0
-  assert_true(snapshot_local > 0)
-  let preserved_read = @ir.hot_child_get(func, wrapper_id, 0)
   @debug.assert_eq(
-    @ir.hot_node_get(func, preserved_read).op.to_string(),
+    @ir.hot_local_type(func, snapshot_local),
+    Some(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      ),
+    ),
+  )
+  let replacement = @ir.hot_child_get(func, parent_id, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, replacement).op.to_string(),
     "LocalGet",
   )
-  @debug.assert_eq(@ir.hot_node_get(func, preserved_read).imm0, snapshot_local)
+  @debug.assert_eq(@ir.hot_node_get(func, replacement).imm0, snapshot_local)
+}
+
+///|
+test "flatten materializes one trapping wrapper among multiple prior operands" {
+  let nullable_eq = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let nonnull_eq = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[nullable_eq, nullable_eq]),
+  )
+  let plain = @ir.hot_build_local_get(func, 1)
+  let wrapper = @ir.hot_build_unary(
+    func,
+    nonnull_eq,
+    @ir.hot_build_local_get(func, 0),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    wrapper,
+    @lib.Instruction::ref_as_non_null(),
+  )
+  let parent = @ir.hot_build_tuple_make(
+    func,
+    [nullable_eq, nonnull_eq, nullable_eq],
+    [plain, wrapper, @ir.hot_build_local_get(func, 0)],
+  )
+  let state = FlattenRewriteState::new(func)
+  let preludes = [
+    @ir.hot_build_local_set(func, 0, @ir.hot_build_local_get(func, 0)),
+  ]
+  assert_true(
+    flatten_stage_prior_operands_before_new_preludes(
+      func, state, parent, 2, preludes, 0,
+    ),
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, parent, 0), plain)
+  @debug.assert_eq(@ir.hot_child_get(func, preludes[0], 0), wrapper)
+  let replacement = @ir.hot_child_get(func, parent, 1)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, replacement).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(
+    @ir.hot_local_type(func, @ir.hot_node_get(func, replacement).imm0),
+    Some(nonnull_eq),
+  )
+}
+
+///|
+test "flatten local-write scratch reuses generations without stale marks" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=Array::make(4096, i32_type)),
+  )
+  let state = FlattenRewriteState::new(func)
+  let no_write = [@ir.hot_build_nop(func)]
+  flatten_new_prelude_local_writes(func, state, no_write, 0)
+  assert_false(flatten_local_is_written(state, 17))
+  @debug.assert_eq(state.local_write_subtree_scan_count, 1)
+
+  let first = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    17,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  let repeated = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    17,
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+  )
+  flatten_new_prelude_local_writes(func, state, [first, repeated], 0)
+  assert_true(flatten_local_is_written(state, 17))
+  assert_false(flatten_local_is_written(state, 18))
+
+  let second = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    18,
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  flatten_new_prelude_local_writes(func, state, [second], 0)
+  assert_false(flatten_local_is_written(state, 17))
+  assert_true(flatten_local_is_written(state, 18))
+  @debug.assert_eq(state.local_write_query_count, 3)
+  @debug.assert_eq(state.local_write_exact_root_count, 3)
+  @debug.assert_eq(state.local_write_subtree_scan_count, 1)
+  @debug.assert_eq(state.local_write_full_clear_count, 0)
+  @debug.assert_eq(state.local_write_generations.length(), 4096)
+}
+
+///|
+test "flatten local-write scratch falls back for nested tees and survives rollover" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i32_type, i32_type]),
+  )
+  let state = FlattenRewriteState::new(func)
+  let nested = @ir.hot_build_drop(
+    func,
+    @ir.hot_build_local_tee(
+      func,
+      2,
+      @ir.hot_build_local_tee(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+      ),
+    ),
+  )
+  flatten_new_prelude_local_writes(func, state, [nested], 0)
+  assert_true(flatten_local_is_written(state, 1))
+  assert_true(flatten_local_is_written(state, 2))
+  @debug.assert_eq(state.local_write_subtree_scan_count, 1)
+
+  state.local_write_generation = 2147483646
+  flatten_new_prelude_local_writes(func, state, [], 0)
+  assert_false(flatten_local_is_written(state, 1))
+  assert_false(flatten_local_is_written(state, 2))
+  @debug.assert_eq(state.local_write_generation, 1)
+  @debug.assert_eq(state.local_write_full_clear_count, 1)
+
+  let after_rollover = flatten_build_recorded_prelude_local_set(
+    func,
+    state,
+    0,
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+  )
+  flatten_new_prelude_local_writes(func, state, [after_rollover], 0)
+  assert_true(flatten_local_is_written(state, 0))
+  assert_false(flatten_local_is_written(state, 1))
+}
+
+///|
+test "flatten local-write scratch supports zero-local functions" {
+  let func = @ir.HotFunc::new()
+  let state = FlattenRewriteState::new(func)
+  flatten_new_prelude_local_writes(func, state, [@ir.hot_build_nop(func)], 0)
+  @debug.assert_eq(state.local_write_generations.length(), 0)
+  assert_false(flatten_local_is_written(state, 0))
+  @debug.assert_eq(state.local_write_query_count, 1)
 }
 
 ///|

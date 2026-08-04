@@ -99,6 +99,57 @@ test "flatten long perf lane measures candidate-dense region summaries" {
 }
 
 ///|
+fn flatten_perf_local_dependency_module(
+  local_count : Int,
+  candidate_count : Int,
+  spread_writes : Bool,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (param i32)")
+  for local_id = 1; local_id < local_count; local_id = local_id + 1 {
+    out.write_string(" (local i32)")
+  }
+  out.write_string("\n")
+  for candidate = 0; candidate < candidate_count; candidate = candidate + 1 {
+    let local_id = if spread_writes {
+      1 + candidate % (local_count - 1)
+    } else {
+      1 + candidate % 8
+    }
+    out.write_string(" (drop (i32.add (local.get ")
+    out.write_string(local_id.to_string())
+    out.write_string(") (local.tee ")
+    out.write_string(local_id.to_string())
+    out.write_string(" (i32.add (i32.const ")
+    out.write_string(candidate.to_string())
+    out.write_string(") (i32.const 1)))))\n")
+  }
+  out.write_string("))")
+  out.to_string()
+}
+
+///|
+#skip("manual native-release reusable local-write dependency scratch benchmark")
+test "flatten long perf lane measures local dependency scratch" {
+  for spread_writes in [false, true] {
+    let input = flatten_perf_local_dependency_module(4096, 2048, spread_writes)
+    for sample = 0; sample < 15; sample = sample + 1 {
+      let start = @lib.trace_now_us()
+      match @passes.pass_test_run_pipeline(input, ["flatten"]) {
+        Ok(_) => ()
+        Err(err) =>
+          fail(
+            "expected flatten local dependency benchmark success, got \{err}",
+          )
+      }
+      println(
+        "sample=\{sample} us=\{@lib.trace_elapsed_us_since(start)} locals=4096 candidates=2048 spread=\{spread_writes}",
+      )
+    }
+  }
+}
+
+///|
 #skip("manual native-release sequenced-root lookup benchmark")
 test "flatten long perf lane measures sequenced-root pair lookup" {
   for candidate_count in [256, 512] {
