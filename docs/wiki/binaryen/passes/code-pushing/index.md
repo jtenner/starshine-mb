@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: strong
-last_reviewed: 2026-07-26
+last_reviewed: 2026-08-09
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
@@ -199,6 +199,10 @@ For future source-backed `code-pushing` widening after the closed `[O4Z-AUDIT-CP
   - Dedicated `code-pushing-all` GenValid profile and compare lanes.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - First-slice and validation plan for future broader parity work.
+
+## 2026-08-09 production O4z guards
+
+Production `json-as` replay added three fail-closed ownership families: local initialization that could be moved after an escaping branch; stored `local.tee` values read later; and an old local value carried on the stack across a result block that overwrites the same local. In the last family, the transformed call received two copies of the new value instead of the original old/new pair. Red-first tests are in `src/passes/code_pushing_test.mbt`; the focused suite is `151/151`. The final exact O4z report-protocol matrix is green for all `105` outputs.
 
 ## Sources
 

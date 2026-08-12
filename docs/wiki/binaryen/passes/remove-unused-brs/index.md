@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-01
+last_reviewed: 2026-08-10
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../release-horizon-and-oracles.md
@@ -187,6 +187,14 @@ What it actually is in `version_131`:
 This landing page is anchored on the verified official Binaryen `version_131` binary (`wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`). The 2026-07-30 source audit confirms `RemoveUnusedBrs.cpp` is unchanged from v130; `pass.cpp` still schedules exactly three RUB applications in the 56-slot top-level optimizer roster.
 
 For `[O4Z-AUDIT-RUB-A]`, WebAssembly 3.0 baseline features are assumed enabled by default. Do not treat GC as optional gated behavior in the Starshine RUB matrix unless a local parser/tool limitation is recorded as a blocker.
+
+## 2026-08-09 production O4z guards
+
+Two validating-but-wrong generated families now fail closed before HOT rewriting. A loaded comparison branch could lose its load/local producer while retaining a condition over an uninitialized local; a 255+-local parser could store an undivided `i64` carrier while moving the division into only one later use. The named raw reasons are `loaded-comparison-branch-remove-unused-brs-noop` and `large-arithmetic-local-carrier-remove-unused-brs-noop`, with red-first coverage in `src/passes/remove_unused_brs_test.mbt`. The focused suite is `251/251`, and all three locked top-level RUB slots remain present.
+
+## 2026-08-10 self-opt effect-order hardening
+
+Exact self-optimized spec execution exposed additional validating call/ownership reorderings in the first and later RUB slots. Red structural fixtures now preserve structured same-local distinct calls, condition-child call-tee lifetimes, loads before same-local releases, consumers before two or one argument releases, and call results before local reloads. The named guards are intentionally ordered behind older performance/shape owners where needed, so large `br_table` return ladders still reach their HOT skip and typed encoder ladders retain their established raw reason. Function isolation covered defined functions `7902`, `8264`, `8905`, `10449`, and `10819`; the focused suite is now `257/257`, full Moon is `10,306/10,306`, and exact direct self-opt full spec is `284/284` without failures (`64` passed, `220` intentionally skipped).
 
 ## Current maintenance rule
 

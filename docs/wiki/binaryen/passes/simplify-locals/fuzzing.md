@@ -14,6 +14,17 @@ sources:
 
 # SimplifyLocals family fuzzing profiles
 
+## Live-out repair refresh — 2026-08-12
+
+Native SHA-256 `443fa73acbe3789b0e1b330fdf28652fe5f567c4e6df53470e46217b65b92d47` ran the dedicated `simplify-locals-all` aggregate against the verified Binaryen-v131 oracle at `.tmp/pass-fuzz-simplify-locals-liveout-final-443fa73-dedicated-10000-v131-20260812`. The lane compared `10000/10000`: `5000` normalized matches and `5000` deterministic structural residuals, with zero validation, property, generator, or command failures.
+
+Agent inspection classifies the residuals as two existing generated shape families, not failures attributed by the harness:
+
+- `3125` `simplify-locals-family-coverage` cases are fourteen canonical bytes smaller in Starshine, aggregate `-43,750`.
+- `1875` `simplify-locals-structure-result` cases are `2..4` canonical bytes larger in Starshine, aggregate `+5,615`, because Starshine retains one generated `nop` per function around the result-structure/drop shape.
+
+The net canonical residual delta is `-38,135` bytes. The second family is output-shape debt and is **not** an approved Starshine win: the outputs validate and the shape was present in the prior aggregate, but Starshine is larger and should align to Binaryen unless a future measured benefit proves otherwise. This refresh followed the structured-child live-out repair for the late SGO-owned SimplifyLocals wave; it does not replace the earlier five-variant renewal or claim runtime coverage for generated inputs.
+
 ## Binaryen-v131 profile refresh — 2026-07-27
 
 All lanes used official `wasm-opt version 131 (version_131)` and the explicit native release binary `_build/native/release/build/cmd/cmd.exe` (SHA-256 `5935985cb02530a77aba751dd88f0103a3eadc6ada8e4a0c0b040c878ba4e5bf`).

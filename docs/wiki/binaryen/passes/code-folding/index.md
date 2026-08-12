@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-07-19
+last_reviewed: 2026-08-09
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp
   - ../../../../../src/passes/optimize.mbt
@@ -111,6 +111,10 @@ Pass-local performance is closed under the ordinary `<=2x` floor. Five-run media
 - Treat this folder as the canonical home for future `code-folding` research and port planning.
 - Keep direct semantic parity, external validity, preset scheduling, and pass-local performance marked closed under the 2026-07-19 evidence.
 - New `code-folding` findings should update the Binaryen strategy page, the shape pages, the Starshine status page, and the Starshine port-readiness page together so the upstream algorithm, concrete examples, and local implementation plan stay aligned.
+
+## 2026-08-09 production O4z guard
+
+Single-process cumulative O4z replay exposed a parser lifetime bug that separate per-slot encode/decode replay masked. After slots 1–37, the affected function had `14` body locals: `code-folding` moved `i32.sub 48` from the value stored in a reused digit local to only its first comparison, so a later read observed the raw loaded code unit. `src/passes/pass_manager.mbt` now fails closed on structured load/local-write functions at the observed `14`-local boundary, with the red-first boundary in `src/passes/code_folding_test.mbt`. The cumulative 57-slot replay, actual `--optimize -O4z` invocation, full `json-as` report protocol, and `10,290/10,290` Moon suite are green. This is a production ownership guard, not a claim that arbitrary validating output drift is safe.
 
 ## Sources
 

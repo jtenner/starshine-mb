@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-12
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -29,6 +29,16 @@ The dedicated lane is:
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-blocks --gen-valid-profile merge-blocks-all --out-dir .tmp/pass-fuzz-merge-blocks-genvalid-merge-blocks-all-10000-v131-release-final --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures
 ```
+
+## 2026-08-12 stack-carried-local guard refresh
+
+Native SHA-256 `15804fd785eada79e95fcfc783cc026c5bab86f71fa80e24d1c176a923e7c86e` reran the dedicated aggregate against the explicit verified Binaryen-v131 binary:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass merge-blocks --gen-valid-profile merge-blocks-all --out-dir .tmp/pass-fuzz-merge-blocks-stack-carried-fix-dedicated-10000-v131-20260812 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures
+```
+
+Result: `10000/10000` normalized matches, zero cleanup-normalized residuals, mismatches, validation failures, property failures, generator failures, or command failures. Binaryen cache was `10000/0`. This refresh follows the direct stack-carried-overwritten-local regression discovered by SGO late-suffix runtime testing; the new guard is fail-closed and does not change the generated aggregate's Binaryen parity.
 
 ## 2026-07-31 review reclose matrix
 

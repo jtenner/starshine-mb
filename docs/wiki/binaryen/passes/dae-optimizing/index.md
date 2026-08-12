@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-25
+last_reviewed: 2026-08-12
 sources:
   - ../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md
   - ../dead-argument-elimination/completion-matrix.md
@@ -163,6 +163,15 @@ The shared release status is tracked in [`../dead-argument-elimination/completio
 - The 2026-07-21 closure starts from `a24ab26b64b6e7d8cada9d5ada4ee8093b41d485`. Final deterministic totals are `253/253`, `347/347`, `6217/6217`, and `9696/9696`; the full CI-profile wasm-gc validation gate passes. The final explicit Binaryen-v131 four-lane matrices reproduce the established counts with no new or unclassified family.
 - Plain DAE is valid/idempotent at `2,991,169` bytes and canonically `9,670` bytes smaller than Binaryen. DAEO is valid/idempotent at `2,991,168` bytes; performance improves to `25.440s` productive and `21.475s` idempotent from `47.956s` / `44.490s` without changing bytes. The remaining canonical DAEO `+4,318` artifact family is assigned to shared nested local-cleanup/remap owners because plain DAE already wins canonically while Binaryen's optimizing suffix gains about 14KB and Starshine's shared suffix gains only 15 bytes.
 - Retained `1024/4096`, touched-count, function-size, and encoded-size policies are optional phase/profitability budgets only; mandatory boundary repair and validated cheap cleanup run independently. The full large O4z command remains before DAEO in `simplify-locals-nostructure` after 1,800 seconds, while the targeted late prefix reaches DAEO in `28.258s` and validates.
+## Current O4z medium-module recovery
+
+- On 2026-08-12 the O4z production corpus exposed that the 286..999-definition call/bulk-memory safety guard was skipping all of `dae-optimizing`, leaving 10,233 direct `call; drop` pairs after the full preset while verified Binaryen retained only 417.
+- The guard remains fail-closed for parameter rewriting and the expensive/path-sensitive optimizing suffix. It now runs one definition-count-independent `dae_apply_dropped_result_batch_transaction(...)`, followed by touched dropped-unreachable repair and simple function-type pruning. This batch is definition-count-independent, rewrites only private direct callees whose result is dropped at every owned direct callsite, validates the candidate module, and leaves parameters unchanged.
+- A public-dispatch 286-function regression includes a bulk-memory/call mesh and proves that the guarded path removes a private scalar result and the caller's adjacent drop. The old trace reason `medium-call-bulk-memory-dae-optimizing-noop` is replaced by `fallback-plain-results-only reason=medium-call-bulk-memory-param-control` plus a `dropped-result-batch-only` trace.
+- Native SHA-256 `be7d9a33eae0b7bf738d6fb1fb9645acb4c51809b435a69c655c3a4ba5d6bc11` reduces every one of the 105 `json-as` O4z outputs with no growth: aggregate `20,708,243 -> 20,699,654` (`-8,589`), direct `call; drop` count `10,233 -> 303`, and remaining verified-v131 gap `5,054,530` bytes / `32.31%`. Optimize/external validation and exact no-cache WIPC are `105/105` with zero failures or timeouts. Representative `fast-path-deserialize` is `468,534` bytes, exact-WIPC green, and spends about `71 ms` in the bounded DAEO fallback.
+- After rebuilding the Wasm CLI, native and self-optimized-Wasm artifact optimization remain byte-identical on the `13,758,545`-byte debug artifact at `5,032,362` bytes, SHA-256 `f1229a1f8f1f2a6fc545c1f8430314172f4e8e34dce9ea4d259734578b5715c6`. The helper/source footprint adds `820` artifact bytes while the production corpus saves `8,589`. Full Moon is `10,351/10,351`, recursive spec is `284/64/220/0`, self-opt task tests are `16/16`, and refreshed wasm-gc full validation plus native CI fuzz are green.
+- The 303 residual direct `call; drop` pairs are now structurally classified from the current 105 canonical outputs. Exactly 105 are calls to an imported result function, one per artifact. The other 198 target 159 private defined callees, but every such callee also has a result-observing direct call: 252 residual pairs belong to callees with `2` direct calls / `1` dropped call, 42 to `17` / `14`, and 9 to `3` / `1`. There are no exported, `ref.func`-escaped, or private-all-direct-dropped residual callees. The three corpus families each contribute 101 pairs. Therefore the bounded dropped-result transaction has exhausted its owned legality class; further recovery requires mixed-observer callsite specialization or inlining, not another whole-boundary result deletion. Inventory: `.tmp/o4z-signoff-20260808/json-as-size-recovery/remaining-call-drop-classification-20260812.json`.
+
 ## Historical chronology
 
 - Research note [`1654`](../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md) introduced stable structured callsite paths for inactive dead-suffix calls. Its original `<1024` restriction is superseded by the 2026-07-21 all-size collector and 1,024-definition regression recorded above.
@@ -261,6 +270,10 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Concrete implementation-readiness bridge: registry honesty, no-rewrite analyzer, scalar dead-param deletion, nested cleanup replay, and Binaryen oracle lanes.
 
+
+## 2026-08-09 production O4z boundary
+
+The exact `json-as` WIPC lane found signature-rewrite corruption/hangs in call/bulk-memory modules with `286` and `293` defined functions. `dae-optimizing` now skips the observed medium-module family from `286` through `999` definitions when a function combines calls with bulk-memory operations. `src/passes/dead_argument_elimination_wbtest.mbt` locks the `286` boundary; the focused white-box suite is `423/423`. This is a generated-production fail-closed boundary and does not upgrade the partial direct-parity claims elsewhere in this dossier.
 
 ## Current maintenance rule
 

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-08-12
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -15,6 +15,8 @@ related:
 # `inlining-optimizing` fuzzing and performance
 
 ## Current official-v131 closeout
+
+The August 12 guarded-large-module refresh uses native SHA-256 `04c07833321cb6b6013f3ae2cbba4dc692ea802ff6f5a04810b2640120768c10` and the same explicit verified Binaryen v131 oracle. The dedicated `inlining-optimizing-all` lane at `.tmp/pass-fuzz-inlining-optimizing-v131-onecaller4-10000-20260812` compares and normalizes `10000/10000`, with zero mismatches and zero validation/property/generator/command failures. Binaryen cache is `9984` hits / `16` misses. This directly refreshes the pass after the O4z-only 286+-definition call/bulk-memory fallback admitted shrinking-trivial helpers, the default two-instruction always-inline class, and one-caller helpers through four instructions; the generated aggregate remains exact because its direct modules do not require the production guard.
 
 ```text
 .tmp/pass-fuzz-inlining-optimizing-v131-closeout-10000

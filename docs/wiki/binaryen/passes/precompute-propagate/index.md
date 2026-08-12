@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-08-12
 sources:
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
@@ -120,6 +120,24 @@ Fresh explicit-v131 evidence after the shared raw-control and cleanup repairs ke
   - both aggressive top-level PC slots use the propagating member
   - DAE/inlining nested prefixes reuse the public pass
   - the closed v131 string/Flow/heap-identity/emitability/refinalization contract and conservative EH/stack-switching boundaries remain visible
+
+## 2026-08-09 production O4z hardening
+
+Exact `as-test` WIPC execution found validating, exit-zero wrong-code that process-level smoke missed. Focused raw guards now preserve: call-result locals read after intervening ordinary memory stores; stack-carried locals overwritten before later calls; and global-backed `i32`/`i64` arithmetic locals read more than once before their next write. The latter family had been storing the unadjusted parser value while moving subtraction into only the first use. Red-first coverage lives in `src/passes/precompute_propagate_test.mbt`; the focused suite is `35/35`. Both top-level propagation slots and nested DAE/inlining uses inherit these guards. Current O4z `json-as` execution is green for all `105` mode/module combinations, but the guards remain conservative ownership boundaries rather than new direct parity claims.
+
+## 2026-08-10 self-opt ownership hardening
+
+Self-optimized spec bisection added three more red-first ownership boundaries. Propagation must not move a same-local release ahead of a load, move a `local.set` ahead of the call result it captures, or remove an alias tee and release that alias before an indexed load. The focused reasons are `load-before-release-precompute-propagate-noop`, `call-result-local-reload-precompute-propagate-noop`, and `indexed-load-alias-release-precompute-propagate-noop`; older structured, call-tee, and bulk-memory reasons retain precedence. Isolated production functions were defined `8082`, `10819`, and `10964`. The focused suite is now `38/38`; direct self-opt full spec and all `105` exact `json-as` report-protocol executions are green.
+
+## 2026-08-12 implicit function-label HOT repair
+
+Broad optimizing inlining exposed a generic HOT-analysis abort before the propagation pass ran: valid root branches to the implicit function label lift as `HOT_IMPLICIT_FUNCTION_LABEL` (`-2`), but HOT control verification treated that sentinel as an invalid ordinary label and CFG construction could not resolve it. Verification now accepts the sentinel with branch arity derived from the function body result type, and CFG construction routes it to the synthetic function exit. Focused tests cover void and value-returning root branches, invalid payload arity, direct `precompute-propagate`, and the formerly aborting 285-definition inlining path. A dedicated `precompute-propagate-local-facts` smoke compared `1000/1000` cases with `1000` cleanup-normalized matches and zero mismatches, validation failures, property failures, generator failures, or command failures.
+
+## 2026-08-12 structured operand-block local-state repair
+
+A final SGO-owned `precompute-propagate` wave exposed a validating wrong-code bug in local SSA. A straight-line `block (result i64)` used as an `i64.add` operand wrote `100` to a local and yielded `7`; the following sibling `local.get` should therefore make the result `107`, but the old SSA/use-def traversal treated the operand block as a separate control region and propagated the stale local value, reducing the function to `7`. `ssa_simple_value_block_operand_allowed(...)` now admits only live, parameter-free, branch-free single-result operand blocks, and both use-def scanning and SSA renaming inline-visit their bodies in execution order. Parameterized and nested-control blocks remain fail-closed.
+
+The focused `precompute-propagate` regression now requires the folded `I64(107)` result. SSA local tests are `23/23`, use-def tests `5/5`, propagation tests `43/43`, and SGO tests `332/332`. The dedicated `precompute-propagate-local-facts` lane at `.tmp/pass-fuzz-precompute-propagate-valueblock-fix-dedicated-10000-final-20260812` compared `10000/10000`, all through the reviewed `drop-consts`, `local-cleanup-debris`, and `unreachable-control-debris` normalizers, with zero mismatches or failures. Native SHA-256 `1007a0ac0e944ee8406b9886c3bc54bfbff6ff54120887ba936ac6f34109debc` restores exact `json-as` runtime behavior in all naive/SIMD/SWAR modes: optimize/external validation and exact no-cache WIPC are both `105/105`, aggregate output is `20,278,432` bytes, and the verified Binaryen-v131 gap is `4,633,308` bytes / `29.615%`. The repaired suffix is byte-size-neutral relative to the pre-fix candidate while changing the reduced semantic result from `7` back to `107`.
 
 ## Sources
 

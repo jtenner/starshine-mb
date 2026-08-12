@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-11
 sources:
   - ../wast/static-assertion-harness.md
   - https://webassembly.github.io/spec/core/valid/index.html
@@ -11,6 +11,8 @@ sources:
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../src/fuzz/invalid_text.mbt
   - ../../../src/fuzz/main.mbt
+  - ../../../src/fuzz/metamorphic.mbt
+  - ../../../src/fuzz/metamorphic_wbtest.mbt
   - ../../../src/cmd/fuzz_harness.mbt
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../src/validate/gen_valid.mbt
@@ -67,7 +69,8 @@ The key invariant is that coverage means **the intended strategy ran and reached
 ## Durable Conclusions
 
 - The current checked-in fuzz runner is now strong on valid-module coverage plus four distinct validator rejection lanes: AST-invalid, binary-invalid, text-invalid, and spec-seeded invalid/malformed/unlinkable replay.
-- The active runnable suites are currently `validate-valid`, `validate-invalid-ast`, `validate-invalid-binary`, `validate-invalid-text`, `validate-invalid-text-dynamic`, `validate-invalid-spec-seed`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, `wast-validate-roundtrip`, `gen-valid-wat-validate-roundtrip`, `valid-multi-module-linking`, and `cmd-harness`.
+- The active runnable suites are currently `validate-valid`, `validate-valid-metamorphic`, `validate-invalid-ast`, `validate-invalid-binary`, `validate-invalid-text`, `validate-invalid-text-dynamic`, `validate-invalid-spec-seed`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, `wast-validate-roundtrip`, `gen-valid-wat-validate-roundtrip`, `valid-multi-module-linking`, and `cmd-harness`.
+- Metamorphic transforms that append a duplicate imported global now fail closed when the module has defined globals. Appending an imported global shifts every defined-global index, so leaving existing code, constant expressions, or exports unchanged can produce an invalid or semantically different module. The exact native CI seed `1786487316455866` exposed this through `add-duplicate-equivalent-imported-immutable-i32-global`; the focused guard covers all mutable and immutable i32/i64/f32/f64/v128 imported-global variants.
 - The fuzz runner no longer carries reserved validator-rejection suite ids in the CLI. The Bun wrapper forwards the ordinary discovery/run surface plus `--emit-gen-valid-batch`, while the invalid-repro artifact command remains a Moon-runner-only path; see [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md) for the exact wrapper split.
 - The direct `validate-valid` generator loop is owned by `run_validate_valid_fuzz`, while `src/fuzz/main.mbt` now only layers the extra text companion checks on top and reuses `validate_valid_run_config(...)` for the shared profile ladder instead of keeping a second copy. The separate `gen-valid-wat-validate-roundtrip` lane exercises generated Starshine lib modules through the WAT text printer, parser, WAST-to-lib lowerer, and validator with explicit generated/printed/parsed/lowered/validated counters. The historical `valid-multi-module-linking` lane exercises generated valid multi-module WAST provider/consumer scripts through script parsing, independent per-module validation, and the current static WAST harness; its `link_*` counters are static script pass/fail/skip counters today, not real provider/consumer import resolution. The companion generated unlinkable multi-module cases emit `assert_unlinkable` valid-before-link specimens for missing-import and incompatible-import-type function, memory, table, global, and tag imports so future unlinkable runners can distinguish link-time evidence from invalid-module failures. The `binary-roundtrip` suite now has `gen-valid-smoke`, `gen-valid-ci`, and `gen-valid-stress` profiles for full generated-module binary coverage: each case starts from a validating GenValid module, encodes it, decodes it, validates the decoded module, and checks that the decoded module's re-encoded bytes are stable after the first canonicalization pass. The same suite also has `byte-fuzz-smoke`, `byte-fuzz-ci`, and `byte-fuzz-stress` profiles that start from validating GenValid binary modules, apply deterministic random/structured byte corruptions, classify decode rejection versus decode-accepted cases, count validation rejections after decode, and require any decode-accepted valid module to re-encode into decodable bytes. Its `boundary-smoke` profile now runs a fixed edge-value corpus for high index LEBs, memargs, SIMD lane immediates, blocktypes, signed integer extremes, and signed-zero float/double immediates, and reports the count as `boundary_roundtrips`. Its ordinary arbitrary-value profiles now publish exact instruction, section, and immediate roundtrip counters in the suite stats/details so agents can see whether those coverage buckets ran without reverse-engineering the aggregate attempt count.
 - `GenValidConfig` now carries explicit bounded-growth diagnostics for instruction count, expression depth, estimated module byte size, maximum rec-group size, section count, name length, and data/custom segment payload size. The `pathological-valid` profile raises topology/body limits while keeping those budgets bounded, and `gen_valid_module_result(...)` reports `GenValidBudgetStop` values instead of treating over-budget candidates as opaque validation failures.

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-08-10
 sources:
   - ../../../raw/research/1646-2026-07-17-ssa-nomerge-batch-writeback.md
   - ../../release-horizon-and-oracles.md
@@ -166,6 +166,22 @@ So the durable rule is:
 - the `version_129` behavior dossier remains valid for local Binaryen `version_130` no-merge planning;
 - keep the source-refresh note explicit and pass-surface-limited;
 - do **not** silently upgrade that narrower claim into “all Binaryen optimizer behavior is unchanged.”
+
+## 2026-08-09 production O4z guard
+
+The naive whitespace report-protocol lane isolated an infinite loop to defined function `478` / absolute function `483`. `ssa-nomerge` freshened root parameter rewrites into new locals, but a later loop updated the original parameter while its condition continued reading the stale fresh local. The raw scheduler now fails closed when a parameter is rewritten at the function root and the same parameter is written inside a nested loop; `src/passes/pass_manager_wbtest.mbt` locks the named boundary. This guard is required even though the output validates, and exact WIPC execution—not structural validation—proved the failure.
+
+## 2026-08-10 self-opt stack-spill repair
+
+Artifact-capability bisection isolated slot `8` to defined function `8124` / absolute `8151`. SSA spill repair had changed `load; local.get; call; local.tee` into `load; local.set spill; local.get; call; local.get spill; local.tee`, so the tee captured the loaded value instead of the call result. The retained implementation is a semantic repair, not the temporary coarse pass skip: it restores the spilled load below the call arguments before the call. Direct helper and full-pipeline regressions lock the order, pass-manager white-box is `319/319`, and the repaired exact direct self-optimized artifact passes capability smoke plus recursive full spec.
+
+## 2026-08-11 full artifact-optimizer parity closure
+
+Native-vs-Wasm slot comparison first diverged at slot `14` because self-optimization slot `8` had corrupted the `remove-unused-brs` implementation in defined function `7289`: a local initialized before a result-producing `if` was freshened for early reads while a later read after a returning `if` remained on the stale original slot. A red regression now preserves that result-`if`/return crossing.
+
+The broader typed-loop-call, parameter-memory-rewrite, and result-`if` lifetime boundaries are required on the 10,000+-defined-function production optimizer artifact, but applying them to every small direct module suppressed valid Binaryen-parity SSA rewrites. The scheduler therefore retains exact reduced guards for ordinary modules and enables the broader fail-closed family only for the observed production-artifact scale. This restores the full `ssa_nomerge_test.mbt` suite while preserving self-optimization capability; it is a production-shape safety boundary, not a claim that the underlying LocalGraph path is generally repaired.
+
+Final evidence on native SHA-256 `61a3639b184350a2d85faa9ae80e149ebc63d25d69af4431be9595c4a7e1a674` shows all 57 explicit O4z slots byte-identical between native and self-optimized Wasm. The separate exact direct `--optimize -O4z` comparison also emits byte-identical `5,013,853`-byte artifacts with SHA-256 `fada0603f457e8ecc580892c6159d29a7a471d848d9e536fc94f7f017ed09fbe`. Focused pass-manager white-box is `324/324`, direct SSA no-merge is `491/491`, and full Moon is `10,325/10,325`.
 
 ## Current maintenance rule
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-08-12
 sources:
   - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
@@ -54,7 +54,8 @@ See [`../inlining/index.md`](../inlining/index.md) for the full family matrix. I
 - direct `call` / `return_call` planning;
 - local/type/control/metadata repair;
 - EH-aware direct/indirect/ref tail-call localization and hoisting;
-- root survival and private-helper deletion.
+- root survival and private-helper deletion;
+- stack-preserving substitution for ordered single-use parameter prefixes, wrapper omission when no function exit requires a synthetic return label, adjacent `local.set` / `local.get` folding to `local.tee`, and same-iteration scratch-local reuse across sequential callsites.
 
 ## Nested cleanup contract
 
@@ -96,6 +97,22 @@ profile: inlining-optimizing-all
 The plain sibling independently reached `10000/10000` in `.tmp/pass-fuzz-inlining-v131-closeout-10000`.
 
 The accepted pass-local performance fixture remains the inline-heavy helper-chain matrix documented in [`fuzzing.md`](./fuzzing.md); reopen on a repeated median regression above Binaryen or a new nested-cleanup scaling cliff.
+
+## 2026-08-09 production O4z boundary
+
+The exact `json-as` report-protocol lane exposed generated call/bulk-memory modules at `286` and `293` defined functions where broad module-level optimizing inlining changed the call graph and corrupted execution. The broad optimizing lane remains closed from `286` definitions upward. On 2026-08-12 the guard was narrowed to a shrinking-trivial plain-inlining fallback: the default two-instruction always-inline ceiling is retained, one-caller helpers are admitted through four instructions, the flexible threshold is zero, partial inlining and loop admission are disabled, and larger helpers require the existing `trivial_shrinks` proof. A red-first public-dispatch boundary in `src/passes/inlining_test.mbt` requires both the fallback trace and actual call removal.
+
+Native SHA-256 `04c07833321cb6b6013f3ae2cbba4dc692ea802ff6f5a04810b2640120768c10` shrinks all 105 `json-as` artifacts with no growth relative to the DAEO-only checkpoint: aggregate `20,699,654 -> 20,409,974` (`-289,680`), family totals naive `6,652,713`, SIMD `6,895,829`, SWAR `6,861,432`, and remaining verified-v131 gap `4,764,850` bytes / `30.46%`. Optimize/external validation and exact no-cache WIPC are `105/105` with zero failures/timeouts. Representative `fast-path-deserialize` is `460,488` bytes; pass-local fallback costs are about `724 ms` there and `459 ms` on `map`. The rebuilt `13,758,098`-byte debug artifact is optimized identically by native and self-optimized-Wasm to `5,009,594` bytes, SHA-256 `770b21daaff8821ced8be74e79957510e25777beb81d832c82e08d519f52c4b5`; this is `22,768` bytes smaller than the DAEO-only optimizer checkpoint. Full Moon is `10,354/10,354`, recursive spec is `284/64/220/0`, self-opt tests are `16/16`, and refreshed wasm-gc full validation plus native CI fuzz are green. The current dedicated `inlining-optimizing-all` refresh is exact at `10000/10000`, with zero mismatches or failures and Binaryen cache `9984/16`.
+
+A retained 2026-08-12 suffix now reruns the existing bounded/defaultable/validated `coalesce-locals` policy after the guarded plain-inlining fallback, but only when helper deletion leaves fewer than 1,000 definitions. This deliberately excludes the self-optimized CLI's artifact-scale module while recovering local slots exposed by inlining in the 286..999-definition production class. A focused 286-definition public-pipeline regression fails without the suffix (`2` body locals remain) and requires all body-local declarations to disappear with it. The current 105-artifact corpus falls `20,409,974 -> 20,354,587` (`-55,387`): every artifact is smaller, none grow, family totals are naive `6,636,646`, SIMD `6,874,936`, and SWAR `6,843,005`, and the verified-v131 gap becomes `4,709,463` bytes / `30.10%`. Optimize/external validation and exact no-cache WIPC are both `105/105`; representative `fast-path-deserialize` is `459,627` bytes and `map` is `321,615` bytes. The self-optimized optimizer remains excluded from the suffix and grows only by the implementation cost relative to the preceding shared-preflight checkpoint; native/Wasm artifact optimization and runtime smoke remain separate required gates.
+
+A five-instruction one-caller widening was rejected after full corpus measurement: it made 40 artifacts larger, improved only 2, left 63 unchanged, and grew aggregate output by 153 bytes. The four-instruction ceiling remains the measured profitability boundary. Broader large call/bulk-memory admission remains closed until profitability and cleanup are proved together, not from function-count reduction, validation, or direct-pass size alone.
+
+## 2026-08-12 implicit function-label repair
+
+The saved 285-definition broad-path fixtures with helper bodies containing `br`, nested `br`, or `return` previously aborted in the nested `precompute-propagate` prefix. Inlining itself had produced valid function-exit branches, represented in HOT as `HOT_IMPLICIT_FUNCTION_LABEL` (`-2`), but generic HOT control verification rejected that sentinel and CFG construction had no exit mapping for it. Verification now derives the implicit target arity from the function body result type, and CFG construction maps the sentinel to the synthetic function exit. Focused IR, direct-propagation, and 285-definition inlining regressions are green; all three saved fixtures now optimize and externally validate.
+
+This repair does not justify widening the 286-definition production guard. A fresh broad `fast-path-deserialize` probe validated structurally but grew `460,488 -> 475,735` bytes and aborted during exact WIPC execution. A touched-function-only `remove-unused-brs` suffix was also rejected: it changed none of the 105 corpus outputs and increased representative pass-local cost. The fallback thresholds remain unchanged; the later bounded post-fallback coalescing wave is independent cleanup and does not reopen broad optimizing inlining.
 
 ## Boundaries that do not reopen this pass
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-12
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeBlocks.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks.wast
@@ -129,6 +129,18 @@ For behavior changes:
 4. run pass-targeted Binaryen comparison with `_build/native/release/build/cmd/cmd.exe` and classify any residual difference from source and replay evidence.
 
 The review reclose matrix uses native Starshine SHA-256 `11322ff39e52cef842f0fdf263fc3d35ec3b823ab84f0540ff5984f8a8806174` and explicit Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. See [`./fuzzing.md`](./fuzzing.md) for commands, counts, and residual classification. Older matrices remain provenance only.
+
+## 2026-08-09 production O4z guard
+
+After the corresponding slot-38 `code-folding` repair, cumulative O4z replay exposed the same `14`-body-local parser at slot 39. `merge-blocks` preserved validation while changing a reused digit local from `loaded - 48` to the raw loaded value, affecting later reads. The structured load/local-write fail-closed boundary in `src/passes/pass_manager.mbt` and `src/passes/merge_blocks_test.mbt` now starts at `14` locals. Current cumulative prefixes 1–57, direct O4z production execution, all `105` `json-as` report-protocol runs, and the full Moon suite are green.
+
+## 2026-08-12 SGO final-suffix placement and stack-carried-local repair
+
+A bounded experiment inserted `merge-blocks` after SGO's final `precompute-propagate` stage. The initial candidate externally validated all `105/105` `json-as` outputs and reduced aggregate size by `2,061` bytes, but exact no-cache WIPC failed `custom.spec.wasm` in all three modes. Function isolation reduced the failure to one changed function and then to a direct pass fixture: a `local.get` remained stack-carried while the same local was overwritten before a later call, and HOT lowering reconstructed the call operands from the overwritten value. The validating output therefore changed observable arguments.
+
+`run_hot_pipeline_raw_size_cleanup_skip(...)` now reuses the established recursive stack-carried-overwritten-local detector and fails closed with `stack-carried-overwritten-local-merge-blocks-noop`. A red-first direct regression requires unchanged output and the trace reason. The direct `merge-blocks-all` aggregate against explicit Binaryen v131 is renewed at `.tmp/pass-fuzz-merge-blocks-stack-carried-fix-dedicated-10000-v131-20260812`: `10000/10000` normalized, zero mismatches or failures, Binaryen cache `10000/0`.
+
+With that narrow ownership guard, the SGO-owned placement is retained. Native SHA-256 `15804fd785eada79e95fcfc783cc026c5bab86f71fa80e24d1c176a923e7c86e` reduces the signed corpus from `20,278,432` to `20,276,497` bytes (`-1,935`): 75 artifacts shrink, 30 are unchanged, none grow, and optimize/external validation plus exact no-cache WIPC are both `105/105`. The direct pass remains behavior-closed on its generated v131 matrix, but the reduced stack-carried shape is intentionally fail-closed in Starshine until HOT stack/local reconstruction can model it directly.
 
 ## Sources
 

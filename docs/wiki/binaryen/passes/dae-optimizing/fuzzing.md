@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-08-12
 sources:
   - ../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md
   - ../../../raw/research/1653-2026-07-19-daeo-unified-call-facts-tail-boundaries-and-filtered-validation.md
@@ -136,6 +136,10 @@ Report these independently with a freshly built explicit native binary:
 For each lane report requested/compared counts, normalized and cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache counters, and selected subprofile counts when available.
 
 ## Fresh current evidence
+
+The August 12, 2026 refresh after the medium-module dropped-result fallback and guarded plain-inlining work uses native SHA-256 `04c07833321cb6b6013f3ae2cbba4dc692ea802ff6f5a04810b2640120768c10`, explicit verified Binaryen v131, both DAE normalizers, `--jobs auto`, persistent cache, and no reduction. The dedicated aggregate at `.tmp/pass-fuzz-dae-optimizing-profile-10000-o4z-fallback-complete-20260812` compares `10000/10000`: `6954` normalized matches, `0` cleanup-normalized matches, `3046` residuals, and zero validation/generator/property/command failures. Binaryen cache is `10000` hits / `0` misses with no cached failures. All 15 aggregate leaves and all structured-local/GC subcases are represented.
+
+The harness does not classify the `3046` residuals. Saved-artifact inspection groups them exactly into immutable-field `931`, computed-effects `886`, forwarded-suffix `634`, and touched-caller `595`. Every Starshine raw and canonical output is smaller; aggregate raw/canonical delta is `-37,910` bytes, with zero equal-size or size-losing residual. These are the same source-backed transform contracts previously classified as Starshine cleanup wins: effects and traps are replayed in source order, while dead boundary/local transport is removed. This is a fresh dedicated-profile refresh, not a replacement for the unchanged July 21 four-lane closeout matrix.
 
 The July 20, 2026 Binaryen-v131 direct closeout uses native Starshine SHA-256 `95daa8811dceffee74da3082cfb765e17b2d7497db27aa54090ccb94fce42e8c` and explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`:
 

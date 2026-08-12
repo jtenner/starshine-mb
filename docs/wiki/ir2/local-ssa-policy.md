@@ -1,7 +1,7 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-12
 sources:
   - ../binaryen/passes/ssa-nomerge/index.md
   - https://doi.org/10.1145/115372.115320
@@ -74,11 +74,11 @@ The implemented build pipeline is:
 3. For each local, call the pruned placement helper from [`ssa_policy.mbt`](../../../src/ir/ssa_policy.mbt): start from blocks with real writes, walk dominance frontiers, and keep only frontier blocks where the local is live-in.
 4. Allocate overlay phis and phi result values for those block/local pairs.
 5. Rename by walking the dominator tree, maintaining one stack of current SSA values per local.
-6. Visit ordinary HOT nodes child-first for non-region operands; `LocalGet` consumes the current value, while `LocalSet` and `LocalTee` create new values and push them on the local stack.
+6. Visit ordinary HOT nodes child-first for non-region operands; `LocalGet` consumes the current value, while `LocalSet` and `LocalTee` create new values and push them on the local stack. A parameter-free, branch-free single-result `Block` used as an expression operand is inline-visited in surrounding operand order, including its body-local writes. Parameterized blocks and nested-control bodies remain fail-closed until their stack inputs and path joins are modeled explicitly.
 7. Record phi inputs on normal successor edges, explicitly skipping `ExceptionalEdge` successors.
 8. Sort phi inputs into predecessor order and abort if a phi's inputs no longer align with the normal-flow predecessor set.
 
-Concrete locked examples live in [`ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt): diamond joins create one join phi, loop headers create loop-carried phis, uninitialized locals read their default-init entry definitions, `LocalTee` creates a definition for later reads, and unreachable branch-carry ladders do not let unreachable predecessor blocks corrupt phi-input alignment.
+Concrete locked examples live in [`ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt): diamond joins create one join phi, loop headers create loop-carried phis, uninitialized locals read their default-init entry definitions, `LocalTee` creates a definition for later reads, unreachable branch-carry ladders do not let unreachable predecessor blocks corrupt phi-input alignment, and a straight-line result block used as an arithmetic operand carries its nested `local.set` to the following sibling `local.get`. The use-def overlay follows the same eligible operand-block traversal so phi placement and SSA renaming consume one execution-order model.
 
 ## LocalGraph Companion Analysis
 
@@ -165,6 +165,7 @@ So `ssa_build_local` creates one join phi for local `0`, maps the later `local.g
 - **Revision-keyed:** `HotLocalSsa.revision` records `hot_revision_current(func)` at build time. Treat any mutation through [`hot_mutate.mbt`](../../../src/ir/hot_mutate.mbt), [`pass_mark_mutated(...)`](../../../src/passes/pass_common.mbt), or other revision-bumping APIs as invalidating the overlay and its dependent ids.
 - **Normal-flow only:** SSA v1 skips exceptional successors while recording phi inputs. Do not use it to prove facts across `try` / `try_table` exceptional edges. The 2026-06-09 `ssa-nomerge` audit found a true corruption when this exclusion was ignored: a `try_table` body `local.set` followed by `throw` to a catch target was dropped while a later read observed the default value. Optimizer passes must fail closed on exceptional-flow functions unless they implement explicit exceptional-edge SSA semantics.
 - **Local values only:** The overlay models local variable definitions and uses. It does not model stack SSA, globals, memory, tables, tags, heap objects, data/elem segments, or arbitrary expression values.
+- **Structured operand boundary:** A single-result block may contribute local writes to the surrounding operand sequence only when `ssa_simple_value_block_operand_allowed(...)` proves one result, no block parameters, and a branch-free straight-line subtree. Do not generalize this to parameterized, multivalue, loop, conditional, EH, or branch-containing regions without corresponding CFG/use-def/rename tests.
 - **No persistent phis:** A pass may inspect `PhiId`s and phi input values, but it must not add a HOT `Phi` opcode or store SSA as an owned body form.
 - **Liveness-pruned placement:** A dominance frontier alone is insufficient. `ssa_phi_placement_blocks(...)` keeps a candidate only if the local is live-in to that block.
 - **Predecessor-copy writeback:** Any pass that mutates according to SSA values must either call the existing destruction/writeback helpers or maintain the same concrete-local and predecessor-copy invariants.

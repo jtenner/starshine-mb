@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-02
+last_reviewed: 2026-08-09
 sources:
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
@@ -483,6 +483,10 @@ Commit `9c237165d` removes the temporary single-if ceiling. A depth-zero catch-a
 Commit `88197c97e` admits one non-direct delegate representation: the resultless delegated try's sole catch root may be a strict direct chain of resultless single-root blocks ending in the delegate. Every intervening block label and the inner try label must be unused, and the delegate still targets the exact active outer try. Lowering recognizes the same chain and removes only those empty wrappers and the obsolete inner handler shell. The catch-block-chain fixture failed at `195/196`, then passed `196/196` and validated.
 
 Final validation is HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `196/196`, passes `5,789/5,789`, full `9,258/9,258`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public registry, dispatcher, CLI execution, compare/API, profile, preset, scheduler, or neighborhood-ready surface changed. Nonzero/typed-composed rethrow, loops, nested catches or nested tries, value-carrying/targeted ifs, non-block/mixed/value-carrying/used-label/nested delegate populations, broader control/EH closure, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
+
+## 2026-08-09 production O4z guards
+
+Exact `json-as` execution exposed two whole-function ownership boundaries not visible from validation alone. Mixed call/memory effect meshes remain unchanged until ordered replay is proven. Value-producing `if` results carried across a global write into a later call also remain unchanged: the failing transform materialized an uninitialized condition local and selected the wrong arm. The focused public and white-box suites are `288/288` and `244/244`; all final O4z report-protocol runs are green. These are conservative production guards, not broad claims about arbitrary call/global or call/memory functions.
 
 ## Current maintenance rule
 

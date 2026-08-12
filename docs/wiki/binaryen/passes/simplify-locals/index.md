@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-08-12
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -45,9 +45,21 @@ related:
 
 The five-variant Binaryen-v131 renewal is closed. `SimplifyLocals.cpp` and the reviewed locals helpers are unchanged from v130; the relevant released drift is confined to shared pass/global-effect behavior and expected outputs. The audit nevertheless found and repaired four Starshine cleanup gaps: discarded `struct.new_default`, pure dropped local reads, return-local carriers separated by inert code and unreachable suffixes, and branch-result block carriers. Native SHA-256 `5935985cb02530a77aba751dd88f0103a3eadc6ada8e4a0c0b040c878ba4e5bf` was compared with official `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
 
-All five refreshed `10000`-case aggregate profiles have zero validation, property, generator, or command failures and no output larger than Binaryen. Exact/more-compact counts are: full `7298/2702`, no-tee `2766/7234`, no-structure `7115/2885`, no-tee/no-structure `2766/7234`, and nonesting `7684/2316`. Every non-exact dedicated result is strictly smaller in canonical wasm. Five independent `1000`-case idempotence lanes are `1000/1000`. Replaying all `2433` former full random-all mismatches produces `81` newly exact cases and `2352` remaining differences with `2262` smaller and `90` equal-size Starshine outputs; no larger output or failure remains.
+The July 27 five-variant `10000`-case aggregate profiles had zero validation, property, generator, or command failures and no output larger than Binaryen. Exact/more-compact counts were: full `7298/2702`, no-tee `2766/7234`, no-structure `7115/2885`, no-tee/no-structure `2766/7234`, and nonesting `7684/2316`. Five independent `1000`-case idempotence lanes were `1000/1000`, and replaying all `2433` former full random-all mismatches left no larger output or failure.
+
+The August 12 live-out refresh uses the expanded `simplify-locals-all` aggregate, which now includes deterministic `simplify-locals-family-coverage`. It compares `10000/10000` with `5000` normalized matches and zero failures. The `3125` family-coverage residuals remain fourteen canonical bytes smaller, but `1875` generated `structure-result` residuals are `2..4` bytes larger because Starshine retains `nop` debris. That size-losing output-shape family is open parity debt rather than an approved divergence; net canonical residual delta is still `-38,135`.
 
 The July 28 follow-up adds deterministic `SL-01`–`SL-35` interaction coverage and repairs postorder structure formation, unique control/value ownership, payload-bearing `br_if` lowering, aggregate first-cycle deferral, explicit no-tee/no-structure policy, transparent copy chains, and nonesting refined fallthrough equivalence. The integrated pass retains the already measured smaller pure-drop/dead-local cleanup behavior from the larger v131 renewal. `[V131-SPOT]001` is closed for this family.
+
+## 2026-08-12 repaired SGO final-suffix placement
+
+The initial profitability-guarded experiment inserted full `simplify-locals` between SGO's final `merge-blocks` and `remove-unused-brs` stages. It validated and shrank the corpus but failed exact no-cache WIPC with allocator/TLSF aborts, so that implementation was correctly rejected.
+
+The runtime failure is now reduced and repaired. Hybrid function isolation on `bool.spec.wasm` found defined function 43 / absolute function 47. Inside an `if`, the old recursive adjacent-pair cleanup rewrote `call 44; local.set 1; local.get 1; i32.eqz` to `call 44; nop; i32.eqz`, even though a later parent-level `local.get 1` still observed the value. The cleanup considered only reads later inside the child and therefore left the stale pre-`if` pointer live.
+
+`run_hot_pipeline_simplify_locals_lowered_collect_local_reads(...)`, `run_hot_pipeline_simplify_locals_lowered_reads_after(...)`, and `run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(...)` now propagate inherited and later-sibling reads into blocks, both `if` arms, loops, and `try_table`; loop bodies additionally contribute their own reads because another iteration can observe them. The focused regression `simplify-locals preserves a conditional call result reloaded from a parameter` owns the reduced failure, and the SGO regression `simplify-globals-optimizing simplifies locals in the final cleanup suffix` proves the production transaction commits.
+
+The retained owner-scoped sequence is `precompute-propagate -> merge-blocks -> simplify-locals -> remove-unused-brs -> bounded coalesce-locals -> sgo_apply_final_cleanup`. It runs only after SGO changes the module, skips modules with at least 1,000 defined functions, validates and encodes the candidate, and commits only a strictly smaller result. Native SHA-256 `443fa73acbe3789b0e1b330fdf28652fe5f567c4e6df53470e46217b65b92d47` produces `20,252,110` aggregate `json-as` bytes—naive `6,601,920`, SIMD `6,841,190`, SWAR `6,809,000`—and passes optimize/external validation plus exact no-cache WIPC `105/105`. Full Moon is `10,369/10,369`; native/self-optimized artifact optimization is byte-identical, recursive spec is `284/64/220/0`, and full wasm-gc validation includes `86,820` green binary roundtrips.
 
 ## Role
 

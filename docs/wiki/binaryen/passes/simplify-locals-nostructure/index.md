@@ -2,7 +2,7 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-10
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -96,6 +96,10 @@ That is narrower than “full simplify-locals.”
   Implementation-readiness bridge: first slice, negative tests, scheduler honesty, and Binaryen oracle lanes.
 - [`./fuzzing.md`](./fuzzing.md)
   Dedicated `simplify-locals-nostructure-all` GenValid aggregate profile, leaf surfaces, manifest metadata, current smoke result, and profile-specific reopening criteria.
+
+## 2026-08-10 self-opt ownership hardening
+
+Exact self-optimized spec execution exposed release-order corruption in both no-structure and full SimplifyLocals. Direct argument consumers must remain before one or more release calls, and call results used late in long argument lists must not be released before the consumer. Later native-vs-Wasm optimizer-output isolation found the distinct conditional-release form in defined functions `3863` and `3866`: a two-local consumer was moved after separate conditional calls that released each argument through different targets. Red structural regressions now cover direct, long-argument, shared structured-release, and distinct structured-release families across `simplify-locals-nostructure` and `simplify-locals`; the focused combined suite is `118/118`. These are conservative ownership boundaries, not claims that arbitrary call/release conventions are inferred.
 
 ## Current maintenance rule
 
