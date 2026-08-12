@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
+import { normalizeWasiArgs } from "./moonbit-wasi-runner.mjs";
 import { parseSelfOptArtifactOptimizerCompareArgs, parseSelfOptCheckArgs, runSelfOptArtifactOptimizerCompare, runSelfOptCheck } from "./self-opt-task";
 import { extractPipelinePrintEntryPretties, parseStarshinePerfTimingSummary } from "./self-optimize-compare-task";
 
@@ -46,6 +47,13 @@ describe("self-optimize compare timing parsing", () => {
 });
 
 describe("self-opt artifact check lane", () => {
+  test("normalizes CLI arguments with a WASI argv[0] entry", () => {
+    expect(normalizeWasiArgs("/tmp/starshine.wasm", ["--help"])).toEqual([
+      "/tmp/starshine.wasm",
+      "--help",
+    ]);
+  });
+
   test("defaults to a fast spec smoke while still selecting the generated self-optimized artifact", () => {
     const parsed = parseSelfOptCheckArgs([]);
 

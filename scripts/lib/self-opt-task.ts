@@ -1,12 +1,9 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { pathToFileURL } from "node:url";
-
 import { buildSelfOptimized } from "./build-self-optimized.mjs";
-import { runWasmStart } from "./moonbit-wasi-runner.mjs";
+import { runWasmStart, runWasmStartInNode } from "./moonbit-wasi-runner.mjs";
 import { runSelfOptimizedSpecSuite } from "./run-self-optimized-spec-suite.mjs";
 import { distArtifactPaths, nativeStarshineBinaryPaths, validateWasmArtifact } from "./self-optimized-artifacts.mjs";
 import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow, teeCommandToFile } from "./task-runtime";
@@ -179,7 +176,7 @@ export async function runSelfOptCheck(argv: string[], deps: SelfOptCheckDeps = {
     ? distArtifactPaths(repoRoot).selfOptimized
     : resolveRepoPath(repoRoot, options.wasmPath);
   const validate = deps.validateWasmArtifact ?? validateWasmArtifact;
-  const runStart = deps.runWasmStart ?? runWasmStart;
+  const runStart = deps.runWasmStart ?? runWasmStartInNode;
   const runSpec = deps.runSelfOptimizedSpecSuite ?? runSelfOptimizedSpecSuite;
   const prepareSpecRunner = deps.prepareSpecRunnerWasm ?? prepareSelfOptSpecRunnerWasm;
   const writeStdout = deps.writeStdout ?? ((text: string) => process.stdout.write(text));
@@ -363,37 +360,6 @@ function selfOptArtifactOptimizerArgs(inputWasmPath: string, outWasmPath: string
   return ["--debug-serial-passes", "--optimize", "-O4z", "--out", outWasmPath, inputWasmPath];
 }
 
-function runWasmStartWithLargeNodeStack(options: Parameters<typeof runWasmStart>[0]): number {
-  const { stdoutFd, stderrFd, ...childOptions } = options as Parameters<typeof runWasmStart>[0] & {
-    stdoutFd?: number;
-    stderrFd?: number;
-  };
-  const runnerUrl = pathToFileURL(
-    path.join(resolveWorkspaceRoot(), "scripts", "lib", "moonbit-wasi-runner.mjs"),
-  ).href;
-  const script = `
-    import { runWasmStart } from ${JSON.stringify(runnerUrl)};
-    const options = JSON.parse(process.argv[1]);
-    const code = await runWasmStart(options);
-    process.exit(code);
-  `;
-  const result = spawnSync(
-    process.env.NODE ?? "node",
-    ["--stack-size=65500", "--input-type=module", "-e", script, JSON.stringify(childOptions)],
-    {
-      cwd: childOptions.cwd,
-      stdio: ["ignore", stdoutFd ?? "inherit", stderrFd ?? "inherit"],
-    },
-  );
-  if (result.error !== undefined) {
-    throw result.error;
-  }
-  if (result.signal !== null) {
-    throw new Error(`node wasm runner exited with signal ${result.signal}`);
-  }
-  return result.status ?? 1;
-}
-
 function sha256File(filePath: string): string {
   return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
@@ -434,7 +400,7 @@ export async function runSelfOptArtifactOptimizerCompare(
   const wasmStdoutPath = path.join(outDir, "wasm-artifact-optimizer.stdout.log");
   const wasmStderrPath = path.join(outDir, "wasm-artifact-optimizer.stderr.log");
   const validate = deps.validateWasmArtifact ?? validateWasmArtifact;
-  const runStart = deps.runWasmStart ?? runWasmStartWithLargeNodeStack;
+  const runStart = deps.runWasmStart ?? runWasmStartInNode;
   const runNative = deps.runNativeOptimizer ?? ((command, args, runOptions) => {
     runOrThrow(command, args, { cwd: runOptions.cwd, stdio: "inherit" });
   });

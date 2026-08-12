@@ -3,7 +3,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
-import { runWasmStart } from './moonbit-wasi-runner.mjs';
+import { runWasmStartInNode } from './moonbit-wasi-runner.mjs';
 import { distArtifactPaths, repoRootFromScript } from './self-optimized-artifacts.mjs';
 
 function parseCliArgs(argv) {
@@ -111,7 +111,7 @@ export async function runSelfOptimizedSpecSuite({
   const stderrFd = fs.openSync(stderrPath, 'w');
   let exitCode = 0;
   try {
-    exitCode = await runWasmStart({
+    exitCode = await runWasmStartInNode({
       wasmPath: runnerWasm,
       args: runnerArgs,
       cwd: repoRoot,

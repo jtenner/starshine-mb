@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import process from "node:process";
 import { WASI } from "node:wasi";
@@ -307,6 +308,40 @@ function extractExitCode(error) {
   return null;
 }
 
+// WASI argv includes the executable name at index zero. Callers pass only user
+// arguments, so normalize both the WASI and MoonBit filesystem hosts together.
+export function normalizeWasiArgs(wasmPath, args) {
+  return [wasmPath, ...args];
+}
+
+// Execute the runner in Node even when the calling task itself is hosted by Bun.
+// The self-optimized CLI exercises large tables and deep code paths where Bun's
+// WebAssembly runtime has produced engine-specific signature and memory traps.
+export function runWasmStartInNode(options) {
+  const { stdoutFd, stderrFd, ...childOptions } = options;
+  const script = `
+    import { runWasmStart } from ${JSON.stringify(import.meta.url)};
+    const options = JSON.parse(process.argv[1]);
+    const code = await runWasmStart(options);
+    process.exit(code);
+  `;
+  const result = spawnSync(
+    process.env.NODE ?? "node",
+    ["--stack-size=65500", "--input-type=module", "-e", script, JSON.stringify(childOptions)],
+    {
+      cwd: childOptions.cwd,
+      stdio: ["ignore", stdoutFd ?? "inherit", stderrFd ?? "inherit"],
+    },
+  );
+  if (result.error !== undefined) {
+    throw result.error;
+  }
+  if (result.signal !== null) {
+    throw new Error(`node wasm runner exited with signal ${result.signal}`);
+  }
+  return result.status ?? 1;
+}
+
 // Instantiate and run a WASI-targeted module with the custom MoonBit host
 // imports (filesystem + time + spectest) wired in. Supports direct exit code
 // extraction from thrown traps as a compatibility path for older runtime exits.
@@ -327,16 +362,22 @@ export async function runWasmStart({
   const wasmBytes = fs.readFileSync(wasmPath);
   const module = await WebAssembly.compile(wasmBytes);
   const moduleImports = WebAssembly.Module.imports(module);
+  const wasiArgs = normalizeWasiArgs(wasmPath, args);
 
   const wasi = new WASI({
     version: "preview1",
-    args,
+    args: wasiArgs,
     env,
     preopens: preopens ?? { ".": cwd },
     stdout: stdoutFd,
     stderr: stderrFd,
   });
-  const moonbitFs = createMoonbitFsHost({ args, cwd, stdoutFd, stderrFd });
+  const moonbitFs = createMoonbitFsHost({
+    args: wasiArgs,
+    cwd,
+    stdoutFd,
+    stderrFd,
+  });
 
   const importObject = {
     wasi_snapshot_preview1: wasi.wasiImport,
