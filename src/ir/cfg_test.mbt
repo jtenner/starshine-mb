@@ -562,6 +562,20 @@ test "cfg build keeps unreachable roots in distinct predless blocks" {
 }
 
 ///|
+test "cfg build routes implicit function-label branches to the exit" {
+  let func = hot_lift_body(
+    @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+    HotLocals::new(),
+  )
+  let cfg = cfg_build(func)
+  let branch_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 0).unwrap()
+
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, branch_block)), [
+    "{kind: BranchEdge, block: \{cfg_exit_block(cfg)}}",
+  ])
+}
+
+///|
 test "cfg build splits tail calls before later unreachable roots" {
   let func = HotFunc::new()
   let return_call = hot_build_return_call(func, 0, [])

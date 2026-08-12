@@ -95,6 +95,48 @@ test "hot verify control reports invalid branch targets and payload arity" {
 }
 
 ///|
+test "hot verify accepts branches to the implicit function label" {
+  let void_func = hot_lift_body(
+    @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+    HotLocals::new(),
+  )
+  match hot_verify_control(void_func) {
+    Ok(_) => ()
+    Err(err) => fail("expected void function-exit branch, got \{err}")
+  }
+
+  let value_func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+    ]),
+    HotLocals::new(),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+  match hot_verify_control(value_func) {
+    Ok(_) => ()
+    Err(err) => fail("expected value function-exit branch, got \{err}")
+  }
+
+  let invalid_arity = HotFunc::new()
+  hot_body_result_type_set(
+    invalid_arity,
+    hot_type_intern_value(invalid_arity, @lib.ValType::i32()),
+  )
+  let branch = hot_build_br(invalid_arity, HOT_IMPLICIT_FUNCTION_LABEL)
+  hot_root_append(invalid_arity, branch)
+  match hot_verify_control(invalid_arity) {
+    Err(HotVerifyError::InvalidBranchArity(node_id, target, actual, expected)) => {
+      @debug.assert_eq(node_id, branch)
+      @debug.assert_eq(target, HOT_IMPLICIT_FUNCTION_LABEL)
+      @debug.assert_eq(actual, 0)
+      @debug.assert_eq(expected, 1)
+    }
+    other => fail("expected function-exit branch arity rejection, got \{other}")
+  }
+}
+
+///|
 test "hot verify requires typed catch payloads as an ordered catch-region prefix" {
   let valid = HotFunc::new()
   let payload = hot_build_catch_payload(

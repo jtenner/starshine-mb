@@ -162,10 +162,18 @@ fn hot_verify_branch_target(
   target : LabelId,
   actual_arity : Int,
 ) -> Result[Unit, HotVerifyError] {
-  if !hot_verify_label_id_is_valid(func, target) {
+  if target != HOT_IMPLICIT_FUNCTION_LABEL &&
+    !hot_verify_label_id_is_valid(func, target) {
     return Err(HotVerifyError::InvalidBranchTarget(node_id, target))
   }
-  let expected_arity = hot_label_branch_arity(func, target)
+  let expected_arity = if target == HOT_IMPLICIT_FUNCTION_LABEL {
+    match hot_node_get(func, node_id).op {
+      HotOp::Delegate => 0
+      _ => hot_type_result_arity(func, hot_body_result_type(func))
+    }
+  } else {
+    hot_label_branch_arity(func, target)
+  }
   if actual_arity != expected_arity {
     return Err(
       HotVerifyError::InvalidBranchArity(

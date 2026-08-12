@@ -155,6 +155,9 @@ fn cfg_builder_label_target_get(
   builder : CfgBuilder,
   label_id : LabelId,
 ) -> BlockId {
+  if label_id == HOT_IMPLICIT_FUNCTION_LABEL {
+    return builder.cfg.exit_block
+  }
   match builder.label_targets.get(label_id) {
     Some(block_id) if block_id >= 0 => block_id
     _ =>

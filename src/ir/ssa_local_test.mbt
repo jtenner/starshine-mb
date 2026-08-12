@@ -695,6 +695,34 @@ test "ssa local build renames locals inside drop operand value blocks" {
 }
 
 ///|
+test "ssa local build carries writes from straight-line value block operands" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (result i64) (local i64) (i64.add (block (result i64) (local.set 0 (i64.const 100)) (i64.const 7)) (local.get 0))))",
+  )
+  let func = fixture.hot_func
+  let add = hot_root_get(func, 0)
+  let value_block = hot_child_get(func, add, 0)
+  let nested_set = hot_region_get(
+    func,
+    hot_region_body_ref(func, value_block),
+    0,
+  )
+  let final_get = hot_child_get(func, add, 1)
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let root_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 0).unwrap()
+
+  @debug.assert_eq(
+    ssa_value_for_local_get(ssa, final_get),
+    ssa_def_for_local_set(ssa, nested_set),
+  )
+  @debug.assert_eq(local_write_block_ids(use_def, 0), [root_block])
+}
+
+///|
 fn ssa_local_test_arm_value_block_drop_result_if(
   func : HotFunc,
   condition : NodeId,
