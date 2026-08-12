@@ -1951,11 +1951,18 @@ test "metamorphic duplicate equivalent imported immutable i32 global transform a
 
 ///|
 test "metamorphic duplicate equivalent imported immutable i32 global transform avoids defined-global index shifts" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("global"),
+    @lib.global_extern_type(@lib.GlobalType::new(@lib.ValType::i32(), false)),
+  )
   let global = @lib.Global::new(
     @lib.GlobalType::new(@lib.ValType::i32(), false),
     @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
   )
-  let base = @lib.Module::new().with_global_sec(@lib.GlobalSec::new([global]))
+  let base = @lib.Module::new()
+    .with_import_sec(@lib.ImportSec::new([original_import]))
+    .with_global_sec(@lib.GlobalSec::new([global]))
   let transformed = match
     metamorphic_apply_transform(
       base,
@@ -1965,8 +1972,11 @@ test "metamorphic duplicate equivalent imported immutable i32 global transform a
     Err(msg) => fail(msg)
   }
   match transformed.wasm_module.import_sec {
-    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 0)
-    None => ()
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 1)
+      @debug.assert_eq(imports[0], original_import)
+    }
+    None => fail("expected original imported global")
   }
   match transformed.wasm_module.global_sec {
     Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
@@ -2772,6 +2782,39 @@ test "metamorphic duplicate equivalent imported funcref table transform appends 
     Ok(_) => ()
     Err(msg) => fail(msg)
   }
+}
+
+///|
+test "metamorphic duplicate equivalent imported table transform avoids defined-table index shifts" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("table"),
+    @lib.table_extern_type(
+      @lib.TableType::new(
+        @lib.RefType::abs(@lib.AbsHeapType::func()),
+        @lib.Limits::i32(1U, Some(2U)),
+      ),
+    ),
+  )
+  let defined_table = @lib.Table::new(
+    @lib.TableType::new(
+      @lib.RefType::abs(@lib.AbsHeapType::func()),
+      @lib.Limits::i32(1U, Some(2U)),
+    ),
+    None,
+  )
+  let base = @lib.Module::new()
+    .with_import_sec(@lib.ImportSec::new([original_import]))
+    .with_table_sec(@lib.TableSec::new([defined_table]))
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedFuncrefTable,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(transformed.wasm_module, base)
 }
 
 ///|

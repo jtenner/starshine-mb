@@ -2940,9 +2940,20 @@ fn metamorphic_add_duplicate_equivalent_imported_function(
 }
 
 ///|
+fn metamorphic_has_defined_globals(mod : @lib.Module) -> Bool {
+  match mod.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals.length() > 0
+    None => false
+  }
+}
+
+///|
 fn metamorphic_add_duplicate_equivalent_imported_immutable_i32_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -2981,6 +2992,9 @@ fn metamorphic_add_duplicate_equivalent_imported_immutable_i32_global(
 fn metamorphic_add_duplicate_equivalent_imported_immutable_f32_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -3019,6 +3033,9 @@ fn metamorphic_add_duplicate_equivalent_imported_immutable_f32_global(
 fn metamorphic_add_duplicate_equivalent_imported_immutable_f64_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -3057,6 +3074,9 @@ fn metamorphic_add_duplicate_equivalent_imported_immutable_f64_global(
 fn metamorphic_add_duplicate_equivalent_imported_immutable_i64_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -3095,6 +3115,9 @@ fn metamorphic_add_duplicate_equivalent_imported_immutable_i64_global(
 fn metamorphic_add_duplicate_equivalent_imported_immutable_v128_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -3133,6 +3156,9 @@ fn metamorphic_add_duplicate_equivalent_imported_immutable_v128_global(
 fn metamorphic_add_duplicate_equivalent_imported_mutable_i32_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -3171,6 +3197,9 @@ fn metamorphic_add_duplicate_equivalent_imported_mutable_i32_global(
 fn metamorphic_add_duplicate_equivalent_imported_mutable_f32_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -3209,6 +3238,9 @@ fn metamorphic_add_duplicate_equivalent_imported_mutable_f32_global(
 fn metamorphic_add_duplicate_equivalent_imported_mutable_f64_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -3247,6 +3279,9 @@ fn metamorphic_add_duplicate_equivalent_imported_mutable_f64_global(
 fn metamorphic_add_duplicate_equivalent_imported_mutable_i64_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -3285,6 +3320,9 @@ fn metamorphic_add_duplicate_equivalent_imported_mutable_i64_global(
 fn metamorphic_add_duplicate_equivalent_imported_mutable_v128_global(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_globals(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -3391,6 +3429,10 @@ fn metamorphic_add_duplicate_equivalent_imported_ref_table(
   target_ref_type : @lib.RefType,
   duplicate_name : @lib.Name,
 ) -> @lib.Module {
+  match mod.table_sec {
+    Some(@lib.TableSec(tables)) if tables.length() > 0 => return mod
+    _ => ()
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
