@@ -1345,6 +1345,244 @@ fn cl_remove_unread_local_tees(
 }
 
 ///|
+fn cl_deep_copy_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    out.push(
+      match instr {
+        @lib.Block(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(cl_deep_copy_instrs(body)),
+          )
+        @lib.Loop(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(cl_deep_copy_instrs(body)),
+          )
+        @lib.If(block_type, then_body, else_body) =>
+          @lib.Instruction::if_(
+            block_type,
+            cl_deep_copy_instrs(then_body),
+            match else_body {
+              Some(body) => Some(cl_deep_copy_instrs(body))
+              None => None
+            },
+          )
+        @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(cl_deep_copy_instrs(body)),
+          )
+        other => other
+      },
+    )
+  }
+  out
+}
+
+///|
+fn cl_mark_structured_local_intervals(
+  instrs : Array[@lib.Instruction],
+  first : Array[Int],
+  last : Array[Int],
+  first_is_write : Array[Bool],
+  first_write_dominates : Array[Bool],
+  dominates_suffix : Bool,
+  cursor : Array[Int],
+) -> Unit {
+  let mut current_dominates_suffix = dominates_suffix
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(local_idx) => {
+        let raw = cl_local_idx_raw(local_idx)
+        if raw >= 0 && raw < first.length() {
+          if first[raw] < 0 {
+            first[raw] = cursor[0]
+          }
+          last[raw] = cursor[0]
+          cursor[0] += 1
+        }
+      }
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) => {
+        let raw = cl_local_idx_raw(local_idx)
+        if raw >= 0 && raw < first.length() {
+          if first[raw] < 0 {
+            first[raw] = cursor[0]
+            first_is_write[raw] = true
+            first_write_dominates[raw] = current_dominates_suffix
+          }
+          last[raw] = cursor[0]
+          cursor[0] += 1
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) =>
+        cl_mark_structured_local_intervals(
+          body, first, last, first_is_write, first_write_dominates, current_dominates_suffix,
+          cursor,
+        )
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        cl_mark_structured_local_intervals(
+          body, first, last, first_is_write, first_write_dominates, false, cursor,
+        )
+      @lib.If(_, then_body, else_body) => {
+        cl_mark_structured_local_intervals(
+          then_body, first, last, first_is_write, first_write_dominates, false, cursor,
+        )
+        match else_body {
+          Some(body) =>
+            cl_mark_structured_local_intervals(
+              body, first, last, first_is_write, first_write_dominates, false, cursor,
+            )
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        cl_mark_structured_local_intervals(
+          body, first, last, first_is_write, first_write_dominates, false, cursor,
+        )
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              cl_mark_structured_local_intervals(
+                catch_body, first, last, first_is_write, first_write_dominates, false,
+                cursor,
+              )
+          }
+        }
+      }
+      _ => ()
+    }
+    match instr {
+      @lib.BrIf(_)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _) => current_dominates_suffix = false
+      _ => ()
+    }
+    if cl_instr_makes_rest_unreachable(instr) {
+      return
+    }
+  }
+}
+
+///|
+fn cl_rewrite_dense_tee_structured_intervals(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> CLFuncRewrite {
+  let @lib.Func(body_locals, @lib.Expr(original_instrs)) = func
+  let types = cl_all_local_types(params, body_locals)
+  let total_locals = types.length()
+  let first = Array::make(total_locals, -1)
+  let last = Array::make(total_locals, -1)
+  let first_is_write = Array::make(total_locals, false)
+  let first_write_dominates = Array::make(total_locals, false)
+  cl_mark_structured_local_intervals(
+    original_instrs,
+    first,
+    last,
+    first_is_write,
+    first_write_dominates,
+    true,
+    [0],
+  )
+  let old_to_new = Array::make(total_locals, -1)
+  let slot_types : Array[@lib.ValType] = []
+  let slot_last : Array[Int] = []
+  let assigned = Array::make(total_locals, false)
+  for idx = 0; idx < params.length(); idx = idx + 1 {
+    old_to_new[idx] = idx
+    slot_types.push(types[idx])
+    slot_last.push(-1)
+    assigned[idx] = true
+  }
+  for _remaining = params.length()
+      _remaining < total_locals
+      _remaining = _remaining + 1 {
+    let mut local_idx = -1
+    let mut earliest = 0x7fffffff
+    for candidate = params.length()
+        candidate < total_locals
+        candidate = candidate + 1 {
+      if !assigned[candidate] &&
+        first[candidate] >= 0 &&
+        first[candidate] < earliest {
+        local_idx = candidate
+        earliest = first[candidate]
+      }
+    }
+    if local_idx < 0 {
+      for candidate = params.length()
+          candidate < total_locals
+          candidate = candidate + 1 {
+        if !assigned[candidate] {
+          local_idx = candidate
+          break
+        }
+      }
+    }
+    if local_idx < 0 {
+      break
+    }
+    assigned[local_idx] = true
+    let accessed = first[local_idx] >= 0
+    let mut slot = -1
+    for candidate = params.length()
+        candidate < slot_types.length()
+        candidate = candidate + 1 {
+      if slot_types[candidate] != types[local_idx] {
+        continue
+      }
+      if !accessed ||
+        (
+          first_write_dominates[local_idx] &&
+          slot_last[candidate] < first[local_idx]
+        ) ||
+        (!first_write_dominates[local_idx] && slot_last[candidate] < 0) {
+        slot = candidate
+        break
+      }
+    }
+    if slot < 0 {
+      slot = slot_types.length()
+      slot_types.push(types[local_idx])
+      slot_last.push(-1)
+    }
+    old_to_new[local_idx] = slot
+    if accessed {
+      slot_last[slot] = last[local_idx]
+    }
+  }
+  let body_slot_types : Array[@lib.ValType] = []
+  for slot = params.length(); slot < slot_types.length(); slot = slot + 1 {
+    body_slot_types.push(slot_types[slot])
+  }
+  let rewritten_locals = @lib.Locals::from_types(body_slot_types)
+  let rewritten_instrs = cl_deep_copy_instrs(original_instrs)
+  cl_rewrite_all_local_idxs_in_place(rewritten_instrs, old_to_new)
+  let cleanup_changed = cl_remove_redundant_copy_pairs(rewritten_instrs)
+  let changed = cleanup_changed ||
+    rewritten_locals != body_locals ||
+    !cl_old_to_new_is_identity(old_to_new)
+  if !changed {
+    { func, changed: false }
+  } else {
+    {
+      func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
+      changed: true,
+    }
+  }
+}
+
+///|
 fn cl_rewrite_func_structured_conservative(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -1449,7 +1687,7 @@ fn cl_rewrite_func_structured_conservative(
     structured_scalar_preferred,
   )
   let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
-  let rewritten_instrs = original_instrs.copy()
+  let rewritten_instrs = cl_deep_copy_instrs(original_instrs)
   cl_rewrite_instrs_in_place(
     rewritten_instrs,
     coloring.old_to_new,
@@ -3811,6 +4049,35 @@ fn cl_rewrite_instrs_in_place(
 }
 
 ///|
+fn cl_instrs_read_local(
+  instrs : Array[@lib.Instruction],
+  expected : @lib.LocalIdx,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(local_idx) => if local_idx == expected { return true }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_read_local(body, expected) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_read_local(then_body, expected) {
+          return true
+        }
+        match else_body {
+          Some(body) => if cl_instrs_read_local(body, expected) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn cl_remove_ineffective_tees(
   rewritten_instrs : Array[@lib.Instruction],
   original_instrs : Array[@lib.Instruction],
@@ -3886,14 +4153,21 @@ fn cl_remove_ineffective_tees(
           _ => ()
         }
       @lib.LocalGet(_) | @lib.LocalSet(_) => action_cursor[0] += 1
-      @lib.LocalTee(_) => {
+      @lib.LocalTee(original_local_idx) => {
         let action_idx = action_cursor[0]
         action_cursor[0] += 1
         if action_idx >= 0 &&
           action_idx < effective.length() &&
           !effective[action_idx] {
-          changed = true
-          continue
+          if cl_instrs_read_local(
+              original_instrs[idx + 1:].to_array(),
+              original_local_idx,
+            ) {
+            ()
+          } else {
+            changed = true
+            continue
+          }
         }
       }
       _ => ()
@@ -4029,6 +4303,11 @@ fn cl_flatten_terminal_unbranched_void_blocks(
         }
         if block_type == @lib.BlockType::void_() &&
           !cl_instrs_have_branch_instruction(body) {
+          // Flattening can expose an unconditional exit that was previously
+          // scoped inside the block. Finish that block-owned cleanup now so a
+          // second coalesce-locals run is not required, without truncating an
+          // unrelated parent tail merely because some nested block flattened.
+          ignore(cl_truncate_dead_tails(body))
           out.append(body)
           changed = true
           continue
@@ -4802,6 +5081,29 @@ fn cl_remove_linear_dead_tees(
 }
 
 ///|
+fn cl_instrs_local_tee_count(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(_) => count += 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += cl_instrs_local_tee_count(body)
+      @lib.If(_, then_body, else_body) => {
+        count += cl_instrs_local_tee_count(then_body)
+        match else_body {
+          Some(body) => count += cl_instrs_local_tee_count(body)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn cl_instrs_have_local_tee(instrs : Array[@lib.Instruction]) -> Bool {
   for instr in instrs {
     match instr {
@@ -4865,6 +5167,23 @@ fn cl_cleanup_never_read_tees(
 }
 
 ///|
+fn cl_should_use_dense_tee_structured_intervals(
+  body_local_count : Int,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if body_local_count <= 0 || body_local_count > 512 {
+    return false
+  }
+  if !cl_instrs_have_structured_control(instrs) ||
+    cl_instrs_have_loop_control(instrs) ||
+    cl_instrs_have_legacy_try(instrs) {
+    return false
+  }
+  let tee_count = cl_instrs_local_tee_count(instrs)
+  tee_count >= 16 || (body_local_count >= 24 && tee_count >= 8)
+}
+
+///|
 fn cl_rewrite_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -4905,6 +5224,11 @@ fn cl_rewrite_func(
     original_instrs,
   )
   if has_structured_control {
+    if cl_should_use_dense_tee_structured_intervals(
+        body_local_count, original_instrs,
+      ) {
+      return cl_rewrite_dense_tee_structured_intervals(func, params)
+    }
     return cl_rewrite_func_structured_conservative(func, params)
   }
   let types = cl_all_local_types(params, body_locals)
@@ -5110,11 +5434,73 @@ fn cl_rebuild_module(
 }
 
 ///|
+fn cl_validate_rewritten_funcs(
+  mod_ : @lib.Module,
+  original_funcs : Array[@lib.Func],
+  rewritten_funcs : Array[@lib.Func],
+  changed_code_indices : Array[Int],
+) -> Array[@lib.Func] {
+  if changed_code_indices.length() == 0 {
+    return rewritten_funcs
+  }
+  let imported_func_count = cl_imported_func_count(mod_)
+  let candidates : Array[(@lib.FuncIdx, @lib.Func)] = []
+  for code_idx in changed_code_indices {
+    if code_idx >= 0 && code_idx < rewritten_funcs.length() {
+      candidates.push(
+        (
+          @lib.FuncIdx::new(
+            (imported_func_count + code_idx).reinterpret_as_uint(),
+          ),
+          rewritten_funcs[code_idx],
+        ),
+      )
+    }
+  }
+  match @validate.validate_defined_funcs_against_module(mod_, candidates) {
+    Err(_) => original_funcs.copy()
+    Ok(errors) => {
+      if errors.length() == 0 {
+        return rewritten_funcs
+      }
+      let checked = rewritten_funcs.copy()
+      for item in errors {
+        let (@lib.FuncIdx(raw), _) = item
+        let code_idx = raw.reinterpret_as_int() - imported_func_count
+        if code_idx >= 0 && code_idx < original_funcs.length() {
+          checked[code_idx] = original_funcs[code_idx]
+        }
+      }
+      checked
+    }
+  }
+}
+
+///|
+fn cl_locals_have_nondefaultable_type(locals : @lib.Locals) -> Bool {
+  for run in locals.runs() {
+    match run.val_type() {
+      @lib.RefTypeValType(ref_type) =>
+        if !@lib.RefType::is_defaultable(ref_type) {
+          return true
+        }
+      @lib.BotValType => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   ignore(cl_imported_func_count(mod_))
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let defined_func_params = cl_defined_func_param_cache(mod_)
+      let rewritten_funcs : Array[@lib.Func] = Array::new(
+        capacity=funcs.length(),
+      )
+      let changed_code_indices : Array[Int] = []
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         let params = match defined_func_params.get(code_idx) {
           Some(params) => params
@@ -5124,18 +5510,10 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         if funcs.length() >= 32 &&
           params.length() > 0 &&
           body_locals.length() >= 16 &&
+          cl_locals_have_nondefaultable_type(body_locals) &&
           cl_instrs_have_structured_control(instrs) {
-          return mod_
-        }
-      }
-      let rewritten_funcs : Array[@lib.Func] = Array::new(
-        capacity=funcs.length(),
-      )
-      let mut changed = false
-      for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
-        let params = match defined_func_params.get(code_idx) {
-          Some(params) => params
-          None => abort("coalesce-locals missing defined function params")
+          rewritten_funcs.push(funcs[code_idx])
+          continue
         }
         let rewrite = cl_cleanup_never_read_tees(
           cl_rewrite_func(funcs[code_idx], params),
@@ -5143,15 +5521,18 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         )
         rewritten_funcs.push(rewrite.func)
         if rewrite.changed {
-          changed = true
+          changed_code_indices.push(code_idx)
         }
       }
-      if !changed {
+      let checked_funcs = cl_validate_rewritten_funcs(
+        mod_, funcs, rewritten_funcs, changed_code_indices,
+      )
+      if checked_funcs == funcs {
         return mod_
       }
       cl_rebuild_module(
         mod_,
-        Some(@lib.CodeSec::new(rewritten_funcs)),
+        Some(@lib.CodeSec::new(checked_funcs)),
         cl_name_sec_without_local_names(mod_.name_sec),
       )
     }

@@ -57,6 +57,69 @@ fn merge_locals_test_index_of(passes : Array[String], name : String) -> Int {
 }
 
 ///|
+test "merge-locals defers call and store local-copy meshes" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $use (param i32))
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    i32.const 0
+    #|    local.get 1
+    #|    i32.store
+    #|    local.get 1
+    #|    call $use))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["merge-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected call-store copy success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-store-local-copy-merge-locals-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "merge-locals preserves copies after early returns" {
+  let input =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 0
+    #|      return
+    #|    end
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 1))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["merge-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected early-return copy success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=early-return-local-copy-merge-locals-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "merge-locals owns the exact O4z slot after heap2local" {
   for
     passes in [

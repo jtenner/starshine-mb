@@ -25082,7 +25082,11 @@ fn optimize_instructions_replace_with_dropped_operands(
   }
   let temp = @ir.hot_build_block(func, @lib.BlockType::void_(), body)
   let replacement = @ir.hot_node_get(func, temp)
-  @ir.hot_delete_node(func, temp)
+  // The built block's label initially belongs to the detached temporary node.
+  // Rehome it before deleting that wrapper so nested parent analysis never sees
+  // a live label whose owner is dead.
+  @ir.hot_label_owner_set(func, replacement.imm0, node_id)
+  @ir.hot_delete_detached_node(func, temp)
   @ir.hot_replace_node(func, node_id, replacement)
   pass_mark_mutated(ctx, func)
 }
@@ -31110,12 +31114,19 @@ fn optimize_instructions_try_fold_identity_binary(
   let keep_id = match instr {
     @lib.Instruction::I32Or
     | @lib.Instruction::I32Xor
-    | @lib.Instruction::I32Add
-    | @lib.Instruction::I32Shl
+    | @lib.Instruction::I32Add =>
+      match
+        OiI32BinaryIdentityOperandFact::from_operands(
+          func, dead, lhs_id, rhs_id, 0,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
+      }
+    @lib.Instruction::I32Shl
     | @lib.Instruction::I32ShrU
     | @lib.Instruction::I32ShrS =>
       match
-        OiI32BinaryIdentityOperandFact::from_operands(
+        OiI32BinaryIdentityOperandFact::from_right_operand(
           func, dead, lhs_id, rhs_id, 0,
         ) {
         Some(fact) => Some(fact.retained_id)
@@ -31163,12 +31174,19 @@ fn optimize_instructions_try_fold_identity_binary(
       }
     @lib.Instruction::I64Or
     | @lib.Instruction::I64Xor
-    | @lib.Instruction::I64Add
-    | @lib.Instruction::I64Shl
+    | @lib.Instruction::I64Add =>
+      match
+        OiI64BinaryIdentityOperandFact::from_operands(
+          func, dead, lhs_id, rhs_id, 0L,
+        ) {
+        Some(fact) => Some(fact.retained_id)
+        None => None
+      }
+    @lib.Instruction::I64Shl
     | @lib.Instruction::I64ShrU
     | @lib.Instruction::I64ShrS =>
       match
-        OiI64BinaryIdentityOperandFact::from_operands(
+        OiI64BinaryIdentityOperandFact::from_right_operand(
           func, dead, lhs_id, rhs_id, 0L,
         ) {
         Some(fact) => Some(fact.retained_id)

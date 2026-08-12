@@ -43,6 +43,50 @@ fn rse_expect_op(func : @ir.HotFunc, node_id : Int, expected : String) -> Unit {
 }
 
 ///|
+test "rse defers repeated zero resets across structured branches" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    i32.const 0
+    #|    local.set 1
+    #|    loop
+    #|      local.get 0
+    #|      if
+    #|        i32.const 0
+    #|        local.set 1
+    #|      else
+    #|        i32.const 1
+    #|        local.set 1
+    #|      end
+    #|      local.get 0
+    #|      if
+    #|        i32.const 0
+    #|        local.set 1
+    #|      end
+    #|      i32.const 0
+    #|      local.set 1
+    #|      local.get 0
+    #|      br_if 0
+    #|    end))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["redundant-set-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected repeated reset boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=repeated-branch-zero-reset-rse-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "rse traces raw changed functions as aggregate skip count" {
   let trace : Array[String] = []
   match

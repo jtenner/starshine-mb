@@ -33,6 +33,55 @@ fn cl_test_instrs_contain_drop(instrs : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
+fn cl_test_instrs_have_local_tee(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_test_instrs_have_local_tee(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_test_instrs_have_local_tee(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if cl_test_instrs_have_local_tee(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cl_test_count_local_tees(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(_) => count += 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += cl_test_count_local_tees(body)
+      @lib.If(_, then_body, else_body) => {
+        count += cl_test_count_local_tees(then_body)
+        match else_body {
+          Some(body) => count += cl_test_count_local_tees(body)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn cl_test_instrs_contain_local_tee(
   instrs : Array[@lib.Instruction],
   expected : @lib.LocalIdx,
@@ -213,6 +262,354 @@ test "coalesce-locals merges non-overlapping same-typed body locals" {
     instrs[6],
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   )
+}
+
+///|
+test "coalesce-locals preserves tee values consumed after an early-return branch" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $len (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $alloc (param i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32)
+    #|    local.get 0
+    #|    call $len
+    #|    i32.const 1
+    #|    i32.shl
+    #|    local.set 3
+    #|    local.get 1
+    #|    call $len
+    #|    i32.const 1
+    #|    i32.shl
+    #|    local.set 5
+    #|    local.get 3
+    #|    local.get 5
+    #|    i32.add
+    #|    local.set 6
+    #|    local.get 6
+    #|    i32.eqz
+    #|    if
+    #|      i32.const 32
+    #|      local.set 2
+    #|      i32.const 32
+    #|      return
+    #|    end
+    #|    i32.const 0
+    #|    local.get 6
+    #|    i32.const 2
+    #|    call $alloc
+    #|    local.tee 4
+    #|    i32.store offset=4
+    #|    local.get 4
+    #|    local.get 0
+    #|    local.get 3
+    #|    memory.copy
+    #|    local.get 4
+    #|    local.get 3
+    #|    i32.add
+    #|    local.get 1
+    #|    local.get 5
+    #|    memory.copy
+    #|    local.get 4
+    #|    local.set 2
+    #|    local.get 2))
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[2]
+      assert_true(cl_test_instrs_have_local_tee(body))
+    }
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "coalesce-locals O4z dispatch processes ordinary functions" {
+  let input =
+    #|(module
+    #|  (func (result i32) (local i32 i32)
+    #|    i32.const 11
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 22
+    #|    local.set 1
+    #|    local.get 1))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z coalescing, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 1)
+}
+
+///|
+test "coalesce-locals O4z dispatch processes bounded 256-local ordinary functions" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (local")
+  for i = 0; i < 256; i = i + 1 {
+    ignore(i)
+    input.write_string(" i32")
+  }
+  input.write_string(")))")
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected bounded O4z coalescing, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 1)
+}
+
+///|
+test "coalesce-locals O4z dispatch processes bounded 512-local ordinary functions" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (local")
+  for i = 0; i < 512; i = i + 1 {
+    ignore(i)
+    input.write_string(" i32")
+  }
+  input.write_string(")))")
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected bounded O4z coalescing, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 1)
+}
+
+///|
+test "coalesce-locals O4z dispatch defers large dense-tee functions in medium modules" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (local")
+  for i = 0; i < 513; i = i + 1 {
+    ignore(i)
+    input.write_string(" i32")
+  }
+  input.write_string(") block end")
+  for i = 0; i < 8; i = i + 1 {
+    input.write_string(" i32.const \{i} local.tee 0 drop")
+  }
+  input.write_string(")")
+  for i = 1; i < 1000; i = i + 1 {
+    ignore(i)
+    input.write_string(" (func)")
+  }
+  input.write_string(")")
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded dense-tee O4z coalescing, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 513)
+  @debug.assert_eq(cl_test_count_local_tees(body), 8)
+}
+
+///|
+test "coalesce-locals O4z dispatch defers large dense-tee functions in small modules" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (local")
+  for i = 0; i < 513; i = i + 1 {
+    ignore(i)
+    input.write_string(" i32")
+  }
+  input.write_string(") block end")
+  for i = 0; i < 8; i = i + 1 {
+    input.write_string(" i32.const \{i} local.tee 0 drop")
+  }
+  input.write_string("))")
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded dense-tee O4z coalescing, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 513)
+}
+
+///|
+test "coalesce-locals O4z dispatch intentionally bounds dense ordinary functions above 512 locals" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (local")
+  for i = 0; i < 513; i = i + 1 {
+    ignore(i)
+    input.write_string(" i32")
+  }
+  input.write_string(")))")
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected bounded O4z coalescing, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 513)
+}
+
+///|
+test "coalesce-locals O4z dispatch conservatively compacts dense-tee structured functions" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (local")
+  for i = 0; i < 24; i = i + 1 {
+    ignore(i)
+    input.write_string(" i32")
+  }
+  input.write_string(") block end")
+  for i = 0; i < 8; i = i + 1 {
+    input.write_string(" i32.const \{i} local.tee 0 drop")
+  }
+  input.write_string("))")
+  let source = input.to_string()
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded O4z coalescing, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = cl_test_first_defined_func(optimized)
+  assert_true(locals.length() < 24)
+  @debug.assert_eq(cl_test_count_local_tees(body), 8)
+}
+
+///|
+test "coalesce-locals dense-tee intervals reuse sequential unbranched block locals" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (result i32) (local")
+  for i = 0; i < 24; i = i + 1 {
+    ignore(i)
+    input.write_string(" i32")
+  }
+  input.write_string(
+    ") block i32.const 7 local.set 0 local.get 0 drop end block i32.const 8 local.set 1 local.get 1 drop end",
+  )
+  for i = 0; i < 8; i = i + 1 {
+    input.write_string(" i32.const \{i} local.tee 2 drop")
+  }
+  input.write_string(" i32.const 0))")
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested dense-tee interval coalescing, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 1)
+}
+
+///|
+test "coalesce-locals dense-tee intervals preserve branch-skipped default reads" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (param i32) (result i32) (local")
+  for i = 0; i < 24; i = i + 1 {
+    ignore(i)
+    input.write_string(" i32")
+  }
+  input.write_string(
+    ") i32.const 99 local.set 1 local.get 0 if i32.const 7 local.set 2 end",
+  )
+  for i = 0; i < 8; i = i + 1 {
+    input.write_string(" i32.const \{i} local.tee 3 drop")
+  }
+  input.write_string(" local.get 2))")
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dense-tee interval coalescing, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = cl_test_first_defined_func(optimized)
+  let first_written = match body[1] {
+    @lib.LocalSet(local_idx) => local_idx
+    _ => fail("expected leading local.set")
+  }
+  let default_read = match body[body.length() - 1] {
+    @lib.LocalGet(local_idx) => local_idx
+    _ => fail("expected trailing local.get")
+  }
+  assert_false(first_written == default_read)
+}
+
+///|
+test "coalesce-locals processes defaultable structured functions without suppressing neighbors" {
+  let input = StringBuilder::new()
+  let prefix =
+    #|(module
+    #|  (func (param i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    block
+    #|      local.get 0
+    #|      drop
+    #|    end)
+    #|  (func (result i32) (local i32 i32)
+    #|    i32.const 11
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 22
+    #|    local.set 1
+    #|    local.get 1)
+  input.write_string(prefix)
+  for i = 0; i < 30; i = i + 1 {
+    ignore(i)
+    input.write_string(" (func)")
+  }
+  input.write_string(")")
+  let optimized = match
+    pass_test_run_pipeline(input.to_string(), ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected per-function guarded coalescing, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(hazardous_locals, _) = funcs[0]
+      let @lib.Func(safe_locals, _) = funcs[1]
+      assert_true(hazardous_locals.length() < 16)
+      @debug.assert_eq(safe_locals.length(), 1)
+    }
+    None => fail("expected code section")
+  }
 }
 
 ///|
@@ -1347,6 +1744,28 @@ test "coalesce-locals coalesces structured derived branch carriers" {
     other =>
       fail("expected outer structured if, got \{@debug.to_string(other)}")
   }
+}
+
+///|
+test "coalesce-locals truncates a dead tail exposed by block flattening" {
+  let input =
+    #| (module
+    #|   (memory 0)
+    #|   (func (local i32 i32 i32 i32)
+    #|     block
+    #|       unreachable
+    #|       local.get 0
+    #|       i32.const 0
+    #|       local.tee 0
+    #|       i32.store
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(instrs, [@lib.Instruction::unreachable_()])
 }
 
 ///|

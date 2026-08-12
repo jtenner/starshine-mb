@@ -19,6 +19,38 @@ test "inlining graph reachability preserves cycle-only self reachability" {
 }
 
 ///|
+test "inlining nested cleanup intentionally rejects invalid pass output" {
+  let valid = pass_test_module_from_wat(
+    "(module (func (local i32) local.get 0 drop))",
+  )
+  let invalid = match valid.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, body)])) =>
+      valid.with_code_sec(
+        @lib.CodeSec::new([@lib.Func::new(@lib.Locals::new([]), body)]),
+      )
+    other => fail("expected one parsed function, got \{other}")
+  }
+  let trace : Array[String] = []
+  match
+    inl_validate_nested_cleanup_pass_output(
+      invalid,
+      "coalesce-locals",
+      Some(fn(line) { trace.push(line) }),
+    ) {
+    Err(err) => assert_true(err.contains("produced invalid module"), msg=err)
+    Ok(_) => fail("expected invalid nested cleanup output to reject")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[inlining-optimizing]:nested-pass-invalid name=coalesce-locals",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "inlining shape scanner treats only direct calls as flexible call blockers" {
   let (direct_calls, _, _, _) = inl_scan_shape_instrs([
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),

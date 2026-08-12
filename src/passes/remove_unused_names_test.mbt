@@ -52,6 +52,46 @@ fn remove_unused_names_o4z_accounted(trace : Array[String]) -> Bool {
 }
 
 ///|
+test "remove-unused-names defers call and bulk-memory effect meshes" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $alloc (param i32 i32) (result i32) local.get 0)
+    #|  (func (param i32) (local i32)
+    #|    block
+    #|      loop
+    #|        local.get 0
+    #|        i32.const 2
+    #|        call $alloc
+    #|        local.set 1
+    #|        local.get 1
+    #|        i32.const 0
+    #|        local.get 0
+    #|        memory.copy
+    #|        br 1
+    #|      end
+    #|    end))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-names"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected call/bulk-memory boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-bulk-memory-effect-order-remove-unused-names-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "remove-unused-names O4z accounts for branchless same-typed block peel" {
   // RUN shape inventory: no-label-use same-type block peel; this should run
   // through the raw O4z lane instead of the historical blanket no-op guard.

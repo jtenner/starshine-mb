@@ -11704,6 +11704,43 @@ test "flatten moves nested return_call_ref effects before placeholders" {
 }
 
 ///|
+test "flatten intentionally defers mixed call and memory effect functions" {
+  // Current production json-as evidence shows that flattening a call/memory
+  // effect mesh can preserve structural validity while corrupting runtime
+  // addresses. Keep this family fail-closed until ordered effect replay is
+  // proven across the whole function.
+  let func = pass_test_lift_first_func(
+    "(module (memory 1) (func (result i32) i32.const 0 i32.load call 1 i32.add) (func (result i32) i32.const 1))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+}
+
+///|
+test "flatten intentionally defers value if results consumed by calls across globals" {
+  // The value-producing if result remains stack-carried across the global write
+  // into a later multi-argument call. Flatten must not materialize an
+  // uninitialized condition local before its original comparison executes.
+  let func = pass_test_lift_first_func(
+    "(module (global (mut i32) (i32.const 0)) (func (param i32) (result i32) local.get 0 i32.const 10 i32.lt_u if (result i32) i32.const 48 else i32.const 87 end i32.const 1 global.set 0 i32.const 0 call 1 return) (func (param i32 i32) (result i32) local.get 0))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+}
+
+///|
 test "flatten leaves unsupported nondefaultable root controls unmaterialized" {
   let func = pass_test_lift_first_func(
     "(module (type $box (struct)) (func (result (ref $box)) (if (result (ref $box)) (i32.const 1) (then (br 0 (struct.new_default $box))) (else (struct.new_default $box)))))",

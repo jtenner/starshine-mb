@@ -158,6 +158,572 @@ fn slns_test_deep_br_table_local_write(depth : Int) -> String {
 }
 
 ///|
+fn slns_test_deep_block_local_write(depth : Int, local_count : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (param i32) (result i32) ")
+  out.write_string(
+    simplify_locals_nostructure_test_many_i32_locals(local_count),
+  )
+  out.write_string(" local.get 0 local.set 1 ")
+  for _i = 0; _i < depth; _i = _i + 1 {
+    out.write_string("block ")
+  }
+  for _i = 0; _i < depth; _i = _i + 1 {
+    out.write_string("local.get 1 br 0 end ")
+  }
+  out.write_string("local.get 1))")
+  out.to_string()
+}
+
+///|
+test "simplify-locals defers call-result locals beside memory copy" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $alloc (param i32 i32) (result i32) local.get 0)
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    i32.const 2
+    #|    call $alloc
+    #|    local.set 1
+    #|    local.get 1
+    #|    i32.const 0
+    #|    local.get 0
+    #|    memory.copy))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected call-result memory-copy success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-bulk-memory-effect-order-simplify-locals-nostructure-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure defers call-result locals beside memory copy" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $alloc (param i32 i32) (result i32) local.get 0)
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    i32.const 2
+    #|    call $alloc
+    #|    local.set 1
+    #|    local.get 1
+    #|    i32.const 0
+    #|    local.get 0
+    #|    memory.copy))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected call-result memory-copy success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-bulk-memory-effect-order-simplify-locals-nostructure-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals preserves loaded loop locals across exits" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32) (result i32) (local i32)
+    #|    block
+    #|      loop
+    #|        local.get 0
+    #|        i32.load
+    #|        local.set 1
+    #|        local.get 1
+    #|        i32.const 0
+    #|        i32.eq
+    #|        br_if 1
+    #|        br 0
+    #|      end
+    #|    end
+    #|    local.get 1))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected loaded loop-local success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=self-update-loop-local-lifetime")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals preserves additive self-updated loop locals" {
+  let input =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    block
+    #|      loop
+    #|        local.get 0
+    #|        i32.const 2
+    #|        i32.add
+    #|        local.set 0
+    #|        local.get 0
+    #|        local.set 0
+    #|        br 1
+    #|      end
+    #|    end
+    #|    local.get 0))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected additive self-update loop success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=self-update-loop-local-lifetime")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure preserves additive self-updated loop locals" {
+  let input =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    block
+    #|      loop
+    #|        local.get 0
+    #|        i32.const 2
+    #|        i32.add
+    #|        local.set 0
+    #|        local.get 0
+    #|        local.set 0
+    #|        br 1
+    #|      end
+    #|    end
+    #|    local.get 0))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected additive self-update loop success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=self-update-loop-local-lifetime")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure preserves self-updated loop locals" {
+  let input =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    block
+    #|      loop
+    #|        local.get 0
+    #|        i32.const 4
+    #|        i32.sub
+    #|        local.set 0
+    #|        local.get 0
+    #|        i32.const 4
+    #|        i32.ge_u
+    #|        br_if 0
+    #|      end
+    #|    end
+    #|    local.get 0))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected self-update loop success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=self-update-loop-local-lifetime")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals preserves parameter-initialized block-result loop carriers" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32) (result i32) (local i32 i32 i32 i32)
+    #|    local.get 0
+    #|    i32.load offset=4 align=1
+    #|    local.set 2
+    #|    local.get 1
+    #|    local.get 2
+    #|    i32.le_s
+    #|    if (result i32)
+    #|      local.get 1
+    #|      local.set 3
+    #|      loop
+    #|        block
+    #|          block (result i32)
+    #|            local.get 2
+    #|            local.get 3
+    #|            local.tee 4
+    #|            i32.gt_s
+    #|            if
+    #|              local.get 0
+    #|              i32.load align=1
+    #|              local.set 5
+    #|              nop
+    #|              local.get 4
+    #|              i32.const 1
+    #|              i32.add
+    #|              br 1
+    #|            end
+    #|            br 1
+    #|          end
+    #|          local.set 3
+    #|          br 1
+    #|        end
+    #|      end
+    #|      unreachable
+    #|    else
+    #|      i32.const 0
+    #|    end))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected block-result loop carrier success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=parameter-initialized-block-result-loop-carrier")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure preserves consumers before conditional releases" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $use (param i32 i32) (result i32) local.get 0)
+    #|  (func $release-left (param i32))
+    #|  (func $release-right (param i32))
+    #|  (func (param i32) (result i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    i32.load
+    #|    local.set 1
+    #|    call $make
+    #|    local.tee 3
+    #|    local.set 2
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $use
+    #|    local.get 1
+    #|    if
+    #|      local.get 1
+    #|      call $release-left
+    #|    end
+    #|    local.get 2
+    #|    if
+    #|      local.get 2
+    #|      call $release-right
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected conditional release ordering success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-argument-structured-release-simplify-locals-nostructure-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals preserves consumers before distinct conditional releases" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $use (param i32 i32) (result i32) local.get 0)
+    #|  (func $release-left (param i32))
+    #|  (func $release-right (param i32))
+    #|  (func (param i32) (result i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    i32.load
+    #|    local.set 1
+    #|    call $make
+    #|    local.tee 3
+    #|    local.set 2
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $use
+    #|    local.get 1
+    #|    if
+    #|      local.get 1
+    #|      call $release-left
+    #|    end
+    #|    local.get 2
+    #|    if
+    #|      local.get 2
+    #|      call $release-right
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected conditional release ordering success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-argument-structured-release-simplify-locals-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals variants preserve result locals until a consumer before release" {
+  let input =
+    #|(module
+    #|  (func $use (param i32 i32 i32 i32 i32) (result i32) i32.const 0)
+    #|  (func $release (param i32))
+    #|  (func (param i32 i32 i32 i32 i32) (result i32) (local i32 i32 i32 i32)
+    #|    local.get 4
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 2
+    #|    end
+    #|    local.set 5
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    local.get 3
+    #|    local.get 5
+    #|    call $use
+    #|    local.get 5
+    #|    call $release))
+  let original = pass_test_module_from_wat(input)
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected result-local lifetime preservation, got \{err}")
+    }
+    @debug.assert_eq(
+      optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+      original.pretty_print_func(@lib.FuncIdx::new(2U)),
+    )
+    assert_true(
+      trace.any(fn(line) {
+        line.contains(
+          "reason=single-argument-distinct-call-lifetime-\{pass_name}-noop",
+        )
+      }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals preserves stack-carried overwritten locals" {
+  let input =
+    #|(module
+    #|  (func $use (param i32 i32))
+    #|  (func (param i32 i32) (local i32)
+    #|    local.get 0
+    #|    local.set 2
+    #|    local.get 2
+    #|    local.get 1
+    #|    local.set 2
+    #|    local.get 2
+    #|    call $use))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected overwritten-local carrier success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=stack-carried-overwritten-local")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals preserves a conditional call result reloaded from a parameter" {
+  let input =
+    #|(module
+    #|  (func $prepare (param i32) (result i32) local.get 0)
+    #|  (func $replace (param i32))
+    #|  (func $lookup (param i32) (result i32) i32.const 7)
+    #|  (func $consume (param i32))
+    #|  (func (param i32 i32) (result i32) (local i32 i32 i32)
+    #|    local.get 1
+    #|    call $prepare
+    #|    local.set 3
+    #|    local.get 0
+    #|    call $lookup
+    #|    local.tee 1
+    #|    i32.eqz
+    #|    local.tee 2
+    #|    if
+    #|      local.get 3
+    #|      call $replace
+    #|      local.get 0
+    #|      call $lookup
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.eqz
+    #|      if
+    #|        unreachable
+    #|      end
+    #|    end
+    #|    local.get 1
+    #|    call $consume
+    #|    local.get 1
+    #|    return))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected conditional call-result reload success, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(4U)),
+    original.pretty_print_func(@lib.FuncIdx::new(4U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-result-structured-lifetime")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure preserves stack-carried overwritten locals" {
+  let input =
+    #|(module
+    #|  (func $use (param i32 i32))
+    #|  (func (param i32 i32) (local i32)
+    #|    local.get 0
+    #|    local.set 2
+    #|    local.get 2
+    #|    local.get 1
+    #|    local.set 2
+    #|    local.get 2
+    #|    call $use))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected overwritten-local carrier success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=stack-carried-overwritten-local")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-locals-nostructure treats NaN constants as unchanged" {
   // Structural equality is not reflexive for NaN-bearing instructions. Both
   // variants must converge without treating a byte-identical lowered cleanup
@@ -529,6 +1095,37 @@ test "simplify-locals-nostructure bounds many result-if local-write convergence"
 }
 
 ///|
+test "simplify-locals-nostructure bounds deep block local-write convergence" {
+  // Flattened json-as dispatch classifiers can contain a single local write and
+  // dozens of nested block exits. The no-structure root scan is combinatorial on
+  // this intentionally unsupported shape, so preserve it before HOT lifting.
+  let input = slns_test_deep_block_local_write(64, 129)
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure deep block convergence success, got \{err}",
+      )
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals-nostructure]:skip-raw reason=deep-block-local-write-convergence",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-locals-nostructure bounds deep br-table local-write convergence" {
   // A production classifier lowers to dozens of nested blocks around a
   // br_table and local carriers. Bound that recursive HOT path by structural
@@ -755,6 +1352,52 @@ test "simplify-locals-nostructure sinks call-valued locals into later call opera
   assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
   assert_false(
     trace.any(fn(line) { line.contains("root-local-set-stack-hazard-noop") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-nostructure preserves call result across indirect and direct call uses" {
+  let input =
+    #|(module
+    #|  (type $use-type (func (param i32 i32) (result i32)))
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) $use)
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $use (type $use-type) local.get 0)
+    #|  (func $release (param i32))
+    #|  (func (param i32) (local i32)
+    #|    call $make
+    #|    local.set 1
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.const 0
+    #|    call_indirect (type $use-type)
+    #|    drop
+    #|    local.get 1
+    #|    call $release))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure ordered call lifetime success, got \{err}",
+      )
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(3U)),
+    original.pretty_print_func(@lib.FuncIdx::new(3U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-result-multi-call-lifetime")
+    }),
     msg=trace.to_string(),
   )
 }
@@ -3054,8 +3697,7 @@ test "simplify-locals-nostructure preserves call-result structured lifetimes" {
 }
 
 ///|
-test "simplify-locals-nostructure preserves call-result multi-call lifetimes" {
-  let pass_name = "simplify-locals-nostructure"
+test "simplify-locals variants preserve call-result multi-call lifetimes" {
   let input =
     #|(module
     #|  (func $make (result i32) i32.const 1)
@@ -3068,27 +3710,173 @@ test "simplify-locals-nostructure preserves call-result multi-call lifetimes" {
     #|    local.get 1
     #|    call $use
     #|    local.get 1
-    #|    call $release
+    #|    call $release))
+  let original = pass_test_module_from_wat(input)
+  for
+    pass_name in [
+      "simplify-locals-notee-nostructure", "simplify-locals-nostructure", "simplify-locals",
+    ] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected multi-call lifetime success, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    assert_true(
+      trace.any(fn(line) {
+        line.contains("reason=call-result-multi-call-lifetime")
+      }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals-nostructure preserves long-argument call-result lifetimes" {
+  let input =
+    #|(module
+    #|  (func $make (param i32) (result i32) local.get 0)
+    #|  (func $use (param i32 i32 i32 i32 i32 i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func $release (param i32))
+    #|  (func (param i32 i32 i32) (result i32) (local i32)
     #|    local.get 0
-    #|    if
-    #|      nop
-    #|    end))
+    #|    call $make
+    #|    local.set 3
+    #|    local.get 1
+    #|    local.get 2
+    #|    local.get 3
+    #|    i32.const 62672
+    #|    i32.const 62656
+    #|    i32.const 74432
+    #|    i32.const 0
+    #|    call $use
+    #|    local.get 3
+    #|    call $release))
   let original = pass_test_module_from_wat(input)
   let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
       input,
-      [pass_name],
+      ["simplify-locals-nostructure"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected multi-call lifetime success, got \{err}")
+    Err(err) => fail("expected long-argument lifetime success, got \{err}")
   }
   @debug.assert_eq(optimized, original)
   assert_true(
     trace.any(fn(line) {
       line.contains("reason=call-result-multi-call-lifetime")
     }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-notee-nostructure preserves load result copy boundaries" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    i32.load
+    #|    local.set 1
+    #|    local.get 1
+    #|    return))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-notee-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected load result copy boundary success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=load-call-adjacent-copy-simplify-locals-notee-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-notee-nostructure defers call and bulk-memory effect meshes" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func (result i32) (local i32)
+    #|    i32.const 0
+    #|    i32.const 0
+    #|    i32.const 1
+    #|    memory.fill
+    #|    call $make
+    #|    local.set 0
+    #|    local.get 0))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-notee-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected call/bulk-memory fail-closed success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-bulk-memory-effect-order-simplify-locals-notee-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals-notee-nostructure preserves stack-carried tee lifetimes" {
+  let input =
+    #|(module
+    #|  (func $use (param i32 i32))
+    #|  (func $release (param i32))
+    #|  (func (param i32) (local i32 i32)
+    #|    local.get 0
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.tee 2
+    #|    local.get 1
+    #|    call $use
+    #|    local.get 2
+    #|    call $release))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-notee-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-carried tee lifetime success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) { line.contains("reason=call-local-tee-lifetime") }),
     msg=trace.to_string(),
   )
 }
@@ -3136,6 +3924,108 @@ test "simplify-locals-nostructure preserves call-local-tee lifetimes" {
     @debug.assert_eq(optimized, original)
     assert_true(
       trace.any(fn(line) { line.contains("reason=call-local-tee-lifetime") }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals-nostructure preserves consumers before argument releases" {
+  let input =
+    #|(module
+    #|  (type $combine-type (func (param i32 i32 i32) (result i32)))
+    #|  (type $release-type (func (param i32)))
+    #|  (type $consume-type (func (param i32 i32) (result i32)))
+    #|  (import "m" "combine" (func $combine (type $combine-type)))
+    #|  (import "m" "release" (func $release (type $release-type)))
+    #|  (import "m" "consume" (func $consume (type $consume-type)))
+    #|  (func (param i32 i32) (result i32) (local i32 i32 i32 i32)
+    #|    local.get 1
+    #|    i32.eqz
+    #|    if (result i32)
+    #|      i32.const 46768
+    #|      local.set 4
+    #|      i32.const 46768
+    #|      local.set 5
+    #|      local.get 4
+    #|      local.get 5
+    #|      i32.const -1
+    #|      call $combine
+    #|      local.get 4
+    #|      call $release
+    #|      local.get 5
+    #|      call $release
+    #|    else
+    #|      local.get 1
+    #|    end
+    #|    local.set 2
+    #|    local.get 0
+    #|    local.get 2
+    #|    call $consume
+    #|    local.get 2
+    #|    call $release))
+  let original = pass_test_module_from_wat(input)
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected consumer/release lifetime success, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    let reason = if pass_name == "simplify-locals-nostructure" {
+      "reason=call-argument-direct-release-simplify-locals-nostructure-noop"
+    } else {
+      "reason=call-argument-direct-release-simplify-locals-noop"
+    }
+    assert_true(
+      trace.any(fn(line) { line.contains(reason) }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals variants preserve loaded values before releases" {
+  let input =
+    #|(module
+    #|  (import "env" "release" (func $release (param i32)))
+    #|  (memory 1)
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 0
+    #|    i32.load
+    #|    local.get 0
+    #|    call $release))
+  let original = pass_test_module_from_wat(input)
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected load/release lifetime success, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    let reason = if pass_name == "simplify-locals-nostructure" {
+      "reason=load-before-release-simplify-locals-nostructure-noop"
+    } else {
+      "reason=load-before-release-simplify-locals-noop"
+    }
+    assert_true(
+      trace.any(fn(line) { line.contains(reason) }),
       msg=trace.to_string(),
     )
   }

@@ -16,6 +16,192 @@ fn code_pushing_large_jsonas_like_fixture() -> String {
 }
 
 ///|
+test "code-pushing preserves stack-carried locals across overwrites" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (result i32) (local i32)
+    #|    i32.const 7
+    #|    local.set 0
+    #|    local.get 0
+    #|    block (result i32)
+    #|      i32.const 9
+    #|    end
+    #|    local.set 0
+    #|    i32.const 0
+    #|    local.get 0
+    #|    i32.store
+    #|    local.get 0
+    #|    i32.add))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected stack-carried overwrite success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=stack-carried-overwritten-local-code-pushing-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing preserves local initialization before escaping branches" {
+  let input =
+    #|(module
+    #|  (func (local i32)
+    #|    block
+    #|      i32.const 0
+    #|      local.set 0
+    #|      i32.const 1
+    #|      if
+    #|        br 1
+    #|      end
+    #|    end
+    #|    local.get 0
+    #|    drop))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected branch-skipped local init success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=branch-skipped-local-init-code-pushing-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing preserves stored tee locals with later reads" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32) (local i32)
+    #|    i32.const 0
+    #|    local.get 0
+    #|    local.tee 1
+    #|    i32.store
+    #|    local.get 1
+    #|    drop))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected stored-tee carrier success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=stored-tee-later-read-code-pushing-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing preserves multi-argument consumers before direct releases" {
+  let input =
+    #|(module
+    #|  (import "env" "consume" (func $consume (param i32 i32 i32 i32 i32 i32)))
+    #|  (import "env" "release" (func $release (param i32)))
+    #|  (func (local i32 i32)
+    #|    i32.const 11
+    #|    local.set 0
+    #|    i32.const 22
+    #|    local.set 1
+    #|    i32.const -1
+    #|    local.get 0
+    #|    i32.const -1
+    #|    i32.const 0
+    #|    local.get 1
+    #|    i32.const 0
+    #|    call $consume
+    #|    local.get 0
+    #|    call $release
+    #|    local.get 1
+    #|    call $release))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected consumer/release code-pushing success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-argument-direct-release-code-pushing-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing preserves multi-argument consumers before conditional releases" {
+  let input =
+    #|(module
+    #|  (import "env" "consume" (func $consume (param i32 i32 i32 i32 i32 i32)))
+    #|  (import "env" "release" (func $release (param i32)))
+    #|  (func (local i32 i32)
+    #|    i32.const 11
+    #|    local.set 0
+    #|    i32.const 22
+    #|    local.set 1
+    #|    i32.const -1
+    #|    local.get 0
+    #|    i32.const -1
+    #|    i32.const 0
+    #|    local.get 1
+    #|    i32.const 0
+    #|    call $consume
+    #|    local.get 0
+    #|    if
+    #|      local.get 0
+    #|      call $release
+    #|    end
+    #|    local.get 1
+    #|    if
+    #|      local.get 1
+    #|      call $release
+    #|    end))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected conditional release success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-argument-structured-release-code-pushing-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-pushing skips large local-heavy json-as shaped functions" {
   let trace : Array[String] = []
   match

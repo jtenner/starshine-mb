@@ -11098,7 +11098,98 @@ fn flatten_has_synthetic_legacy_wast_check(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+priv struct FlattenCallMemoryEffectMixFact {
+  has_call : Bool
+  has_memory : Bool
+}
+
+///|
+fn FlattenCallMemoryEffectMixFact::from_func(
+  func : @ir.HotFunc,
+) -> FlattenCallMemoryEffectMixFact {
+  let mut has_call = false
+  let mut has_memory = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Call
+      | @ir.HotOp::CallIndirect
+      | @ir.HotOp::CallRef
+      | @ir.HotOp::ReturnCall
+      | @ir.HotOp::ReturnCallIndirect
+      | @ir.HotOp::ReturnCallRef => has_call = true
+      @ir.HotOp::Load
+      | @ir.HotOp::Store
+      | @ir.HotOp::Atomic
+      | @ir.HotOp::MemoryCopy
+      | @ir.HotOp::MemoryFill
+      | @ir.HotOp::MemoryInit
+      | @ir.HotOp::MemoryGrow => has_memory = true
+      _ => ()
+    }
+    if has_call && has_memory {
+      break
+    }
+  }
+  { has_call, has_memory }
+}
+
+///|
+fn FlattenCallMemoryEffectMixFact::requires_fail_closed_skip(
+  self : FlattenCallMemoryEffectMixFact,
+) -> Bool {
+  self.has_call && self.has_memory
+}
+
+///|
+priv struct FlattenCallGlobalValueIfFact {
+  has_call : Bool
+  has_global_set : Bool
+  has_value_if : Bool
+}
+
+///|
+fn FlattenCallGlobalValueIfFact::from_func(
+  func : @ir.HotFunc,
+) -> FlattenCallGlobalValueIfFact {
+  let mut has_call = false
+  let mut has_global_set = false
+  let mut has_value_if = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
+        has_call = true
+      @ir.HotOp::GlobalSet => has_global_set = true
+      @ir.HotOp::If =>
+        if @ir.hot_node_result_arity(func, node_id) > 0 {
+          has_value_if = true
+        }
+      _ => ()
+    }
+  }
+  { has_call, has_global_set, has_value_if }
+}
+
+///|
+fn FlattenCallGlobalValueIfFact::requires_fail_closed_skip(
+  self : FlattenCallGlobalValueIfFact,
+) -> Bool {
+  self.has_call && self.has_global_set && self.has_value_if
+}
+
+///|
 pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  if FlattenCallMemoryEffectMixFact::from_func(func).requires_fail_closed_skip() {
+    return HotPassResult::unchanged()
+  }
+  if FlattenCallGlobalValueIfFact::from_func(func).requires_fail_closed_skip() {
+    return HotPassResult::unchanged()
+  }
   if flatten_has_synthetic_legacy_wast_check(func) {
     return HotPassResult::unchanged()
   }

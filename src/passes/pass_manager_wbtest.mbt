@@ -1,4 +1,129 @@
 ///|
+test "medium bulk-memory DAE guard still admits result-only boundary cleanup" {
+  let funcs = Array::make(
+    286,
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+  )
+  funcs[0] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+  )
+  funcs[1] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(0),
+      @lib.Instruction::i32_const(0),
+      @lib.Instruction::i32_const(0),
+      @lib.Instruction::memory_copy(@lib.MemIdx::new(0U), @lib.MemIdx::new(0U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let type_indices = Array::make(286, @lib.TypeIdx::new(0U))
+  type_indices[0] = @lib.TypeIdx::new(1U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new(type_indices))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(@lib.CodeSec::new(funcs))
+  assert_true(run_hot_pipeline_should_defer_call_bulk_memory_module(mod_, 1000))
+  let entry = match pass_registry_lookup("dae-optimizing") {
+    Some(entry) => entry
+    None => fail("expected dae-optimizing registry entry")
+  }
+  let trace : Array[String] = []
+  let options = HotPipelineOptions::new(
+    trace=Some(fn(line) { trace.push(line) }),
+  )
+  let next = match run_hot_pipeline_apply_module_pass(mod_, entry, options) {
+    Ok(next) => next
+    Err(err) => fail("expected guarded DAE module pass: \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "fallback-plain-results-only reason=medium-call-bulk-memory-param-control",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  let next_type_indices = dae_collect_func_type_indices(next)
+  match dae_resolve_func_type(next, next_type_indices, 0) {
+    Some(@lib.FuncType(_, results)) => assert_eq(results.length(), 0)
+    None => fail("expected target function type")
+  }
+  match next.code_sec {
+    Some(@lib.CodeSec(next_funcs)) => {
+      let @lib.Func(_, @lib.Expr(caller)) = next_funcs[1]
+      assert_false(caller.contains(@lib.Instruction::drop()))
+    }
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "SGO nested cleanup rolls back invalid pass output" {
+  let valid = pass_test_module_from_wat(
+    "(module (func (local i32) local.get 0 drop))",
+  )
+  let invalid = match valid.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, body)])) =>
+      valid.with_code_sec(
+        @lib.CodeSec::new([@lib.Func::new(@lib.Locals::new([]), body)]),
+      )
+    other => fail("expected one parsed function, got \{other}")
+  }
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline_sgo_validate_nested_cleanup_output(
+      invalid,
+      "redundant-set-elimination",
+      fn(line) { trace.push(line) },
+    ) {
+    Err(_) => ()
+    Ok(_) => fail("expected invalid SGO nested candidate rejection")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:nested-pass-invalid name=redundant-set-elimination",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "SGO touched rollback snapshot deep copies nested instruction bodies" {
+  let original = pass_test_module_from_wat(
+    "(module (func block i32.const 7 drop end))",
+  )
+  let snapshot = run_hot_pipeline_sgo_snapshot_touched_funcs(original, [true])
+  match original.code_sec {
+    Some(
+      @lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Block(_, @lib.Expr(body))]))])
+    ) => body[0] = @lib.Instruction::nop()
+    other => fail("expected one nested original function, got \{other}")
+  }
+  let original_pretty = original.pretty_print_defined_func(0U)
+  let snapshot_pretty = snapshot.pretty_print_defined_func(0U)
+  assert_true(original_pretty.contains("nop"), msg=original_pretty)
+  assert_true(snapshot_pretty.contains("I32(7)"), msg=snapshot_pretty)
+  assert_false(snapshot_pretty.contains("nop"), msg=snapshot_pretty)
+}
+
+///|
 test "optimize-instructions reports raw admission and HOT setup phase timings" {
   let trace : Array[String] = []
   let perf = HotPerfSession::new(
@@ -1199,6 +1324,310 @@ test "optimize-instructions raw trims dropped null non-null ref cast tail before
     @lib.Instruction::drop(),
     @lib.Instruction::unreachable_(),
   ])
+}
+
+///|
+test "ssa-nomerge repairs spilled load ordering before call results" {
+  let params = [@lib.ValType::i32()]
+  let locals = @lib.Locals::from_types([
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+  ])
+  let load = @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 4UL))
+  let repaired = run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
+    @lib.Func::new(
+      locals,
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        load,
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+      ]),
+    ),
+    params,
+  )
+  let @lib.Func(_, @lib.Expr(body)) = repaired
+  @debug.assert_eq(body, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    load,
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+  ])
+}
+
+///|
+test "ssa-nomerge preserves load results carried across calls into tees" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    i32.load
+    #|    local.get 0
+    #|    call 1
+    #|    local.tee 1
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    drop
+    #|    return)
+    #|  (func (param i32) (result i32)
+    #|    local.get 0))
+  let output = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(output) => output
+    Err(err) => fail("expected load/call carrier success, got \{err}")
+  }
+  match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body)), _])) => {
+      let mut found = false
+      for idx = 0; idx + 3 < body.length(); idx = idx + 1 {
+        if run_hot_pipeline_optimize_instructions_instr_is_plain_load(body[idx]) {
+          match (body[idx + 1], body[idx + 2], body[idx + 3]) {
+            (@lib.LocalGet(_), @lib.Call(_), @lib.LocalTee(_)) => found = true
+            _ => ()
+          }
+        }
+      }
+      assert_true(found, msg=@debug.to_string(body))
+    }
+    other => fail("expected two-function output, got \{other}")
+  }
+}
+
+///|
+test "ssa-nomerge preserves rewritten parameters carried through loops" {
+  let input =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 2
+    #|    i32.add
+    #|    local.set 0
+    #|    local.get 1
+    #|    i32.const 2
+    #|    i32.sub
+    #|    local.set 1
+    #|    block
+    #|      loop
+    #|        local.get 0
+    #|        local.get 1
+    #|        i32.lt_u
+    #|        if
+    #|          local.get 0
+    #|          i32.const 2
+    #|          i32.add
+    #|          local.set 0
+    #|          br 1
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 0))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected loop-carried parameter success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=parameter-rewrite-loop-carried-ssa-nomerge-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves typed loop parameters" {
+  let input =
+    #|(module
+    #|  (type $loop-type (func (param i32)))
+    #|  (import "env" "tick" (func $tick))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    loop (type $loop-type)
+    #|      local.set 1
+    #|      call $tick
+    #|      local.get 1
+    #|      i32.eqz
+    #|      if
+    #|        i32.const 0
+    #|        return
+    #|      end
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.sub
+    #|      br 0
+    #|    end
+    #|    i32.const 0))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed loop parameter success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=typed-loop-call-lifetime-ssa-nomerge-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves locals crossing typed multivalue ifs" {
+  let input =
+    #|(module
+    #|  (type $triple (func (result i32 i32 i32)))
+    #|  (func (param i32) (result i32 i32 i32) (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 0
+    #|    if (type $triple)
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.const 2
+    #|    else
+    #|      i32.const 3
+    #|      i32.const 4
+    #|      i32.const 5
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed multivalue if success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=typed-if-local-carrier-ssa-nomerge-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves memory parameters rewritten inside structured control" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32)
+    #|    local.get 1
+    #|    i32.load
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      local.get 1
+    #|      i32.const 4
+    #|      i32.add
+    #|      local.tee 1
+    #|      i32.const 0
+    #|      i32.store
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected parameter memory lifetime success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=parameter-memory-rewrite-ssa-nomerge-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves locals read after result-if control" {
+  let input =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    i32.const 0
+    #|    i32.gt_s
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    if
+    #|      i32.const 9
+    #|      return
+    #|    end
+    #|    local.get 1))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected result-if local lifetime success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=result-if-crossing-local-lifetime-ssa-nomerge-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "load-before-release analysis recognizes call-produced aliases" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (result i32) (local i32)
+      #|    call 1
+      #|    local.tee 0
+      #|    i32.load
+      #|    local.get 0
+      #|    call 2)
+      #|  (func (result i32) i32.const 0)
+      #|  (func (param i32)))
+    ),
+  )
+  match input.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body)), _, _])) =>
+      assert_true(
+        run_hot_pipeline_raw_has_load_before_same_local_call(body),
+        msg=@debug.to_string(body),
+      )
+    other => fail("expected three-function alias fixture, got \{other}")
+  }
 }
 
 ///|
@@ -23918,4 +24347,42 @@ test "dae optimizing worth set fails closed for dropped results without effects"
     true, true,
   ])
   @debug.assert_eq(worth, [false, false])
+}
+
+///|
+test "O4z coalesce admits medium modules while bounding production-scale artifacts" {
+  assert_true(run_hot_pipeline_o4z_coalesce_local_count_selected(1999, 2))
+  assert_false(run_hot_pipeline_o4z_coalesce_local_count_selected(2000, 2))
+  assert_true(run_hot_pipeline_o4z_coalesce_local_count_selected(2000, 50001))
+  assert_true(run_hot_pipeline_o4z_coalesce_local_count_selected(100, 512))
+  assert_false(run_hot_pipeline_o4z_coalesce_local_count_selected(100, 513))
+}
+
+///|
+test "coalesce-locals rolls back invalid candidates without losing valid neighbors" {
+  let original = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (result i32) i32.const 0)
+      #|  (func (result i32) i32.const 1)),
+    ),
+  )
+  let funcs = match original.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  let invalid = @lib.Func::new(
+    @lib.Locals::from_types([]),
+    @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+  )
+  let valid = @lib.Func::new(
+    @lib.Locals::from_types([]),
+    @lib.Expr::new([@lib.Instruction::i32_const(2)]),
+  )
+  let candidates = funcs.copy()
+  candidates[0] = invalid
+  candidates[1] = valid
+  let checked = cl_validate_rewritten_funcs(original, funcs, candidates, [0, 1])
+  @debug.assert_eq(checked[0], funcs[0])
+  @debug.assert_eq(checked[1], valid)
 }

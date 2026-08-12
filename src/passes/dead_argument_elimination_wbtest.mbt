@@ -124,6 +124,39 @@ fn dae_original_result_removal_prune_row(
 }
 
 ///|
+test "dae-optimizing limits medium call and bulk-memory modules to dropped-result batches" {
+  let input = StringBuilder::new()
+  input.write_string(
+    "(module (memory 1) (func $callee (param i32)) (func (param i32) local.get 0 call $callee i32.const 0 i32.const 0 i32.const 0 memory.copy)",
+  )
+  // Production swar has 286 defined functions and corrupts the exact WIPC
+  // report after DAE rewrites its call signatures; swar-int has 293.
+  for i = 0; i < 284; i = i + 1 {
+    let _ = i
+    input.write_string(" (func)")
+  }
+  input.write_string(")")
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["dae-optimizing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected medium DAE boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "fallback-plain-results-only reason=medium-call-bulk-memory-param-control",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dae core result application installs changes and preserves scheduler state" {
   let current = dae_wbtest_call_summary_fixture()
   let rewritten = @lib.Module::new()

@@ -48464,6 +48464,30 @@ fn dae_run_nested_cleanup(
 }
 
 ///|
+fn dae_run_dropped_result_batch_only(
+  mod_ : @lib.Module,
+  trace : (String) -> Unit,
+) -> @lib.Module {
+  let application = dae_apply_dropped_result_batch_transaction(
+    dae_collect_original_boundary_snapshot(mod_),
+    mod_,
+    [],
+    false,
+  )
+  if !application.applied {
+    return mod_
+  }
+  trace(
+    "pass[dae-optimizing]:dropped-result-batch-only first_def=\{application.primary_def}",
+  )
+  let (cleaned, _) = dae_cleanup_dropped_unreachable_debris_touched(
+    application.mod_out,
+    application.touched,
+  )
+  dae_prune_unused_simple_func_types(cleaned)
+}
+
+///|
 fn dae_run_module_pass_with_trap_policy(
   mod_ : @lib.Module,
   optimize? : Bool = false,

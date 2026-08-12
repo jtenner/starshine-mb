@@ -51,6 +51,66 @@ fn inl_test_run_named_with_options(
 }
 
 ///|
+fn inl_test_count_local_traffic(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.LocalTee(_) => count += 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += inl_test_count_local_traffic(body)
+      @lib.If(_, then_body, else_body) => {
+        count += inl_test_count_local_traffic(then_body)
+        match else_body {
+          Some(body) => count += inl_test_count_local_traffic(body)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn inl_test_count_calls(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => count += 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += inl_test_count_calls(body)
+      @lib.If(_, then_body, else_body) => {
+        count += inl_test_count_calls(then_body)
+        match else_body {
+          Some(body) => count += inl_test_count_calls(body)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn inl_test_total_declared_locals(mod_ : @lib.Module) -> Int {
+  let mut count = 0
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, _) = func
+        count += locals.length()
+      }
+    None => ()
+  }
+  count
+}
+
+///|
 fn inl_test_count_named_func(mod_ : @lib.Module, expected : String) -> Int {
   let mut count = 0
   match mod_.name_sec {
@@ -92,6 +152,191 @@ fn inl_test_count_func_annotation(
     None => ()
   }
   count
+}
+
+///|
+test "inlining-optimizing limits large call and bulk-memory modules to shrinking-trivial plain inlining" {
+  let input = StringBuilder::new()
+  input.write_string(
+    "(module (memory 1) (func $callee (param i32)) (func $tiny) (func (param i32) call $tiny local.get 0 call $callee i32.const 0 i32.const 0 i32.const 0 memory.copy)",
+  )
+  // Production swar has 286 defined functions and fails the exact report
+  // protocol when module-level inlining changes its call graph; swar-int has 293.
+  for i = 0; i < 283; i = i + 1 {
+    let _ = i
+    input.write_string(" (func)")
+  }
+  input.write_string(")")
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["inlining-optimizing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected large inlining boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "fallback-plain-tiny reason=large-call-bulk-memory-param-control",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  let mut call_count = 0
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        call_count += inl_test_count_calls(body)
+      }
+    None => ()
+  }
+  assert_eq(call_count, 0)
+}
+
+///|
+test "guarded optimizing inlining coalesces medium-module fallback locals" {
+  let input = StringBuilder::new()
+  input.write_string(
+    "(module (import \"env\" \"mesh\" (func $mesh (param i32))) (memory 1) (func $candidate (param i32) local.get 0 drop local.get 0 drop) (func (param i32) (local i32) i32.const 9 local.set 1 local.get 1 drop local.get 0 call $candidate local.get 0 call $mesh i32.const 0 i32.const 0 i32.const 0 memory.copy)",
+  )
+  for i = 0; i < 284; i = i + 1 {
+    let _ = i
+    input.write_string(" (func)")
+  }
+  input.write_string(")")
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["inlining-optimizing"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded local cleanup, got \{err}")
+  }
+  assert_eq(inl_test_total_declared_locals(optimized), 0)
+}
+
+///|
+test "optimizing inlining handles function-exit branch helpers below the guard boundary" {
+  let input = StringBuilder::new()
+  input.write_string(
+    "(module (import \"env\" \"mesh\" (func $mesh (param i32))) (memory 1) (func $candidate block block br 1 end end) (func (param i32) call $candidate local.get 0 call $mesh i32.const 0 i32.const 0 i32.const 0 memory.copy)",
+  )
+  for i = 0; i < 283; i = i + 1 {
+    let _ = i
+    input.write_string(" (func)")
+  }
+  input.write_string(")")
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["inlining-optimizing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected broad function-exit inlining, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("fallback-plain-tiny") }),
+    msg=trace.to_string(),
+  )
+  let mut call_count = 0
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        call_count += inl_test_count_calls(body)
+      }
+    None => ()
+  }
+  assert_eq(call_count, 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid broad function-exit inlining, got \{err}")
+  }
+}
+
+///|
+test "guarded optimizing inlining admits two-instruction always-inline helpers" {
+  let input = StringBuilder::new()
+  input.write_string(
+    "(module (import \"env\" \"mesh\" (func $mesh (param i32))) (memory 1) (func $candidate i32.const 7 drop) (func (param i32) call $candidate local.get 0 call $mesh i32.const 0 i32.const 0 i32.const 0 memory.copy)",
+  )
+  for i = 0; i < 284; i = i + 1 {
+    let _ = i
+    input.write_string(" (func)")
+  }
+  input.write_string(")")
+  let optimized = match
+    pass_test_run_pipeline(input.to_string(), ["inlining-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded tiny-helper inlining, got \{err}")
+  }
+  let mut call_count = 0
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        call_count += inl_test_count_calls(body)
+      }
+    None => ()
+  }
+  assert_eq(call_count, 1)
+}
+
+///|
+test "guarded optimizing inlining admits bounded one-caller conditional helpers" {
+  let input = StringBuilder::new()
+  input.write_string(
+    "(module (import \"env\" \"mesh\" (func $mesh (param i32))) (memory 1) (func $candidate (param i32) local.get 0 if i32.const 0 drop end) (func (param i32) local.get 0 call $candidate local.get 0 call $mesh i32.const 0 i32.const 0 i32.const 0 memory.copy)",
+  )
+  for i = 0; i < 284; i = i + 1 {
+    let _ = i
+    input.write_string(" (func)")
+  }
+  input.write_string(")")
+  let optimized = match
+    pass_test_run_pipeline(input.to_string(), ["inlining-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded conditional-helper inlining, got \{err}")
+  }
+  let mut call_count = 0
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        call_count += inl_test_count_calls(body)
+      }
+    None => ()
+  }
+  assert_eq(call_count, 1)
+}
+
+///|
+test "inlining keeps single-use ordered parameters on the operand stack" {
+  let source =
+    #|(module
+    #|  (func $add (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 20
+    #|    i32.const 22
+    #|    call $add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(body))])) => {
+      assert_eq(locals.length(), 0)
+      assert_eq(inl_test_count_local_traffic(body), 0)
+    }
+    other => fail("expected one inlined caller, got \{other}")
+  }
 }
 
 ///|
@@ -831,8 +1076,8 @@ test "inlining-optimizing stores call operands into remapped callee params" {
   let source =
     #|(module
     #|  (func $add1 (param i32) (result i32)
-    #|    local.get 0
     #|    i32.const 1
+    #|    local.get 0
     #|    i32.add)
     #|  (func (export "run") (param i32) (result i32)
     #|    local.get 0
@@ -841,7 +1086,54 @@ test "inlining-optimizing stores call operands into remapped callee params" {
   let caller = optimized.pretty_print_defined_func(0U)
   assert_true(caller.contains("local.set"), msg=caller)
   assert_true(caller.contains("i32.add"), msg=caller)
+  assert_false(caller.contains("block"), msg=caller)
   assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
+test "inlining reuses scratch locals across sequential callsites" {
+  let source =
+    #|(module
+    #|  (@binaryen.inline "\7f")
+    #|  (func $helper (param i32) (local i64)
+    #|    i64.const 0
+    #|    local.set 1
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 1
+    #|    call $helper
+    #|    i32.const 2
+    #|    call $helper))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, _)])) =>
+      @debug.assert_eq(locals.length(), 2)
+    other => fail("expected one inlined caller, got \{other}")
+  }
+}
+
+///|
+test "inlining folds adjacent remapped parameter set-get into tee" {
+  let source =
+    #|(module
+    #|  (func $double (param i32) (result i32)
+    #|    local.get 0
+    #|    local.get 0
+    #|    i32.add)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $double))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => {
+      assert_true(body.any(fn(instr) { instr is @lib.LocalTee(_) }))
+      assert_false(body.any(fn(instr) { instr is @lib.LocalSet(_) }))
+    }
+    other => fail("expected one inlined caller, got \{other}")
+  }
 }
 
 ///|
@@ -2087,13 +2379,11 @@ test "inlining plain unreachable mutual-recursion inline keeps exact appended lo
   let optimized = inl_test_run(source, pass_name="inlining")
   let run = optimized.pretty_print_defined_func(0U)
   assert_true(run.contains("[2] I64 (local)"), msg=run)
-  assert_true(run.contains("[3] I32 (local)"), msg=run)
-  assert_true(run.contains("[4] F64 (local)"), msg=run)
-  assert_true(run.contains("[5] F32 (local)"), msg=run)
+  assert_true(run.contains("[3] F32 (local)"), msg=run)
+  assert_true(run.contains("[4] I32 (local)"), msg=run)
+  assert_true(run.contains("[5] I64 (local)"), msg=run)
   assert_true(run.contains("[6] I32 (local)"), msg=run)
-  assert_true(run.contains("[7] I64 (local)"), msg=run)
-  assert_true(run.contains("[8] I32 (local)"), msg=run)
-  assert_false(run.contains("[9]"), msg=run)
+  assert_false(run.contains("[7]"), msg=run)
 }
 
 ///|
@@ -2174,7 +2464,7 @@ test "inlining reuses existing zero-param multi-result block types for parameter
     None => fail("expected func section")
   }
   let run = optimized.pretty_print_defined_func(0U)
-  assert_true(run.contains("local.set"), msg=run)
+  assert_false(run.contains("local.set"), msg=run)
   assert_true(run.contains("i32.const I32(1)"), msg=run)
   assert_false(run.contains("call"), msg=run)
 }
@@ -2201,7 +2491,7 @@ test "inlining synthesizes zero-param multi-result block types when absent" {
     None => fail("expected synthesized type section")
   }
   let run = optimized.pretty_print_defined_func(0U)
-  assert_true(run.contains("local.set"), msg=run)
+  assert_false(run.contains("local.set"), msg=run)
   assert_true(run.contains("i32.const I32(1)"), msg=run)
   assert_false(run.contains("call"), msg=run)
 }
@@ -2585,8 +2875,9 @@ test "inlining caps repeated recursive work per caller" {
   let optimized = inl_test_run(source, pass_name="inlining")
   match optimized.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let @lib.Func(locals, _) = funcs[0]
-      @debug.assert_eq(locals.length(), 5)
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[0]
+      @debug.assert_eq(locals.length(), 0)
+      @debug.assert_eq(inl_test_count_calls(body), 1)
     }
     None => fail("expected code section")
   }

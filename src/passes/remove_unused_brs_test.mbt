@@ -178,6 +178,456 @@ fn remove_unused_brs_large_jsonas_dispatch_fixture() -> String {
 }
 
 ///|
+test "remove-unused-brs preserves large arithmetic local carriers" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (param i64) (result i64)")
+  for i = 0; i < 128; i = i + 1 {
+    let _ = i
+    input.write_string(" (local i64)")
+  }
+  input.write_string(
+    " block local.get 0 i64.const 100 i64.div_u local.set 1 local.get 1 return end i64.const 0))",
+  )
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected arithmetic carrier success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=large-arithmetic-local-carrier-remove-unused-brs-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves loaded comparison branch producers" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32) (local i32)
+    #|    block
+    #|      block
+    #|        local.get 0
+    #|        i32.const 8
+    #|        i32.sub
+    #|        i32.load
+    #|        local.set 2
+    #|        local.get 2
+    #|        i32.const 41
+    #|        i32.eq
+    #|        br_if 0
+    #|        br 1
+    #|      end
+    #|      return
+    #|    end))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected loaded comparison branch success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=loaded-comparison-branch-remove-unused-brs-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves structured same-local distinct call order" {
+  let input =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    block
+    #|      block
+    #|        local.get 0
+    #|        if (result i32)
+    #|          i32.const 7
+    #|          local.set 1
+    #|          br 1
+    #|        else
+    #|          i32.const 8
+    #|          local.set 1
+    #|          br 2
+    #|        end
+    #|        return
+    #|      end
+    #|      local.get 1
+    #|      call 1
+    #|      local.get 1
+    #|      call 2
+    #|      return
+    #|    end
+    #|    i32.const 0)
+    #|  (func (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (param i32)))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected structured call-order success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=structured-same-local-distinct-call-order-remove-unused-brs-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves condition-child call tee lifetimes" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32) (result i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    i32.load offset=4
+    #|    local.set 4
+    #|    local.get 1
+    #|    i32.const 0
+    #|    i32.ge_s
+    #|    if (result i32)
+    #|      local.get 1
+    #|      local.get 4
+    #|      i32.lt_s
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    if (result i32)
+    #|      local.get 0
+    #|      call 1
+    #|      local.tee 3
+    #|      i32.const 2
+    #|      i32.shl
+    #|      i32.load
+    #|      local.get 3
+    #|      call 2
+    #|    else
+    #|      unreachable
+    #|    end)
+    #|  (func (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (param i32)))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected condition-child call lifetime success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=condition-child-call-tee-lifetime-remove-unused-brs-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves loads before same-local release calls" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32) (result i32)
+    #|    local.get 1
+    #|    i32.const 0
+    #|    i32.ge_s
+    #|    if (result i32)
+    #|      local.get 1
+    #|      i32.const 8
+    #|      i32.lt_s
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    if (result i32)
+    #|      local.get 0
+    #|      i32.load
+    #|      local.get 0
+    #|      call 1
+    #|    else
+    #|      unreachable
+    #|    end)
+    #|  (func (param i32)))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected load-before-release success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=load-before-release-remove-unused-brs-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves aliased loads before release calls" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32) (result i32) (local i32)
+    #|    local.get 1
+    #|    i32.const 0
+    #|    i32.ge_s
+    #|    if (result i32)
+    #|      local.get 1
+    #|      i32.const 8
+    #|      i32.lt_s
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    if (result i32)
+    #|      local.get 0
+    #|      local.tee 2
+    #|      i32.load
+    #|      local.get 2
+    #|      call 1
+    #|    else
+    #|      unreachable
+    #|    end)
+    #|  (func (param i32)))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected aliased load/release success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=load-before-release-remove-unused-brs-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves consumers before argument releases" {
+  let input =
+    #|(module
+    #|  (func (param i32 i32 i32) (result i32)
+    #|    local.get 2
+    #|    i32.const 0
+    #|    i32.ge_s
+    #|    if (result i32)
+    #|      local.get 2
+    #|      i32.const 8
+    #|      i32.lt_s
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    if (result i32)
+    #|      local.get 0
+    #|      local.get 1
+    #|      call 1
+    #|      local.get 0
+    #|      call 2
+    #|      local.get 1
+    #|      call 2
+    #|    else
+    #|      unreachable
+    #|    end)
+    #|  (func (param i32 i32) (result i32) local.get 0)
+    #|  (func (param i32)))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected consumer/release order success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=call-argument-direct-release-remove-unused-brs-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves consumers before single argument releases" {
+  let input =
+    #|(module
+    #|  (func (param i32 i32 i32) (result i32)
+    #|    local.get 2
+    #|    i32.const 0
+    #|    i32.ge_s
+    #|    if (result i32)
+    #|      local.get 2
+    #|      i32.const 8
+    #|      i32.lt_s
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    if (result i32)
+    #|      local.get 0
+    #|      local.get 1
+    #|      call 1
+    #|      local.get 1
+    #|      call 2
+    #|    else
+    #|      unreachable
+    #|    end)
+    #|  (func (param i32 i32) (result i32) local.get 0)
+    #|  (func (param i32)))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected single release order success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-argument-release-order-remove-unused-brs-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves call results before local reloads" {
+  let input =
+    #|(module
+    #|  (func (param i32 i32) (result i32) (local i32)
+    #|    local.get 1
+    #|    i32.const 2
+    #|    i32.lt_s
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      local.get 1
+    #|      i32.const 36
+    #|      i32.gt_s
+    #|    end
+    #|    if (result i32)
+    #|      unreachable
+    #|    else
+    #|      local.get 0
+    #|      i32.const 0
+    #|      call 1
+    #|      local.set 2
+    #|      local.get 2
+    #|      local.get 0
+    #|      call 2
+    #|    end)
+    #|  (func (param i32 i32) (result i32) local.get 0)
+    #|  (func (param i32 i32) (result i32) local.get 0))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call-result reload success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-result-local-reload-remove-unused-brs-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves call-produced aliases through later calls" {
+  let input =
+    #|(module
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $inspect (param i32))
+    #|  (func $release (param i32) (result i32) local.get 0)
+    #|  (func (result i32) (local i32 i32)
+    #|    call $make
+    #|    local.tee 0
+    #|    call $inspect
+    #|    local.get 0
+    #|    call $release
+    #|    local.tee 1
+    #|    i32.eqz
+    #|    if (result i32)
+    #|      i32.const 0
+    #|    else
+    #|      local.get 1
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected call-produced alias lifetime success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-result-alias-release-remove-unused-brs-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "remove-unused-brs skips large local-heavy json-as dispatch functions" {
   let trace : Array[String] = []
   match
@@ -1637,6 +2087,105 @@ test "remove-unused-brs rewrites pure value if into select" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(if"), msg=pretty)
   assert_true(pretty.contains("select"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves type-indexed loop parameters" {
+  let source =
+    #|(module
+    #|  (type $loop-type (func (param i32)))
+    #|  (func (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop (type $loop-type)
+    #|      local.set 0
+    #|      local.get 0
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.tee 0
+    #|      local.get 0
+    #|      i32.const 3
+    #|      i32.lt_s
+    #|      br_if 0
+    #|      drop
+    #|    end
+    #|    local.get 0))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed-loop parameter preservation, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=typed-loop-param-remove-unused-brs-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs preserves comparison producers before selectified flag reads" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    local.get 0
+    #|    i32.const 0
+    #|    i32.lt_s
+    #|    local.set 1
+    #|    local.get 1
+    #|    if (result i32)
+    #|      i32.const 0
+    #|      local.get 0
+    #|      i32.sub
+    #|      local.tee 2
+    #|    else
+    #|      local.get 0
+    #|    end
+    #|    local.set 2
+    #|    local.get 1
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    local.get 2
+    #|    i32.add))
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected comparison flag preservation, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 0))(i32.const I32(0))i32.lt_s(local.set (Local 1))",
+    ),
+    msg=pretty,
+  )
+  assert_false(
+    pretty.contains(
+      "(local.get (Local 0))(local.set (Local 1))(local.get (Local 1))(i32.const I32(0))i32.lt_s",
+    ),
+    msg=pretty,
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=comparison-flag-if-remove-unused-brs-noop")
+    }),
+    msg="\{pretty}\n\{trace}",
+  )
 }
 
 ///|

@@ -57,6 +57,120 @@ fn code_folding_test_index_of(items : Array[String], needle : String) -> Int {
 }
 
 ///|
+test "code-folding defers structured load-local carriers" {
+  let input = StringBuilder::new()
+  input.write_string("(module (memory 1) (func")
+  // The single-process O4z prefix reduces the production parser to 14 body
+  // locals before code-folding; the separate slot replay retained 15.
+  for i = 0; i < 14; i = i + 1 {
+    let _ = i
+    input.write_string(" (local i32)")
+  }
+  input.write_string(
+    " block loop i32.const 0 i32.load local.set 0 br 1 end end))",
+  )
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["code-folding"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected load-local carrier boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=structured-load-local-code-folding-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-folding defers large structured call-local carriers" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func $callee) (func")
+  for i = 0; i < 32; i = i + 1 {
+    let _ = i
+    input.write_string(" (local i32)")
+  }
+  input.write_string(" block call $callee i32.const 1 local.set 0 end))")
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["code-folding"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected call-local carrier boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=large-call-structured-code-folding-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-folding defers large structured SIMD local carriers" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func")
+  for i = 0; i < 32; i = i + 1 {
+    let _ = i
+    input.write_string(" (local v128)")
+  }
+  input.write_string(" block end))")
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["code-folding"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected SIMD carrier boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=large-simd-structured-code-folding-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-folding defers structured bulk-memory functions with local carriers" {
+  let input = StringBuilder::new()
+  input.write_string("(module (memory 1) (func")
+  for i = 0; i < 20; i = i + 1 {
+    let _ = i
+    input.write_string(" (local i32)")
+  }
+  input.write_string(
+    " block i32.const 0 i32.const 0 i32.const 16 memory.fill end))",
+  )
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["code-folding"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected large bulk-memory boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=large-bulk-memory-structured-code-folding-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-folding owns the exact late O4z cleanup neighborhood" {
   let expected = [
     "vacuum", "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
@@ -75,6 +189,118 @@ test "code-folding owns the exact late O4z cleanup neighborhood" {
     assert_true(idx > 0)
     @debug.assert_eq(passes[idx - 1:idx + 5], expected)
   }
+}
+
+///|
+test "code-folding preserves paired values until their consumer call" {
+  let source =
+    #|(module
+    #|  (func $use (param i32 i32))
+    #|  (func $release (param i32))
+    #|  (func (param i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $use
+    #|    local.get 0
+    #|    call $release
+    #|    local.get 1
+    #|    call $release))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["code-folding"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected paired call lifetime preservation, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+    original.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=paired-distinct-call-lifetime-code-folding-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-folding preserves call arguments before directly releasing an alias" {
+  let source =
+    #|(module
+    #|  (func $make (result i32) i32.const 1)
+    #|  (func $use (param i32 i32))
+    #|  (func $release (param i32))
+    #|  (func (param i32) (local i32)
+    #|    call $make
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      local.get 1
+    #|      call $use
+    #|      local.get 1
+    #|      call $release
+    #|      return
+    #|    end))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["code-folding"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call/release ordering preservation, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(3U)),
+    original.pretty_print_func(@lib.FuncIdx::new(3U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-argument-direct-release-code-folding-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-folding preserves loads before releasing their base" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $release (param i32))
+    #|  (func (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.load
+    #|    local.get 0
+    #|    call $release))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["code-folding"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected load/release ordering preservation, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U)),
+    original.pretty_print_func(@lib.FuncIdx::new(1U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=load-before-release-code-folding-noop")
+    }),
+    msg=trace.to_string(),
+  )
 }
 
 ///|

@@ -28,6 +28,28 @@ fn optimize_instructions_large_lowered_fixture() -> String {
 }
 
 ///|
+fn optimize_instructions_large_effectful_select_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module (import \"m\" \"touch\" (func $touch)) " +
+    "(func (param i32 i32 i32) (local",
+  )
+  for i = 0; i < 65; i = i + 1 {
+    let _ = i
+    out.write_string(" i32")
+  }
+  out.write_string(")")
+  for i = 0; i < 260; i = i + 1 {
+    let _ = i
+    out.write_string(" local.get 0 drop")
+  }
+  out.write_string(
+    " call $touch local.get 0 local.get 1 local.get 2 select drop))",
+  )
+  out.to_string()
+}
+
+///|
 fn optimize_instructions_structured_gate_fixture(
   repeats : Int,
   extra_calls : Int,
@@ -134,6 +156,134 @@ test "optimize-instructions skips large lowered functions" {
     optimize_instructions_large_lowered_fixture(),
     "large-lowered-optimize-instructions-noop",
   )
+}
+
+///|
+test "optimize-instructions bounds effectful-select replay in large lowered functions" {
+  optimize_instructions_assert_skip_reason(
+    optimize_instructions_large_effectful_select_fixture(),
+    "large-lowered-optimize-instructions-noop",
+  )
+}
+
+///|
+test "optimize-instructions preserves stack-carried call results across zero shifts" {
+  optimize_instructions_assert_skip_reason(
+    (
+      #|(module
+      #|  (func $base (result i32) i32.const 4)
+      #|  (func (param i32) (result i32)
+      #|    call $base
+      #|    local.get 0
+      #|    i32.const 0
+      #|    i32.shl
+      #|    i32.add))
+      #|,
+    ),
+    "stack-carried-call-zero-shift-optimize-instructions-noop",
+  )
+}
+
+///|
+test "optimize-instructions defers global call tee control meshes" {
+  optimize_instructions_assert_skip_reason(
+    (
+      #|(module
+      #|  (global (mut i32) (i32.const 0))
+      #|  (func $make (result i32) i32.const 1)
+      #|  (func (param i32) (local i32)
+      #|    call $make
+      #|    local.tee 1
+      #|    global.set 0
+      #|    local.get 0
+      #|    if
+      #|      local.get 1
+      #|      drop
+      #|    end))
+      #|,
+    ),
+    "global-call-tee-control-optimize-instructions-noop",
+  )
+}
+
+///|
+test "optimize-instructions preserves subtracted locals with multiple later reads" {
+  optimize_instructions_assert_skip_reason(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32)
+      #|    local.get 0
+      #|    i32.const 20
+      #|    i32.sub
+      #|    local.set 1
+      #|    local.get 1
+      #|    drop
+      #|    local.get 1))
+      #|,
+    ),
+    "subtracted-local-multi-use-optimize-instructions-noop",
+  )
+}
+
+///|
+test "optimize-instructions preserves stack-carried store addresses across tee values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (global (mut i32) (i32.const 0))
+        #|  (func (local i32)
+        #|    global.get 0
+        #|    i32.const 1744
+        #|    local.tee 0
+        #|    i32.store offset=8))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-carried store address success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get (Global 0)"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(1744)"), msg=pretty)
+  assert_true(pretty.contains("offset=U64(8)"), msg=pretty)
+  assert_false(pretty.contains("i32.const I32(1752)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions drops nested zero-size memory copy without stale parent analysis" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param i32)
+        #|    local.get 0
+        #|    if
+        #|      i32.const 0
+        #|      i32.const 8
+        #|      i32.const 0
+        #|      memory.copy
+        #|    end))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+        closed_world=true,
+        traps_never_happen=true,
+        optimize_level=4,
+        shrink_level=4,
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested zero-size memory.copy cleanup success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
 }
 
 ///|
@@ -85157,4 +85307,42 @@ test "optimize-instructions rebases duplicate branch labels after removing an if
     msg=pretty,
   )
   assert_true(pretty.contains("br (Label 1)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions preserves call results added to dynamic comparison flags" {
+  let source =
+    #|(module
+    #|  (func $base (result i32) i32.const 16)
+    #|  (func $use (param i32 i32))
+    #|  (func (param i32) (local i32)
+    #|    call $base
+    #|    local.get 0
+    #|    i32.const 0
+    #|    i32.ne
+    #|    i32.add
+    #|    local.tee 1
+    #|    i32.const 0
+    #|    call $use))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call/comparison add success, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+    original.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-comparison-add-optimize-instructions-noop")
+    }),
+    msg=trace.to_string(),
+  )
 }

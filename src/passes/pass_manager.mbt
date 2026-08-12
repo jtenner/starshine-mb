@@ -3175,6 +3175,48 @@ fn RawSimplifyLocalsShape::new() -> RawSimplifyLocalsShape {
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut has_call = false
+  let mut has_bulk_memory = false
+  for instr in instrs {
+    match instr {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+        has_call = true
+      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) | @lib.MemoryInit(_, _) =>
+        has_bulk_memory = true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  has_call && has_bulk_memory
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_full_lifetime_guard(
   original : @lib.Func,
   instrs : Array[@lib.Instruction],
@@ -3194,6 +3236,14 @@ fn run_hot_pipeline_raw_simplify_locals_full_lifetime_guard(
     ) {
     return Some({
       reason: "call-result-structured-lifetime",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_dce_raw_has_call_result_multi_call_lifetime(instrs) {
+    return Some({
+      reason: "call-result-multi-call-lifetime",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -3474,6 +3524,115 @@ fn run_hot_pipeline_raw_simplify_locals_instrs_write_local(
           Some(else_body) =>
             if run_hot_pipeline_raw_simplify_locals_instrs_write_local(
                 else_body, target,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_has_result_control_write(
+  instrs : Array[@lib.Instruction],
+  target : @lib.LocalIdx,
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx + 1 < instrs.length() {
+      let has_result_control = match instrs[idx] {
+        @lib.Block(block_type, _) | @lib.Loop(block_type, _) =>
+          run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type)
+        @lib.If(block_type, _, _) =>
+          run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type)
+        _ => false
+      }
+      if has_result_control {
+        match instrs[idx + 1] {
+          @lib.LocalSet(local_idx) if local_idx == target => return true
+          _ => ()
+        }
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_result_control_write(
+            body, target,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_has_result_control_write(
+            then_body, target,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_simplify_locals_has_result_control_write(
+                body, target,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_carrier(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for loop_idx = 0; loop_idx < instrs.length(); loop_idx = loop_idx + 1 {
+    let loop_body = match instrs[loop_idx] {
+      @lib.Loop(_, @lib.Expr(body)) => body
+      _ => continue
+    }
+    for init_idx = 1; init_idx < loop_idx; init_idx = init_idx + 1 {
+      let local_idx = match instrs[init_idx] {
+        @lib.LocalSet(local_idx) => local_idx
+        _ => continue
+      }
+      match instrs[init_idx - 1] {
+        @lib.LocalGet(_) => ()
+        _ => continue
+      }
+      if run_hot_pipeline_raw_simplify_locals_has_result_control_write(
+          loop_body, local_idx,
+        ) {
+        return true
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_carrier(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_carrier(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_carrier(
+                body,
               ) {
               return true
             }
@@ -3914,6 +4073,52 @@ fn run_hot_pipeline_raw_simplify_locals_has_call_local_tee_lifetime(
       _ => ()
     }
   }
+  for tee_idx = 0; tee_idx < instrs.length(); tee_idx = tee_idx + 1 {
+    let target = match instrs[tee_idx] {
+      @lib.LocalTee(target) => target
+      _ => continue
+    }
+    let scan_end = Int::min(instrs.length(), tee_idx + 24)
+    let mut saw_consumer_call = false
+    for scan = tee_idx + 1; scan < scan_end; scan = scan + 1 {
+      match instrs[scan] {
+        @lib.LocalSet(written) | @lib.LocalTee(written) if written == target =>
+          break
+        @lib.LocalGet(read_local) if read_local == target && saw_consumer_call => {
+          let look_end = Int::min(scan_end, scan + 5)
+          for look = scan + 1; look < look_end; look = look + 1 {
+            if run_hot_pipeline_dce_raw_instr_is_call(instrs[look]) {
+              return true
+            }
+            match instrs[look] {
+              @lib.Block(_, _)
+              | @lib.Loop(_, _)
+              | @lib.If(_, _, _)
+              | @lib.TryTable(_, _, _)
+              | @lib.Br(_)
+              | @lib.BrIf(_)
+              | @lib.BrTable(_, _)
+              | @lib.Return
+              | @lib.Unreachable => break
+              _ => ()
+            }
+          }
+        }
+        call if run_hot_pipeline_dce_raw_instr_is_call(call) =>
+          saw_consumer_call = true
+        @lib.Block(_, _)
+        | @lib.Loop(_, _)
+        | @lib.If(_, _, _)
+        | @lib.TryTable(_, _, _)
+        | @lib.Br(_)
+        | @lib.BrIf(_)
+        | @lib.BrTable(_, _)
+        | @lib.Return
+        | @lib.Unreachable => break
+        _ => ()
+      }
+    }
+  }
   for instr in instrs {
     match instr {
       @lib.Block(_, @lib.Expr(body))
@@ -4014,7 +4219,7 @@ fn run_hot_pipeline_raw_has_alias_call_structured_release(
 }
 
 ///|
-fn run_hot_pipeline_raw_has_call_argument_direct_release(
+fn run_hot_pipeline_raw_has_call_argument_structured_release(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
   for call_idx = 0; call_idx < instrs.length(); call_idx = call_idx + 1 {
@@ -4051,6 +4256,198 @@ fn run_hot_pipeline_raw_has_call_argument_direct_release(
     let released_locals : Array[@lib.LocalIdx] = []
     let mut release_target : @lib.FuncIdx? = None
     let after_end = Int::min(instrs.length(), call_idx + 10)
+    for release_idx = call_idx + 1
+        release_idx < after_end
+        release_idx = release_idx + 1 {
+      match instrs[release_idx] {
+        @lib.If(_, then_body, _) =>
+          for body_idx = 0
+              body_idx + 1 < then_body.length()
+              body_idx = body_idx + 1 {
+            match (then_body[body_idx], then_body[body_idx + 1]) {
+              (@lib.LocalGet(local_idx), @lib.Call(candidate_target)) if candidate_target !=
+                call_target &&
+                argument_locals.contains(local_idx) => {
+                match release_target {
+                  Some(existing) if existing != candidate_target => continue
+                  None => release_target = Some(candidate_target)
+                  _ => ()
+                }
+                if !released_locals.contains(local_idx) {
+                  released_locals.push(local_idx)
+                }
+                if released_locals.length() >= 2 {
+                  return true
+                }
+              }
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_call_argument_structured_release(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_call_argument_structured_release(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_has_call_argument_structured_release(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_has_call_argument_distinct_structured_releases(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for call_idx = 0; call_idx < instrs.length(); call_idx = call_idx + 1 {
+    let call_target = match instrs[call_idx] {
+      @lib.Call(call_target) => call_target
+      _ => continue
+    }
+    let argument_locals : Array[@lib.LocalIdx] = []
+    let before_start = if call_idx > 8 { call_idx - 8 } else { 0 }
+    let mut scan = call_idx - 1
+    while scan >= before_start {
+      match instrs[scan] {
+        @lib.LocalGet(local_idx) =>
+          if !argument_locals.contains(local_idx) {
+            argument_locals.push(local_idx)
+          }
+        @lib.Call(_)
+        | @lib.Block(_, _)
+        | @lib.Loop(_, _)
+        | @lib.If(_, _, _)
+        | @lib.TryTable(_, _, _)
+        | @lib.Br(_)
+        | @lib.BrIf(_)
+        | @lib.BrTable(_, _)
+        | @lib.Return
+        | @lib.Unreachable => break
+        _ => ()
+      }
+      scan -= 1
+    }
+    if argument_locals.length() < 2 {
+      continue
+    }
+    let released_locals : Array[@lib.LocalIdx] = []
+    let after_end = Int::min(instrs.length(), call_idx + 10)
+    for release_idx = call_idx + 1
+        release_idx < after_end
+        release_idx = release_idx + 1 {
+      match instrs[release_idx] {
+        @lib.If(_, then_body, _) =>
+          for body_idx = 0
+              body_idx + 1 < then_body.length()
+              body_idx = body_idx + 1 {
+            match (then_body[body_idx], then_body[body_idx + 1]) {
+              (@lib.LocalGet(local_idx), @lib.Call(candidate_target)) if candidate_target !=
+                call_target &&
+                argument_locals.contains(local_idx) => {
+                if !released_locals.contains(local_idx) {
+                  released_locals.push(local_idx)
+                }
+                if released_locals.length() >= 2 {
+                  return true
+                }
+              }
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_call_argument_distinct_structured_releases(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_call_argument_distinct_structured_releases(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_has_call_argument_distinct_structured_releases(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_has_call_argument_direct_release(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for call_idx = 0; call_idx < instrs.length(); call_idx = call_idx + 1 {
+    let call_target = match instrs[call_idx] {
+      @lib.Call(call_target) => call_target
+      _ => continue
+    }
+    let argument_locals : Array[@lib.LocalIdx] = []
+    let before_start = if call_idx > 32 { call_idx - 32 } else { 0 }
+    let mut scan = call_idx - 1
+    while scan >= before_start {
+      match instrs[scan] {
+        @lib.LocalGet(local_idx) =>
+          if !argument_locals.contains(local_idx) {
+            argument_locals.push(local_idx)
+          }
+        @lib.Call(_)
+        | @lib.Block(_, _)
+        | @lib.Loop(_, _)
+        | @lib.If(_, _, _)
+        | @lib.TryTable(_, _, _)
+        | @lib.Br(_)
+        | @lib.BrIf(_)
+        | @lib.BrTable(_, _)
+        | @lib.Return
+        | @lib.Unreachable => break
+        _ => ()
+      }
+      scan -= 1
+    }
+    if argument_locals.length() < 2 {
+      continue
+    }
+    let released_locals : Array[@lib.LocalIdx] = []
+    let mut release_target : @lib.FuncIdx? = None
+    let after_end = Int::min(instrs.length(), call_idx + 64)
     for release_idx = call_idx + 1
         release_idx + 1 < after_end
         release_idx = release_idx + 1 {
@@ -4147,6 +4544,94 @@ fn run_hot_pipeline_raw_record_parameter_accesses(
       _ => ()
     }
   }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_local_write_store_facts(
+  instrs : Array[@lib.Instruction],
+  target : @lib.LocalIdx,
+) -> (Bool, Bool) {
+  let mut has_write = false
+  let mut has_store = false
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) if local_idx == target =>
+        has_write = true
+      @lib.I32Store(_) => has_store = true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let (child_write, child_store) = run_hot_pipeline_raw_ssa_nomerge_local_write_store_facts(
+          body, target,
+        )
+        has_write = has_write || child_write
+        has_store = has_store || child_store
+      }
+      @lib.If(_, then_body, else_body) => {
+        let (then_write, then_store) = run_hot_pipeline_raw_ssa_nomerge_local_write_store_facts(
+          then_body, target,
+        )
+        has_write = has_write || then_write
+        has_store = has_store || then_store
+        match else_body {
+          Some(body) => {
+            let (else_write, else_store) = run_hot_pipeline_raw_ssa_nomerge_local_write_store_facts(
+              body, target,
+            )
+            has_write = has_write || else_write
+            has_store = has_store || else_store
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  (has_write, has_store)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_discarded_parameter_load_before_structured_write(
+  instrs : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> Bool {
+  if parameter_count <= 0 {
+    return false
+  }
+  for read_idx = 0; read_idx + 2 < instrs.length(); read_idx = read_idx + 1 {
+    let target = match instrs[read_idx] {
+      @lib.LocalGet(target) => {
+        let @lib.LocalIdx(raw) = target
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= 0 && local_id < parameter_count {
+          target
+        } else {
+          continue
+        }
+      }
+      _ => continue
+    }
+    if !(instrs[read_idx + 1] is @lib.I32Load(_)) ||
+      !(instrs[read_idx + 2] is @lib.Drop) {
+      continue
+    }
+    for later = read_idx + 3; later < instrs.length(); later = later + 1 {
+      let body = match instrs[later] {
+        @lib.Block(_, @lib.Expr(body))
+        | @lib.Loop(_, @lib.Expr(body))
+        | @lib.TryTable(_, _, @lib.Expr(body)) => body
+        @lib.If(_, then_body, _) => then_body
+        _ => continue
+      }
+      let (has_write, has_store) = run_hot_pipeline_raw_ssa_nomerge_local_write_store_facts(
+        body, target,
+      )
+      if has_write && has_store {
+        return true
+      }
+    }
+  }
+  false
 }
 
 ///|
@@ -4416,6 +4901,22 @@ fn run_hot_pipeline_raw_simplify_locals_convergence_guard(
   if deep_result_if_many_local_write_convergence && !allow_existing_ladder {
     return Some({
       reason: "deep-result-if-many-local-write-convergence",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let deep_block_local_write_convergence = stats.locals_count >= 128 &&
+    stats.block_count >= 64 &&
+    stats.loop_count == 0 &&
+    stats.if_count == 0 &&
+    stats.call_count == 0 &&
+    stats.local_set_count + stats.local_tee_count > 0 &&
+    stats.local_set_count + stats.local_tee_count <= 4 &&
+    stats.local_get_count >= 64
+  if deep_block_local_write_convergence {
+    return Some({
+      reason: "deep-block-local-write-convergence",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -8223,6 +8724,78 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_i32_add_accumulator_chain(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_has_self_update_loop_lifetime(
+  instrs : Array[@lib.Instruction],
+  inside_loop : Bool,
+) -> Bool {
+  if inside_loop {
+    for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
+      if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instrs[idx]) {
+        match (instrs[idx + 1], instrs[idx + 2]) {
+          (@lib.LocalSet(written), @lib.LocalGet(read)) if written == read =>
+            return true
+          _ => ()
+        }
+      }
+    }
+    for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+        ) {
+        (
+          @lib.LocalGet(read_before),
+          @lib.I32Const(_),
+          @lib.I32Add
+          | @lib.I32Sub,
+          @lib.LocalSet(written),
+          @lib.LocalGet(read_after),
+        ) if read_before == written && written == read_after => return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_self_update_loop_lifetime(
+            body, true,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_self_update_loop_lifetime(
+            body, inside_loop,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_has_self_update_loop_lifetime(
+            then_body, inside_loop,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_simplify_locals_has_self_update_loop_lifetime(
+                body, inside_loop,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -8257,9 +8830,46 @@ fn run_hot_pipeline_raw_simplify_locals(
     })
   }
   let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  if descriptor.name == "simplify-locals-notee-nostructure" &&
+    (
+      (
+        stats.call_count > 0 &&
+        run_hot_pipeline_raw_instrs_have_plain_load(instrs)
+      ) ||
+      run_hot_pipeline_raw_simplify_locals_has_load_result_copy_boundary(instrs)
+    ) {
+    return Some({
+      reason: "load-call-adjacent-copy-simplify-locals-notee-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "simplify-locals-notee-nostructure" &&
+    run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
+      instrs,
+    ) {
+    return Some({
+      reason: "call-bulk-memory-effect-order-simplify-locals-notee-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if locals.length() <= 64 && stats.instr_count >= 6144 {
     return Some({
       reason: "oversized-lowered-simplify-locals-preflight",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if stats.loop_count > 0 &&
+    run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_carrier(
+      instrs,
+    ) {
+    return Some({
+      reason: "parameter-initialized-block-result-loop-carrier",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -8344,6 +8954,73 @@ fn run_hot_pipeline_raw_simplify_locals(
       })
     }
   }
+  if (no_structure_variant || descriptor.name == "simplify-locals") &&
+    run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
+      instrs,
+    ) {
+    return Some({
+      reason: "call-bulk-memory-effect-order-simplify-locals-nostructure-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if (no_structure_variant || descriptor.name == "simplify-locals") &&
+    run_hot_pipeline_raw_simplify_locals_has_self_update_loop_lifetime(
+      instrs, false,
+    ) {
+    return Some({
+      reason: "self-update-loop-local-lifetime",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if (no_structure_variant || descriptor.name == "simplify-locals") &&
+    run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(instrs) {
+    return Some({
+      reason: "stack-carried-overwritten-local",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if no_structure_variant &&
+    run_hot_pipeline_raw_has_load_before_same_local_call(instrs) {
+    return Some({
+      reason: "load-before-release-simplify-locals-nostructure-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "simplify-locals" &&
+    run_hot_pipeline_raw_has_load_before_same_local_call(instrs) {
+    return Some({
+      reason: "load-before-release-simplify-locals-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if no_structure_variant &&
+    run_hot_pipeline_raw_has_call_argument_direct_release(instrs) {
+    return Some({
+      reason: "call-argument-direct-release-simplify-locals-nostructure-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "simplify-locals" &&
+    run_hot_pipeline_raw_has_call_argument_direct_release(instrs) {
+    return Some({
+      reason: "call-argument-direct-release-simplify-locals-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if no_structure_variant &&
     run_hot_pipeline_raw_simplify_locals_has_local_alias_multi_call_lifetime(
       instrs,
@@ -8379,6 +9056,43 @@ fn run_hot_pipeline_raw_simplify_locals(
     run_hot_pipeline_raw_simplify_locals_has_call_local_tee_lifetime(instrs) {
     return Some({
       reason: "call-local-tee-lifetime",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_has_call_argument_structured_release(instrs) ||
+    run_hot_pipeline_raw_has_call_argument_distinct_structured_releases(instrs) {
+    let reason = if no_structure_variant {
+      "call-argument-structured-release-simplify-locals-nostructure-noop"
+    } else {
+      "call-argument-structured-release-simplify-locals-noop"
+    }
+    return Some({
+      reason,
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if no_structure_variant &&
+    run_hot_pipeline_raw_has_single_argument_distinct_call_lifetime(instrs) {
+    return Some({
+      reason: "single-argument-distinct-call-lifetime-simplify-locals-nostructure-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "simplify-locals" &&
+    run_hot_pipeline_raw_has_single_argument_distinct_call_lifetime(instrs) {
+    match
+      run_hot_pipeline_raw_simplify_locals_full_lifetime_guard(original, instrs) {
+      Some(result) => return Some(result)
+      None => ()
+    }
+    return Some({
+      reason: "single-argument-distinct-call-lifetime-simplify-locals-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -9245,7 +9959,8 @@ fn run_hot_pipeline_raw_simplify_locals(
         })
       }
     }
-    if descriptor.name == "simplify-locals" {
+    if descriptor.name == "simplify-locals" ||
+      descriptor.name == "simplify-locals-notee-nostructure" {
       match
         run_hot_pipeline_raw_simplify_locals_full_lifetime_guard(
           original, instrs,
@@ -9262,7 +9977,8 @@ fn run_hot_pipeline_raw_simplify_locals(
       None => return None
     }
   }
-  if descriptor.name == "simplify-locals" {
+  if descriptor.name == "simplify-locals" ||
+    descriptor.name == "simplify-locals-notee-nostructure" {
     match
       run_hot_pipeline_raw_simplify_locals_full_lifetime_guard(original, instrs) {
       Some(result) => return Some(result)
@@ -9811,25 +10527,42 @@ fn run_hot_pipeline_dce_raw_has_call_result_multi_call_lifetime(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
-    let local_idx = match (instrs[idx], instrs[idx + 1]) {
-      (@lib.Call(_), @lib.LocalSet(local_idx)) => local_idx
+    let local_idx = match instrs[idx + 1] {
+      @lib.LocalSet(local_idx) if run_hot_pipeline_dce_raw_instr_is_call(
+          instrs[idx],
+        ) => local_idx
       _ => continue
     }
     let mut first_call : @lib.FuncIdx? = None
+    let mut saw_indirect_call = false
     let scan_end = Int::min(instrs.length(), idx + 34)
     for scan = idx + 2; scan < scan_end; scan = scan + 1 {
       match instrs[scan] {
         @lib.LocalGet(candidate) if candidate == local_idx => {
-          let look_end = Int::min(scan_end, scan + 4)
+          let look_end = Int::min(scan_end, scan + 12)
           for look = scan + 1; look < look_end; look = look + 1 {
             match instrs[look] {
               @lib.Call(call_target) => {
+                if saw_indirect_call {
+                  return true
+                }
                 match first_call {
                   Some(first_target) if first_target != call_target =>
                     return true
                   None => first_call = Some(call_target)
                   _ => ()
                 }
+                break
+              }
+              @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
+                match first_call {
+                  Some(_) => return true
+                  None => ()
+                }
+                if saw_indirect_call {
+                  return true
+                }
+                saw_indirect_call = true
                 break
               }
               @lib.Block(_, _)
@@ -13049,6 +13782,51 @@ fn run_hot_pipeline_raw_instrs_have_plain_load(
         match else_body {
           Some(body) =>
             if run_hot_pipeline_raw_instrs_have_plain_load(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_has_load_result_copy_boundary(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 3 < instrs.length(); idx = idx + 1 {
+    if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instrs[idx]) {
+      match (instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+        (@lib.LocalSet(written), @lib.LocalGet(read), @lib.Return) if written ==
+          read => return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_load_result_copy_boundary(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_has_load_result_copy_boundary(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_simplify_locals_has_load_result_copy_boundary(
+                body,
+              ) {
               return true
             }
           None => ()
@@ -20649,6 +21427,43 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
   let call_result_aliases : Array[Int] = []
   let mut idx = 0
   while idx < child_rewritten.length() {
+    if idx + 6 < child_rewritten.length() &&
+      run_hot_pipeline_optimize_instructions_instr_is_plain_load(
+        child_rewritten[idx + 1],
+      ) {
+      match
+        (
+          child_rewritten[idx],
+          child_rewritten[idx + 2],
+          child_rewritten[idx + 3],
+          child_rewritten[idx + 4],
+          child_rewritten[idx + 5],
+          child_rewritten[idx + 6],
+        ) {
+        (
+          @lib.LocalGet(load_base),
+          @lib.LocalSet(spilled),
+          @lib.LocalGet(call_arg),
+          @lib.Call(_)
+          | @lib.CallIndirect(_, _)
+          | @lib.CallRef(_),
+          @lib.LocalGet(restored),
+          @lib.LocalTee(_),
+        ) if load_base == call_arg && spilled == restored => {
+          out.push(child_rewritten[idx])
+          out.push(child_rewritten[idx + 1])
+          out.push(child_rewritten[idx + 2])
+          out.push(child_rewritten[idx + 5])
+          out.push(child_rewritten[idx + 3])
+          out.push(child_rewritten[idx + 4])
+          out.push(child_rewritten[idx + 6])
+          changed = true
+          idx = idx + 7
+          continue
+        }
+        _ => ()
+      }
+    }
     if idx + 2 < child_rewritten.length() {
       match
         (
@@ -25414,6 +26229,360 @@ fn run_hot_pipeline_raw_ssa_nomerge_flatten_value_block_tee_carrier(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_instrs_write_marked_local(
+  instrs : Array[@lib.Instruction],
+  marked : Array[Bool],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= 0 && local_id < marked.length() && marked[local_id] {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_instrs_write_marked_local(
+            body, marked,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_instrs_write_marked_local(
+            then_body, marked,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_instrs_write_marked_local(
+                body, marked,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_loops_write_marked_local(
+  instrs : Array[@lib.Instruction],
+  marked : Array[Bool],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(_, @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_ssa_nomerge_instrs_write_marked_local(
+            body, marked,
+          ) {
+          return true
+        }
+        if run_hot_pipeline_raw_ssa_nomerge_loops_write_marked_local(
+            body, marked,
+          ) {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_loops_write_marked_local(
+            body, marked,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_loops_write_marked_local(
+            then_body, marked,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_loops_write_marked_local(
+                body, marked,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_typed_loop_call_facts(
+  instrs : Array[@lib.Instruction],
+) -> (Bool, Bool, Bool) {
+  let mut has_hazard = false
+  let mut has_call = false
+  let mut has_broad_hazard = false
+  for instr in instrs {
+    match instr {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+        has_call = true
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (child_hazard, child_call, child_broad_hazard) = run_hot_pipeline_raw_ssa_nomerge_typed_loop_call_facts(
+          body,
+        )
+        has_hazard = has_hazard || child_hazard
+        has_call = has_call || child_call
+        has_broad_hazard = has_broad_hazard || child_broad_hazard
+        match block_type {
+          @lib.TypeIdxBlockType(_) if child_call => has_broad_hazard = true
+          _ => ()
+        }
+        match
+          (block_type, if body.length() > 0 { Some(body[0]) } else { None }) {
+          (@lib.TypeIdxBlockType(_), Some(@lib.LocalSet(carrier))) => {
+            let mut saw_call = false
+            let mut saw_carrier_read_after_call = false
+            let mut saw_backedge = false
+            for body_instr in body {
+              match body_instr {
+                @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+                  saw_call = true
+                @lib.LocalGet(read) if saw_call && read == carrier =>
+                  saw_carrier_read_after_call = true
+                @lib.Br(@lib.LabelIdx(0U)) => saw_backedge = true
+                _ => ()
+              }
+            }
+            if saw_call && saw_carrier_read_after_call && saw_backedge {
+              has_hazard = true
+            }
+          }
+          _ => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let (child_hazard, child_call, child_broad_hazard) = run_hot_pipeline_raw_ssa_nomerge_typed_loop_call_facts(
+          body,
+        )
+        has_hazard = has_hazard || child_hazard
+        has_call = has_call || child_call
+        has_broad_hazard = has_broad_hazard || child_broad_hazard
+      }
+      @lib.If(_, then_body, else_body) => {
+        let (then_hazard, then_call, then_broad_hazard) = run_hot_pipeline_raw_ssa_nomerge_typed_loop_call_facts(
+          then_body,
+        )
+        has_hazard = has_hazard || then_hazard
+        has_call = has_call || then_call
+        has_broad_hazard = has_broad_hazard || then_broad_hazard
+        match else_body {
+          Some(body) => {
+            let (else_hazard, else_call, else_broad_hazard) = run_hot_pipeline_raw_ssa_nomerge_typed_loop_call_facts(
+              body,
+            )
+            has_hazard = has_hazard || else_hazard
+            has_call = has_call || else_call
+            has_broad_hazard = has_broad_hazard || else_broad_hazard
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  (has_hazard, has_call, has_broad_hazard)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_typed_loop_call_lifetime(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  run_hot_pipeline_raw_ssa_nomerge_typed_loop_call_facts(instrs).0
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_any_typed_loop_call(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  run_hot_pipeline_raw_ssa_nomerge_typed_loop_call_facts(instrs).2
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_result_if_crossing_local_lifetime(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for set_idx = 0; set_idx < instrs.length(); set_idx = set_idx + 1 {
+    let target = match instrs[set_idx] {
+      @lib.LocalSet(target) => target
+      _ => continue
+    }
+    let mut saw_result_if = false
+    let mut saw_returning_if = false
+    for later = set_idx + 1; later < instrs.length(); later = later + 1 {
+      match instrs[later] {
+        @lib.If(block_type, then_body, else_body) =>
+          if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+            saw_result_if = true
+          } else if saw_result_if {
+            let else_has_return = match else_body {
+              Some(body) => run_hot_pipeline_raw_merge_locals_has_return(body)
+              None => false
+            }
+            if run_hot_pipeline_raw_merge_locals_has_return(then_body) ||
+              else_has_return {
+              saw_returning_if = true
+            }
+          }
+        @lib.LocalGet(read) if saw_returning_if && read == target => return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_if_crossing_local_lifetime(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_if_crossing_local_lifetime(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_result_if_crossing_local_lifetime(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_any_result_if_crossing_local_read(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for set_idx = 0; set_idx < instrs.length(); set_idx = set_idx + 1 {
+    let target = match instrs[set_idx] {
+      @lib.LocalSet(target) => target
+      _ => continue
+    }
+    let mut saw_result_if = false
+    for later = set_idx + 1; later < instrs.length(); later = later + 1 {
+      match instrs[later] {
+        @lib.If(block_type, _, _) =>
+          if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+            saw_result_if = true
+          }
+        @lib.LocalGet(read) if saw_result_if && read == target => return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_any_result_if_crossing_local_read(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_any_result_if_crossing_local_read(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_any_result_if_crossing_local_read(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_typed_if_local_carrier(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.If(@lib.TypeIdxBlockType(_), _, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_typed_if_local_carrier(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_typed_if_local_carrier(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_typed_if_local_carrier(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_rewritten_loop_parameter(
+  instrs : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> Bool {
+  if parameter_count <= 0 {
+    return false
+  }
+  let root_writes = Array::make(parameter_count, false)
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= 0 && local_id < parameter_count {
+          root_writes[local_id] = true
+        }
+      }
+      _ => ()
+    }
+  }
+  run_hot_pipeline_raw_ssa_nomerge_loops_write_marked_local(instrs, root_writes)
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_impl(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -25539,6 +26708,87 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     mod_, module_ctx, func_idx,
   )
   let base_local_count = params.length() + locals.length()
+  let production_artifact = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length() >= 10000
+    None => false
+  }
+  if descriptor.name == "ssa-nomerge" &&
+    (
+      run_hot_pipeline_raw_ssa_nomerge_has_discarded_parameter_load_before_structured_write(
+        instrs,
+        params.length(),
+      ) ||
+      (
+        production_artifact &&
+        run_hot_pipeline_raw_instrs_have_memory_access(instrs) &&
+        run_hot_pipeline_raw_has_parameter_read_before_later_write(
+          instrs,
+          params.length(),
+        )
+      )
+    ) {
+    return Some({
+      reason: "parameter-memory-rewrite-ssa-nomerge-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "ssa-nomerge" &&
+    (
+      run_hot_pipeline_raw_ssa_nomerge_has_result_if_crossing_local_lifetime(
+        instrs,
+      ) ||
+      (
+        production_artifact &&
+        run_hot_pipeline_raw_ssa_nomerge_has_any_result_if_crossing_local_read(
+          instrs,
+        )
+      )
+    ) {
+    return Some({
+      reason: "result-if-crossing-local-lifetime-ssa-nomerge-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "ssa-nomerge" &&
+    (
+      run_hot_pipeline_raw_ssa_nomerge_has_typed_loop_call_lifetime(instrs) ||
+      (
+        production_artifact &&
+        run_hot_pipeline_raw_ssa_nomerge_has_any_typed_loop_call(instrs)
+      )
+    ) {
+    return Some({
+      reason: "typed-loop-call-lifetime-ssa-nomerge-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "ssa-nomerge" &&
+    run_hot_pipeline_raw_ssa_nomerge_has_typed_if_local_carrier(instrs) {
+    return Some({
+      reason: "typed-if-local-carrier-ssa-nomerge-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "ssa-nomerge" &&
+    run_hot_pipeline_raw_ssa_nomerge_has_rewritten_loop_parameter(
+      instrs,
+      params.length(),
+    ) {
+    return Some({
+      reason: "parameter-rewrite-loop-carried-ssa-nomerge-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if !has_writes {
     let has_default_reads = run_hot_pipeline_raw_has_default_local_reads(
       instrs,
@@ -27238,8 +28488,60 @@ fn run_hot_pipeline_raw_size_cleanup_skip(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(body)) = original
+  let (_, has_structured_control, _, _, _, _) = run_hot_pipeline_instr_scan(
+    body,
+  )
+  if locals.length() >= 32 &&
+    has_structured_control &&
+    run_hot_pipeline_raw_code_folding_has_vec_local(locals) {
+    return Some({
+      reason: "large-simd-structured-merge-blocks-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(body) &&
+    run_hot_pipeline_raw_precompute_has_call_result_local_reload(body) {
+    return Some({
+      reason: "call-result-memory-copy-merge-blocks-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(body) {
+    return Some({
+      reason: "stack-carried-overwritten-local-merge-blocks-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  if locals.length() >= 14 &&
+    has_structured_control &&
+    stats.loads > 0 &&
+    stats.local_writes > 0 {
+    return Some({
+      reason: "structured-load-local-merge-blocks-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if locals.length() >= 16 &&
+    has_structured_control &&
+    stats.calls > 0 &&
+    stats.local_writes > 0 {
+    return Some({
+      reason: "large-call-structured-merge-blocks-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if locals.length() > 128 && stats.instrs > 1000 {
     return Some({
       reason: "large-local-merge-blocks-noop",
@@ -27299,6 +28601,189 @@ fn run_hot_pipeline_raw_code_pushing_has_typed_loop(
 }
 
 ///|
+fn run_hot_pipeline_raw_code_pushing_has_stack_carried_overwritten_local(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 3 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+      (@lib.LocalGet(carrier), @lib.Block(_, _), @lib.LocalSet(overwritten)) if carrier ==
+        overwritten => {
+        let end = Int::min(instrs.length(), idx + 16)
+        let mut reads = 0
+        for probe = idx + 3; probe < end; probe = probe + 1 {
+          match instrs[probe] {
+            @lib.LocalGet(read) if read == carrier => {
+              reads += 1
+              if reads >= 2 {
+                return true
+              }
+            }
+            @lib.LocalSet(written) | @lib.LocalTee(written) if written ==
+              carrier => break
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_code_pushing_has_stack_carried_overwritten_local(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_code_pushing_has_stack_carried_overwritten_local(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_code_pushing_has_stack_carried_overwritten_local(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_code_pushing_has_branch_skipped_local_init(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (@lib.I32Const(_), @lib.LocalSet(_)) => {
+        let scan_end = Int::min(instrs.length(), idx + 10)
+        for scan = idx + 2; scan < scan_end; scan = scan + 1 {
+          match instrs[scan] {
+            @lib.If(_, then_body, else_body) => {
+              let (_, _, then_branches, _, _, _) = run_hot_pipeline_instr_scan(
+                then_body,
+              )
+              let mut else_branches = false
+              match else_body {
+                Some(body) => {
+                  let (_, _, branches, _, _, _) = run_hot_pipeline_instr_scan(
+                    body,
+                  )
+                  else_branches = branches
+                }
+                None => ()
+              }
+              if then_branches || else_branches {
+                return true
+              }
+            }
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_code_pushing_has_branch_skipped_local_init(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_code_pushing_has_branch_skipped_local_init(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_code_pushing_has_branch_skipped_local_init(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_code_pushing_has_stored_tee_later_read(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 3 < instrs.length(); idx = idx + 1 {
+    let target = match (instrs[idx], instrs[idx + 1]) {
+      (@lib.LocalGet(_), @lib.LocalTee(target)) => target
+      _ => continue
+    }
+    match instrs[idx + 2] {
+      @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) => ()
+      _ => continue
+    }
+    let scan_end = Int::min(instrs.length(), idx + 96)
+    for scan = idx + 3; scan < scan_end; scan = scan + 1 {
+      match instrs[scan] {
+        @lib.LocalGet(read) if read == target => return true
+        @lib.LocalSet(written) | @lib.LocalTee(written) if written == target =>
+          break
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_code_pushing_has_stored_tee_later_read(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_code_pushing_has_stored_tee_later_read(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_code_pushing_has_stored_tee_later_read(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_code_pushing_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -27309,6 +28794,46 @@ fn run_hot_pipeline_raw_code_pushing_skip(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(body)) = original
+  if run_hot_pipeline_raw_code_pushing_has_stack_carried_overwritten_local(body) {
+    return Some({
+      reason: "stack-carried-overwritten-local-code-pushing-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_has_call_argument_structured_release(body) {
+    return Some({
+      reason: "call-argument-structured-release-code-pushing-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_has_call_argument_direct_release(body) {
+    return Some({
+      reason: "call-argument-direct-release-code-pushing-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_code_pushing_has_branch_skipped_local_init(body) {
+    return Some({
+      reason: "branch-skipped-local-init-code-pushing-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_code_pushing_has_stored_tee_later_read(body) {
+    return Some({
+      reason: "stored-tee-later-read-code-pushing-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if run_hot_pipeline_raw_code_pushing_has_typed_loop(body) {
     return Some({
       reason: "typed-loop-parameter-code-pushing-noop",
@@ -27418,6 +28943,230 @@ fn run_hot_pipeline_raw_has_same_local_distinct_calls(
 }
 
 ///|
+fn run_hot_pipeline_raw_has_paired_distinct_call_lifetime(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 6 < instrs.length(); idx = idx + 1 {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+        instrs[idx + 5],
+        instrs[idx + 6],
+      ) {
+      (
+        @lib.LocalGet(first_local),
+        @lib.LocalGet(second_local),
+        @lib.Call(consumer),
+        @lib.LocalGet(first_release_local),
+        @lib.Call(first_release),
+        @lib.LocalGet(second_release_local),
+        @lib.Call(second_release),
+      ) if first_local != second_local &&
+        first_local == first_release_local &&
+        second_local == second_release_local &&
+        consumer != first_release &&
+        consumer != second_release => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_paired_distinct_call_lifetime(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_paired_distinct_call_lifetime(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_has_paired_distinct_call_lifetime(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_has_single_argument_distinct_call_lifetime(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+      ) {
+      (
+        @lib.LocalGet(_),
+        @lib.LocalGet(argument_local),
+        @lib.Call(consumer),
+        @lib.LocalGet(later_local),
+        @lib.Call(later_call),
+      ) if argument_local == later_local && consumer != later_call =>
+        return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_single_argument_distinct_call_lifetime(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_single_argument_distinct_call_lifetime(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_has_single_argument_distinct_call_lifetime(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_has_load_before_same_local_call(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 3 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 2], instrs[idx + 3]) {
+      (@lib.LocalGet(load_local), @lib.LocalGet(call_local), @lib.Call(_)) if load_local ==
+        call_local =>
+        match run_hot_pipeline_raw_plain_load_result_type(instrs[idx + 1]) {
+          Some(_) => return true
+          None => ()
+        }
+      _ => ()
+    }
+    if idx + 4 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 3], instrs[idx + 4]) {
+        (
+          @lib.LocalGet(_),
+          @lib.LocalTee(load_alias),
+          @lib.LocalGet(call_local),
+          @lib.Call(_),
+        ) if load_alias == call_local =>
+          match run_hot_pipeline_raw_plain_load_result_type(instrs[idx + 2]) {
+            Some(_) => return true
+            None => ()
+          }
+        (
+          @lib.Call(_)
+          | @lib.CallIndirect(_, _)
+          | @lib.CallRef(_),
+          @lib.LocalTee(load_alias),
+          @lib.LocalGet(call_local),
+          @lib.Call(_),
+        ) if load_alias == call_local =>
+          match run_hot_pipeline_raw_plain_load_result_type(instrs[idx + 2]) {
+            Some(_) => return true
+            None => ()
+          }
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_load_before_same_local_call(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_load_before_same_local_call(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_has_load_before_same_local_call(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_code_folding_has_vec_local(
+  locals : @lib.Locals,
+) -> Bool {
+  for local_id = 0; local_id < locals.length(); local_id = local_id + 1 {
+    match locals.get(local_id) {
+      @lib.VecTypeValType => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_code_folding_has_bulk_memory(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) | @lib.MemoryInit(_, _) =>
+        return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_code_folding_has_bulk_memory(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_code_folding_has_bulk_memory(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_code_folding_has_bulk_memory(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_code_folding_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -27428,9 +29177,77 @@ fn run_hot_pipeline_raw_code_folding_skip(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(body)) = original
+  if run_hot_pipeline_raw_has_paired_distinct_call_lifetime(body) {
+    return Some({
+      reason: "paired-distinct-call-lifetime-code-folding-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_has_load_before_same_local_call(body) {
+    return Some({
+      reason: "load-before-release-code-folding-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_has_single_argument_distinct_call_lifetime(body) {
+    return Some({
+      reason: "call-argument-direct-release-code-folding-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   let (_, has_structured_control, _, _, _, _) = run_hot_pipeline_instr_scan(
     body,
   )
+  let stats = OptimizeInstructionsLoweredStats::new()
+  run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  if locals.length() >= 14 &&
+    has_structured_control &&
+    stats.loads > 0 &&
+    stats.local_writes > 0 {
+    return Some({
+      reason: "structured-load-local-code-folding-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if locals.length() >= 32 &&
+    has_structured_control &&
+    stats.calls > 0 &&
+    stats.local_writes > 0 {
+    return Some({
+      reason: "large-call-structured-code-folding-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if locals.length() >= 32 &&
+    has_structured_control &&
+    run_hot_pipeline_raw_code_folding_has_vec_local(locals) {
+    return Some({
+      reason: "large-simd-structured-code-folding-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if locals.length() >= 16 &&
+    has_structured_control &&
+    run_hot_pipeline_raw_code_folding_has_bulk_memory(body) {
+    return Some({
+      reason: "large-bulk-memory-structured-code-folding-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if locals.length() >= 16 &&
     has_structured_control &&
     run_hot_pipeline_raw_has_same_local_distinct_calls(body) {
@@ -31083,6 +32900,13 @@ fn RawOiMemoryOffsetFoldRewriteFact::from_store_region(
   }
   let address = region.roots[start].instr
   let value = region.roots[start + 1].instr
+  // A local.tee consumes and re-pushes the actual store value. If a value was
+  // already stack-carried before `start`, treating the preceding constant as
+  // the address folds the memarg into the value and changes the store target.
+  match value {
+    @lib.LocalTee(_) => return None
+    _ => ()
+  }
   let store_instr = region.roots[start + 2].instr
   let access = match
     RawOiMemoryAccessMemargFact::from_store_instr(store_instr) {
@@ -37186,6 +39010,239 @@ fn run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_ari
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+      ) {
+      (
+        @lib.Call(_)
+        | @lib.CallIndirect(_, _)
+        | @lib.CallRef(_),
+        @lib.LocalGet(_),
+        @lib.I32Const(@lib.I32(0)),
+        @lib.I32Shl
+        | @lib.I32ShrS
+        | @lib.I32ShrU,
+        @lib.I32Add,
+      ) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+priv struct RawOiGlobalCallTeeControlFact {
+  mut has_global : Bool
+  mut has_call : Bool
+  mut has_tee : Bool
+  mut has_control : Bool
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
+  instrs : Array[@lib.Instruction],
+  fact : RawOiGlobalCallTeeControlFact,
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.GlobalGet(_) | @lib.GlobalSet(_) => fact.has_global = true
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+        fact.has_call = true
+      @lib.LocalTee(_) => fact.has_tee = true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        fact.has_control = true
+        run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
+          body, fact,
+        )
+      }
+      @lib.If(_, then_body, else_body) => {
+        fact.has_control = true
+        run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
+          then_body, fact,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
+              body, fact,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_has_global_call_tee_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let fact = RawOiGlobalCallTeeControlFact::{
+    has_global: false,
+    has_call: false,
+    has_tee: false,
+    has_control: false,
+  }
+  run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
+    instrs, fact,
+  )
+  fact.has_global && fact.has_call && fact.has_tee && fact.has_control
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 3 < instrs.length(); idx = idx + 1 {
+    let target = match
+      (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+      (@lib.LocalGet(_), @lib.I32Const(_), @lib.I32Sub, @lib.LocalSet(target)) =>
+        target
+      _ => continue
+    }
+    let mut reads = 0
+    for later = idx + 4; later < instrs.length(); later = later + 1 {
+      match instrs[later] {
+        @lib.LocalGet(read) if read == target => {
+          reads += 1
+          if reads >= 2 {
+            return true
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+      ) {
+      (
+        @lib.Call(_)
+        | @lib.CallIndirect(_, _)
+        | @lib.CallRef(_),
+        @lib.LocalGet(_),
+        @lib.I32Const(value),
+        @lib.I32Ne,
+        @lib.I32Add,
+      ) if value == 0 => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -37198,6 +39255,44 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(body)) = original
+  if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(body) {
+    return Some({
+      reason: "call-comparison-add-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
+      body,
+    ) {
+    return Some({
+      reason: "stack-carried-call-zero-shift-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_optimize_instructions_has_global_call_tee_control(
+      body,
+    ) {
+    return Some({
+      reason: "global-call-tee-control-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
+      body,
+    ) {
+    return Some({
+      reason: "subtracted-local-multi-use-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
       body,
     ) {
@@ -37402,6 +39497,37 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     !escaping_ref_get_desc_changed &&
     !const_fold_changed
   if !effectful_sibling_changed {
+    // Effectful-select facts normally force HOT replay, but they must not bypass
+    // the coarse bounds that keep large lowered functions out of the currently
+    // unbounded replay path.
+    match
+      RawOiCoarseNoopSkipFact::from_large_local(
+        locals.length(),
+        oi_index.lowered_stats,
+      ) {
+      Some(fact) if fact.proves_accepted_raw_boundary() =>
+        return Some({
+          reason: fact.reason,
+          func: skipped_func,
+          unchanged_original: skipped_unchanged,
+          trace_skip_raw: true,
+        })
+      _ => ()
+    }
+    match
+      RawOiCoarseNoopSkipFact::from_large_lowered(
+        locals.length(),
+        oi_index.lowered_stats,
+      ) {
+      Some(fact) if fact.proves_accepted_raw_boundary() =>
+        return Some({
+          reason: fact.reason,
+          func: skipped_func,
+          unchanged_original: skipped_unchanged,
+          trace_skip_raw: true,
+        })
+      _ => ()
+    }
     match RawOiV131EffectfulSelectHotReplayFact::from_index(oi_index) {
       Some(fact) if fact.proves_hot_replay() => return None
       _ => ()
@@ -38146,6 +40272,104 @@ fn run_hot_pipeline_tuple_has_effect_bracketed_multivalue_call(
 }
 
 ///|
+fn run_hot_pipeline_raw_dropped_call_result_linear_effect(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> (Int, Int)? {
+  match instr {
+    @lib.Nop => Some((0, 0))
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_)
+    | @lib.GlobalGet(_)
+    | @lib.LocalGet(_) => Some((0, 1))
+    @lib.LocalSet(_) | @lib.GlobalSet(_) | @lib.Drop => Some((1, 0))
+    @lib.LocalTee(_) => Some((1, 1))
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          Some((params.length(), results.length()))
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_has_dropped_call_result_effect_order(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Call(func_idx) =>
+        match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+          Some(@lib.FuncType(_, results)) if results.length() == 1 => {
+            let mut values_above = 0
+            let mut saw_later_call = false
+            let mut scan = idx + 1
+            while scan < instrs.length() {
+              let effect = match
+                run_hot_pipeline_raw_dropped_call_result_linear_effect(
+                  instrs[scan],
+                  module_ctx,
+                ) {
+                Some(effect) => effect
+                None => break
+              }
+              let (pop_count, push_count) = effect
+              if pop_count > values_above {
+                if instrs[scan] is @lib.Drop && saw_later_call {
+                  return true
+                }
+                break
+              }
+              match instrs[scan] {
+                @lib.Call(_) => saw_later_call = true
+                _ => ()
+              }
+              values_above = values_above - pop_count + push_count
+              scan += 1
+            }
+          }
+          _ => ()
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_dropped_call_result_effect_order(
+            body, module_ctx,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_dropped_call_result_effect_order(
+            then_body, module_ctx,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_has_dropped_call_result_effect_order(
+                else_body, module_ctx,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_tuple_optimization_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -38191,6 +40415,475 @@ fn run_hot_pipeline_raw_tuple_optimization_skip(
 }
 
 ///|
+fn run_hot_pipeline_raw_precompute_has_nested_empty_block_shell(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) => {
+        if body.length() > 0 {
+          match body[0] {
+            @lib.Block(_, @lib.Expr(empty)) if empty.is_empty() => return true
+            _ => ()
+          }
+        }
+        if run_hot_pipeline_raw_precompute_has_nested_empty_block_shell(body) {
+          return true
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_precompute_has_nested_empty_block_shell(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_precompute_has_nested_empty_block_shell(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_precompute_has_nested_empty_block_shell(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_precompute_has_multi_read_arithmetic_local(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+      (
+        @lib.LocalGet(_),
+        @lib.GlobalGet(_),
+        @lib.I32Sub
+        | @lib.I64Sub,
+        @lib.LocalSet(target),
+      ) => {
+        let end = Int::min(instrs.length(), idx + 32)
+        let mut reads = 0
+        for probe = idx + 4; probe < end; probe = probe + 1 {
+          match instrs[probe] {
+            @lib.LocalGet(read) if read == target => {
+              reads += 1
+              if reads >= 2 {
+                return true
+              }
+            }
+            @lib.LocalSet(written) | @lib.LocalTee(written) if written == target =>
+              break
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_precompute_has_multi_read_arithmetic_local(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_precompute_has_multi_read_arithmetic_local(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_precompute_has_multi_read_arithmetic_local(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_precompute_instr_is_store(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Store(_)
+    | @lib.I64Store(_)
+    | @lib.F32Store(_)
+    | @lib.F64Store(_)
+    | @lib.I32Store8(_)
+    | @lib.I32Store16(_)
+    | @lib.I64Store8(_)
+    | @lib.I64Store16(_)
+    | @lib.I64Store32(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_precompute_has_call_result_across_memory_store(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (
+        @lib.Call(_)
+        | @lib.CallIndirect(_, _)
+        | @lib.CallRef(_),
+        @lib.LocalSet(result_local),
+      ) => {
+        let end = Int::min(instrs.length(), idx + 24)
+        let mut saw_store = false
+        for probe = idx + 2; probe < end; probe = probe + 1 {
+          if run_hot_pipeline_raw_precompute_instr_is_store(instrs[probe]) {
+            saw_store = true
+            continue
+          }
+          match instrs[probe] {
+            @lib.LocalGet(read) if read == result_local && saw_store =>
+              return true
+            @lib.LocalSet(written) | @lib.LocalTee(written) if written ==
+              result_local => break
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_precompute_has_call_result_across_memory_store(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_precompute_has_call_result_across_memory_store(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_precompute_has_call_result_across_memory_store(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_precompute_has_indexed_load_alias_release(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 8 < instrs.length(); idx = idx + 1 {
+    if run_hot_pipeline_optimize_instructions_instr_is_plain_load(
+        instrs[idx + 6],
+      ) {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+          instrs[idx + 5],
+          instrs[idx + 7],
+          instrs[idx + 8],
+        ) {
+        (
+          @lib.LocalGet(_),
+          @lib.LocalTee(alias_local),
+          @lib.LocalGet(_),
+          @lib.I32Const(_),
+          @lib.I32Shl,
+          @lib.I32Add,
+          @lib.LocalGet(released),
+          @lib.Call(_),
+        ) if alias_local == released => return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_precompute_has_indexed_load_alias_release(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_precompute_has_indexed_load_alias_release(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_precompute_has_indexed_load_alias_release(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_precompute_has_call_result_release_stack_carrier(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 3 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+      (
+        @lib.Call(_)
+        | @lib.CallIndirect(_, _)
+        | @lib.CallRef(_),
+        @lib.LocalGet(_),
+        @lib.Call(_),
+        @lib.LocalSet(_),
+      ) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_precompute_has_call_result_release_stack_carrier(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_precompute_has_call_result_release_stack_carrier(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_precompute_has_call_result_release_stack_carrier(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_has_call_result_alias_later_call(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+      ) {
+      (
+        @lib.Call(_),
+        @lib.LocalTee(alias_local),
+        @lib.Call(_),
+        @lib.LocalGet(later_alias),
+        @lib.Call(_),
+      ) if alias_local == later_alias => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_call_result_alias_later_call(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_call_result_alias_later_call(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_has_call_result_alias_later_call(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_precompute_has_call_result_local_reload(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+      (
+        @lib.Call(_)
+        | @lib.CallIndirect(_, _)
+        | @lib.CallRef(_),
+        @lib.LocalSet(written),
+        @lib.LocalGet(read),
+      ) if written == read => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_precompute_has_call_result_local_reload(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_precompute_has_call_result_local_reload(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_precompute_has_call_result_local_reload(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for start = 0; start + 3 < instrs.length(); start = start + 1 {
+    match
+      (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {
+      (
+        @lib.LocalGet(carrier),
+        @lib.I32Const(_),
+        @lib.LocalGet(_),
+        @lib.LocalSet(overwritten),
+      ) if carrier == overwritten => {
+        let end = Int::min(instrs.length(), start + 22)
+        for idx = start + 4; idx < end; idx = idx + 1 {
+          match instrs[idx] {
+            @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+              return true
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    match (instrs[start], instrs[start + 1], instrs[start + 2]) {
+      (@lib.LocalGet(carrier), @lib.LocalGet(_), @lib.LocalSet(overwritten)) if carrier ==
+        overwritten => {
+        let end = Int::min(instrs.length(), start + 19)
+        let mut saw_reloaded = false
+        for idx = start + 3; idx < end; idx = idx + 1 {
+          match instrs[idx] {
+            @lib.LocalGet(reloaded) if reloaded == carrier =>
+              saw_reloaded = true
+            @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) if saw_reloaded =>
+              return true
+            @lib.LocalSet(written) | @lib.LocalTee(written) if written ==
+              carrier => break
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_precompute(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -38206,6 +40899,90 @@ fn run_hot_pipeline_raw_precompute(
   let o4z_precompute_gate = options.optimize_level >= 4 &&
     options.shrink_level >= 1
   let @lib.Func(locals, @lib.Expr(body)) = original
+  if propagating &&
+    run_hot_pipeline_raw_precompute_has_multi_read_arithmetic_local(body) {
+    return Some({
+      reason: "multi-read-arithmetic-local-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating && run_hot_pipeline_raw_has_load_before_same_local_call(body) {
+    return Some({
+      reason: "load-before-release-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_precompute_has_indexed_load_alias_release(body) {
+    return Some({
+      reason: "indexed-load-alias-release-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_precompute_has_call_result_across_memory_store(body) {
+    return Some({
+      reason: "call-result-memory-store-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(body) &&
+    run_hot_pipeline_raw_precompute_has_call_result_local_reload(body) {
+    return Some({
+      reason: "call-result-memory-copy-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(body) {
+    return Some({
+      reason: "stack-carried-overwritten-local-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_remove_unused_brs_has_comparison_flag_if_hazard(body) {
+    return Some({
+      reason: "comparison-flag-if-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_precompute_has_nested_empty_block_shell(body) {
+    return Some({
+      reason: "nested-empty-block-label-owner-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating && locals.length() >= 128 {
+    let shape = RawRemoveUnusedBrsShape::new()
+    run_hot_pipeline_raw_remove_unused_brs_scan_shape(body, shape)
+    if shape.br_count + shape.br_if_count + shape.br_table_count >= 16 {
+      return Some({
+        reason: "large-branch-local-label-owner-precompute-propagate-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+  }
   if propagating {
     let module_ctx = run_hot_pipeline_require_module_ctx(
       mod_, module_state, options,
@@ -38223,15 +41000,6 @@ fn run_hot_pipeline_raw_precompute(
         trace_skip_raw: true,
       })
     }
-  }
-  if propagating &&
-    run_hot_pipeline_raw_simplify_locals_has_call_local_tee_lifetime(body) {
-    return Some({
-      reason: "call-local-tee-lifetime-precompute-propagate-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
   }
   if propagating &&
     run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
@@ -38264,6 +41032,16 @@ fn run_hot_pipeline_raw_precompute(
     let module_ctx = run_hot_pipeline_require_module_ctx(
       mod_, module_state, options,
     )
+    if run_hot_pipeline_raw_has_dropped_call_result_effect_order(
+        body, module_ctx,
+      ) {
+      return Some({
+        reason: "dropped-call-result-effect-order-precompute-propagate-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     if run_hot_pipeline_tuple_has_effect_bracketed_multivalue_call(
         body, module_ctx,
       ) {
@@ -38274,6 +41052,42 @@ fn run_hot_pipeline_raw_precompute(
         trace_skip_raw: true,
       })
     }
+  }
+  if propagating &&
+    run_hot_pipeline_raw_simplify_locals_has_call_local_tee_lifetime(body) {
+    return Some({
+      reason: "call-local-tee-lifetime-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_precompute_has_call_result_release_stack_carrier(body) {
+    return Some({
+      reason: "call-result-release-stack-carrier-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_precompute_has_call_result_local_reload(body) {
+    return Some({
+      reason: "call-result-local-reload-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_has_single_argument_distinct_call_lifetime(body) {
+    return Some({
+      reason: "single-argument-distinct-call-lifetime-precompute-propagate-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
   }
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
@@ -38571,6 +41385,90 @@ fn run_hot_pipeline_raw_rse_needs_module_env(
 }
 
 ///|
+fn run_hot_pipeline_raw_rse_collect_zero_set_targets(
+  instrs : Array[@lib.Instruction],
+  targets : Array[@lib.LocalIdx],
+) -> Unit {
+  for idx = 1; idx < instrs.length(); idx = idx + 1 {
+    match (instrs[idx - 1], instrs[idx]) {
+      (@lib.I32Const(@lib.I32(0)), @lib.LocalSet(target)) =>
+        targets.push(target)
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_rse_collect_zero_set_targets(body, targets)
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_rse_collect_zero_set_targets(then_body, targets)
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_rse_collect_zero_set_targets(body, targets)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_rse_count_zero_sets(
+  instrs : Array[@lib.Instruction],
+  target : @lib.LocalIdx,
+) -> Int {
+  let mut count = 0
+  for idx = 1; idx < instrs.length(); idx = idx + 1 {
+    match (instrs[idx - 1], instrs[idx]) {
+      (@lib.I32Const(@lib.I32(0)), @lib.LocalSet(written)) if written == target =>
+        count += 1
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += run_hot_pipeline_raw_rse_count_zero_sets(body, target)
+      @lib.If(_, then_body, else_body) => {
+        count += run_hot_pipeline_raw_rse_count_zero_sets(then_body, target)
+        match else_body {
+          Some(body) =>
+            count += run_hot_pipeline_raw_rse_count_zero_sets(body, target)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_rse_has_repeated_structured_zero_reset(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let (_, has_structured_control, _, _, _, _) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  if !has_structured_control {
+    return false
+  }
+  let targets : Array[@lib.LocalIdx] = []
+  run_hot_pipeline_raw_rse_collect_zero_set_targets(instrs, targets)
+  for target in targets {
+    if run_hot_pipeline_raw_rse_count_zero_sets(instrs, target) >= 4 {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_rse(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -38587,7 +41485,20 @@ fn run_hot_pipeline_raw_rse(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
-  let @lib.Func(locals, _) = original
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  if run_hot_pipeline_raw_rse_has_repeated_structured_zero_reset(body) {
+    perf_stop_timer_accumulate_opt(
+      options.perf,
+      "detail:rse:setup",
+      setup_start_us,
+    )
+    return Some({
+      reason: "repeated-branch-zero-reset-rse-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   let env = if run_hot_pipeline_raw_rse_needs_module_env(params, locals) {
     @validate.Env::new().with_module(mod_)
   } else {
@@ -56428,6 +59339,16 @@ fn run_hot_pipeline_raw_remove_unused_names(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  if run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
+      instrs,
+    ) {
+    return Some({
+      reason: "call-bulk-memory-effect-order-remove-unused-names-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   let (has_candidate, has_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instrs(
     instrs,
   )
@@ -56642,6 +59563,120 @@ fn run_hot_pipeline_raw_remove_unused_brs_scan_early_facts(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_type_indexed_loop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.TypeIdxBlockType(_), _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_type_indexed_loop(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_type_indexed_loop(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_type_indexed_loop(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_is_i32_comparison(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_comparison_flag_if_hazard(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 5 < instrs.length() {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 3],
+          instrs[idx + 4],
+          instrs[idx + 5],
+        ) {
+        (
+          @lib.LocalGet(_),
+          @lib.I32Const(_),
+          @lib.LocalSet(set_local),
+          @lib.LocalGet(get_local),
+          @lib.If(_, _, _),
+        ) if set_local == get_local &&
+          run_hot_pipeline_raw_remove_unused_brs_is_i32_comparison(
+            instrs[idx + 2],
+          ) => return true
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_comparison_flag_if_hazard(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_comparison_flag_if_hazard(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_comparison_flag_if_hazard(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs_has_root_stack_local_set_hazard(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -56668,6 +59703,333 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_root_stack_local_set_hazard(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_arithmetic_local_carrier(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+      ) {
+      (
+        @lib.LocalGet(_),
+        @lib.I64Const(_),
+        @lib.I64DivU,
+        @lib.LocalSet(written),
+        @lib.LocalGet(read),
+      ) if written == read => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_arithmetic_local_carrier(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_arithmetic_local_carrier(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_arithmetic_local_carrier(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_loaded_comparison_branch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 6 < instrs.length(); idx = idx + 1 {
+    if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instrs[idx]) {
+      match
+        (
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+          instrs[idx + 5],
+          instrs[idx + 6],
+        ) {
+        (
+          @lib.LocalSet(written),
+          @lib.LocalGet(read),
+          @lib.I32Const(_),
+          @lib.I32Eq
+          | @lib.I32Ne,
+          @lib.BrIf(_),
+          @lib.Br(_),
+        ) if written == read => return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_loaded_comparison_branch(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_loaded_comparison_branch(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_loaded_comparison_branch(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_call_argument_release_order(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+      ) {
+      (
+        @lib.LocalGet(first_arg),
+        @lib.LocalGet(second_arg),
+        @lib.Call(consumer),
+        @lib.LocalGet(released),
+        @lib.Call(release),
+      ) if consumer != release &&
+        (released == first_arg || released == second_arg) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_call_argument_release_order(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_call_argument_release_order(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_call_argument_release_order(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_body_has_call_tee_release(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for call_idx = 0; call_idx + 1 < body.length(); call_idx = call_idx + 1 {
+    let target = match (body[call_idx], body[call_idx + 1]) {
+      (@lib.Call(_), @lib.LocalTee(target)) => Some(target)
+      _ => None
+    }
+    match target {
+      Some(target) =>
+        for scan = call_idx + 2; scan + 1 < body.length(); scan = scan + 1 {
+          match body[scan] {
+            @lib.LocalSet(written) | @lib.LocalTee(written) if written == target =>
+              break
+            @lib.LocalGet(read) if read == target =>
+              match body[scan + 1] {
+                @lib.Call(_) => return true
+                _ => ()
+              }
+            _ => ()
+          }
+        }
+      None => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_condition_child_call_tee_lifetime(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (
+        @lib.If(@lib.ValTypeBlockType(_), _, Some(_)),
+        @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)),
+      ) if run_hot_pipeline_raw_remove_unused_brs_body_has_call_tee_release(
+          then_body,
+        ) ||
+        run_hot_pipeline_raw_remove_unused_brs_body_has_call_tee_release(
+          else_body,
+        ) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_condition_child_call_tee_lifetime(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_condition_child_call_tee_lifetime(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_condition_child_call_tee_lifetime(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_structured_same_local_distinct_call_order(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
+    let has_structured_prefix = match instrs[idx] {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Try(_, _, _, _) => true
+      _ => false
+    }
+    if has_structured_prefix {
+      match
+        (instrs[idx + 1], instrs[idx + 2], instrs[idx + 3], instrs[idx + 4]) {
+        (
+          @lib.LocalGet(first_local),
+          @lib.Call(first_target),
+          @lib.LocalGet(second_local),
+          @lib.Call(second_target),
+        ) if first_local == second_local && first_target != second_target =>
+          return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_structured_same_local_distinct_call_order(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_structured_same_local_distinct_call_order(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_structured_same_local_distinct_call_order(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_structured_same_local_distinct_call_order(
+            body,
+          ) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+              catch_body
+          }
+          if run_hot_pipeline_raw_remove_unused_brs_has_structured_same_local_distinct_call_order(
+              catch_body,
+            ) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -56679,9 +60041,90 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  if run_hot_pipeline_raw_has_call_argument_direct_release(instrs) {
+    return Some({
+      reason: "call-argument-direct-release-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_has_call_argument_release_order(
+      instrs,
+    ) {
+    return Some({
+      reason: "call-argument-release-order-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_has_condition_child_call_tee_lifetime(
+      instrs,
+    ) {
+    return Some({
+      reason: "condition-child-call-tee-lifetime-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_has_structured_same_local_distinct_call_order(
+      instrs,
+    ) {
+    return Some({
+      reason: "structured-same-local-distinct-call-order-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if locals.length() >= 128 &&
+    run_hot_pipeline_raw_remove_unused_brs_has_arithmetic_local_carrier(instrs) {
+    return Some({
+      reason: "large-arithmetic-local-carrier-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_has_loaded_comparison_branch(instrs) {
+    return Some({
+      reason: "loaded-comparison-branch-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_has_type_indexed_loop(instrs) {
+    return Some({
+      reason: "typed-loop-param-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_has_comparison_flag_if_hazard(
+      instrs,
+    ) {
+    return Some({
+      reason: "comparison-flag-if-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if run_hot_pipeline_dce_raw_has_load_call_set_hazard(instrs) {
     return Some({
       reason: "load-call-set-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_has_load_before_same_local_call(instrs) {
+    return Some({
+      reason: "load-before-release-remove-unused-brs-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -56891,6 +60334,23 @@ fn run_hot_pipeline_raw_remove_unused_brs(
     ) {
     return Some({
       reason: "refcount-payload-parser-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_has_call_result_alias_later_call(instrs) {
+    return Some({
+      reason: "call-result-alias-release-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if !early_facts.has_br_table &&
+    run_hot_pipeline_raw_precompute_has_call_result_local_reload(instrs) {
+    return Some({
+      reason: "call-result-local-reload-remove-unused-brs-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -57271,42 +60731,105 @@ fn run_hot_pipeline_simplify_locals_lowered_cleanup_instr(
 }
 
 ///|
-fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
+fn run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
   instrs : Array[@lib.Instruction],
+  reads : Array[Int],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if !reads.contains(local_id) {
+          reads.push(local_id)
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
+          body, reads,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
+          then_body, reads,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
+              body, reads,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_reads_after(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+  inherited_reads : Array[Int],
+) -> Array[Int] {
+  let reads = inherited_reads.copy()
+  for idx = start_idx; idx < instrs.length(); idx = idx + 1 {
+    run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
+      [instrs[idx]],
+      reads,
+    )
+  }
+  reads
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+  instrs : Array[@lib.Instruction],
+  live_after : Array[Int],
 ) -> Array[@lib.Instruction] {
   let normalized : Array[@lib.Instruction] = []
-  for instr in instrs {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    let child_live_after = run_hot_pipeline_simplify_locals_lowered_reads_after(
+      instrs,
+      idx + 1,
+      live_after,
+    )
     match instr {
       @lib.Block(bt, @lib.Expr(body)) =>
         normalized.push(
           @lib.Instruction::block(
             bt,
             @lib.Expr::new(
-              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
-                body,
+              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+                body, child_live_after,
               ),
             ),
           ),
         )
-      @lib.Loop(bt, @lib.Expr(body)) =>
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
+          body, child_live_after,
+        )
         normalized.push(
           @lib.Instruction::loop_(
             bt,
             @lib.Expr::new(
-              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
-                body,
+              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+                body, child_live_after,
               ),
             ),
           ),
         )
+      }
       @lib.TryTable(bt, catches, @lib.Expr(body)) =>
         normalized.push(
           @lib.Instruction::try_table(
             bt,
             catches,
             @lib.Expr::new(
-              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
-                body,
+              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+                body, child_live_after,
               ),
             ),
           ),
@@ -57315,14 +60838,14 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
         normalized.push(
           @lib.Instruction::if_(
             bt,
-            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
-              then_body,
+            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+              then_body, child_live_after,
             ),
             match else_body {
               Some(else_body) =>
                 Some(
-                  run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
-                    else_body,
+                  run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+                    else_body, child_live_after,
                   ),
                 )
               None => None
@@ -57339,6 +60862,7 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
       @lib.LocalTee(@lib.LocalIdx(raw)) =>
         if idx + 1 < normalized.length() &&
           normalized[idx + 1] == @lib.Instruction::drop() &&
+          !live_after.contains(raw.reinterpret_as_int()) &&
           !run_hot_pipeline_raw_instrs_have_later_local_read(
             normalized,
             idx + 2,
@@ -57360,6 +60884,7 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
           match normalized[get_idx] {
             @lib.LocalGet(@lib.LocalIdx(next_raw)) =>
               raw == next_raw &&
+              !live_after.contains(raw.reinterpret_as_int()) &&
               !run_hot_pipeline_raw_instrs_have_later_local_read(
                 normalized,
                 get_idx + 1,
@@ -57391,6 +60916,16 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
     }
   }
   rewritten
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+    instrs,
+    [],
+  )
 }
 
 ///|
@@ -59004,6 +62539,37 @@ fn run_hot_pipeline_simplify_locals_forward_root_structured_local_carriers_with_
   let mut changed = false
   let mut idx = 0
   while idx < body.length() {
+    if idx + 1 < body.length() {
+      match (body[idx], body[idx + 1]) {
+        (
+          @lib.Block(
+            @lib.VoidBlockType,
+            @lib.Expr(
+              [producer, @lib.LocalTee(@lib.LocalIdx(tee_raw)), @lib.Drop]
+            )
+          ),
+          @lib.LocalGet(@lib.LocalIdx(get_raw)),
+        ) if tee_raw == get_raw &&
+          run_hot_pipeline_raw_simplify_locals_instr_is_dupable_copy_value(
+            producer,
+          ) &&
+          !run_hot_pipeline_raw_instrs_have_later_local_read(
+            body,
+            idx + 2,
+            tee_raw.reinterpret_as_int(),
+          ) => {
+          // A void wrapper that only copies a pure value through a local can
+          // yield that value directly. This keeps parent live-out propagation
+          // conservative without retaining the copied-control carrier.
+          rewritten.push(@lib.Instruction::nop())
+          rewritten.push(producer)
+          changed = true
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
     if idx + 2 < body.length() {
       let mut prefix_is_inert = true
       for prefix_idx = 0; prefix_idx < idx; prefix_idx = prefix_idx + 1 {
@@ -61533,6 +65099,102 @@ fn run_hot_pipeline_raw_merge_locals_has_candidate(
 }
 
 ///|
+fn run_hot_pipeline_raw_merge_locals_call_store_shape(
+  instrs : Array[@lib.Instruction],
+) -> (Bool, Bool) {
+  let mut has_call = false
+  let mut has_store = false
+  for instr in instrs {
+    match instr {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+        has_call = true
+      @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) => has_store = true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let (child_call, child_store) = run_hot_pipeline_raw_merge_locals_call_store_shape(
+          body,
+        )
+        has_call = has_call || child_call
+        has_store = has_store || child_store
+      }
+      @lib.If(_, then_body, else_body) => {
+        let (then_call, then_store) = run_hot_pipeline_raw_merge_locals_call_store_shape(
+          then_body,
+        )
+        has_call = has_call || then_call
+        has_store = has_store || then_store
+        match else_body {
+          Some(body) => {
+            let (else_call, else_store) = run_hot_pipeline_raw_merge_locals_call_store_shape(
+              body,
+            )
+            has_call = has_call || else_call
+            has_store = has_store || else_store
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  (has_call, has_store)
+}
+
+///|
+fn run_hot_pipeline_raw_merge_locals_has_return(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Return => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_merge_locals_has_return(body) {
+          return true
+        }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_merge_locals_has_return(body) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_expr) | @lib.LegacyCatchAll(catch_expr) =>
+              catch_expr
+          }
+          if run_hot_pipeline_raw_merge_locals_has_return(catch_body) {
+            return true
+          }
+        }
+      }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_merge_locals_has_return(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_merge_locals_has_return(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_merge_locals(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -61545,6 +65207,28 @@ fn run_hot_pipeline_raw_merge_locals(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(_, @lib.Expr(instrs)) = original
+  let (has_call, has_store) = run_hot_pipeline_raw_merge_locals_call_store_shape(
+    instrs,
+  )
+  if has_call &&
+    has_store &&
+    run_hot_pipeline_raw_merge_locals_has_candidate(instrs) {
+    return Some({
+      reason: "call-store-local-copy-merge-locals-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_merge_locals_has_return(instrs) &&
+    run_hot_pipeline_raw_merge_locals_has_candidate(instrs) {
+    return Some({
+      reason: "early-return-local-copy-merge-locals-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if !run_hot_pipeline_raw_merge_locals_has_candidate(instrs) {
     return Some({
       reason: "no-merge-locals-candidates",
@@ -61886,6 +65570,66 @@ fn run_hot_pipeline_merge_blocks_preclean_ref_drops(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_casts_has_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.RefCast(_, _, _)
+      | @lib.RefCastDescEq(_, _, _)
+      | @lib.RefTest(_, _, _)
+      | @lib.RefTestDesc(_, _)
+      | @lib.RefAsNonNull
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_optimize_casts_has_candidate(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_optimize_casts_has_candidate(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_optimize_casts_has_candidate(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_casts_no_candidates(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "optimize-casts" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  if run_hot_pipeline_raw_optimize_casts_has_candidate(instrs) {
+    None
+  } else {
+    Some({
+      reason: "no-optimize-casts-candidates",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+}
+
+///|
 fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -61943,6 +65687,13 @@ fn run_hot_pipeline_func(
     None => ()
   }
   match run_hot_pipeline_raw_pick_load_signs(mod_, func_idx, descriptor) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match
+    run_hot_pipeline_raw_optimize_casts_no_candidates(
+      mod_, func_idx, descriptor,
+    ) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -64941,6 +68692,7 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
   }
   let params = cl_defined_func_param_cache(mod_)
   let mut rewritten : Array[@lib.Func]? = None
+  let changed_code_indices : Array[Int] = []
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     if code_idx >= touched.length() || !touched[code_idx] {
       continue
@@ -64960,29 +68712,74 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
           rewritten = Some(copy)
         }
       }
+      changed_code_indices.push(code_idx)
     }
   }
   match rewritten {
-    Some(copy) =>
-      Ok(mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec())
+    Some(copy) => {
+      let checked = cl_validate_rewritten_funcs(
+        mod_, funcs, copy, changed_code_indices,
+      )
+      if checked == funcs {
+        Ok(mod_)
+      } else {
+        Ok(mod_.with_code_sec(@lib.CodeSec::new(checked)).without_name_sec())
+      }
+    }
     None => Ok(mod_)
   }
 }
 
 ///|
-fn run_hot_pipeline_apply_coalesce_locals_to_oversized_defs(
+fn run_hot_pipeline_o4z_coalesce_local_count_selected(
+  module_defined_func_count : Int,
+  local_count : Int,
+) -> Bool {
+  local_count > 50000 ||
+  (module_defined_func_count < 2000 && local_count > 0 && local_count <= 512)
+}
+
+///|
+fn run_hot_pipeline_bounded_coalesce_touched(
   mod_ : @lib.Module,
-) -> Result[@lib.Module, String] {
+  requested : Array[Bool],
+) -> Array[Bool] {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return Ok(mod_)
+    None => return []
   }
   let touched : Array[Bool] = []
-  for func in funcs {
-    let @lib.Func(locals, _) = func
-    touched.push(locals.length() > 50000)
+  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+    let @lib.Func(locals, _) = funcs[code_idx]
+    let local_count = locals.length()
+    touched.push(
+      code_idx < requested.length() &&
+      requested[code_idx] &&
+      !cl_locals_have_nondefaultable_type(locals) &&
+      run_hot_pipeline_o4z_coalesce_local_count_selected(
+        funcs.length(),
+        local_count,
+      ),
+    )
   }
-  run_hot_pipeline_apply_coalesce_locals_to_touched(mod_, touched)
+  touched
+}
+
+///|
+fn run_hot_pipeline_apply_coalesce_locals_to_bounded_defs(
+  mod_ : @lib.Module,
+) -> Result[@lib.Module, String] {
+  let func_count = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => return Ok(mod_)
+  }
+  run_hot_pipeline_apply_coalesce_locals_to_touched(
+    mod_,
+    run_hot_pipeline_bounded_coalesce_touched(
+      mod_,
+      Array::make(func_count, true),
+    ),
+  )
 }
 
 ///|
@@ -73029,6 +76826,28 @@ fn run_hot_pipeline_sgo_collapse_large_unreachable_tails(
 }
 
 ///|
+fn run_hot_pipeline_sgo_validate_nested_cleanup_output(
+  candidate : @lib.Module,
+  pass_name : String,
+  trace : (String) -> Unit,
+) -> Result[@lib.Module, String] {
+  match @validate.validate_module(candidate) {
+    Ok(_) => Ok(candidate)
+    Err(err) => {
+      pipeline_trace_hook(
+        trace,
+        "simplify-globals-optimizing",
+        "nested-pass-invalid",
+        payload="name=\{pass_name} reason=\{err}",
+      )
+      Err(
+        "SGO nested cleanup pass \{pass_name} produced invalid module: \{err}",
+      )
+    }
+  }
+}
+
+///|
 fn run_hot_pipeline_sgo_nested_cleanup_descriptor(
   pass_name : String,
 ) -> Result[@ir.HotPassDescriptor, String] {
@@ -73043,6 +76862,97 @@ fn run_hot_pipeline_sgo_nested_cleanup_descriptor(
 }
 
 ///|
+fn run_hot_pipeline_sgo_deep_copy_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  for instr in instrs {
+    out.push(
+      match instr {
+        @lib.Block(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(run_hot_pipeline_sgo_deep_copy_instrs(body)),
+          )
+        @lib.Loop(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(run_hot_pipeline_sgo_deep_copy_instrs(body)),
+          )
+        @lib.If(block_type, then_body, else_body) =>
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_sgo_deep_copy_instrs(then_body),
+            match else_body {
+              Some(body) => Some(run_hot_pipeline_sgo_deep_copy_instrs(body))
+              None => None
+            },
+          )
+        @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+          let next_catches : Array[@lib.LegacyCatch] = []
+          for catch_ in catches {
+            next_catches.push(
+              match catch_ {
+                @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) =>
+                  @lib.LegacyCatch::tagged(
+                    tag_idx,
+                    @lib.Expr::new(
+                      run_hot_pipeline_sgo_deep_copy_instrs(catch_body),
+                    ),
+                  )
+                @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+                  @lib.LegacyCatch::all(
+                    @lib.Expr::new(
+                      run_hot_pipeline_sgo_deep_copy_instrs(catch_body),
+                    ),
+                  )
+              },
+            )
+          }
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(run_hot_pipeline_sgo_deep_copy_instrs(body)),
+            next_catches,
+            delegate~,
+          )
+        }
+        @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(run_hot_pipeline_sgo_deep_copy_instrs(body)),
+          )
+        _ => instr
+      },
+    )
+  }
+  out
+}
+
+///|
+fn run_hot_pipeline_sgo_snapshot_touched_funcs(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let snapshot = funcs.copy()
+      for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+        if code_idx < touched.length() && touched[code_idx] {
+          let @lib.Func(locals, @lib.Expr(body)) = funcs[code_idx]
+          snapshot[code_idx] = @lib.Func::new(
+            locals,
+            @lib.Expr::new(run_hot_pipeline_sgo_deep_copy_instrs(body)),
+          )
+        }
+      }
+      mod_.with_code_sec(@lib.CodeSec::new(snapshot))
+    }
+    None => mod_
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_sgo_nested_cleanup(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -73052,6 +76962,19 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
   if touched_count == 0 {
     return Ok(mod_)
   }
+  // Nested function passes can mutate shared local/body storage before their
+  // batch writeback validator rejects a candidate. Deep-copy touched instruction
+  // forests so invalid candidates fail closed without encoding the whole module.
+  let snapshot_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:sgo:nested:snapshot",
+  )
+  let rollback = run_hot_pipeline_sgo_snapshot_touched_funcs(mod_, touched)
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:sgo:nested:snapshot",
+    snapshot_start_us,
+  )
   let (cleanup_touched, filtered_large_count, large_unreachable_touched) = run_hot_pipeline_sgo_nested_cleanup_filter_touched(
     mod_, touched,
   )
@@ -73183,7 +77106,8 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
     if pass_name == "coalesce-locals" {
       current = match
         run_hot_pipeline_apply_coalesce_locals_to_touched(
-          current, cleanup_touched,
+          current,
+          run_hot_pipeline_bounded_coalesce_touched(current, cleanup_touched),
         ) {
         Ok(next) => next
         Err(err) => {
@@ -73251,7 +77175,7 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
         return Err(err)
       }
     }
-    current = match
+    let candidate = match
       run_hot_pipeline_apply_hot_pass_to_touched(
         current, descriptor, cleanup_touched, options,
       ) {
@@ -73268,6 +77192,27 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
           nested_total_start_us,
         )
         return Err("SGO nested cleanup pass \{pass_name}: \{err}")
+      }
+    }
+    current = match
+      run_hot_pipeline_sgo_validate_nested_cleanup_output(
+        candidate,
+        pass_name,
+        options.trace,
+      ) {
+      Ok(next) => next
+      Err(_) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:sgo:nested:\{pass_name}",
+          nested_pass_start_us,
+        )
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:sgo:nested-total",
+          nested_total_start_us,
+        )
+        return Ok(rollback)
       }
     }
     perf_stop_timer_opt(
@@ -73288,6 +77233,93 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
 }
 
 ///|
+fn run_hot_pipeline_apply_sgo_final_cleanup_suffix(
+  cleaned : @lib.Module,
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  let func_count = match cleaned.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => return Ok(cleaned)
+  }
+  // Final SGO cleanup can expose constant/local and branch opportunities after
+  // the shared nested cleanup slots have already run. Reclaim only
+  // medium-module debris here; keep the artifact-scale self-optimized CLI
+  // outside this extra wave.
+  if func_count >= 1000 {
+    return Ok(cleaned)
+  }
+  let propagated = match pass_registry_lookup_cached("precompute-propagate") {
+    Some(entry) =>
+      match run_hot_pipeline_apply_hot_pass(cleaned, entry, options) {
+        Ok(candidate) => candidate
+        Err(err) => return Err("SGO final precompute cleanup: \{err}")
+      }
+    None => return Err("SGO final cleanup missing precompute-propagate")
+  }
+  let blocks_cleaned = match pass_registry_lookup_cached("merge-blocks") {
+    Some(entry) =>
+      match run_hot_pipeline_apply_hot_pass(propagated, entry, options) {
+        Ok(candidate) => candidate
+        Err(err) => return Err("SGO final merge-blocks cleanup: \{err}")
+      }
+    None => return Err("SGO final cleanup missing merge-blocks")
+  }
+  let locals_cleaned = match pass_registry_lookup_cached("simplify-locals") {
+    Some(entry) =>
+      match run_hot_pipeline_apply_hot_pass(blocks_cleaned, entry, options) {
+        Ok(candidate) => candidate
+        Err(err) => return Err("SGO final simplify-locals cleanup: \{err}")
+      }
+    None => return Err("SGO final cleanup missing simplify-locals")
+  }
+  let branch_cleaned = match pass_registry_lookup_cached("remove-unused-brs") {
+    Some(entry) =>
+      match run_hot_pipeline_apply_hot_pass(locals_cleaned, entry, options) {
+        Ok(candidate) => candidate
+        Err(err) => return Err("SGO final remove-unused-brs cleanup: \{err}")
+      }
+    None => return Err("SGO final cleanup missing remove-unused-brs")
+  }
+  let candidate = match
+    run_hot_pipeline_apply_coalesce_locals_to_bounded_defs(branch_cleaned) {
+    Ok(candidate) => sgo_apply_final_cleanup(candidate)
+    Err(err) => return Err(err)
+  }
+  if candidate == cleaned {
+    return Ok(cleaned)
+  }
+  match
+    (
+      run_hot_pipeline_dae_encoded_size(cleaned),
+      run_hot_pipeline_dae_encoded_size(candidate),
+      @validate.validate_module(candidate),
+    ) {
+    (Some(before), Some(after), Ok(_)) if after < before => {
+      pipeline_trace_hook(
+        options.trace,
+        "simplify-globals-optimizing",
+        "final-cleanup-suffix",
+        payload="accepted=true before=\{before} after=\{after}",
+      )
+      Ok(candidate)
+    }
+    (before, after, validation) => {
+      let reason = match validation {
+        Ok(_) => "non-smaller-or-unencodable"
+        Err(_) => "validation"
+      }
+      pipeline_trace_hook(
+        options.trace,
+        "simplify-globals-optimizing",
+        "final-cleanup-suffix",
+        payload="accepted=false reason=\{reason} before=\{before.to_string()} after=\{after.to_string()}",
+      )
+      Ok(cleaned)
+    }
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_sgo_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
@@ -73302,11 +77334,23 @@ fn run_hot_pipeline_apply_sgo_optimizing_module_pass(
     return Ok(mod_)
   }
   let result = sgo_run_core(mod_, options.trace, perf=options.perf)
-  run_hot_pipeline_apply_sgo_nested_cleanup(
-    result.mod_out,
-    result.touched,
-    options,
-  )
+  let cleaned = match
+    run_hot_pipeline_apply_sgo_nested_cleanup(
+      result.mod_out,
+      result.touched,
+      options,
+    ) {
+    Ok(cleaned) => cleaned
+    Err(err) => return Err(err)
+  }
+  if result.mod_out == mod_ {
+    Ok(cleaned)
+  } else {
+    run_hot_pipeline_apply_sgo_final_cleanup_suffix(
+      sgo_apply_final_cleanup(cleaned),
+      options,
+    )
+  }
 }
 
 ///|
@@ -74076,6 +78120,52 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
 }
 
 ///|
+fn run_hot_pipeline_should_defer_call_bulk_memory_module(
+  mod_ : @lib.Module,
+  max_defined_funcs_exclusive : Int,
+) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      if funcs.length() < 286 ||
+        (
+          max_defined_funcs_exclusive >= 0 &&
+          funcs.length() >= max_defined_funcs_exclusive
+        ) {
+        return false
+      }
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        if run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
+            body,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_cleanup_medium_inlining_fallback_locals(
+  mod_ : @lib.Module,
+) -> Result[@lib.Module, String] {
+  let func_count = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => return Ok(mod_)
+  }
+  // The caller entered the >=286-definition guarded path before inlining;
+  // helper deletion may move the rewritten module just below that boundary.
+  // Keep cleanup below the artifact-scale lane and reuse the existing bounded,
+  // defaultable, validated coalescing policy.
+  if func_count >= 1000 {
+    return Ok(mod_)
+  }
+  run_hot_pipeline_apply_coalesce_locals_to_bounded_defs(mod_)
+}
+
+///|
 fn run_hot_pipeline_apply_module_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
@@ -74123,7 +78213,7 @@ fn run_hot_pipeline_apply_module_pass(
     "local-subtyping" => local_subtyping_run_module_pass(mod_)
     "coalesce-locals" =>
       if options.optimize_level >= 4 && options.shrink_level >= 1 {
-        match run_hot_pipeline_apply_coalesce_locals_to_oversized_defs(mod_) {
+        match run_hot_pipeline_apply_coalesce_locals_to_bounded_defs(mod_) {
           Ok(next) => next
           Err(err) => return Err(err)
         }
@@ -74145,9 +78235,16 @@ fn run_hot_pipeline_apply_module_pass(
         traps_never_happen=options.traps_never_happen,
       )
     "dae-optimizing" | "dead-argument-elimination-optimizing" =>
-      match run_hot_pipeline_apply_dae_optimizing_module_pass(mod_, options) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      if run_hot_pipeline_should_defer_call_bulk_memory_module(mod_, 1000) {
+        (options.trace)(
+          "pass[dae-optimizing]:fallback-plain-results-only reason=medium-call-bulk-memory-param-control",
+        )
+        dae_run_dropped_result_batch_only(mod_, options.trace)
+      } else {
+        match run_hot_pipeline_apply_dae_optimizing_module_pass(mod_, options) {
+          Ok(next) => next
+          Err(err) => return Err(err)
+        }
       }
     "inline-main" => inline_main_run_module_pass(mod_)
     "inlining" =>
@@ -74166,21 +78263,47 @@ fn run_hot_pipeline_apply_module_pass(
         perf=options.perf,
       )
     "inlining-optimizing" =>
-      inlining_run_module_pass_with_perf(
-        mod_,
-        optimize=true,
-        trace=Some(options.trace),
-        pass_name="inlining-optimizing",
-        optimize_level=options.optimize_level,
-        shrink_level=options.shrink_level,
-        always_inline_max_size=options.inlining_always_inline_max_size,
-        one_caller_inline_max_size=options.inlining_one_caller_inline_max_size,
-        flexible_inline_max_size=options.inlining_flexible_inline_max_size,
-        max_combined_binary_size=options.inlining_max_combined_binary_size,
-        allow_functions_with_loops=options.inlining_allow_functions_with_loops,
-        partial_inlining_ifs=options.inlining_partial_inlining_ifs,
-        perf=options.perf,
-      )
+      if run_hot_pipeline_should_defer_call_bulk_memory_module(mod_, -1) {
+        (options.trace)(
+          "pass[inlining-optimizing]:fallback-plain-tiny reason=large-call-bulk-memory-param-control",
+        )
+        let inlined = inlining_run_module_pass_with_perf(
+          mod_,
+          optimize=false,
+          trace=Some(options.trace),
+          pass_name="inlining-optimizing",
+          optimize_level=options.optimize_level,
+          shrink_level=options.shrink_level,
+          always_inline_max_size=2,
+          one_caller_inline_max_size=4,
+          flexible_inline_max_size=0,
+          max_combined_binary_size=options.inlining_max_combined_binary_size,
+          allow_functions_with_loops=false,
+          partial_inlining_ifs=0,
+          perf=options.perf,
+        )
+        match
+          run_hot_pipeline_cleanup_medium_inlining_fallback_locals(inlined) {
+          Ok(next) => next
+          Err(err) => return Err(err)
+        }
+      } else {
+        inlining_run_module_pass_with_perf(
+          mod_,
+          optimize=true,
+          trace=Some(options.trace),
+          pass_name="inlining-optimizing",
+          optimize_level=options.optimize_level,
+          shrink_level=options.shrink_level,
+          always_inline_max_size=options.inlining_always_inline_max_size,
+          one_caller_inline_max_size=options.inlining_one_caller_inline_max_size,
+          flexible_inline_max_size=options.inlining_flexible_inline_max_size,
+          max_combined_binary_size=options.inlining_max_combined_binary_size,
+          allow_functions_with_loops=options.inlining_allow_functions_with_loops,
+          partial_inlining_ifs=options.inlining_partial_inlining_ifs,
+          perf=options.perf,
+        )
+      }
     _ =>
       match no_inline_pass_pattern(entry.name) {
         Some((base, pattern)) =>

@@ -318,6 +318,10 @@ test "simplify-globals-optimizing perf trace breaks down core phases" {
     msg=text,
   )
   assert_true(
+    text.contains("perf:timer name=detail:sgo:nested:snapshot"),
+    msg=text,
+  )
+  assert_true(
     text.contains("perf:timer name=detail:sgo:nested:optimize-instructions"),
     msg=text,
   )
@@ -381,8 +385,8 @@ test "simplify-globals-optimizing only reruns cleanup on touched functions" {
   let untouched = optimized.pretty_print_defined_func(1U)
   assert_false(touched.contains("global.get"), msg=touched)
   assert_false(touched.contains("drop"), msg=touched)
-  assert_true(untouched.contains("drop"), msg=untouched)
-  assert_true(untouched.contains("I32(99)"), msg=untouched)
+  assert_false(untouched.contains("drop"), msg=untouched)
+  assert_false(untouched.contains("I32(99)"), msg=untouched)
 }
 
 ///|
@@ -503,6 +507,387 @@ test "simplify-globals-optimizing keeps potentially trapping trunc prefix before
 }
 
 ///|
+test "simplify-globals-optimizing removes pure dropped local reads during cheap cleanup" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 7))
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    drop
+      #|    i32.const 0
+      #|    drop
+      #|    global.get $g)
+      #|,
+    ),
+  )
+  for _idx = 0; _idx < 256; _idx = _idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")")
+  let optimized = sgo_test_run(source.to_string())
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing final cleanup removes noops from unchanged functions" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "run") (result i32)
+      #|    global.get $g)
+      #|  (func (export "noop") (local i32)
+      #|    nop
+      #|    local.get 0
+      #|    drop
+      #|    i32.const 9
+      #|    drop
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    i32.eq
+      #|    drop
+      #|    block (result i32)
+      #|      i32.const 7
+      #|      br 0
+      #|    end
+      #|    drop)
+      #|,
+    ),
+  )
+  for _idx = 0; _idx < 255; _idx = _idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")")
+  let optimized = sgo_test_run(source.to_string())
+  let run_pretty = optimized.pretty_print_defined_func(0U)
+  let noop_pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(run_pretty.contains("global.get"), msg=run_pretty)
+  assert_true(run_pretty.contains("I32(7)"), msg=run_pretty)
+  assert_false(noop_pretty.contains("nop"), msg=noop_pretty)
+  assert_false(noop_pretty.contains("local.get"), msg=noop_pretty)
+  assert_false(noop_pretty.contains("drop"), msg=noop_pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes branches exposed after final cleanup" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "trigger") (result i32)
+      #|    global.get $g)
+      #|  (func (export "branch") (result i32)
+      #|    block (result i32)
+      #|      i32.const 9
+      #|      br 0
+      #|    end)
+      #|  (func (export "return") (result i32)
+      #|    i32.const 10
+      #|    return))
+      #|,
+    ),
+  )
+  let branch_pretty = optimized.pretty_print_defined_func(1U)
+  let return_pretty = optimized.pretty_print_defined_func(2U)
+  assert_false(branch_pretty.contains("br"), msg=branch_pretty)
+  assert_false(return_pretty.contains("return"), msg=return_pretty)
+}
+
+///|
+test "simplify-globals-optimizing propagates constants exposed after final cleanup" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "trigger") (result i32)
+      #|    global.get $g)
+      #|  (func (export "constant") (result i32) (local i32)
+      #|    i32.const 9
+      #|    local.set 0
+      #|    local.get 0)
+      #|  (func (export "condition") (result i32) (local i32)
+      #|    i32.const 0
+      #|    local.tee 0
+      #|    i32.eqz))
+      #|,
+    ),
+  )
+  let constant_pretty = optimized.pretty_print_defined_func(1U)
+  let condition_pretty = optimized.pretty_print_defined_func(2U)
+  assert_false(constant_pretty.contains("local.get"), msg=constant_pretty)
+  assert_false(condition_pretty.contains("i32.eqz"), msg=condition_pretty)
+  assert_true(condition_pretty.contains("I32(1)"), msg=condition_pretty)
+}
+
+///|
+test "simplify-globals-optimizing merges safe blocks exposed by final cleanup" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "trigger") (result i32)
+      #|    global.get $g)
+      #|  (func (export "run")
+      #|    (block
+      #|      (block
+      #|        nop))))
+      #|,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("(block"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing simplifies locals in the final cleanup suffix" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    (
+      #|(module
+      #|  (import "env" "make" (func $make (result i32)))
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "trigger") (result i32)
+      #|    global.get $g)
+      #|  (func (export "run") (result i32) (local i32)
+      #|    call $make
+      #|    local.set 0
+      #|    local.get 0
+      #|    return))
+      #|,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:final-cleanup-suffix accepted=true",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-globals-optimizing coalesces locals exposed by final cleanup" {
+  let (optimized, trace) = sgo_test_run_with_trace(
+    (
+      #|(module
+      #|  (import "env" "side" (func $side (param i32)))
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "trigger") (result i32)
+      #|    global.get $g)
+      #|  (func (export "run") (local i32 i32)
+      #|    i32.const 1
+      #|    local.set 0
+      #|    local.get 0
+      #|    call $side
+      #|    i32.const 2
+      #|    local.set 1
+      #|    local.get 0
+      #|    drop
+      #|    local.get 1
+      #|    call $side))
+      #|,
+    ),
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, @lib.Func(locals, _)])) =>
+      @debug.assert_eq(locals.length(), 1)
+    other => fail("expected trigger and cleaned run functions, got \{other}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:final-cleanup-suffix accepted=true",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-globals-optimizing final cleanup removes dropped pure result ifs" {
+  let source =
+    #|(module
+    #|  (global $g i32 (i32.const 7))
+    #|  (func (export "trigger") (result i32)
+    #|    global.get $g)
+    #|  (func (export "run") (param i32)
+    #|    local.get 0
+    #|    i32.const 0
+    #|    i32.ne
+    #|    if (result i32)
+    #|      local.get 0
+    #|      i32.const 0
+    #|      i32.ne
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    drop))
+    #|
+  let optimized = sgo_test_run(source)
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("i32.ne"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing final suffix preserves effectful result-if conditions" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "condition" (func $condition (result i32)))
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "trigger") (result i32)
+      #|    global.get $g)
+      #|  (func (export "run")
+      #|    call $condition
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      i32.const 0
+      #|    end
+      #|    drop))
+      #|,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(
+    pretty.contains("(if I32") || pretty.contains("select"),
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-globals-optimizing final cleanup voids dropped effectful terminal-branch blocks" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "trigger") (result i32)
+      #|    global.get $g)
+      #|  (func (export "run") (param i32)
+      #|    block (result i32)
+      #|      i32.const 0
+      #|      local.get 0
+      #|      i32.store
+      #|      local.get 0
+      #|      br 0
+      #|    end
+      #|    drop))
+      #|,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_false(pretty.contains("(block"), msg=pretty)
+  assert_false(pretty.contains("br"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected voided result block output to validate, got \{err}")
+  }
+}
+
+///|
+test "simplify-globals-optimizing final cleanup keeps result blocks targeted by nested branches" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "trigger") (result i32)
+      #|    global.get $g)
+      #|  (func (export "run") (param i32)
+      #|    block (result i32)
+      #|      local.get 0
+      #|      if
+      #|        i32.const 7
+      #|        br 1
+      #|      end
+      #|      i32.const 9
+      #|      br 0
+      #|    end
+      #|    drop))
+      #|,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(pretty.contains("(block I32"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing final suffix removes pure result blocks without a stack-neutral prefix proof" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "trigger") (result i32)
+      #|    global.get $g)
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      i32.const 1
+      #|      i32.const 9
+      #|      br 0
+      #|    end
+      #|    drop))
+      #|,
+    ),
+  )
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("(block I32"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("br"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing final cleanup removes dropped reads after prior writes" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 7))
+      #|  (func (export "run") (result i32) (local i32)
+      #|    i32.const 9
+      #|    local.set 0
+      #|    local.get 0
+      #|    drop
+      #|    i32.const 0
+      #|    drop
+      #|    global.get $g)
+      #|,
+    ),
+  )
+  for _idx = 0; _idx < 256; _idx = _idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")")
+  let optimized = sgo_test_run(source.to_string())
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes no-global unreachable drop debris" {
   let optimized = sgo_test_run(
     (
@@ -522,7 +907,7 @@ test "simplify-globals-optimizing removes no-global unreachable drop debris" {
     sgo_test_count_instr(instrs, @lib.Instruction::unreachable_()),
     1,
   )
-  @debug.assert_eq(sgo_test_count_instr(instrs, @lib.Instruction::drop()), 2)
+  @debug.assert_eq(sgo_test_count_instr(instrs, @lib.Instruction::drop()), 1)
 }
 
 ///|
@@ -700,8 +1085,8 @@ test "simplify-globals-optimizing nested cleanup runs above eight touched functi
     assert_false(pretty.contains("drop"), msg=pretty)
   }
   let untouched = optimized.pretty_print_defined_func(9U)
-  assert_true(untouched.contains("I32(99)"), msg=untouched)
-  assert_true(untouched.contains("drop"), msg=untouched)
+  assert_false(untouched.contains("I32(99)"), msg=untouched)
+  assert_false(untouched.contains("drop"), msg=untouched)
 }
 
 ///|
@@ -732,8 +1117,8 @@ test "simplify-globals-optimizing nested cleanup runs at module function-count t
   assert_false(touched.contains("global.get"), msg=touched)
   assert_false(touched.contains("drop"), msg=touched)
   let untouched = optimized.pretty_print_defined_func(1U)
-  assert_true(untouched.contains("I32(99)"), msg=untouched)
-  assert_true(untouched.contains("drop"), msg=untouched)
+  assert_false(untouched.contains("I32(99)"), msg=untouched)
+  assert_false(untouched.contains("drop"), msg=untouched)
 }
 
 ///|
@@ -764,8 +1149,8 @@ test "simplify-globals-optimizing nested cleanup runs in modules with more than 
   assert_false(touched.contains("global.get"), msg=touched)
   assert_false(touched.contains("drop"), msg=touched)
   let untouched = optimized.pretty_print_defined_func(1U)
-  assert_true(untouched.contains("I32(99)"), msg=untouched)
-  assert_true(untouched.contains("drop"), msg=untouched)
+  assert_false(untouched.contains("I32(99)"), msg=untouched)
+  assert_false(untouched.contains("drop"), msg=untouched)
 }
 
 ///|
@@ -892,7 +1277,7 @@ test "simplify-globals-optimizing nested cleanup runs above the former instructi
 }
 
 ///|
-test "simplify-globals-optimizing propagates startup globals into data offsets without cleaning untouched functions" {
+test "simplify-globals-optimizing propagates startup globals into data offsets without nested cleanup" {
   let (optimized, trace) = sgo_test_run_with_trace(
     (
       #|(module
@@ -915,8 +1300,8 @@ test "simplify-globals-optimizing propagates startup globals into data offsets w
     msg=trace.to_string(),
   )
   let untouched = optimized.pretty_print_defined_func(0U)
-  assert_true(untouched.contains("drop"), msg=untouched)
-  assert_true(untouched.contains("I32(12)"), msg=untouched)
+  assert_false(untouched.contains("drop"), msg=untouched)
+  assert_false(untouched.contains("I32(12)"), msg=untouched)
 }
 
 ///|
@@ -942,7 +1327,7 @@ test "simplify-globals-optimizing canonicalizes immutable global copy chains" {
 }
 
 ///|
-test "simplify-globals-optimizing folds single-use multi-instruction global initializers without nested cleanup" {
+test "simplify-globals-optimizing preserves smaller single-use multi-instruction initializer aliases" {
   let (optimized, trace) = sgo_test_run_with_trace(
     (
       #|(module
@@ -957,9 +1342,7 @@ test "simplify-globals-optimizing folds single-use multi-instruction global init
   )
 
   @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
-    @lib.Instruction::i32_const(@lib.I32(4)),
-    @lib.Instruction::i32_const(@lib.I32(5)),
-    @lib.Instruction::i32_add(),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
   ])
   assert_false(
     trace.any(fn(line) { line.contains("nested-cleanup") }),

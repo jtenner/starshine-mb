@@ -40,6 +40,7 @@ priv struct InlRewriteState {
   mut func : @lib.Func
   mut changed : Bool
   size : Int
+  reusable_body_local_start : Int
   tail_callsite_hoists : Array[InlTailCallsiteHoist]
 }
 
@@ -2821,6 +2822,7 @@ fn inl_inline_call_instrs(
               callee_abs,
               imports,
               false,
+              state.reusable_body_local_start,
             ) {
             Some((next_func, replacement)) => {
               state.func = next_func
@@ -2858,6 +2860,7 @@ fn inl_inline_call_instrs(
               callee_abs,
               imports,
               true,
+              state.reusable_body_local_start,
             ) {
             Some((next_func, replacement)) => {
               state.func = next_func
@@ -3027,6 +3030,189 @@ fn inl_default_local_init_instrs(
 }
 
 ///|
+fn inl_collect_parameter_local_uses(
+  instrs : Array[@lib.Instruction],
+  parameter_count : Int,
+  reads : Array[Int],
+  writes : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let slot = raw.reinterpret_as_int()
+        if slot >= 0 && slot < parameter_count {
+          reads[slot] += 1
+        }
+      }
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let slot = raw.reinterpret_as_int()
+        if slot >= 0 && slot < parameter_count {
+          writes[slot] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        inl_collect_parameter_local_uses(body, parameter_count, reads, writes)
+      @lib.If(_, then_body, else_body) => {
+        inl_collect_parameter_local_uses(
+          then_body, parameter_count, reads, writes,
+        )
+        match else_body {
+          Some(body) =>
+            inl_collect_parameter_local_uses(
+              body, parameter_count, reads, writes,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn inl_instrs_have_function_exit(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if inl_instrs_have_function_exit(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if inl_instrs_have_function_exit(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if inl_instrs_have_function_exit(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn inl_is_single_parameter_i32_const_add(
+  body : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> Bool {
+  if parameter_count != 1 || body.length() < 3 {
+    return false
+  }
+  match (body[0], body[1], body[2]) {
+    (@lib.LocalGet(@lib.LocalIdx(0U)), @lib.I32Const(_), @lib.I32Add) => true
+    _ => false
+  }
+}
+
+///|
+fn inl_ordered_single_use_parameter_stack_prefix(
+  body : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> Int {
+  if parameter_count <= 0 || body.length() == 0 {
+    return 0
+  }
+  if inl_is_single_parameter_i32_const_add(body, parameter_count) {
+    return 0
+  }
+  let reads = Array::make(parameter_count, 0)
+  let writes = Array::make(parameter_count, false)
+  inl_collect_parameter_local_uses(body, parameter_count, reads, writes)
+  let mut prefix = 0
+  while prefix < parameter_count && prefix < body.length() {
+    match body[prefix] {
+      @lib.LocalGet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() == prefix &&
+        reads[prefix] == 1 &&
+        !writes[prefix] => prefix += 1
+      _ => break
+    }
+  }
+  prefix
+}
+
+///|
+fn inl_fold_adjacent_local_set_gets(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalSet(set_idx), @lib.LocalGet(get_idx)) if set_idx == get_idx => {
+          out.push(@lib.Instruction::local_tee(set_idx))
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    let next = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        @lib.Instruction::block(
+          block_type,
+          @lib.Expr::new(inl_fold_adjacent_local_set_gets(body)),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        @lib.Instruction::loop_(
+          block_type,
+          @lib.Expr::new(inl_fold_adjacent_local_set_gets(body)),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        @lib.Instruction::if_(
+          block_type,
+          inl_fold_adjacent_local_set_gets(then_body),
+          match else_body {
+            Some(body) => Some(inl_fold_adjacent_local_set_gets(body))
+            None => None
+          },
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(inl_fold_adjacent_local_set_gets(body)),
+        )
+      instr => instr
+    }
+    out.push(next)
+    idx += 1
+  }
+  out
+}
+
+///|
+fn inl_allocate_reusable_scratch_local(
+  local_type : @lib.ValType,
+  pool_types : Array[@lib.ValType],
+  pool_used : Array[Bool],
+  next_locals : @lib.Locals,
+  absolute_pool_base : Int,
+) -> Int {
+  for slot = 0; slot < pool_types.length(); slot = slot + 1 {
+    if !pool_used[slot] && pool_types[slot] == local_type {
+      pool_used[slot] = true
+      return absolute_pool_base + slot
+    }
+  }
+  let slot = pool_types.length()
+  pool_types.push(local_type)
+  pool_used.push(true)
+  next_locals.append_types([local_type])
+  absolute_pool_base + slot
+}
+
+///|
 fn inl_make_inline_replacement(
   caller : @lib.Func,
   mod_ : @lib.Module,
@@ -3035,6 +3221,7 @@ fn inl_make_inline_replacement(
   callee_abs : Int,
   imports : Int,
   tail_callsite : Bool,
+  reusable_body_local_start : Int,
 ) -> (@lib.Func, Array[@lib.Instruction])? {
   let def_idx = callee_abs - imports
   let callee = match mod_.code_sec {
@@ -3049,20 +3236,12 @@ fn inl_make_inline_replacement(
     None => return None
   }
   let base = infos[caller_abs].params.length() + caller_locals.length()
-  let local_map : Array[Int] = []
-  for _ in info.params {
-    local_map.push(base + local_map.length())
-  }
-  for local_type in callee_locals.iter() {
-    local_map.push(base + local_map.length())
-    ignore(local_type)
-  }
   let prepared_body_and_locals = if tail_callsite {
     Some((callee_body, []))
   } else {
     inl_prepare_nested_return_call_hoists(
       callee_body,
-      base + local_map.length(),
+      base + info.params.length() + callee_locals.length(),
       mod_,
       infos,
     )
@@ -3071,13 +3250,84 @@ fn inl_make_inline_replacement(
     Some(value) => value
     None => return None
   }
+  let can_omit_inline_block = !tail_callsite &&
+    hoist_local_types.length() == 0 &&
+    !inl_instrs_have_function_exit(prepared_body) &&
+    !inl_is_single_parameter_i32_const_add(prepared_body, info.params.length())
+  let stack_parameter_prefix = if can_omit_inline_block {
+    inl_ordered_single_use_parameter_stack_prefix(
+      prepared_body,
+      info.params.length(),
+    )
+  } else {
+    0
+  }
+  let local_map : Array[Int] = []
   let next_locals = caller_locals.copy()
-  next_locals.append_types(info.params)
-  next_locals.append(callee_locals)
-  next_locals.append_types(hoist_local_types)
+  let can_reuse_scratch = !tail_callsite && hoist_local_types.length() == 0
+  if can_reuse_scratch {
+    let caller_param_count = infos[caller_abs].params.length()
+    let pool_types : Array[@lib.ValType] = []
+    let mut body_local_idx = 0
+    for local_type in caller_locals.iter() {
+      if body_local_idx >= reusable_body_local_start {
+        pool_types.push(local_type)
+      }
+      body_local_idx += 1
+    }
+    let pool_used = Array::make(pool_types.length(), false)
+    let absolute_pool_base = caller_param_count + reusable_body_local_start
+    for parameter = 0
+        parameter < info.params.length()
+        parameter = parameter + 1 {
+      local_map.push(
+        if parameter < stack_parameter_prefix {
+          -1
+        } else {
+          inl_allocate_reusable_scratch_local(
+            info.params[parameter],
+            pool_types,
+            pool_used,
+            next_locals,
+            absolute_pool_base,
+          )
+        },
+      )
+    }
+    for local_type in callee_locals.iter() {
+      local_map.push(
+        inl_allocate_reusable_scratch_local(
+          local_type, pool_types, pool_used, next_locals, absolute_pool_base,
+        ),
+      )
+    }
+  } else {
+    let appended_parameter_count = info.params.length() - stack_parameter_prefix
+    for parameter = 0
+        parameter < info.params.length()
+        parameter = parameter + 1 {
+      local_map.push(
+        if parameter < stack_parameter_prefix {
+          -1
+        } else {
+          base + parameter - stack_parameter_prefix
+        },
+      )
+    }
+    for local_idx = 0
+        local_idx < callee_locals.length()
+        local_idx = local_idx + 1 {
+      local_map.push(base + appended_parameter_count + local_idx)
+    }
+    if stack_parameter_prefix < info.params.length() {
+      next_locals.append_types(info.params[stack_parameter_prefix:].to_array())
+    }
+    next_locals.append(callee_locals)
+    next_locals.append_types(hoist_local_types)
+  }
   let replacement : Array[@lib.Instruction] = []
   let mut param_idx = info.params.length() - 1
-  while param_idx >= 0 {
+  while param_idx >= stack_parameter_prefix {
     replacement.push(
       @lib.Instruction::local_set(
         @lib.LocalIdx::new(local_map[param_idx].reinterpret_as_uint()),
@@ -3095,10 +3345,17 @@ fn inl_make_inline_replacement(
     )
     local_idx += 1
   }
-  let body = inl_rewrite_callee_instrs(
-    prepared_body, local_map, 0, tail_callsite,
-  )
-  replacement.push(@lib.Instruction::block(block_type, @lib.Expr::new(body)))
+  let body_source = if stack_parameter_prefix > 0 {
+    prepared_body[stack_parameter_prefix:].to_array()
+  } else {
+    prepared_body
+  }
+  let body = inl_rewrite_callee_instrs(body_source, local_map, 0, tail_callsite)
+  if can_omit_inline_block {
+    replacement.append(body)
+  } else {
+    replacement.push(@lib.Instruction::block(block_type, @lib.Expr::new(body)))
+  }
   Some(
     (
       @lib.Func::new(
@@ -3131,6 +3388,9 @@ fn inl_rewrite_func_body(
       infos[caller_abs].size
     } else {
       inl_count_instrs(body)
+    },
+    reusable_body_local_start: match func {
+      @lib.Func(locals, _) => locals.length()
     },
     tail_callsite_hoists: [],
   }
@@ -7070,6 +7330,29 @@ fn inl_run_nested_cleanup_pass(
 }
 
 ///|
+fn inl_validate_nested_cleanup_pass_output(
+  mod_ : @lib.Module,
+  pass_name : String,
+  trace : ((String) -> Unit)?,
+) -> Result[Unit, String] {
+  match @validate.validate_module(mod_) {
+    Ok(_) => Ok(())
+    Err(err) => {
+      match trace {
+        Some(cb) =>
+          cb(
+            "pass[inlining-optimizing]:nested-pass-invalid name=\{pass_name} error=\{err}",
+          )
+        None => ()
+      }
+      Err(
+        "inlining-optimizing nested cleanup pass \{pass_name} produced invalid module: \{err}",
+      )
+    }
+  }
+}
+
+///|
 fn inl_run_nested_cleanup_passes(
   mod_ : @lib.Module,
   passes : Array[String],
@@ -7087,6 +7370,15 @@ fn inl_run_nested_cleanup_passes(
         return Err(
           "inlining-optimizing nested cleanup pass \{pass_name}: \{err}",
         )
+    }
+    // CoalesceLocals runs through a raw special path instead of the ordinary
+    // HOT verifier. Reject an invalid local remap here before a later nested
+    // local pass indexes the stale declarations and aborts the process.
+    if pass_name == "coalesce-locals" {
+      match inl_validate_nested_cleanup_pass_output(current, pass_name, trace) {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
     }
   }
   Ok(current)
@@ -7108,7 +7400,23 @@ fn inl_finalize_module_pass_result(
   mod_ : @lib.Module,
   _optimize : Bool,
 ) -> @lib.Module {
-  inl_strip_partial_wrapper_annotations(mod_)
+  let stripped = inl_strip_partial_wrapper_annotations(mod_)
+  match stripped.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let out : Array[@lib.Func] = []
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(body)) = func
+        out.push(
+          @lib.Func::new(
+            locals,
+            @lib.Expr::new(inl_fold_adjacent_local_set_gets(body)),
+          ),
+        )
+      }
+      stripped.with_code_sec(@lib.CodeSec::new(out))
+    }
+    None => stripped
+  }
 }
 
 ///|
@@ -7353,6 +7661,7 @@ fn inl_inline_exact_target_instrs(
             target_abs,
             imports,
             false,
+            state.reusable_body_local_start,
           ) {
           Some((next_func, replacement)) => {
             state.func = next_func
@@ -7371,6 +7680,7 @@ fn inl_inline_exact_target_instrs(
             target_abs,
             imports,
             true,
+            state.reusable_body_local_start,
           ) {
           Some((next_func, replacement)) => {
             state.func = next_func
@@ -7523,6 +7833,9 @@ pub fn inline_main_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     func: funcs[main_def],
     changed: false,
     size: infos[main_abs].size,
+    reusable_body_local_start: match funcs[main_def] {
+      @lib.Func(locals, _) => locals.length()
+    },
     tail_callsite_hoists: [],
   }
   let next_body = inl_inline_exact_target_instrs(
@@ -7759,7 +8072,15 @@ fn inl_run_module_pass_once(
   perf_stop_timer_opt(
     perf, "detail:inlining:once:trim-unreachable-to-predicted-counts", trim_start_us,
   )
-  (trimmed, true, touched_original_abs)
+  (
+    trimmed,
+    inl_iteration_has_progress(
+      removal.touched,
+      inl_defined_func_count(mod_),
+      inl_defined_func_count(trimmed),
+    ),
+    touched_original_abs,
+  )
 }
 
 ///|

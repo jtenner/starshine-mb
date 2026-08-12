@@ -35,6 +35,167 @@ fn merge_blocks_large_jsonas_like_fixture() -> String {
 }
 
 ///|
+test "merge-blocks defers structured load-local carriers" {
+  let input = StringBuilder::new()
+  input.write_string("(module (memory 1) (func")
+  // The cumulative O4z pipeline reduces the production parser to 14 body
+  // locals before merge-blocks; isolated pass replay retained 15.
+  for i = 0; i < 14; i = i + 1 {
+    let _ = i
+    input.write_string(" (local i32)")
+  }
+  input.write_string(
+    " block loop i32.const 0 i32.load local.set 0 br 1 end end))",
+  )
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["merge-blocks"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected load-local carrier boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=structured-load-local-merge-blocks-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "merge-blocks defers structured call-local carriers" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func $callee) (func")
+  for i = 0; i < 18; i = i + 1 {
+    let _ = i
+    input.write_string(" (local i32)")
+  }
+  input.write_string(" block call $callee i32.const 1 local.set 0 end))")
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["merge-blocks"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected call-local carrier boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=large-call-structured-merge-blocks-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "merge-blocks defers large structured SIMD local carriers" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func")
+  for i = 0; i < 32; i = i + 1 {
+    let _ = i
+    input.write_string(" (local v128)")
+  }
+  input.write_string(" block end))")
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["merge-blocks"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected SIMD carrier boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=large-simd-structured-merge-blocks-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "merge-blocks preserves stack-carried locals overwritten before a later call" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $use (param i32 i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32) (local i32)
+    #|    block (result i32)
+    #|      i32.const 17216
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 0
+    #|      local.get 0
+    #|      local.set 1
+    #|      i32.const 0
+    #|      local.get 1
+    #|      i32.store
+    #|      local.get 1
+    #|      call $use
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["merge-blocks"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-carried local preservation, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=stack-carried-overwritten-local-merge-blocks-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "merge-blocks defers call-result locals beside memory copy" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $alloc (param i32 i32) (result i32) local.get 0)
+    #|  (func (param i32) (local i32)
+    #|    block
+    #|      local.get 0
+    #|      i32.const 2
+    #|      call $alloc
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 0
+    #|      local.get 0
+    #|      memory.copy
+    #|    end))
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      input,
+      ["merge-blocks"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected call-result memory-copy boundary, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=call-result-memory-copy-merge-blocks-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "merge-blocks skips large local-heavy json-as shaped functions" {
   let trace : Array[String] = []
   match

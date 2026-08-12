@@ -241,6 +241,54 @@ fn optimize_casts_count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
+test "optimize-casts skips structured scalar functions without cast candidates" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func $classify (param i32) (result i32) i32.const 0)
+    #|  (func (param i32) (result i32) (local i32 i32 i32)
+    #|    block
+    #|      block
+    #|        local.get 0
+    #|        call $classify
+    #|        i32.const 0
+    #|        i32.eq
+    #|        if
+    #|          local.get 0
+    #|          i32.load
+    #|          local.set 1
+    #|          br 1
+    #|        else
+    #|          local.get 0
+    #|          i32.load
+    #|          local.set 2
+    #|          br 2
+    #|        end
+    #|        unreachable
+    #|      end
+    #|      local.get 1
+    #|      return
+    #|    end
+    #|    local.get 2))
+  let original = pass_test_module_from_wat(input)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["optimize-casts"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected no-candidate optimize-casts success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) { line.contains("reason=no-optimize-casts-candidates") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "optimize-casts removes ref.cast when source already has the target non-null type" {
   let base_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),

@@ -5812,7 +5812,11 @@ fn sgo_rewrite_global_sec(
         infos[abs_idx].init = Some(rewritten_init)
         startup_consts[abs_idx] = sgo_expr_single_const(rewritten_init)
         sgo_record_alias_for_global(aliases, infos, abs_idx, rewritten_init)
-        if !info.imported && !info.mutable_ && info.read_count == 1 {
+        let @lib.Expr(rewritten_init_instrs) = rewritten_init
+        if !info.imported &&
+          !info.mutable_ &&
+          info.read_count == 1 &&
+          rewritten_init_instrs.length() == 1 {
           init_inlines[abs_idx] = Some(rewritten_init)
         }
         out.push(
@@ -8998,6 +9002,23 @@ fn sgo_cheap_cleanup_whole_load_select_dead_if(
 }
 
 ///|
+fn sgo_has_prior_local_write(
+  instrs : Array[@lib.Instruction],
+  end : Int,
+  local_idx : @lib.LocalIdx,
+) -> Bool {
+  let stop = if end < instrs.length() { end } else { instrs.length() }
+  for idx = 0; idx < stop; idx = idx + 1 {
+    match instrs[idx] {
+      @lib.LocalSet(written) | @lib.LocalTee(written) if written == local_idx =>
+        return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn sgo_cheap_cleanup_instrs(
   instrs : Array[@lib.Instruction],
   mod_ : @lib.Module,
@@ -9141,6 +9162,18 @@ fn sgo_cheap_cleanup_instrs(
         continue
       }
       _ => ()
+    }
+    if pos + 1 < normalized.length() {
+      match (normalized[pos], normalized[pos + 1]) {
+        (@lib.LocalGet(local_idx), @lib.Drop) if !sgo_has_prior_local_write(
+            normalized, pos, local_idx,
+          ) => {
+          changed = true
+          pos = pos + 2
+          continue
+        }
+        _ => ()
+      }
     }
     if pos + 1 < normalized.length() &&
       sgo_const_instr(normalized[pos]) != None &&
@@ -9577,6 +9610,497 @@ fn sgo_run_core(
       mod_, next_global_sec, next_table_sec, next_elem_sec, next_data_sec, next_code_sec,
     ),
     touched,
+  }
+}
+
+///|
+fn sgo_final_cleanup_dropped_root_is_pure(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_) => true
+    _ => false
+  }
+}
+
+///|
+fn sgo_final_cleanup_unary_root_is_pure(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I32Eqz
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.I64Eqz => true
+    _ => false
+  }
+}
+
+///|
+fn sgo_final_cleanup_binary_root_is_pure(instr : @lib.Instruction) -> Bool {
+  (
+    sgo_is_i32_pure_condition_instr(instr) ||
+    sgo_is_i64_pure_condition_instr(instr) ||
+    sgo_is_float_compare_condition_instr(instr)
+  ) &&
+  !sgo_final_cleanup_unary_root_is_pure(instr)
+}
+
+///|
+fn sgo_final_cleanup_pure_expr_range(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end_ : Int,
+) -> Bool {
+  let mut stack_depth = 0
+  for idx = start; idx < end_; idx = idx + 1 {
+    let instr = instrs[idx]
+    if sgo_final_cleanup_dropped_root_is_pure(instr) {
+      stack_depth += 1
+    } else if sgo_final_cleanup_unary_root_is_pure(instr) {
+      if stack_depth < 1 {
+        return false
+      }
+    } else if sgo_final_cleanup_binary_root_is_pure(instr) {
+      if stack_depth < 2 {
+        return false
+      }
+      stack_depth -= 1
+    } else {
+      return false
+    }
+  }
+  stack_depth == 1
+}
+
+///|
+fn sgo_final_cleanup_dropped_pure_result_if_length(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> Int {
+  let max_condition_length = 16
+  let condition_limit = Int::min(
+    instrs.length() - 2,
+    start + max_condition_length,
+  )
+  for if_pos = start + 1; if_pos <= condition_limit; if_pos = if_pos + 1 {
+    if !sgo_final_cleanup_pure_expr_range(instrs, start, if_pos) {
+      continue
+    }
+    if if_pos + 1 >= instrs.length() || !(instrs[if_pos + 1] is @lib.Drop) {
+      continue
+    }
+    match instrs[if_pos] {
+      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) =>
+        if sgo_final_cleanup_pure_expr_range(then_body, 0, then_body.length()) &&
+          sgo_final_cleanup_pure_expr_range(else_body, 0, else_body.length()) {
+          return if_pos - start + 2
+        }
+      _ => ()
+    }
+  }
+  0
+}
+
+///|
+fn sgo_final_cleanup_is_dropped_trivial_result_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) =>
+      match body {
+        [value, @lib.Br(label)] => {
+          let @lib.LabelIdx(raw) = label
+          raw == 0U && sgo_final_cleanup_dropped_root_is_pure(value)
+        }
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn sgo_final_cleanup_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = sgo_final_cleanup_instrs(body)
+        changed = changed || body_changed
+        normalized.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            instr
+          },
+        )
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = sgo_final_cleanup_instrs(body)
+        changed = changed || body_changed
+        normalized.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+          } else {
+            instr
+          },
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = sgo_final_cleanup_instrs(then_body)
+        let mut else_changed = false
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = sgo_final_cleanup_instrs(body)
+            else_changed = body_changed
+            Some(next_body)
+          }
+          None => None
+        }
+        changed = changed || then_changed || else_changed
+        normalized.push(
+          if then_changed || else_changed {
+            @lib.Instruction::if_(block_type, next_then, next_else)
+          } else {
+            instr
+          },
+        )
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = sgo_final_cleanup_instrs(body)
+        changed = changed || body_changed
+        normalized.push(
+          if body_changed {
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            )
+          } else {
+            instr
+          },
+        )
+      }
+      @lib.Nop => changed = true
+      _ => normalized.push(instr)
+    }
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < normalized.length() {
+    let dropped_pure_if_length = sgo_final_cleanup_dropped_pure_result_if_length(
+      normalized, idx,
+    )
+    if dropped_pure_if_length > 0 {
+      changed = true
+      idx += dropped_pure_if_length
+      continue
+    }
+    if idx + 1 < normalized.length() &&
+      normalized[idx + 1] is @lib.Drop &&
+      sgo_final_cleanup_is_dropped_trivial_result_block(normalized[idx]) {
+      changed = true
+      idx += 2
+      continue
+    }
+    if idx + 3 < normalized.length() &&
+      sgo_final_cleanup_dropped_root_is_pure(normalized[idx]) &&
+      sgo_final_cleanup_dropped_root_is_pure(normalized[idx + 1]) &&
+      sgo_final_cleanup_binary_root_is_pure(normalized[idx + 2]) &&
+      normalized[idx + 3] is @lib.Drop {
+      changed = true
+      idx += 4
+      continue
+    }
+    if idx + 2 < normalized.length() &&
+      sgo_final_cleanup_dropped_root_is_pure(normalized[idx]) &&
+      sgo_final_cleanup_unary_root_is_pure(normalized[idx + 1]) &&
+      normalized[idx + 2] is @lib.Drop {
+      changed = true
+      idx += 3
+      continue
+    }
+    if idx + 1 < normalized.length() &&
+      normalized[idx + 1] is @lib.Drop &&
+      sgo_final_cleanup_dropped_root_is_pure(normalized[idx]) {
+      changed = true
+      idx += 2
+      continue
+    }
+    out.push(normalized[idx])
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn sgo_final_cleanup_label_targets_depth(
+  label_idx : @lib.LabelIdx,
+  depth : Int,
+) -> Bool {
+  let @lib.LabelIdx(raw) = label_idx
+  raw.reinterpret_as_int() == depth
+}
+
+///|
+fn sgo_final_cleanup_instr_branches_to_depth(
+  instr : @lib.Instruction,
+  depth : Int,
+) -> Bool {
+  match instr {
+    @lib.Br(label_idx)
+    | @lib.BrIf(label_idx)
+    | @lib.BrOnNull(label_idx)
+    | @lib.BrOnNonNull(label_idx) =>
+      sgo_final_cleanup_label_targets_depth(label_idx, depth)
+    @lib.BrOnCast(label_idx, _, _, _)
+    | @lib.BrOnCastFail(label_idx, _, _, _)
+    | @lib.BrOnCastDescEq(label_idx, _, _)
+    | @lib.BrOnCastDescEqFail(label_idx, _, _) =>
+      sgo_final_cleanup_label_targets_depth(label_idx, depth)
+    @lib.BrTable(labels, default_label) => {
+      if sgo_final_cleanup_label_targets_depth(default_label, depth) {
+        return true
+      }
+      labels.any(fn(label_idx) {
+        sgo_final_cleanup_label_targets_depth(label_idx, depth)
+      })
+    }
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      body.any(fn(child) {
+        sgo_final_cleanup_instr_branches_to_depth(child, depth + 1)
+      })
+    @lib.If(_, then_body, else_body) => {
+      if then_body.any(fn(child) {
+          sgo_final_cleanup_instr_branches_to_depth(child, depth + 1)
+        }) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          body.any(fn(child) {
+            sgo_final_cleanup_instr_branches_to_depth(child, depth + 1)
+          })
+        None => false
+      }
+    }
+    // Exception handlers introduce additional control edges and carried values.
+    // Keep this final size sweep fail-closed until those targets are modeled.
+    @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn sgo_final_cleanup_prefix_is_stack_neutral(
+  body : Array[@lib.Instruction],
+  end_ : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> Bool {
+  let mut stack_depth = 0
+  for idx = 0; idx < end_; idx = idx + 1 {
+    let stack_effect = match
+      dae_instr_stack_effect(body[idx], mod_, func_type_indices) {
+      Some(effect) => Some(effect)
+      None => mp_instr_stack_counts(body[idx])
+    }
+    match stack_effect {
+      Some((inputs, outputs)) => {
+        if inputs < 0 || outputs < 0 || stack_depth < inputs {
+          return false
+        }
+        stack_depth = stack_depth - inputs + outputs
+      }
+      None => return false
+    }
+  }
+  stack_depth == 0
+}
+
+///|
+fn sgo_final_cleanup_void_dropped_terminal_result_blocks(
+  instrs : Array[@lib.Instruction],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = sgo_final_cleanup_void_dropped_terminal_result_blocks(
+          body, mod_, func_type_indices,
+        )
+        changed = changed || body_changed
+        normalized.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            instr
+          },
+        )
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = sgo_final_cleanup_void_dropped_terminal_result_blocks(
+          body, mod_, func_type_indices,
+        )
+        changed = changed || body_changed
+        normalized.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+          } else {
+            instr
+          },
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = sgo_final_cleanup_void_dropped_terminal_result_blocks(
+          then_body, mod_, func_type_indices,
+        )
+        let mut else_changed = false
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = sgo_final_cleanup_void_dropped_terminal_result_blocks(
+              body, mod_, func_type_indices,
+            )
+            else_changed = body_changed
+            Some(next_body)
+          }
+          None => None
+        }
+        changed = changed || then_changed || else_changed
+        normalized.push(
+          if then_changed || else_changed {
+            @lib.Instruction::if_(block_type, next_then, next_else)
+          } else {
+            instr
+          },
+        )
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 1 < normalized.length() && normalized[idx + 1] is @lib.Drop {
+      match normalized[idx] {
+        @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) =>
+          if body.length() >= 2 {
+            let value_idx = body.length() - 2
+            let branch_idx = body.length() - 1
+            match body[branch_idx] {
+              @lib.Br(label_idx) =>
+                if sgo_final_cleanup_label_targets_depth(label_idx, 0) &&
+                  sgo_final_cleanup_dropped_root_is_pure(body[value_idx]) &&
+                  sgo_final_cleanup_prefix_is_stack_neutral(
+                    body, value_idx, mod_, func_type_indices,
+                  ) {
+                  let mut targets_result_block = false
+                  for prefix_idx = 0
+                      prefix_idx < value_idx
+                      prefix_idx = prefix_idx + 1 {
+                    if sgo_final_cleanup_instr_branches_to_depth(
+                        body[prefix_idx],
+                        0,
+                      ) {
+                      targets_result_block = true
+                      break
+                    }
+                  }
+                  if !targets_result_block {
+                    let prefix : Array[@lib.Instruction] = []
+                    for prefix_idx = 0
+                        prefix_idx < value_idx
+                        prefix_idx = prefix_idx + 1 {
+                      prefix.push(body[prefix_idx])
+                    }
+                    out.push(
+                      @lib.Instruction::block(
+                        @lib.BlockType::void_(),
+                        @lib.Expr::new(prefix),
+                      ),
+                    )
+                    changed = true
+                    idx += 2
+                    continue
+                  }
+                }
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    }
+    out.push(normalized[idx])
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn sgo_apply_void_dropped_terminal_result_blocks(
+  cleaned : @lib.Module,
+) -> @lib.Module {
+  match cleaned.code_sec {
+    Some(@lib.CodeSec(cleaned_funcs)) => {
+      let out = cleaned_funcs.copy()
+      let func_type_indices = sgo_collect_func_type_indices(cleaned)
+      let mut changed = false
+      for idx = 0; idx < cleaned_funcs.length(); idx = idx + 1 {
+        let @lib.Func(locals, @lib.Expr(body)) = cleaned_funcs[idx]
+        let (next_body, body_changed) = sgo_final_cleanup_void_dropped_terminal_result_blocks(
+          body, cleaned, func_type_indices,
+        )
+        if body_changed {
+          out[idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+          changed = true
+        }
+      }
+      if changed {
+        cleaned.with_code_sec(@lib.CodeSec::new(out))
+      } else {
+        cleaned
+      }
+    }
+    None => cleaned
+  }
+}
+
+///|
+fn sgo_apply_final_cleanup(cleaned : @lib.Module) -> @lib.Module {
+  match cleaned.code_sec {
+    Some(@lib.CodeSec(cleaned_funcs)) => {
+      let out = cleaned_funcs.copy()
+      let mut changed = false
+      for idx = 0; idx < cleaned_funcs.length(); idx = idx + 1 {
+        let @lib.Func(locals, @lib.Expr(body)) = cleaned_funcs[idx]
+        let (next_body, body_changed) = sgo_final_cleanup_instrs(body)
+        if body_changed {
+          out[idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+          changed = true
+        }
+      }
+      let final_cleaned = if changed {
+        cleaned.with_code_sec(@lib.CodeSec::new(out))
+      } else {
+        cleaned
+      }
+      sgo_apply_void_dropped_terminal_result_blocks(final_cleaned)
+    }
+    None => cleaned
   }
 }
 

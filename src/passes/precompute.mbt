@@ -3696,7 +3696,9 @@ fn precompute_simplify_region_roots(
             let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
               @ir.hot_build_nop(func),
             ])
-            pass_delete_detached_nodes(ctx, func, removed)
+            if !@ir.hot_delete_detached_control_forest(func, removed) {
+              abort("precompute failed to delete detached empty root control")
+            }
             changed = true
             continue
           } else if region_ref == @ir.HotRegionRef::root() {
