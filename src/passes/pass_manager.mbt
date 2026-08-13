@@ -68717,10 +68717,10 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
   }
   match rewritten {
     Some(copy) => {
-      let checked = cl_validate_rewritten_funcs(
+      let (checked, committed_code_indices) = cl_validate_rewritten_funcs_with_commits(
         mod_, funcs, copy, changed_code_indices,
       )
-      if checked == funcs {
+      if committed_code_indices.length() == 0 {
         Ok(mod_)
       } else {
         Ok(mod_.with_code_sec(@lib.CodeSec::new(checked)).without_name_sec())
@@ -78251,6 +78251,7 @@ fn run_hot_pipeline_apply_module_pass(
       inlining_run_module_pass_with_perf(
         mod_,
         optimize=false,
+        trace=Some(options.trace),
         pass_name="inlining",
         optimize_level=options.optimize_level,
         shrink_level=options.shrink_level,

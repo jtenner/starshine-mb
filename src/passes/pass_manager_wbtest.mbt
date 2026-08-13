@@ -24382,7 +24382,13 @@ test "coalesce-locals rolls back invalid candidates without losing valid neighbo
   let candidates = funcs.copy()
   candidates[0] = invalid
   candidates[1] = valid
-  let checked = cl_validate_rewritten_funcs(original, funcs, candidates, [0, 1])
+  let (checked, committed) = cl_validate_rewritten_funcs_with_commits(
+    original,
+    funcs,
+    candidates,
+    [0, 1],
+  )
   @debug.assert_eq(checked[0], funcs[0])
   @debug.assert_eq(checked[1], valid)
+  @debug.assert_eq(committed, [1])
 }

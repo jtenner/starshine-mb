@@ -5434,14 +5434,14 @@ fn cl_rebuild_module(
 }
 
 ///|
-fn cl_validate_rewritten_funcs(
+fn cl_validate_rewritten_funcs_with_commits(
   mod_ : @lib.Module,
   original_funcs : Array[@lib.Func],
   rewritten_funcs : Array[@lib.Func],
   changed_code_indices : Array[Int],
-) -> Array[@lib.Func] {
+) -> (Array[@lib.Func], Array[Int]) {
   if changed_code_indices.length() == 0 {
-    return rewritten_funcs
+    return (rewritten_funcs, [])
   }
   let imported_func_count = cl_imported_func_count(mod_)
   let candidates : Array[(@lib.FuncIdx, @lib.Func)] = []
@@ -5458,20 +5458,28 @@ fn cl_validate_rewritten_funcs(
     }
   }
   match @validate.validate_defined_funcs_against_module(mod_, candidates) {
-    Err(_) => original_funcs.copy()
+    Err(_) => (original_funcs.copy(), [])
     Ok(errors) => {
       if errors.length() == 0 {
-        return rewritten_funcs
+        return (rewritten_funcs, changed_code_indices.copy())
       }
       let checked = rewritten_funcs.copy()
+      let rejected = Array::make(original_funcs.length(), false)
       for item in errors {
         let (@lib.FuncIdx(raw), _) = item
         let code_idx = raw.reinterpret_as_int() - imported_func_count
         if code_idx >= 0 && code_idx < original_funcs.length() {
           checked[code_idx] = original_funcs[code_idx]
+          rejected[code_idx] = true
         }
       }
-      checked
+      let committed : Array[Int] = []
+      for code_idx in changed_code_indices {
+        if code_idx >= 0 && code_idx < rejected.length() && !rejected[code_idx] {
+          committed.push(code_idx)
+        }
+      }
+      (checked, committed)
     }
   }
 }
@@ -5524,10 +5532,13 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           changed_code_indices.push(code_idx)
         }
       }
-      let checked_funcs = cl_validate_rewritten_funcs(
+      if changed_code_indices.length() == 0 {
+        return mod_
+      }
+      let (checked_funcs, committed_code_indices) = cl_validate_rewritten_funcs_with_commits(
         mod_, funcs, rewritten_funcs, changed_code_indices,
       )
-      if checked_funcs == funcs {
+      if committed_code_indices.length() == 0 {
         return mod_
       }
       cl_rebuild_module(

@@ -226,6 +226,41 @@ test "coalesce-locals registers as an active module pass" {
 }
 
 ///|
+test "coalesce-locals leaves NaN no-op functions and local names untouched" {
+  let named = pass_test_module_from_wat(
+    "(module (func (param f32) (result f32) f32.const nan))",
+  ).with_name_sec(
+    @lib.NameSec::new(
+      local_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(
+            0U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("value")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+  let optimized = coalesce_locals_run_module_pass(named)
+
+  match optimized.name_sec {
+    Some(name_sec) =>
+      match named.name_sec {
+        Some(original_names) =>
+          @debug.assert_eq(name_sec.local_names, original_names.local_names)
+        None => fail("expected original NaN fixture name section")
+      }
+    None => fail("expected NaN no-op coalescing to preserve the name section")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_defined_func(0U),
+    named.pretty_print_defined_func(0U),
+  )
+}
+
+///|
 test "coalesce-locals merges non-overlapping same-typed body locals" {
   let input =
     #| (module
