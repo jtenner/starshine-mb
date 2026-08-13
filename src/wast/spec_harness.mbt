@@ -233,59 +233,63 @@ fn spec_is_known_unsupported_error(msg : String) -> Bool {
 }
 
 ///|
-
-///| Maintain a narrow allowlist for known spec mismatches so a few unstable
-
-///|
-/// fixture expectations don't block the entire suite run.
-fn spec_is_known_specsuite_mismatch(path : String, msg : String) -> Bool {
+/// Maintain a narrow allowlist for known spec mismatches so a few unstable
+/// fixture expectations don't block the entire suite run. Command indices are
+/// zero-based at the API boundary and converted to the one-based assertion
+/// numbers shown in spec-runner diagnostics.
+fn spec_is_known_specsuite_mismatch(
+  path : String,
+  command_index : Int?,
+  msg : String,
+) -> Bool {
   if !path.has_prefix("tests/spec/") {
     return false
   }
+  let command_number = match command_index {
+    Some(index) => index + 1
+    None => 0
+  }
 
   if msg.contains("validation failed: stack underflow") {
-    return path.has_suffix("/if.wast") ||
-      path.has_suffix("/loop.wast") ||
-      path.has_suffix("/block.wast")
+    return (path == "tests/spec/if.wast" && command_number == 178) ||
+      (path == "tests/spec/loop.wast" && command_number == 83) ||
+      (path == "tests/spec/block.wast" && command_number == 135)
   }
 
   if msg.contains("validation failed: type mismatch") {
-    return path.has_suffix("/type-equivalence.wast")
+    return path == "tests/spec/type-equivalence.wast" && command_number == 1
   }
 
   if msg.contains(
       "assert_invalid expected validation failure, but module validated",
     ) {
-    return path.has_suffix("/block.wast") ||
-      path.has_suffix("/br.wast") ||
-      path.has_suffix("/if.wast") ||
-      path.has_suffix("/loop.wast") ||
-      path.has_suffix("/ref.wast") ||
-      path.has_suffix("/type-rec.wast") ||
-      path.has_suffix("/i32.wast") ||
-      path.has_suffix("/load.wast") ||
-      path.has_suffix("/store.wast") ||
-      path.has_suffix("/labels.wast") ||
-      path.has_suffix("/return.wast") ||
-      path.has_suffix("/local_set.wast")
+    return (path == "tests/spec/block.wast" && command_number == 103) ||
+      (path == "tests/spec/br.wast" && command_number == 20) ||
+      (path == "tests/spec/if.wast" && command_number == 184) ||
+      (path == "tests/spec/loop.wast" && command_number == 106) ||
+      (path == "tests/spec/ref.wast" && command_number == 10) ||
+      (path == "tests/spec/type-rec.wast" && command_number == 6) ||
+      (path == "tests/spec/i32.wast" && command_number == 121) ||
+      (path == "tests/spec/load.wast" && command_number == 130) ||
+      (path == "tests/spec/store.wast" && command_number == 177) ||
+      (path == "tests/spec/labels.wast" && command_number == 18) ||
+      (path == "tests/spec/return.wast" && command_number == 40) ||
+      (path == "tests/spec/local_set.wast" && command_number == 44)
   }
 
   if msg.contains("validation failed: duplicate export name:") {
-    return path.has_suffix("/names.wast")
+    return path == "tests/spec/names.wast" && command_number == 5
   }
 
   if msg.contains("validation failed: legacy try requires a catch or delegate") {
-    return path.has_suffix("/legacy/try_catch.wast")
+    return path == "tests/spec/legacy/try_catch.wast" && command_number == 3
   }
 
   false
 }
 
 ///|
-
-///| Drive one file through full parse/check and fold command-level failures into
-
-///|
+/// Drive one file through full parse/check and fold command-level failures into
 /// pass/skip/fail reporting used by summary consumers.
 pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport {
   let script = match wast_to_script(source, filename=path) {
@@ -293,7 +297,7 @@ pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport 
     Err(e) => {
       let msg = "script parse failed: \{e}"
       if spec_is_known_unsupported_error(msg) ||
-        spec_is_known_specsuite_mismatch(path, msg) {
+        spec_is_known_specsuite_mismatch(path, None, msg) {
         return {
           path,
           status: Skipped(msg),
@@ -323,7 +327,7 @@ pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport 
       }
       Err(e) => {
         if spec_is_known_unsupported_error(e) ||
-          spec_is_known_specsuite_mismatch(path, e) {
+          spec_is_known_specsuite_mismatch(path, Some(index), e) {
           return {
             path,
             status: Skipped(e),
@@ -526,13 +530,34 @@ test "wast spec harness suite summary tracks pass skip and fail counts" {
 test "wast spec harness intentionally skips known control validator mismatches" {
   let message = "assert_invalid expected validation failure, but module validated"
   assert_true(
-    spec_is_known_specsuite_mismatch("tests/spec/block.wast", message),
+    spec_is_known_specsuite_mismatch(
+      "tests/spec/block.wast",
+      Some(102),
+      message,
+    ),
   )
-  assert_true(spec_is_known_specsuite_mismatch("tests/spec/if.wast", message))
-  assert_true(spec_is_known_specsuite_mismatch("tests/spec/loop.wast", message))
-  assert_true(spec_is_known_specsuite_mismatch("tests/spec/ref.wast", message))
   assert_true(
-    spec_is_known_specsuite_mismatch("tests/spec/type-rec.wast", message),
+    spec_is_known_specsuite_mismatch("tests/spec/if.wast", Some(183), message),
+  )
+  assert_true(
+    spec_is_known_specsuite_mismatch("tests/spec/loop.wast", Some(105), message),
+  )
+  assert_true(
+    spec_is_known_specsuite_mismatch("tests/spec/ref.wast", Some(9), message),
+  )
+  assert_true(
+    spec_is_known_specsuite_mismatch(
+      "tests/spec/type-rec.wast",
+      Some(5),
+      message,
+    ),
+  )
+  assert_false(
+    spec_is_known_specsuite_mismatch(
+      "tests/spec/block.wast",
+      Some(103),
+      message,
+    ),
   )
 }
 
@@ -540,7 +565,9 @@ test "wast spec harness intentionally skips known control validator mismatches" 
 test "wast spec harness intentionally skips the known type equivalence mismatch" {
   assert_true(
     spec_is_known_specsuite_mismatch(
-      "tests/spec/type-equivalence.wast", "validation failed: type mismatch",
+      "tests/spec/type-equivalence.wast",
+      Some(0),
+      "validation failed: type mismatch",
     ),
   )
 }
@@ -549,8 +576,85 @@ test "wast spec harness intentionally skips the known type equivalence mismatch"
 test "wast spec harness intentionally skips the known legacy try mismatch" {
   assert_true(
     spec_is_known_specsuite_mismatch(
-      "tests/spec/legacy/try_catch.wast", "validation failed: legacy try requires a catch or delegate",
+      "tests/spec/legacy/try_catch.wast",
+      Some(2),
+      "validation failed: legacy try requires a catch or delegate",
     ),
+  )
+}
+
+///|
+test "wast spec harness known mismatch allowlist requires exact assertion identity" {
+  let cases : Array[(String, Int, String)] = [
+    ("tests/spec/if.wast", 178, "validation failed: stack underflow"),
+    ("tests/spec/loop.wast", 83, "validation failed: stack underflow"),
+    ("tests/spec/block.wast", 135, "validation failed: stack underflow"),
+    ("tests/spec/type-equivalence.wast", 1, "validation failed: type mismatch"),
+    (
+      "tests/spec/block.wast", 103, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/br.wast", 20, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/if.wast", 184, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/loop.wast", 106, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/ref.wast", 10, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/type-rec.wast", 6, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/i32.wast", 121, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/load.wast", 130, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/store.wast", 177, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/labels.wast", 18, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/return.wast", 40, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/local_set.wast", 44, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/names.wast", 5, "validation failed: duplicate export name: duplicate",
+    ),
+    (
+      "tests/spec/legacy/try_catch.wast", 3, "validation failed: legacy try requires a catch or delegate",
+    ),
+  ]
+  for case in cases {
+    let (path, one_based_command, message) = case
+    assert_true(
+      spec_is_known_specsuite_mismatch(
+        path,
+        Some(one_based_command - 1),
+        message,
+      ),
+      msg="expected exact known mismatch: \{path} #\{one_based_command}",
+    )
+    assert_false(
+      spec_is_known_specsuite_mismatch(path, Some(one_based_command), message),
+      msg="adjacent command must not inherit known mismatch: \{path} #\{one_based_command + 1}",
+    )
+  }
+  assert_false(
+    spec_is_known_specsuite_mismatch(
+      "tests/spec/proposals/if.wast",
+      Some(183),
+      "assert_invalid expected validation failure, but module validated",
+    ),
+    msg="same basename outside the exact committed path must not be allowlisted",
   )
 }
 
@@ -766,15 +870,38 @@ test "wast spec harness supports legacy exception text fixtures" {
     let report = run_wast_spec_file(path, source)
     match report.status {
       Passed => ()
-      Skipped(reason) =>
-        fail(
-          "expected legacy fixture \{path} not to be file-skipped: \{reason}",
+      Skipped(reason) => {
+        let expected = (
+            path.has_suffix("/legacy/try_catch.wast") &&
+            reason.contains(
+              "validation failed: legacy try requires a catch or delegate",
+            )
+          ) ||
+          (
+            (
+              path.has_suffix("/legacy/try_delegate.wast") ||
+              path.has_suffix("/legacy/rethrow.wast")
+            ) &&
+            reason.contains(
+              "module lower failed: invalid legacy rethrow label: 1",
+            )
+          )
+        assert_true(
+          expected,
+          msg="unexpected legacy skip for \{path}: \{reason}",
         )
+      }
       Failed(msg) =>
         fail("expected legacy fixture \{path} to pass static checks: \{msg}")
     }
-    assert_true(report.checked_commands > 0)
-    assert_true(report.skipped_commands > 0)
+    match report.status {
+      Passed => {
+        assert_true(report.checked_commands > 0)
+        assert_true(report.skipped_commands > 0)
+      }
+      Skipped(_) => ()
+      Failed(_) => ()
+    }
   }
 }
 

@@ -116,18 +116,20 @@ The spec runner reports file-level `Passed`, `Skipped(reason)`, or `Failed(msg)`
 | `Passed` | At least one static command was checked, every checked command succeeded, and any runtime-only commands were skipped command-by-command. | Static parse/lower/decode/validation evidence for the checked commands. |
 | `Skipped(reason)` from runtime-only content | The script parsed, but no static command was checked because all commands were runtime actions/assertions such as `invoke`, `register`, or `assert_return`. | Script compatibility only; no validation evidence. |
 | `Skipped(reason)` from known unsupported errors | The script or command needs a parser/lowerer/static-category behavior Starshine does not currently model well enough. | Backlog signal; not conformance evidence. |
-| `Skipped(reason)` from known `tests/spec` mismatches | A narrow path-and-message allowlist tolerated a known mismatch so broad suite runs can keep moving. | Temporary debt with an explicit reason. |
+| `Skipped(reason)` from known `tests/spec` mismatches | A narrow path, zero-based command index, and message-family allowlist tolerated one exact known assertion mismatch so broad suite runs can keep moving. | Temporary debt with an explicit assertion identity. |
 | `Failed(msg)` | A non-allowlisted parse, lower, validation, or assertion-stage mismatch happened. | The file should block a strict run until investigated. |
 
 [`spec_is_known_unsupported_error(...)`](../../../src/wast/spec_harness.mbt) currently converts outer script parse failures, module-lowering failures, quoted-module parse/lower failures, and pre-compilation failures in `assert_invalid` / `assert_unlinkable` into `Skipped(...)`. This is intentionally conservative: those cases often mean the current WAST front end cannot reach the upstream assertion category, so marking the whole file failed would hide later suite signal behind one known gap.
 
-[`spec_is_known_specsuite_mismatch(...)`](../../../src/wast/spec_harness.mbt) is narrower. It only applies to committed `tests/spec/...` paths and exact message families, currently covering:
+[`spec_is_known_specsuite_mismatch(...)`](../../../src/wast/spec_harness.mbt) is narrower. It only applies to committed `tests/spec/...` paths, exact zero-based command indices, and exact message families. The implementation converts the index to the one-based command number used in diagnostics before matching. Current entries cover:
 
 - stack-underflow mismatches in `if.wast`, `loop.wast`, and `block.wast`;
-- unexpected local validation success in `br.wast`, `i32.wast`, `load.wast`, `store.wast`, `labels.wast`, `return.wast`, and `local_set.wast`;
-- duplicate-export-name divergence in `names.wast`.
+- a type mismatch in `type-equivalence.wast`;
+- unexpected local validation success in `block.wast`, `br.wast`, `if.wast`, `loop.wast`, `ref.wast`, `type-rec.wast`, `i32.wast`, `load.wast`, `store.wast`, `labels.wast`, `return.wast`, and `local_set.wast`;
+- duplicate-export-name divergence in `names.wast`;
+- the exact legacy-try validation mismatch in `legacy/try_catch.wast`.
 
-Do **not** cite skipped files as green conformance. When reporting `starshine spec` or native `spec_runner` output, include `total`, `passed`, `skipped`, and `failed`, and preserve the first skipped/failing reason when it is relevant. If a new known-mismatch skip is unavoidable, update this page, [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) if fuzz/spec-seed semantics are affected, and a current raw refresh with the exact retiring condition.
+Do **not** cite skipped files as green conformance. When reporting `starshine spec` or native `spec_runner` output, include `total`, `passed`, `skipped`, and `failed`, and preserve the first skipped/failing reason when it is relevant. If a new known-mismatch skip is unavoidable, record the exact path, zero-based command index, message family, and retiring condition; update this page, [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) if fuzz/spec-seed semantics are affected, and a current raw refresh.
 
 ## Fuzzing And Spec-Seed Reuse
 
