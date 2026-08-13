@@ -315,6 +315,68 @@ test "partial inlining simple unary classification matches Binaryen Unary" {
 }
 
 ///|
+test "inlining function-label escape scanner distinguishes local and caller targets" {
+  assert_true(
+    inl_instrs_have_function_label_escape([
+      @lib.Instruction::try_table(
+        @lib.BlockType::void_(),
+        [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+    ]),
+  )
+  assert_false(
+    inl_instrs_have_function_label_escape([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+            @lib.Expr::new([@lib.Instruction::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let nullable_any = @lib.RefType::new(true, any_heap)
+  let nullable_eq = @lib.RefType::new(true, eq_heap)
+  let branch_ops : Array[@lib.Instruction] = [
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::br_on_cast(
+      @lib.LabelIdx::new(0U),
+      true,
+      any_heap,
+      true,
+      eq_heap,
+    ),
+    @lib.Instruction::br_on_cast_fail(
+      @lib.LabelIdx::new(0U),
+      true,
+      any_heap,
+      true,
+      eq_heap,
+    ),
+    @lib.Instruction::br_on_cast_desc_eq(
+      @lib.LabelIdx::new(0U),
+      nullable_any,
+      nullable_eq,
+    ),
+    @lib.Instruction::br_on_cast_desc_eq_fail(
+      @lib.LabelIdx::new(0U),
+      nullable_any,
+      nullable_eq,
+    ),
+  ]
+  for instr in branch_ops {
+    assert_true(inl_instrs_have_function_label_escape([instr]))
+  }
+}
+
+///|
 test "inlining hoist wrappers preserve branches to the function label" {
   let body = [
     @lib.Instruction::br(@lib.LabelIdx::new(0U)),

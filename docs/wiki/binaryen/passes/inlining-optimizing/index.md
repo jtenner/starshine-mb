@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-12
+last_reviewed: 2026-08-13
 sources:
   - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
@@ -94,7 +94,7 @@ profile: inlining-optimizing-all
 0 command failures
 ```
 
-The plain sibling independently reached `10000/10000` in `.tmp/pass-fuzz-inlining-v131-closeout-10000`.
+The plain sibling independently reached `10000/10000` in `.tmp/pass-fuzz-inlining-v131-closeout-10000`. After the 2026-08-13 implicit-function-label repair, rebuilt native SHA-256 `659a002fec66e17d76cae02a24bb854a77ae844a970acef767527daf5ca209fe` refreshed `inlining-optimizing-all` at `10000/10000` exact normalized matches with zero mismatches or failures; the matching `pass-inlining` lane is also `10000/10000` exact.
 
 The accepted pass-local performance fixture remains the inline-heavy helper-chain matrix documented in [`fuzzing.md`](./fuzzing.md); reopen on a repeated median regression above Binaryen or a new nested-cleanup scaling cliff.
 
@@ -108,9 +108,11 @@ A retained 2026-08-12 suffix now reruns the existing bounded/defaultable/validat
 
 A five-instruction one-caller widening was rejected after full corpus measurement: it made 40 artifacts larger, improved only 2, left 63 unchanged, and grew aggregate output by 153 bytes. The four-instruction ceiling remains the measured profitability boundary. Broader large call/bulk-memory admission remains closed until profitability and cleanup are proved together, not from function-count reduction, validation, or direct-pass size alone.
 
-## 2026-08-12 implicit function-label repair
+## 2026-08-12 and 2026-08-13 implicit function-label repairs
 
-The saved 285-definition broad-path fixtures with helper bodies containing `br`, nested `br`, or `return` previously aborted in the nested `precompute-propagate` prefix. Inlining itself had produced valid function-exit branches, represented in HOT as `HOT_IMPLICIT_FUNCTION_LABEL` (`-2`), but generic HOT control verification rejected that sentinel and CFG construction had no exit mapping for it. Verification now derives the implicit target arity from the function body result type, and CFG construction maps the sentinel to the synthetic function exit. Focused IR, direct-propagation, and 285-definition inlining regressions are green; all three saved fixtures now optimize and externally validate.
+The saved 285-definition broad-path fixtures with helper bodies containing `br`, nested `br`, or `return` previously aborted in the nested `precompute-propagate` prefix. Inlining itself had produced valid function-exit branches, represented in HOT as `HOT_IMPLICIT_FUNCTION_LABEL` (`-2`), but generic HOT control verification rejected that sentinel and CFG construction had no exit mapping for it. Verification now derives the implicit target arity from the function body result type. Normal branches resolve the sentinel to the normal exit; exceptional transfers such as delegate-to-caller and caller-targeting `try_table` catches resolve it to the distinct exceptional exit.
+
+A 2026-08-13 runtime review found a separate direct-inliner wrong-code family: wrapper omission allowed copied implicit-function-label escapes to branch through caller control and skip caller-side effects. The shared depth-aware escape scan now covers returns, ordinary/table branches, all represented `br_on_*` and descriptor branch forms, plus `try_table` catch targets; single-instruction replacement unwrapping follows the same rule. The native CI runtime lane executes root/nested `br`, `br_if`, `br_table`, `br_on_null`, and `try_table catch_all` cases before and after plain inlining. These fixes do not widen the guarded medium-module profitability boundary.
 
 This repair does not justify widening the 286-definition production guard. A fresh broad `fast-path-deserialize` probe validated structurally but grew `460,488 -> 475,735` bytes and aborted during exact WIPC execution. A touched-function-only `remove-unused-brs` suffix was also rejected: it changed none of the 105 corpus outputs and increased representative pass-local cost. The fallback thresholds remain unchanged; the later bounded post-fallback coalescing wave is independent cleanup and does not reopen broad optimizing inlining.
 

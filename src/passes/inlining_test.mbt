@@ -221,7 +221,7 @@ test "guarded optimizing inlining coalesces medium-module fallback locals" {
 }
 
 ///|
-test "optimizing inlining handles function-exit branch helpers below the guard boundary" {
+test "optimizing inlining handles explicit-block branch helpers below the guard boundary" {
   let input = StringBuilder::new()
   input.write_string(
     "(module (import \"env\" \"mesh\" (func $mesh (param i32))) (memory 1) (func $candidate block block br 1 end end) (func (param i32) call $candidate local.get 0 call $mesh i32.const 0 i32.const 0 i32.const 0 memory.copy)",
@@ -254,10 +254,81 @@ test "optimizing inlining handles function-exit branch helpers below the guard b
       }
     None => ()
   }
-  assert_eq(call_count, 0)
+  // The explicit block branch returns from the helper, so the observable
+  // imported call after the callsite must remain. The private helper call is
+  // the only call that inlining removes.
+  assert_eq(call_count, 1)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) => fail("expected valid broad function-exit inlining, got \{err}")
+  }
+}
+
+///|
+test "inlining retains wrappers for function-label branch escapes" {
+  let fixtures : Array[(String, String, Array[@lib.Instruction])] = [
+    (
+      "root br",
+      "(module (global (mut i32) (i32.const 0)) (func nop) (func (export \"run\") call 0 i32.const 1 global.set 0))",
+      [@lib.Instruction::br(@lib.LabelIdx::new(0U))],
+    ),
+    (
+      "nested br",
+      "(module (global (mut i32) (i32.const 0)) (func nop) (func (export \"run\") call 0 i32.const 1 global.set 0))",
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(2U))]),
+            ),
+          ]),
+        ),
+      ],
+    ),
+    (
+      "root br_if",
+      "(module (global (mut i32) (i32.const 0)) (func (param i32) nop) (func (export \"run\") i32.const 1 call 0 i32.const 1 global.set 0))",
+      [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+      ],
+    ),
+    (
+      "root br_table",
+      "(module (global (mut i32) (i32.const 0)) (func nop) (func (export \"run\") call 0 i32.const 1 global.set 0))",
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::br_table([], @lib.LabelIdx::new(0U)),
+      ],
+    ),
+  ]
+  for fixture in fixtures {
+    let (label, source, helper_body) = fixture
+    let parsed = pass_test_module_from_wat(source)
+    let input = match parsed.code_sec {
+      Some(@lib.CodeSec(funcs)) => {
+        let next = funcs.copy()
+        let @lib.Func(locals, _) = next[0]
+        next[0] = @lib.Func::new(locals, @lib.Expr::new(helper_body))
+        parsed.with_code_sec(@lib.CodeSec::new(next))
+      }
+      None => fail("\{label}: expected code section")
+    }
+    let optimized = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), ["inlining"]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("\{label}: expected inlining success, got \{err}")
+    }
+    let run = optimized.pretty_print_defined_func(0U)
+    assert_false(run.contains("call"), msg="\{label}: \{run}")
+    assert_true(run.contains("block (Void)"), msg="\{label}: \{run}")
+    assert_true(run.contains("global.set"), msg="\{label}: \{run}")
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) => fail("\{label}: expected valid inlined module, got \{err}")
+    }
   }
 }
 
@@ -4039,6 +4110,44 @@ test "inlining-optimizing runs nested cleanup when untouched tail calls survive"
       line.contains(
         "pass[inlining-optimizing]:nested-pass name=precompute-propagate",
       )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "inlining final adjacent set-get cleanup visits only touched functions" {
+  let trace : Array[String] = []
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module (func $tiny (result i32) i32.const 7) (func (export \"run\") (local i32) call $tiny local.set 0 local.get 0 drop)",
+  )
+  for i = 0; i < 128; i = i + 1 {
+    let _ = i
+    source.write_string(" (func nop)")
+  }
+  source.write_string(")")
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["inlining"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected touched-only finalize cleanup, got \{err}")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_true(run.contains("local.tee"), msg=run)
+  assert_eq(
+    inl_test_count_func_annotation(
+      optimized, 0U, "starshine.inlining-finalize-fold",
+    ),
+    0,
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("finalize-fold functions_visited=1") &&
+      line.contains("folds=1")
     }),
     msg=trace.to_string(),
   )

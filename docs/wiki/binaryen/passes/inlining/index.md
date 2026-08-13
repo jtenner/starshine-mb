@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-08-13
 sources:
   - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
@@ -67,7 +67,7 @@ There is no open v131 pass-owned transform-family gap. Remaining limitations are
    - preserve tail calls at tail sites;
    - lower nested tail calls at non-tail sites;
    - localize operands and hoist nested EH tail calls so exception catchability is unchanged.
-6. Repair branch depths introduced by hoist wrappers, including branches to the implicit function label and `try_table` catch targets.
+6. Preserve an inline result wrapper whenever the callee can escape to its implicit function label. The depth-aware scan covers `return*`, `br`, `br_if`, `br_table`, every represented `br_on_*` form including descriptor casts, and `try_table` catch targets. Hoist wrappers shift only targets outside the copied control depth, including catch-target depths.
 7. Remove only private helpers whose direct and reference uses are gone and which are not globally rooted.
 8. Repeat within Binaryen's bounded-work policy.
 
@@ -110,22 +110,28 @@ Partial splitting is enabled only when optimize level is at least 3, shrink leve
 - Result arms may exit through return, tail call, trap, throw, or another represented terminal-unreachable instruction.
 - `no-full-inline` still allows splitting; `no-partial-inline` and `no-inline` suppress it.
 
+## 2026-08-13 implicit function-label runtime repair
+
+A post-signoff review found valid wrong-code when a callee used `br` to the implicit function label: omitting the inline result block let the copied branch exit an enclosing caller control and skip caller-side effects. `inl_instrs_have_function_label_escape(...)` now performs a depth-aware scan before wrapper omission, and `inl_push_inline_replacement(...)` no longer unwraps a single-block replacement when its instruction escapes through that block. The scanner covers ordinary branch, table, GC/reference `br_on_*`, descriptor branch, return/tail-return, and `try_table` catch-target families. A native Node runtime regression in [`../../../../../scripts/test/inlining-function-label-runtime.ts`](../../../../../scripts/test/inlining-function-label-runtime.ts) executes root/nested `br`, `br_if`, `br_table`, `br_on_null`, and a `try_table catch_all` function-label escape before and after plain inlining; CI runs it against the prebuilt native release CLI. Final adjacent `local.set; local.get` folding is also touched-function-only and copy-on-write, with trace counters for visited functions, reconstructed instructions, arrays, and folds.
+
 ## Evidence
 
-Current focused validation:
+Current focused validation for the 2026-08-13 review repair:
 
-- CLI parser: `54/54`;
-- command package: `107/107`;
-- inlining behavior tests: `120/120`;
-- inlining white-box tests: `14/14`;
-- full repository suite: `9452/9452`.
+- inlining behavior: `131/131`;
+- inlining white-box: `17/17`;
+- native function-label runtime script: green;
+- full repository suite: `10378/10378`;
+- full wasm-gc CI profile: green.
+
+The CLI/parser and earlier closeout counts below remain historical evidence for the original v131 audit rather than this review-sized repair.
 
 Official v131 GenValid closeout, using `_build/native/release/build/cmd/cmd.exe` and `.tmp/binaryen-version-131-bin/bin/wasm-opt`:
 
 - plain: `.tmp/pass-fuzz-inlining-v131-closeout-10000` — `10000/10000` compared, `10000` normalized matches, zero mismatches or failures;
 - optimizing: `.tmp/pass-fuzz-inlining-optimizing-v131-closeout-10000` — `10000/10000` compared, `10000` normalized matches, zero mismatches or failures.
 
-Both runs used explicit `wasm-opt version 131 (version_131)` and reported zero command failures.
+Both runs used explicit `wasm-opt version 131 (version_131)` and reported zero command failures. The 2026-08-13 refreshes using native SHA-256 `659a002fec66e17d76cae02a24bb854a77ae844a970acef767527daf5ca209fe` are also exact: `pass-inlining` `10000/10000` and `inlining-optimizing-all` `10000/10000`, each with zero mismatches, validation/property/generator failures, or command failures.
 
 ## Page map
 

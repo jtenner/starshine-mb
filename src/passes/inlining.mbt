@@ -979,6 +979,11 @@ fn inl_partial_wrapper_annotation_name() -> String {
 }
 
 ///|
+fn inl_finalize_fold_annotation_name() -> String {
+  "starshine.inlining-finalize-fold"
+}
+
+///|
 fn inl_annotation_map(
   mod_ : @lib.Module,
   total : Int,
@@ -1776,6 +1781,54 @@ fn inl_apply_partial_pattern_a_splits(
 }
 
 ///|
+fn inl_finalize_fold_flags(mod_ : @lib.Module, total : Int) -> Array[Bool] {
+  let flags = Array::make(total, false)
+  match mod_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
+        let slot = raw_idx.reinterpret_as_int()
+        if slot >= 0 && slot < total {
+          for annotation in annotations {
+            if annotation.name == inl_finalize_fold_annotation_name() {
+              flags[slot] = true
+            }
+          }
+        }
+      }
+    None => ()
+  }
+  flags
+}
+
+///|
+fn inl_mark_finalize_fold_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
+  let annotations = inl_annotation_map(mod_, total)
+  let marker = @lib.FuncAnnotation::new(inl_finalize_fold_annotation_name())
+  let mut changed = false
+  let mut idx = 0
+  while idx < annotations.length() && idx < touched.length() {
+    if touched[idx] && !inl_func_annotation_present(annotations[idx], marker) {
+      annotations[idx].push(marker)
+      changed = true
+    }
+    idx += 1
+  }
+  if !changed {
+    mod_
+  } else {
+    inl_rebuild_with_func_annotations(
+      mod_,
+      inl_build_func_annotation_sec_from_map(annotations),
+    )
+  }
+}
+
+///|
 fn inl_strip_partial_wrapper_annotations(mod_ : @lib.Module) -> @lib.Module {
   let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
   let annotations = inl_annotation_map(mod_, total)
@@ -1784,7 +1837,8 @@ fn inl_strip_partial_wrapper_annotations(mod_ : @lib.Module) -> @lib.Module {
   while idx < annotations.length() {
     let filtered : Array[@lib.FuncAnnotation] = []
     for annotation in annotations[idx] {
-      if annotation.name == inl_partial_wrapper_annotation_name() {
+      if annotation.name == inl_partial_wrapper_annotation_name() ||
+        annotation.name == inl_finalize_fold_annotation_name() {
         changed = true
       } else {
         filtered.push(annotation)
@@ -2342,7 +2396,12 @@ fn inl_push_inline_replacement(
 ) -> Unit {
   if replacement.length() == 1 {
     match replacement[0] {
-      @lib.Block(_, @lib.Expr([single])) => out.push(single)
+      @lib.Block(_, @lib.Expr([single])) =>
+        if inl_instrs_have_function_label_escape([single]) {
+          out.append(replacement)
+        } else {
+          out.push(single)
+        }
       _ => out.append(replacement)
     }
   } else {
@@ -3072,26 +3131,95 @@ fn inl_collect_parameter_local_uses(
 }
 
 ///|
-fn inl_instrs_have_function_exit(instrs : Array[@lib.Instruction]) -> Bool {
+fn inl_label_escapes_control_depth(
+  label : @lib.LabelIdx,
+  control_depth : Int,
+) -> Bool {
+  inl_label_idx_slot(label) >= control_depth
+}
+
+///|
+fn inl_catch_escapes_control_depth(
+  catch_ : @lib.Catch,
+  active_label_depth : Int,
+) -> Bool {
+  let label = match catch_ {
+    @lib.Catch(_, label)
+    | @lib.CatchRef(_, label)
+    | @lib.CatchAll(label)
+    | @lib.CatchAllRef(label) => label
+  }
+  inl_label_escapes_control_depth(label, active_label_depth)
+}
+
+///|
+fn inl_instrs_have_function_label_escape(
+  instrs : Array[@lib.Instruction],
+  control_depth? : Int = 0,
+) -> Bool {
   for instr in instrs {
     match instr {
       @lib.Return
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
       | @lib.ReturnCallRef(_) => return true
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if inl_instrs_have_function_exit(body) {
+      @lib.Br(label)
+      | @lib.BrIf(label)
+      | @lib.BrOnNull(label)
+      | @lib.BrOnNonNull(label)
+      | @lib.BrOnCast(label, _, _, _)
+      | @lib.BrOnCastFail(label, _, _, _)
+      | @lib.BrOnCastDescEq(label, _, _)
+      | @lib.BrOnCastDescEqFail(label, _, _) =>
+        if inl_label_escapes_control_depth(label, control_depth) {
+          return true
+        }
+      @lib.BrTable(labels, fallback) => {
+        if inl_label_escapes_control_depth(fallback, control_depth) {
+          return true
+        }
+        for label in labels {
+          if inl_label_escapes_control_depth(label, control_depth) {
+            return true
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if inl_instrs_have_function_label_escape(
+            body,
+            control_depth=control_depth + 1,
+          ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
-        if inl_instrs_have_function_exit(then_body) {
+        if inl_instrs_have_function_label_escape(
+            then_body,
+            control_depth=control_depth + 1,
+          ) {
           return true
         }
         match else_body {
-          Some(body) => if inl_instrs_have_function_exit(body) { return true }
+          Some(body) =>
+            if inl_instrs_have_function_label_escape(
+                body,
+                control_depth=control_depth + 1,
+              ) {
+              return true
+            }
           None => ()
+        }
+      }
+      @lib.TryTable(_, catches, @lib.Expr(body)) => {
+        for catch_ in catches {
+          if inl_catch_escapes_control_depth(catch_, control_depth) {
+            return true
+          }
+        }
+        if inl_instrs_have_function_label_escape(
+            body,
+            control_depth=control_depth + 1,
+          ) {
+          return true
         }
       }
       _ => ()
@@ -3141,54 +3269,125 @@ fn inl_ordered_single_use_parameter_stack_prefix(
 }
 
 ///|
-fn inl_fold_adjacent_local_set_gets(
+priv struct InlFinalizeFoldStats {
+  mut functions_visited : Int
+  mut instructions_reconstructed : Int
+  mut arrays_allocated : Int
+  mut folds : Int
+}
+
+///|
+fn inl_finalize_fold_copy_prefix(
   instrs : Array[@lib.Instruction],
+  end : Int,
+  stats : InlFinalizeFoldStats,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
+  stats.arrays_allocated += 1
+  for idx = 0; idx < end; idx = idx + 1 {
+    out.push(instrs[idx])
+  }
+  out
+}
+
+///|
+fn inl_fold_adjacent_local_set_gets(
+  instrs : Array[@lib.Instruction],
+  stats : InlFinalizeFoldStats,
+) -> (Array[@lib.Instruction], Bool) {
+  let mut rewritten : Array[@lib.Instruction]? = None
   let mut idx = 0
   while idx < instrs.length() {
     if idx + 1 < instrs.length() {
       match (instrs[idx], instrs[idx + 1]) {
         (@lib.LocalSet(set_idx), @lib.LocalGet(get_idx)) if set_idx == get_idx => {
+          let out = match rewritten {
+            Some(copy) => copy
+            None => {
+              let copy = inl_finalize_fold_copy_prefix(instrs, idx, stats)
+              rewritten = Some(copy)
+              copy
+            }
+          }
           out.push(@lib.Instruction::local_tee(set_idx))
+          stats.instructions_reconstructed += 1
+          stats.folds += 1
           idx += 2
           continue
         }
         _ => ()
       }
     }
-    let next = match instrs[idx] {
-      @lib.Block(block_type, @lib.Expr(body)) =>
-        @lib.Instruction::block(
-          block_type,
-          @lib.Expr::new(inl_fold_adjacent_local_set_gets(body)),
+    let (next, child_changed) = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, changed) = inl_fold_adjacent_local_set_gets(body, stats)
+        if changed {
+          stats.instructions_reconstructed += 1
+          (@lib.Instruction::block(block_type, @lib.Expr::new(next_body)), true)
+        } else {
+          (instrs[idx], false)
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, changed) = inl_fold_adjacent_local_set_gets(body, stats)
+        if changed {
+          stats.instructions_reconstructed += 1
+          (@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)), true)
+        } else {
+          (instrs[idx], false)
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = inl_fold_adjacent_local_set_gets(
+          then_body, stats,
         )
-      @lib.Loop(block_type, @lib.Expr(body)) =>
-        @lib.Instruction::loop_(
-          block_type,
-          @lib.Expr::new(inl_fold_adjacent_local_set_gets(body)),
-        )
-      @lib.If(block_type, then_body, else_body) =>
-        @lib.Instruction::if_(
-          block_type,
-          inl_fold_adjacent_local_set_gets(then_body),
-          match else_body {
-            Some(body) => Some(inl_fold_adjacent_local_set_gets(body))
-            None => None
-          },
-        )
-      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-        @lib.Instruction::try_table(
-          block_type,
-          catches,
-          @lib.Expr::new(inl_fold_adjacent_local_set_gets(body)),
-        )
-      instr => instr
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next, changed) = inl_fold_adjacent_local_set_gets(body, stats)
+            (Some(next), changed)
+          }
+          None => (None, false)
+        }
+        if then_changed || else_changed {
+          stats.instructions_reconstructed += 1
+          (@lib.Instruction::if_(block_type, next_then, next_else), true)
+        } else {
+          (instrs[idx], false)
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, changed) = inl_fold_adjacent_local_set_gets(body, stats)
+        if changed {
+          stats.instructions_reconstructed += 1
+          (
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            ),
+            true,
+          )
+        } else {
+          (instrs[idx], false)
+        }
+      }
+      _ => (instrs[idx], false)
     }
-    out.push(next)
+    match rewritten {
+      Some(out) => out.push(next)
+      None =>
+        if child_changed {
+          let out = inl_finalize_fold_copy_prefix(instrs, idx, stats)
+          out.push(next)
+          rewritten = Some(out)
+        }
+    }
     idx += 1
   }
-  out
+  match rewritten {
+    Some(out) => (out, true)
+    None => (instrs, false)
+  }
 }
 
 ///|
@@ -3252,7 +3451,7 @@ fn inl_make_inline_replacement(
   }
   let can_omit_inline_block = !tail_callsite &&
     hoist_local_types.length() == 0 &&
-    !inl_instrs_have_function_exit(prepared_body) &&
+    !inl_instrs_have_function_label_escape(prepared_body) &&
     !inl_is_single_parameter_i32_const_add(prepared_body, info.params.length())
   let stack_parameter_prefix = if can_omit_inline_block {
     inl_ordered_single_use_parameter_stack_prefix(
@@ -3443,7 +3642,16 @@ fn inl_rewrite_all_calls(
     }
     None => mod_
   }
-  { mod_out: next_mod, touched, inlined_from, changed }
+  {
+    mod_out: if changed {
+      inl_mark_finalize_fold_touched(next_mod, touched)
+    } else {
+      next_mod
+    },
+    touched,
+    inlined_from,
+    changed,
+  }
 }
 
 ///|
@@ -7399,24 +7607,52 @@ fn inl_validate_or_original(
 fn inl_finalize_module_pass_result(
   mod_ : @lib.Module,
   _optimize : Bool,
+  trace : ((String) -> Unit)?,
 ) -> @lib.Module {
-  let stripped = inl_strip_partial_wrapper_annotations(mod_)
-  match stripped.code_sec {
-    Some(@lib.CodeSec(funcs)) => {
-      let out : Array[@lib.Func] = []
-      for func in funcs {
-        let @lib.Func(locals, @lib.Expr(body)) = func
-        out.push(
-          @lib.Func::new(
-            locals,
-            @lib.Expr::new(inl_fold_adjacent_local_set_gets(body)),
-          ),
-        )
-      }
-      stripped.with_code_sec(@lib.CodeSec::new(out))
-    }
-    None => stripped
+  let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
+  let selected = inl_finalize_fold_flags(mod_, total)
+  let stats : InlFinalizeFoldStats = {
+    functions_visited: 0,
+    instructions_reconstructed: 0,
+    arrays_allocated: 0,
+    folds: 0,
   }
+  let rewritten = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let imports = inl_imported_func_count(mod_)
+      let mut out : Array[@lib.Func]? = None
+      for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+        let abs_idx = imports + def_idx
+        if abs_idx < 0 || abs_idx >= selected.length() || !selected[abs_idx] {
+          continue
+        }
+        stats.functions_visited += 1
+        let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+        let (next_body, changed) = inl_fold_adjacent_local_set_gets(body, stats)
+        if changed {
+          let next_func = @lib.Func::new(locals, @lib.Expr::new(next_body))
+          match out {
+            Some(copy) => copy[def_idx] = next_func
+            None => {
+              let copy = funcs.copy()
+              copy[def_idx] = next_func
+              out = Some(copy)
+            }
+          }
+        }
+      }
+      match out {
+        Some(copy) => mod_.with_code_sec(@lib.CodeSec::new(copy))
+        None => mod_
+      }
+    }
+    None => mod_
+  }
+  inl_trace_perf(
+    trace,
+    "finalize-fold functions_visited=\{stats.functions_visited} instructions_reconstructed=\{stats.instructions_reconstructed} arrays_allocated=\{stats.arrays_allocated} folds=\{stats.folds}",
+  )
+  inl_strip_partial_wrapper_annotations(rewritten)
 }
 
 ///|
@@ -8189,7 +8425,9 @@ fn inlining_run_module_pass_with_perf(
       let finalize_start_us = perf_start_timer_opt(
         perf, "detail:inlining:finalize-module-pass-result",
       )
-      let finalized = inl_finalize_module_pass_result(final_trimmed, optimize)
+      let finalized = inl_finalize_module_pass_result(
+        final_trimmed, optimize, trace,
+      )
       perf_stop_timer_opt(
         perf, "detail:inlining:finalize-module-pass-result", finalize_start_us,
       )
@@ -8208,6 +8446,7 @@ fn inlining_run_module_pass_with_perf(
               initial_graph_info.final_trim_counts,
             ),
             optimize,
+            trace,
           )
         }
       }
@@ -8238,6 +8477,7 @@ fn inlining_run_module_pass_with_perf(
           initial_graph_info.final_trim_counts,
         ),
         optimize,
+        trace,
       )
     }
   }
@@ -8247,6 +8487,7 @@ fn inlining_run_module_pass_with_perf(
       initial_graph_info.final_trim_counts,
     ),
     optimize,
+    trace,
   )
 }
 

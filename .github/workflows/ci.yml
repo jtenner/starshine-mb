@@ -107,6 +107,9 @@ jobs:
           wasm-tools validate --features all .tmp/ci-roundtrip/roundtrip-2.wasm
           cmp .tmp/ci-roundtrip/roundtrip-1.wasm .tmp/ci-roundtrip/roundtrip-2.wasm
 
+      - name: Run inlining function-label runtime regressions
+        run: bun scripts/test/inlining-function-label-runtime.ts
+
       - name: Run deterministic binary roundtrip fuzz smoke
         run: |
           bun fuzz run --suite binary-roundtrip --profile smoke --seed 0x5eed --target wasm-gc
