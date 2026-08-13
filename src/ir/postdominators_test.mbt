@@ -90,6 +90,53 @@ test "postdominators keep return and exceptional exits separate" {
 }
 
 ///|
+test "postdominators keep delegate-to-caller on the exceptional root" {
+  let func = HotFunc::new()
+  let outer = hot_build_block(func, @lib.BlockType::void_(), [])
+  let delegate = hot_build_delegate(func, HOT_IMPLICIT_FUNCTION_LABEL)
+  hot_region_replace_body(func, hot_region_body_ref(func, outer), [delegate])
+  hot_root_append(func, outer)
+  let cfg = cfg_build(func)
+  let postdom = postdom_build(cfg)
+  let delegate_block = cfg_block_for_node(cfg, delegate).unwrap()
+  let exceptional_exit = cfg_exceptional_exit_block(cfg).unwrap()
+
+  @debug.assert_eq(
+    postdom_ipdom(postdom, delegate_block),
+    Some(exceptional_exit),
+  )
+  assert_true(postdom_postdominates(postdom, exceptional_exit, delegate_block))
+  assert_false(
+    postdom_postdominates(postdom, cfg_exit_block(cfg), delegate_block),
+  )
+}
+
+///|
+test "postdominators keep try_table caller catches on the exceptional root" {
+  let func = HotFunc::new()
+  let try_table = hot_build_try_table(
+    func,
+    @lib.BlockType::void_(),
+    [HotCatchArm::all(HOT_IMPLICIT_FUNCTION_LABEL)],
+    [],
+    catch_list_body=[hot_build_nop(func)],
+  )
+  hot_root_append(func, try_table)
+  let cfg = cfg_build(func)
+  let postdom = postdom_build(cfg)
+  let catch_block = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, try_table),
+    0,
+  ).unwrap()
+  let exceptional_exit = cfg_exceptional_exit_block(cfg).unwrap()
+
+  @debug.assert_eq(postdom_ipdom(postdom, catch_block), Some(exceptional_exit))
+  assert_true(postdom_postdominates(postdom, exceptional_exit, catch_block))
+  assert_false(postdom_postdominates(postdom, cfg_exit_block(cfg), catch_block))
+}
+
+///|
 test "postdominators make loop side-exit policy explicit" {
   let func = hot_lift_body(
     @lib.Expr::new([

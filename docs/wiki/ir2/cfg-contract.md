@@ -1,7 +1,7 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-13
 sources:
   - https://webassembly.github.io/spec/core/syntax/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
@@ -88,7 +88,7 @@ Terminator edge policy in the concrete builder is:
 - `br_if`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` produce `BranchEdge` targets plus a `FallthroughEdge` when a next block exists.
 - `return`, `return_call`, `return_call_indirect`, and `return_call_ref` produce a `ReturnEdge` to the synthetic normal exit.
 - `throw`, `throw_ref`, and `rethrow` produce an `ExceptionalEdge` to the nearest handler target or the synthetic exceptional exit.
-- `delegate` produces an `ExceptionalEdge` to the delegated label target.
+- `delegate` produces an `ExceptionalEdge` to the delegated label target; an implicit-function-label target means the caller-visible exceptional exit, never the normal exit.
 - `unreachable` produces an `UnreachableExitEdge` to the synthetic normal exit.
 
 The WebAssembly Core 3.0 syntax, validation, and execution pages plus the local HOT/CFG sources listed below are the current source evidence for this rule. WebAssembly Core 3.0 syntax includes `return_call`, `return_call_indirect`, and `return_call_ref`; validation treats them as stack-polymorphic tail-call forms whose callee result must match the enclosing function result; execution routes them through a tail-call path that unwinds the current function's frame/labels/handlers before entering the callee. Starshine's HOT flags agree with the no-fallthrough semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators. WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md); the typed-function-reference boundary owns the `return_call_ref` / ordinary `call_ref` target-shape split at [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md).
@@ -99,7 +99,7 @@ The WebAssembly Core 3.0 syntax, validation, and execution pages plus the local 
 
 - Ordinary nodes use `NoExceptionEdge`.
 - `try` routes exceptional flow to its catch region.
-- `try_table` routes exceptional flow to its catch-list region; the WAST lowering and validation rules for catch labels and payloads live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
+- `try_table` routes exceptional flow to its catch-list region; each catch arm then transfers exceptionally to its resolved label target. An arm targeting `HOT_IMPLICIT_FUNCTION_LABEL` reaches the caller-visible exceptional exit. The WAST lowering and validation rules for catch labels and payloads live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - `throw`, `throw_ref`, and `rethrow` propagate to the nearest handler or caller-visible exceptional exit.
 - `delegate` transfers exceptionally to its delegated target.
 

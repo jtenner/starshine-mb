@@ -168,6 +168,17 @@ fn cfg_builder_label_target_get(
 }
 
 ///|
+fn cfg_builder_exception_label_target_get(
+  builder : CfgBuilder,
+  label_id : LabelId,
+) -> BlockId {
+  if label_id == HOT_IMPLICIT_FUNCTION_LABEL {
+    return cfg_builder_exceptional_exit_block(builder)
+  }
+  cfg_builder_label_target_get(builder, label_id)
+}
+
+///|
 fn cfg_builder_exceptional_exit_block(builder : CfgBuilder) -> BlockId {
   match builder.cfg.exceptional_exit_block {
     Some(block_id) => block_id
@@ -329,6 +340,21 @@ fn cfg_builder_branch_targets(
           targets.push(cfg_builder_label_target_get(builder, label_id))
         None => ()
       }
+  }
+  targets
+}
+
+///|
+fn cfg_builder_exception_branch_targets(
+  builder : CfgBuilder,
+  func : HotFunc,
+  node_id : NodeId,
+) -> Array[BlockId] {
+  let targets : Array[BlockId] = []
+  match hot_branch_target(func, node_id) {
+    Some(label_id) =>
+      targets.push(cfg_builder_exception_label_target_get(builder, label_id))
+    None => ()
   }
   targets
 }
@@ -606,6 +632,7 @@ fn cfg_builder_process_block(
         hot_control_node_label(func, last_node),
         continuation.unwrap(),
       )
+      let catch_info = hot_catch_info_get(func, node.imm1)
       let catch_build = cfg_builder_build_region(
         builder,
         func,
@@ -635,7 +662,33 @@ fn cfg_builder_process_block(
         )
       }
       cfg_builder_connect_exits(builder, body_build.exit_blocks, continuation)
-      cfg_builder_connect_exits(builder, catch_build.exit_blocks, continuation)
+      if catch_info.catches.length() == 0 {
+        for catch_exit in catch_build.exit_blocks {
+          cfg_builder_add_edge(
+            builder,
+            catch_exit,
+            cfg_builder_exception_target(builder, handler_target),
+            CfgEdgeKind::ExceptionalEdge,
+          )
+        }
+      } else {
+        for catch_exit in catch_build.exit_blocks {
+          for catch_ in catch_info.catches {
+            let label_id = match catch_ {
+              HotCatchArm::CatchArm(_, target)
+              | HotCatchArm::CatchRefArm(_, target)
+              | HotCatchArm::CatchAllArm(target)
+              | HotCatchArm::CatchAllRefArm(target) => target
+            }
+            cfg_builder_add_edge(
+              builder,
+              catch_exit,
+              cfg_builder_exception_label_target_get(builder, label_id),
+              CfgEdgeKind::ExceptionalEdge,
+            )
+          }
+        }
+      }
       if synthetic_exit {
         exits.push(continuation.unwrap())
       }
@@ -700,7 +753,8 @@ fn cfg_builder_process_block(
         CfgEdgeKind::ExceptionalEdge,
       )
     HotOp::Delegate =>
-      for target in cfg_builder_branch_targets(builder, func, last_node) {
+      for
+        target in cfg_builder_exception_branch_targets(builder, func, last_node) {
         cfg_builder_add_edge(
           builder,
           current_block,

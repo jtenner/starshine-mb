@@ -143,6 +143,54 @@ fn cfg_test_drop_result_if_fixture() -> (HotFunc, NodeId, NodeId) {
 }
 
 ///|
+test "cfg build routes delegate-to-caller to the exceptional exit" {
+  let func = HotFunc::new()
+  let outer = hot_build_block(func, @lib.BlockType::void_(), [])
+  let delegate = hot_build_delegate(func, HOT_IMPLICIT_FUNCTION_LABEL)
+  hot_region_replace_body(func, hot_region_body_ref(func, outer), [delegate])
+  hot_root_append(func, outer)
+  let cfg = cfg_build(func)
+  let delegate_block = cfg_block_for_node(cfg, delegate).unwrap()
+  let exceptional_exit = match cfg_exceptional_exit_block(cfg) {
+    Some(block) => block
+    None => fail("expected delegate-to-caller exceptional exit")
+  }
+
+  assert_true(exceptional_exit != cfg_exit_block(cfg))
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, delegate_block)), [
+    "{kind: ExceptionalEdge, block: \{exceptional_exit}}",
+  ])
+}
+
+///|
+test "cfg build routes try_table catches escaping the function to the exceptional exit" {
+  let func = HotFunc::new()
+  let try_table = hot_build_try_table(
+    func,
+    @lib.BlockType::void_(),
+    [HotCatchArm::all(HOT_IMPLICIT_FUNCTION_LABEL)],
+    [],
+    catch_list_body=[hot_build_nop(func)],
+  )
+  hot_root_append(func, try_table)
+  let cfg = cfg_build(func)
+  let catch_block = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, try_table),
+    0,
+  ).unwrap()
+  let exceptional_exit = match cfg_exceptional_exit_block(cfg) {
+    Some(block) => block
+    None => fail("expected caller-targeting catch exceptional exit")
+  }
+
+  assert_true(exceptional_exit != cfg_exit_block(cfg))
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, catch_block)), [
+    "{kind: ExceptionalEdge, block: \{exceptional_exit}}",
+  ])
+}
+
+///|
 test "cfg build can omit conservative try-table entry exception edges" {
   let func = cfg_test_try_table_fixture()
   let cfg = cfg_build(func, conservative_exception_entries=false)
