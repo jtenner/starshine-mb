@@ -1,5 +1,5 @@
 ///|
-test "medium bulk-memory DAE guard still admits result-only boundary cleanup" {
+test "medium bulk-memory DAE guard converges result-only boundary cleanup" {
   let funcs = Array::make(
     286,
     @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
@@ -10,17 +10,22 @@ test "medium bulk-memory DAE guard still admits result-only boundary cleanup" {
   )
   funcs[1] = @lib.Func::new(
     @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(0U))]),
+  )
+  funcs[2] = @lib.Func::new(
+    @lib.Locals::empty(),
     @lib.Expr::new([
       @lib.Instruction::i32_const(0),
       @lib.Instruction::i32_const(0),
       @lib.Instruction::i32_const(0),
       @lib.Instruction::memory_copy(@lib.MemIdx::new(0U), @lib.MemIdx::new(0U)),
-      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(1U)),
       @lib.Instruction::drop(),
     ]),
   )
   let type_indices = Array::make(286, @lib.TypeIdx::new(0U))
   type_indices[0] = @lib.TypeIdx::new(1U)
+  type_indices[1] = @lib.TypeIdx::new(1U)
   let mod_ = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
@@ -59,13 +64,17 @@ test "medium bulk-memory DAE guard still admits result-only boundary cleanup" {
     msg=trace.to_string(),
   )
   let next_type_indices = dae_collect_func_type_indices(next)
-  match dae_resolve_func_type(next, next_type_indices, 0) {
-    Some(@lib.FuncType(_, results)) => assert_eq(results.length(), 0)
-    None => fail("expected target function type")
+  for func_abs in [0, 1] {
+    match dae_resolve_func_type(next, next_type_indices, func_abs) {
+      Some(@lib.FuncType(_, results)) => assert_eq(results.length(), 0)
+      None => fail("expected converged target function type")
+    }
   }
   match next.code_sec {
     Some(@lib.CodeSec(next_funcs)) => {
-      let @lib.Func(_, @lib.Expr(caller)) = next_funcs[1]
+      let @lib.Func(_, @lib.Expr(wrapper)) = next_funcs[1]
+      let @lib.Func(_, @lib.Expr(caller)) = next_funcs[2]
+      assert_false(wrapper.contains(@lib.Instruction::drop()))
       assert_false(caller.contains(@lib.Instruction::drop()))
     }
     None => fail("expected code section")

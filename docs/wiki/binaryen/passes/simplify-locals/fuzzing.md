@@ -14,6 +14,14 @@ sources:
 
 # SimplifyLocals family fuzzing profiles
 
+## Guarded SIMD rotate probe — 2026-08-13
+
+After adding the full-pass raw rewrite for complementary split `i32x4` rotate temporaries, a 1,000-case `simplify-locals-all` probe used the explicit native release CLI and verified Binaryen-v131 oracle. It requested `1000`, compared `689`, and reported `500` normalized matches plus `189` residuals, with zero validation, property, and generator failures. The `311` command failures were Binaryen failures on every selected `simplify-locals-family-coverage` case.
+
+All `189` comparable residuals selected the pre-existing `simplify-locals-structure-result` family and were 2..4 canonical bytes larger in Starshine, aggregate `+571`. No new residual family was attributable to the SIMD rewrite. This is focused development evidence only; it does not replace the required four-lane closeout matrix or reclassify the known structure-result debt as acceptable.
+
+Artifacts: `.tmp/pass-fuzz-simplify-locals-simd-rewrite-1000`.
+
 ## Live-out repair refresh — 2026-08-12
 
 Native SHA-256 `443fa73acbe3789b0e1b330fdf28652fe5f567c4e6df53470e46217b65b92d47` ran the dedicated `simplify-locals-all` aggregate against the verified Binaryen-v131 oracle at `.tmp/pass-fuzz-simplify-locals-liveout-final-443fa73-dedicated-10000-v131-20260812`. The lane compared `10000/10000`: `5000` normalized matches and `5000` deterministic structural residuals, with zero validation, property, generator, or command failures.

@@ -48468,21 +48468,32 @@ fn dae_run_dropped_result_batch_only(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
 ) -> @lib.Module {
-  let application = dae_apply_dropped_result_batch_transaction(
-    dae_collect_original_boundary_snapshot(mod_),
-    mod_,
-    [],
-    false,
-  )
-  if !application.applied {
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let mut current = mod_
+  let mut touched : Array[Bool] = []
+  let mut wave = 0
+  while true {
+    let application = dae_apply_dropped_result_batch_transaction(
+      original,
+      current,
+      touched,
+      wave > 0,
+    )
+    if !application.applied {
+      break
+    }
+    trace(
+      "pass[dae-optimizing]:dropped-result-batch-only wave=\{wave} first_def=\{application.primary_def}",
+    )
+    current = application.mod_out
+    touched = application.touched
+    wave += 1
+  }
+  if wave == 0 {
     return mod_
   }
-  trace(
-    "pass[dae-optimizing]:dropped-result-batch-only first_def=\{application.primary_def}",
-  )
   let (cleaned, _) = dae_cleanup_dropped_unreachable_debris_touched(
-    application.mod_out,
-    application.touched,
+    current, touched,
   )
   dae_prune_unused_simple_func_types(cleaned)
 }

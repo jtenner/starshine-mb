@@ -2390,6 +2390,89 @@ test "simplify-locals rewrites same-arm tee aliases back to the source local" {
 }
 
 ///|
+test "simplify-locals sinks split SIMD rotate temporaries in guarded large functions" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param v128) (result v128)
+    #|    (local v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128)
+    #|    local.get 0
+    #|    local.tee 1
+    #|    i32.const 12
+    #|    i32x4.shr_u
+    #|    local.set 2
+    #|    local.get 1
+    #|    i32.const 20
+    #|    i32x4.shl
+    #|    local.set 3
+    #|    local.get 2
+    #|    local.get 3
+    #|    v128.or
+    #|    local.set 4
+    #|    i32.const 0
+    #|    i32.const 1
+    #|    i32.store
+    #|    local.get 4))
+  let parsed = match
+    @wast.wast_to_binary_module(source, filename="simd-rotate.wat") {
+    Ok(mod_) => mod_
+    Err(err) => fail("fixture parse failed: \{err}")
+  }
+  match @validate.validate_module(parsed) {
+    Ok(_) => ()
+    Err(err) => fail("fixture validate failed: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(parsed, HotPipelineOptions::new(), ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected split SIMD rotate simplification, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 3)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 3)"), msg=pretty)
+  assert_true(pretty.contains("v128.or"), msg=pretty)
+}
+
+///|
+test "simplify-locals keeps split SIMD temporaries when a later read remains" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param v128) (result v128)
+        #|    (local v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128 v128)
+        #|    local.get 0
+        #|    local.tee 1
+        #|    i32.const 12
+        #|    i32x4.shr_u
+        #|    local.set 2
+        #|    local.get 1
+        #|    i32.const 20
+        #|    i32x4.shl
+        #|    local.set 3
+        #|    local.get 2
+        #|    local.get 3
+        #|    v128.or
+        #|    drop
+        #|    i32.const 0
+        #|    i32.const 1
+        #|    i32.store
+        #|    local.get 2))
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected retained split SIMD temporary, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 2)"), msg=pretty)
+}
+
+///|
 test "simplify-locals keeps tee value live after memory-map update" {
   let optimized = match
     pass_test_run_pipeline(

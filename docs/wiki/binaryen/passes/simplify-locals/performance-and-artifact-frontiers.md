@@ -20,6 +20,14 @@ related:
 
 The 2026-07-27 v131 renewal is a behavioral, validity, idempotence, and canonical-size closeout. It does not replace the historical large-artifact timing caveat below; renewed wall-time work remains owned by `[WALL]001` and is not a simplify-locals v131 parity blocker.
 
+## 2026-08-13 guarded SIMD rotate scratch elimination
+
+- The as-blake BLAKE3 SIMD audit exposed repeated complementary `i32x4.shr_u` / `i32x4.shl` temporaries joined by `v128.or`. The dominant function retained hundreds of local indices because full SimplifyLocals intentionally fails closed under the historical large-local tee plus memory-write hazard.
+- A raw full-pass rewrite now removes only split rotate scratch locals whose shifts are nonzero, below 32, sum to 32, and whose complete local-read inventory is accounted for by recognized rotate patterns. This permits repeated reuse of the same scratch indices across distinct definitions while rejecting any local with an extra observer.
+- The rewrite does not remove `simplify_locals_should_skip_large_local_tee_memory_write_hazard`; the TLSF memory-map regression and a later-read negative SIMD regression remain green.
+- On the retained 88,394-byte post-DAE SIMD artifact, direct `simplify-locals` now emits 82,999 bytes. In the complete O4z schedule, the original 1,136,839-byte input emits 63,927 bytes instead of 88,366, recovering 24,439 bytes. The output externally validates with `wasm-tools --features all`; verified Binaryen v131 emits 39,484 bytes, so 24,443 bytes of P1 gap remain.
+- JSON and SWAR release artifacts remain 114,673 and 22,496 bytes. A focused `simplify-locals-all` 1,000-case probe reports 500 normalized matches, 189 known `simplify-locals-structure-result` residuals that are 2..4 bytes larger, zero validation/property/generator failures, and 311 Binaryen command failures on the deterministic family-coverage leaf. This probe did not expose a new residual family attributable to the SIMD rewrite.
+
 ## 2026-08-03 owner-priority, breadth, and scan-cache recovery
 
 - A nested SGO fixture exposed false progress on byte-identical `f32.const nan`: structural float equality treats NaN as unequal to itself. Lowered root forwarding, nop hoisting, and finalization now report explicit mutation facts, and no-local-write functions avoid equality-based local rewrites. The 321-test SGO file completes in normal repository-test time instead of exceeding 1,200 seconds.

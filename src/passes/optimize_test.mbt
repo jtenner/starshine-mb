@@ -110,26 +110,50 @@ test "public O4z optimize preset executes the late RSE vacuum DAEO neighborhood"
 }
 
 ///|
-test "vacuum skips O4z raw pass until self-opt CLI flag parsing is safe" {
-  let trace : Array[String] = []
-  match
+test "vacuum cleans dropped pure values at O4z levels" {
+  let optimized = match
     pass_test_run_pipeline(
       "(module (func i32.const 1 drop))",
       ["vacuum"],
-      options=HotPipelineOptions::new(
-        optimize_level=4,
-        shrink_level=1,
-        trace=Some(fn(line) { trace.push(line) }),
-      ),
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
     ) {
-    Ok(_) => ()
-    Err(err) => fail("expected O4z vacuum skip success, got \{err}")
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z vacuum cleanup success, got \{err}")
   }
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[vacuum]:skip-raw reason=o4z-vacuum-noop")
-    }),
-  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
+    other =>
+      fail(
+        "expected O4z vacuum to remove the dropped constant, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum flattens lowered rotate blocks ending in a direct owner branch at O4z" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32 i32) (block local.get 0 local.tee 1 i32.const 12 i32.shr_u local.set 2 br 0) local.get 2))",
+      ["vacuum"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z lowered-rotate cleanup, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      assert_false(
+        instrs.any(fn(instr) {
+          instr is @lib.Block(_, _) || instr is @lib.Br(_)
+        }),
+        msg=@debug.to_string(instrs),
+      )
+    other =>
+      fail(
+        "expected flattened O4z lowered-rotate function, got \{@debug.to_string(other)}",
+      )
+  }
 }
 
 ///|

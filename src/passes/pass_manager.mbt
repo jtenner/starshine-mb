@@ -8673,6 +8673,286 @@ fn run_hot_pipeline_raw_simplify_locals_match_i32_add_accumulator_block(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_split_i32x4_rotate_read_count(
+  instrs : Array[@lib.Instruction],
+  local_id : Int,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count = count +
+          run_hot_pipeline_raw_simplify_locals_split_i32x4_rotate_read_count(
+            body, local_id,
+          )
+      @lib.If(_, then_body, else_body) => {
+        count = count +
+          run_hot_pipeline_raw_simplify_locals_split_i32x4_rotate_read_count(
+            then_body, local_id,
+          )
+        match else_body {
+          Some(body) =>
+            count = count +
+              run_hot_pipeline_raw_simplify_locals_split_i32x4_rotate_read_count(
+                body, local_id,
+              )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  let mut idx = 0
+  while idx + 10 < instrs.length() {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+        instrs[idx + 5],
+        instrs[idx + 6],
+        instrs[idx + 7],
+        instrs[idx + 8],
+        instrs[idx + 9],
+        instrs[idx + 10],
+      ) {
+      (
+        source_instr,
+        @lib.I32Const(@lib.I32(first_shift)),
+        @lib.I32x4ShrU,
+        @lib.LocalSet(first_local),
+        @lib.LocalGet(second_source),
+        @lib.I32Const(@lib.I32(second_shift)),
+        @lib.I32x4Shl,
+        @lib.LocalSet(second_local),
+        @lib.LocalGet(first_read),
+        @lib.LocalGet(second_read),
+        @lib.V128Or,
+      ) => {
+        let source_local = match source_instr {
+          @lib.LocalGet(local_idx) | @lib.LocalTee(local_idx) => Some(local_idx)
+          _ => None
+        }
+        match source_local {
+          Some(source_local) if second_source == source_local &&
+            first_read == first_local &&
+            second_read == second_local &&
+            first_shift > 0 &&
+            first_shift < 32 &&
+            second_shift > 0 &&
+            second_shift < 32 &&
+            first_shift + second_shift == 32 => {
+            let @lib.LocalIdx(first_raw) = first_local
+            let @lib.LocalIdx(second_raw) = second_local
+            if first_raw.reinterpret_as_int() == local_id {
+              count = count + 1
+            }
+            if second_raw.reinterpret_as_int() == local_id {
+              count = count + 1
+            }
+            idx = idx + 11
+            continue
+          }
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+    idx = idx + 1
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_flat(
+  instrs : Array[@lib.Instruction],
+  all_instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut cursor = 0
+  let mut idx = 0
+  let mut rewrite_count = 0
+  while idx + 10 < instrs.length() {
+    let (source_instr, source_local, first_shift, first_local) = match
+      (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+      (
+        source_instr,
+        @lib.I32Const(first_shift),
+        @lib.I32x4ShrU,
+        @lib.LocalSet(first_local),
+      ) =>
+        match source_instr {
+          @lib.LocalGet(source_local) | @lib.LocalTee(source_local) =>
+            (source_instr, source_local, first_shift, first_local)
+          _ => {
+            idx = idx + 1
+            continue
+          }
+        }
+      _ => {
+        idx = idx + 1
+        continue
+      }
+    }
+    let (second_shift, second_local, result_op) = match
+      (
+        instrs[idx + 4],
+        instrs[idx + 5],
+        instrs[idx + 6],
+        instrs[idx + 7],
+        instrs[idx + 8],
+        instrs[idx + 9],
+        instrs[idx + 10],
+      ) {
+      (
+        @lib.LocalGet(second_source),
+        @lib.I32Const(second_shift),
+        @lib.I32x4Shl,
+        @lib.LocalSet(second_local),
+        @lib.LocalGet(first_read),
+        @lib.LocalGet(second_read),
+        result_op,
+      ) if second_source == source_local &&
+        first_read == first_local &&
+        second_read == second_local => (second_shift, second_local, result_op)
+      _ => {
+        idx = idx + 1
+        continue
+      }
+    }
+    let @lib.I32(first_shift_value) = first_shift
+    let @lib.I32(second_shift_value) = second_shift
+    let matching_rotate_width = first_shift_value > 0 &&
+      first_shift_value < 32 &&
+      second_shift_value > 0 &&
+      second_shift_value < 32 &&
+      first_shift_value + second_shift_value == 32
+    let matching_or = match result_op {
+      @lib.V128Or => true
+      _ => false
+    }
+    let @lib.LocalIdx(first_raw) = first_local
+    let @lib.LocalIdx(second_raw) = second_local
+    let first_id = first_raw.reinterpret_as_int()
+    let second_id = second_raw.reinterpret_as_int()
+    if !matching_rotate_width ||
+      !matching_or ||
+      source_local == first_local ||
+      source_local == second_local ||
+      first_local == second_local ||
+      run_hot_pipeline_raw_count_local_gets(all_instrs, first_id) !=
+      run_hot_pipeline_raw_simplify_locals_split_i32x4_rotate_read_count(
+        all_instrs, first_id,
+      ) ||
+      run_hot_pipeline_raw_count_local_gets(all_instrs, second_id) !=
+      run_hot_pipeline_raw_simplify_locals_split_i32x4_rotate_read_count(
+        all_instrs, second_id,
+      ) {
+      idx = idx + 1
+      continue
+    }
+    for copy_idx = cursor; copy_idx < idx; copy_idx = copy_idx + 1 {
+      rewritten.push(instrs[copy_idx])
+    }
+    rewritten.push(source_instr)
+    rewritten.push(@lib.Instruction::i32_const(first_shift))
+    rewritten.push(@lib.Instruction::i32x4_shr_u())
+    rewritten.push(@lib.Instruction::local_get(source_local))
+    rewritten.push(@lib.Instruction::i32_const(second_shift))
+    rewritten.push(@lib.Instruction::i32x4_shl())
+    rewritten.push(@lib.Instruction::v128_or())
+    cursor = idx + 11
+    idx = cursor
+    rewrite_count = rewrite_count + 1
+  }
+  for copy_idx = cursor; copy_idx < instrs.length(); copy_idx = copy_idx + 1 {
+    rewritten.push(instrs[copy_idx])
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_nested(
+  instrs : Array[@lib.Instruction],
+  all_instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_nested(
+          body, all_instrs,
+        )
+        normalized.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_nested(
+          body, all_instrs,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_nested(
+          body, all_instrs,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_nested(
+          then_body, all_instrs,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        let rewritten_else = match else_body {
+          Some(body) => {
+            let (rewritten_body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_nested(
+              body, all_instrs,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(rewritten_body)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+        )
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let (rewritten, flat_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_flat(
+    normalized, all_instrs,
+  )
+  (rewritten, rewrite_count + flat_rewrites)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries_nested(
+    instrs, instrs,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_i32_add_accumulator_chain(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
@@ -8958,6 +9238,22 @@ fn run_hot_pipeline_raw_simplify_locals(
     run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
       instrs,
     ) {
+    if descriptor.name == "simplify-locals" {
+      let (simd_rotate_instrs, simd_rotate_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
+        instrs,
+      )
+      if simd_rotate_rewrites > 0 {
+        let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+          @lib.Func::new(locals, @lib.Expr::new(simd_rotate_instrs)),
+        )
+        return Some({
+          reason: "call-bulk-memory-split-i32x4-rotate-temporaries",
+          func: cleaned,
+          unchanged_original: false,
+          trace_skip_raw: true,
+        })
+      }
+    }
     return Some({
       reason: "call-bulk-memory-effect-order-simplify-locals-nostructure-noop",
       func: original,
@@ -9184,6 +9480,22 @@ fn run_hot_pipeline_raw_simplify_locals(
       unchanged_original: false,
       trace_skip_raw: false,
     })
+  }
+  if descriptor.name == "simplify-locals" {
+    let (simd_rotate_instrs, simd_rotate_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
+      instrs,
+    )
+    if simd_rotate_rewrites > 0 {
+      let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+        @lib.Func::new(locals, @lib.Expr::new(simd_rotate_instrs)),
+      )
+      return Some({
+        reason: "split-i32x4-rotate-temporaries",
+        func: cleaned,
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
   }
   let (i32_accumulator_instrs, i32_accumulator_changed) = run_hot_pipeline_raw_simplify_locals_rewrite_i32_add_accumulator_chain(
     instrs,
@@ -56440,6 +56752,81 @@ fn run_hot_pipeline_raw_vacuum_body_is_pure_noop_conditional_ladder(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_flatten_terminal_owner_branch(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  // A void block whose final instruction is an unconditional branch to that
+  // same block is equivalent to straight-line execution of its prefix. Require
+  // a value-producing prefix with a local write and reject any nested branch to
+  // the owner, preserving branch-only scaffolds and outer-control semantics.
+  if body.length() < 4 {
+    return None
+  }
+  match body[body.length() - 1] {
+    @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) == 0 => {
+      let prefix : Array[@lib.Instruction] = []
+      let mut has_local_write = false
+      for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+        if body[idx] is @lib.LocalSet(_) || body[idx] is @lib.LocalTee(_) {
+          has_local_write = true
+        }
+        prefix.push(body[idx])
+      }
+      if !has_local_write ||
+        run_hot_pipeline_raw_vacuum_body_targets_owner(prefix, 0) {
+        return None
+      }
+      Some(run_hot_pipeline_raw_vacuum_rebase_outer_body(prefix, 0))
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_terminal_owner_branch_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_flatten_terminal_owner_branch(body)
+          is Some(_) ||
+          run_hot_pipeline_raw_vacuum_instrs_have_terminal_owner_branch_candidate(
+            body,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_instrs_have_terminal_owner_branch_candidate(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_instrs_have_terminal_owner_branch_candidate(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_vacuum_instrs_have_terminal_owner_branch_candidate(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext?,
@@ -56461,6 +56848,22 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         continue
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
+        match block_type {
+          @lib.VoidBlockType =>
+            match
+              run_hot_pipeline_raw_vacuum_flatten_terminal_owner_branch(body) {
+              Some(flattened) => {
+                for next_instr in flattened {
+                  rewritten.push(next_instr)
+                }
+                changed = true
+                idx = idx + 1
+                continue
+              }
+              None => ()
+            }
+          _ => ()
+        }
         match block_type {
           @lib.VoidBlockType if body.length() == 0 &&
             (
@@ -58398,14 +58801,6 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  if options.optimize_level >= 4 && options.shrink_level >= 1 {
-    return Some({
-      reason: "o4z-vacuum-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let module_ctx = if run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
       instrs,
@@ -58421,6 +58816,9 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     instrs,
   )
   if run_hot_pipeline_raw_vacuum_has_dense_nop_debris(instrs) ||
+    run_hot_pipeline_raw_vacuum_instrs_have_terminal_owner_branch_candidate(
+      instrs,
+    ) ||
     (
       has_dropped_local_tee &&
       !run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(instrs)
