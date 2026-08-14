@@ -14,6 +14,12 @@ sources:
 
 # SimplifyLocals family fuzzing profiles
 
+## Bounded stack-carried local-get refresh — 2026-08-14
+
+Native SHA-256 `fd78486c852c8a29b31812235528bda4bf6b13b3c9e92164249dd5e73d092993` adds exact set/get stackification only for 6,144..16,384-instruction functions with at most 64 body locals. A candidate `local.set X` becomes `local.tee X` and its next `local.get X` becomes `nop` only when the intervening unstructured instruction sequence typechecks independently from an empty operand stack; scanning is bounded to 256 instructions. This preserves the assignment, producer timing, effects, and traps while proving that no intervening instruction consumes the carried value. Older operand-stack values, structured control, local rewrites, escapes, and longer spans fail closed.
+
+Regular GenValid at `.tmp/pass-fuzz-simplify-locals-stack-carried-regular-10000` compared `10000/10000` with `10000` normalized matches and zero failures. The dedicated aggregate at `.tmp/pass-fuzz-simplify-locals-stack-carried-profile-10000` reproduced the established profile distribution: `5000` normalized matches, `1875` `simplify-locals-structure-result` residuals, and `3125` Binaryen command failures on `simplify-locals-family-coverage`, with zero validation, property, or generator failures. A focused Node runtime fixture preserves an out-of-bounds load trap before a global-mutating call and, after memory growth, returns the same value and global state before and after transformation.
+
 ## Commutative SIMD carrier refresh — 2026-08-14
 
 The bounded `v128.xor` / `i32x4.add` carrier-forwarding slice used the current native release CLI and verified Binaryen-v131 oracle. Regular GenValid at `.tmp/pass-fuzz-simplify-locals-simd-carrier-regular-10000` compared `10000/10000` with `10000` normalized matches and zero mismatches, validation/property/generator failures, or command failures.

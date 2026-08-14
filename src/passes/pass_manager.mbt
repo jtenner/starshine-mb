@@ -8953,6 +8953,122 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets_flat(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten = instrs.copy()
+  let mut rewrite_count = 0
+  for set_idx = 0; set_idx < rewritten.length(); set_idx = set_idx + 1 {
+    let target = match rewritten[set_idx] {
+      @lib.LocalSet(target) => target
+      _ => continue
+    }
+    let mut state = @validate.make_state(env, [])
+    let mut scan = set_idx + 1
+    let scan_end = Int::min(rewritten.length(), set_idx + 257)
+    while scan < scan_end {
+      match rewritten[scan] {
+        @lib.LocalGet(read) if read == target => {
+          if state.stack.length() == 0 {
+            rewritten[set_idx] = @lib.Instruction::local_tee(target)
+            rewritten[scan] = @lib.Instruction::nop()
+            rewrite_count = rewrite_count + 1
+          }
+          break
+        }
+        @lib.LocalSet(write) | @lib.LocalTee(write) if write == target => break
+        @lib.Block(_, _)
+        | @lib.Loop(_, _)
+        | @lib.If(_, _, _)
+        | @lib.Try(_, _, _, _)
+        | @lib.TryTable(_, _, _) => break
+        instr =>
+          match
+            @validate.Typecheck::typecheck(
+              instr,
+              @validate.tc_state_with_stack(state, state.stack),
+            ) {
+            Ok(next) if next.reachable &&
+              next.escape == @validate.tc_escape_none() => state = next
+            _ => break
+          }
+      }
+      scan = scan + 1
+    }
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
+          then_body, env,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        let rewritten_else = match else_body {
+          Some(body) => {
+            let (rewritten_body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
+              body, env,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(rewritten_body)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+        )
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let (rewritten, flat_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets_flat(
+    normalized, env,
+  )
+  (rewritten, rewrite_count + flat_rewrites)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_instr_is_commutative_simd_carrier_op(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -9223,6 +9339,31 @@ fn run_hot_pipeline_raw_simplify_locals(
     })
   }
   let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  let allows_tee = descriptor.name != "simplify-locals-notee" &&
+    descriptor.name != "simplify-locals-no-tee" &&
+    descriptor.name != "simplify-locals-notee-nostructure"
+  if allows_tee &&
+    stats.locals_count <= 64 &&
+    stats.instr_count >= 6144 &&
+    stats.instr_count <= 16384 {
+    let env = run_hot_pipeline_raw_simplify_locals_func_env(
+      mod_, func_idx, module_ctx, locals,
+    )
+    let (stack_carried_instrs, stack_carried_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
+      instrs, env,
+    )
+    if stack_carried_rewrites > 0 {
+      let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+        @lib.Func::new(locals, @lib.Expr::new(stack_carried_instrs)),
+      )
+      return Some({
+        reason: "stack-carried-local-get",
+        func: cleaned,
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+  }
   if descriptor.name == "simplify-locals-notee-nostructure" &&
     (
       (

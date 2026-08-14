@@ -19366,6 +19366,132 @@ test "raw simplify-locals gate accepts debug artifact Func 473" {
 }
 
 ///|
+test "raw simplify-locals stackifies a set across independent expressions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32)
+      #|    local.get 0
+      #|    local.set 1
+      #|    i32.const 7
+      #|    drop
+      #|    local.get 1
+      #|    i32.const 1
+      #|    i32.add
+      #|    local.get 1
+      #|    i32.add))
+      #|,
+    ),
+  )
+  let func_idx = @lib.FuncIdx::new(0U)
+  let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
+    mod_, func_idx,
+  )
+  let module_state = HotPipelineModuleState::new()
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_,
+    module_state,
+    HotPipelineOptions::new(),
+  )
+  let env = run_hot_pipeline_raw_simplify_locals_func_env(
+    mod_, func_idx, module_ctx, locals,
+  )
+  let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
+    instrs, env,
+  )
+  assert_eq(rewrite_count, 1)
+  @debug.assert_eq(
+    rewritten[1],
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(rewritten[4], @lib.Instruction::nop())
+  @debug.assert_eq(
+    rewritten[7],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+}
+
+///|
+test "raw simplify-locals stackifies before the oversized preflight" {
+  let body : Array[@lib.Instruction] = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ]
+  for _ in 0..<6140 {
+    body.push(@lib.Instruction::nop())
+  }
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new(body),
+        ),
+      ]),
+    )
+  let result = match
+    run_hot_pipeline_raw_simplify_locals(
+      mod_,
+      @lib.FuncIdx::new(0U),
+      HotPipelineModuleState::new(),
+      @ir.HotPassDescriptor::new("simplify-locals-nostructure"),
+      HotPipelineOptions::new(),
+    ) {
+    Some(result) => result
+    None => fail("expected oversized exact stackification")
+  }
+  @debug.assert_eq(result.reason, "stack-carried-local-get")
+  assert_false(result.unchanged_original)
+}
+
+///|
+test "raw simplify-locals does not consume an older stack value as a carrier" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32)
+      #|    i32.const 9
+      #|    local.get 0
+      #|    local.set 1
+      #|    drop
+      #|    local.get 1))
+      #|,
+    ),
+  )
+  let func_idx = @lib.FuncIdx::new(0U)
+  let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
+    mod_, func_idx,
+  )
+  let module_state = HotPipelineModuleState::new()
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_,
+    module_state,
+    HotPipelineOptions::new(),
+  )
+  let env = run_hot_pipeline_raw_simplify_locals_func_env(
+    mod_, func_idx, module_ctx, locals,
+  )
+  let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
+    instrs, env,
+  )
+  assert_eq(rewrite_count, 0)
+  @debug.assert_eq(rewritten, instrs)
+}
+
+///|
 #cfg(target="native")
 test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
