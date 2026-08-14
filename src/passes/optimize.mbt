@@ -714,10 +714,15 @@ fn hot_pipeline_full_preset_passes_with_features(
   passes.push("strip-debug")
   // Inlining and guarded SIMD simplification can expose fresh nonoverlapping
   // local ranges after the earlier function queue. Run the explicit O4z local
-  // convergence extension after stripping stale local-name metadata.
+  // convergence extension after stripping stale local-name metadata. Two
+  // bounded SSA-normalization waves then expose the measured residual copy
+  // families and immediately clean the introduced locals.
   passes.append([
     "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals", "vacuum",
     "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals", "vacuum",
+    "ssa-nomerge", "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals",
+    "vacuum", "ssa-nomerge", "simplify-locals-nostructure", "coalesce-locals-cfg",
+    "reorder-locals", "vacuum",
   ])
   passes
 }
