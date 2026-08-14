@@ -2247,7 +2247,7 @@ test "inlining treats SIMD ternary wrappers as shrinking trivial" {
 }
 
 ///|
-test "inlining initializes nullable reference locals but not non-nullable locals" {
+test "inlining omits unused nullable and non-nullable local initialization" {
   let source =
     #|(module
     #|  (func $nullable
@@ -2287,7 +2287,7 @@ test "inlining initializes nullable reference locals but not non-nullable locals
           _ => ()
         }
       }
-      @debug.assert_eq(null_count, 1)
+      @debug.assert_eq(null_count, 0)
     }
     other =>
       fail(
@@ -2297,7 +2297,7 @@ test "inlining initializes nullable reference locals but not non-nullable locals
 }
 
 ///|
-test "inlining zero-initializes appended defaultable callee locals in plain mode" {
+test "inlining omits initialization for appended callee locals never read before write" {
   let source =
     #|(module
     #|  (func $id-with-dead-local (param i32) (result i32)
@@ -2311,7 +2311,51 @@ test "inlining zero-initializes appended defaultable callee locals in plain mode
   let caller = optimized.pretty_print_defined_func(0U)
   assert_true(caller.contains("F64 (local)"), msg=caller)
   assert_true(caller.contains("F32 (local)"), msg=caller)
-  assert_true(caller.contains("f32.const F32(0)"), msg=caller)
+  assert_false(caller.contains("f32.const F32(0)"), msg=caller)
+  assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
+test "inlining initializes appended callee locals read before their first write" {
+  let source =
+    #|(module
+    #|  (func $read-default (result i32)
+    #|    (local i32)
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    call $read-default))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("i32.const I32(0)"), msg=caller)
+  assert_true(
+    caller.contains("local.set (Local 0)") ||
+    caller.contains("local.tee (Local 0)"),
+    msg=caller,
+  )
+  assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
+test "inlining initializes locals when one if arm can read before writing" {
+  let source =
+    #|(module
+    #|  (func $branch (param i32) (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    else
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $branch))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  let caller = optimized.pretty_print_defined_func(0U)
+  assert_true(caller.contains("i32.const I32(0)"), msg=caller)
   assert_false(caller.contains("call"), msg=caller)
 }
 

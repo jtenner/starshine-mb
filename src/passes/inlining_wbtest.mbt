@@ -377,6 +377,89 @@ test "inlining function-label escape scanner distinguishes local and caller targ
 }
 
 ///|
+test "inlining appended-local entry liveness scans legacy try bodies and catches" {
+  let local_idx = @lib.LocalIdx::new(0U)
+  assert_true(
+    inl_local_may_read_before_write(
+      [
+        @lib.Instruction::try_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::local_get(local_idx)]),
+          [],
+        ),
+      ],
+      0,
+    ),
+  )
+  assert_true(
+    inl_local_may_read_before_write(
+      [
+        @lib.Instruction::try_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+          [
+            @lib.LegacyCatch::all(
+              @lib.Expr::new([@lib.Instruction::local_get(local_idx)]),
+            ),
+          ],
+        ),
+      ],
+      0,
+    ),
+  )
+}
+
+///|
+test "inlining appended-local entry liveness proves only definite writes" {
+  let local_idx = @lib.LocalIdx::new(0U)
+  assert_false(
+    inl_local_may_read_before_write(
+      [
+        @lib.Instruction::i32_const(@lib.I32::new(1)),
+        @lib.Instruction::local_set(local_idx),
+        @lib.Instruction::local_get(local_idx),
+      ],
+      0,
+    ),
+  )
+  assert_true(
+    inl_local_may_read_before_write(
+      [
+        @lib.Instruction::i32_const(@lib.I32::new(1)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::i32_const(@lib.I32::new(2)),
+            @lib.Instruction::local_set(local_idx),
+          ],
+          Some([
+            @lib.Instruction::i32_const(@lib.I32::new(3)),
+            @lib.Instruction::local_set(local_idx),
+          ]),
+        ),
+        @lib.Instruction::local_get(local_idx),
+      ],
+      0,
+    ),
+  )
+  assert_true(
+    inl_local_may_read_before_write(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(4)),
+            @lib.Instruction::local_set(local_idx),
+          ]),
+        ),
+        @lib.Instruction::local_get(local_idx),
+      ],
+      0,
+    ),
+  )
+}
+
+///|
 test "inlining hoist wrappers preserve branches to the function label" {
   let body = [
     @lib.Instruction::br(@lib.LabelIdx::new(0U)),

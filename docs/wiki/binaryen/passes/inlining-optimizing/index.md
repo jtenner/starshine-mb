@@ -71,14 +71,18 @@ The nested roster is represented by `inlining_nested_function_pipeline_passes(..
 
 The local implementation still contains Starshine-specific cleanup and unreachable-cycle accounting used to match the oracle and preserve smaller validated outputs. Those are implementation details, not a reduced public contract.
 
+Inline replacement also preserves Wasm's zero-initialized-local semantics without blindly materializing a default constant for every appended callee local. A conservative read-before-write scan keeps initialization whenever a reachable root, structured body, legacy catch, or `try_table` body can observe the incoming default. Initialization is omitted only when all observed reads follow a definite root-sequence write; structured-child writes are deliberately not promoted to definite assignment across their enclosing boundary.
+
+On the BLAKE3 SIMD O4z artifact this removes the dominant copied `v128.const 0; local.set` footprint and reduces validated output from `63,927` to `45,654` bytes (`-18,273`, `-28.6%`). Verified Binaryen v131 remains smaller at `39,484` bytes, leaving `6,170` bytes / `15.6%`; the residual remains a P1 local simplification and coalescing gap.
+
 ## Evidence
 
 Current tests:
 
-- focused inlining behavior: `120/120`;
-- inlining white-box: `14/14`;
+- focused inlining behavior: `133/133`;
+- inlining white-box: `19/19`;
 - command: `107/107`;
-- full repository: `9452/9452`.
+- full repository: `10385/10385`.
 
 Official v131 aggregate closeout:
 

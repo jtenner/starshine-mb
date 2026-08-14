@@ -50,6 +50,27 @@ bun fuzz compare-pass --pass inlining-optimizing --count 10000 --seed 0x5eed \
   --out-dir .tmp/pass-fuzz-inlining-optimizing-v131-closeout-10000
 ```
 
+## 2026-08-13 appended-local liveness refresh
+
+The conservative inline-replacement change that omits provably dead appended-local default initialization was refreshed against the verified-v131 aggregate at `.tmp/pass-fuzz-inlining-default-liveness-profile-10000`:
+
+```text
+pass: inlining-optimizing
+profile: inlining-optimizing-all
+seed: 0x5eed
+jobs: 16
+10000/10000 compared
+10000 normalized matches
+0 mismatches
+0 validation failures
+0 property failures
+0 generator failures
+0 command failures
+Binaryen cache: 9984 hits / 16 misses
+```
+
+Selected profile counts were direct-wrapper `3019`, parameter-spill `2993`, return-call `1998`, and cleanup-payoff `1990`. Plain `inlining` independently remained exact at `10000/10000` with `pass-inlining` in `.tmp/pass-fuzz-inlining-default-liveness-plain-profile-10000`. These lanes complement the focused read-before-write tests for root writes, conditional reads, structured-control boundaries, and legacy exception bodies and catches.
+
 ## Aggregate profile
 
 `inlining-optimizing-all` samples focused direct-wrapper, parameter-spill, return-call, and cleanup-payoff leaves. It is the ordinary dedicated profile for this pass. Use singleton leaves only for targeted reduction or regression work.

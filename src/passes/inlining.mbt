@@ -3057,6 +3057,76 @@ fn inl_inline_call_instrs(
 }
 
 ///|
+fn inl_local_may_read_before_write_sequence(
+  instrs : Array[@lib.Instruction],
+  local_id : Int,
+  written_in : Bool,
+) -> Bool {
+  let mut written = written_in
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() == local_id =>
+        if !written {
+          return true
+        }
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() ==
+        local_id => written = true
+      @lib.If(_, then_body, else_body) => {
+        if inl_local_may_read_before_write_sequence(
+            then_body, local_id, written,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if inl_local_may_read_before_write_sequence(body, local_id, written) {
+              return true
+            }
+          None => ()
+        }
+        // Branches can leave either arm before a write. Do not promote child
+        // writes to definite assignment in the enclosing sequence.
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if inl_local_may_read_before_write_sequence(body, local_id, written) {
+          return true
+        }
+      // Structured control can leave before a write. Child writes are not
+      // definite for following instructions in the enclosing sequence.
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if inl_local_may_read_before_write_sequence(body, local_id, written) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if inl_local_may_read_before_write_sequence(
+              catch_body, local_id, written,
+            ) {
+            return true
+          }
+        }
+        // Exceptional paths can bypass writes in both the body and handlers.
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn inl_local_may_read_before_write(
+  body : Array[@lib.Instruction],
+  local_id : Int,
+) -> Bool {
+  inl_local_may_read_before_write_sequence(body, local_id, false)
+}
+
+///|
 fn inl_default_local_init_instrs(
   local_type : @lib.ValType,
   local_idx : Int,
@@ -3536,12 +3606,17 @@ fn inl_make_inline_replacement(
   }
   let mut local_idx = 0
   for local_type in callee_locals.iter() {
-    replacement.append(
-      inl_default_local_init_instrs(
-        local_type,
-        local_map[info.params.length() + local_idx],
-      ),
-    )
+    if inl_local_may_read_before_write(
+        prepared_body,
+        info.params.length() + local_idx,
+      ) {
+      replacement.append(
+        inl_default_local_init_instrs(
+          local_type,
+          local_map[info.params.length() + local_idx],
+        ),
+      )
+    }
     local_idx += 1
   }
   let body_source = if stack_parameter_prefix > 0 {
