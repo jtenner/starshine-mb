@@ -1406,6 +1406,57 @@ pub fn hot_replace_node(
 }
 
 ///|
+pub fn hot_replace_local_set_with_drop(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Bool {
+  if node_id < 0 || !hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::LocalSet => {
+      hot_replace_node(func, node_id, {
+        ..node,
+        op: HotOp::Drop,
+        ty: hot_type_void(func),
+        imm0: 0,
+        imm1: 0,
+      })
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+pub fn hot_replace_local_tee_with_value(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Bool {
+  if node_id < 0 || !hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = hot_node_get(func, node_id)
+  if node.op != HotOp::LocalTee || hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let value_id = hot_child_get(func, node_id, 0)
+  if value_id < 0 || !hot_node_is_live(func, value_id) {
+    return false
+  }
+  let value = hot_node_get(func, value_id)
+  match value.op {
+    HotOp::Block | HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable =>
+      false
+    _ => {
+      hot_replace_node(func, node_id, value)
+      true
+    }
+  }
+}
+
+///|
 pub fn hot_alloc_node(func : HotFunc, node : HotNode) -> NodeId {
   hot_mutate_require_node_shape(func, node, "hot alloc_node")
   let id = func.nodes.length()

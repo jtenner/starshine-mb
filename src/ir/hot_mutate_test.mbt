@@ -155,6 +155,28 @@ test "body local append helper returns the next local id and bumps revision" {
 }
 
 ///|
+test "local write cleanup helpers preserve the assigned value computation" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let set_value = hot_build_const_i32(func, @lib.I32(7))
+  let set_id = hot_build_local_set(func, 0, set_value)
+  assert_true(hot_replace_local_set_with_drop(func, set_id))
+  match hot_node_get(func, set_id).op {
+    HotOp::Drop => ()
+    other => fail("expected drop replacement, got \{other}")
+  }
+  @debug.assert_eq(hot_child_get(func, set_id, 0), set_value)
+
+  let tee_value = hot_build_const_i32(func, @lib.I32(9))
+  let tee_id = hot_build_local_tee(func, 0, tee_value)
+  assert_true(hot_replace_local_tee_with_value(func, tee_id))
+  match hot_node_get(func, tee_id).op {
+    HotOp::Const => ()
+    other => fail("expected value replacement, got \{other}")
+  }
+  @debug.assert_eq(hot_child_count(func, tee_id), 0)
+}
+
+///|
 test "detached node deletion fast path records tombstones without immediate free-list reuse" {
   let func = HotFunc::new()
   let deleted = hot_build_nop(func)

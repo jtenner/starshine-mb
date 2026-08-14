@@ -843,7 +843,7 @@ test "coalesce-locals keeps dead writes distinct from loop-live parameters" {
     Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
   }
   let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
-  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::empty())
 }
 
 ///|
@@ -890,6 +890,88 @@ test "coalesce-locals reuses disjoint write-first locals within one loop" {
     _ => fail("expected loop body")
   }
   assert_eq(set_count, 1)
+}
+
+///|
+test "coalesce-locals drops an overwritten loop definition but preserves its value effect" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (global (mut i32) (i32.const 0))
+    #|   (func (local i32 i32)
+    #|     loop
+    #|       i32.const 0
+    #|       i32.load
+    #|       local.set 0
+    #|       i32.const 2
+    #|       local.set 0
+    #|       local.get 0
+    #|       global.set 0
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals-cfg"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected CFG ineffective-set cleanup, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  let mut set_count = 0
+  let mut found_load = false
+  let mut found_drop = false
+  match instrs[0] {
+    @lib.Loop(_, @lib.Expr(loop_body)) =>
+      for instr in loop_body {
+        match instr {
+          @lib.LocalSet(_) => set_count = set_count + 1
+          @lib.I32Load(_) => found_load = true
+          @lib.Drop => found_drop = true
+          _ => ()
+        }
+      }
+    _ => fail("expected loop body")
+  }
+  assert_eq(set_count, 1)
+  assert_true(found_load)
+  assert_true(found_drop)
+}
+
+///|
+test "coalesce-locals removes an overwritten loop tee but preserves its value" {
+  let input =
+    #| (module
+    #|   (global (mut i32) (i32.const 0))
+    #|   (func (local i32 i32)
+    #|     loop
+    #|       i32.const 1
+    #|       local.tee 0
+    #|       i32.const 3
+    #|       i32.add
+    #|       drop
+    #|       i32.const 2
+    #|       local.set 0
+    #|       local.get 0
+    #|       global.set 0
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals-cfg"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected CFG ineffective-tee cleanup, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  let mut found_tee = false
+  let mut found_add = false
+  match instrs[0] {
+    @lib.Loop(_, @lib.Expr(loop_body)) =>
+      for instr in loop_body {
+        match instr {
+          @lib.LocalTee(_) => found_tee = true
+          @lib.I32Add => found_add = true
+          _ => ()
+        }
+      }
+    _ => fail("expected loop body")
+  }
+  assert_false(found_tee)
+  assert_true(found_add)
 }
 
 ///|
@@ -1080,7 +1162,7 @@ test "coalesce-locals coalesces unread loop locals without clobbering live local
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(locals, @lib.Locals::empty())
   @debug.assert_eq(
     instrs[instrs.length() - 1],
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),

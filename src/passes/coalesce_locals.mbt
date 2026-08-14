@@ -5194,12 +5194,19 @@ fn cl_cfg_hot_region_slot(op : @ir.HotOp, slot : Int) -> Bool {
 }
 
 ///|
+priv struct CLCfgBlockActions {
+  actions : Array[CLAction]
+  node_ids : Array[@ir.NodeId]
+}
+
+///|
 fn cl_cfg_collect_block_node_actions(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
   block_id : @ir.BlockId,
   seen_stamps : Array[Int],
   actions : Array[CLAction],
+  action_node_ids : Array[@ir.NodeId],
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
@@ -5218,29 +5225,36 @@ fn cl_cfg_collect_block_node_actions(
       continue
     }
     cl_cfg_collect_block_node_actions(
-      func, child_id, block_id, seen_stamps, actions,
+      func, child_id, block_id, seen_stamps, actions, action_node_ids,
     )
   }
-  match node.op {
+  let action = match node.op {
     @ir.HotOp::LocalGet =>
-      actions.push({
+      Some({
         kind: CLActionKind::Get,
         local_idx: node.imm0,
         source: CLValueSource::Unique,
       })
     @ir.HotOp::LocalSet =>
-      actions.push({
+      Some({
         kind: CLActionKind::Set,
         local_idx: node.imm0,
         source: CLValueSource::Unique,
       })
     @ir.HotOp::LocalTee =>
-      actions.push({
+      Some({
         kind: CLActionKind::Tee,
         local_idx: node.imm0,
         source: CLValueSource::Unique,
       })
-    _ => ()
+    _ => None
+  }
+  match action {
+    Some(action) => {
+      actions.push(action)
+      action_node_ids.push(node_id)
+    }
+    None => ()
   }
 }
 
@@ -5248,17 +5262,18 @@ fn cl_cfg_collect_block_node_actions(
 fn cl_cfg_collect_block_actions(
   func : @ir.HotFunc,
   cfg : @ir.HotCfg,
-) -> Array[Array[CLAction]] {
-  let out : Array[Array[CLAction]] = []
+) -> Array[CLCfgBlockActions] {
+  let out : Array[CLCfgBlockActions] = []
   let seen_stamps = Array::make(@ir.hot_node_count(func), -1)
   for block_id = 0; block_id < @ir.cfg_block_count(cfg); block_id = block_id + 1 {
     let actions : Array[CLAction] = []
+    let node_ids : Array[@ir.NodeId] = []
     for node_id in @ir.cfg_block_get(cfg, block_id).nodes {
       cl_cfg_collect_block_node_actions(
-        func, node_id, block_id, seen_stamps, actions,
+        func, node_id, block_id, seen_stamps, actions, node_ids,
       )
     }
-    out.push(actions)
+    out.push({ actions, node_ids })
   }
   out
 }
@@ -5284,10 +5299,10 @@ fn cl_cfg_add_live_set_interferences(
 fn cl_cfg_compute_interferences(
   cfg : @ir.HotCfg,
   liveness : @ir.HotLiveness,
-  block_actions : Array[Array[CLAction]],
+  block_actions : Array[CLCfgBlockActions],
   total_locals : Int,
   param_count : Int,
-) -> Array[Array[Bool]] {
+) -> (Array[Array[Bool]], Array[@ir.NodeId], Array[@ir.NodeId]) {
   let interferences : Array[Array[Bool]] = []
   for _ in 0..<total_locals {
     interferences.push(Array::make(total_locals, false))
@@ -5297,8 +5312,11 @@ fn cl_cfg_compute_interferences(
       cl_add_interference(interferences, lhs, rhs)
     }
   }
+  let ineffective_sets : Array[@ir.NodeId] = []
+  let ineffective_tees : Array[@ir.NodeId] = []
   for block_id = 0; block_id < @ir.cfg_block_count(cfg); block_id = block_id + 1 {
-    let actions = block_actions[block_id]
+    let block = block_actions[block_id]
+    let actions = block.actions
     let ends_live_range = Array::make(actions.length(), false)
     let effective = Array::make(actions.length(), false)
     let live_after = Array::make(total_locals, false)
@@ -5323,6 +5341,19 @@ fn cl_cfg_compute_interferences(
         }
       }
       action_idx -= 1
+    }
+    for idx = 0; idx < actions.length(); idx = idx + 1 {
+      match actions[idx].kind {
+        CLActionKind::Set =>
+          if !effective[idx] {
+            ineffective_sets.push(block.node_ids[idx])
+          }
+        CLActionKind::Tee =>
+          if !effective[idx] {
+            ineffective_tees.push(block.node_ids[idx])
+          }
+        _ => ()
+      }
     }
     let live = Array::make(total_locals, false)
     for local_idx = 0; local_idx < total_locals; local_idx = local_idx + 1 {
@@ -5350,7 +5381,27 @@ fn cl_cfg_compute_interferences(
       }
     }
   }
-  interferences
+  (interferences, ineffective_sets, ineffective_tees)
+}
+
+///|
+fn cl_cfg_cleanup_ineffective_writes(
+  func : @ir.HotFunc,
+  set_node_ids : Array[@ir.NodeId],
+  tee_node_ids : Array[@ir.NodeId],
+) -> Unit {
+  for node_id in set_node_ids {
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    ignore(@ir.hot_replace_local_set_with_drop(func, node_id))
+  }
+  for node_id in tee_node_ids {
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    ignore(@ir.hot_replace_local_tee_with_value(func, node_id))
+  }
 }
 
 ///|
@@ -5378,15 +5429,15 @@ fn cl_rewrite_loop_func_cfg(
   let liveness = @ir.liveness_build(cfg, use_def)
   let block_actions = cl_cfg_collect_block_actions(hot, cfg)
   let mut cfg_action_count = 0
-  for actions in block_actions {
-    cfg_action_count += actions.length()
+  for block in block_actions {
+    cfg_action_count += block.actions.length()
   }
   let raw_actions : Array[CLAction] = []
   cl_collect_instrs(original_instrs, raw_actions, total_locals)
   if cfg_action_count != raw_actions.length() {
     return { func, changed: false }
   }
-  let interferences = cl_cfg_compute_interferences(
+  let (interferences, ineffective_sets, ineffective_tees) = cl_cfg_compute_interferences(
     cfg,
     liveness,
     block_actions,
@@ -5405,11 +5456,26 @@ fn cl_rewrite_loop_func_cfg(
     none_preferred,
   )
   let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
+  if ineffective_sets.length() > 0 || ineffective_tees.length() > 0 {
+    cl_cfg_cleanup_ineffective_writes(hot, ineffective_sets, ineffective_tees)
+  }
+  let rewrite_base = if ineffective_sets.length() > 0 ||
+    ineffective_tees.length() > 0 {
+    @ir.hot_lower_func(hot)
+  } else {
+    func
+  }
+  let @lib.Func(base_locals, @lib.Expr(base_instrs)) = rewrite_base
+  if base_locals != body_locals {
+    return { func: rewrite_base, changed: true }
+  }
   if rewritten_locals == body_locals &&
-    cl_old_to_new_is_identity(coloring.old_to_new) {
+    cl_old_to_new_is_identity(coloring.old_to_new) &&
+    ineffective_sets.length() == 0 &&
+    ineffective_tees.length() == 0 {
     return { func, changed: false }
   }
-  let rewritten_instrs = cl_deep_copy_instrs(original_instrs)
+  let rewritten_instrs = cl_deep_copy_instrs(base_instrs)
   cl_rewrite_all_local_idxs_in_place(rewritten_instrs, coloring.old_to_new)
   ignore(cl_remove_redundant_copy_pairs(rewritten_instrs))
   {
