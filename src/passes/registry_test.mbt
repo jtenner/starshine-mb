@@ -326,7 +326,7 @@ test "audited pass_require helper metadata contracts stay declared" {
 }
 
 ///|
-test "O4z preset expansion matches Binaryen v131's 56 slots plus strip-debug" {
+test "O4z preset expansion keeps Binaryen v131's 56 slots plus late local convergence" {
   let options = HotPipelineOptions::new(optimize_level=4, shrink_level=4)
   let optimize = optimize_preset_passes(options)
   let shrink = shrink_preset_passes(options)
@@ -350,7 +350,9 @@ test "O4z preset expansion matches Binaryen v131's 56 slots plus strip-debug" {
   @debug.assert_eq(binaryen_v131.length(), 56)
   @debug.assert_eq(optimize, shrink)
   @debug.assert_eq(optimize[:binaryen_v131.length()], binaryen_v131)
-  @debug.assert_eq(optimize[binaryen_v131.length():], ["strip-debug"])
+  @debug.assert_eq(optimize[binaryen_v131.length():], [
+    "strip-debug", "coalesce-locals-cfg", "reorder-locals", "vacuum",
+  ])
   @debug.assert_eq(
     optimize.filter(fn(name) { name == "precompute-propagate" }).length(),
     2,
@@ -365,7 +367,7 @@ test "O4z preset expansion matches Binaryen v131's 56 slots plus strip-debug" {
     optimize.filter(fn(name) { name == "remove-unused-brs" }).length(),
     3,
   )
-  @debug.assert_eq(optimize.length(), 57)
+  @debug.assert_eq(optimize.length(), 60)
   @debug.assert_eq(optimize[13], "remove-unused-brs")
   @debug.assert_eq(optimize[24], "remove-unused-brs")
   @debug.assert_eq(optimize[39], "remove-unused-brs")

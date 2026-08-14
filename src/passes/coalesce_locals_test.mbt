@@ -824,7 +824,7 @@ test "coalesce-locals can reuse a dead structured param slot without moving para
 }
 
 ///|
-test "coalesce-locals keeps accessed loop locals conservative" {
+test "coalesce-locals keeps dead writes distinct from loop-live parameters" {
   let input =
     #| (module
     #|   (func (param i32) (result i32) (local i32 i32)
@@ -841,6 +841,117 @@ test "coalesce-locals keeps accessed loop locals conservative" {
   let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+}
+
+///|
+test "coalesce-locals reuses disjoint write-first locals within one loop" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (func (param i32) (local i32 i32)
+    #|     loop
+    #|       local.get 0
+    #|       i32.load
+    #|       local.set 1
+    #|       i32.const 4
+    #|       local.get 1
+    #|       i32.store
+    #|       local.get 0
+    #|       i32.const 8
+    #|       i32.add
+    #|       i32.load
+    #|       local.set 2
+    #|       i32.const 12
+    #|       local.get 2
+    #|       i32.store
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected CFG loop-local coalescing, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  let mut set_count = 0
+  match instrs[0] {
+    @lib.Loop(_, @lib.Expr(loop_body)) =>
+      for instr in loop_body {
+        match instr {
+          @lib.LocalSet(local_idx) if local_idx == @lib.LocalIdx::new(1U) =>
+            set_count = set_count + 1
+          _ => ()
+        }
+      }
+    _ => fail("expected loop body")
+  }
+  assert_eq(set_count, 1)
+}
+
+///|
+test "O4z late CFG coalesce uses loop liveness" {
+  let input = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (memory 1)
+      #|   (func (param i32) (local i32 i32)
+      #|     loop
+      #|       local.get 0
+      #|       i32.load
+      #|       local.set 1
+      #|       i32.const 4
+      #|       local.get 1
+      #|       i32.store
+      #|       local.get 0
+      #|       i32.const 8
+      #|       i32.add
+      #|       i32.load
+      #|       local.set 2
+      #|       i32.const 12
+      #|       local.get 2
+      #|       i32.store
+      #|     end))
+      #|,
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["coalesce-locals-cfg"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected late CFG loop coalescing, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  assert_true(locals.length() < 2, msg=locals.to_string())
+}
+
+///|
+test "coalesce-locals keeps overlapping loop-local live ranges distinct" {
+  let input =
+    #| (module
+    #|   (func (param i32) (local i32 i32)
+    #|     loop
+    #|       local.get 0
+    #|       local.set 1
+    #|       local.get 0
+    #|       local.set 2
+    #|       local.get 1
+    #|       local.get 2
+    #|       i32.add
+    #|       drop
+    #|       local.get 0
+    #|       drop
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected conservative CFG loop liveness, got \{err}")
   }
   let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
   @debug.assert_eq(
@@ -969,13 +1080,10 @@ test "coalesce-locals coalesces unread loop locals without clobbering live local
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
-  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   @debug.assert_eq(
     instrs[instrs.length() - 1],
-    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   )
 }
 

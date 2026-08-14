@@ -78760,6 +78760,7 @@ fn run_hot_pipeline_apply_module_pass(
       } else {
         coalesce_locals_run_module_pass(mod_)
       }
+    "coalesce-locals-cfg" => coalesce_locals_run_module_pass(mod_)
     "local-cse" => local_cse_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
     "strip-debug" => strip_debug_run_module_pass(mod_)

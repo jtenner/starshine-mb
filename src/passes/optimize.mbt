@@ -314,6 +314,9 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_module("reorder-locals", reorder_locals_summary()),
     pass_registry_entry_module("local-subtyping", local_subtyping_summary()),
     pass_registry_entry_module("coalesce-locals", coalesce_locals_summary()),
+    pass_registry_entry_module(
+      "coalesce-locals-cfg", "Coalesce compatible loop locals with CFG liveness and validated rollback.",
+    ),
     pass_registry_entry_module("duplicate-import-elimination", die_summary()),
     pass_registry_entry_module("strip-debug", strip_debug_summary()),
     pass_registry_entry_module(
@@ -706,9 +709,13 @@ fn hot_pipeline_full_preset_passes_with_features(
     passes.push("reorder-globals")
   }
   passes.push("directize")
-  // Starshine intentionally strips debug/name metadata after its public
-  // presets. This is an extension outside Binaryen's scheduler.
+  // Starshine intentionally strips debug/name metadata after Binaryen v131's
+  // public roster. This is an extension outside Binaryen's scheduler.
   passes.push("strip-debug")
+  // Inlining and guarded SIMD simplification can expose fresh nonoverlapping
+  // local ranges after the earlier function queue. Run the explicit O4z local
+  // convergence extension after stripping stale local-name metadata.
+  passes.append(["coalesce-locals-cfg", "reorder-locals", "vacuum"])
   passes
 }
 

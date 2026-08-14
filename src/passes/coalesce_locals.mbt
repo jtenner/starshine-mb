@@ -5184,6 +5184,241 @@ fn cl_should_use_dense_tee_structured_intervals(
 }
 
 ///|
+fn cl_cfg_hot_region_slot(op : @ir.HotOp, slot : Int) -> Bool {
+  match op {
+    @ir.HotOp::Block | @ir.HotOp::Loop => true
+    @ir.HotOp::If => slot == 1 || slot == 2
+    @ir.HotOp::Try | @ir.HotOp::TryTable => slot == 0 || slot == 1
+    _ => false
+  }
+}
+
+///|
+fn cl_cfg_collect_block_node_actions(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  block_id : @ir.BlockId,
+  seen_stamps : Array[Int],
+  actions : Array[CLAction],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  if seen_stamps[node_id] == block_id {
+    return
+  }
+  seen_stamps[node_id] = block_id
+  let node = @ir.hot_node_get(func, node_id)
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if cl_cfg_hot_region_slot(node.op, slot) {
+      continue
+    }
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      continue
+    }
+    cl_cfg_collect_block_node_actions(
+      func, child_id, block_id, seen_stamps, actions,
+    )
+  }
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      actions.push({
+        kind: CLActionKind::Get,
+        local_idx: node.imm0,
+        source: CLValueSource::Unique,
+      })
+    @ir.HotOp::LocalSet =>
+      actions.push({
+        kind: CLActionKind::Set,
+        local_idx: node.imm0,
+        source: CLValueSource::Unique,
+      })
+    @ir.HotOp::LocalTee =>
+      actions.push({
+        kind: CLActionKind::Tee,
+        local_idx: node.imm0,
+        source: CLValueSource::Unique,
+      })
+    _ => ()
+  }
+}
+
+///|
+fn cl_cfg_collect_block_actions(
+  func : @ir.HotFunc,
+  cfg : @ir.HotCfg,
+) -> Array[Array[CLAction]] {
+  let out : Array[Array[CLAction]] = []
+  let seen_stamps = Array::make(@ir.hot_node_count(func), -1)
+  for block_id = 0; block_id < @ir.cfg_block_count(cfg); block_id = block_id + 1 {
+    let actions : Array[CLAction] = []
+    for node_id in @ir.cfg_block_get(cfg, block_id).nodes {
+      cl_cfg_collect_block_node_actions(
+        func, node_id, block_id, seen_stamps, actions,
+      )
+    }
+    out.push(actions)
+  }
+  out
+}
+
+///|
+fn cl_cfg_add_live_set_interferences(
+  live : Array[Bool],
+  interferences : Array[Array[Bool]],
+) -> Unit {
+  for lhs = 0; lhs < live.length(); lhs = lhs + 1 {
+    if !live[lhs] {
+      continue
+    }
+    for rhs = lhs + 1; rhs < live.length(); rhs = rhs + 1 {
+      if live[rhs] {
+        cl_add_interference(interferences, lhs, rhs)
+      }
+    }
+  }
+}
+
+///|
+fn cl_cfg_compute_interferences(
+  cfg : @ir.HotCfg,
+  liveness : @ir.HotLiveness,
+  block_actions : Array[Array[CLAction]],
+  total_locals : Int,
+  param_count : Int,
+) -> Array[Array[Bool]] {
+  let interferences : Array[Array[Bool]] = []
+  for _ in 0..<total_locals {
+    interferences.push(Array::make(total_locals, false))
+  }
+  for lhs = 0; lhs < param_count; lhs = lhs + 1 {
+    for rhs = lhs + 1; rhs < param_count; rhs = rhs + 1 {
+      cl_add_interference(interferences, lhs, rhs)
+    }
+  }
+  for block_id = 0; block_id < @ir.cfg_block_count(cfg); block_id = block_id + 1 {
+    let actions = block_actions[block_id]
+    let ends_live_range = Array::make(actions.length(), false)
+    let effective = Array::make(actions.length(), false)
+    let live_after = Array::make(total_locals, false)
+    for local_idx = 0; local_idx < total_locals; local_idx = local_idx + 1 {
+      live_after[local_idx] = @ir.local_live_out(liveness, block_id, local_idx)
+    }
+    let mut action_idx = actions.length() - 1
+    while action_idx >= 0 {
+      let action = actions[action_idx]
+      match action.kind {
+        CLActionKind::Get => {
+          if !live_after[action.local_idx] {
+            ends_live_range[action_idx] = true
+          }
+          live_after[action.local_idx] = true
+        }
+        CLActionKind::Set | CLActionKind::Tee => {
+          if live_after[action.local_idx] {
+            effective[action_idx] = true
+          }
+          live_after[action.local_idx] = false
+        }
+      }
+      action_idx -= 1
+    }
+    let live = Array::make(total_locals, false)
+    for local_idx = 0; local_idx < total_locals; local_idx = local_idx + 1 {
+      live[local_idx] = @ir.local_live_in(liveness, block_id, local_idx)
+    }
+    cl_cfg_add_live_set_interferences(live, interferences)
+    for idx = 0; idx < actions.length(); idx = idx + 1 {
+      let action = actions[idx]
+      match action.kind {
+        CLActionKind::Get =>
+          if ends_live_range[idx] {
+            live[action.local_idx] = false
+          }
+        CLActionKind::Set | CLActionKind::Tee => {
+          // Even an ineffective write still executes. Keep its destination
+          // away from every currently live local so coloring cannot turn a
+          // dead write into a clobber of a value observed later in the block.
+          for other = 0; other < total_locals; other = other + 1 {
+            if live[other] {
+              cl_add_interference(interferences, action.local_idx, other)
+            }
+          }
+          live[action.local_idx] = effective[idx]
+        }
+      }
+    }
+  }
+  interferences
+}
+
+///|
+fn cl_rewrite_loop_func_cfg(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  ctx : @ir.HotModuleContext,
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> CLFuncRewrite {
+  let @lib.Func(body_locals, @lib.Expr(original_instrs)) = func
+  let types = cl_all_local_types(params, body_locals)
+  let total_locals = types.length()
+  if body_locals.length() <= 1 ||
+    total_locals > cl_dense_coloring_local_limit() ||
+    cl_instrs_have_legacy_try(original_instrs) {
+    return { func, changed: false }
+  }
+  let hot = match @ir.hot_lift_func_with_context_result(mod_, func_idx, ctx) {
+    Ok(hot) => hot
+    Err(_) => return { func, changed: false }
+  }
+  let cfg = @ir.cfg_build(hot)
+  let use_def = @ir.use_def_build(hot, cfg=Some(cfg))
+  let liveness = @ir.liveness_build(cfg, use_def)
+  let block_actions = cl_cfg_collect_block_actions(hot, cfg)
+  let mut cfg_action_count = 0
+  for actions in block_actions {
+    cfg_action_count += actions.length()
+  }
+  let raw_actions : Array[CLAction] = []
+  cl_collect_instrs(original_instrs, raw_actions, total_locals)
+  if cfg_action_count != raw_actions.length() {
+    return { func, changed: false }
+  }
+  let interferences = cl_cfg_compute_interferences(
+    cfg,
+    liveness,
+    block_actions,
+    total_locals,
+    params.length(),
+  )
+  let none_preferred = Array::make(total_locals, false)
+  let raw_liveness = cl_compute_liveness(raw_actions, total_locals)
+  let coloring = cl_pick_coloring(
+    types,
+    params.length(),
+    interferences,
+    cl_copy_weights(raw_actions, raw_liveness.effective, total_locals),
+    none_preferred,
+    none_preferred,
+    none_preferred,
+  )
+  let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
+  if rewritten_locals == body_locals &&
+    cl_old_to_new_is_identity(coloring.old_to_new) {
+    return { func, changed: false }
+  }
+  let rewritten_instrs = cl_deep_copy_instrs(original_instrs)
+  cl_rewrite_all_local_idxs_in_place(rewritten_instrs, coloring.old_to_new)
+  ignore(cl_remove_redundant_copy_pairs(rewritten_instrs))
+  {
+    func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
+    changed: true,
+  }
+}
+
+///|
 fn cl_rewrite_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -5505,6 +5740,8 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let defined_func_params = cl_defined_func_param_cache(mod_)
+      let hot_context = @ir.hot_module_context_from_module(mod_)
+      let imported_func_count = cl_imported_func_count(mod_)
       let rewritten_funcs : Array[@lib.Func] = Array::new(
         capacity=funcs.length(),
       )
@@ -5523,10 +5760,32 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           rewritten_funcs.push(funcs[code_idx])
           continue
         }
-        let rewrite = cl_cleanup_never_read_tees(
-          cl_rewrite_func(funcs[code_idx], params),
+        let cfg_rewrite = if cl_instrs_have_loop_control(instrs) {
+          cl_rewrite_loop_func_cfg(
+            mod_,
+            @lib.FuncIdx::new(
+              (imported_func_count + code_idx).reinterpret_as_uint(),
+            ),
+            hot_context,
+            funcs[code_idx],
+            params,
+          )
+        } else {
+          { func: funcs[code_idx], changed: false }
+        }
+        let rewrite_input = if cfg_rewrite.changed {
+          cfg_rewrite.func
+        } else {
+          funcs[code_idx]
+        }
+        let cleanup_rewrite = cl_cleanup_never_read_tees(
+          cl_rewrite_func(rewrite_input, params),
           params.length(),
         )
+        let rewrite : CLFuncRewrite = {
+          func: cleanup_rewrite.func,
+          changed: cfg_rewrite.changed || cleanup_rewrite.changed,
+        }
         rewritten_funcs.push(rewrite.func)
         if rewrite.changed {
           changed_code_indices.push(code_idx)
