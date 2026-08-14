@@ -186,6 +186,64 @@ test "vacuum removes dropped pure scalar expressions" {
 }
 
 ///|
+test "vacuum removes dropped pure SIMD shuffles" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (global (mut i32) (i32.const 0))
+      #|  (func (param v128 v128)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i8x16.shuffle 8 9 10 11 24 25 26 27 12 13 14 15 28 29 30 31
+      #|    drop
+      #|    i32.const 7
+      #|    global.set 0))
+      #|,
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped shuffle cleanup, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::i32_const(7),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      ])
+    other => fail("expected vacuumed SIMD function, got \{other}")
+  }
+}
+
+///|
+test "vacuum preserves dropped SIMD shuffles with observable local tee assignments" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (global (mut v128) (v128.const i32x4 0 0 0 0))
+      #|  (func (param v128 v128) (local v128)
+      #|    local.get 0
+      #|    local.tee 2
+      #|    local.get 1
+      #|    i8x16.shuffle 8 9 10 11 24 25 26 27 12 13 14 15 28 29 30 31
+      #|    drop
+      #|    local.get 2
+      #|    global.set 0))
+      #|,
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected tee-preserving shuffle cleanup, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.tee (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("i8x16.shuffle"), msg=pretty)
+}
+
+///|
 test "vacuum preserves dropped zero-divisor traps after unsigned canonicalization" {
   let input = "(module (type (func (result i32 i64))) (func block (type 0) i32.const 1 i32.const 0 i32.div_s drop i32.const 7 i64.const 9 end drop drop))"
   let optimized = match

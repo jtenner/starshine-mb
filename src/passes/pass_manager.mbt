@@ -568,6 +568,33 @@ fn vacuum_convert_is_nontrapping(instr : @lib.Instruction?) -> Bool {
 }
 
 ///|
+fn vacuum_simd_is_nontrapping(instr : @lib.Instruction?) -> Bool {
+  match instr {
+    Some(
+      @lib.Instruction::I8x16Shuffle(
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _
+      )
+    ) => true
+    _ => false
+  }
+}
+
+///|
 fn vacuum_heap_is_removable_if_unused(instr : @lib.Instruction?) -> Bool {
   match instr {
     Some(@lib.Instruction::StructNewDefault(_) | @lib.Instruction::RefEq) =>
@@ -687,6 +714,8 @@ fn vacuum_can_remove_dropped_node(
     @ir.HotOp::Binary => vacuum_binary_is_nontrapping(func, node_id)
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    @ir.HotOp::Simd =>
+      vacuum_simd_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     @ir.HotOp::Heap =>
       vacuum_heap_is_removable_if_unused(
         @ir.hot_node_exact_instr(func, node_id),
@@ -56151,7 +56180,9 @@ fn run_hot_pipeline_raw_vacuum_pure_instr_operand_count(
     | @lib.F64Min
     | @lib.F64Max
     | @lib.F64Copysign
-    | @lib.RefEq => Some(2)
+    | @lib.RefEq
+    | @lib.I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      Some(2)
     @lib.Select(_) => Some(3)
     _ => if vacuum_convert_is_nontrapping(Some(instr)) { Some(1) } else { None }
   }

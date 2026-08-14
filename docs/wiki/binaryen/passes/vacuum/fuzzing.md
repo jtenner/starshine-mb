@@ -10,6 +10,12 @@ sources:
 
 # `vacuum` Fuzzing Profile
 
+## Dropped pure SIMD shuffle refresh — 2026-08-14
+
+Native release SHA-256 `ffcdba8bc496b09358c8e445f7c444611367653acd204fad642d9eb386cf3287` treats only `i8x16.shuffle` as a nontrapping pure SIMD operation for dropped-expression cleanup. The raw precleaner gives it arity two so oversized guarded functions can delete complete pure `local.get; local.get; i8x16.shuffle; drop` trees; the HOT path uses the same exact opcode classification. Loads, stores, swizzles, lane operations, and every other SIMD opcode remain unchanged. Recursive purity keeps local-tee assignments, trapping/effectful operands, and all non-pure children.
+
+Against the explicit verified Binaryen v131 oracle, regular `.tmp/pass-fuzz-vacuum-pure-shuffle-regular-v131-10000` and dedicated `.tmp/pass-fuzz-vacuum-pure-shuffle-profile-v131-10000` both compare and normalize exactly at `10000/10000`, with zero mismatches or validation/property/generator/command failures. Focused tests remove pure shuffles and retain observable local-tee assignments; a Node smoke fixture preserves the following global write. Integrated O4z BLAKE3 SIMD falls from 41,621 to 41,109 bytes, while JSON and SWAR remain byte-stable.
+
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass.
 
 Current Binaryen-v131 direct behavior is closed for the represented `vacuum` surface. The 2026-07-21 `[VACUUM-PARITY]002` matrix first closed three selected families and identified three broad size-losing families. Recovered slice `[VACUUM-PARITY]003` then closed fresh-GC `struct.get` / `ref.eq` / `ref.test` observation debris, unshared-or-immutable-shared `struct.atomic.get*` from concrete nonnull receivers, and loop-local `drop(local.get)` inside branchy structured control. Nullable reads, shared mutable atomic synchronization, trapping arithmetic, observed allocations, and self/back branches remain protected. The current required matrix leaves only measured six-byte Starshine wins: symmetric side-effect-free `if` removals in random-all, and the established loop-carried constant/local-shape win in wasm-smith case `3694`. Ordered O4z placement remains separate under `[O4Z-PRESET]001`.
