@@ -9257,6 +9257,29 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
+  // These stack-local SIMD rewrites are exact even when generic local
+  // propagation must fail closed around loop-carried values. Run them before
+  // the broad loop guards so source SIMD kernels can shed lowering carriers
+  // before inlining combines them into a larger function.
+  if descriptor.name == "simplify-locals" && stats.loop_count > 0 {
+    let (simd_rotate_instrs, simd_rotate_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
+      instrs,
+    )
+    let (simd_carrier_instrs, simd_carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+      simd_rotate_instrs,
+    )
+    if simd_rotate_rewrites > 0 || simd_carrier_rewrites > 0 {
+      let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+        @lib.Func::new(locals, @lib.Expr::new(simd_carrier_instrs)),
+      )
+      return Some({
+        reason: "loop-simd-temporaries",
+        func: cleaned,
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+  }
   if stats.loop_count > 0 &&
     run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_carrier(
       instrs,

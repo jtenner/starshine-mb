@@ -20,6 +20,8 @@ The bounded `v128.xor` / `i32x4.add` carrier-forwarding slice used the current n
 
 The dedicated aggregate at `.tmp/pass-fuzz-simplify-locals-simd-carrier-profile-10000` requested `10000`, compared `6875`, and retained the known profile distribution: `5000` normalized matches, `1875` existing `simplify-locals-structure-result` residuals, and `3125` Binaryen command failures on `simplify-locals-family-coverage`. It had zero validation, property, and generator failures. Selected counts were effect-order `1250`, flat-parent `1250`, local-traffic `1875`, structure-result `1875`, family-coverage `3125`, and stress `625`. No new comparable mismatch family is attributable to the SIMD carrier rewrite.
 
+The loop-order follow-up, which runs the same exact SIMD rewrites before the broad loop-carried fallback, refreshed regular GenValid at `.tmp/pass-fuzz-simplify-locals-loop-simd-pre-guard-regular-10000` with `10000/10000` normalized matches and no failures. Its aggregate at `.tmp/pass-fuzz-simplify-locals-loop-simd-pre-guard-profile-10000` reproduced the same `5000` matches, `1875` structure-result residuals, and `3125` Binaryen family-coverage command failures, again with zero validation/property/generator failures.
+
 ## Guarded SIMD rotate probe — 2026-08-13
 
 After adding the full-pass raw rewrite for complementary split `i32x4` rotate temporaries, a 1,000-case `simplify-locals-all` probe used the explicit native release CLI and verified Binaryen-v131 oracle. It requested `1000`, compared `689`, and reported `500` normalized matches plus `189` residuals, with zero validation, property, and generator failures. The `311` command failures were Binaryen failures on every selected `simplify-locals-family-coverage` case.

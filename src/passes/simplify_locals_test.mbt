@@ -2470,6 +2470,41 @@ test "simplify-locals forwards guarded commutative SIMD carrier chains" {
 }
 
 ///|
+test "simplify-locals forwards SIMD carriers before generic loop-carrier fallback" {
+  let source =
+    #|(module
+    #|  (func (param v128 v128) (result v128)
+    #|    (local i32 v128)
+    #|    i32.const 0
+    #|    local.set 2
+    #|    loop
+    #|      i32.const 1
+    #|      local.set 2
+    #|      local.get 0
+    #|      local.set 3
+    #|      local.get 1
+    #|      local.get 3
+    #|      v128.xor
+    #|      drop
+    #|    end
+    #|    local.get 0))
+  let parsed = match
+    @wast.wast_to_binary_module(source, filename="simd-loop-carrier.wat") {
+    Ok(mod_) => mod_
+    Err(err) => fail("fixture parse failed: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(parsed, HotPipelineOptions::new(), ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected loop SIMD carrier forwarding, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set (Local 3)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 3)"), msg=pretty)
+  assert_true(pretty.contains("v128.xor"), msg=pretty)
+}
+
+///|
 test "simplify-locals forwards nested SIMD add carriers and preserves later reads" {
   let source =
     #|(module
