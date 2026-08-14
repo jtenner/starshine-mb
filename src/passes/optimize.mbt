@@ -717,6 +717,7 @@ fn hot_pipeline_full_preset_passes_with_features(
   // convergence extension after stripping stale local-name metadata.
   passes.append([
     "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals", "vacuum",
+    "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals", "vacuum",
   ])
   passes
 }

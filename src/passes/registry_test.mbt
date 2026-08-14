@@ -352,6 +352,7 @@ test "O4z preset expansion keeps Binaryen v131's 56 slots plus late local conver
   @debug.assert_eq(optimize[:binaryen_v131.length()], binaryen_v131)
   @debug.assert_eq(optimize[binaryen_v131.length():], [
     "strip-debug", "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals",
+    "vacuum", "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals",
     "vacuum",
   ])
   @debug.assert_eq(
@@ -368,7 +369,7 @@ test "O4z preset expansion keeps Binaryen v131's 56 slots plus late local conver
     optimize.filter(fn(name) { name == "remove-unused-brs" }).length(),
     3,
   )
-  @debug.assert_eq(optimize.length(), 61)
+  @debug.assert_eq(optimize.length(), 65)
   @debug.assert_eq(optimize[13], "remove-unused-brs")
   @debug.assert_eq(optimize[24], "remove-unused-brs")
   @debug.assert_eq(optimize[39], "remove-unused-brs")
