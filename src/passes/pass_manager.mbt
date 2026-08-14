@@ -8953,6 +8953,119 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_instr_is_commutative_simd_carrier_op(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.V128Xor | @lib.I32x4Add => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_flat(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut cursor = 0
+  let mut idx = 0
+  let mut rewrite_count = 0
+  while idx + 3 < instrs.length() {
+    match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+      (@lib.LocalSet(target), @lib.LocalGet(_), @lib.LocalGet(read), op) if read ==
+        target &&
+        run_hot_pipeline_raw_simplify_locals_instr_is_commutative_simd_carrier_op(
+          op,
+        ) => {
+        for copy_idx = cursor; copy_idx < idx; copy_idx = copy_idx + 1 {
+          rewritten.push(instrs[copy_idx])
+        }
+        rewritten.push(@lib.Instruction::local_tee(target))
+        rewritten.push(instrs[idx + 1])
+        rewritten.push(op)
+        cursor = idx + 4
+        idx = cursor
+        rewrite_count = rewrite_count + 1
+        continue
+      }
+      _ => ()
+    }
+    idx = idx + 1
+  }
+  for copy_idx = cursor; copy_idx < instrs.length(); copy_idx = copy_idx + 1 {
+    rewritten.push(instrs[copy_idx])
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+          then_body,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        let rewritten_else = match else_body {
+          Some(body) => {
+            let (rewritten_body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+              body,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(rewritten_body)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+        )
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let (rewritten, flat_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers_flat(
+    normalized,
+  )
+  (rewritten, rewrite_count + flat_rewrites)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_i32_add_accumulator_chain(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
@@ -9242,12 +9355,15 @@ fn run_hot_pipeline_raw_simplify_locals(
       let (simd_rotate_instrs, simd_rotate_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
         instrs,
       )
-      if simd_rotate_rewrites > 0 {
+      let (simd_carrier_instrs, simd_carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+        simd_rotate_instrs,
+      )
+      if simd_rotate_rewrites > 0 || simd_carrier_rewrites > 0 {
         let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
-          @lib.Func::new(locals, @lib.Expr::new(simd_rotate_instrs)),
+          @lib.Func::new(locals, @lib.Expr::new(simd_carrier_instrs)),
         )
         return Some({
-          reason: "call-bulk-memory-split-i32x4-rotate-temporaries",
+          reason: "call-bulk-memory-simd-temporaries",
           func: cleaned,
           unchanged_original: false,
           trace_skip_raw: true,
@@ -9485,12 +9601,15 @@ fn run_hot_pipeline_raw_simplify_locals(
     let (simd_rotate_instrs, simd_rotate_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_split_i32x4_rotate_temporaries(
       instrs,
     )
-    if simd_rotate_rewrites > 0 {
+    let (simd_carrier_instrs, simd_carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_commutative_simd_carriers(
+      simd_rotate_instrs,
+    )
+    if simd_rotate_rewrites > 0 || simd_carrier_rewrites > 0 {
       let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
-        @lib.Func::new(locals, @lib.Expr::new(simd_rotate_instrs)),
+        @lib.Func::new(locals, @lib.Expr::new(simd_carrier_instrs)),
       )
       return Some({
-        reason: "split-i32x4-rotate-temporaries",
+        reason: "simd-temporaries",
         func: cleaned,
         unchanged_original: false,
         trace_skip_raw: true,

@@ -20,6 +20,13 @@ related:
 
 The 2026-07-27 v131 renewal is a behavioral, validity, idempotence, and canonical-size closeout. It does not replace the historical large-artifact timing caveat below; renewed wall-time work remains owned by `[WALL]001` and is not a simplify-locals v131 parity blocker.
 
+## 2026-08-14 commutative SIMD carrier forwarding
+
+- After dead inlined-local initialization reduced BLAKE3 SIMD O4z to 45,654 bytes, the dominant remaining raw family was 811 stack-adjacent carriers shaped as `producer; local.set X; local.get Y; local.get X; op`, primarily `v128.xor` and `i32x4.add`.
+- Full SimplifyLocals now rewrites only those two exact commutative integer-vector operations to `producer; local.tee X; local.get Y; op`. The assignment remains available to later reads, while commutativity makes the stack operand reversal exact. Noncommutative SIMD operations remain unchanged, and focused tests cover nested control plus a later read of the assigned local.
+- Complete O4z output falls from 45,654 to 44,062 bytes (`-1,592`) and externally validates. JSON remains 114,673 bytes and BLAKE3 SWAR remains 22,406 bytes. Verified Binaryen v131 emits 39,484 bytes, leaving 4,578 bytes / 11.6% of P1 SIMD gap.
+- Regular GenValid is exact at `10000/10000`. The dedicated `simplify-locals-all` lane retains its known profile behavior: 5,000 exact matches, 1,875 pre-existing `simplify-locals-structure-result` residuals, and 3,125 Binaryen command failures on `simplify-locals-family-coverage`, with zero validation, property, or generator failures.
+
 ## 2026-08-13 guarded SIMD rotate scratch elimination
 
 - The as-blake BLAKE3 SIMD audit exposed repeated complementary `i32x4.shr_u` / `i32x4.shl` temporaries joined by `v128.or`. The dominant function retained hundreds of local indices because full SimplifyLocals intentionally fails closed under the historical large-local tee plus memory-write hazard.
