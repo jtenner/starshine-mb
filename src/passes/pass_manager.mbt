@@ -9371,10 +9371,14 @@ fn run_hot_pipeline_raw_simplify_locals(
   let allows_tee = descriptor.name != "simplify-locals-notee" &&
     descriptor.name != "simplify-locals-no-tee" &&
     descriptor.name != "simplify-locals-notee-nostructure"
-  if allows_tee &&
-    stats.locals_count <= 64 &&
-    stats.instr_count >= 6144 &&
-    stats.instr_count <= 16384 {
+  let stack_carried_size_admitted = (
+      options.optimize_level >= 4 &&
+      options.shrink_level >= 4 &&
+      stats.instr_count <= 2048 &&
+      dae_defined_func_count(mod_) <= 128
+    ) ||
+    (stats.instr_count >= 6144 && stats.instr_count <= 16384)
+  if allows_tee && stats.locals_count <= 64 && stack_carried_size_admitted {
     let env = run_hot_pipeline_raw_simplify_locals_func_env(
       mod_, func_idx, module_ctx, locals,
     )

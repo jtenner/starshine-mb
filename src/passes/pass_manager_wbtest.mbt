@@ -19412,6 +19412,35 @@ test "raw simplify-locals stackifies a set across independent expressions" {
 }
 
 ///|
+test "raw simplify-locals owns exact stackification in bounded small functions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32)
+      #|    local.get 0
+      #|    local.set 1
+      #|    i32.const 7
+      #|    drop
+      #|    local.get 1))
+      #|,
+    ),
+  )
+  let result = match
+    run_hot_pipeline_raw_simplify_locals(
+      mod_,
+      @lib.FuncIdx::new(0U),
+      HotPipelineModuleState::new(),
+      @ir.HotPassDescriptor::new("simplify-locals-nostructure"),
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Some(result) => result
+    None => fail("expected bounded small exact stackification")
+  }
+  @debug.assert_eq(result.reason, "stack-carried-local-get")
+  assert_false(result.unchanged_original)
+}
+
+///|
 test "raw simplify-locals stackifies before the oversized preflight" {
   let body : Array[@lib.Instruction] = [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
