@@ -187,6 +187,42 @@ pub fn OptimizeTracingLevel::helper() -> OptimizeTracingLevel {
 }
 
 ///|
+fn cmd_phase_trace_pass_name(line : String) -> String? {
+  if !line.has_prefix("pass[") {
+    return None
+  }
+  let out = StringBuilder::new()
+  let mut idx = 5
+  while idx < line.length() {
+    let ch = line[idx]
+    if ch == ']' {
+      return Some(out.to_string())
+    }
+    out.write_char(ch.unsafe_to_char())
+    idx += 1
+  }
+  None
+}
+
+///|
+fn cmd_phase_trace_callback(trace : (String) -> Unit) -> (String) -> Unit {
+  let mut active_pass = ""
+  fn(line) {
+    if line.has_prefix("pipeline:") {
+      trace(line)
+      return
+    }
+    match cmd_phase_trace_pass_name(line) {
+      Some(pass_name) if pass_name != active_pass => {
+        active_pass = pass_name
+        trace("phase pass=\{pass_name}")
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 enum CmdPipelineDumpFormat {
   Wasm
   Wat
@@ -2044,13 +2080,16 @@ fn optimize_module_with_pass_flags_trace(
   validate_final_module? : Bool = true,
   trace_level? : OptimizeTracingLevel = OptimizeTracingLevel::pass(),
 ) -> Result[Module, String] {
-  let _ = trace_level
+  let effective_trace = match trace_level {
+    Phase => cmd_phase_trace_callback(trace)
+    Pass | Helper => trace
+  }
   @passes.run_hot_pipeline(
     mod,
     optimize_options_to_hot_pipeline_options(
       options,
       validate_final_module~,
-      trace=Some(trace),
+      trace=Some(effective_trace),
     ),
     pass_flags,
   )

@@ -8281,3 +8281,23 @@ test "run_cmd uses wasm default io for --version" {
     Err(e) => fail("expected wasm --version success with default io, got \{e}")
   }
 }
+
+///|
+test "phase tracing emits compact pass transitions" {
+  let lines : Array[String] = []
+  let trace = cmd_phase_trace_callback(fn(line) { lines.push(line) })
+  trace("pipeline:start requested=1")
+  trace("pass[merge-blocks]:start")
+  trace("pass[merge-blocks]:func func_idx=(Func 0)")
+  trace("pass[merge-blocks]:done changed=false")
+  trace("perf:timer name=pass:merge-blocks elapsed_us=10 total_us=10")
+  trace("pass[coalesce-locals-cfg]:start")
+  trace(
+    "pass[coalesce-locals-cfg]:skip reason=artifact-scale-defined-functions count=12000",
+  )
+  trace("pipeline:done changed=true")
+  @debug.assert_eq(lines, [
+    "pipeline:start requested=1", "phase pass=merge-blocks", "phase pass=coalesce-locals-cfg",
+    "pipeline:done changed=true",
+  ])
+}

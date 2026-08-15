@@ -979,11 +979,6 @@ fn inl_partial_wrapper_annotation_name() -> String {
 }
 
 ///|
-fn inl_finalize_fold_annotation_name() -> String {
-  "starshine.inlining-finalize-fold"
-}
-
-///|
 fn inl_annotation_map(
   mod_ : @lib.Module,
   total : Int,
@@ -1781,54 +1776,6 @@ fn inl_apply_partial_pattern_a_splits(
 }
 
 ///|
-fn inl_finalize_fold_flags(mod_ : @lib.Module, total : Int) -> Array[Bool] {
-  let flags = Array::make(total, false)
-  match mod_.func_annotation_sec {
-    Some(@lib.FuncAnnotationSec(entries)) =>
-      for entry in entries {
-        let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
-        let slot = raw_idx.reinterpret_as_int()
-        if slot >= 0 && slot < total {
-          for annotation in annotations {
-            if annotation.name == inl_finalize_fold_annotation_name() {
-              flags[slot] = true
-            }
-          }
-        }
-      }
-    None => ()
-  }
-  flags
-}
-
-///|
-fn inl_mark_finalize_fold_touched(
-  mod_ : @lib.Module,
-  touched : Array[Bool],
-) -> @lib.Module {
-  let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
-  let annotations = inl_annotation_map(mod_, total)
-  let marker = @lib.FuncAnnotation::new(inl_finalize_fold_annotation_name())
-  let mut changed = false
-  let mut idx = 0
-  while idx < annotations.length() && idx < touched.length() {
-    if touched[idx] && !inl_func_annotation_present(annotations[idx], marker) {
-      annotations[idx].push(marker)
-      changed = true
-    }
-    idx += 1
-  }
-  if !changed {
-    mod_
-  } else {
-    inl_rebuild_with_func_annotations(
-      mod_,
-      inl_build_func_annotation_sec_from_map(annotations),
-    )
-  }
-}
-
-///|
 fn inl_strip_partial_wrapper_annotations(mod_ : @lib.Module) -> @lib.Module {
   let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
   let annotations = inl_annotation_map(mod_, total)
@@ -1837,8 +1784,7 @@ fn inl_strip_partial_wrapper_annotations(mod_ : @lib.Module) -> @lib.Module {
   while idx < annotations.length() {
     let filtered : Array[@lib.FuncAnnotation] = []
     for annotation in annotations[idx] {
-      if annotation.name == inl_partial_wrapper_annotation_name() ||
-        annotation.name == inl_finalize_fold_annotation_name() {
+      if annotation.name == inl_partial_wrapper_annotation_name() {
         changed = true
       } else {
         filtered.push(annotation)
@@ -3717,16 +3663,7 @@ fn inl_rewrite_all_calls(
     }
     None => mod_
   }
-  {
-    mod_out: if changed {
-      inl_mark_finalize_fold_touched(next_mod, touched)
-    } else {
-      next_mod
-    },
-    touched,
-    inlined_from,
-    changed,
-  }
+  { mod_out: next_mod, touched, inlined_from, changed }
 }
 
 ///|
@@ -4192,6 +4129,109 @@ fn inl_identity_abs_map(total : Int) -> Array[Int] {
     idx += 1
   }
   out
+}
+
+///|
+fn inl_normalize_touched(touched : Array[Bool], total : Int) -> Array[Bool] {
+  let out = Array::make(total, false)
+  let limit = if touched.length() < total { touched.length() } else { total }
+  for idx = 0; idx < limit; idx = idx + 1 {
+    out[idx] = touched[idx]
+  }
+  out
+}
+
+///|
+fn inl_normalize_original_abs(
+  original_abs : Array[Int],
+  total : Int,
+) -> Array[Int] {
+  let out = inl_identity_abs_map(total)
+  let limit = if original_abs.length() < total {
+    original_abs.length()
+  } else {
+    total
+  }
+  for idx = 0; idx < limit; idx = idx + 1 {
+    out[idx] = original_abs[idx]
+  }
+  out
+}
+
+///|
+fn inl_identity_removal_result(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  original_abs : Array[Int],
+) -> InlRemovalResult {
+  let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
+  {
+    mod_out: mod_,
+    touched: inl_normalize_touched(touched, total),
+    original_abs: inl_normalize_original_abs(original_abs, total),
+  }
+}
+
+///|
+fn inl_apply_func_remap_with_state(
+  mod_ : @lib.Module,
+  remap : Array[UInt],
+  touched : Array[Bool],
+  original_abs : Array[Int],
+) -> InlRemovalResult {
+  let final_total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
+  let next_touched = Array::make(final_total, false)
+  let next_original_abs = inl_identity_abs_map(final_total)
+  for old_abs = 0; old_abs < remap.length(); old_abs = old_abs + 1 {
+    let next_abs = remap[old_abs].reinterpret_as_int()
+    if next_abs < 0 || next_abs >= final_total {
+      continue
+    }
+    if old_abs < touched.length() && touched[old_abs] {
+      next_touched[next_abs] = true
+    }
+    next_original_abs[next_abs] = if old_abs < original_abs.length() {
+      original_abs[old_abs]
+    } else {
+      old_abs
+    }
+  }
+  {
+    mod_out: inl_apply_func_remap(mod_, remap, touched_final=Some(next_touched)),
+    touched: next_touched,
+    original_abs: next_original_abs,
+  }
+}
+
+///|
+fn inl_remap_prior_touched(
+  touched : Array[Bool],
+  final_to_original_abs : Array[Int],
+) -> Array[Bool] {
+  let out = Array::make(final_to_original_abs.length(), false)
+  for final_abs = 0
+      final_abs < final_to_original_abs.length()
+      final_abs = final_abs + 1 {
+    let original = final_to_original_abs[final_abs]
+    if original >= 0 && original < touched.length() && touched[original] {
+      out[final_abs] = true
+    }
+  }
+  out
+}
+
+///|
+fn inl_union_touched_into(target : Array[Bool], source : Array[Bool]) -> Unit {
+  let limit = if target.length() < source.length() {
+    target.length()
+  } else {
+    source.length()
+  }
+  for idx = 0; idx < limit; idx = idx + 1 {
+    if source[idx] {
+      target[idx] = true
+    }
+  }
 }
 
 ///|
@@ -6086,19 +6126,21 @@ fn inl_pad_unreachable_to_predicted_counts(
 ///|
 fn inl_move_trailing_exact_before_last_nonexact_same_sig(
   mod_ : @lib.Module,
-) -> @lib.Module {
+  touched : Array[Bool],
+  original_abs : Array[Int],
+) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let old_type_idxs = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs
-    None => return mod_
+    None => return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let old_funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return mod_
+    None => return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let defined = old_funcs.length()
   if defined < 2 || !inl_func_is_exact_unreachable(old_funcs[defined - 1]) {
-    return mod_
+    return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let move_abs = imports + defined - 1
@@ -6114,7 +6156,7 @@ fn inl_move_trailing_exact_before_last_nonexact_same_sig(
     def_idx += 1
   }
   if insert_def < 0 {
-    return mod_
+    return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let remap = Array::make(imports + defined, 0U)
   let mut idx = 0
@@ -6145,11 +6187,13 @@ fn inl_move_trailing_exact_before_last_nonexact_same_sig(
     next_def += 1
     def_idx += 1
   }
-  inl_apply_func_remap(
+  inl_apply_func_remap_with_state(
     mod_
     .with_func_sec(@lib.FuncSec::new(next_type_idxs))
     .with_code_sec(@lib.CodeSec::new(next_funcs)),
     remap,
+    touched,
+    original_abs,
   )
 }
 
@@ -6157,17 +6201,19 @@ fn inl_move_trailing_exact_before_last_nonexact_same_sig(
 fn inl_trim_unreachable_to_predicted_counts(
   mod_ : @lib.Module,
   predicted : @hashmap.HashMap[String, Int],
-) -> @lib.Module {
+  touched : Array[Bool],
+  original_abs : Array[Int],
+) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
   let total = imports + defined
   let old_type_idxs = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs
-    None => return mod_
+    None => return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let old_funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return mod_
+    None => return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let used = Array::make(total, false)
@@ -6234,7 +6280,7 @@ fn inl_trim_unreachable_to_predicted_counts(
     def_idx -= 1
   }
   if !any_removed {
-    return mod_
+    return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let remap = Array::make(total, 0U)
   let mut idx = 0
@@ -6258,11 +6304,13 @@ fn inl_trim_unreachable_to_predicted_counts(
     }
     def_idx += 1
   }
-  inl_apply_func_remap(
+  inl_apply_func_remap_with_state(
     mod_
     .with_func_sec(@lib.FuncSec::new(next_type_idxs))
     .with_code_sec(@lib.CodeSec::new(next_funcs)),
     remap,
+    touched,
+    original_abs,
   )
 }
 
@@ -6270,17 +6318,19 @@ fn inl_trim_unreachable_to_predicted_counts(
 fn inl_trim_unreachable_to_selected_counts(
   mod_ : @lib.Module,
   selected : @hashmap.HashMap[String, Int],
-) -> @lib.Module {
+  touched : Array[Bool],
+  original_abs : Array[Int],
+) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
   let total = imports + defined
   let old_type_idxs = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs
-    None => return mod_
+    None => return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let old_funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return mod_
+    None => return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let used = Array::make(total, false)
@@ -6331,7 +6381,7 @@ fn inl_trim_unreachable_to_selected_counts(
     def_idx -= 1
   }
   if !any_removed {
-    return mod_
+    return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let remap = Array::make(total, 0U)
   let mut idx = 0
@@ -6355,21 +6405,24 @@ fn inl_trim_unreachable_to_selected_counts(
     }
     def_idx += 1
   }
-  inl_apply_func_remap(
+  inl_apply_func_remap_with_state(
     mod_
     .with_func_sec(@lib.FuncSec::new(next_type_idxs))
     .with_code_sec(@lib.CodeSec::new(next_funcs)),
     remap,
+    touched,
+    original_abs,
   )
 }
 
 ///|
 fn inl_remove_dead_unreachable_private_funcs(
   mod_ : @lib.Module,
+  touched : Array[Bool],
   original_abs : Array[Int],
   original_cycle_remove : Array[Bool],
   retain_counts : @hashmap.HashMap[String, Int],
-) -> @lib.Module {
+) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
   let total = imports + defined
@@ -6388,11 +6441,11 @@ fn inl_remove_dead_unreachable_private_funcs(
   }
   let old_type_idxs = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs
-    None => return mod_
+    None => return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let old_funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return mod_
+    None => return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let mut abs = 0
   let remove = Array::make(defined, false)
@@ -6425,7 +6478,7 @@ fn inl_remove_dead_unreachable_private_funcs(
     def_idx += 1
   }
   if !any_removed {
-    return mod_
+    return inl_identity_removal_result(mod_, touched, original_abs)
   }
   let remap = Array::make(total, 0U)
   let mut i = 0
@@ -6449,11 +6502,13 @@ fn inl_remove_dead_unreachable_private_funcs(
     }
     def_idx += 1
   }
-  inl_apply_func_remap(
+  inl_apply_func_remap_with_state(
     mod_
     .with_func_sec(@lib.FuncSec::new(next_type_idxs))
     .with_code_sec(@lib.CodeSec::new(next_funcs)),
     remap,
+    touched,
+    original_abs,
   )
 }
 
@@ -7679,13 +7734,22 @@ fn inl_validate_or_original(
 }
 
 ///|
-fn inl_finalize_module_pass_result(
+fn inl_touched_function_indices(touched : Array[Bool]) -> Array[Int] {
+  let selected : Array[Int] = []
+  for idx = 0; idx < touched.length(); idx = idx + 1 {
+    if touched[idx] {
+      selected.push(idx)
+    }
+  }
+  selected
+}
+
+///|
+fn inl_finalize_touched_functions(
   mod_ : @lib.Module,
-  _optimize : Bool,
+  selected : Array[Int],
   trace : ((String) -> Unit)?,
 ) -> @lib.Module {
-  let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
-  let selected = inl_finalize_fold_flags(mod_, total)
   let stats : InlFinalizeFoldStats = {
     functions_visited: 0,
     instructions_reconstructed: 0,
@@ -7696,9 +7760,9 @@ fn inl_finalize_module_pass_result(
     Some(@lib.CodeSec(funcs)) => {
       let imports = inl_imported_func_count(mod_)
       let mut out : Array[@lib.Func]? = None
-      for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
-        let abs_idx = imports + def_idx
-        if abs_idx < 0 || abs_idx >= selected.length() || !selected[abs_idx] {
+      for abs_idx in selected {
+        let def_idx = abs_idx - imports
+        if def_idx < 0 || def_idx >= funcs.length() {
           continue
         }
         stats.functions_visited += 1
@@ -7727,7 +7791,39 @@ fn inl_finalize_module_pass_result(
     trace,
     "finalize-fold functions_visited=\{stats.functions_visited} instructions_reconstructed=\{stats.instructions_reconstructed} arrays_allocated=\{stats.arrays_allocated} folds=\{stats.folds}",
   )
-  inl_strip_partial_wrapper_annotations(rewritten)
+  rewritten
+}
+
+///|
+fn inl_finalize_module_pass_result(
+  mod_ : @lib.Module,
+  _optimize : Bool,
+  _trace : ((String) -> Unit)?,
+) -> @lib.Module {
+  inl_strip_partial_wrapper_annotations(mod_)
+}
+
+///|
+fn inl_finalize_module_pass_with_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  selected : @hashmap.HashMap[String, Int],
+  optimize : Bool,
+  trace : ((String) -> Unit)?,
+) -> @lib.Module {
+  let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
+  let trimmed = inl_trim_unreachable_to_selected_counts(
+    mod_,
+    selected,
+    touched,
+    inl_identity_abs_map(total),
+  )
+  let folded = inl_finalize_touched_functions(
+    trimmed.mod_out,
+    inl_touched_function_indices(trimmed.touched),
+    trace,
+  )
+  inl_finalize_module_pass_result(folded, optimize, trace)
 }
 
 ///|
@@ -8189,6 +8285,7 @@ fn inl_iteration_has_progress(
 ///|
 fn inl_run_module_pass_once(
   mod_ : @lib.Module,
+  pending_touched : Array[Bool],
   optimize : Bool,
   trace : ((String) -> Unit)?,
   pass_name : String,
@@ -8201,7 +8298,7 @@ fn inl_run_module_pass_once(
   allow_functions_with_loops : Bool,
   partial_inlining_ifs : Int,
   perf? : HotPerfSession? = None,
-) -> (@lib.Module, Bool, Array[Int]) {
+) -> (@lib.Module, Bool, Array[Int], Array[Bool]) {
   let prepare_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:prepare-multivalue-block-types",
   )
@@ -8251,7 +8348,8 @@ fn inl_run_module_pass_once(
     perf_stop_timer_opt(
       perf, "detail:inlining:once:prune-dead-unreachable-drops", prune_start_us,
     )
-    return (pruned, false, [])
+    let total = inl_imported_func_count(pruned) + inl_defined_func_count(pruned)
+    return (pruned, false, [], inl_normalize_touched(pending_touched, total))
   }
   let original_graph_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:original-reachable-private-cycle-funcs",
@@ -8300,6 +8398,11 @@ fn inl_run_module_pass_once(
     removal.touched,
     removal.original_abs,
   )
+  let cumulative_touched = inl_remap_prior_touched(
+    pending_touched,
+    removal.original_abs,
+  )
+  inl_union_touched_into(cumulative_touched, removal.touched)
   if !optimize {
     return (
       removal.mod_out,
@@ -8309,6 +8412,7 @@ fn inl_run_module_pass_once(
         inl_defined_func_count(removal.mod_out),
       ),
       touched_original_abs,
+      cumulative_touched,
     )
   }
   let nested_start_us = perf_start_timer_opt(
@@ -8338,6 +8442,7 @@ fn inl_run_module_pass_once(
   )
   let cleaned = inl_remove_dead_unreachable_private_funcs(
     nested_cleaned,
+    cumulative_touched,
     removal.original_abs,
     original_graph_info.cycle_remove,
     original_graph_info.retain_inlined_helper_counts,
@@ -8349,9 +8454,9 @@ fn inl_run_module_pass_once(
     perf, "detail:inlining:once:collapse-unreachable-roots",
   )
   let collapsed = if preserve_root_cycle_cleanup {
-    inl_collapse_unreachable_private_except_used_suffix_roots(cleaned)
+    inl_collapse_unreachable_private_except_used_suffix_roots(cleaned.mod_out)
   } else {
-    inl_collapse_unreachable_roots(cleaned, removal.touched)
+    inl_collapse_unreachable_roots(cleaned.mod_out, cleaned.touched)
   }
   perf_stop_timer_opt(
     perf, "detail:inlining:once:collapse-unreachable-roots", collapse_start_us,
@@ -8368,29 +8473,36 @@ fn inl_run_module_pass_once(
   )
   let ordered = if preserve_root_cycle_cleanup &&
     !original_graph_info.skip_trailing_exact_move {
-    inl_move_trailing_exact_before_last_nonexact_same_sig(padded)
+    inl_move_trailing_exact_before_last_nonexact_same_sig(
+      padded,
+      cleaned.touched,
+      cleaned.original_abs,
+    )
   } else {
-    padded
+    inl_identity_removal_result(padded, cleaned.touched, cleaned.original_abs)
   }
   ignore(original_graph_info.public_scc_representative)
   let trim_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:trim-unreachable-to-predicted-counts",
   )
   let trimmed = inl_trim_unreachable_to_predicted_counts(
-    ordered,
+    ordered.mod_out,
     original_graph_info.predicted_unreachable_counts,
+    ordered.touched,
+    ordered.original_abs,
   )
   perf_stop_timer_opt(
     perf, "detail:inlining:once:trim-unreachable-to-predicted-counts", trim_start_us,
   )
   (
-    trimmed,
+    trimmed.mod_out,
     inl_iteration_has_progress(
       removal.touched,
       inl_defined_func_count(mod_),
-      inl_defined_func_count(trimmed),
+      inl_defined_func_count(trimmed.mod_out),
     ),
     touched_original_abs,
+    trimmed.touched,
   )
 }
 
@@ -8460,14 +8572,16 @@ fn inlining_run_module_pass_with_perf(
   let iteration_counts = Array::make(initial_total, 0)
   let max_iterations_for_func = 5
   let mut current = mod_
+  let mut pending_touched = Array::make(initial_total, false)
   let mut iterations = 0
   let max_iterations = inl_defined_func_count(mod_) + 1
   while iterations < max_iterations {
     let iteration_start_us = perf_start_timer_opt(
       perf, "detail:inlining:iteration",
     )
-    let (next, changed, touched_original_abs) = inl_run_module_pass_once(
+    let (next, changed, touched_original_abs, next_touched) = inl_run_module_pass_once(
       current,
+      pending_touched,
       optimize,
       trace,
       pass_name,
@@ -8487,21 +8601,15 @@ fn inlining_run_module_pass_with_perf(
       "iteration index=\{iterations} changed=\{changed} touched_original=\{touched_original_abs.length()} funcs=\{inl_defined_func_count(current)}",
     )
     if !changed {
-      let final_trim_start_us = perf_start_timer_opt(
-        perf, "detail:inlining:final-trim-unreachable-to-selected-counts",
-      )
-      let final_trimmed = inl_trim_unreachable_to_selected_counts(
-        next,
-        initial_graph_info.final_trim_counts,
-      )
-      perf_stop_timer_opt(
-        perf, "detail:inlining:final-trim-unreachable-to-selected-counts", final_trim_start_us,
-      )
       let finalize_start_us = perf_start_timer_opt(
         perf, "detail:inlining:finalize-module-pass-result",
       )
-      let finalized = inl_finalize_module_pass_result(
-        final_trimmed, optimize, trace,
+      let finalized = inl_finalize_module_pass_with_touched(
+        next,
+        next_touched,
+        initial_graph_info.final_trim_counts,
+        optimize,
+        trace,
       )
       perf_stop_timer_opt(
         perf, "detail:inlining:finalize-module-pass-result", finalize_start_us,
@@ -8510,16 +8618,16 @@ fn inlining_run_module_pass_with_perf(
       return finalized
     }
     current = next
+    pending_touched = next_touched
     iterations += 1
     for original_abs in touched_original_abs {
       if original_abs >= 0 && original_abs < iteration_counts.length() {
         iteration_counts[original_abs] += 1
         if iteration_counts[original_abs] >= max_iterations_for_func {
-          return inl_finalize_module_pass_result(
-            inl_trim_unreachable_to_selected_counts(
-              current,
-              initial_graph_info.final_trim_counts,
-            ),
+          return inl_finalize_module_pass_with_touched(
+            current,
+            pending_touched,
+            initial_graph_info.final_trim_counts,
             optimize,
             trace,
           )
@@ -8528,13 +8636,9 @@ fn inlining_run_module_pass_with_perf(
     }
     if optimize &&
       inl_hash_has_positive(initial_graph_info.retain_inlined_helper_counts) {
-      let touched = Array::make(
-        inl_imported_func_count(current) + inl_defined_func_count(current),
-        false,
-      )
       let collapsed = inl_collapse_unreachable_roots(
         current,
-        touched,
+        pending_touched,
         check_dead_suffix_calls=false,
         check_marked_suffix_calls=false,
       )
@@ -8546,21 +8650,19 @@ fn inlining_run_module_pass_with_perf(
       } else {
         collapsed
       }
-      return inl_finalize_module_pass_result(
-        inl_trim_unreachable_to_selected_counts(
-          padded,
-          initial_graph_info.final_trim_counts,
-        ),
+      return inl_finalize_module_pass_with_touched(
+        padded,
+        pending_touched,
+        initial_graph_info.final_trim_counts,
         optimize,
         trace,
       )
     }
   }
-  inl_finalize_module_pass_result(
-    inl_trim_unreachable_to_selected_counts(
-      current,
-      initial_graph_info.final_trim_counts,
-    ),
+  inl_finalize_module_pass_with_touched(
+    current,
+    pending_touched,
+    initial_graph_info.final_trim_counts,
     optimize,
     trace,
   )

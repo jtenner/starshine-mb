@@ -2,6 +2,8 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import {
+  DEFAULT_SELF_OPT_STALL_TIMEOUT_MS,
+  DEFAULT_SELF_OPT_TIMEOUT_MS,
   copyWasmArtifacts,
   optimizeDebugWasm,
   repoRootFromScript,
@@ -26,12 +28,15 @@ function parseCliArgs(argv) {
 }
 
 // End-to-end self-optimization flow:
-// build wasm debug/release + native optimizer, copy artifacts, then re-run optimizer
-// over debug wasm to produce self-optimized output (or fallback copy when enabled).
+// build wasm debug/release + native optimizer, copy artifacts, then re-run the
+// production optimizer over release wasm (or use the explicit debug fallback).
 export async function buildSelfOptimized({
   repoRoot,
   moonBin = resolveMoonBin(),
   fallbackDebugOnFailure = false,
+  debugSerialPasses = false,
+  optimizeTimeoutMs = DEFAULT_SELF_OPT_TIMEOUT_MS,
+  optimizeStallTimeoutMs = DEFAULT_SELF_OPT_STALL_TIMEOUT_MS,
 } = {}) {
   console.log('Building debug wasm target...');
   run(moonBin, ['build', '--target', 'wasm'], repoRoot);
@@ -40,15 +45,22 @@ export async function buildSelfOptimized({
   run(moonBin, ['build', '--target', 'wasm', '--release'], repoRoot);
 
   console.log('Building native optimizer target...');
-  run(moonBin, ['build', '--target', 'native', '--release', '--package', 'jtenner/starshine/cmd'], repoRoot);
+  run(moonBin, ['build', '--target', 'native', '--release', 'src/cmd'], repoRoot);
 
   const copyResult = copyWasmArtifacts({ repoRoot });
   console.log(`Copied debug wasm: ${copyResult.debug.path} (${copyResult.debug.size} bytes)`);
   console.log(`Copied optimized wasm: ${copyResult.optimized.path} (${copyResult.optimized.size} bytes)`);
 
-  const optimizeResult = optimizeDebugWasm({
+  console.log(
+    `Self-optimizing release wasm (total timeout ${optimizeTimeoutMs / 1000}s, ` +
+    `no-progress timeout ${optimizeStallTimeoutMs / 1000}s)...`,
+  );
+  const optimizeResult = await optimizeDebugWasm({
     repoRoot,
     fallbackToDebugOnFailure: fallbackDebugOnFailure,
+    debugSerialPasses,
+    totalTimeoutMs: optimizeTimeoutMs,
+    stallTimeoutMs: optimizeStallTimeoutMs,
   });
   console.log(`Wrote self-optimized wasm: ${optimizeResult.outputPath} (${optimizeResult.size} bytes)`);
   if (optimizeResult.fallback) {

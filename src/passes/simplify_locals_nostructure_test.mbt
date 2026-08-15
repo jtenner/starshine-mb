@@ -3930,6 +3930,110 @@ test "simplify-locals-nostructure preserves call-local-tee lifetimes" {
 }
 
 ///|
+test "simplify-locals variants preserve result-if tee sources before parameter aliases" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32 i32)
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      i32.const 2
+      #|    end
+      #|    local.tee 1
+      #|    local.get 1
+      #|    local.set 2
+      #|    local.get 2
+      #|    local.set 0
+      #|    if (result i32)
+      #|      local.get 0
+      #|    else
+      #|      i32.const 20
+      #|    end)
+    ),
+  )
+  for i = 0; i < 129; i = i + 1 {
+    ignore(i)
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")")
+  let input = source.to_string()
+  let original = pass_test_module_from_wat(input)
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          optimize_level=4,
+          shrink_level=4,
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected result-if parameter lifetime success, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    assert_true(
+      trace.any(fn(line) {
+        line.contains("reason=parameter-result-if-late-alias-lifetime")
+      }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
+test "simplify-locals variants preserve call results before argument releases" {
+  let input =
+    #|(module
+    #|  (type $combine-t (func (param i32 i32 i32) (result i32)))
+    #|  (type $release-t (func (param i32)))
+    #|  (import "env" "combine" (func $combine (type $combine-t)))
+    #|  (import "env" "release" (func $release (type $release-t)))
+    #|  (func (export "run") (result i32) (local i32 i32)
+    #|    i32.const 42
+    #|    local.tee 0
+    #|    local.set 1
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    local.get 1
+    #|    call $combine
+    #|    local.get 1
+    #|    if
+    #|      local.get 1
+    #|      call $release
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        input,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected call-result/release lifetime success, got \{err}")
+    }
+    @debug.assert_eq(optimized, original)
+    assert_true(
+      trace.any(fn(line) {
+        line.contains("reason=call-result-before-structured-release")
+      }),
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
 test "simplify-locals-nostructure preserves consumers before argument releases" {
   let input =
     #|(module

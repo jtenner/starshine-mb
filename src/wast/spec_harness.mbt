@@ -6,12 +6,28 @@ pub enum WastSpecFileStatus {
 } derive(Eq, Debug)
 
 ///|
+pub enum WastSpecCommandStatus {
+  Passed
+  KnownSkipped(String)
+  Blocked(String)
+  Failed(String)
+} derive(Eq, Debug)
+
+///|
+pub struct WastSpecCommandReport {
+  command_index : Int
+  status : WastSpecCommandStatus
+} derive(Eq, Debug)
+
+///|
 pub struct WastSpecFileReport {
   path : String
   status : WastSpecFileStatus
+  command_reports : Array[WastSpecCommandReport]
   total_commands : Int
   checked_commands : Int
   skipped_commands : Int
+  blocked_commands : Int
 } derive(Eq, Debug)
 
 ///|
@@ -113,6 +129,14 @@ fn spec_is_runtime_only_command(cmd : WastCommand) -> Bool {
     AssertTrap(_, _) => true
     AssertException(_) => true
     AssertExhaustion(_, _) => true
+    _ => false
+  }
+}
+
+///|
+fn spec_command_defines_current_module(cmd : WastCommand) -> Bool {
+  match cmd {
+    Module(_) | ModuleBinary(_, _) | ModuleQuote(_, _) => true
     _ => false
   }
 }
@@ -257,24 +281,48 @@ fn spec_is_known_specsuite_mismatch(
   }
 
   if msg.contains("validation failed: type mismatch") {
-    return path == "tests/spec/type-equivalence.wast" && command_number == 1
+    return path == "tests/spec/type-equivalence.wast" &&
+      (
+        command_number == 1 ||
+        command_number == 2 ||
+        command_number == 3 ||
+        command_number == 4 ||
+        command_number == 5 ||
+        command_number == 9 ||
+        command_number == 13
+      )
   }
 
   if msg.contains(
       "assert_invalid expected validation failure, but module validated",
     ) {
-    return (path == "tests/spec/block.wast" && command_number == 103) ||
+    return (
+        path == "tests/spec/block.wast" &&
+        command_number >= 103 &&
+        command_number <= 114
+      ) ||
       (path == "tests/spec/br.wast" && command_number == 20) ||
       (path == "tests/spec/if.wast" && command_number == 184) ||
       (path == "tests/spec/loop.wast" && command_number == 106) ||
-      (path == "tests/spec/ref.wast" && command_number == 10) ||
-      (path == "tests/spec/type-rec.wast" && command_number == 6) ||
+      (
+        path == "tests/spec/ref.wast" &&
+        (command_number == 10 || command_number == 11)
+      ) ||
+      (
+        path == "tests/spec/type-rec.wast" &&
+        (command_number == 6 || command_number == 26 || command_number == 27)
+      ) ||
       (path == "tests/spec/i32.wast" && command_number == 121) ||
       (path == "tests/spec/load.wast" && command_number == 130) ||
       (path == "tests/spec/store.wast" && command_number == 177) ||
       (path == "tests/spec/labels.wast" && command_number == 18) ||
       (path == "tests/spec/return.wast" && command_number == 40) ||
       (path == "tests/spec/local_set.wast" && command_number == 44)
+  }
+
+  if msg.contains("validation failed: const expr result type mismatch") {
+    return path == "tests/spec/type-rec.wast" &&
+      (command_number == 8 || command_number == 9)
   }
 
   if msg.contains("validation failed: duplicate export name:") {
@@ -301,47 +349,79 @@ pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport 
         return {
           path,
           status: Skipped(msg),
+          command_reports: [],
           total_commands: 0,
           checked_commands: 0,
           skipped_commands: 0,
+          blocked_commands: 0,
         }
       }
       return {
         path,
         status: Failed(msg),
+        command_reports: [],
         total_commands: 0,
         checked_commands: 0,
         skipped_commands: 0,
+        blocked_commands: 0,
       }
     }
   }
 
+  let command_reports : Array[WastSpecCommandReport] = []
   let mut checked_commands = 0
   let mut skipped_commands = 0
+  let mut blocked_commands = 0
+  let mut current_module_blocked = false
   let mut index = 0
   for cmd in script.commands {
+    if current_module_blocked && spec_is_runtime_only_command(cmd) {
+      let reason = "blocked by a known mismatch in the current module definition"
+      command_reports.push({ command_index: index, status: Blocked(reason) })
+      skipped_commands += 1
+      blocked_commands += 1
+      index += 1
+      continue
+    }
     match spec_check_command(cmd, path) {
       Ok((checked_delta, skipped_delta)) => {
         checked_commands += checked_delta
         skipped_commands += skipped_delta
+        if checked_delta > 0 {
+          command_reports.push({ command_index: index, status: Passed })
+          if spec_command_defines_current_module(cmd) {
+            current_module_blocked = false
+          }
+        } else {
+          command_reports.push({
+            command_index: index,
+            status: KnownSkipped(
+              "runtime-only command is not executed by the static harness",
+            ),
+          })
+        }
       }
       Err(e) => {
         if spec_is_known_unsupported_error(e) ||
           spec_is_known_specsuite_mismatch(path, Some(index), e) {
-          return {
-            path,
-            status: Skipped(e),
-            total_commands: script.commands.length(),
-            checked_commands,
-            skipped_commands,
+          command_reports.push({ command_index: index, status: KnownSkipped(e) })
+          skipped_commands += 1
+          if spec_command_defines_current_module(cmd) {
+            current_module_blocked = true
           }
+          index += 1
+          continue
         }
+        let failure = "command #\{index + 1} failed: \{e}"
+        command_reports.push({ command_index: index, status: Failed(failure) })
         return {
           path,
-          status: Failed("command #\{index + 1} failed: \{e}"),
+          status: Failed(failure),
+          command_reports,
           total_commands: script.commands.length(),
           checked_commands,
           skipped_commands,
+          blocked_commands,
         }
       }
     }
@@ -349,16 +429,18 @@ pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport 
   }
 
   let status = if checked_commands == 0 && skipped_commands > 0 {
-    Skipped("script only contains runtime-only assertions")
+    Skipped("script only contains skipped or blocked commands")
   } else {
     Passed
   }
   {
     path,
     status,
+    command_reports,
     total_commands: script.commands.length(),
     checked_commands,
     skipped_commands,
+    blocked_commands,
   }
 }
 
@@ -537,6 +619,13 @@ test "wast spec harness intentionally skips known control validator mismatches" 
     ),
   )
   assert_true(
+    spec_is_known_specsuite_mismatch(
+      "tests/spec/block.wast",
+      Some(103),
+      message,
+    ),
+  )
+  assert_true(
     spec_is_known_specsuite_mismatch("tests/spec/if.wast", Some(183), message),
   )
   assert_true(
@@ -544,6 +633,9 @@ test "wast spec harness intentionally skips known control validator mismatches" 
   )
   assert_true(
     spec_is_known_specsuite_mismatch("tests/spec/ref.wast", Some(9), message),
+  )
+  assert_true(
+    spec_is_known_specsuite_mismatch("tests/spec/ref.wast", Some(10), message),
   )
   assert_true(
     spec_is_known_specsuite_mismatch(
@@ -555,7 +647,7 @@ test "wast spec harness intentionally skips known control validator mismatches" 
   assert_false(
     spec_is_known_specsuite_mismatch(
       "tests/spec/block.wast",
-      Some(103),
+      Some(114),
       message,
     ),
   )
@@ -567,6 +659,13 @@ test "wast spec harness intentionally skips the known type equivalence mismatch"
     spec_is_known_specsuite_mismatch(
       "tests/spec/type-equivalence.wast",
       Some(0),
+      "validation failed: type mismatch",
+    ),
+  )
+  assert_true(
+    spec_is_known_specsuite_mismatch(
+      "tests/spec/type-equivalence.wast",
+      Some(1),
       "validation failed: type mismatch",
     ),
   )
@@ -584,14 +683,144 @@ test "wast spec harness intentionally skips the known legacy try mismatch" {
 }
 
 ///|
+test "wast spec harness continues after an exact allowlisted command mismatch" {
+  let source = StringBuilder::new()
+  for i = 0; i < 103; i = i + 1 {
+    ignore(i)
+    source.write_string("(module (func))\n")
+  }
+  source.write_string("(assert_invalid (module (func)) \"known mismatch\")\n")
+  source.write_string("(module (func))\n")
+  source.write_string(
+    "(assert_malformed (module quote \"(module)\") \"unexpected failure\")\n",
+  )
+
+  let report = run_wast_spec_file("tests/spec/block.wast", source.to_string())
+  match report.status {
+    Failed(msg) =>
+      assert_true(
+        msg.contains("command #106 failed:"),
+        msg="expected the post-allowlist failure, got: \{msg}",
+      )
+    Passed => fail("expected command #106 to fail")
+    Skipped(reason) =>
+      fail("allowlisted command #104 must not skip the file: \{reason}")
+  }
+  @debug.assert_eq(report.checked_commands, 104)
+  @debug.assert_eq(report.skipped_commands, 1)
+  @debug.assert_eq(report.blocked_commands, 0)
+  @debug.assert_eq(report.command_reports.length(), 106)
+  match report.command_reports[103].status {
+    KnownSkipped(_) => ()
+    other =>
+      fail("expected command #104 KnownSkipped, got \{@debug.to_string(other)}")
+  }
+  match report.command_reports[104].status {
+    Passed => ()
+    other =>
+      fail("expected command #105 Passed, got \{@debug.to_string(other)}")
+  }
+  match report.command_reports[105].status {
+    Failed(_) => ()
+    other =>
+      fail("expected command #106 Failed, got \{@debug.to_string(other)}")
+  }
+}
+
+///|
+test "wast spec harness blocks state-dependent commands until a new module succeeds" {
+  let source =
+    #|(module quote "(module (func")
+    #|(assert_return (invoke "blocked"))
+    #|(module (func))
+    #|(assert_return (invoke "independent"))
+  let report = run_wast_spec_file("state-recovery.wast", source)
+
+  match report.status {
+    Passed => ()
+    Skipped(reason) => fail("expected independent module recovery: \{reason}")
+    Failed(msg) => fail("expected blocked-state recovery, got: \{msg}")
+  }
+  @debug.assert_eq(report.checked_commands, 1)
+  @debug.assert_eq(report.skipped_commands, 3)
+  @debug.assert_eq(report.blocked_commands, 1)
+  @debug.assert_eq(report.command_reports.length(), 4)
+  match report.command_reports[0].status {
+    KnownSkipped(_) => ()
+    other =>
+      fail(
+        "expected malformed module quote KnownSkipped, got \{@debug.to_string(other)}",
+      )
+  }
+  match report.command_reports[1].status {
+    Blocked(_) => ()
+    other =>
+      fail(
+        "expected dependent assertion Blocked, got \{@debug.to_string(other)}",
+      )
+  }
+  match report.command_reports[2].status {
+    Passed => ()
+    other =>
+      fail("expected replacement module Passed, got \{@debug.to_string(other)}")
+  }
+  match report.command_reports[3].status {
+    KnownSkipped(_) => ()
+    other =>
+      fail(
+        "expected later runtime assertion KnownSkipped, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "wast spec harness known mismatch allowlist requires exact assertion identity" {
   let cases : Array[(String, Int, String)] = [
     ("tests/spec/if.wast", 178, "validation failed: stack underflow"),
     ("tests/spec/loop.wast", 83, "validation failed: stack underflow"),
     ("tests/spec/block.wast", 135, "validation failed: stack underflow"),
     ("tests/spec/type-equivalence.wast", 1, "validation failed: type mismatch"),
+    ("tests/spec/type-equivalence.wast", 2, "validation failed: type mismatch"),
+    ("tests/spec/type-equivalence.wast", 3, "validation failed: type mismatch"),
+    ("tests/spec/type-equivalence.wast", 4, "validation failed: type mismatch"),
+    ("tests/spec/type-equivalence.wast", 5, "validation failed: type mismatch"),
+    ("tests/spec/type-equivalence.wast", 9, "validation failed: type mismatch"),
+    ("tests/spec/type-equivalence.wast", 13, "validation failed: type mismatch"),
     (
       "tests/spec/block.wast", 103, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 104, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 105, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 106, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 107, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 108, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 109, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 110, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 111, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 112, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 113, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/block.wast", 114, "assert_invalid expected validation failure, but module validated",
     ),
     (
       "tests/spec/br.wast", 20, "assert_invalid expected validation failure, but module validated",
@@ -606,7 +835,16 @@ test "wast spec harness known mismatch allowlist requires exact assertion identi
       "tests/spec/ref.wast", 10, "assert_invalid expected validation failure, but module validated",
     ),
     (
+      "tests/spec/ref.wast", 11, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
       "tests/spec/type-rec.wast", 6, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/type-rec.wast", 26, "assert_invalid expected validation failure, but module validated",
+    ),
+    (
+      "tests/spec/type-rec.wast", 27, "assert_invalid expected validation failure, but module validated",
     ),
     (
       "tests/spec/i32.wast", 121, "assert_invalid expected validation failure, but module validated",
@@ -627,6 +865,12 @@ test "wast spec harness known mismatch allowlist requires exact assertion identi
       "tests/spec/local_set.wast", 44, "assert_invalid expected validation failure, but module validated",
     ),
     (
+      "tests/spec/type-rec.wast", 8, "validation failed: const expr result type mismatch",
+    ),
+    (
+      "tests/spec/type-rec.wast", 9, "validation failed: const expr result type mismatch",
+    ),
+    (
       "tests/spec/names.wast", 5, "validation failed: duplicate export name: duplicate",
     ),
     (
@@ -644,8 +888,12 @@ test "wast spec harness known mismatch allowlist requires exact assertion identi
       msg="expected exact known mismatch: \{path} #\{one_based_command}",
     )
     assert_false(
-      spec_is_known_specsuite_mismatch(path, Some(one_based_command), message),
-      msg="adjacent command must not inherit known mismatch: \{path} #\{one_based_command + 1}",
+      spec_is_known_specsuite_mismatch(
+        path,
+        Some(one_based_command + 999),
+        message,
+      ),
+      msg="unlisted command must not inherit known mismatch: \{path} #\{one_based_command + 1000}",
     )
   }
   assert_false(

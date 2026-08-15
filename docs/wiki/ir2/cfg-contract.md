@@ -1,7 +1,7 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-08-13
+last_reviewed: 2026-08-14
 sources:
   - https://webassembly.github.io/spec/core/syntax/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
@@ -99,7 +99,7 @@ The WebAssembly Core 3.0 syntax, validation, and execution pages plus the local 
 
 - Ordinary nodes use `NoExceptionEdge`.
 - `try` routes exceptional flow to its catch region.
-- `try_table` routes exceptional flow to its catch-list region; each catch arm then transfers exceptionally to its resolved label target. An arm targeting `HOT_IMPLICIT_FUNCTION_LABEL` reaches the caller-visible exceptional exit. The WAST lowering and validation rules for catch labels and payloads live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
+- `try_table` routes exceptional flow to its catch-list region; each catch arm then transfers exceptionally to its resolved label target. An arm targeting `HOT_IMPLICIT_FUNCTION_LABEL` reaches the caller-visible exceptional exit. Tagged-only catch lists are non-exhaustive, so the catch-list block also has an unmatched exceptional edge to the enclosing handler or caller-visible exceptional exit. `catch_all` and `catch_all_ref` make the list exhaustive and suppress that unmatched edge. The WAST lowering and validation rules for catch labels and payloads live in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - `throw`, `throw_ref`, and `rethrow` propagate to the nearest handler or caller-visible exceptional exit.
 - `delegate` transfers exceptionally to its delegated target.
 
@@ -160,7 +160,7 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 ## Analysis Consumers And Validation Guidance
 
 - Dominance and loop analyses should use normal `FallthroughEdge`, `BranchEdge`, and `ReturnEdge` policy rather than silently traversing exceptional exits.
-- Post-dominance has separate normal and exceptional exit roots; keep that split visible when changing exception policy.
+- Post-dominance has separate normal and exceptional exit roots; keep that split visible when changing exception policy. A non-exhaustive nested `try_table` may therefore have no single immediate post-dominator when its listed catch target and unmatched outward path reach distinct roots, while an exhaustive catch-all path can remain post-dominated by its sole target.
 - Liveness and local SSA v1 intentionally follow the current non-exceptional policy, as documented in [`local-ssa-policy.md`](local-ssa-policy.md).
 - New CFG semantics should update [`cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt), focused tests in [`cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt), concrete CFG builder coverage in [`cfg_test.mbt`](../../../src/ir/cfg_test.mbt), and deterministic order expectations in [`cfg_order_test.mbt`](../../../src/ir/cfg_order_test.mbt) when traversal order changes.
 - Use the placement guidance in [`test-matrix.md`](test-matrix.md): helper-policy tests belong in `cfg_contract_test.mbt`; built graph shape belongs in `cfg_test.mbt`; traversal determinism belongs in `cfg_order_test.mbt`.

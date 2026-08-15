@@ -5,7 +5,18 @@ import path from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { normalizeWasiArgs } from "./moonbit-wasi-runner.mjs";
-import { parseSelfOptArtifactOptimizerCompareArgs, parseSelfOptCheckArgs, runSelfOptArtifactOptimizerCompare, runSelfOptCheck } from "./self-opt-task";
+import {
+  optimizeDebugWasm,
+  runCommandWithProgressTimeout,
+} from "./self-optimized-artifacts.mjs";
+import {
+  parseSelfOptArtifactOptimizerCompareArgs,
+  parseSelfOptBuildArgs,
+  parseSelfOptCheckArgs,
+  parseSelfOptOptimizeArgs,
+  runSelfOptArtifactOptimizerCompare,
+  runSelfOptCheck,
+} from "./self-opt-task";
 import { extractPipelinePrintEntryPretties, parseStarshinePerfTimingSummary } from "./self-optimize-compare-task";
 
 describe("self-optimize compare timing parsing", () => {
@@ -43,6 +54,119 @@ describe("self-optimize compare timing parsing", () => {
     expect(summary.rawElapsedMs).toBe(61000);
     expect(summary.otherTimedElapsedMs).toBeCloseTo(5.4);
     expect(summary.passSkippedRaw).toBe(true);
+  });
+});
+
+describe("self-opt subprocess deadlines", () => {
+  test("parses explicit total and no-progress deadlines for build and optimize", () => {
+    expect(parseSelfOptBuildArgs([
+      "--optimize-timeout-seconds",
+      "900",
+      "--optimize-stall-timeout-seconds",
+      "120",
+    ])).toMatchObject({
+      debugSerialPasses: false,
+      optimizeTimeoutSeconds: 900,
+      optimizeStallTimeoutSeconds: 120,
+    });
+    expect(parseSelfOptBuildArgs(["--debug-serial-passes"])).toMatchObject({
+      debugSerialPasses: true,
+    });
+    expect(parseSelfOptOptimizeArgs([
+      "--optimize-timeout-seconds",
+      "600",
+      "--optimize-stall-timeout-seconds",
+      "90",
+    ])).toMatchObject({
+      optimizeTimeoutSeconds: 600,
+      optimizeStallTimeoutSeconds: 90,
+    });
+  });
+
+  test("rejects missing, zero, negative, and nonnumeric deadline values", () => {
+    for (const argv of [
+      ["--optimize-timeout-seconds"],
+      ["--optimize-timeout-seconds", "0"],
+      ["--optimize-stall-timeout-seconds", "-1"],
+      ["--optimize-stall-timeout-seconds", "later"],
+    ]) {
+      expect(() => parseSelfOptBuildArgs(argv)).toThrow();
+    }
+  });
+
+  test("terminates a subprocess promptly after it stops producing progress", async () => {
+    const startedAt = Date.now();
+    await expect(runCommandWithProgressTimeout(
+      process.execPath,
+      ["-e", "process.stdout.write('started\\n'); setInterval(() => {}, 1000)"],
+      {
+        cwd: process.cwd(),
+        totalTimeoutMs: 2000,
+        stallTimeoutMs: 80,
+        killGraceMs: 10,
+        writeStdout() {},
+        writeStderr() {},
+      },
+    )).rejects.toThrow("no progress for 80ms");
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+  });
+
+  test("allows a subprocess that completes within both deadlines", async () => {
+    await expect(runCommandWithProgressTimeout(
+      process.execPath,
+      ["-e", "process.stdout.write('done\\n')"],
+      {
+        cwd: process.cwd(),
+        totalTimeoutMs: 1000,
+        stallTimeoutMs: 500,
+        writeStdout() {},
+        writeStderr() {},
+      },
+    )).resolves.toMatchObject({ exitCode: 0, timedOut: false });
+  });
+
+  test("self-optimizes the release artifact without forced pass tracing", async () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-self-opt-timeout-"));
+    const distDir = path.join(repoRoot, "tests", "node", "dist");
+    const nativeBin = path.join(repoRoot, "starshine");
+    fs.mkdirSync(distDir, { recursive: true });
+    fs.writeFileSync(path.join(distDir, "starshine-optimized-wasi.wasm"), "release");
+    fs.writeFileSync(nativeBin, "native");
+    const calls: Array<{
+      args: string[];
+      env: NodeJS.ProcessEnv;
+      totalTimeoutMs: number;
+      stallTimeoutMs: number;
+    }> = [];
+
+    await optimizeDebugWasm({
+      repoRoot,
+      starshinePath: nativeBin,
+      totalTimeoutMs: 1234,
+      stallTimeoutMs: 234,
+      validateArtifact() {},
+      async runOptimizer(_command: string, args: string[], options: {
+        env: NodeJS.ProcessEnv;
+        totalTimeoutMs: number;
+        stallTimeoutMs: number;
+      }) {
+        calls.push({ args, ...options });
+        fs.copyFileSync(
+          path.join(distDir, "starshine-optimized-wasi.wasm"),
+          args[args.indexOf("--out") + 1],
+        );
+        return { exitCode: 0, timedOut: false };
+      },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args).not.toContain("--debug-serial-passes");
+    expect(calls[0].args.at(-1)).toBe(path.join(distDir, "starshine-optimized-wasi.wasm"));
+    expect(calls[0].env.STARSHINE_TRACING).toBe(
+      process.env.STARSHINE_TRACING ?? "phase",
+    );
+    expect(calls[0].totalTimeoutMs).toBe(1234);
+    expect(calls[0].stallTimeoutMs).toBe(234);
   });
 });
 
@@ -247,9 +371,10 @@ describe("self-opt artifact optimizer exact compare", () => {
     const distDir = path.join(repoRoot, "tests", "node", "dist");
     fs.mkdirSync(distDir, { recursive: true });
     const optimizerWasm = path.join(distDir, "starshine-self-optimized-wasi.wasm");
-    const inputWasm = path.join(distDir, "starshine-debug-wasi.wasm");
+    const inputWasm = path.join(repoRoot, "tests", "repros", "merge-blocks-v131-main.wasm");
+    fs.mkdirSync(path.dirname(inputWasm), { recursive: true });
     fs.writeFileSync(optimizerWasm, "optimizer");
-    fs.writeFileSync(inputWasm, "debug");
+    fs.writeFileSync(inputWasm, "fixture");
 
     const calls: string[] = [];
     const result = await runSelfOptArtifactOptimizerCompare([], {
@@ -272,9 +397,10 @@ describe("self-opt artifact optimizer exact compare", () => {
     expect(result.exactMatch).toBe(true);
     expect(result.size).toBe("same-output".length);
     expect(calls).toContain(`validate:${path.basename(optimizerWasm)}:self-optimized wasm optimizer artifact`);
-    expect(calls).toContain(`validate:${path.basename(inputWasm)}:debug wasm input artifact`);
-    expect(calls.some((call) => call.startsWith("native:--debug-serial-passes --optimize -O4z --out"))).toBe(true);
-    expect(calls.some((call) => call.startsWith("wasm:--debug-serial-passes --optimize -O4z --out"))).toBe(true);
+    expect(calls).toContain(`validate:${path.basename(inputWasm)}:comparison wasm input artifact`);
+    expect(calls.some((call) => call.startsWith("native:--optimize -O4z --out"))).toBe(true);
+    expect(calls.some((call) => call.startsWith("wasm:--optimize -O4z --out"))).toBe(true);
+    expect(calls.some((call) => call.includes("--debug-serial-passes"))).toBe(false);
   });
 
   test("reports the first differing byte when exact compare fails", async () => {

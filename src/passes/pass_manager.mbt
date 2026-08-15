@@ -3735,7 +3735,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_parameter_result_if_late_alias_lifet
           saw_result_if = true
         }
       @lib.LocalTee(@lib.LocalIdx(alias_raw)) if saw_result_if &&
-        idx + 2 < instrs.length() =>
+        idx + 2 < instrs.length() => {
         match (instrs[idx + 1], instrs[idx + 2]) {
           (
             @lib.LocalGet(@lib.LocalIdx(read_alias_raw)),
@@ -3750,6 +3750,26 @@ fn run_hot_pipeline_raw_simplify_locals_has_parameter_result_if_late_alias_lifet
           }
           _ => ()
         }
+        if idx + 4 < instrs.length() {
+          match
+            (instrs[idx + 1], instrs[idx + 2], instrs[idx + 3], instrs[idx + 4]) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(read_alias_raw)),
+              @lib.LocalSet(@lib.LocalIdx(temp_raw)),
+              @lib.LocalGet(@lib.LocalIdx(read_temp_raw)),
+              @lib.LocalSet(@lib.LocalIdx(parameter_raw)),
+            ) if alias_raw == read_alias_raw && temp_raw == read_temp_raw => {
+              let parameter_id = parameter_raw.reinterpret_as_int()
+              if parameter_id >= 0 &&
+                parameter_id < parameter_count &&
+                read_before_result_if[parameter_id] {
+                return true
+              }
+            }
+            _ => ()
+          }
+        }
+      }
       _ => ()
     }
     idx += 1
@@ -4067,6 +4087,72 @@ fn run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
           Some(else_body) =>
             if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
                 else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_has_call_result_before_structured_release(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
+    if run_hot_pipeline_dce_raw_instr_static_result_arity(
+        instrs[idx],
+        module_ctx,
+      ) <=
+      0 {
+      continue
+    }
+    let target = match instrs[idx + 1] {
+      @lib.LocalGet(target) => target
+      _ => continue
+    }
+    let bodies : Array[Array[@lib.Instruction]] = match instrs[idx + 2] {
+      @lib.If(_, then_body, else_body) =>
+        match else_body {
+          Some(else_body) => [then_body, else_body]
+          None => [then_body]
+        }
+      _ => continue
+    }
+    for body in bodies {
+      let (has_local, has_call) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
+        body, target,
+      )
+      if has_local && has_call {
+        return true
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_call_result_before_structured_release(
+            body, module_ctx,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_has_call_result_before_structured_release(
+            then_body, module_ctx,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_simplify_locals_has_call_result_before_structured_release(
+                else_body, module_ctx,
               ) {
               return true
             }
@@ -4617,6 +4703,127 @@ fn run_hot_pipeline_raw_ssa_nomerge_local_write_store_facts(
     }
   }
   (has_write, has_store)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_result_if_embedded_tee_lifetime(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let target = match instrs[idx] {
+      @lib.LocalTee(target) => target
+      _ => continue
+    }
+    let scan_end = Int::min(instrs.length(), idx + 5)
+    for scan = idx + 1; scan < scan_end; scan = scan + 1 {
+      match instrs[scan] {
+        @lib.If(block_type, then_body, else_body) if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(
+            block_type,
+          ) => {
+          let then_returns = run_hot_pipeline_raw_merge_locals_has_return(
+            then_body,
+          )
+          let (then_reads, _) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
+            then_body, target,
+          )
+          match else_body {
+            Some(else_body) => {
+              let else_returns = run_hot_pipeline_raw_merge_locals_has_return(
+                else_body,
+              )
+              let (else_reads, _) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
+                else_body, target,
+              )
+              if (then_returns || else_returns) && (then_reads || else_reads) {
+                return true
+              }
+            }
+            None => if then_returns && then_reads { return true }
+          }
+          break
+        }
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_if_embedded_tee_lifetime(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_if_embedded_tee_lifetime(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_result_if_embedded_tee_lifetime(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(
+  instrs : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> Bool {
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    let target = match (instrs[idx], instrs[idx + 1]) {
+      (@lib.LocalTee(target), @lib.Call(_)) => target
+      _ => continue
+    }
+    if target.0.reinterpret_as_int() < parameter_count {
+      continue
+    }
+    for scan = idx + 2; scan < instrs.length(); scan = scan + 1 {
+      match instrs[scan] {
+        @lib.If(_, then_body, else_body) => {
+          let (then_reads, _) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
+            then_body, target,
+          )
+          if then_reads &&
+            run_hot_pipeline_raw_simplify_locals_instrs_write_local(
+              then_body, target,
+            ) {
+            return true
+          }
+          match else_body {
+            Some(else_body) => {
+              let (else_reads, _) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
+                else_body, target,
+              )
+              if else_reads &&
+                run_hot_pipeline_raw_simplify_locals_instrs_write_local(
+                  else_body, target,
+                ) {
+                return true
+              }
+            }
+            None => ()
+          }
+          break
+        }
+        _ => ()
+      }
+    }
+  }
+  false
 }
 
 ///|
@@ -9378,6 +9585,30 @@ fn run_hot_pipeline_raw_simplify_locals(
       dae_defined_func_count(mod_) <= 128
     ) ||
     (stats.instr_count >= 6144 && stats.instr_count <= 16384)
+  if run_hot_pipeline_raw_has_call_argument_structured_release(instrs) ||
+    run_hot_pipeline_raw_has_call_argument_distinct_structured_releases(instrs) {
+    let reason = if no_structure_variant {
+      "call-argument-structured-release-simplify-locals-nostructure-noop"
+    } else {
+      "call-argument-structured-release-simplify-locals-noop"
+    }
+    return Some({
+      reason,
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_simplify_locals_has_call_result_before_structured_release(
+      instrs, module_ctx,
+    ) {
+    return Some({
+      reason: "call-result-before-structured-release",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if allows_tee && stats.locals_count <= 64 && stack_carried_size_admitted {
     let env = run_hot_pipeline_raw_simplify_locals_func_env(
       mod_, func_idx, module_ctx, locals,
@@ -9528,21 +9759,19 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
-  if descriptor.name == "simplify-locals" {
-    let params = run_hot_pipeline_required_raw_func_params(
-      mod_, module_ctx, func_idx,
-    )
-    if run_hot_pipeline_raw_simplify_locals_has_parameter_result_if_late_alias_lifetime(
-        instrs,
-        params.length(),
-      ) {
-      return Some({
-        reason: "parameter-result-if-late-alias-lifetime",
-        func: original,
-        unchanged_original: true,
-        trace_skip_raw: true,
-      })
-    }
+  let params = run_hot_pipeline_required_raw_func_params(
+    mod_, module_ctx, func_idx,
+  )
+  if run_hot_pipeline_raw_simplify_locals_has_parameter_result_if_late_alias_lifetime(
+      instrs,
+      params.length(),
+    ) {
+    return Some({
+      reason: "parameter-result-if-late-alias-lifetime",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
   }
   if (no_structure_variant || descriptor.name == "simplify-locals") &&
     run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
@@ -27341,6 +27570,27 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     None => false
   }
   if descriptor.name == "ssa-nomerge" &&
+    run_hot_pipeline_raw_ssa_nomerge_has_result_if_embedded_tee_lifetime(instrs) {
+    return Some({
+      reason: "result-if-embedded-tee-lifetime-ssa-nomerge-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "ssa-nomerge" &&
+    run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(
+      instrs,
+      params.length(),
+    ) {
+    return Some({
+      reason: "structured-partial-write-tee-lifetime-ssa-nomerge-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if descriptor.name == "ssa-nomerge" &&
     (
       run_hot_pipeline_raw_ssa_nomerge_has_discarded_parameter_load_before_structured_write(
         instrs,
@@ -27814,33 +28064,43 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         original, params, plan,
       )
       if materialized_changed {
-        let materialized_mod = run_hot_pipeline_module_with_rewritten_func(
-          mod_, func_idx, materialized,
-        )
-        let materialized_hot_func = match
-          @ir.hot_lift_func_with_context_result(
-            materialized_mod, func_idx, module_ctx,
+        let @lib.Func(_, @lib.Expr(materialized_instrs)) = materialized
+        if run_hot_pipeline_raw_simplify_locals_has_call_local_tee_lifetime(
+            materialized_instrs,
           ) {
-          Ok(hot_func) => hot_func
-          Err(_) =>
-            return Some({
-              reason: "structured-materialized-hot-lift-unsupported-noop",
-              func: original,
-              unchanged_original: true,
-              trace_skip_raw: true,
-            })
+          // Materializing earlier entry defaults does not invalidate a later
+          // tee value carried across calls. Replanning this mixed shape can
+          // pair the remaining raw read with the wrong LocalGraph get entry.
+          (materialized, true)
+        } else {
+          let materialized_mod = run_hot_pipeline_module_with_rewritten_func(
+            mod_, func_idx, materialized,
+          )
+          let materialized_hot_func = match
+            @ir.hot_lift_func_with_context_result(
+              materialized_mod, func_idx, module_ctx,
+            ) {
+            Ok(hot_func) => hot_func
+            Err(_) =>
+              return Some({
+                reason: "structured-materialized-hot-lift-unsupported-noop",
+                func: original,
+                unchanged_original: true,
+                trace_skip_raw: true,
+              })
+          }
+          let materialized_local_graph = @ir.local_graph_build(
+            materialized_hot_func,
+            @ir.cfg_build(materialized_hot_func),
+          )
+          let materialized_plan = ssa_nomerge_build_rewrite_plan(
+            materialized_hot_func, materialized_local_graph,
+          )
+          let (planned, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
+            materialized, params, materialized_plan,
+          )
+          (if planned_changed { planned } else { materialized }, true)
         }
-        let materialized_local_graph = @ir.local_graph_build(
-          materialized_hot_func,
-          @ir.cfg_build(materialized_hot_func),
-        )
-        let materialized_plan = ssa_nomerge_build_rewrite_plan(
-          materialized_hot_func, materialized_local_graph,
-        )
-        let (planned, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
-          materialized, params, materialized_plan,
-        )
-        (if planned_changed { planned } else { materialized }, true)
       } else {
         (materialized, materialized_changed)
       }
@@ -27865,9 +28125,24 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         trace_skip_raw: true,
       })
     }
+    let @lib.Func(_, @lib.Expr(default_materialized_instrs)) = flattened_default_materialized
+    if default_changed &&
+      run_hot_pipeline_raw_simplify_locals_has_call_local_tee_lifetime(
+        default_materialized_instrs,
+      ) {
+      // The LocalGraph rewrite already retargeted the tee's dominated reads.
+      // Re-running the legacy structured alias path can mistake that carrier
+      // for an unwritten default after earlier default reads were materialized.
+      return Some({
+        reason: "structured-default-local-reads-call-tee-localgraph-plan",
+        func: flattened_default_materialized,
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
     match
       run_hot_pipeline_raw_ssa_nomerge_structured(
-        default_materialized, module_ctx, params,
+        flattened_default_materialized, module_ctx, params,
       ) {
       Some(rewritten) =>
         if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
@@ -69456,6 +69731,35 @@ fn run_hot_pipeline_o4z_coalesce_local_count_selected(
 }
 
 ///|
+fn run_hot_pipeline_o4z_cfg_coalesce_module_selected(
+  module_defined_func_count : Int,
+) -> Bool {
+  module_defined_func_count < 2000
+}
+
+///|
+fn run_hot_pipeline_o4z_remove_unused_brs_selected(
+  module_defined_func_count : Int,
+) -> Bool {
+  module_defined_func_count < 2000
+}
+
+///|
+fn run_hot_pipeline_o4z_precompute_propagate_selected(
+  module_defined_func_count : Int,
+) -> Bool {
+  module_defined_func_count < 2000
+}
+
+///|
+fn run_hot_pipeline_o4z_ssa_wave_selected(
+  module_defined_func_count : Int,
+  ssa_wave : Int,
+) -> Bool {
+  ssa_wave <= 1 || module_defined_func_count < 2000
+}
+
+///|
 fn run_hot_pipeline_bounded_coalesce_touched(
   mod_ : @lib.Module,
   requested : Array[Bool],
@@ -78936,7 +79240,22 @@ fn run_hot_pipeline_apply_module_pass(
       } else {
         coalesce_locals_run_module_pass(mod_)
       }
-    "coalesce-locals-cfg" => coalesce_locals_run_module_pass(mod_)
+    "coalesce-locals-cfg" => {
+      let defined_func_count = match mod_.code_sec {
+        Some(@lib.CodeSec(funcs)) => funcs.length()
+        None => 0
+      }
+      if options.optimize_level >= 4 &&
+        options.shrink_level >= 1 &&
+        !run_hot_pipeline_o4z_cfg_coalesce_module_selected(defined_func_count) {
+        (options.trace)(
+          "pass[coalesce-locals-cfg]:skip reason=artifact-scale-defined-functions count=\{defined_func_count}",
+        )
+        mod_
+      } else {
+        coalesce_locals_run_module_pass(mod_)
+      }
+    }
     "local-cse" => local_cse_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
     "strip-debug" => strip_debug_run_module_pass(mod_)

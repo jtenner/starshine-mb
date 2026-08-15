@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-08-14
 sources:
   - https://github.com/WebAssembly/spec/tree/main/interpreter
   - ../../../src/wast/spec_harness.mbt
@@ -103,7 +103,7 @@ The current static evaluator does not instantiate modules or resolve imports. It
 3. print aggregate `total`, `passed`, `skipped`, and `failed` file counts;
 4. preview up to twenty failed files and return a nonzero exit code if any file failed.
 
-A file with only runtime commands can be skipped. A mixed file should still validate its static commands: tests in [`src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt) cover command-scoped runtime skipping so `assert_exception` or `assert_return` does not hide later static validation checks.
+A file with only runtime commands can be skipped. A mixed file should still validate its static commands: tests in [`src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt) cover command-scoped runtime skipping so `assert_exception` or `assert_return` does not hide later static validation checks. `WastSpecFileReport.command_reports` records zero-based command outcomes as `Passed`, `KnownSkipped(reason)`, `Blocked(reason)`, or `Failed(msg)`; aggregate `checked_commands`, `skipped_commands`, and `blocked_commands` remain available for summary consumers.
 
 The fuzz suite named `valid-multi-module-linking` builds provider/consumer scripts with named modules, `register` commands, and import/export pairs, but current code still routes the final script check through `run_wast_spec_file(...)`. Its `link_passed` / `link_failed` / `link_skipped` counters therefore mean static script pass/fail/skip, not host import resolution. Use that suite as link-shaped WAST parser/printer and pre-link validation coverage until a real linker is added.
 
@@ -115,21 +115,22 @@ The spec runner reports file-level `Passed`, `Skipped(reason)`, or `Failed(msg)`
 | --- | --- | --- |
 | `Passed` | At least one static command was checked, every checked command succeeded, and any runtime-only commands were skipped command-by-command. | Static parse/lower/decode/validation evidence for the checked commands. |
 | `Skipped(reason)` from runtime-only content | The script parsed, but no static command was checked because all commands were runtime actions/assertions such as `invoke`, `register`, or `assert_return`. | Script compatibility only; no validation evidence. |
-| `Skipped(reason)` from known unsupported errors | The script or command needs a parser/lowerer/static-category behavior Starshine does not currently model well enough. | Backlog signal; not conformance evidence. |
-| `Skipped(reason)` from known `tests/spec` mismatches | A narrow path, zero-based command index, and message-family allowlist tolerated one exact known assertion mismatch so broad suite runs can keep moving. | Temporary debt with an explicit assertion identity. |
+| `KnownSkipped(reason)` command from known unsupported errors | One parsed command needs a lowerer/static-category behavior Starshine does not currently model well enough. Independent later commands continue. If the skipped command failed to define the current module, dependent runtime commands are reported as `Blocked(reason)` until a later module definition succeeds. | Backlog signal; not conformance evidence. |
+| `KnownSkipped(reason)` command from known `tests/spec` mismatches | A narrow path, zero-based command index, and message-family allowlist tolerated one exact known assertion mismatch. The harness continues with later independent commands instead of skipping the file. | Temporary debt with an explicit assertion identity; later unexpected failures still fail the file. |
 | `Failed(msg)` | A non-allowlisted parse, lower, validation, or assertion-stage mismatch happened. | The file should block a strict run until investigated. |
 
-[`spec_is_known_unsupported_error(...)`](../../../src/wast/spec_harness.mbt) currently converts outer script parse failures, module-lowering failures, quoted-module parse/lower failures, and pre-compilation failures in `assert_invalid` / `assert_unlinkable` into `Skipped(...)`. This is intentionally conservative: those cases often mean the current WAST front end cannot reach the upstream assertion category, so marking the whole file failed would hide later suite signal behind one known gap.
+[`spec_is_known_unsupported_error(...)`](../../../src/wast/spec_harness.mbt) currently classifies outer script parse failures, module-lowering failures, quoted-module parse/lower failures, and pre-compilation failures in `assert_invalid` / `assert_unlinkable`. A whole-script parse failure still yields file-level `Skipped(...)` because no commands exist to continue. Once the script AST exists, a known unsupported command is `KnownSkipped(...)` and later independent commands continue. A skipped module definition invalidates current-module prerequisites, so dependent runtime commands become `Blocked(...)` until another module command succeeds.
 
 [`spec_is_known_specsuite_mismatch(...)`](../../../src/wast/spec_harness.mbt) is narrower. It only applies to committed `tests/spec/...` paths, exact zero-based command indices, and exact message families. The implementation converts the index to the one-based command number used in diagnostics before matching. Current entries cover:
 
 - stack-underflow mismatches in `if.wast`, `loop.wast`, and `block.wast`;
-- a type mismatch in `type-equivalence.wast`;
-- unexpected local validation success in `block.wast`, `br.wast`, `if.wast`, `loop.wast`, `ref.wast`, `type-rec.wast`, `i32.wast`, `load.wast`, `store.wast`, `labels.wast`, `return.wast`, and `local_set.wast`;
+- exact type-mismatch commands in `type-equivalence.wast`;
+- exact const-expression result-type mismatches in `type-rec.wast`;
+- unexpected local validation success at exact commands in `block.wast`, `br.wast`, `if.wast`, `loop.wast`, `ref.wast`, `type-rec.wast`, `i32.wast`, `load.wast`, `store.wast`, `labels.wast`, `return.wast`, and `local_set.wast`;
 - duplicate-export-name divergence in `names.wast`;
 - the exact legacy-try validation mismatch in `legacy/try_catch.wast`.
 
-Do **not** cite skipped files as green conformance. When reporting `starshine spec` or native `spec_runner` output, include `total`, `passed`, `skipped`, and `failed`, and preserve the first skipped/failing reason when it is relevant. If a new known-mismatch skip is unavoidable, record the exact path, zero-based command index, message family, and retiring condition; update this page, [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) if fuzz/spec-seed semantics are affected, and a current raw refresh.
+Do **not** cite skipped or blocked commands as green conformance. When reporting `starshine spec` or native `spec_runner` output, include `total`, `passed`, `skipped`, and `failed` file counts, and inspect command reports when a known mismatch or blocked prerequisite matters. If a new known-mismatch skip is unavoidable, record the exact path, zero-based command index, message family, and retiring condition; update this page, [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) if fuzz/spec-seed semantics are affected, and a current raw refresh.
 
 ## Fuzzing And Spec-Seed Reuse
 
@@ -146,10 +147,10 @@ The practical rule for maintainers is: **do not fork assertion semantics between
 - **No runtime execution yet.** `assert_return`, `assert_trap`, `assert_exception`, `assert_exhaustion`, `invoke`, `get`, and `register` are parsed for script compatibility but are not semantic evidence in Starshine's current static harness. When a separate runtime lane does execute trap-shaped cases, use [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md) for the trap-versus-validation-versus-host-error vocabulary.
 - **No definition/instance lifecycle grammar yet.** Official `(module definition ...)` and `(module instance ...)` forms fail before command dispatch, yielding a whole-file known-unsupported skip rather than command-level runtime skips; see the preceding lifecycle boundary.
 - **No diagnostic-text parity promise.** Upstream test assertions carry expected error strings. Starshine currently checks kind and stage, not exact upstream diagnostic text.
-- **Skips are visible debt, not hidden passes.** Runtime-only scripts, unsupported parser/lowerer gaps, and narrow `tests/spec` mismatches all report `Skipped(...)` with a reason. Preserve those counts in summaries.
+- **Skips and blocks are visible debt, not hidden passes.** Runtime-only and exact allowlisted command gaps report `KnownSkipped(...)`; state-dependent commands whose prerequisites were invalidated report `Blocked(...)`; whole-script parse gaps or scripts with no checked commands remain file-level `Skipped(...)`. Preserve those counts and command identities in diagnostics.
 - **`assert_malformed` is broad locally.** The current static evaluator accepts either parse/lower/decode rejection or validation rejection for malformed assertions. If Starshine wants stricter upstream category fidelity, split that as a deliberate validator/spec-harness change.
 - **`assert_unlinkable` is pre-link only.** `ValidBeforeLink` means the module survived core validation. It does not prove a future link-time error until Starshine has a linker/runtime harness. The same caveat applies to the historical `valid-multi-module-linking` fuzz suite name and its `link_*` counters.
-- **Node package gap.** The MoonBit `wast` package exports `evaluate_wast_static_assertion(...)`, but the checked-in Node package does not yet expose `evaluateWastStaticAssertion(...)`; see the export-map health contract and `./wast` gap-to-action rows in [`../tooling/node-package-surface.md`](../tooling/node-package-surface.md). File/suite helpers (`runWastSpecFile`, `runWastSpecSuite`) are already public, so the remaining gap is command-level stage classification, not the whole spec-harness surface.
+- **Node package gap.** The MoonBit `wast` package exports `evaluate_wast_static_assertion(...)` and command-level `WastSpecCommandReport` / `WastSpecCommandStatus`, but the checked-in Node package does not yet expose `evaluateWastStaticAssertion(...)`; see the export-map health contract and `./wast` gap-to-action rows in [`../tooling/node-package-surface.md`](../tooling/node-package-surface.md). File/suite helpers (`runWastSpecFile`, `runWastSpecSuite`) are already public.
 
 ## Validation Guidance
 

@@ -210,6 +210,245 @@ test "cfg build can omit conservative try-table entry exception edges" {
 }
 
 ///|
+fn cfg_test_has_exceptional_edge(
+  cfg : HotCfg,
+  from : BlockId,
+  to : BlockId,
+) -> Bool {
+  cfg_successors(cfg, from).any(fn(edge) {
+    edge.block == to && edge.kind.to_string() == "ExceptionalEdge"
+  })
+}
+
+///|
+fn cfg_test_block_reaches(cfg : HotCfg, from : BlockId, to : BlockId) -> Bool {
+  let seen = Array::make(cfg_block_count(cfg), false)
+  let worklist = [from]
+  while worklist.length() > 0 {
+    let current = worklist.pop().unwrap()
+    if current == to {
+      return true
+    }
+    if current < 0 || current >= seen.length() || seen[current] {
+      continue
+    }
+    seen[current] = true
+    for edge in cfg_successors(cfg, current) {
+      if edge.block >= 0 && edge.block < seen.length() && !seen[edge.block] {
+        worklist.push(edge.block)
+      }
+    }
+  }
+  false
+}
+
+///|
+fn cfg_test_try_table_unmatched_fixture(
+  inner_catches : Array[HotCatchArm],
+  thrown_tag : UInt,
+) -> (HotFunc, NodeId, NodeId, NodeId) {
+  let func = HotFunc::new()
+  let enclosing = hot_build_block(func, @lib.BlockType::void_(), [])
+  let enclosing_label = hot_control_node_label(func, enclosing)
+  let inner = hot_build_try_table(
+    func,
+    @lib.BlockType::void_(),
+    inner_catches,
+    [hot_build_throw(func, @lib.TagIdx::new(thrown_tag), [])],
+    catch_list_body=[hot_build_nop(func)],
+  )
+  let outer = hot_build_try_table(
+    func,
+    @lib.BlockType::void_(),
+    [HotCatchArm::catch_(@lib.TagIdx::new(1U), enclosing_label)],
+    [inner],
+    catch_list_body=[hot_build_nop(func)],
+  )
+  hot_region_replace_body(func, hot_region_body_ref(func, enclosing), [outer])
+  let after = hot_build_nop(func)
+  hot_root_append(func, enclosing)
+  hot_root_append(func, after)
+  (func, inner, outer, after)
+}
+
+///|
+fn cfg_test_assert_unmatched_try_table_path(
+  func : HotFunc,
+  inner : NodeId,
+  outer : NodeId,
+  after : NodeId,
+) -> Unit raise {
+  let cfg = cfg_build(func, conservative_exception_entries=false)
+  let inner_catch = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, inner),
+    0,
+  ).unwrap()
+  let outer_catch = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, outer),
+    0,
+  ).unwrap()
+  let after_block = cfg_block_for_node(cfg, after).unwrap()
+  let exceptional_exit = cfg_exceptional_exit_block(cfg).unwrap()
+  let postdom = postdom_build(cfg)
+
+  assert_true(
+    cfg_test_has_exceptional_edge(cfg, inner_catch, outer_catch),
+    msg="a non-exhaustive try_table must propagate unmatched exceptions to the enclosing handler",
+  )
+  assert_true(cfg_test_block_reaches(cfg, inner_catch, after_block))
+  @debug.assert_eq(postdom_ipdom(postdom, inner_catch), None)
+  assert_false(
+    postdom_postdominates(postdom, exceptional_exit, inner_catch),
+    msg="the local tagged-catch path and outward unmatched path have distinct exits",
+  )
+}
+
+///|
+test "cfg try_table propagates a nonmatching tagged catch to an outer handler" {
+  let (func, inner, outer, after) = cfg_test_try_table_unmatched_fixture(
+    [HotCatchArm::catch_(@lib.TagIdx::new(0U), HOT_IMPLICIT_FUNCTION_LABEL)],
+    1U,
+  )
+  cfg_test_assert_unmatched_try_table_path(func, inner, outer, after)
+}
+
+///|
+test "cfg try_table propagates past several nonmatching tagged catches" {
+  let (func, inner, outer, after) = cfg_test_try_table_unmatched_fixture(
+    [
+      HotCatchArm::catch_(@lib.TagIdx::new(0U), HOT_IMPLICIT_FUNCTION_LABEL),
+      HotCatchArm::catch_ref(@lib.TagIdx::new(2U), HOT_IMPLICIT_FUNCTION_LABEL),
+    ],
+    1U,
+  )
+  cfg_test_assert_unmatched_try_table_path(func, inner, outer, after)
+}
+
+///|
+test "cfg try_table keeps a matching tagged catch and unmatched outward flow" {
+  let (func, inner, outer, after) = cfg_test_try_table_unmatched_fixture(
+    [HotCatchArm::catch_(@lib.TagIdx::new(1U), HOT_IMPLICIT_FUNCTION_LABEL)],
+    1U,
+  )
+  let cfg = cfg_build(func, conservative_exception_entries=false)
+  let inner_catch = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, inner),
+    0,
+  ).unwrap()
+  let exceptional_exit = cfg_exceptional_exit_block(cfg).unwrap()
+  assert_true(
+    cfg_test_has_exceptional_edge(cfg, inner_catch, exceptional_exit),
+    msg="the listed matching catch target must remain represented",
+  )
+  cfg_test_assert_unmatched_try_table_path(func, inner, outer, after)
+}
+
+///|
+fn cfg_test_assert_exhaustive_try_table_has_no_unmatched_path(
+  catches : Array[HotCatchArm],
+) -> Unit raise {
+  let (func, inner, outer, after) = cfg_test_try_table_unmatched_fixture(
+    catches, 1U,
+  )
+  let cfg = cfg_build(func, conservative_exception_entries=false)
+  let inner_catch = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, inner),
+    0,
+  ).unwrap()
+  let outer_catch = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, outer),
+    0,
+  ).unwrap()
+  let after_block = cfg_block_for_node(cfg, after).unwrap()
+  let exceptional_exit = cfg_exceptional_exit_block(cfg).unwrap()
+  let postdom = postdom_build(cfg)
+
+  assert_false(
+    cfg_test_has_exceptional_edge(cfg, inner_catch, outer_catch),
+    msg="an exhaustive try_table must not synthesize unmatched outward flow",
+  )
+  assert_false(cfg_test_block_reaches(cfg, inner_catch, after_block))
+  @debug.assert_eq(postdom_ipdom(postdom, inner_catch), Some(exceptional_exit))
+  assert_true(postdom_postdominates(postdom, exceptional_exit, inner_catch))
+}
+
+///|
+test "cfg try_table catch_all makes tagged catches exhaustive" {
+  cfg_test_assert_exhaustive_try_table_has_no_unmatched_path([
+    HotCatchArm::catch_(@lib.TagIdx::new(0U), HOT_IMPLICIT_FUNCTION_LABEL),
+    HotCatchArm::all(HOT_IMPLICIT_FUNCTION_LABEL),
+  ])
+}
+
+///|
+test "cfg try_table catch_all_ref makes tagged catches exhaustive" {
+  cfg_test_assert_exhaustive_try_table_has_no_unmatched_path([
+    HotCatchArm::catch_ref(@lib.TagIdx::new(0U), HOT_IMPLICIT_FUNCTION_LABEL),
+    HotCatchArm::all_ref(HOT_IMPLICIT_FUNCTION_LABEL),
+  ])
+}
+
+///|
+test "cfg nested try_tables propagate unmatched exceptions through each enclosing handler" {
+  let func = HotFunc::new()
+  let enclosing = hot_build_block(func, @lib.BlockType::void_(), [])
+  let enclosing_label = hot_control_node_label(func, enclosing)
+  let inner = hot_build_try_table(
+    func,
+    @lib.BlockType::void_(),
+    [HotCatchArm::catch_(@lib.TagIdx::new(0U), HOT_IMPLICIT_FUNCTION_LABEL)],
+    [hot_build_throw(func, @lib.TagIdx::new(2U), [])],
+    catch_list_body=[hot_build_nop(func)],
+  )
+  let middle = hot_build_try_table(
+    func,
+    @lib.BlockType::void_(),
+    [HotCatchArm::catch_(@lib.TagIdx::new(1U), HOT_IMPLICIT_FUNCTION_LABEL)],
+    [inner],
+    catch_list_body=[hot_build_nop(func)],
+  )
+  let outer = hot_build_try_table(
+    func,
+    @lib.BlockType::void_(),
+    [HotCatchArm::catch_(@lib.TagIdx::new(2U), enclosing_label)],
+    [middle],
+    catch_list_body=[hot_build_nop(func)],
+  )
+  hot_region_replace_body(func, hot_region_body_ref(func, enclosing), [outer])
+  let after = hot_build_nop(func)
+  hot_root_append(func, enclosing)
+  hot_root_append(func, after)
+  let cfg = cfg_build(func, conservative_exception_entries=false)
+  let inner_catch = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, inner),
+    0,
+  ).unwrap()
+  let middle_catch = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, middle),
+    0,
+  ).unwrap()
+  let outer_catch = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_list_ref(func, outer),
+    0,
+  ).unwrap()
+  let after_block = cfg_block_for_node(cfg, after).unwrap()
+  let postdom = postdom_build(cfg)
+
+  assert_true(cfg_test_has_exceptional_edge(cfg, inner_catch, middle_catch))
+  assert_true(cfg_test_has_exceptional_edge(cfg, middle_catch, outer_catch))
+  assert_true(cfg_test_block_reaches(cfg, inner_catch, after_block))
+  @debug.assert_eq(postdom_ipdom(postdom, inner_catch), None)
+}
+
+///|
 test "cfg build maps drop operand result-if arms to join continuation" {
   let (func, drop, result_if) = cfg_test_drop_result_if_fixture()
   let operand_id = hot_child_get(func, drop, 0)

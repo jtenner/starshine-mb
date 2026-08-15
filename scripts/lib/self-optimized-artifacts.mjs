@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export function repoRootFromScript(importMetaUrl) {
@@ -68,6 +68,154 @@ export function run(command, args, repoRoot) {
   execFileSync(command, args, {
     cwd: repoRoot,
     stdio: 'inherit',
+  });
+}
+
+export const DEFAULT_SELF_OPT_TIMEOUT_MS = 10 * 60 * 1000;
+export const DEFAULT_SELF_OPT_STALL_TIMEOUT_MS = 90 * 1000;
+
+function appendRollingOutput(current, chunk, limit = 16 * 1024) {
+  const next = current + chunk;
+  return next.length <= limit ? next : next.slice(next.length - limit);
+}
+
+function signalProcessTree(child, signal) {
+  if (child.pid === undefined) {
+    return;
+  }
+  if (process.platform !== 'win32') {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      // The process may have exited between the watchdog firing and this signal.
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+    // A raced process exit needs no further cleanup.
+  }
+}
+
+// Execute a potentially expensive optimizer command with both a total deadline and
+// a no-progress deadline. Output from either stream resets the progress watchdog.
+// On timeout, terminate the whole process group so wrappers cannot leave orphaned
+// optimizer children consuming CPU after the parent command has failed.
+export async function runCommandWithProgressTimeout(
+  command,
+  args,
+  {
+    cwd = process.cwd(),
+    env = process.env,
+    totalTimeoutMs = DEFAULT_SELF_OPT_TIMEOUT_MS,
+    stallTimeoutMs = DEFAULT_SELF_OPT_STALL_TIMEOUT_MS,
+    killGraceMs = 2000,
+    writeStdout = (chunk) => process.stdout.write(chunk),
+    writeStderr = (chunk) => process.stderr.write(chunk),
+  } = {},
+) {
+  if (!Number.isFinite(totalTimeoutMs) || totalTimeoutMs <= 0) {
+    throw new Error(`invalid total timeout: ${totalTimeoutMs}`);
+  }
+  if (!Number.isFinite(stallTimeoutMs) || stallTimeoutMs <= 0) {
+    throw new Error(`invalid no-progress timeout: ${stallTimeoutMs}`);
+  }
+
+  const startedAt = Date.now();
+  let lastProgressAt = startedAt;
+  let rollingOutput = '';
+  let timeoutKind = null;
+  let forceKillTimer = null;
+  const child = spawn(command, args, {
+    cwd,
+    env,
+    detached: process.platform !== 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  function recordOutput(chunk, writer) {
+    const text = String(chunk);
+    lastProgressAt = Date.now();
+    rollingOutput = appendRollingOutput(rollingOutput, text);
+    writer(text);
+  }
+
+  child.stdout?.setEncoding('utf8');
+  child.stderr?.setEncoding('utf8');
+  child.stdout?.on('data', (chunk) => recordOutput(chunk, writeStdout));
+  child.stderr?.on('data', (chunk) => recordOutput(chunk, writeStderr));
+
+  const watchdogIntervalMs = Math.max(
+    10,
+    Math.min(1000, Math.floor(totalTimeoutMs / 4), Math.floor(stallTimeoutMs / 4)),
+  );
+  const watchdog = setInterval(() => {
+    if (timeoutKind !== null) {
+      return;
+    }
+    const now = Date.now();
+    if (now - startedAt >= totalTimeoutMs) {
+      timeoutKind = 'total';
+    } else if (now - lastProgressAt >= stallTimeoutMs) {
+      timeoutKind = 'stall';
+    } else {
+      return;
+    }
+    signalProcessTree(child, 'SIGTERM');
+    forceKillTimer = setTimeout(() => signalProcessTree(child, 'SIGKILL'), killGraceMs);
+    forceKillTimer.unref?.();
+  }, watchdogIntervalMs);
+  watchdog.unref?.();
+
+  return await new Promise((resolve, reject) => {
+    let spawnError = null;
+    child.on('error', (error) => {
+      spawnError = error;
+    });
+    child.on('close', (code, signal) => {
+      clearInterval(watchdog);
+      if (forceKillTimer !== null) {
+        clearTimeout(forceKillTimer);
+      }
+      const elapsedMs = Date.now() - startedAt;
+      if (timeoutKind !== null) {
+        const timeoutMs = timeoutKind === 'total' ? totalTimeoutMs : stallTimeoutMs;
+        const description = timeoutKind === 'total'
+          ? `total deadline of ${timeoutMs}ms`
+          : `no progress for ${timeoutMs}ms`;
+        const error = new Error(
+          `command timed out after ${description}: ${command} ${args.join(' ')}\n` +
+          `elapsed_ms=${elapsedMs}\n` +
+          `signal=${signal ?? 'unknown'}\n` +
+          (rollingOutput.length > 0 ? `last_output:\n${rollingOutput}` : ''),
+        );
+        error.code = 'SELF_OPT_TIMEOUT';
+        error.timeoutKind = timeoutKind;
+        error.timeoutMs = timeoutMs;
+        error.elapsedMs = elapsedMs;
+        reject(error);
+        return;
+      }
+      if (spawnError !== null) {
+        reject(spawnError);
+        return;
+      }
+      if (code !== 0) {
+        reject(new Error(
+          `command failed: ${command} ${args.join(' ')} (exit ${code ?? 'unknown'}, signal ${signal ?? 'none'})\n` +
+          (rollingOutput.length > 0 ? `last_output:\n${rollingOutput}` : ''),
+        ));
+        return;
+      }
+      resolve({
+        exitCode: code,
+        signal,
+        elapsedMs,
+        timedOut: false,
+        lastOutput: rollingOutput,
+      });
+    });
   });
 }
 
@@ -159,18 +307,25 @@ function streamToUtf8(value) {
   return '';
 }
 
-// Run self-optimization over debug WASM, with optional fallback that copies debug
-// output when optimization fails and `fallbackToDebugOnFailure` is set.
-export function optimizeDebugWasm({
+// Run self-optimization over release WASM by default, with an explicit fallback
+// that copies debug output only when `fallbackToDebugOnFailure` is set.
+export async function optimizeDebugWasm({
   repoRoot,
   starshinePath,
+  inputWasmPath,
   fallbackToDebugOnFailure = false,
+  debugSerialPasses = false,
+  totalTimeoutMs = DEFAULT_SELF_OPT_TIMEOUT_MS,
+  stallTimeoutMs = DEFAULT_SELF_OPT_STALL_TIMEOUT_MS,
+  runOptimizer = runCommandWithProgressTimeout,
+  validateArtifact = validateWasmArtifact,
 } = {}) {
   const dist = distArtifactPaths(repoRoot);
   const binary = resolveStarshineBinary(repoRoot, starshinePath);
+  const input = inputWasmPath ?? dist.optimized;
 
-  if (!fs.existsSync(dist.debug)) {
-    throw new Error(`Missing debug wasm input: ${dist.debug}`);
+  if (!fs.existsSync(input)) {
+    throw new Error(`Missing self-opt wasm input: ${input}`);
   }
 
   if (fs.existsSync(dist.selfOptimized)) {
@@ -181,26 +336,41 @@ export function optimizeDebugWasm({
   }
 
   try {
-    execFileSync(binary, ['--debug-serial-passes', '--optimize', '-O4z', '--out', dist.selfOptimized, dist.debug], {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        STARSHINE_TRACING: 'PASS',
+    const optimizerArgs = [
+      ...(debugSerialPasses ? ['--debug-serial-passes'] : []),
+      '--optimize',
+      '-O4z',
+      '--out',
+      dist.selfOptimized,
+      input,
+    ];
+    await runOptimizer(
+      binary,
+      optimizerArgs,
+      {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          STARSHINE_TRACING: process.env.STARSHINE_TRACING ?? 'phase',
+        },
+        totalTimeoutMs,
+        stallTimeoutMs,
       },
-      // Keep stderr inherited so trace output is streamed live instead of buffered
-      // in Node's child-process capture path.
-      stdio: ['ignore', 'inherit', 'inherit'],
-    });
+    );
   } catch (error) {
     const status = error?.status ?? 'unknown';
     const signal = error?.signal ?? 'unknown';
     const stderr = streamToUtf8(error?.stderr).trim();
+    const reason = error instanceof Error ? error.message : String(error);
     const message =
-      `starshine optimize failed for debug wasm\n` +
+      `starshine self-optimize failed\n` +
       `status=${status}\n` +
       `signal=${signal}\n` +
-      `input=${dist.debug}\n` +
+      `total_timeout_ms=${totalTimeoutMs}\n` +
+      `stall_timeout_ms=${stallTimeoutMs}\n` +
+      `input=${input}\n` +
       `output=${dist.selfOptimized}\n` +
+      `reason=${reason}\n` +
       (stderr.length > 0 ? `stderr=${stderr}\n` : '');
     fs.writeFileSync(dist.optimizeError, message);
     if (fallbackToDebugOnFailure) {
@@ -215,7 +385,7 @@ export function optimizeDebugWasm({
     throw new Error(message);
   }
 
-  validateWasmArtifact({
+  validateArtifact({
     repoRoot,
     wasmPath: dist.selfOptimized,
     label: 'self-optimized wasm artifact',

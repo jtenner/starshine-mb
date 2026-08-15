@@ -1409,6 +1409,170 @@ test "ssa-nomerge preserves load results carried across calls into tees" {
 }
 
 ///|
+test "ssa-nomerge preserves a tee carrier after earlier structured default reads" {
+  let input =
+    #|(module
+    #|  (type $dispose-t (func (param i32)))
+    #|  (type $id-t (func (param i32) (result i32)))
+    #|  (type $from64-t (func (param i64) (result i32)))
+    #|  (import "env" "dispose" (func $dispose (type $dispose-t)))
+    #|  (import "env" "id" (func $id (type $id-t)))
+    #|  (import "env" "from64" (func $from64 (type $from64-t)))
+    #|  (import "env" "retain" (func $retain (type $id-t)))
+    #|  (global $g0 (mut i32) (i32.const 0))
+    #|  (global $g1 (mut i32) (i32.const 0))
+    #|  (global $g2 (mut i32) (i32.const 0))
+    #|  (func (export "run") (local i32 i32 i32 i32)
+    #|    i32.const 0
+    #|    call $id
+    #|    local.get 1
+    #|    if
+    #|      local.get 1
+    #|      call $dispose
+    #|    end
+    #|    global.set $g0
+    #|    i32.const 0
+    #|    call $id
+    #|    local.get 2
+    #|    if
+    #|      local.get 2
+    #|      call $dispose
+    #|    end
+    #|    global.set $g1
+    #|    i64.const 4294967296
+    #|    call $from64
+    #|    local.tee 3
+    #|    call $retain
+    #|    local.get 3
+    #|    call $dispose
+    #|    global.set $g2))
+  let output = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(output) => output
+    Err(err) =>
+      fail("expected structured-default tee carrier success, got \{err}")
+  }
+  match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => {
+      let mut preserved = false
+      for idx = 0; idx + 4 < body.length(); idx = idx + 1 {
+        match
+          (
+            body[idx],
+            body[idx + 1],
+            body[idx + 2],
+            body[idx + 3],
+            body[idx + 4],
+          ) {
+          (
+            @lib.LocalTee(tee),
+            @lib.Call(@lib.FuncIdx(3)),
+            @lib.LocalGet(get),
+            @lib.Call(@lib.FuncIdx(0)),
+            @lib.GlobalSet(@lib.GlobalIdx(2)),
+          ) if tee == get => preserved = true
+          _ => ()
+        }
+      }
+      assert_true(preserved, msg=@debug.to_string(body))
+    }
+    other => fail("expected one-function output, got \{other}")
+  }
+}
+
+///|
+test "ssa-nomerge preserves embedded tee values read inside result-if arms" {
+  let input =
+    #|(module
+    #|  (type $id-t (func (result i32)))
+    #|  (import "env" "id" (func $id (type $id-t)))
+    #|  (func (result i32) (local i32)
+    #|    call $id
+    #|    local.tee 0
+    #|    i32.eqz
+    #|    if (result i32)
+    #|      local.get 0
+    #|      if
+    #|        i32.const 1
+    #|        return
+    #|      end
+    #|      i32.const 2
+    #|    else
+    #|      local.get 0
+    #|    end))
+  let trace : Array[String] = []
+  let output = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(output) => output
+    Err(err) => fail("expected embedded result-if tee success, got \{err}")
+  }
+  @debug.assert_eq(output, pass_test_module_from_wat(input))
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=result-if-embedded-tee-lifetime-ssa-nomerge-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves tee values across partial structured overwrites" {
+  let input =
+    #|(module
+    #|  (type $sink-t (func (param i32)))
+    #|  (import "env" "sink" (func $sink (type $sink-t)))
+    #|  (func (param i32 i32) (result i32) (local i32)
+    #|    local.get 1
+    #|    local.tee 2
+    #|    call $sink
+    #|    local.get 0
+    #|    if
+    #|      local.get 0
+    #|      if
+    #|        i32.const 7
+    #|        local.set 2
+    #|      end
+    #|      local.get 2
+    #|      call $sink
+    #|    else
+    #|      local.get 2
+    #|      call $sink
+    #|    end
+    #|    i32.const 0))
+  let trace : Array[String] = []
+  let output = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(output) => output
+    Err(err) =>
+      fail("expected partial structured overwrite success, got \{err}")
+  }
+  @debug.assert_eq(output, pass_test_module_from_wat(input))
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "reason=structured-partial-write-tee-lifetime-ssa-nomerge-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge preserves rewritten parameters carried through loops" {
   let input =
     #|(module
@@ -24520,6 +24684,16 @@ test "O4z coalesce admits medium modules while bounding production-scale artifac
   assert_true(run_hot_pipeline_o4z_coalesce_local_count_selected(2000, 50001))
   assert_true(run_hot_pipeline_o4z_coalesce_local_count_selected(100, 512))
   assert_false(run_hot_pipeline_o4z_coalesce_local_count_selected(100, 513))
+  assert_true(run_hot_pipeline_o4z_cfg_coalesce_module_selected(1999))
+  assert_false(run_hot_pipeline_o4z_cfg_coalesce_module_selected(2000))
+  assert_true(run_hot_pipeline_o4z_remove_unused_brs_selected(1999))
+  assert_false(run_hot_pipeline_o4z_remove_unused_brs_selected(2000))
+  assert_true(run_hot_pipeline_o4z_precompute_propagate_selected(1999))
+  assert_false(run_hot_pipeline_o4z_precompute_propagate_selected(2000))
+  assert_true(run_hot_pipeline_o4z_ssa_wave_selected(2000, 1))
+  assert_true(run_hot_pipeline_o4z_ssa_wave_selected(1999, 2))
+  assert_false(run_hot_pipeline_o4z_ssa_wave_selected(2000, 2))
+  assert_false(run_hot_pipeline_o4z_ssa_wave_selected(12000, 3))
 }
 
 ///|

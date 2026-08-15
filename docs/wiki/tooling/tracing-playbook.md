@@ -45,7 +45,7 @@ Current tracing and benchmark ownership is grounded in the local command, optimi
 | Level | Intended use | Current behavior |
 | --- | --- | --- |
 | `pass` | Pass queue and pass-local timing. | Good default for pass signoff, self-opt compare parsing, and `STARSHINE_OPTIMIZE_MAX_PASSES` prefix debugging. |
-| `phase` | Broader optimizer phase checkpoints. | Reserved for phase-level debugging where pass-only lines are too coarse. |
+| `phase` | Compact optimizer progress checkpoints. | Emits pipeline checkpoints and one deduplicated `phase pass=<name>` line whenever the active pass changes; suppresses per-function lifecycle, skip, detail, and timer floods. This is the default self-opt watchdog channel. |
 | `helper` | Helper-level detail. | Use sparingly for deep optimizer investigation; it can be noisy. |
 
 Precedence follows the CLI dispatcher contract: explicit `--tracing` wins, then `STARSHINE_TRACING`, then config `tracing`. `STARSHINE_OPTIMIZE_MAX_PASSES=<n>` is a separate debug limiter that truncates the scheduled pass queue by prefix length, including `0` for decode/encode baselines, and emits a `pass_limit` trace line when active.

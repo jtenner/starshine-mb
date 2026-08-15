@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-13
+last_reviewed: 2026-08-14
 sources:
   - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
@@ -68,8 +68,9 @@ There is no open v131 pass-owned transform-family gap. Remaining limitations are
    - lower nested tail calls at non-tail sites;
    - localize operands and hoist nested EH tail calls so exception catchability is unchanged.
 6. Preserve an inline result wrapper whenever the callee can escape to its implicit function label. The depth-aware scan covers `return*`, `br`, `br_if`, `br_table`, every represented `br_on_*` form including descriptor casts, and `try_table` catch targets. Hoist wrappers shift only targets outside the copied control depth, including catch-target depths.
-7. Remove only private helpers whose direct and reference uses are gone and which are not globally rooted.
-8. Repeat within Binaryen's bounded-work policy.
+7. Remove only private helpers whose direct and reference uses are gone and which are not globally rooted. The removal result remaps touched callers through the same old-index-to-new-index compaction map.
+8. Run final adjacent `local.set; local.get` folding only for the sparse pass-local touched-function indices. This state is never written into `FuncAnnotationSec`, so user/tool annotations—including one named `starshine.inlining-finalize-fold`—survive structurally unchanged.
+9. Repeat within Binaryen's bounded-work policy.
 
 ## Profitability policy
 
@@ -112,17 +113,21 @@ Partial splitting is enabled only when optimize level is at least 3, shrink leve
 
 ## 2026-08-13 implicit function-label runtime repair
 
-A post-signoff review found valid wrong-code when a callee used `br` to the implicit function label: omitting the inline result block let the copied branch exit an enclosing caller control and skip caller-side effects. `inl_instrs_have_function_label_escape(...)` now performs a depth-aware scan before wrapper omission, and `inl_push_inline_replacement(...)` no longer unwraps a single-block replacement when its instruction escapes through that block. The scanner covers ordinary branch, table, GC/reference `br_on_*`, descriptor branch, return/tail-return, and `try_table` catch-target families. A native Node runtime regression in [`../../../../../scripts/test/inlining-function-label-runtime.ts`](../../../../../scripts/test/inlining-function-label-runtime.ts) executes root/nested `br`, `br_if`, `br_table`, `br_on_null`, and a `try_table catch_all` function-label escape before and after plain inlining; CI runs it against the prebuilt native release CLI. Final adjacent `local.set; local.get` folding is also touched-function-only and copy-on-write, with trace counters for visited functions, reconstructed instructions, arrays, and folds.
+A post-signoff review found valid wrong-code when a callee used `br` to the implicit function label: omitting the inline result block let the copied branch exit an enclosing caller control and skip caller-side effects. `inl_instrs_have_function_label_escape(...)` now performs a depth-aware scan before wrapper omission, and `inl_push_inline_replacement(...)` no longer unwraps a single-block replacement when its instruction escapes through that block. The scanner covers ordinary branch, table, GC/reference `br_on_*`, descriptor branch, return/tail-return, and `try_table` catch-target families. A native Node runtime regression in [`../../../../../scripts/test/inlining-function-label-runtime.ts`](../../../../../scripts/test/inlining-function-label-runtime.ts) executes root/nested `br`, `br_if`, `br_table`, `br_on_null`, and a `try_table catch_all` function-label escape before and after plain inlining; CI runs it against the prebuilt native release CLI. Final adjacent `local.set; local.get` folding is also touched-function-only and copy-on-write, with trace counters for visited functions, reconstructed instructions, arrays, and folds. As of the 2026-08-14 metadata repair, touched callers are transported as sparse pass-local indices after helper compaction rather than through a temporary function annotation; regressions preserve an identically named user annotation and prove that removing a helper before the touched caller does not redirect finalization to the wrong function.
 
 ## Evidence
 
-Current focused validation for the 2026-08-13 review repair:
+Current focused validation after the 2026-08-14 touched-state repair:
 
-- inlining behavior: `131/131`;
-- inlining white-box: `17/17`;
-- native function-label runtime script: green;
-- full repository suite: `10378/10378`;
-- full wasm-gc CI profile: green.
+- inlining behavior: `135/135`;
+- native function-label runtime script: retained;
+- full repository suite: `10412/10412`;
+- full wasm-gc CI profile: green;
+- README/API sync: green;
+- pinned-v131 `pass-inlining`: `10000/10000` normalized, zero mismatches or failures;
+- pinned-v131 `inlining-optimizing-all`: `10000/10000` normalized, zero mismatches or failures.
+
+The required production artifact refresh exposed a separate pre-existing current-HEAD runtime blocker rather than an inlining compare failure. Native SHA-256 `165611733d7536f4b853c2642414e6ce213e0c0a39d164aed11326d910ebd78d` optimized and externally validated `105/105` retained O4z modules, but exact WIPC is `0` pass / `102` fail / `3` timeout. Final native SHA-256 `da005c82e948716b16ec7ff90d07db41d2737ae56240ed85a88867858f6b5dc0` keeps the representative naive `bool` output byte-identical because every corpus input is below the new 2,000-definition artifact-scale CFG guard. An isolated clean-HEAD build emits the identical failing `bool` artifact, so [`../../../../../agent-todo.md`](../../../../../agent-todo.md) tracks this under `[REVIEW-ARTIFACT]001` instead of attributing it to the pass-local metadata repair.
 
 The CLI/parser and earlier closeout counts below remain historical evidence for the original v131 audit rather than this review-sized repair.
 

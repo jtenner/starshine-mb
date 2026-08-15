@@ -4198,6 +4198,84 @@ test "inlining final adjacent set-get cleanup visits only touched functions" {
 }
 
 ///|
+test "inlining preserves a user-owned finalize-fold annotation exactly" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run") (local i32)
+    #|    call $tiny
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop))
+  let annotation = @lib.FuncAnnotation::new(
+    "starshine.inlining-finalize-fold",
+    args=["user-owned", "\"payload\""],
+  )
+  let input = pass_test_module_from_wat(source).with_func_annotation_sec(
+    @lib.FuncAnnotationSec::new([
+      @lib.FuncAnnotationAssoc::new(1U, [annotation]),
+    ]),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["inlining"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected annotated inlining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    optimized.func_annotation_sec,
+    Some(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [annotation]),
+      ]),
+    ),
+  )
+}
+
+///|
+test "inlining remaps touched final folding after removing an earlier function" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 7)
+    #|  (func (export "survivor") (local i32)
+    #|    i32.const 3
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop)
+    #|  (func (export "run") (local i32)
+    #|    call $tiny
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop))
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["inlining"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected remapped touched cleanup, got \{err}")
+  }
+  let survivor = optimized.pretty_print_defined_func(0U)
+  let run = optimized.pretty_print_defined_func(1U)
+
+  assert_true(survivor.contains("local.set"), msg=survivor)
+  assert_true(survivor.contains("local.get"), msg=survivor)
+  assert_false(survivor.contains("local.tee"), msg=survivor)
+  assert_true(run.contains("local.tee"), msg=run)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("finalize-fold functions_visited=1") &&
+      line.contains("folds=1")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "inlining nested pipeline matches Binaryen v131 default function order" {
   @debug.assert_eq(inlining_nested_function_pipeline_passes(4, 4), [
     "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",

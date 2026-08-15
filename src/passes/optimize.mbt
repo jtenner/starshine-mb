@@ -937,6 +937,10 @@ pub fn run_hot_pipeline(
   (options.trace)("pipeline:start requested=\{requested_passes.length()}")
   let pipeline_start_us = perf_start_timer_opt(options.perf, "pipeline")
   let mut current = mod_
+  let artifact_scale_o4z_preset = options.optimize_level >= 4 &&
+    options.shrink_level >= 4 &&
+    requested_passes.any(fn(name) { name == "optimize" || name == "shrink" })
+  let mut ssa_wave = 0
   let pending_hot_passes : Array[HotPassRegistryEntry] = []
   let flush_hot_passes = fn() -> Result[Unit, String] {
     if pending_hot_passes.length() == 0 {
@@ -966,6 +970,47 @@ pub fn run_hot_pipeline(
     Ok(())
   }
   for entry in entries {
+    if entry.name == "remove-unused-brs" && artifact_scale_o4z_preset {
+      let defined_func_count = dae_defined_func_count(current)
+      if !run_hot_pipeline_o4z_remove_unused_brs_selected(defined_func_count) {
+        match flush_hot_passes() {
+          Ok(_) => ()
+          Err(err) => return Err(err)
+        }
+        (options.trace)(
+          "pass[remove-unused-brs]:skip reason=artifact-scale-defined-functions count=\{defined_func_count}",
+        )
+        continue
+      }
+    }
+    if entry.name == "precompute-propagate" && artifact_scale_o4z_preset {
+      let defined_func_count = dae_defined_func_count(current)
+      if !run_hot_pipeline_o4z_precompute_propagate_selected(defined_func_count) {
+        match flush_hot_passes() {
+          Ok(_) => ()
+          Err(err) => return Err(err)
+        }
+        (options.trace)(
+          "pass[precompute-propagate]:skip reason=artifact-scale-defined-functions count=\{defined_func_count}",
+        )
+        continue
+      }
+    }
+    if entry.name == "ssa-nomerge" {
+      ssa_wave += 1
+      let defined_func_count = dae_defined_func_count(current)
+      if artifact_scale_o4z_preset &&
+        !run_hot_pipeline_o4z_ssa_wave_selected(defined_func_count, ssa_wave) {
+        match flush_hot_passes() {
+          Ok(_) => ()
+          Err(err) => return Err(err)
+        }
+        (options.trace)(
+          "pass[ssa-nomerge]:skip reason=artifact-scale-late-wave count=\{defined_func_count} wave=\{ssa_wave}",
+        )
+        continue
+      }
+    }
     match entry.category {
       HotPassRegistryCategory::HotPass =>
         if options.stack_function_passes &&

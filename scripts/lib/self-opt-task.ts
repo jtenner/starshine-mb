@@ -5,13 +5,56 @@ import process from "node:process";
 import { buildSelfOptimized } from "./build-self-optimized.mjs";
 import { runWasmStart, runWasmStartInNode } from "./moonbit-wasi-runner.mjs";
 import { runSelfOptimizedSpecSuite } from "./run-self-optimized-spec-suite.mjs";
-import { distArtifactPaths, nativeStarshineBinaryPaths, validateWasmArtifact } from "./self-optimized-artifacts.mjs";
-import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow, teeCommandToFile } from "./task-runtime";
+import {
+  DEFAULT_SELF_OPT_STALL_TIMEOUT_MS,
+  DEFAULT_SELF_OPT_TIMEOUT_MS,
+  distArtifactPaths,
+  nativeStarshineBinaryPaths,
+  runCommandWithProgressTimeout,
+  validateWasmArtifact,
+} from "./self-optimized-artifacts.mjs";
+import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 
-// Parse build-mode options: optional fallback behavior and custom moon executable.
-export function parseSelfOptBuildArgs(argv: string[]): { fallbackDebugOnFailure: boolean; moonBin: string } {
+function positiveSeconds(raw: string | undefined, option: string): number {
+  if (raw === undefined) {
+    fail(`missing value for ${option}`);
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    fail(`invalid ${option} value: ${raw}`);
+  }
+  return parsed;
+}
+
+function timeoutSecondsFromEnv(name: string, fallbackMs: number): number {
+  const raw = process.env[name];
+  return raw === undefined ? fallbackMs / 1000 : positiveSeconds(raw, name);
+}
+
+export type SelfOptDeadlineOptions = {
+  debugSerialPasses: boolean;
+  optimizeTimeoutSeconds: number;
+  optimizeStallTimeoutSeconds: number;
+};
+
+// Parse build-mode options: optional fallback behavior, custom moon executable,
+// and bounded optimizer deadlines. The no-progress deadline catches a single pass
+// that stops emitting trace output instead of leaving a shell occupied for hours.
+export function parseSelfOptBuildArgs(argv: string[]): {
+  fallbackDebugOnFailure: boolean;
+  moonBin: string;
+} & SelfOptDeadlineOptions {
   let fallbackDebugOnFailure = false;
+  let debugSerialPasses = false;
   let moonBin = resolveMoonBin();
+  let optimizeTimeoutSeconds = timeoutSecondsFromEnv(
+    "SELF_OPT_OPTIMIZE_TIMEOUT_SECONDS",
+    DEFAULT_SELF_OPT_TIMEOUT_MS,
+  );
+  let optimizeStallTimeoutSeconds = timeoutSecondsFromEnv(
+    "SELF_OPT_OPTIMIZE_STALL_TIMEOUT_SECONDS",
+    DEFAULT_SELF_OPT_STALL_TIMEOUT_MS,
+  );
   for (let i = 0; i < argv.length; ) {
     const token = argv[i];
     switch (token) {
@@ -19,20 +62,49 @@ export function parseSelfOptBuildArgs(argv: string[]): { fallbackDebugOnFailure:
         fallbackDebugOnFailure = true;
         i += 1;
         break;
+      case "--debug-serial-passes":
+        debugSerialPasses = true;
+        i += 1;
+        break;
       case "--moon":
         moonBin = argv[i + 1] ?? fail("missing value for --moon");
+        i += 2;
+        break;
+      case "--optimize-timeout-seconds":
+        optimizeTimeoutSeconds = positiveSeconds(argv[i + 1], token);
+        i += 2;
+        break;
+      case "--optimize-stall-timeout-seconds":
+        optimizeStallTimeoutSeconds = positiveSeconds(argv[i + 1], token);
         i += 2;
         break;
       default:
         fail(`unknown option: ${token}`);
     }
   }
-  return { fallbackDebugOnFailure, moonBin };
+  return {
+    fallbackDebugOnFailure,
+    debugSerialPasses,
+    moonBin,
+    optimizeTimeoutSeconds,
+    optimizeStallTimeoutSeconds,
+  };
 }
 
 // Parse options for reuse of an already-configured moon binary during optimize.
-export function parseSelfOptOptimizeArgs(argv: string[]): { moonBin: string } {
+export function parseSelfOptOptimizeArgs(argv: string[]): {
+  moonBin: string;
+} & SelfOptDeadlineOptions {
   let moonBin = resolveMoonBin();
+  let debugSerialPasses = false;
+  let optimizeTimeoutSeconds = timeoutSecondsFromEnv(
+    "SELF_OPT_OPTIMIZE_TIMEOUT_SECONDS",
+    DEFAULT_SELF_OPT_TIMEOUT_MS,
+  );
+  let optimizeStallTimeoutSeconds = timeoutSecondsFromEnv(
+    "SELF_OPT_OPTIMIZE_STALL_TIMEOUT_SECONDS",
+    DEFAULT_SELF_OPT_STALL_TIMEOUT_MS,
+  );
   for (let i = 0; i < argv.length; ) {
     const token = argv[i];
     switch (token) {
@@ -40,11 +112,28 @@ export function parseSelfOptOptimizeArgs(argv: string[]): { moonBin: string } {
         moonBin = argv[i + 1] ?? fail("missing value for --moon");
         i += 2;
         break;
+      case "--debug-serial-passes":
+        debugSerialPasses = true;
+        i += 1;
+        break;
+      case "--optimize-timeout-seconds":
+        optimizeTimeoutSeconds = positiveSeconds(argv[i + 1], token);
+        i += 2;
+        break;
+      case "--optimize-stall-timeout-seconds":
+        optimizeStallTimeoutSeconds = positiveSeconds(argv[i + 1], token);
+        i += 2;
+        break;
       default:
         fail(`unknown option: ${token}`);
     }
   }
-  return { moonBin };
+  return {
+    moonBin,
+    debugSerialPasses,
+    optimizeTimeoutSeconds,
+    optimizeStallTimeoutSeconds,
+  };
 }
 
 export type SelfOptSpecSelection = { limit: number | null; onlyFiles: string[]; wasmPath: string | null };
@@ -357,7 +446,7 @@ function resolveNativeStarshineBinary(repoRoot: string, nativeBin: string | null
 }
 
 function selfOptArtifactOptimizerArgs(inputWasmPath: string, outWasmPath: string): string[] {
-  return ["--debug-serial-passes", "--optimize", "-O4z", "--out", outWasmPath, inputWasmPath];
+  return ["--optimize", "-O4z", "--out", outWasmPath, inputWasmPath];
 }
 
 function sha256File(filePath: string): string {
@@ -377,10 +466,11 @@ function firstDiffOffset(expected: Buffer, actual: Buffer): number {
   return -1;
 }
 
-// Run the self-optimized wasm CLI as an optimizer over the debug artifact and
-// require byte-for-byte equality with a native optimizer baseline (or an explicit
-// `--expected` artifact). This catches nondeterminism or runtime-only optimizer
-// drift that the ordinary spec lane cannot see.
+// Run the self-optimized wasm CLI as an optimizer over a bounded checked-in
+// fixture and require byte-for-byte equality with a native optimizer baseline
+// (or an explicit `--expected` artifact). Large generated CLI artifacts exceed
+// the Node Wasm stack budget, so production-scale coverage remains in the build
+// lane while this check isolates runtime-only optimizer drift deterministically.
 export async function runSelfOptArtifactOptimizerCompare(
   argv: string[],
   deps: SelfOptArtifactOptimizerCompareDeps = {},
@@ -392,7 +482,7 @@ export async function runSelfOptArtifactOptimizerCompare(
     ? dist.selfOptimized
     : resolveRepoPath(repoRoot, options.optimizerWasmPath);
   const inputWasmPath = options.inputWasmPath === null
-    ? dist.debug
+    ? path.join(repoRoot, "tests", "repros", "merge-blocks-v131-main.wasm")
     : resolveRepoPath(repoRoot, options.inputWasmPath);
   const outDir = resolveRepoPath(repoRoot, options.outDir);
   const nativeOutputPath = path.join(outDir, "native-o4z.wasm");
@@ -419,7 +509,7 @@ export async function runSelfOptArtifactOptimizerCompare(
   validate({
     repoRoot,
     wasmPath: inputWasmPath,
-    label: "debug wasm input artifact",
+    label: "comparison wasm input artifact",
   });
 
   let expectedWasmPath: string;
@@ -526,6 +616,9 @@ export async function runSelfOptBuild(argv: string[]): Promise<void> {
     repoRoot,
     moonBin: options.moonBin,
     fallbackDebugOnFailure: options.fallbackDebugOnFailure,
+    debugSerialPasses: options.debugSerialPasses,
+    optimizeTimeoutMs: options.optimizeTimeoutSeconds * 1000,
+    optimizeStallTimeoutMs: options.optimizeStallTimeoutSeconds * 1000,
   });
 }
 
@@ -533,15 +626,24 @@ export async function runSelfOptBuild(argv: string[]): Promise<void> {
 // an existing release binary if present, otherwise fallback to `moon run`.
 export async function runSelfOptOptimize(argv: string[]): Promise<void> {
   const repoRoot = resolveWorkspaceRoot();
-  const { moonBin } = parseSelfOptOptimizeArgs(argv);
+  const {
+    moonBin,
+    debugSerialPasses,
+    optimizeTimeoutSeconds,
+    optimizeStallTimeoutSeconds,
+  } = parseSelfOptOptimizeArgs(argv);
 
   runOrThrow(moonBin, ["clean"], { cwd: repoRoot });
   runOrThrow(moonBin, ["build", "--target", "wasm"], { cwd: repoRoot });
   runOrThrow(moonBin, ["build", "--target", "native", "--release", "--package", "jtenner/starshine/cmd"], { cwd: repoRoot });
 
-  const traceLevel = process.env.SELF_OPT_TRACING_LEVEL || "pass";
+  const traceLevel = process.env.SELF_OPT_TRACING_LEVEL;
   const outputPath = process.env.SELF_OPT_OUTPUT_LOG || path.join(repoRoot, "output.log");
   const serialOptFlag = process.env.SELF_OPT_SERIAL_FLAG || "--debug-serial-passes";
+  const traceArgs = traceLevel === undefined ? [] : ["--tracing", traceLevel];
+  const serialArgs = debugSerialPasses || process.env.SELF_OPT_SERIAL_FLAG !== undefined
+    ? [serialOptFlag]
+    : [];
   const releaseBinaryExe = path.join(repoRoot, "_build", "native", "release", "build", "cmd", "cmd.exe");
   const releaseBinary = path.join(repoRoot, "_build", "native", "release", "build", "cmd", "cmd");
   const debugWasm = path.join(repoRoot, "_build", "wasm", "debug", "build", "cmd", "cmd.wasm");
@@ -551,10 +653,10 @@ export async function runSelfOptOptimize(argv: string[]): Promise<void> {
   let args: string[];
   if (fs.existsSync(releaseBinaryExe)) {
     command = releaseBinaryExe;
-    args = ["--tracing", traceLevel, serialOptFlag, "--optimize", "-O4z", "--out", outWasm, debugWasm];
+    args = [...traceArgs, ...serialArgs, "--optimize", "-O4z", "--out", outWasm, debugWasm];
   } else if (fs.existsSync(releaseBinary)) {
     command = releaseBinary;
-    args = ["--tracing", traceLevel, serialOptFlag, "--optimize", "-O4z", "--out", outWasm, debugWasm];
+    args = [...traceArgs, ...serialArgs, "--optimize", "-O4z", "--out", outWasm, debugWasm];
   } else {
     args = [
       "run",
@@ -563,9 +665,8 @@ export async function runSelfOptOptimize(argv: string[]): Promise<void> {
       "--release",
       "src/cmd",
       "--",
-      "--tracing",
-      traceLevel,
-      serialOptFlag,
+      ...traceArgs,
+      ...serialArgs,
       "--optimize",
       "-O4z",
       "--out",
@@ -574,7 +675,25 @@ export async function runSelfOptOptimize(argv: string[]): Promise<void> {
     ];
   }
 
-  await teeCommandToFile(command, args, outputPath, { cwd: repoRoot });
+  fs.rmSync(outputPath, { force: true });
+  const outputLog = fs.createWriteStream(outputPath, { flags: "a" });
+  try {
+    await runCommandWithProgressTimeout(command, args, {
+      cwd: repoRoot,
+      totalTimeoutMs: optimizeTimeoutSeconds * 1000,
+      stallTimeoutMs: optimizeStallTimeoutSeconds * 1000,
+      writeStdout(chunk: string) {
+        process.stdout.write(chunk);
+        outputLog.write(chunk);
+      },
+      writeStderr(chunk: string) {
+        process.stderr.write(chunk);
+        outputLog.write(chunk);
+      },
+    });
+  } finally {
+    await new Promise<void>((resolve) => outputLog.end(resolve));
+  }
   validateWasmArtifact({
     repoRoot,
     wasmPath: outWasm,

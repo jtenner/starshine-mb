@@ -1342,12 +1342,26 @@ pub impl @lib.PrettyPrint for WastScript
 pub impl Show for WastScript
 pub impl @quickcheck.Arbitrary for WastScript
 
+pub struct WastSpecCommandReport {
+  command_index : Int
+  status : WastSpecCommandStatus
+} derive(Eq, @debug.Debug)
+
+pub enum WastSpecCommandStatus {
+  Passed
+  KnownSkipped(String)
+  Blocked(String)
+  Failed(String)
+} derive(Eq, @debug.Debug)
+
 pub struct WastSpecFileReport {
   path : String
   status : WastSpecFileStatus
+  command_reports : Array[WastSpecCommandReport]
   total_commands : Int
   checked_commands : Int
   skipped_commands : Int
+  blocked_commands : Int
 } derive(Eq, @debug.Debug)
 
 pub enum WastSpecFileStatus {

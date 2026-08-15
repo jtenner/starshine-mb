@@ -662,31 +662,34 @@ fn cfg_builder_process_block(
         )
       }
       cfg_builder_connect_exits(builder, body_build.exit_blocks, continuation)
-      if catch_info.catches.length() == 0 {
-        for catch_exit in catch_build.exit_blocks {
+      let catches_exhaustive = catch_info.catches.any(fn(catch_) {
+        match catch_ {
+          HotCatchArm::CatchAllArm(_) | HotCatchArm::CatchAllRefArm(_) => true
+          _ => false
+        }
+      })
+      for catch_exit in catch_build.exit_blocks {
+        for catch_ in catch_info.catches {
+          let label_id = match catch_ {
+            HotCatchArm::CatchArm(_, target)
+            | HotCatchArm::CatchRefArm(_, target)
+            | HotCatchArm::CatchAllArm(target)
+            | HotCatchArm::CatchAllRefArm(target) => target
+          }
+          cfg_builder_add_edge(
+            builder,
+            catch_exit,
+            cfg_builder_exception_label_target_get(builder, label_id),
+            CfgEdgeKind::ExceptionalEdge,
+          )
+        }
+        if !catches_exhaustive {
           cfg_builder_add_edge(
             builder,
             catch_exit,
             cfg_builder_exception_target(builder, handler_target),
             CfgEdgeKind::ExceptionalEdge,
           )
-        }
-      } else {
-        for catch_exit in catch_build.exit_blocks {
-          for catch_ in catch_info.catches {
-            let label_id = match catch_ {
-              HotCatchArm::CatchArm(_, target)
-              | HotCatchArm::CatchRefArm(_, target)
-              | HotCatchArm::CatchAllArm(target)
-              | HotCatchArm::CatchAllRefArm(target) => target
-            }
-            cfg_builder_add_edge(
-              builder,
-              catch_exit,
-              cfg_builder_exception_label_target_get(builder, label_id),
-              CfgEdgeKind::ExceptionalEdge,
-            )
-          }
         }
       }
       if synthetic_exit {
