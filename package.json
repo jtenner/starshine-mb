@@ -8,6 +8,7 @@
     "self-opt": "bun scripts/self-opt.ts",
     "make": "bun scripts/make.ts",
     "examples": "bun scripts/examples.ts",
-    "cli-benchmarks": "bun scripts/cli-benchmarks.ts"
+    "cli-benchmarks": "bun scripts/cli-benchmarks.ts",
+    "component": "bun scripts/component.ts"
   }
 }

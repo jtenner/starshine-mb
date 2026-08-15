@@ -16,6 +16,7 @@ binaryen.print.wat
 commands.txt
 result.json
 .artifacts/
+dist/component/
 agent-lost-and-found.md
 .tmp/
 build/

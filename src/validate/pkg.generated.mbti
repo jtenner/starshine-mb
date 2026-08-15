@@ -86,6 +86,8 @@ pub fn gen_valid_merge_ssa_func_facts(GenValidSsaFuncFacts, GenValidSsaFuncFacts
 
 pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
 
+pub fn gen_valid_module_from_seed(UInt64, GenValidConfig) -> Result[GenValidModuleGenerated, GenValidFailure]
+
 pub fn gen_valid_module_result(@splitmix.RandomState, GenValidConfig) -> Result[GenValidGenerated, GenValidFailure]
 
 pub fn gen_valid_module_result_from_seed(UInt64, GenValidConfig) -> Result[GenValidGenerated, GenValidFailure]
@@ -1135,6 +1137,13 @@ pub enum GenValidMode {
   CoverageForced
 } derive(Eq, @debug.Debug)
 pub impl Show for GenValidMode
+
+pub struct GenValidModuleGenerated {
+  wasm_module : @lib.Module
+  config : GenValidConfig
+  config_label : String
+  attempts : Int
+} derive(Eq, @debug.Debug)
 
 pub enum GenValidProfile {
   NaturalSmallProfile

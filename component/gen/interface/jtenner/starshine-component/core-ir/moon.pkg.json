@@ -1,0 +1,21 @@
+{
+  "warn-list": "-1-44",
+  "import": [
+    {
+      "path": "jtenner/starshine/binary",
+      "alias": "binary"
+    },
+    {
+      "path": "jtenner/starshine/lib",
+      "alias": "lib"
+    },
+    {
+      "path": "jtenner/starshine/validate",
+      "alias": "validate"
+    },
+    {
+      "path": "jtenner/starshine/wast",
+      "alias": "wast"
+    }
+  ]
+}

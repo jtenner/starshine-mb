@@ -4,6 +4,8 @@ MoonBit toolkit for parsing, validating, and rewriting WebAssembly.
 
 For JavaScript/npm usage, see [node/README.md](./node/README.md).
 
+For language-neutral WIT bindings and the Component Model artifact, see [component/README.md](./component/README.md).
+
 ## Install in MoonBit
 
 ```json
@@ -28,6 +30,7 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 - Edit top-level and nested structured regions through one `HotRegionRef` splice contract.
 - Verify `HotFunc` core and control integrity through structured verifier errors before lowering or later analysis overlays.
 - Use CLI and Node wrappers.
+- Build a portable WIT/Component Model facade for complete typed Core-module construction, deterministic valid-module generation, pass discovery, validation, WAT-to-Wasm conversion, binary roundtrips, and optimizer pipelines.
 
 ## Package Map
 
@@ -47,6 +50,18 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 | `jtenner/starshine/fuzz` | Fuzz harness entrypoints and support code. |
 | `jtenner/starshine/spec_runner` | WAST spec-harness execution helpers. |
 | `jtenner/starshine/validate_trace` | Validation trace entrypoints and fixtures. |
+
+## Component Model / WIT
+
+```bash
+bun component generate
+bun component build
+bun component check
+```
+
+The checked-in world is [`component/wit/starshine.wit`](./component/wit/starshine.wit). The validated local artifact is written to `dist/component/starshine.component.wasm`.
+
+The portable component is compiled from the same Starshine source packages with MoonBit's linear `wasm` target because the current MoonBit Canonical ABI generator is linear-memory based. It exposes a generated resource-backed Core IR constructor graph, deterministic GenValid profile/seed module generation, and module processing, but it is not a direct WIT description of the raw `wasm-gc` module's MoonBit GC-reference ABI. Optimizer-internal HOT/CFG/SSA APIs remain in-process only. See [`component/README.md`](./component/README.md) for the target boundary, generated-file contract, ownership rules, and consumer guidance.
 
 ## IR2 Architecture
 

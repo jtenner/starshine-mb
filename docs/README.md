@@ -97,6 +97,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 
 - Active packages live under `src/`; the current active package set is `binary`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
 - `examples/` contains runnable examples.
+- `component/` is a nested MoonBit module generated from `component/wit/starshine.wit` plus the `src/lib/pkg.generated.mbti`-derived `core-ir.generated.wit`; it builds the portable Component Model facade against the local Starshine checkout.
 - `tests/spec/` and `tests/node/` hold external and integration coverage.
 - `scripts/` contains Bun entrypoints only: `validate.ts`, `fuzz.ts`, `self-opt.ts`, `make.ts`, `examples.ts`, and `pass-fuzz-compare.ts`.
 - `scripts/lib/*` contains shared script code.
@@ -105,7 +106,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 ### Workflow Details
 
 - Common MoonBit commands: `moon info`, `moon fmt`, `moon check`, `moon test`, and `moon test --update`.
-- Common Bun workflows: `bun validate ...`, `bun fuzz ...`, `bun self-opt ...`, `bun make ...`, and `bun examples ...`.
+- Common Bun workflows: `bun validate ...`, `bun fuzz ...`, `bun self-opt ...`, `bun make ...`, `bun examples ...`, and `bun component <generate|build|check>`.
 - Run one CLI startup microbenchmark via `moon run src/cli-benchmarks -- [--iterations <n>] [--warmup <n>] [-- <starshine-cli-args...>]`; everything after the second `--` is benchmarked as Starshine CLI input. Run broad benchmark sweeps via `bun run cli-benchmarks -- [--suite smoke|standard|full] [--iterations <n>] [--warmup <n>]`.
 - Run fuzzing via `moon run src/fuzz ...` or `bun fuzz run ...`; do not put heavy randomized loops inside `moon test`.
 - Use `bun fuzz compare-pass --list-passes` to discover supported canonical pass names (equivalently, `bun scripts/pass-fuzz-compare.ts --list-passes`).
@@ -113,6 +114,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 - Validate an already-built self-optimized CLI artifact with `bun validate self-opt-smoke [--wasm <path>]` (wasm-tools `--features all`, Node/WASI `--help`, and one WAST spec file via a temporary runner copy) or `bun validate self-opt-full [--wasm <path>]` for all checked-in spec files.
 - Ask before running the full self-optimize build pipeline (`bun self-opt build`) or the full spec artifact lane (`bun validate self-opt-full`).
 - Ask before running `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize`.
+- `bun component generate` derives the typed resource-backed Core module constructor graph from `src/lib/pkg.generated.mbti` and refreshes checked-in MoonBit Canonical ABI bindings with pinned `wit-bindgen`; `bun component build` or `check` builds a self-contained linear-Wasm component facade for Core IR construction, deterministic GenValid module generation, and module processing, validates it with `wasm-tools`, and writes ignored artifacts under `dist/component/`. This is the portable Component Model lane, not a WIT description of the raw MoonBit WasmGC reference ABI or the optimizer-internal HOT/CFG/SSA model.
 - Parity signoff requires Binaryen semantic parity, valid wasm output, and Starshine pass-local wall time `>= 50%` of Binaryen where possible; raw wasm/text drift is acceptable when canonical semantic comparison is green.
 
 ## Wasm Knowledge Base Rules

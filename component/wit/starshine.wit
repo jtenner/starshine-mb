@@ -1,0 +1,97 @@
+package jtenner:starshine-component@0.1.1;
+
+/// Build and capability metadata for the portable Starshine component.
+interface metadata {
+  record capability {
+    name: string,
+    description: string,
+  }
+
+  version: func() -> string;
+  implementation-target: func() -> string;
+  capabilities: func() -> list<capability>;
+}
+
+/// Portable byte/text operations over Core WebAssembly modules.
+interface modules {
+  enum diagnostic-stage {
+    decode,
+    parse,
+    validate,
+    optimize,
+    encode,
+    generate,
+  }
+
+  record diagnostic {
+    stage: diagnostic-stage,
+    message: string,
+  }
+
+  enum optimization-preset {
+    none,
+    optimize,
+    shrink,
+  }
+
+  record optimize-options {
+    preset: optimization-preset,
+    additional-passes: list<string>,
+    closed-world: bool,
+    traps-never-happen: bool,
+    ignore-implicit-traps: bool,
+    zero-filled-memory: bool,
+    optimize-level: u8,
+    shrink-level: u8,
+  }
+
+  enum pass-kind {
+    function-pass,
+    module-pass,
+    preset,
+  }
+
+  record pass-info {
+    name: string,
+    summary: string,
+    kind: pass-kind,
+  }
+
+  record generation-options {
+    seed: u64,
+    profile: string,
+  }
+
+  record generated-module {
+    wasm: list<u8>,
+    profile: string,
+    attempts: u32,
+  }
+
+  /// List every canonical profile accepted by `generate-valid-wasm`.
+  available-generator-profiles: func() -> list<string>;
+
+  /// Generate, validate, and encode a deterministic Core WebAssembly module.
+  generate-valid-wasm: func(options: generation-options) -> result<generated-module, diagnostic>;
+
+  /// List every active pass and preset accepted by `optimize-wasm`.
+  available-passes: func() -> list<pass-info>;
+
+  /// Decode and validate a Core WebAssembly binary.
+  validate-wasm: func(input: list<u8>) -> result<_, diagnostic>;
+
+  /// Decode, validate, and canonically re-encode a Core WebAssembly binary.
+  roundtrip-wasm: func(input: list<u8>) -> result<list<u8>, diagnostic>;
+
+  /// Parse WAT/WAST module text, validate it, and encode it as Core WebAssembly.
+  wat-to-wasm: func(source: string) -> result<list<u8>, diagnostic>;
+
+  /// Run a named or preset Starshine optimization pipeline and return encoded Wasm.
+  optimize-wasm: func(input: list<u8>, options: optimize-options) -> result<list<u8>, diagnostic>;
+}
+
+world starshine {
+  export metadata;
+  export modules;
+  export core-ir;
+}

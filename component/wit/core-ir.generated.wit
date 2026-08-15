@@ -1,0 +1,1128 @@
+// Generated from src/lib/pkg.generated.mbti. DO NOT EDIT.
+interface core-ir {
+  record diagnostic {
+    stage: string,
+    message: string,
+  }
+
+  resource abs-heap-type {
+    any: static func() -> abs-heap-type;
+    array: static func() -> abs-heap-type;
+    cont: static func() -> abs-heap-type;
+    eq: static func() -> abs-heap-type;
+    exn: static func() -> abs-heap-type;
+    extern: static func() -> abs-heap-type;
+    func-value: static func() -> abs-heap-type;
+    i31: static func() -> abs-heap-type;
+    no-cont: static func() -> abs-heap-type;
+    no-exn: static func() -> abs-heap-type;
+    no-extern: static func() -> abs-heap-type;
+    no-func: static func() -> abs-heap-type;
+    none: static func() -> abs-heap-type;
+    string-value: static func() -> abs-heap-type;
+    struct: static func() -> abs-heap-type;
+  }
+
+  resource aggregate-atomic-rmw-op {
+    add: static func() -> aggregate-atomic-rmw-op;
+    and: static func() -> aggregate-atomic-rmw-op;
+    or: static func() -> aggregate-atomic-rmw-op;
+    sub: static func() -> aggregate-atomic-rmw-op;
+    xchg: static func() -> aggregate-atomic-rmw-op;
+    xor: static func() -> aggregate-atomic-rmw-op;
+  }
+
+  resource atomic-cmpxchg-op {
+    i32: static func() -> atomic-cmpxchg-op;
+    i32-16-u: static func() -> atomic-cmpxchg-op;
+    i32-8-u: static func() -> atomic-cmpxchg-op;
+    i64: static func() -> atomic-cmpxchg-op;
+    i64-16-u: static func() -> atomic-cmpxchg-op;
+    i64-32-u: static func() -> atomic-cmpxchg-op;
+    i64-8-u: static func() -> atomic-cmpxchg-op;
+  }
+
+  resource atomic-order {
+    acq-rel: static func() -> atomic-order;
+    seq-cst: static func() -> atomic-order;
+  }
+
+  resource atomic-rmw-op {
+    i32-16-add-u: static func() -> atomic-rmw-op;
+    i32-16-and-u: static func() -> atomic-rmw-op;
+    i32-16-or-u: static func() -> atomic-rmw-op;
+    i32-16-sub-u: static func() -> atomic-rmw-op;
+    i32-16-xchg-u: static func() -> atomic-rmw-op;
+    i32-16-xor-u: static func() -> atomic-rmw-op;
+    i32-8-add-u: static func() -> atomic-rmw-op;
+    i32-8-and-u: static func() -> atomic-rmw-op;
+    i32-8-or-u: static func() -> atomic-rmw-op;
+    i32-8-sub-u: static func() -> atomic-rmw-op;
+    i32-8-xchg-u: static func() -> atomic-rmw-op;
+    i32-8-xor-u: static func() -> atomic-rmw-op;
+    i32-add: static func() -> atomic-rmw-op;
+    i32-and: static func() -> atomic-rmw-op;
+    i32-or: static func() -> atomic-rmw-op;
+    i32-sub: static func() -> atomic-rmw-op;
+    i32-xchg: static func() -> atomic-rmw-op;
+    i32-xor: static func() -> atomic-rmw-op;
+    i64-16-add-u: static func() -> atomic-rmw-op;
+    i64-16-and-u: static func() -> atomic-rmw-op;
+    i64-16-or-u: static func() -> atomic-rmw-op;
+    i64-16-sub-u: static func() -> atomic-rmw-op;
+    i64-16-xchg-u: static func() -> atomic-rmw-op;
+    i64-16-xor-u: static func() -> atomic-rmw-op;
+    i64-32-add-u: static func() -> atomic-rmw-op;
+    i64-32-and-u: static func() -> atomic-rmw-op;
+    i64-32-or-u: static func() -> atomic-rmw-op;
+    i64-32-sub-u: static func() -> atomic-rmw-op;
+    i64-32-xchg-u: static func() -> atomic-rmw-op;
+    i64-32-xor-u: static func() -> atomic-rmw-op;
+    i64-8-add-u: static func() -> atomic-rmw-op;
+    i64-8-and-u: static func() -> atomic-rmw-op;
+    i64-8-or-u: static func() -> atomic-rmw-op;
+    i64-8-sub-u: static func() -> atomic-rmw-op;
+    i64-8-xchg-u: static func() -> atomic-rmw-op;
+    i64-8-xor-u: static func() -> atomic-rmw-op;
+    i64-add: static func() -> atomic-rmw-op;
+    i64-and: static func() -> atomic-rmw-op;
+    i64-or: static func() -> atomic-rmw-op;
+    i64-sub: static func() -> atomic-rmw-op;
+    i64-xchg: static func() -> atomic-rmw-op;
+    i64-xor: static func() -> atomic-rmw-op;
+  }
+
+  resource block-type {
+    type-idx: static func(p0: borrow<type-idx>) -> block-type;
+    val-type: static func(p0: borrow<val-type>) -> block-type;
+    void: static func() -> block-type;
+  }
+
+  resource catch {
+    all: static func(p0: borrow<label-idx>) -> catch;
+    all-ref: static func(p0: borrow<label-idx>) -> catch;
+    create: static func(p0: borrow<tag-idx>, p1: borrow<label-idx>) -> catch;
+    ref: static func(p0: borrow<tag-idx>, p1: borrow<label-idx>) -> catch;
+  }
+
+  resource code-sec {
+    create: static func(p0: list<borrow<func-ir>>) -> code-sec;
+  }
+
+  resource comp-type {
+    array: static func(p0: borrow<field-type>) -> comp-type;
+    cont: static func(p0: borrow<type-idx>) -> comp-type;
+    func-value: static func(p0: list<borrow<val-type>>, p1: list<borrow<val-type>>) -> comp-type;
+    struct: static func(p0: list<borrow<field-type>>) -> comp-type;
+  }
+
+  resource custom-sec {
+    create: static func(p0: borrow<name>, p1: list<u8>) -> custom-sec;
+  }
+
+  resource data {
+    create: static func(p0: borrow<data-mode>, p1: list<u8>) -> data;
+  }
+
+  resource data-cnt-sec {
+    create: static func(p0: borrow<u32-ir>) -> data-cnt-sec;
+  }
+
+  resource data-idx {
+    create: static func(p0: u32) -> data-idx;
+  }
+
+  resource data-mode {
+    active: static func(p0: borrow<mem-idx>, p1: borrow<expr>) -> data-mode;
+    passive: static func() -> data-mode;
+  }
+
+  resource data-sec {
+    create: static func(p0: list<borrow<data>>) -> data-sec;
+  }
+
+  resource def-type {
+    create: static func(p0: borrow<rec-type>, p1: u32) -> def-type;
+  }
+
+  resource elem {
+    create: static func(p0: borrow<elem-mode>, p1: borrow<elem-kind>) -> elem;
+  }
+
+  resource elem-idx {
+    create: static func(p0: u32) -> elem-idx;
+  }
+
+  resource elem-kind {
+    func-exprs: static func(p0: list<borrow<expr>>) -> elem-kind;
+    funcs: static func(p0: list<borrow<func-idx>>) -> elem-kind;
+    typed-exprs: static func(p0: borrow<ref-type>, p1: list<borrow<expr>>) -> elem-kind;
+  }
+
+  resource elem-mode {
+    active: static func(p0: borrow<table-idx>, p1: borrow<expr>) -> elem-mode;
+    declarative: static func() -> elem-mode;
+    passive: static func() -> elem-mode;
+  }
+
+  resource elem-sec {
+    create: static func(p0: list<borrow<elem>>) -> elem-sec;
+  }
+
+  resource export-ir {
+    create: static func(p0: borrow<name>, p1: borrow<extern-idx>) -> export-ir;
+  }
+
+  resource export-sec {
+    create: static func(p0: list<borrow<export-ir>>) -> export-sec;
+  }
+
+  resource expr {
+    create: static func(p0: list<borrow<instruction>>) -> expr;
+  }
+
+  resource extern-idx {
+    func-value: static func(p0: borrow<func-idx>) -> extern-idx;
+    global: static func(p0: borrow<global-idx>) -> extern-idx;
+    mem: static func(p0: borrow<mem-idx>) -> extern-idx;
+    table: static func(p0: borrow<table-idx>) -> extern-idx;
+    tag: static func(p0: borrow<tag-idx>) -> extern-idx;
+  }
+
+  resource extern-type {
+    func-value: static func(p0: borrow<type-idx>) -> extern-type;
+    global: static func(p0: borrow<global-type>) -> extern-type;
+    mem: static func(p0: borrow<mem-type>) -> extern-type;
+    table: static func(p0: borrow<table-type>) -> extern-type;
+    tag: static func(p0: borrow<tag-type>) -> extern-type;
+  }
+
+  resource f32-ir {
+    create: static func(p0: f32) -> f32-ir;
+  }
+
+  resource f64-ir {
+    create: static func(p0: f64) -> f64-ir;
+  }
+
+  resource field-type {
+    create: static func(p0: borrow<storage-type>, p1: borrow<mut>) -> field-type;
+  }
+
+  resource func-ir {
+    create: static func(p0: borrow<locals>, p1: borrow<expr>) -> func-ir;
+  }
+
+  resource func-annotation {
+    create: static func(p0: string, args: list<string>) -> func-annotation;
+  }
+
+  resource func-annotation-assoc {
+    create: static func(p0: u32, p1: list<borrow<func-annotation>>) -> func-annotation-assoc;
+  }
+
+  resource func-annotation-sec {
+    create: static func(p0: list<borrow<func-annotation-assoc>>) -> func-annotation-sec;
+  }
+
+  resource func-idx {
+    create: static func(p0: u32) -> func-idx;
+  }
+
+  resource func-sec {
+    create: static func(p0: list<borrow<type-idx>>) -> func-sec;
+  }
+
+  resource global {
+    create: static func(p0: borrow<global-type>, p1: borrow<expr>) -> global;
+  }
+
+  resource global-idx {
+    create: static func(p0: u32) -> global-idx;
+  }
+
+  resource global-sec {
+    create: static func(p0: list<borrow<global>>) -> global-sec;
+  }
+
+  resource global-type {
+    create: static func(p0: borrow<val-type>, p1: bool) -> global-type;
+  }
+
+  resource heap-type {
+    abs: static func(p0: borrow<abs-heap-type>) -> heap-type;
+    bottom: static func() -> heap-type;
+    def-type: static func(p0: borrow<def-type>) -> heap-type;
+    create: static func(p0: borrow<type-idx>) -> heap-type;
+    shared-abs: static func(p0: borrow<abs-heap-type>) -> heap-type;
+  }
+
+  resource i32 {
+    create: static func(p0: s32) -> i32;
+  }
+
+  resource i64 {
+    create: static func(p0: s64) -> i64;
+  }
+
+  resource import-ir {
+    create: static func(p0: borrow<name>, p1: borrow<name>, p2: borrow<extern-type>) -> import-ir;
+  }
+
+  resource import-sec {
+    create: static func(p0: list<borrow<import-ir>>) -> import-sec;
+  }
+
+  resource indirect-name-assoc {
+    create: static func(p0: u32, p1: borrow<name-map>) -> indirect-name-assoc;
+  }
+
+  resource indirect-name-map {
+    create: static func(p0: list<borrow<indirect-name-assoc>>) -> indirect-name-map;
+  }
+
+  resource instruction {
+    any-convert-extern: static func() -> instruction;
+    array-atomic-cmpxchg: static func(p0: borrow<type-idx>, order: borrow<atomic-order>) -> instruction;
+    array-atomic-get: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>) -> instruction;
+    array-atomic-get-s: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>) -> instruction;
+    array-atomic-get-u: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>) -> instruction;
+    array-atomic-rmw: static func(p0: borrow<aggregate-atomic-rmw-op>, p1: borrow<type-idx>, order: borrow<atomic-order>) -> instruction;
+    array-copy: static func(p0: borrow<type-idx>, p1: borrow<type-idx>) -> instruction;
+    array-fill: static func(p0: borrow<type-idx>) -> instruction;
+    array-get: static func(p0: borrow<type-idx>) -> instruction;
+    array-get-s: static func(p0: borrow<type-idx>) -> instruction;
+    array-get-u: static func(p0: borrow<type-idx>) -> instruction;
+    array-init-data: static func(p0: borrow<type-idx>, p1: borrow<data-idx>) -> instruction;
+    array-init-elem: static func(p0: borrow<type-idx>, p1: borrow<elem-idx>) -> instruction;
+    array-len: static func() -> instruction;
+    array-load: static func(p0: borrow<load-op>, p1: borrow<type-idx>) -> instruction;
+    array-new: static func(p0: borrow<type-idx>) -> instruction;
+    array-new-data: static func(p0: borrow<type-idx>, p1: borrow<data-idx>) -> instruction;
+    array-new-default: static func(p0: borrow<type-idx>) -> instruction;
+    array-new-elem: static func(p0: borrow<type-idx>, p1: borrow<elem-idx>) -> instruction;
+    array-new-fixed: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
+    array-set: static func(p0: borrow<type-idx>) -> instruction;
+    array-store: static func(p0: borrow<store-op>, p1: borrow<type-idx>) -> instruction;
+    atomic-cmpxchg: static func(p0: borrow<atomic-cmpxchg-op>, p1: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    atomic-fence: static func(order: borrow<atomic-order>) -> instruction;
+    atomic-rmw: static func(p0: borrow<atomic-rmw-op>, p1: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    block: static func(p0: borrow<block-type>, p1: borrow<expr>) -> instruction;
+    br: static func(p0: borrow<label-idx>) -> instruction;
+    br-if: static func(p0: borrow<label-idx>) -> instruction;
+    br-on-cast: static func(p0: borrow<label-idx>, p1: bool, p2: borrow<heap-type>, p3: bool, p4: borrow<heap-type>, source-exact: bool, target-exact: bool) -> instruction;
+    br-on-cast-desc-eq: static func(p0: borrow<label-idx>, p1: borrow<ref-type>, p2: borrow<ref-type>) -> instruction;
+    br-on-cast-desc-eq-fail: static func(p0: borrow<label-idx>, p1: borrow<ref-type>, p2: borrow<ref-type>) -> instruction;
+    br-on-cast-fail: static func(p0: borrow<label-idx>, p1: bool, p2: borrow<heap-type>, p3: bool, p4: borrow<heap-type>, source-exact: bool, target-exact: bool) -> instruction;
+    br-on-non-null: static func(p0: borrow<label-idx>) -> instruction;
+    br-on-null: static func(p0: borrow<label-idx>) -> instruction;
+    br-table: static func(p0: list<borrow<label-idx>>, p1: borrow<label-idx>) -> instruction;
+    call: static func(p0: borrow<func-idx>) -> instruction;
+    call-indirect: static func(p0: borrow<type-idx>, p1: borrow<table-idx>) -> instruction;
+    call-ref: static func(p0: borrow<type-idx>) -> instruction;
+    cont-bind: static func(p0: borrow<type-idx>, p1: borrow<type-idx>) -> instruction;
+    cont-new: static func(p0: borrow<type-idx>) -> instruction;
+    data-drop: static func(p0: borrow<data-idx>) -> instruction;
+    drop-op: static func() -> instruction;
+    elem-drop: static func(p0: borrow<elem-idx>) -> instruction;
+    extern-convert-any: static func() -> instruction;
+    f32-abs: static func() -> instruction;
+    f32-add: static func() -> instruction;
+    f32-ceil: static func() -> instruction;
+    f32-const: static func(p0: borrow<f32-ir>) -> instruction;
+    f32-convert-i32s: static func() -> instruction;
+    f32-convert-i32u: static func() -> instruction;
+    f32-convert-i64s: static func() -> instruction;
+    f32-convert-i64u: static func() -> instruction;
+    f32-copysign: static func() -> instruction;
+    f32-demote-f64: static func() -> instruction;
+    f32-div: static func() -> instruction;
+    f32-eq: static func() -> instruction;
+    f32-floor: static func() -> instruction;
+    f32-ge: static func() -> instruction;
+    f32-gt: static func() -> instruction;
+    f32-le: static func() -> instruction;
+    f32-load: static func(p0: borrow<mem-arg>) -> instruction;
+    f32-lt: static func() -> instruction;
+    f32-max: static func() -> instruction;
+    f32-min: static func() -> instruction;
+    f32-mul: static func() -> instruction;
+    f32-ne: static func() -> instruction;
+    f32-nearest: static func() -> instruction;
+    f32-neg: static func() -> instruction;
+    f32-reinterpret-i32: static func() -> instruction;
+    f32-sqrt: static func() -> instruction;
+    f32-store: static func(p0: borrow<mem-arg>) -> instruction;
+    f32-sub: static func() -> instruction;
+    f32-trunc: static func() -> instruction;
+    f32x4-abs: static func() -> instruction;
+    f32x4-add: static func() -> instruction;
+    f32x4-ceil: static func() -> instruction;
+    f32x4-convert-i32x4s: static func() -> instruction;
+    f32x4-convert-i32x4u: static func() -> instruction;
+    f32x4-demote-f64x2-zero: static func() -> instruction;
+    f32x4-div: static func() -> instruction;
+    f32x4-eq: static func() -> instruction;
+    f32x4-extract-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    f32x4-floor: static func() -> instruction;
+    f32x4-ge: static func() -> instruction;
+    f32x4-gt: static func() -> instruction;
+    f32x4-le: static func() -> instruction;
+    f32x4-lt: static func() -> instruction;
+    f32x4-max: static func() -> instruction;
+    f32x4-min: static func() -> instruction;
+    f32x4-mul: static func() -> instruction;
+    f32x4-ne: static func() -> instruction;
+    f32x4-nearest: static func() -> instruction;
+    f32x4-neg: static func() -> instruction;
+    f32x4-pmax: static func() -> instruction;
+    f32x4-pmin: static func() -> instruction;
+    f32x4-relaxed-madd: static func() -> instruction;
+    f32x4-relaxed-max: static func() -> instruction;
+    f32x4-relaxed-min: static func() -> instruction;
+    f32x4-relaxed-nmadd: static func() -> instruction;
+    f32x4-replace-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    f32x4-splat: static func() -> instruction;
+    f32x4-sqrt: static func() -> instruction;
+    f32x4-sub: static func() -> instruction;
+    f32x4-trunc: static func() -> instruction;
+    f64-abs: static func() -> instruction;
+    f64-add: static func() -> instruction;
+    f64-ceil: static func() -> instruction;
+    f64-const: static func(p0: borrow<f64-ir>) -> instruction;
+    f64-convert-i32s: static func() -> instruction;
+    f64-convert-i32u: static func() -> instruction;
+    f64-convert-i64s: static func() -> instruction;
+    f64-convert-i64u: static func() -> instruction;
+    f64-copysign: static func() -> instruction;
+    f64-div: static func() -> instruction;
+    f64-eq: static func() -> instruction;
+    f64-floor: static func() -> instruction;
+    f64-ge: static func() -> instruction;
+    f64-gt: static func() -> instruction;
+    f64-le: static func() -> instruction;
+    f64-load: static func(p0: borrow<mem-arg>) -> instruction;
+    f64-lt: static func() -> instruction;
+    f64-max: static func() -> instruction;
+    f64-min: static func() -> instruction;
+    f64-mul: static func() -> instruction;
+    f64-ne: static func() -> instruction;
+    f64-nearest: static func() -> instruction;
+    f64-neg: static func() -> instruction;
+    f64-promote-f32: static func() -> instruction;
+    f64-reinterpret-i64: static func() -> instruction;
+    f64-sqrt: static func() -> instruction;
+    f64-store: static func(p0: borrow<mem-arg>) -> instruction;
+    f64-sub: static func() -> instruction;
+    f64-trunc: static func() -> instruction;
+    f64x2-abs: static func() -> instruction;
+    f64x2-add: static func() -> instruction;
+    f64x2-ceil: static func() -> instruction;
+    f64x2-convert-low-i32x4s: static func() -> instruction;
+    f64x2-convert-low-i32x4u: static func() -> instruction;
+    f64x2-div: static func() -> instruction;
+    f64x2-eq: static func() -> instruction;
+    f64x2-extract-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    f64x2-floor: static func() -> instruction;
+    f64x2-ge: static func() -> instruction;
+    f64x2-gt: static func() -> instruction;
+    f64x2-le: static func() -> instruction;
+    f64x2-lt: static func() -> instruction;
+    f64x2-max: static func() -> instruction;
+    f64x2-min: static func() -> instruction;
+    f64x2-mul: static func() -> instruction;
+    f64x2-ne: static func() -> instruction;
+    f64x2-nearest: static func() -> instruction;
+    f64x2-neg: static func() -> instruction;
+    f64x2-pmax: static func() -> instruction;
+    f64x2-pmin: static func() -> instruction;
+    f64x2-promote-low-f32x4: static func() -> instruction;
+    f64x2-relaxed-madd: static func() -> instruction;
+    f64x2-relaxed-max: static func() -> instruction;
+    f64x2-relaxed-min: static func() -> instruction;
+    f64x2-relaxed-nmadd: static func() -> instruction;
+    f64x2-replace-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    f64x2-splat: static func() -> instruction;
+    f64x2-sqrt: static func() -> instruction;
+    f64x2-sub: static func() -> instruction;
+    f64x2-trunc: static func() -> instruction;
+    global-get: static func(p0: borrow<global-idx>) -> instruction;
+    global-set: static func(p0: borrow<global-idx>) -> instruction;
+    i16x8-abs: static func() -> instruction;
+    i16x8-add: static func() -> instruction;
+    i16x8-add-sat-s: static func() -> instruction;
+    i16x8-add-sat-u: static func() -> instruction;
+    i16x8-all-true: static func() -> instruction;
+    i16x8-avgr-u: static func() -> instruction;
+    i16x8-bitmask: static func() -> instruction;
+    i16x8-eq: static func() -> instruction;
+    i16x8-extadd-pairwise-i8x16s: static func() -> instruction;
+    i16x8-extadd-pairwise-i8x16u: static func() -> instruction;
+    i16x8-extend-high-i8x16s: static func() -> instruction;
+    i16x8-extend-high-i8x16u: static func() -> instruction;
+    i16x8-extend-low-i8x16s: static func() -> instruction;
+    i16x8-extend-low-i8x16u: static func() -> instruction;
+    i16x8-extmul-high-i8x16s: static func() -> instruction;
+    i16x8-extmul-high-i8x16u: static func() -> instruction;
+    i16x8-extmul-low-i8x16s: static func() -> instruction;
+    i16x8-extmul-low-i8x16u: static func() -> instruction;
+    i16x8-extract-lane-s: static func(p0: borrow<lane-idx>) -> instruction;
+    i16x8-extract-lane-u: static func(p0: borrow<lane-idx>) -> instruction;
+    i16x8-ge-s: static func() -> instruction;
+    i16x8-ge-u: static func() -> instruction;
+    i16x8-gt-s: static func() -> instruction;
+    i16x8-gt-u: static func() -> instruction;
+    i16x8-le-s: static func() -> instruction;
+    i16x8-le-u: static func() -> instruction;
+    i16x8-lt-s: static func() -> instruction;
+    i16x8-lt-u: static func() -> instruction;
+    i16x8-max-s: static func() -> instruction;
+    i16x8-max-u: static func() -> instruction;
+    i16x8-min-s: static func() -> instruction;
+    i16x8-min-u: static func() -> instruction;
+    i16x8-mul: static func() -> instruction;
+    i16x8-narrow-i32x4s: static func() -> instruction;
+    i16x8-narrow-i32x4u: static func() -> instruction;
+    i16x8-ne: static func() -> instruction;
+    i16x8-neg: static func() -> instruction;
+    i16x8-relaxed-dot-i8x16i7x16s: static func() -> instruction;
+    i16x8-relaxed-laneselect: static func() -> instruction;
+    i16x8-relaxed-q15mulr-s: static func() -> instruction;
+    i16x8-replace-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    i16x8-shl: static func() -> instruction;
+    i16x8-shr-s: static func() -> instruction;
+    i16x8-shr-u: static func() -> instruction;
+    i16x8-splat: static func() -> instruction;
+    i16x8-sub: static func() -> instruction;
+    i16x8-sub-sat-s: static func() -> instruction;
+    i16x8-sub-sat-u: static func() -> instruction;
+    i16x8q15mulr-sat-s: static func() -> instruction;
+    i31-get-s: static func() -> instruction;
+    i31-get-u: static func() -> instruction;
+    i32-add: static func() -> instruction;
+    i32-and: static func() -> instruction;
+    i32-atomic-load: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i32-atomic-load16-u: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i32-atomic-load8-u: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i32-atomic-store: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i32-atomic-store16: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i32-atomic-store8: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i32-clz: static func() -> instruction;
+    i32-const: static func(p0: borrow<i32>) -> instruction;
+    i32-ctz: static func() -> instruction;
+    i32-div-s: static func() -> instruction;
+    i32-div-u: static func() -> instruction;
+    i32-eq: static func() -> instruction;
+    i32-eqz: static func() -> instruction;
+    i32-extend16s: static func() -> instruction;
+    i32-extend8s: static func() -> instruction;
+    i32-ge-s: static func() -> instruction;
+    i32-ge-u: static func() -> instruction;
+    i32-gt-s: static func() -> instruction;
+    i32-gt-u: static func() -> instruction;
+    i32-le-s: static func() -> instruction;
+    i32-le-u: static func() -> instruction;
+    i32-load: static func(p0: borrow<mem-arg>) -> instruction;
+    i32-load16s: static func(p0: borrow<mem-arg>) -> instruction;
+    i32-load16u: static func(p0: borrow<mem-arg>) -> instruction;
+    i32-load8s: static func(p0: borrow<mem-arg>) -> instruction;
+    i32-load8u: static func(p0: borrow<mem-arg>) -> instruction;
+    i32-lt-s: static func() -> instruction;
+    i32-lt-u: static func() -> instruction;
+    i32-mul: static func() -> instruction;
+    i32-ne: static func() -> instruction;
+    i32-or: static func() -> instruction;
+    i32-popcnt: static func() -> instruction;
+    i32-reinterpret-f32: static func() -> instruction;
+    i32-rem-s: static func() -> instruction;
+    i32-rem-u: static func() -> instruction;
+    i32-rotl: static func() -> instruction;
+    i32-rotr: static func() -> instruction;
+    i32-shl: static func() -> instruction;
+    i32-shr-s: static func() -> instruction;
+    i32-shr-u: static func() -> instruction;
+    i32-store: static func(p0: borrow<mem-arg>) -> instruction;
+    i32-store16: static func(p0: borrow<mem-arg>) -> instruction;
+    i32-store8: static func(p0: borrow<mem-arg>) -> instruction;
+    i32-sub: static func() -> instruction;
+    i32-trunc-f32s: static func() -> instruction;
+    i32-trunc-f32u: static func() -> instruction;
+    i32-trunc-f64s: static func() -> instruction;
+    i32-trunc-f64u: static func() -> instruction;
+    i32-trunc-sat-f32s: static func() -> instruction;
+    i32-trunc-sat-f32u: static func() -> instruction;
+    i32-trunc-sat-f64s: static func() -> instruction;
+    i32-trunc-sat-f64u: static func() -> instruction;
+    i32-wrap-i64: static func() -> instruction;
+    i32-xor: static func() -> instruction;
+    i32x4-abs: static func() -> instruction;
+    i32x4-add: static func() -> instruction;
+    i32x4-all-true: static func() -> instruction;
+    i32x4-bitmask: static func() -> instruction;
+    i32x4-dot-i16x8s: static func() -> instruction;
+    i32x4-eq: static func() -> instruction;
+    i32x4-extadd-pairwise-i16x8s: static func() -> instruction;
+    i32x4-extadd-pairwise-i16x8u: static func() -> instruction;
+    i32x4-extend-high-i16x8s: static func() -> instruction;
+    i32x4-extend-high-i16x8u: static func() -> instruction;
+    i32x4-extend-low-i16x8s: static func() -> instruction;
+    i32x4-extend-low-i16x8u: static func() -> instruction;
+    i32x4-extmul-high-i16x8s: static func() -> instruction;
+    i32x4-extmul-high-i16x8u: static func() -> instruction;
+    i32x4-extmul-low-i16x8s: static func() -> instruction;
+    i32x4-extmul-low-i16x8u: static func() -> instruction;
+    i32x4-extract-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    i32x4-ge-s: static func() -> instruction;
+    i32x4-ge-u: static func() -> instruction;
+    i32x4-gt-s: static func() -> instruction;
+    i32x4-gt-u: static func() -> instruction;
+    i32x4-le-s: static func() -> instruction;
+    i32x4-le-u: static func() -> instruction;
+    i32x4-lt-s: static func() -> instruction;
+    i32x4-lt-u: static func() -> instruction;
+    i32x4-max-s: static func() -> instruction;
+    i32x4-max-u: static func() -> instruction;
+    i32x4-min-s: static func() -> instruction;
+    i32x4-min-u: static func() -> instruction;
+    i32x4-mul: static func() -> instruction;
+    i32x4-ne: static func() -> instruction;
+    i32x4-neg: static func() -> instruction;
+    i32x4-relaxed-dot-i8x16i7x16-add-s: static func() -> instruction;
+    i32x4-relaxed-laneselect: static func() -> instruction;
+    i32x4-relaxed-trunc-f32x4s: static func() -> instruction;
+    i32x4-relaxed-trunc-f32x4u: static func() -> instruction;
+    i32x4-relaxed-trunc-zero-f64x2s: static func() -> instruction;
+    i32x4-relaxed-trunc-zero-f64x2u: static func() -> instruction;
+    i32x4-replace-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    i32x4-shl: static func() -> instruction;
+    i32x4-shr-s: static func() -> instruction;
+    i32x4-shr-u: static func() -> instruction;
+    i32x4-splat: static func() -> instruction;
+    i32x4-sub: static func() -> instruction;
+    i32x4-trunc-sat-f32x4s: static func() -> instruction;
+    i32x4-trunc-sat-f32x4u: static func() -> instruction;
+    i32x4-trunc-sat-f64x2s-zero: static func() -> instruction;
+    i32x4-trunc-sat-f64x2u-zero: static func() -> instruction;
+    i64-add: static func() -> instruction;
+    i64-and: static func() -> instruction;
+    i64-atomic-load: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i64-atomic-load16-u: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i64-atomic-load32-u: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i64-atomic-load8-u: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i64-atomic-store: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i64-atomic-store16: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i64-atomic-store32: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i64-atomic-store8: static func(p0: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
+    i64-clz: static func() -> instruction;
+    i64-const: static func(p0: borrow<i64>) -> instruction;
+    i64-ctz: static func() -> instruction;
+    i64-div-s: static func() -> instruction;
+    i64-div-u: static func() -> instruction;
+    i64-eq: static func() -> instruction;
+    i64-eqz: static func() -> instruction;
+    i64-extend16s: static func() -> instruction;
+    i64-extend32s: static func() -> instruction;
+    i64-extend8s: static func() -> instruction;
+    i64-extend-i32s: static func() -> instruction;
+    i64-extend-i32u: static func() -> instruction;
+    i64-ge-s: static func() -> instruction;
+    i64-ge-u: static func() -> instruction;
+    i64-gt-s: static func() -> instruction;
+    i64-gt-u: static func() -> instruction;
+    i64-le-s: static func() -> instruction;
+    i64-le-u: static func() -> instruction;
+    i64-load: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-load16s: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-load16u: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-load32s: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-load32u: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-load8s: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-load8u: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-lt-s: static func() -> instruction;
+    i64-lt-u: static func() -> instruction;
+    i64-mul: static func() -> instruction;
+    i64-ne: static func() -> instruction;
+    i64-or: static func() -> instruction;
+    i64-popcnt: static func() -> instruction;
+    i64-reinterpret-f64: static func() -> instruction;
+    i64-rem-s: static func() -> instruction;
+    i64-rem-u: static func() -> instruction;
+    i64-rotl: static func() -> instruction;
+    i64-rotr: static func() -> instruction;
+    i64-shl: static func() -> instruction;
+    i64-shr-s: static func() -> instruction;
+    i64-shr-u: static func() -> instruction;
+    i64-store: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-store16: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-store32: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-store8: static func(p0: borrow<mem-arg>) -> instruction;
+    i64-sub: static func() -> instruction;
+    i64-trunc-f32s: static func() -> instruction;
+    i64-trunc-f32u: static func() -> instruction;
+    i64-trunc-f64s: static func() -> instruction;
+    i64-trunc-f64u: static func() -> instruction;
+    i64-trunc-sat-f32s: static func() -> instruction;
+    i64-trunc-sat-f32u: static func() -> instruction;
+    i64-trunc-sat-f64s: static func() -> instruction;
+    i64-trunc-sat-f64u: static func() -> instruction;
+    i64-xor: static func() -> instruction;
+    i64x2-abs: static func() -> instruction;
+    i64x2-add: static func() -> instruction;
+    i64x2-all-true: static func() -> instruction;
+    i64x2-bitmask: static func() -> instruction;
+    i64x2-eq: static func() -> instruction;
+    i64x2-extend-high-i32x4s: static func() -> instruction;
+    i64x2-extend-high-i32x4u: static func() -> instruction;
+    i64x2-extend-low-i32x4s: static func() -> instruction;
+    i64x2-extend-low-i32x4u: static func() -> instruction;
+    i64x2-extmul-high-i32x4s: static func() -> instruction;
+    i64x2-extmul-high-i32x4u: static func() -> instruction;
+    i64x2-extmul-low-i32x4s: static func() -> instruction;
+    i64x2-extmul-low-i32x4u: static func() -> instruction;
+    i64x2-extract-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    i64x2-ge-s: static func() -> instruction;
+    i64x2-gt-s: static func() -> instruction;
+    i64x2-le-s: static func() -> instruction;
+    i64x2-lt-s: static func() -> instruction;
+    i64x2-mul: static func() -> instruction;
+    i64x2-ne: static func() -> instruction;
+    i64x2-neg: static func() -> instruction;
+    i64x2-relaxed-laneselect: static func() -> instruction;
+    i64x2-replace-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    i64x2-shl: static func() -> instruction;
+    i64x2-shr-s: static func() -> instruction;
+    i64x2-shr-u: static func() -> instruction;
+    i64x2-splat: static func() -> instruction;
+    i64x2-sub: static func() -> instruction;
+    i8x16-abs: static func() -> instruction;
+    i8x16-add: static func() -> instruction;
+    i8x16-add-sat-s: static func() -> instruction;
+    i8x16-add-sat-u: static func() -> instruction;
+    i8x16-all-true: static func() -> instruction;
+    i8x16-avgr-u: static func() -> instruction;
+    i8x16-bitmask: static func() -> instruction;
+    i8x16-eq: static func() -> instruction;
+    i8x16-extract-lane-s: static func(p0: borrow<lane-idx>) -> instruction;
+    i8x16-extract-lane-u: static func(p0: borrow<lane-idx>) -> instruction;
+    i8x16-ge-s: static func() -> instruction;
+    i8x16-ge-u: static func() -> instruction;
+    i8x16-gt-s: static func() -> instruction;
+    i8x16-gt-u: static func() -> instruction;
+    i8x16-le-s: static func() -> instruction;
+    i8x16-le-u: static func() -> instruction;
+    i8x16-lt-s: static func() -> instruction;
+    i8x16-lt-u: static func() -> instruction;
+    i8x16-max-s: static func() -> instruction;
+    i8x16-max-u: static func() -> instruction;
+    i8x16-min-s: static func() -> instruction;
+    i8x16-min-u: static func() -> instruction;
+    i8x16-narrow-i16x8s: static func() -> instruction;
+    i8x16-narrow-i16x8u: static func() -> instruction;
+    i8x16-ne: static func() -> instruction;
+    i8x16-neg: static func() -> instruction;
+    i8x16-popcnt: static func() -> instruction;
+    i8x16-relaxed-laneselect: static func() -> instruction;
+    i8x16-relaxed-swizzle: static func() -> instruction;
+    i8x16-replace-lane: static func(p0: borrow<lane-idx>) -> instruction;
+    i8x16-shl: static func() -> instruction;
+    i8x16-shr-s: static func() -> instruction;
+    i8x16-shr-u: static func() -> instruction;
+    i8x16-shuffle: static func(p0: borrow<lane-idx>, p1: borrow<lane-idx>, p2: borrow<lane-idx>, p3: borrow<lane-idx>, p4: borrow<lane-idx>, p5: borrow<lane-idx>, p6: borrow<lane-idx>, p7: borrow<lane-idx>, p8: borrow<lane-idx>, p9: borrow<lane-idx>, p10: borrow<lane-idx>, p11: borrow<lane-idx>, p12: borrow<lane-idx>, p13: borrow<lane-idx>, p14: borrow<lane-idx>, p15: borrow<lane-idx>) -> instruction;
+    i8x16-splat: static func() -> instruction;
+    i8x16-sub: static func() -> instruction;
+    i8x16-sub-sat-s: static func() -> instruction;
+    i8x16-sub-sat-u: static func() -> instruction;
+    i8x16-swizzle: static func() -> instruction;
+    if: static func(p0: borrow<block-type>, p1: list<borrow<instruction>>, p2: option<list<borrow<instruction>>>) -> instruction;
+    local-get: static func(p0: borrow<local-idx>) -> instruction;
+    local-set: static func(p0: borrow<local-idx>) -> instruction;
+    local-tee: static func(p0: borrow<local-idx>) -> instruction;
+    loop: static func(p0: borrow<block-type>, p1: borrow<expr>) -> instruction;
+    memory-atomic-notify: static func(p0: borrow<mem-arg>) -> instruction;
+    memory-atomic-wait32: static func(p0: borrow<mem-arg>) -> instruction;
+    memory-atomic-wait64: static func(p0: borrow<mem-arg>) -> instruction;
+    memory-copy: static func(p0: borrow<mem-idx>, p1: borrow<mem-idx>) -> instruction;
+    memory-fill: static func(p0: borrow<mem-idx>) -> instruction;
+    memory-grow: static func(p0: borrow<mem-idx>) -> instruction;
+    memory-init: static func(p0: borrow<data-idx>, p1: borrow<mem-idx>) -> instruction;
+    memory-size: static func(p0: borrow<mem-idx>) -> instruction;
+    nop: static func() -> instruction;
+    ref-as-non-null: static func() -> instruction;
+    ref-cast: static func(p0: bool, p1: borrow<heap-type>) -> instruction;
+    ref-cast-desc-eq: static func(p0: bool, p1: borrow<heap-type>) -> instruction;
+    ref-cast-desc-eq-type: static func(p0: borrow<ref-type>) -> instruction;
+    ref-cast-exact: static func(p0: bool, p1: borrow<heap-type>) -> instruction;
+    ref-cast-type: static func(p0: borrow<ref-type>) -> instruction;
+    ref-eq: static func() -> instruction;
+    ref-func: static func(p0: borrow<func-idx>) -> instruction;
+    ref-get-desc: static func(p0: borrow<type-idx>) -> instruction;
+    ref-i31: static func() -> instruction;
+    ref-is-null: static func() -> instruction;
+    ref-null: static func(p0: borrow<heap-type>) -> instruction;
+    ref-null-type: static func(p0: borrow<ref-type>) -> instruction;
+    ref-test: static func(p0: bool, p1: borrow<heap-type>) -> instruction;
+    ref-test-desc: static func(p0: bool, p1: borrow<heap-type>) -> instruction;
+    ref-test-exact: static func(p0: bool, p1: borrow<heap-type>) -> instruction;
+    ref-test-type: static func(p0: borrow<ref-type>) -> instruction;
+    resume: static func(p0: borrow<type-idx>, p1: list<borrow<resume-handler>>) -> instruction;
+    resume-throw: static func(p0: borrow<type-idx>, p1: borrow<tag-idx>, p2: list<borrow<resume-handler>>) -> instruction;
+    resume-throw-ref: static func(p0: borrow<type-idx>, p1: list<borrow<resume-handler>>) -> instruction;
+    rethrow: static func(p0: borrow<label-idx>) -> instruction;
+    return: static func() -> instruction;
+    return-call: static func(p0: borrow<func-idx>) -> instruction;
+    return-call-indirect: static func(p0: borrow<type-idx>, p1: borrow<table-idx>) -> instruction;
+    return-call-ref: static func(p0: borrow<type-idx>) -> instruction;
+    select: static func(types: option<list<borrow<val-type>>>) -> instruction;
+    stack-switch: static func(p0: borrow<type-idx>, p1: borrow<tag-idx>) -> instruction;
+    string-as-wtf16: static func() -> instruction;
+    string-concat: static func() -> instruction;
+    string-const: static func(p0: list<u8>) -> instruction;
+    string-encode-lossy-utf8-array: static func() -> instruction;
+    string-encode-utf8-array: static func() -> instruction;
+    string-encode-wtf16-array: static func() -> instruction;
+    string-encode-wtf8-array: static func() -> instruction;
+    string-eq: static func() -> instruction;
+    string-measure-wtf16: static func() -> instruction;
+    string-new-lossy-utf8-array: static func() -> instruction;
+    string-new-utf8-array: static func() -> instruction;
+    string-new-wtf16-array: static func() -> instruction;
+    string-new-wtf8-array: static func() -> instruction;
+    stringview-wtf16-get-codeunit: static func() -> instruction;
+    stringview-wtf16-slice: static func() -> instruction;
+    struct-atomic-cmpxchg: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>, order: borrow<atomic-order>) -> instruction;
+    struct-atomic-get: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>, p2: borrow<u32-ir>) -> instruction;
+    struct-atomic-get-s: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>, p2: borrow<u32-ir>) -> instruction;
+    struct-atomic-get-u: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>, p2: borrow<u32-ir>) -> instruction;
+    struct-atomic-rmw: static func(p0: borrow<aggregate-atomic-rmw-op>, p1: borrow<type-idx>, p2: borrow<u32-ir>, order: borrow<atomic-order>) -> instruction;
+    struct-get: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
+    struct-get-s: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
+    struct-get-u: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
+    struct-new: static func(p0: borrow<type-idx>) -> instruction;
+    struct-new-default: static func(p0: borrow<type-idx>) -> instruction;
+    struct-new-default-desc: static func(p0: borrow<type-idx>) -> instruction;
+    struct-new-desc: static func(p0: borrow<type-idx>) -> instruction;
+    struct-set: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
+    suspend: static func(p0: borrow<tag-idx>) -> instruction;
+    table-copy: static func(p0: borrow<table-idx>, p1: borrow<table-idx>) -> instruction;
+    table-fill: static func(p0: borrow<table-idx>) -> instruction;
+    table-get: static func(p0: borrow<table-idx>) -> instruction;
+    table-grow: static func(p0: borrow<table-idx>) -> instruction;
+    table-init: static func(p0: borrow<elem-idx>, p1: borrow<table-idx>) -> instruction;
+    table-set: static func(p0: borrow<table-idx>) -> instruction;
+    table-size: static func(p0: borrow<table-idx>) -> instruction;
+    throw: static func(p0: borrow<tag-idx>) -> instruction;
+    throw-ref: static func() -> instruction;
+    try: static func(p0: borrow<block-type>, p1: borrow<expr>, p2: list<borrow<legacy-catch>>, delegate: option<borrow<label-idx>>) -> instruction;
+    try-table: static func(p0: borrow<block-type>, p1: list<borrow<catch>>, p2: borrow<expr>) -> instruction;
+    unreachable: static func() -> instruction;
+    v128-and: static func() -> instruction;
+    v128-andnot: static func() -> instruction;
+    v128-any-true: static func() -> instruction;
+    v128-bitselect: static func() -> instruction;
+    v128-const: static func(p0: u8, p1: u8, p2: u8, p3: u8, p4: u8, p5: u8, p6: u8, p7: u8, p8: u8, p9: u8, p10: u8, p11: u8, p12: u8, p13: u8, p14: u8, p15: u8) -> instruction;
+    v128-load: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load16-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
+    v128-load16-splat: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load16x4s: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load16x4u: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load32-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
+    v128-load32-splat: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load32-zero: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load32x2s: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load32x2u: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load64-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
+    v128-load64-splat: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load64-zero: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load8-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
+    v128-load8-splat: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load8x8s: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-load8x8u: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-not: static func() -> instruction;
+    v128-or: static func() -> instruction;
+    v128-store: static func(p0: borrow<mem-arg>) -> instruction;
+    v128-store16-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
+    v128-store32-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
+    v128-store64-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
+    v128-store8-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
+    v128-xor: static func() -> instruction;
+  }
+
+  resource label-idx {
+    create: static func(p0: u32) -> label-idx;
+  }
+
+  resource lane-idx {
+    create: static func(p0: u8) -> lane-idx;
+  }
+
+  resource legacy-catch {
+    all: static func(p0: borrow<expr>) -> legacy-catch;
+    tagged: static func(p0: borrow<tag-idx>, p1: borrow<expr>) -> legacy-catch;
+  }
+
+  resource limits {
+    i32: static func(p0: u32, p1: option<u32>) -> limits;
+    i64: static func(p0: u64, p1: option<u64>) -> limits;
+  }
+
+  resource load-op {
+    f32-load: static func() -> load-op;
+    f64-load: static func() -> load-op;
+    i32-atomic-load: static func() -> load-op;
+    i32-atomic-load16-u: static func() -> load-op;
+    i32-atomic-load8-u: static func() -> load-op;
+    i32-load: static func() -> load-op;
+    i32-load16s: static func() -> load-op;
+    i32-load16u: static func() -> load-op;
+    i32-load8s: static func() -> load-op;
+    i32-load8u: static func() -> load-op;
+    i64-atomic-load: static func() -> load-op;
+    i64-atomic-load16-u: static func() -> load-op;
+    i64-atomic-load32-u: static func() -> load-op;
+    i64-atomic-load8-u: static func() -> load-op;
+    i64-load: static func() -> load-op;
+    i64-load16s: static func() -> load-op;
+    i64-load16u: static func() -> load-op;
+    i64-load32s: static func() -> load-op;
+    i64-load32u: static func() -> load-op;
+    i64-load8s: static func() -> load-op;
+    i64-load8u: static func() -> load-op;
+    v128-load: static func() -> load-op;
+    v128-load16-splat: static func() -> load-op;
+    v128-load16x4s: static func() -> load-op;
+    v128-load16x4u: static func() -> load-op;
+    v128-load32-splat: static func() -> load-op;
+    v128-load32-zero: static func() -> load-op;
+    v128-load32x2s: static func() -> load-op;
+    v128-load32x2u: static func() -> load-op;
+    v128-load64-splat: static func() -> load-op;
+    v128-load64-zero: static func() -> load-op;
+    v128-load8-splat: static func() -> load-op;
+    v128-load8x8s: static func() -> load-op;
+    v128-load8x8u: static func() -> load-op;
+  }
+
+  resource local-idx {
+    create: static func(p0: u32) -> local-idx;
+  }
+
+  resource local-run {
+    create: static func(p0: u32, p1: borrow<val-type>) -> local-run;
+  }
+
+  resource locals {
+    copy: static func(p0: borrow<locals>) -> locals;
+    empty: static func() -> locals;
+    from-decl-runs-preserving-groups: static func(p0: list<borrow<local-run>>) -> locals;
+    from-types: static func(p0: list<borrow<val-type>>) -> locals;
+    create: static func(p0: list<borrow<local-run>>) -> locals;
+    single: static func(p0: u32, p1: borrow<val-type>) -> locals;
+    without-prefix: static func(p0: borrow<locals>, p1: s32) -> locals;
+  }
+
+  resource mem-arg {
+    create: static func(p0: borrow<u32-ir>, p1: option<borrow<mem-idx>>, p2: borrow<u64-ir>) -> mem-arg;
+  }
+
+  resource mem-idx {
+    create: static func(p0: u32) -> mem-idx;
+  }
+
+  resource mem-sec {
+    create: static func(p0: list<borrow<mem-type>>) -> mem-sec;
+  }
+
+  resource mem-type {
+    create: static func(p0: borrow<limits>, shared: bool) -> mem-type;
+  }
+
+  resource module {
+    create: static func(custom-secs: list<borrow<custom-sec>>, type-sec: option<borrow<type-sec>>, import-sec: option<borrow<import-sec>>, func-annotation-sec: option<borrow<func-annotation-sec>>, func-sec: option<borrow<func-sec>>, table-sec: option<borrow<table-sec>>, mem-sec: option<borrow<mem-sec>>, tag-sec: option<borrow<tag-sec>>, stringrefs-sec: option<borrow<string-refs-sec>>, global-sec: option<borrow<global-sec>>, export-sec: option<borrow<export-sec>>, start-sec: option<borrow<start-sec>>, elem-sec: option<borrow<elem-sec>>, data-cnt-sec: option<borrow<data-cnt-sec>>, code-sec: option<borrow<code-sec>>, data-sec: option<borrow<data-sec>>, name-sec: option<borrow<name-sec>>, raw-name-sec-payload: option<list<u8>>) -> module;
+    with-code-sec: static func(p0: borrow<module>, p1: borrow<code-sec>) -> module;
+    with-custom-secs: static func(p0: borrow<module>, p1: list<borrow<custom-sec>>) -> module;
+    with-data-cnt-sec: static func(p0: borrow<module>, p1: borrow<data-cnt-sec>) -> module;
+    with-data-sec: static func(p0: borrow<module>, p1: borrow<data-sec>) -> module;
+    with-elem-sec: static func(p0: borrow<module>, p1: borrow<elem-sec>) -> module;
+    with-export-sec: static func(p0: borrow<module>, p1: borrow<export-sec>) -> module;
+    with-func-annotation-sec: static func(p0: borrow<module>, p1: borrow<func-annotation-sec>) -> module;
+    with-func-sec: static func(p0: borrow<module>, p1: borrow<func-sec>) -> module;
+    with-global-sec: static func(p0: borrow<module>, p1: borrow<global-sec>) -> module;
+    with-import-sec: static func(p0: borrow<module>, p1: borrow<import-sec>) -> module;
+    with-mem-sec: static func(p0: borrow<module>, p1: borrow<mem-sec>) -> module;
+    with-name-sec: static func(p0: borrow<module>, p1: borrow<name-sec>) -> module;
+    with-raw-name-sec-payload: static func(p0: borrow<module>, p1: list<u8>) -> module;
+    with-start-sec: static func(p0: borrow<module>, p1: borrow<start-sec>) -> module;
+    with-stringrefs-sec: static func(p0: borrow<module>, p1: borrow<string-refs-sec>) -> module;
+    with-table-sec: static func(p0: borrow<module>, p1: borrow<table-sec>) -> module;
+    with-tag-sec: static func(p0: borrow<module>, p1: borrow<tag-sec>) -> module;
+    with-type-sec: static func(p0: borrow<module>, p1: borrow<type-sec>) -> module;
+    without-name-sec: static func(p0: borrow<module>) -> module;
+  }
+
+  resource mut {
+    const: static func() -> mut;
+    var: static func() -> mut;
+  }
+
+  resource name {
+    from-string: static func(p0: string) -> name;
+  }
+
+  resource name-assoc {
+    create: static func(p0: u32, p1: borrow<name>) -> name-assoc;
+  }
+
+  resource name-map {
+    create: static func(p0: list<borrow<name-assoc>>) -> name-map;
+  }
+
+  resource name-sec {
+    create: static func(module-name: option<borrow<name>>, func-names: option<borrow<name-map>>, local-names: option<borrow<indirect-name-map>>, label-names: option<borrow<indirect-name-map>>, type-names: option<borrow<name-map>>, table-names: option<borrow<name-map>>, memory-names: option<borrow<name-map>>, global-names: option<borrow<name-map>>, elem-names: option<borrow<name-map>>, data-names: option<borrow<name-map>>, field-names: option<borrow<indirect-name-map>>, tag-names: option<borrow<name-map>>) -> name-sec;
+  }
+
+  resource num-type {
+    f32-value: static func() -> num-type;
+    f64-value: static func() -> num-type;
+    i32: static func() -> num-type;
+    i64: static func() -> num-type;
+  }
+
+  resource pack-type {
+    i16: static func() -> pack-type;
+    i8: static func() -> pack-type;
+  }
+
+  resource rec-type {
+    group: static func(p0: list<borrow<sub-type>>) -> rec-type;
+    create: static func(p0: borrow<sub-type>) -> rec-type;
+  }
+
+  resource ref-type {
+    abs: static func(p0: borrow<abs-heap-type>) -> ref-type;
+    make-nullable: static func(p0: borrow<ref-type>) -> ref-type;
+    create: static func(p0: bool, p1: borrow<heap-type>, exact: bool) -> ref-type;
+  }
+
+  resource resume-handler {
+    on-label: static func(p0: borrow<tag-idx>, p1: borrow<label-idx>) -> resume-handler;
+    on-switch: static func(p0: borrow<tag-idx>) -> resume-handler;
+  }
+
+  resource start-sec {
+    create: static func(p0: borrow<func-idx>) -> start-sec;
+  }
+
+  resource storage-type {
+    pack-type: static func(p0: borrow<pack-type>) -> storage-type;
+    val-type: static func(p0: borrow<val-type>) -> storage-type;
+  }
+
+  resource store-op {
+    f32-store: static func() -> store-op;
+    f64-store: static func() -> store-op;
+    i32-atomic-store: static func() -> store-op;
+    i32-atomic-store16: static func() -> store-op;
+    i32-atomic-store8: static func() -> store-op;
+    i32-store: static func() -> store-op;
+    i32-store16: static func() -> store-op;
+    i32-store8: static func() -> store-op;
+    i64-atomic-store: static func() -> store-op;
+    i64-atomic-store16: static func() -> store-op;
+    i64-atomic-store32: static func() -> store-op;
+    i64-atomic-store8: static func() -> store-op;
+    i64-store: static func() -> store-op;
+    i64-store16: static func() -> store-op;
+    i64-store32: static func() -> store-op;
+    i64-store8: static func() -> store-op;
+    v128-store: static func() -> store-op;
+  }
+
+  resource string-refs-sec {
+    create: static func(p0: list<list<u8>>) -> string-refs-sec;
+  }
+
+  resource sub-type {
+    comp-type: static func(p0: borrow<comp-type>, metadata: borrow<type-metadata>) -> sub-type;
+    create: static func(p0: bool, p1: list<borrow<type-idx>>, p2: borrow<comp-type>, metadata: borrow<type-metadata>) -> sub-type;
+  }
+
+  resource table {
+    create: static func(p0: borrow<table-type>, p1: option<borrow<expr>>) -> table;
+  }
+
+  resource table-idx {
+    create: static func(p0: u32) -> table-idx;
+  }
+
+  resource table-sec {
+    create: static func(p0: list<borrow<table>>) -> table-sec;
+  }
+
+  resource table-type {
+    create: static func(p0: borrow<ref-type>, p1: borrow<limits>) -> table-type;
+  }
+
+  resource tag-idx {
+    create: static func(p0: u32) -> tag-idx;
+  }
+
+  resource tag-sec {
+    create: static func(p0: list<borrow<tag-type>>) -> tag-sec;
+  }
+
+  resource tag-type {
+    create: static func(p0: borrow<type-idx>) -> tag-type;
+  }
+
+  resource type-idx {
+    create: static func(p0: u32) -> type-idx;
+    rec: static func(p0: u32) -> type-idx;
+  }
+
+  resource type-metadata {
+    create: static func(describes: option<borrow<type-idx>>, descriptor: option<borrow<type-idx>>, shared: bool) -> type-metadata;
+    with-shared: static func(p0: borrow<type-metadata>, p1: bool) -> type-metadata;
+  }
+
+  resource type-sec {
+    create: static func(p0: list<borrow<rec-type>>) -> type-sec;
+  }
+
+  resource u32-ir {
+    create: static func(p0: u32) -> u32-ir;
+  }
+
+  resource u64-ir {
+    create: static func(p0: u64) -> u64-ir;
+  }
+
+  resource val-type {
+    anyref: static func() -> val-type;
+    bottom: static func() -> val-type;
+    eqref-null: static func() -> val-type;
+    externref: static func() -> val-type;
+    f32-value: static func() -> val-type;
+    f64-value: static func() -> val-type;
+    funcref: static func() -> val-type;
+    i31ref: static func() -> val-type;
+    i31ref-nullable: static func() -> val-type;
+    i32: static func() -> val-type;
+    i64: static func() -> val-type;
+    num-type: static func(p0: borrow<num-type>) -> val-type;
+    ref-array-nonnull: static func(p0: borrow<type-idx>) -> val-type;
+    ref-array-nullable: static func(p0: borrow<type-idx>) -> val-type;
+    ref-null: static func(p0: borrow<heap-type>) -> val-type;
+    ref-null-array-of: static func(p0: borrow<type-idx>) -> val-type;
+    ref-null-exn: static func() -> val-type;
+    ref-null-type: static func(p0: borrow<ref-type>) -> val-type;
+    ref-type: static func(p0: borrow<ref-type>) -> val-type;
+    stringref: static func() -> val-type;
+    v128: static func() -> val-type;
+  }
+
+  empty-module: func() -> module;
+  decode-module: func(wasm: list<u8>) -> result<module, diagnostic>;
+  parse-module: func(wat: string) -> result<module, diagnostic>;
+  encode-module: func(value: borrow<module>) -> result<list<u8>, diagnostic>;
+  validate-module: func(value: borrow<module>) -> result<_, diagnostic>;
+}

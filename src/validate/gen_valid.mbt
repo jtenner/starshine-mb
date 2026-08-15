@@ -9584,6 +9584,14 @@ pub struct GenValidGenerated {
 } derive(Eq, Debug)
 
 ///|
+pub struct GenValidModuleGenerated {
+  wasm_module : Module
+  config : GenValidConfig
+  config_label : String
+  attempts : Int
+} derive(Eq, Debug)
+
+///|
 pub enum GenValidBudgetStop {
   InstructionCountBudgetExceeded
   ExpressionDepthBudgetExceeded
@@ -34889,10 +34897,10 @@ pub fn gen_valid_module_result(
 }
 
 ///|
-pub fn gen_valid_module_result_from_seed(
+pub fn gen_valid_module_from_seed(
   seed : UInt64,
   config : GenValidConfig,
-) -> Result[GenValidGenerated, GenValidFailure] {
+) -> Result[GenValidModuleGenerated, GenValidFailure] {
   let max_attempts = if config.mode == CoverageForced { 512 } else { 64 }
   let config_label = gen_valid_config_label(config)
   let mut attempt = 1
@@ -34913,7 +34921,6 @@ pub fn gen_valid_module_result_from_seed(
               config,
               config_label,
               attempts: attempt,
-              facts: gen_valid_feature_facts(last, config.mode),
             })
           Err(err) => {
             last_budget_stop = None
@@ -34937,6 +34944,24 @@ pub fn gen_valid_module_result_from_seed(
     validation_error_message: last_error_message,
     budget_stop: last_budget_stop,
   })
+}
+
+///|
+pub fn gen_valid_module_result_from_seed(
+  seed : UInt64,
+  config : GenValidConfig,
+) -> Result[GenValidGenerated, GenValidFailure] {
+  match gen_valid_module_from_seed(seed, config) {
+    Ok(generated) =>
+      Ok({
+        wasm_module: generated.wasm_module,
+        config: generated.config,
+        config_label: generated.config_label,
+        attempts: generated.attempts,
+        facts: gen_valid_feature_facts(generated.wasm_module, config.mode),
+      })
+    Err(failure) => Err(failure)
+  }
 }
 
 ///|

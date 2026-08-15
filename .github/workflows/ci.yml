@@ -16,6 +16,8 @@ permissions:
 
 env:
   WASM_TOOLS_VERSION: "1.251.0"
+  WIT_BINDGEN_VERSION: "0.60.0"
+  JCO_VERSION: "1.28.1"
   BINARYEN_VERSION: "131"
   BINARYEN_DIR: ${{ github.workspace }}/.tmp/binaryen-version_131
 
@@ -72,22 +74,40 @@ jobs:
       - name: Resolve MoonBit registry dependencies
         run: moon update
 
-      - name: Cache wasm-tools cargo artifacts
+      - name: Cache component cargo tools
         uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/wasm-tools
+            ~/.cargo/bin/wit-bindgen
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: ${{ runner.os }}-cargo-wasm-tools-${{ env.WASM_TOOLS_VERSION }}
+          key: ${{ runner.os }}-cargo-component-${{ env.WASM_TOOLS_VERSION }}-${{ env.WIT_BINDGEN_VERSION }}
 
-      - name: Install wasm-tools
+      - name: Install component tools
         run: |
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           if [ ! -x "$HOME/.cargo/bin/wasm-tools" ]; then
             cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"
           fi
+          if [ ! -x "$HOME/.cargo/bin/wit-bindgen" ]; then
+            cargo install wit-bindgen-cli --locked --version "$WIT_BINDGEN_VERSION"
+          fi
+
+      - name: Build and validate the portable Starshine component
+        run: |
+          bun component check --wit-bindgen "$HOME/.cargo/bin/wit-bindgen"
+          git diff --exit-code -- component
+
+      - name: Generate and execute JavaScript component bindings
+        run: |
+          bunx "@bytecodealliance/jco@$JCO_VERSION" transpile \
+            dist/component/starshine.component.wasm \
+            -o .tmp/component-jco-smoke
+          printf '{"type":"module"}\n' > .tmp/component-jco-smoke/package.json
+          node scripts/test/component-consumer-smoke.mjs \
+            .tmp/component-jco-smoke/starshine.component.js
 
       - name: Build native and wasm-gc release CLIs
         run: |
