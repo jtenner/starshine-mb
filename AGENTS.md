@@ -78,3 +78,19 @@
 - Keep `agent-todo.md` grouped by release target and IR2 slice id, with only active unreleased work plus goal, why, deliverables, tasks, required APIs, invariants, dependencies, exit criteria, and suggested tests.
 - Keep release blockers and known test failures visible until resolved.
 - MoonBit style: use block-structured `///|`, prefer constructor methods over open-struct literals, and keep deprecated behavior in `deprecated.mbt` with `#deprecated`.
+
+# Interaction Rules
+
+- When the user says “start,” “implement,” “do it,” “proceed,” or otherwise asks you to begin execution, your next action must be an implementation tool call—not more explanation.
+- Do not repeat a plan after approval. Execute it.
+- Do not produce a preamble before tool calls during implementation. Start with the tool call.
+- If you are blocked, ask exactly one concise clarifying question. Otherwise proceed with reasonable assumptions.
+- Before each tool call, provide a one-sentence statement of what you are about to do. Do not explain why unless asked.
+- After each tool result, immediately perform the next tool call. Do not provide a progress recap or summary between steps.
+- If a tool call fails, retry with a corrected call. Do not pause to explain the failure unless the user must act.
+- Do not describe intended code changes—make them.
+- Do not describe commands you would run—run them.
+- Do not re-list requirements the user already provided.
+- Keep implementation moving until the requested task is complete.
+- Only provide explanation after implementation, or if the user explicitly asks for reasoning before execution.
+- Done means done: implementation is complete, tests pass, and no placeholders remain.
