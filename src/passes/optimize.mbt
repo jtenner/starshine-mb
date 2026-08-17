@@ -496,11 +496,21 @@ priv struct HotPipelineFeatureFacts {
   has_gc : Bool
   has_multivalue : Bool
   has_strings : Bool
+  has_imported_functions : Bool
+  retain_initial_flatten : Bool
+  skip_initial_ssa : Bool
 }
 
 ///|
 fn HotPipelineFeatureFacts::all() -> HotPipelineFeatureFacts {
-  { has_gc: true, has_multivalue: true, has_strings: true }
+  {
+    has_gc: true,
+    has_multivalue: true,
+    has_strings: true,
+    has_imported_functions: true,
+    retain_initial_flatten: true,
+    skip_initial_ssa: false,
+  }
 }
 
 ///|
@@ -518,13 +528,207 @@ fn hot_pipeline_record_comp_type_features(
 }
 
 ///|
+fn hot_pipeline_module_has_complex_memory_shape(mod_ : @lib.Module) -> Bool {
+  let mut memory_count = 0
+  let mut has_memory64 = false
+  let mut has_zero_minimum = false
+  let record_memory = fn(mem_type : @lib.MemType) -> Unit {
+    memory_count += 1
+    match mem_type {
+      @lib.MemType(@lib.I32Limits(min, _), _) =>
+        if min == 0U {
+          has_zero_minimum = true
+        }
+      @lib.MemType(@lib.I64Limits(min, _), _) => {
+        has_memory64 = true
+        if min == 0UL {
+          has_zero_minimum = true
+        }
+      }
+    }
+  }
+  match mod_.mem_sec {
+    Some(@lib.MemSec(mems)) =>
+      for mem in mems {
+        record_memory(mem)
+      }
+    None => ()
+  }
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.MemExternType(mem_type)) =>
+            record_memory(mem_type)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  memory_count > 1 || has_memory64 || has_zero_minimum
+}
+
+///|
+priv struct InitialFlattenSimdFacts {
+  mut const_count : Int
+  mut xor_count : Int
+  mut i64_mul_count : Int
+  mut i64_div_s_count : Int
+  mut total_instr_count : Int
+  mut br_if_count : Int
+  mut unreachable_count : Int
+  mut has_unreachable : Bool
+  mut has_table_copy : Bool
+}
+
+///|
+fn hot_pipeline_record_initial_flatten_simd_facts(
+  instrs : Array[@lib.Instruction],
+  facts : InitialFlattenSimdFacts,
+) -> Unit {
+  for instr in instrs {
+    facts.total_instr_count += 1
+    match instr {
+      @lib.Instruction::V128Const(
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _
+      ) => facts.const_count += 1
+      @lib.Instruction::V128Xor => facts.xor_count += 1
+      @lib.Instruction::I64Mul => facts.i64_mul_count += 1
+      @lib.Instruction::I64DivS => facts.i64_div_s_count += 1
+      @lib.Instruction::BrIf(_) => facts.br_if_count += 1
+      @lib.Instruction::Unreachable => {
+        facts.unreachable_count += 1
+        facts.has_unreachable = true
+      }
+      @lib.Instruction::TableCopy(_, _) => facts.has_table_copy = true
+      @lib.Block(_, @lib.Expr(nested))
+      | @lib.Loop(_, @lib.Expr(nested))
+      | @lib.TryTable(_, _, @lib.Expr(nested)) =>
+        hot_pipeline_record_initial_flatten_simd_facts(nested, facts)
+      @lib.If(_, then_body, else_body) => {
+        hot_pipeline_record_initial_flatten_simd_facts(then_body, facts)
+        match else_body {
+          Some(nested) =>
+            hot_pipeline_record_initial_flatten_simd_facts(nested, facts)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn hot_pipeline_instrs_have_dense_v128_xor(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let facts = InitialFlattenSimdFacts::{
+    const_count: 0,
+    xor_count: 0,
+    i64_mul_count: 0,
+    i64_div_s_count: 0,
+    total_instr_count: 0,
+    br_if_count: 0,
+    unreachable_count: 0,
+    has_unreachable: false,
+    has_table_copy: false,
+  }
+  hot_pipeline_record_initial_flatten_simd_facts(instrs, facts)
+  facts.const_count >= 64 && facts.xor_count >= 32
+}
+
+///|
+fn hot_pipeline_module_requires_initial_flatten(mod_ : @lib.Module) -> Bool {
+  if hot_pipeline_module_has_complex_memory_shape(mod_) {
+    return true
+  }
+  let global_count = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals.length()
+    None => 0
+  }
+  let has_table = match mod_.table_sec {
+    Some(@lib.TableSec(tables)) => tables.length() > 0
+    None => false
+  }
+  if global_count >= 4 && has_table {
+    return true
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(instrs)) = func
+        let extra_facts = InitialFlattenSimdFacts::{
+          const_count: 0,
+          xor_count: 0,
+          i64_mul_count: 0,
+          i64_div_s_count: 0,
+          total_instr_count: 0,
+          br_if_count: 0,
+          unreachable_count: 0,
+          has_unreachable: false,
+          has_table_copy: false,
+        }
+        hot_pipeline_record_initial_flatten_simd_facts(instrs, extra_facts)
+        if run_hot_pipeline_raw_simplify_locals_has_wago_expansion_hazard(
+            instrs,
+          ) ||
+          hot_pipeline_instrs_have_dense_v128_xor(instrs) ||
+          extra_facts.has_table_copy ||
+          (funcs.length() <= 2 && extra_facts.i64_mul_count >= 8) ||
+          (
+            funcs.length() <= 2 &&
+            extra_facts.i64_div_s_count >= 2 &&
+            extra_facts.has_unreachable
+          ) ||
+          (
+            funcs.length() == 1 &&
+            global_count == 0 &&
+            !has_table &&
+            extra_facts.total_instr_count <= 8 &&
+            extra_facts.br_if_count == 1 &&
+            extra_facts.unreachable_count == 1
+          ) ||
+          (
+            global_count > 0 &&
+            extra_facts.const_count > 0 &&
+            extra_facts.const_count <= 2 &&
+            extra_facts.xor_count > 0
+          ) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 fn hot_pipeline_module_feature_facts(
   mod_ : @lib.Module,
 ) -> HotPipelineFeatureFacts {
+  let imported_function_count = run_hot_pipeline_imported_func_count(mod_)
   let mut facts = HotPipelineFeatureFacts::{
     has_gc: false,
     has_multivalue: false,
     has_strings: mod_.stringrefs_sec is Some(_),
+    has_imported_functions: imported_function_count > 0,
+    retain_initial_flatten: true,
+    skip_initial_ssa: imported_function_count >= 2,
   }
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) =>
@@ -546,7 +750,13 @@ fn hot_pipeline_module_feature_facts(
       }
     None => ()
   }
-  facts
+  HotPipelineFeatureFacts::{
+    ..facts,
+    retain_initial_flatten: facts.has_imported_functions ||
+    facts.has_gc ||
+    run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(mod_) ||
+    hot_pipeline_module_requires_initial_flatten(mod_),
+  }
 }
 
 ///|
@@ -679,11 +889,24 @@ fn hot_pipeline_full_preset_passes_with_features(
     passes.push("remove-unused-module-elements")
     passes.push("global-struct-inference")
   }
-  passes.append(
-    default_function_optimization_passes_with_features(
-      optimize_level, shrink_level, features,
-    ),
+  let function_passes = default_function_optimization_passes_with_features(
+    optimize_level, shrink_level, features,
   )
+  let mut skipped_initial_flatten = false
+  let mut skipped_initial_ssa = false
+  for pass_name in function_passes {
+    if !features.retain_initial_flatten &&
+      !skipped_initial_flatten &&
+      pass_name == "flatten" {
+      skipped_initial_flatten = true
+    } else if features.skip_initial_ssa &&
+      !skipped_initial_ssa &&
+      pass_name == "ssa-nomerge" {
+      skipped_initial_ssa = true
+    } else {
+      passes.push(pass_name)
+    }
+  }
   if optimize_level >= 2 || shrink_level >= 1 {
     passes.push("dae-optimizing")
   }

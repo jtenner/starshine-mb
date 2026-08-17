@@ -1,4 +1,36 @@
 ///|
+test "dae-optimizing intentionally fails closed for measured emscripten stateful runtime shapes" {
+  let wat = StringBuilder::new()
+  wat.write_string(
+    "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
+  )
+  for idx = 5; idx < 44; idx = idx + 1 {
+    wat.write_string(" (func)")
+  }
+  wat.write_string(")")
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      wat.to_string(),
+      ["dae-optimizing"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected guarded DAE success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("emscripten-main-stateful-runtime-dae-noop")
+    }),
+    msg="\{trace}",
+  )
+}
+
+///|
 fn dae_test_func_type(mod_ : @lib.Module, def_idx : Int) -> @lib.FuncType {
   let type_idx = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs[def_idx]
@@ -19350,4 +19382,72 @@ test "dae-optimizing rejects an escaped forwarded-parameter cycle transaction" {
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
   @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+}
+
+///|
+test "dae-optimizing fails closed for AssemblyScript exported memory runtimes" {
+  let source =
+    #|(module
+    #|  (memory (export "memory") 1)
+    #|  (func $__new (export "__new") (param i32 i32) (result i32) local.get 0)
+    #|  (func $__pin (export "__pin") (param i32) (result i32) local.get 0)
+    #|  (func $__collect (export "__collect"))
+    #|  (func $_initialize (export "_initialize"))
+    #|  (func (export "serializeN") (param i32) (result i32) local.get 0)
+    #|  (func $target (param i32 i32) (result i32) local.get 0)
+    #|  (func (export "run") (result i32) i32.const 7 i32.const 9 call $target))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["dae-optimizing"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected AssemblyScript DAE boundary, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("assemblyscript-exported-memory-dae-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing fails closed for AssemblyScript startup exported memory" {
+  let source =
+    #|(module
+    #|  (memory (export "memory") 1)
+    #|  (func $target (param i32 i32) (result i32) local.get 0)
+    #|  (func (export "result") (result i32) i32.const 8580000)
+    #|  (func (export "_start") i32.const 7 i32.const 9 call $target drop))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["dae-optimizing"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected AssemblyScript startup DAE boundary, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("assemblyscript-startup-exported-memory-dae-noop")
+    }),
+    msg=trace.to_string(),
+  )
 }

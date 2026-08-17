@@ -5801,6 +5801,211 @@ fn cl_locals_have_nondefaultable_type(locals : @lib.Locals) -> Bool {
 }
 
 ///|
+fn cl_locals_have_dense_v128_carriers(locals : @lib.Locals) -> Bool {
+  let mut count = 0
+  for run in locals.runs() {
+    if run.val_type() == @lib.ValType::v128() {
+      count = count + run.count().reinterpret_as_int()
+      if count >= 8 {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn cl_instrs_have_local_snapshot_across_parameter_write(
+  instrs : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> Bool {
+  if parameter_count <= 0 {
+    return false
+  }
+  for write_idx = 1; write_idx < instrs.length(); write_idx = write_idx + 1 {
+    let snapshot = match (instrs[write_idx - 1], instrs[write_idx]) {
+      (@lib.MemorySize(_), @lib.LocalTee(snapshot)) => snapshot
+      _ => continue
+    }
+    let @lib.LocalIdx(raw_snapshot) = snapshot
+    if raw_snapshot.reinterpret_as_int() < parameter_count {
+      continue
+    }
+    let mut saw_parameter_write = false
+    for later = write_idx + 1; later < instrs.length(); later = later + 1 {
+      match instrs[later] {
+        @lib.LocalSet(@lib.LocalIdx(raw_parameter))
+        | @lib.LocalTee(@lib.LocalIdx(raw_parameter)) =>
+          if raw_parameter.reinterpret_as_int() < parameter_count {
+            saw_parameter_write = true
+          }
+        @lib.LocalGet(read) if saw_parameter_write && read == snapshot =>
+          return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_have_local_snapshot_across_parameter_write(
+            body, parameter_count,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_have_local_snapshot_across_parameter_write(
+            then_body, parameter_count,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if cl_instrs_have_local_snapshot_across_parameter_write(
+                body, parameter_count,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cl_instrs_memory_size_tee_parameter_write_facts(
+  instrs : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> (Bool, Bool, Bool) {
+  let mut has_memory_size = false
+  let mut has_local_tee = false
+  let mut has_parameter_write = false
+  for instr in instrs {
+    match instr {
+      @lib.MemorySize(_) => has_memory_size = true
+      @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        if raw.reinterpret_as_int() < parameter_count {
+          has_parameter_write = true
+        } else {
+          has_local_tee = true
+        }
+      @lib.LocalSet(@lib.LocalIdx(raw)) =>
+        if raw.reinterpret_as_int() < parameter_count {
+          has_parameter_write = true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let (memory_size, local_tee, parameter_write) = cl_instrs_memory_size_tee_parameter_write_facts(
+          body, parameter_count,
+        )
+        has_memory_size = has_memory_size || memory_size
+        has_local_tee = has_local_tee || local_tee
+        has_parameter_write = has_parameter_write || parameter_write
+      }
+      @lib.If(_, then_body, else_body) => {
+        let (then_memory_size, then_local_tee, then_parameter_write) = cl_instrs_memory_size_tee_parameter_write_facts(
+          then_body, parameter_count,
+        )
+        has_memory_size = has_memory_size || then_memory_size
+        has_local_tee = has_local_tee || then_local_tee
+        has_parameter_write = has_parameter_write || then_parameter_write
+        match else_body {
+          Some(body) => {
+            let (else_memory_size, else_local_tee, else_parameter_write) = cl_instrs_memory_size_tee_parameter_write_facts(
+              body, parameter_count,
+            )
+            has_memory_size = has_memory_size || else_memory_size
+            has_local_tee = has_local_tee || else_local_tee
+            has_parameter_write = has_parameter_write || else_parameter_write
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  (has_memory_size, has_local_tee, has_parameter_write)
+}
+
+///|
+fn cl_instrs_have_memory_size_tee_parameter_write(
+  instrs : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> Bool {
+  let (has_memory_size, has_local_tee, _) = cl_instrs_memory_size_tee_parameter_write_facts(
+    instrs, parameter_count,
+  )
+  has_memory_size && has_local_tee
+}
+
+///|
+fn cl_instrs_have_stack_carried_tee_parameter_alias(
+  instrs : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> Bool {
+  if parameter_count <= 0 {
+    return false
+  }
+  for tee_idx = 0; tee_idx < instrs.length(); tee_idx = tee_idx + 1 {
+    let target = match instrs[tee_idx] {
+      @lib.LocalTee(target) => target
+      _ => continue
+    }
+    let limit = if tee_idx + 9 < instrs.length() {
+      tee_idx + 9
+    } else {
+      instrs.length()
+    }
+    for read_idx = tee_idx + 2; read_idx + 1 < limit; read_idx = read_idx + 1 {
+      match (instrs[read_idx], instrs[read_idx + 1]) {
+        (@lib.LocalGet(read), @lib.LocalSet(@lib.LocalIdx(raw_parameter))) =>
+          if read == target &&
+            raw_parameter.reinterpret_as_int() < parameter_count {
+            return true
+          }
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_have_stack_carried_tee_parameter_alias(
+            body, parameter_count,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_have_stack_carried_tee_parameter_alias(
+            then_body, parameter_count,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if cl_instrs_have_stack_carried_tee_parameter_alias(
+                body, parameter_count,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   ignore(cl_imported_func_count(mod_))
   match mod_.code_sec {
@@ -5808,6 +6013,13 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       let defined_func_params = cl_defined_func_param_cache(mod_)
       let hot_context = @ir.hot_module_context_from_module(mod_)
       let imported_func_count = cl_imported_func_count(mod_)
+      let observable_assemblyscript_memory = run_hot_pipeline_module_has_assemblyscript_json_exported_memory_runtime(
+          mod_,
+        ) ||
+        run_hot_pipeline_module_has_assemblyscript_run_exported_memory_runtime(
+          mod_,
+        ) ||
+        run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(mod_)
       let rewritten_funcs : Array[@lib.Func] = Array::new(
         capacity=funcs.length(),
       )
@@ -5818,6 +6030,31 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           None => abort("coalesce-locals missing defined function params")
         }
         let @lib.Func(body_locals, @lib.Expr(instrs)) = funcs[code_idx]
+        if cl_instrs_have_stack_carried_tee_parameter_alias(
+            instrs,
+            params.length(),
+          ) ||
+          cl_instrs_have_local_snapshot_across_parameter_write(
+            instrs,
+            params.length(),
+          ) ||
+          (
+            observable_assemblyscript_memory &&
+            cl_instrs_have_memory_size_tee_parameter_write(
+              instrs,
+              params.length(),
+            )
+          ) {
+          rewritten_funcs.push(funcs[code_idx])
+          continue
+        }
+        if params.length() > 0 &&
+          body_locals.length() <= 32 &&
+          cl_locals_have_dense_v128_carriers(body_locals) &&
+          cl_instrs_have_loop_control(instrs) {
+          rewritten_funcs.push(funcs[code_idx])
+          continue
+        }
         if funcs.length() >= 32 &&
           params.length() > 0 &&
           body_locals.length() >= 16 &&

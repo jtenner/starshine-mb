@@ -33498,3 +33498,152 @@ test "ssa-nomerge avoids loop-backedge alias copies for header-read locals" {
   let writes = ssa_test_local_write_indices(instrs)
   assert_false(writes.any(fn(idx) { idx > 6U }), msg=writes.to_string())
 }
+
+///|
+test "hot pipeline skips no-local-write multivalue function-exit br_table" {
+  // WAGO fuzzcase 1777 is valid Wasm, but the current HOT representation loses
+  // the two-value payload when a nested br_table also targets the implicit
+  // function label. Until that lift surface is represented, every HOT pass must
+  // fail closed before lift instead of corrupting or stalling the O4z pipeline.
+  let trace : Array[String] = []
+  let input = ssa_test_decode_wasm_bytes([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 0, 2, 124, 124, 3, 2, 1, 0, 5, 4, 1,
+    1, 0, 2, 6, 13, 1, 124, 1, 68, 255, 255, 255, 255, 255, 148, 255, 255, 11, 7,
+    8, 2, 0, 0, 0, 1, 49, 2, 0, 10, 32, 1, 30, 0, 2, 0, 35, 0, 2, 0, 35, 0, 68, 43,
+    135, 22, 217, 206, 247, 241, 63, 65, 2, 14, 3, 0, 1, 2, 2, 11, 26, 11, 11,
+  ])
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge", "flatten", "simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected guarded multivalue br_table pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected guarded multivalue br_table output validity, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("multivalue-function-exit-br-table-hot-lift-noop")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "hot pipeline admits multivalue block-local br_table" {
+  // A no-local-write multivalue function is not itself hazardous. Keep the
+  // boundary specific to tables that actually name the implicit function label.
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result f64 f64)
+        #|    block (result f64 f64)
+        #|      f64.const 1
+        #|      f64.const 2
+        #|      i32.const 0
+        #|      br_table 0 0
+        #|    end))
+        #|,
+      ),
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected block-local br_table admission, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected block-local br_table validity, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("multivalue-function-exit-br-table-hot-lift-noop")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge preserves result-if loop carriers before outer branches" {
+  let input =
+    #|(module
+    #|  (func (local i32 i32)
+    #|    i32.const 64 local.set 0
+    #|    i32.const 100 local.set 1
+    #|    block
+    #|      loop
+    #|        local.get 0
+    #|        if
+    #|          local.get 0
+    #|          if (result i32)
+    #|            local.get 1 i32.const 1 i32.add
+    #|          else
+    #|            return
+    #|          end
+    #|          local.set 1
+    #|          br 1
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 1 drop))
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected result-if loop-carrier boundary, got \{err}")
+  }
+  let _ = optimized
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("result-if-loop-carrier-ssa-nomerge-noop")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge preserves local merges written by both if arms" {
+  let input =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    local.get 1 local.tee 1
+    #|    if
+    #|      i32.const 1 local.set 1
+    #|    else
+    #|      local.get 0
+    #|      if (result i32)
+    #|        i32.const 2
+    #|      else
+    #|        i32.const 3
+    #|      end
+    #|      local.set 1
+    #|    end
+    #|    local.get 1))
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected if-arm local merge boundary, got \{err}")
+  }
+  let _ = optimized
+  assert_true(
+    trace.any(fn(line) { line.contains("if-arm-local-merge-ssa-nomerge-noop") }),
+    msg=trace.join("\n"),
+  )
+}

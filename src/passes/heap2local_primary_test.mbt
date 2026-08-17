@@ -363,6 +363,85 @@ test "heap2local primary supports descriptor-bearing struct.new_default_desc and
 }
 
 ///|
+test "heap2local primary folds fresh multi-field struct reference null tests" {
+  let pretty = heap2local_primary_pretty_module(
+    pass_test_module_from_wat(
+      (
+        #|(module
+        #|  (type $inner (struct))
+        #|  (type $outer (struct (field (ref null $inner)) (field i32)))
+        #|  (func (result i32)
+        #|    (ref.is_null
+        #|      (struct.get $outer 0
+        #|        (struct.new $outer
+        #|          (struct.new_default $inner)
+        #|          (i32.const 42))))))
+        #|,
+      ),
+    ),
+  )
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(
+    heap2local_primary_contains_none(pretty, [
+      "struct.get", "struct.new", "ref.is_null",
+    ]),
+    msg=pretty,
+  )
+}
+
+///|
+test "heap2local primary folds fresh struct reads through extern any roundtrips" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x09, 0x02, 0x5f, 0x01,
+        0x7f, 0x00, 0x60, 0x00, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x01, 0x07, 0x14, 0x01,
+        0x10, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x2d, 0x72, 0x6f, 0x75, 0x6e, 0x64,
+        0x74, 0x72, 0x69, 0x70, 0x00, 0x00, 0x0a, 0x15, 0x01, 0x13, 0x00, 0x41, 0xcd,
+        0x00, 0xfb, 0x00, 0x00, 0xfb, 0x1b, 0xfb, 0x1a, 0xfb, 0x16, 0x00, 0xfb, 0x02,
+        0x00, 0x00, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected extern any roundtrip fixture decode, got \{err}")
+  }
+  let pretty = heap2local_primary_pretty_module(input)
+  assert_true(pretty.contains("I32(77)"), msg=pretty)
+  assert_true(
+    heap2local_primary_contains_none(pretty, [
+      "struct.new", "struct.get", "extern.convert_any", "any.convert_extern",
+    ]),
+    msg=pretty,
+  )
+}
+
+///|
+test "heap2local primary folds nested fresh struct cast and ref.test chains" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0d, 0x03, 0x5f, 0x02,
+        0x6e, 0x00, 0x6e, 0x00, 0x5f, 0x00, 0x60, 0x00, 0x01, 0x7f, 0x03, 0x02, 0x01,
+        0x02, 0x07, 0x05, 0x01, 0x01, 0x66, 0x00, 0x00, 0x0a, 0x21, 0x01, 0x1f, 0x00,
+        0xfb, 0x00, 0x01, 0xd0, 0x6c, 0xfb, 0x00, 0x00, 0x41, 0x02, 0xfb, 0x1c, 0xfb,
+        0x00, 0x00, 0xfb, 0x02, 0x00, 0x00, 0xfb, 0x17, 0x00, 0xfb, 0x02, 0x00, 0x00,
+        0xfb, 0x15, 0x01, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested fresh struct fixture decode, got \{err}")
+  }
+  let pretty = heap2local_primary_pretty_module(input)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(
+    heap2local_primary_contains_none(pretty, [
+      "struct.new", "struct.get", "ref.cast", "ref.test",
+    ]),
+    msg=pretty,
+  )
+}
+
+///|
 test "heap2local primary lowers constant-size array.new_default through array.get" {
   let array = @lib.TypeIdx::new(0U)
   let ref_local = @lib.LocalIdx::new(0U)
@@ -383,6 +462,60 @@ test "heap2local primary lowers constant-size array.new_default through array.ge
   )
   assert_true(
     heap2local_primary_contains_none(pretty, ["array.new_default", "array.get"]),
+    msg=pretty,
+  )
+}
+
+///|
+test "heap2local primary lowers local.tee array allocation through set and get" {
+  let array = @lib.TypeIdx::new(0U)
+  let ref_local = @lib.LocalIdx::new(0U)
+  let pretty = heap2local_primary_pretty_module(
+    heap2local_primary_module_with_heap_type(
+      heap2local_primary_i32_array_type(),
+      [@lib.ValType::i32()],
+      [@lib.ValType::ref_null(@lib.HeapType::new(array))],
+      [
+        @lib.Instruction::i32_const(@lib.I32(3)),
+        @lib.Instruction::array_new_default(array),
+        @lib.Instruction::local_tee(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::array_set(array),
+        @lib.Instruction::local_get(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::array_get(array),
+      ],
+    ),
+  )
+  assert_true(
+    heap2local_primary_contains_none(pretty, [
+      "array.new_default", "array.set", "array.get",
+    ]),
+    msg=pretty,
+  )
+}
+
+///|
+test "heap2local primary lowers non-null array locals through set and get" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x5e, 0x7f,
+        0x01, 0x60, 0x00, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x01, 0x0a, 0x1e, 0x01, 0x1c,
+        0x01, 0x01, 0x64, 0x00, 0x41, 0x03, 0xfb, 0x07, 0x00, 0x21, 0x00, 0x20, 0x00,
+        0x41, 0x01, 0x41, 0x2a, 0xfb, 0x0e, 0x00, 0x20, 0x00, 0x41, 0x01, 0xfb, 0x0b,
+        0x00, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected non-null array fixture decode, got \{err}")
+  }
+  let pretty = heap2local_primary_pretty_module(input)
+  assert_true(
+    heap2local_primary_contains_none(pretty, [
+      "array.new_default", "array.set", "array.get",
+    ]),
     msg=pretty,
   )
 }

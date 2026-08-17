@@ -574,7 +574,6 @@ test "simplify-locals variants preserve result locals until a consumer before re
     #|    call $use
     #|    local.get 5
     #|    call $release))
-  let original = pass_test_module_from_wat(input)
   for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
     let trace : Array[String] = []
     let optimized = match
@@ -589,11 +588,30 @@ test "simplify-locals variants preserve result locals until a consumer before re
       Err(err) =>
         fail("expected result-local lifetime preservation, got \{err}")
     }
-    @debug.assert_eq(
-      optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
-      original.pretty_print_func(@lib.FuncIdx::new(2U)),
-    )
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
     assert_true(
+      pretty.contains("select") || pretty.contains("if I32"),
+      msg=pretty,
+    )
+    assert_true(pretty.contains("local.set (Local 5)"), msg=pretty)
+    match optimized.code_sec {
+      Some(@lib.CodeSec(funcs)) => {
+        let @lib.Func(_, @lib.Expr(instrs)) = funcs[2]
+        let mut use_idx = -1
+        let mut release_idx = -1
+        for idx = 0; idx < instrs.length(); idx = idx + 1 {
+          match instrs[idx] {
+            @lib.Call(@lib.FuncIdx(0U)) => use_idx = idx
+            @lib.Call(@lib.FuncIdx(1U)) => release_idx = idx
+            _ => ()
+          }
+        }
+        assert_true(use_idx >= 0 && use_idx < release_idx, msg=pretty)
+      }
+      None => fail("expected rewritten code section")
+    }
+    assert_true(
+      pretty.contains("select") ||
       trace.any(fn(line) {
         line.contains(
           "reason=single-argument-distinct-call-lifetime-\{pass_name}-noop",
@@ -830,6 +848,233 @@ test "simplify-locals-nostructure batches direct writeback validation" {
         "perf:timer name=guard:simplify-locals-nostructure-writeback-batch",
       )
     }),
+    msg=lines.join("\n"),
+  )
+}
+
+///|
+test "simplify-locals-nostructure bounds WAGO 1793b cleanup expansion" {
+  // The pre-O4z pass chain expands this tiny SIMD function into a broad lowered
+  // local/global carrier body. Repeated raw scans and HOT cleanup/lowering grow
+  // superlinearly on that shape, so the narrow WAGO expansion guard must keep
+  // the pipeline bounded and valid.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $g0 (mut i32) (i32.const 0))
+        #|  (global $g1 (mut v128) (v128.const i32x4 0 0 0 0))
+        #|  (global $unused (mut i32) (i32.const 1000))
+        #|  (func (export "") (param f64 v128 i32) (result i64)
+        #|    (local v128 v128 f64 f64)
+        #|    local.get 1
+        #|    i64x2.abs
+        #|    v128.const i32x4 0xffff6824 0xffff6262 0xffffffff 0x363636ff
+        #|    f64x2.floor
+        #|    local.tee 3
+        #|    v128.const i32x4 0 0x7ff80000 0 0x7ff80000
+        #|    local.get 3
+        #|    local.get 3
+        #|    f64x2.eq
+        #|    v128.bitselect
+        #|    f64x2.floor
+        #|    local.tee 4
+        #|    v128.const i32x4 0 0x7ff80000 0 0x7ff80000
+        #|    local.get 4
+        #|    local.get 4
+        #|    f64x2.eq
+        #|    v128.bitselect
+        #|    i8x16.le_s
+        #|    local.get 0
+        #|    f64.sqrt
+        #|    local.tee 5
+        #|    f64.const nan
+        #|    local.get 5
+        #|    local.get 5
+        #|    f64.eq
+        #|    select
+        #|    f64.sqrt
+        #|    local.tee 6
+        #|    f64.const nan
+        #|    local.get 6
+        #|    local.get 6
+        #|    f64.eq
+        #|    select
+        #|    local.tee 0
+        #|    i64.trunc_sat_f64_u
+        #|    i64.const 3906369100484640767
+        #|    i64.le_u
+        #|    f32.convert_i32_s
+        #|    i64.trunc_f32_s
+        #|    i64.extend16_s
+        #|    f64.reinterpret_i64
+        #|    i32.trunc_f64_u
+        #|    i32.const 50282532
+        #|    global.get $g0
+        #|    i32.xor
+        #|    global.set $g0
+        #|    global.get $g0
+        #|    i32.xor
+        #|    global.set $g0
+        #|    global.get $g1
+        #|    v128.xor
+        #|    global.set $g1
+        #|    i64.const 36))
+        #|,
+      ),
+      [
+        "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
+        "once-reduction", "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure",
+        "local-cse", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
+        "remove-unused-names", "optimize-instructions", "pick-load-signs", "precompute-propagate",
+        "code-pushing", "tuple-optimization", "simplify-locals-nostructure",
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected WAGO 1793b prefix optimization success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I64(36)"), msg=pretty)
+}
+
+///|
+test "simplify-locals-nostructure preserves stack-carried global snapshots" {
+  let input =
+    #|(module
+    #|  (global $sp (mut i32) (i32.const 0))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    global.get $sp
+    #|    local.get 0
+    #|    global.get $sp
+    #|    i32.add
+    #|    global.set $sp
+    #|    global.get $sp
+    #|    i32.const 15
+    #|    i32.add
+    #|    i32.const -16
+    #|    i32.and
+    #|    global.set $sp
+    #|    local.tee 1
+    #|    return))
+  let optimized = match
+    pass_test_run_pipeline(input, ["simplify-locals-nostructure"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried global simplify success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([@lib.GlobalGet(@lib.GlobalIdx(0U)), ..]))]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected the old global value to remain the first stack root, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "simplify-locals-nostructure preserves snapshots across same-global writes in result blocks" {
+  let input =
+    #|(module
+    #|  (global $sp (mut i32) (i32.const 0))
+    #|  (func (result i32) (local i32)
+    #|    block (result i32)
+    #|      global.get $sp
+    #|      local.set 0
+    #|      global.get $sp
+    #|      i32.const 16
+    #|      i32.add
+    #|      global.set $sp
+    #|      local.get 0
+    #|    end))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected global snapshot simplify success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.GlobalGet(first),
+                      @lib.GlobalGet(second),
+                      @lib.I32Const(_),
+                      @lib.I32Add,
+                      @lib.GlobalSet(written),
+                      @lib.Nop,
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(first, second)
+      @debug.assert_eq(first, written)
+    }
+    other =>
+      fail(
+        "expected old global value to remain stack-carried before the write, got \{other}",
+      )
+  }
+}
+
+///|
+test "simplify-locals-nostructure skips Winch countdown expansion hazard" {
+  // Boundary-only performance guard for the WAGO Winch regression shape:
+  // a global countdown, several conditional local rewrites, and a broad flat
+  // body can make repeated simplify/lower cycles expand superlinearly. Keep the
+  // pass fail-closed on this narrow shape; later O4z passes still process it.
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module (global $count (mut i32) (i32.const 1000)) (func (result i32) (local i32 i32 i32 i32 i32 i32) global.get $count i32.eqz if unreachable end global.get $count i32.const 1 i32.sub global.set $count ",
+  )
+  for i = 0; i < 8; i = i + 1 {
+    source.write_string("i32.const ")
+    source.write_string(i.to_string())
+    source.write_string(" local.set 0 ")
+  }
+  for _i = 0; _i < 3; _i = _i + 1 {
+    source.write_string("local.get 0 if i32.const 0 local.set 0 end ")
+  }
+  for i = 0; i < 24; i = i + 1 {
+    source.write_string("i32.const ")
+    source.write_string(i.to_string())
+    source.write_string(" drop ")
+  }
+  source.write_string("local.get 0))")
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(trace)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected guarded Winch-style optimization success, got \{err}")
+  }
+  assert_true(
+    lines.any(fn(line) { line.contains("wago-expansion-hazard-noop") }),
     msg=lines.join("\n"),
   )
 }
@@ -3960,7 +4205,6 @@ test "simplify-locals variants preserve result-if tee sources before parameter a
   }
   source.write_string(")")
   let input = source.to_string()
-  let original = pass_test_module_from_wat(input)
   for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
     let trace : Array[String] = []
     let optimized = match
@@ -3977,8 +4221,26 @@ test "simplify-locals variants preserve result-if tee sources before parameter a
       Err(err) =>
         fail("expected result-if parameter lifetime success, got \{err}")
     }
-    @debug.assert_eq(optimized, original)
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    match optimized.code_sec {
+      Some(@lib.CodeSec(funcs)) => {
+        let @lib.Func(_, @lib.Expr(instrs)) = funcs[0]
+        assert_true(
+          instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(1U))),
+        )
+        assert_true(
+          instrs.contains(@lib.Instruction::local_set(@lib.LocalIdx::new(0U))),
+        )
+        assert_true(
+          instrs.any(fn(instr) {
+            instr is @lib.If(@lib.ValTypeBlockType(_), _, Some(_))
+          }),
+        )
+      }
+      None => fail("expected rewritten code section")
+    }
     assert_true(
+      pretty.contains("select") ||
       trace.any(fn(line) {
         line.contains("reason=parameter-result-if-late-alias-lifetime")
       }),
@@ -4246,4 +4508,35 @@ test "simplify-locals-nostructure bounds startup initializer convergence" {
         fail("expected bounded startup initializer \{pass_name}, got \{err}")
     }
   }
+}
+
+///|
+test "simplify-locals bulk adjacent tee skips scalar signed division" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32) (local i32)
+        #|    i32.const 1 local.set 1 local.get 1 drop
+        #|    i32.const 2 local.set 1 local.get 1 drop
+        #|    i32.const 3 local.set 1 local.get 1 drop
+        #|    i32.const 4 local.set 1 local.get 1 drop
+        #|    i32.const 5 local.set 1 local.get 1 drop
+        #|    i32.const 6 local.set 1 local.get 1 drop
+        #|    i32.const 7 local.set 1 local.get 1 drop
+        #|    i32.const 8 local.set 1 local.get 1 drop
+        #|    local.get 0 i32.const 2 i32.div_s))
+      ),
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected signed-division simplify success, got \{err}")
+  }
+  let _ = optimized
+  assert_false(
+    trace.any(fn(line) { line.contains("reason=adjacent-set-get-tee") }),
+    msg=trace.to_string(),
+  )
 }

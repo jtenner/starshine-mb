@@ -29,6 +29,10 @@ priv struct OptimizeInstructionsLocalFacts {
   i64_max_by_node : Array[Int64?]
   i32_max_ready : @bitset.BitSet
   i64_max_ready : @bitset.BitSet
+  assigned_i32_max_by_node : Array[Int?]
+  assigned_i64_max_by_node : Array[Int64?]
+  assigned_i32_max_ready : @bitset.BitSet
+  assigned_i64_max_ready : @bitset.BitSet
   mut sign_ext_ready : Bool
   mut unsigned_max_ready : Bool
 }
@@ -194,6 +198,10 @@ fn OptimizeInstructionsLocalFacts::new(
     i64_max_by_node: Array::make(node_count, None),
     i32_max_ready: @bitset.BitSet::new(node_count),
     i64_max_ready: @bitset.BitSet::new(node_count),
+    assigned_i32_max_by_node: Array::make(node_count, None),
+    assigned_i64_max_by_node: Array::make(node_count, None),
+    assigned_i32_max_ready: @bitset.BitSet::new(node_count),
+    assigned_i64_max_ready: @bitset.BitSet::new(node_count),
     sign_ext_ready: false,
     unsigned_max_ready: false,
   }
@@ -239,7 +247,9 @@ fn OptimizeInstructionsLocalFacts::i32_unsigned_max_for_get(
   self : OptimizeInstructionsLocalFacts,
   local_id : Int,
 ) -> Int? {
-  if local_id >= 0 && local_id < self.i32_unsigned_max_state_by_local.length() {
+  if self.unsigned_max_ready &&
+    local_id >= 0 &&
+    local_id < self.i32_unsigned_max_state_by_local.length() {
     self.i32_unsigned_max_state_by_local[local_id].max_value
   } else {
     None
@@ -251,7 +261,9 @@ fn OptimizeInstructionsLocalFacts::i64_unsigned_max_for_get(
   self : OptimizeInstructionsLocalFacts,
   local_id : Int,
 ) -> Int64? {
-  if local_id >= 0 && local_id < self.i64_unsigned_max_state_by_local.length() {
+  if self.unsigned_max_ready &&
+    local_id >= 0 &&
+    local_id < self.i64_unsigned_max_state_by_local.length() {
     self.i64_unsigned_max_state_by_local[local_id].max_value
   } else {
     None
@@ -10363,22 +10375,78 @@ fn OiUnsignedMaxValueFact::from_i64_value(
 }
 
 ///|
+fn OiUnsignedMaxValueFact::assigned_i32_max_for_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  facts : OptimizeInstructionsLocalFacts,
+  node_id : Int,
+) -> Int? {
+  if node_id < 0 || node_id >= facts.assigned_i32_max_by_node.length() {
+    return None
+  }
+  if facts.assigned_i32_max_ready[node_id] {
+    return facts.assigned_i32_max_by_node[node_id]
+  }
+  facts.assigned_i32_max_ready[node_id] = true
+  let max_value = match
+    OiI32MaxBitsProducerFact::from_node(func, dead, Some(facts), node_id) {
+    Some(fact) => {
+      ignore(fact.value_id)
+      fact.max_value
+    }
+    None => None
+  }
+  facts.assigned_i32_max_by_node[node_id] = max_value
+  max_value
+}
+
+///|
+fn OiUnsignedMaxValueFact::assigned_i64_max_for_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  facts : OptimizeInstructionsLocalFacts,
+  node_id : Int,
+) -> Int64? {
+  if node_id < 0 || node_id >= facts.assigned_i64_max_by_node.length() {
+    return None
+  }
+  if facts.assigned_i64_max_ready[node_id] {
+    return facts.assigned_i64_max_by_node[node_id]
+  }
+  facts.assigned_i64_max_ready[node_id] = true
+  let max_value = match
+    OiI64MaxBitsProducerFact::from_node(func, dead, Some(facts), node_id) {
+    Some(fact) => {
+      ignore(fact.value_id)
+      fact.max_value
+    }
+    None => None
+  }
+  facts.assigned_i64_max_by_node[node_id] = max_value
+  max_value
+}
+
+///|
 fn OiUnsignedMaxValueFact::from_assigned_i32_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> OiUnsignedMaxValueFact {
   // Assignment facts seed the LocalScanner-like summary. They deliberately do
   // not recurse through LocalGet summaries, matching the conservative previous
-  // scanner behavior for local-carried and self-referential values. Assignment
-  // values get the source-backed `Properties::getFallthrough` subset that is not
-  // necessarily enabled for direct expression consumers.
+  // scanner behavior for local-carried and self-referential values. Keep a
+  // separate node cache for this local-free query mode: long local.tee chains
+  // share expression prefixes, while the ordinary cache may consume finalized
+  // local facts and therefore cannot safely be reused during collection.
   let fallthrough = OiAssignedMaxBitsFallthroughFact::from_node(func, node_id)
-  OiUnsignedMaxValueFact::from_i32_node_with_local_facts(
-    func,
-    dead,
-    None,
-    fallthrough.selected_value(),
+  OiUnsignedMaxValueFact::from_i32_max(
+    OiUnsignedMaxValueFact::assigned_i32_max_for_node(
+      func,
+      dead,
+      scratch.local_facts,
+      fallthrough.selected_value(),
+    ),
   )
 }
 
@@ -10386,19 +10454,18 @@ fn OiUnsignedMaxValueFact::from_assigned_i32_value(
 fn OiUnsignedMaxValueFact::from_assigned_i64_value(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   node_id : Int,
 ) -> OiUnsignedMaxValueFact {
-  // Assignment facts seed the LocalScanner-like summary. They deliberately do
-  // not recurse through LocalGet summaries, matching the conservative previous
-  // scanner behavior for local-carried and self-referential values. Assignment
-  // values get the source-backed `Properties::getFallthrough` subset that is not
-  // necessarily enabled for direct expression consumers.
+  // Same separate local-free cache for i64 assignment values.
   let fallthrough = OiAssignedMaxBitsFallthroughFact::from_node(func, node_id)
-  OiUnsignedMaxValueFact::from_i64_node_with_local_facts(
-    func,
-    dead,
-    None,
-    fallthrough.selected_value(),
+  OiUnsignedMaxValueFact::from_i64_max(
+    OiUnsignedMaxValueFact::assigned_i64_max_for_node(
+      func,
+      dead,
+      scratch.local_facts,
+      fallthrough.selected_value(),
+    ),
   )
 }
 
@@ -11563,6 +11630,7 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
             OiUnsignedMaxValueFact::from_assigned_i32_value(
               func,
               dead,
+              scratch,
               payload.value_id,
             ).i32_max,
           )
@@ -11574,6 +11642,7 @@ fn optimize_instructions_collect_unsigned_max_local_assignment_expr(
                 OiUnsignedMaxValueFact::from_assigned_i64_value(
                   func,
                   dead,
+                  scratch,
                   payload.value_id,
                 ).i64_max,
               )
@@ -11613,6 +11682,16 @@ fn optimize_instructions_collect_unsigned_max_facts(
       scratch,
       func.roots[slot],
     )
+  }
+  // Assignment collection recursively memoizes producer facts with local.get
+  // summaries disabled. Clear that query-mode cache before enabling finalized
+  // local summaries so rewrite-time consumers can derive stronger local-aware
+  // facts without inheriting conservative assignment-time misses.
+  for node_id = 0
+      node_id < scratch.local_facts.i32_max_ready.length()
+      node_id = node_id + 1 {
+    scratch.local_facts.i32_max_ready[node_id] = false
+    scratch.local_facts.i64_max_ready[node_id] = false
   }
   scratch.local_facts.unsigned_max_ready = true
 }
@@ -31789,6 +31868,55 @@ fn optimize_instructions_try_replace_zero_bits_with_zero(
 }
 
 ///|
+fn optimize_instructions_exact_scalar_conversion_roundtrip_value(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  outer_instr : @lib.Instruction,
+  operand_id : Int,
+) -> Int? {
+  if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
+    return None
+  }
+  let operand = @ir.hot_node_get(func, operand_id)
+  if operand.child_count != 1 {
+    return None
+  }
+  let inner_instr = match @ir.hot_node_exact_instr(func, operand_id) {
+    Some(instr) => instr
+    None => return None
+  }
+  let exact = match (outer_instr, inner_instr) {
+    (
+      @lib.Instruction::I32WrapI64,
+      @lib.Instruction::I64ExtendI32S
+      | @lib.Instruction::I64ExtendI32U,
+    ) => true
+    (@lib.Instruction::I32TruncSatF64S, @lib.Instruction::F64ConvertI32S) =>
+      true
+    (@lib.Instruction::I32TruncSatF64U, @lib.Instruction::F64ConvertI32U) =>
+      true
+    (@lib.Instruction::I32ReinterpretF32, @lib.Instruction::F32ReinterpretI32) =>
+      true
+    (@lib.Instruction::I64ReinterpretF64, @lib.Instruction::F64ReinterpretI64) =>
+      true
+    (@lib.Instruction::F32ReinterpretI32, @lib.Instruction::I32ReinterpretF32) =>
+      true
+    (@lib.Instruction::F64ReinterpretI64, @lib.Instruction::I64ReinterpretF64) =>
+      true
+    _ => false
+  }
+  if !exact {
+    return None
+  }
+  let value_id = @ir.hot_child_get(func, operand_id, 0)
+  if OiLiveNodeFact::proves_node_live(func, dead, value_id) {
+    Some(value_id)
+  } else {
+    None
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_convert(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -31798,6 +31926,16 @@ fn optimize_instructions_try_fold_convert(
   instr : @lib.Instruction,
   operand_id : Int,
 ) -> Bool {
+  match
+    optimize_instructions_exact_scalar_conversion_roundtrip_value(
+      func, dead, instr, operand_id,
+    ) {
+    Some(value_id) => {
+      optimize_instructions_replace_with_node_id(ctx, func, node_id, value_id)
+      return true
+    }
+    None => ()
+  }
   match
     OiExtendWrapI64MaxBitsFact::from_extend_operand(
       func, dead, scratch, instr, operand_id,

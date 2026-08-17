@@ -1396,11 +1396,19 @@ fn precompute_try_fold_effectful_parent(
       Some(value) => value
       None => return false
     }
-  } else {
+  } else if child_count == 2 {
     match precompute_raw_try_fold_binary(plans[0].0, plans[1].0, instr) {
       Some(value) => value
       None => return false
     }
+  } else if child_count == 3 {
+    match
+      precompute_raw_try_fold_ternary(plans[0].0, plans[1].0, plans[2].0, instr) {
+      Some(value) => value
+      None => return false
+    }
+  } else {
+    return false
   }
   let folded_id = match precompute_build_const_instr(func, folded) {
     Some(value) => value
@@ -4404,6 +4412,12 @@ fn precompute_v128_read_u32(bytes : Array[Byte], offset : Int) -> UInt {
 }
 
 ///|
+fn precompute_v128_read_u64(bytes : Array[Byte], offset : Int) -> UInt64 {
+  precompute_v128_read_u32(bytes, offset).to_uint64() |
+  (precompute_v128_read_u32(bytes, offset + 4).to_uint64() << 32)
+}
+
+///|
 fn precompute_v128_write_u32(
   bytes : Array[Byte],
   offset : Int,
@@ -4413,6 +4427,234 @@ fn precompute_v128_write_u32(
   bytes[offset + 1] = (value >> 8).to_byte()
   bytes[offset + 2] = (value >> 16).to_byte()
   bytes[offset + 3] = (value >> 24).to_byte()
+}
+
+///|
+fn precompute_raw_try_fold_v128_lane_extract(
+  operand : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  match instr {
+    @lib.I8x16ExtractLaneS(lane) => {
+      let lane = lane.0.to_int()
+      if lane >= 16 {
+        return None
+      }
+      let value = (bytes[lane].to_uint() << 24).reinterpret_as_int() >> 24
+      Some(@lib.Instruction::i32_const(@lib.I32(value)))
+    }
+    @lib.I8x16ExtractLaneU(lane) => {
+      let lane = lane.0.to_int()
+      if lane >= 16 {
+        return None
+      }
+      Some(
+        @lib.Instruction::i32_const(
+          @lib.I32(bytes[lane].to_uint().reinterpret_as_int()),
+        ),
+      )
+    }
+    @lib.I16x8ExtractLaneS(lane) => {
+      let lane = lane.0.to_int()
+      if lane >= 8 {
+        return None
+      }
+      let offset = lane * 2
+      let raw = bytes[offset].to_uint() | (bytes[offset + 1].to_uint() << 8)
+      Some(
+        @lib.Instruction::i32_const(
+          @lib.I32((raw << 16).reinterpret_as_int() >> 16),
+        ),
+      )
+    }
+    @lib.I16x8ExtractLaneU(lane) => {
+      let lane = lane.0.to_int()
+      if lane >= 8 {
+        return None
+      }
+      let offset = lane * 2
+      let raw = bytes[offset].to_uint() | (bytes[offset + 1].to_uint() << 8)
+      Some(@lib.Instruction::i32_const(@lib.I32(raw.reinterpret_as_int())))
+    }
+    @lib.I32x4ExtractLane(lane) => {
+      let lane = lane.0.to_int()
+      if lane >= 4 {
+        return None
+      }
+      Some(
+        @lib.Instruction::i32_const(
+          @lib.I32(
+            precompute_v128_read_u32(bytes, lane * 4).reinterpret_as_int(),
+          ),
+        ),
+      )
+    }
+    @lib.I64x2ExtractLane(lane) => {
+      let lane = lane.0.to_int()
+      if lane >= 2 {
+        return None
+      }
+      Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(
+            precompute_v128_read_u64(bytes, lane * 8).reinterpret_as_int64(),
+          ),
+        ),
+      )
+    }
+    @lib.F32x4ExtractLane(lane) => {
+      let lane = lane.0.to_int()
+      if lane >= 4 {
+        return None
+      }
+      Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            Float::reinterpret_from_uint(
+              precompute_v128_read_u32(bytes, lane * 4),
+            ),
+          ),
+        ),
+      )
+    }
+    @lib.F64x2ExtractLane(lane) => {
+      let lane = lane.0.to_int()
+      if lane >= 2 {
+        return None
+      }
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            precompute_v128_read_u64(bytes, lane * 8).reinterpret_as_double(),
+          ),
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+fn precompute_raw_try_fold_v128_reduction(
+  operand : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let result = match instr {
+    @lib.V128AnyTrue => {
+      let mut any = false
+      for byte in bytes {
+        if byte != b'\x00' {
+          any = true
+        }
+      }
+      if any {
+        1
+      } else {
+        0
+      }
+    }
+    @lib.I8x16AllTrue => {
+      let mut all = true
+      for byte in bytes {
+        if byte == b'\x00' {
+          all = false
+        }
+      }
+      if all {
+        1
+      } else {
+        0
+      }
+    }
+    @lib.I8x16Bitmask => {
+      let mut mask = 0
+      for lane = 0; lane < 16; lane = lane + 1 {
+        if (bytes[lane].to_uint() & 0x80U) != 0U {
+          mask = mask | (1 << lane)
+        }
+      }
+      mask
+    }
+    @lib.I16x8AllTrue => {
+      let mut all = true
+      for lane = 0; lane < 8; lane = lane + 1 {
+        let offset = lane * 2
+        if bytes[offset] == b'\x00' && bytes[offset + 1] == b'\x00' {
+          all = false
+        }
+      }
+      if all {
+        1
+      } else {
+        0
+      }
+    }
+    @lib.I16x8Bitmask => {
+      let mut mask = 0
+      for lane = 0; lane < 8; lane = lane + 1 {
+        if (bytes[lane * 2 + 1].to_uint() & 0x80U) != 0U {
+          mask = mask | (1 << lane)
+        }
+      }
+      mask
+    }
+    @lib.I32x4AllTrue => {
+      let mut all = true
+      for lane = 0; lane < 4; lane = lane + 1 {
+        if precompute_v128_read_u32(bytes, lane * 4) == 0U {
+          all = false
+        }
+      }
+      if all {
+        1
+      } else {
+        0
+      }
+    }
+    @lib.I32x4Bitmask => {
+      let mut mask = 0
+      for lane = 0; lane < 4; lane = lane + 1 {
+        if (precompute_v128_read_u32(bytes, lane * 4) & 0x80000000U) != 0U {
+          mask = mask | (1 << lane)
+        }
+      }
+      mask
+    }
+    @lib.I64x2AllTrue => {
+      let mut all = true
+      for lane = 0; lane < 2; lane = lane + 1 {
+        let offset = lane * 8
+        if precompute_v128_read_u32(bytes, offset) == 0U &&
+          precompute_v128_read_u32(bytes, offset + 4) == 0U {
+          all = false
+        }
+      }
+      if all {
+        1
+      } else {
+        0
+      }
+    }
+    @lib.I64x2Bitmask => {
+      let mut mask = 0
+      for lane = 0; lane < 2; lane = lane + 1 {
+        if (precompute_v128_read_u32(bytes, lane * 8 + 4) & 0x80000000U) != 0U {
+          mask = mask | (1 << lane)
+        }
+      }
+      mask
+    }
+    _ => return None
+  }
+  Some(@lib.Instruction::i32_const(@lib.I32(result)))
 }
 
 ///|
@@ -4443,9 +4685,207 @@ fn precompute_v128_const_from_bytes(bytes : Array[Byte]) -> @lib.Instruction? {
 }
 
 ///|
-fn precompute_raw_try_fold_f32x4_max(
+fn precompute_v128_write_u64(
+  bytes : Array[Byte],
+  offset : Int,
+  value : UInt64,
+) -> Unit {
+  for byte_idx = 0; byte_idx < 8; byte_idx = byte_idx + 1 {
+    bytes[offset + byte_idx] = (value >> (byte_idx * 8)).to_byte()
+  }
+}
+
+///|
+fn precompute_raw_try_fold_f64x2_unary(
+  operand : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let scalar_instr = match instr {
+    @lib.F64x2Floor => @lib.Instruction::f64_floor()
+    @lib.F64x2Nearest => @lib.Instruction::f64_nearest()
+    _ => return None
+  }
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 2; lane = lane + 1 {
+    let offset = lane * 8
+    let value = precompute_v128_read_u64(bytes, offset).reinterpret_as_double()
+    let folded = match
+      precompute_raw_try_fold_unary(
+        @lib.Instruction::f64_const(@lib.F64(value)),
+        scalar_instr,
+      ) {
+      Some(@lib.F64Const(@lib.F64(result))) => result.reinterpret_as_uint64()
+      _ => return None
+    }
+    precompute_v128_write_u64(out, offset, folded)
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_f32x4_convert_i32x4_s(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 4; lane = lane + 1 {
+    let offset = lane * 4
+    let value = precompute_v128_read_u32(bytes, offset).reinterpret_as_int()
+    precompute_v128_write_u32(
+      out,
+      offset,
+      Float::from_int(value).reinterpret_as_uint(),
+    )
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_f64x2_eq(
   lhs_instr : @lib.Instruction,
   rhs_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let rhs = match precompute_v128_const_bytes(rhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 2; lane = lane + 1 {
+    let offset = lane * 8
+    let lhs_value = precompute_v128_read_u64(lhs, offset).reinterpret_as_double()
+    let rhs_value = precompute_v128_read_u64(rhs, offset).reinterpret_as_double()
+    precompute_v128_write_u64(
+      out,
+      offset,
+      if lhs_value == rhs_value {
+        0xffffffffffffffffUL
+      } else {
+        0UL
+      },
+    )
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i8x16_shl(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let shift = match rhs_instr {
+    @lib.I32Const(@lib.I32(value)) => value & 7
+    _ => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 16; lane = lane + 1 {
+    out[lane] = (lhs[lane].to_uint() << shift).to_byte()
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i8x16_shr_s(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let shift = match rhs_instr {
+    @lib.I32Const(@lib.I32(value)) => value & 7
+    _ => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 16; lane = lane + 1 {
+    let signed = (lhs[lane].to_uint() << 24).reinterpret_as_int() >> 24
+    out[lane] = (signed >> shift).to_byte()
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_v128_xor(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let rhs = match precompute_v128_const_bytes(rhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for index = 0; index < 16; index = index + 1 {
+    out[index] = (lhs[index].to_uint() ^ rhs[index].to_uint()).to_byte()
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_v128_bitselect(
+  first_instr : @lib.Instruction,
+  second_instr : @lib.Instruction,
+  mask_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let first = match precompute_v128_const_bytes(first_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let second = match precompute_v128_const_bytes(second_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let mask = match precompute_v128_const_bytes(mask_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for byte_idx = 0; byte_idx < 16; byte_idx = byte_idx + 1 {
+    out[byte_idx] = ((first[byte_idx].to_uint() & mask[byte_idx].to_uint()) |
+    (second[byte_idx].to_uint() & (mask[byte_idx].to_uint() ^ 0xffU))).to_byte()
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_ternary(
+  first_instr : @lib.Instruction,
+  second_instr : @lib.Instruction,
+  third_instr : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.V128Bitselect =>
+      precompute_raw_try_fold_v128_bitselect(
+        first_instr, second_instr, third_instr,
+      )
+    _ => None
+  }
+}
+
+///|
+fn precompute_raw_try_fold_f32x4_minmax(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+  scalar_op : @lib.Instruction,
 ) -> @lib.Instruction? {
   let lhs = match precompute_v128_const_bytes(lhs_instr) {
     Some(bytes) => bytes
@@ -4469,11 +4909,7 @@ fn precompute_raw_try_fold_f32x4_max(
       ),
     )
     let folded = match
-      precompute_raw_try_fold_binary(
-        lhs_value,
-        rhs_value,
-        @lib.Instruction::f32_max(),
-      ) {
+      precompute_raw_try_fold_binary(lhs_value, rhs_value, scalar_op) {
       Some(@lib.F32Const(@lib.F32(value))) => value.reinterpret_as_uint()
       _ => return None
     }
@@ -4483,11 +4919,513 @@ fn precompute_raw_try_fold_f32x4_max(
 }
 
 ///|
+fn precompute_raw_try_fold_v128_replace_lane(
+  vector : @lib.Instruction,
+  scalar : @lib.Instruction,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(vector) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  match (instr, scalar) {
+    (@lib.I8x16ReplaceLane(lane), @lib.I32Const(@lib.I32(value))) => {
+      let lane = lane.0.to_int()
+      if lane >= 16 {
+        return None
+      }
+      bytes[lane] = value.to_byte()
+    }
+    (@lib.I16x8ReplaceLane(lane), @lib.I32Const(@lib.I32(value))) => {
+      let lane = lane.0.to_int()
+      if lane >= 8 {
+        return None
+      }
+      let offset = lane * 2
+      let bits = value.reinterpret_as_uint()
+      bytes[offset] = bits.to_byte()
+      bytes[offset + 1] = (bits >> 8).to_byte()
+    }
+    (@lib.I32x4ReplaceLane(lane), @lib.I32Const(@lib.I32(value))) => {
+      let lane = lane.0.to_int()
+      if lane >= 4 {
+        return None
+      }
+      precompute_v128_write_u32(bytes, lane * 4, value.reinterpret_as_uint())
+    }
+    (@lib.I64x2ReplaceLane(lane), @lib.I64Const(@lib.I64(value))) => {
+      let lane = lane.0.to_int()
+      if lane >= 2 {
+        return None
+      }
+      precompute_v128_write_u64(bytes, lane * 8, value.reinterpret_as_uint64())
+    }
+    (@lib.F32x4ReplaceLane(lane), @lib.F32Const(@lib.F32(value))) => {
+      let lane = lane.0.to_int()
+      if lane >= 4 {
+        return None
+      }
+      precompute_v128_write_u32(bytes, lane * 4, value.reinterpret_as_uint())
+    }
+    (@lib.F64x2ReplaceLane(lane), @lib.F64Const(@lib.F64(value))) => {
+      let lane = lane.0.to_int()
+      if lane >= 2 {
+        return None
+      }
+      precompute_v128_write_u64(bytes, lane * 8, value.reinterpret_as_uint64())
+    }
+    _ => return None
+  }
+  precompute_v128_const_from_bytes(bytes)
+}
+
+///|
+fn precompute_raw_try_fold_f64x2_minmax(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+  scalar_op : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let rhs = match precompute_v128_const_bytes(rhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 2; lane = lane + 1 {
+    let offset = lane * 8
+    let lhs_value = @lib.Instruction::f64_const(
+      @lib.F64(precompute_v128_read_u64(lhs, offset).reinterpret_as_double()),
+    )
+    let rhs_value = @lib.Instruction::f64_const(
+      @lib.F64(precompute_v128_read_u64(rhs, offset).reinterpret_as_double()),
+    )
+    let folded = match
+      precompute_raw_try_fold_binary(lhs_value, rhs_value, scalar_op) {
+      Some(@lib.F64Const(@lib.F64(value))) => value.reinterpret_as_uint64()
+      _ => return None
+    }
+    precompute_v128_write_u64(out, offset, folded)
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i64x2_abs(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 2; lane = lane + 1 {
+    let offset = lane * 8
+    let bits = precompute_v128_read_u64(bytes, offset)
+    precompute_v128_write_u64(
+      out,
+      offset,
+      if (bits & 0x8000000000000000UL) != 0UL {
+        0UL - bits
+      } else {
+        bits
+      },
+    )
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i64x2_neg(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 2; lane = lane + 1 {
+    let offset = lane * 8
+    precompute_v128_write_u64(
+      out,
+      offset,
+      0UL - precompute_v128_read_u64(bytes, offset),
+    )
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_f64x2_neg(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = bytes.copy()
+  out[7] = (out[7].to_uint() ^ 0x80U).to_byte()
+  out[15] = (out[15].to_uint() ^ 0x80U).to_byte()
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i64x2_extend_low_i32x4_s(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 2; lane = lane + 1 {
+    let value = precompute_v128_read_u32(bytes, lane * 4)
+      .reinterpret_as_int()
+      .to_int64()
+      .reinterpret_as_uint64()
+    precompute_v128_write_u64(out, lane * 8, value)
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_f32x4_unary(
+  operand : @lib.Instruction,
+  scalar_op : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 4; lane = lane + 1 {
+    let offset = lane * 4
+    let scalar = @lib.Instruction::f32_const(
+      @lib.F32(
+        Float::reinterpret_from_uint(precompute_v128_read_u32(bytes, offset)),
+      ),
+    )
+    let folded = match precompute_raw_try_fold_unary(scalar, scalar_op) {
+      Some(@lib.F32Const(@lib.F32(value))) => value.reinterpret_as_uint()
+      _ => return None
+    }
+    precompute_v128_write_u32(out, offset, folded)
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i16x8_narrow_i32x4_u(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let rhs = match precompute_v128_const_bytes(rhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 8; lane = lane + 1 {
+    let source = if lane < 4 { lhs } else { rhs }
+    let source_lane = if lane < 4 { lane } else { lane - 4 }
+    let value = precompute_v128_read_u32(source, source_lane * 4).reinterpret_as_int()
+    let narrowed = if value < 0 {
+      0U
+    } else if value > 0xffff {
+      0xffffU
+    } else {
+      value.reinterpret_as_uint()
+    }
+    out[lane * 2] = narrowed.to_byte()
+    out[lane * 2 + 1] = (narrowed >> 8).to_byte()
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i16x8_extadd_pairwise_i8x16_u(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 8; lane = lane + 1 {
+    let value = bytes[lane * 2].to_uint() + bytes[lane * 2 + 1].to_uint()
+    out[lane * 2] = value.to_byte()
+    out[lane * 2 + 1] = (value >> 8).to_byte()
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_v128_not(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for index = 0; index < 16; index = index + 1 {
+    out[index] = (bytes[index].to_uint() ^ 0xffU).to_byte()
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_f64x2_promote_low_f32x4(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 2; lane = lane + 1 {
+    let scalar = @lib.Instruction::f32_const(
+      @lib.F32(
+        Float::reinterpret_from_uint(precompute_v128_read_u32(bytes, lane * 4)),
+      ),
+    )
+    let folded = match
+      precompute_raw_try_fold_unary(scalar, @lib.Instruction::f64_promote_f32()) {
+      Some(@lib.F64Const(@lib.F64(value))) => value.reinterpret_as_uint64()
+      _ => return None
+    }
+    precompute_v128_write_u64(out, lane * 8, folded)
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_f32x4_eq(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let rhs = match precompute_v128_const_bytes(rhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 4; lane = lane + 1 {
+    let offset = lane * 4
+    let lhs_value = Float::reinterpret_from_uint(
+      precompute_v128_read_u32(lhs, offset),
+    )
+    let rhs_value = Float::reinterpret_from_uint(
+      precompute_v128_read_u32(rhs, offset),
+    )
+    precompute_v128_write_u32(
+      out,
+      offset,
+      if lhs_value == rhs_value {
+        0xffffffffU
+      } else {
+        0U
+      },
+    )
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i8x16_ne(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let rhs = match precompute_v128_const_bytes(rhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 16; lane = lane + 1 {
+    out[lane] = if lhs[lane] != rhs[lane] { b'\xff' } else { b'\x00' }
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i64x2_ge_s(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let rhs = match precompute_v128_const_bytes(rhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 2; lane = lane + 1 {
+    let offset = lane * 8
+    let folded = precompute_v128_read_u64(lhs, offset).reinterpret_as_int64() >=
+      precompute_v128_read_u64(rhs, offset).reinterpret_as_int64()
+    precompute_v128_write_u64(
+      out,
+      offset,
+      if folded {
+        0xffffffffffffffffUL
+      } else {
+        0UL
+      },
+    )
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_f64x2_compare(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+  scalar_op : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let rhs = match precompute_v128_const_bytes(rhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 2; lane = lane + 1 {
+    let offset = lane * 8
+    let lhs_value = @lib.Instruction::f64_const(
+      @lib.F64(precompute_v128_read_u64(lhs, offset).reinterpret_as_double()),
+    )
+    let rhs_value = @lib.Instruction::f64_const(
+      @lib.F64(precompute_v128_read_u64(rhs, offset).reinterpret_as_double()),
+    )
+    let folded = match
+      precompute_raw_try_fold_binary(lhs_value, rhs_value, scalar_op) {
+      Some(@lib.I32Const(@lib.I32(value))) => value != 0
+      _ => return None
+    }
+    precompute_v128_write_u64(
+      out,
+      offset,
+      if folded {
+        0xffffffffffffffffUL
+      } else {
+        0UL
+      },
+    )
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
 fn precompute_raw_try_fold_unary(
   operand : @lib.Instruction,
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
+  match instr {
+    @lib.I64x2Abs =>
+      match precompute_raw_try_fold_i64x2_abs(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.I64x2Neg =>
+      match precompute_raw_try_fold_i64x2_neg(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.F64x2Neg =>
+      match precompute_raw_try_fold_f64x2_neg(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.I64x2ExtendLowI32x4S =>
+      match precompute_raw_try_fold_i64x2_extend_low_i32x4_s(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.F32x4Floor =>
+      match
+        precompute_raw_try_fold_f32x4_unary(
+          operand,
+          @lib.Instruction::f32_floor(),
+        ) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.F32x4Ceil =>
+      match
+        precompute_raw_try_fold_f32x4_unary(
+          operand,
+          @lib.Instruction::f32_ceil(),
+        ) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.F32x4Trunc =>
+      match
+        precompute_raw_try_fold_f32x4_unary(
+          operand,
+          @lib.Instruction::f32_trunc(),
+        ) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.I16x8ExtaddPairwiseI8x16U =>
+      match precompute_raw_try_fold_i16x8_extadd_pairwise_i8x16_u(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.V128Not =>
+      match precompute_raw_try_fold_v128_not(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.F64x2PromoteLowF32x4 =>
+      match precompute_raw_try_fold_f64x2_promote_low_f32x4(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    _ => ()
+  }
+  match precompute_raw_try_fold_f64x2_unary(operand, instr) {
+    Some(folded) => return Some(folded)
+    None => ()
+  }
+  match instr {
+    @lib.F32x4ConvertI32x4S =>
+      match precompute_raw_try_fold_f32x4_convert_i32x4_s(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    _ => ()
+  }
+  match precompute_raw_try_fold_v128_lane_extract(operand, instr) {
+    Some(folded) => return Some(folded)
+    None => ()
+  }
+  match precompute_raw_try_fold_v128_reduction(operand, instr) {
+    Some(folded) => return Some(folded)
+    None => ()
+  }
   match (instr, operand) {
+    (@lib.I8x16Splat, @lib.I32Const(@lib.I32(value))) => {
+      let bytes = Array::make(16, value.to_byte())
+      return precompute_v128_const_from_bytes(bytes)
+    }
     (@lib.I32x4Splat, @lib.I32Const(@lib.I32(value))) => {
       let bytes = Array::make(16, b'\x00')
       let bits = value.reinterpret_as_uint()
@@ -4857,9 +5795,57 @@ fn precompute_raw_try_fold_binary(
   rhs_instr : @lib.Instruction,
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
+  match precompute_raw_try_fold_v128_replace_lane(lhs_instr, rhs_instr, instr) {
+    Some(folded) => return Some(folded)
+    None => ()
+  }
   match (instr, lhs_instr, rhs_instr) {
+    (@lib.F32x4Eq, _, _) =>
+      return precompute_raw_try_fold_f32x4_eq(lhs_instr, rhs_instr)
+    (@lib.F32x4Min, _, _) =>
+      return precompute_raw_try_fold_f32x4_minmax(
+        lhs_instr,
+        rhs_instr,
+        @lib.Instruction::f32_min(),
+      )
     (@lib.F32x4Max, _, _) =>
-      return precompute_raw_try_fold_f32x4_max(lhs_instr, rhs_instr)
+      return precompute_raw_try_fold_f32x4_minmax(
+        lhs_instr,
+        rhs_instr,
+        @lib.Instruction::f32_max(),
+      )
+    (@lib.F64x2Min, _, _) =>
+      return precompute_raw_try_fold_f64x2_minmax(
+        lhs_instr,
+        rhs_instr,
+        @lib.Instruction::f64_min(),
+      )
+    (@lib.F64x2Max, _, _) =>
+      return precompute_raw_try_fold_f64x2_minmax(
+        lhs_instr,
+        rhs_instr,
+        @lib.Instruction::f64_max(),
+      )
+    (@lib.F64x2Gt, _, _) =>
+      return precompute_raw_try_fold_f64x2_compare(
+        lhs_instr,
+        rhs_instr,
+        @lib.Instruction::f64_gt(),
+      )
+    (@lib.I64x2GeS, _, _) =>
+      return precompute_raw_try_fold_i64x2_ge_s(lhs_instr, rhs_instr)
+    (@lib.I8x16Ne, _, _) =>
+      return precompute_raw_try_fold_i8x16_ne(lhs_instr, rhs_instr)
+    (@lib.V128Xor, _, _) =>
+      return precompute_raw_try_fold_v128_xor(lhs_instr, rhs_instr)
+    (@lib.I16x8NarrowI32x4U, _, _) =>
+      return precompute_raw_try_fold_i16x8_narrow_i32x4_u(lhs_instr, rhs_instr)
+    (@lib.F64x2Eq, _, _) =>
+      return precompute_raw_try_fold_f64x2_eq(lhs_instr, rhs_instr)
+    (@lib.I8x16Shl, _, _) =>
+      return precompute_raw_try_fold_i8x16_shl(lhs_instr, rhs_instr)
+    (@lib.I8x16ShrS, _, _) =>
+      return precompute_raw_try_fold_i8x16_shr_s(lhs_instr, rhs_instr)
     (@lib.StringConcat, @lib.StringConst(lhs), @lib.StringConst(rhs)) => {
       let lhs_units = match precompute_string_bytes_to_utf16(lhs) {
         Some(units) => units
@@ -6634,6 +7620,120 @@ fn precompute_raw_fold_output_tail(
   module_ctx? : @ir.HotModuleContext? = None,
   label_arities? : Array[Int?] = [],
 ) -> Bool {
+  if out.length() >= 12 {
+    let base = out.length() - 12
+    match
+      (
+        out[base],
+        out[base + 1],
+        out[base + 2],
+        out[base + 3],
+        out[base + 4],
+        out[base + 5],
+        out[base + 6],
+        out[base + 7],
+        out[base + 8],
+        out[base + 9],
+        out[base + 10],
+        out[base + 11],
+      ) {
+      (
+        first_value,
+        @lib.LocalSet(first_local),
+        second_value,
+        @lib.LocalSet(second_local),
+        @lib.LocalGet(first_compare_get),
+        @lib.LocalGet(second_compare_get),
+        compare_op,
+        @lib.LocalSet(mask_local),
+        @lib.LocalGet(first_select_get),
+        @lib.LocalGet(second_select_get),
+        @lib.LocalGet(mask_get),
+        @lib.V128Bitselect,
+      ) if first_local == first_compare_get &&
+        first_compare_get == second_compare_get &&
+        first_local == first_select_get &&
+        second_local == second_select_get &&
+        mask_local == mask_get =>
+        match
+          precompute_raw_try_fold_binary(first_value, first_value, compare_op) {
+          Some(mask) =>
+            match
+              precompute_raw_try_fold_ternary(
+                first_value,
+                second_value,
+                mask,
+                @lib.Instruction::v128_bitselect(),
+              ) {
+              Some(folded) => {
+                for pop_idx = 0; pop_idx < 12; pop_idx = pop_idx + 1 {
+                  ignore(pop_idx)
+                  ignore(out.pop())
+                }
+                out.push(first_value)
+                out.push(@lib.Instruction::local_set(first_local))
+                out.push(second_value)
+                out.push(@lib.Instruction::local_set(second_local))
+                out.push(mask)
+                out.push(@lib.Instruction::local_set(mask_local))
+                out.push(folded)
+                return true
+              }
+              None => ()
+            }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if out.length() >= 7 {
+    let base = out.length() - 7
+    match
+      (
+        out[base],
+        out[base + 1],
+        out[base + 2],
+        out[base + 3],
+        out[base + 4],
+        out[base + 5],
+        out[base + 6],
+      ) {
+      (
+        first_value,
+        @lib.LocalTee(tee_local),
+        second_value,
+        @lib.LocalGet(first_get),
+        @lib.LocalGet(second_get),
+        compare_op,
+        @lib.V128Bitselect,
+      ) if tee_local == first_get && first_get == second_get =>
+        match
+          precompute_raw_try_fold_binary(first_value, first_value, compare_op) {
+          Some(mask) =>
+            match
+              precompute_raw_try_fold_ternary(
+                first_value,
+                second_value,
+                mask,
+                @lib.Instruction::v128_bitselect(),
+              ) {
+              Some(folded) => {
+                for pop_idx = 0; pop_idx < 7; pop_idx = pop_idx + 1 {
+                  ignore(pop_idx)
+                  ignore(out.pop())
+                }
+                out.push(first_value)
+                out.push(@lib.Instruction::local_set(tee_local))
+                out.push(folded)
+                return true
+              }
+              None => ()
+            }
+          None => ()
+        }
+      _ => ()
+    }
+  }
   if precompute_raw_try_fold_string_slice_tail(out) {
     return true
   }
@@ -6650,6 +7750,189 @@ fn precompute_raw_fold_output_tail(
   }
   if precompute_raw_try_mark_value_tail_after_infinite_loop(out) {
     return true
+  }
+  if out.length() >= 6 {
+    let base = out.length() - 6
+    match
+      (
+        out[base],
+        out[base + 1],
+        out[base + 2],
+        out[base + 3],
+        out[base + 4],
+        out[base + 5],
+      ) {
+      (
+        @lib.I32Const(_) as scratch_const,
+        @lib.LocalSet(scratch_local),
+        @lib.LocalGet(accumulator_local),
+        @lib.LocalGet(read_scratch),
+        @lib.I32Add,
+        @lib.LocalTee(final_local) as final_write,
+      )
+      | (
+        @lib.I32Const(_) as scratch_const,
+        @lib.LocalSet(scratch_local),
+        @lib.LocalGet(accumulator_local),
+        @lib.LocalGet(read_scratch),
+        @lib.I32Add,
+        @lib.LocalSet(final_local) as final_write,
+      ) if scratch_local == read_scratch &&
+        accumulator_local == final_local &&
+        scratch_local != accumulator_local => {
+        for _ in 0..<6 {
+          ignore(out.pop())
+        }
+        out.push(@lib.Instruction::local_get(accumulator_local))
+        out.push(scratch_const)
+        out.push(@lib.Instruction::i32_add())
+        out.push(final_write)
+        return true
+      }
+      _ => ()
+    }
+  }
+  if out.length() >= 7 {
+    let base = out.length() - 7
+    match
+      (
+        out[base],
+        out[base + 1],
+        out[base + 2],
+        out[base + 3],
+        out[base + 4],
+        out[base + 5],
+        out[base + 6],
+      ) {
+      (
+        @lib.LocalGet(first_get),
+        @lib.I32Const(_) as first_const,
+        @lib.I32Add,
+        @lib.LocalTee(first_tee),
+        @lib.I32Const(_) as second_const,
+        @lib.I32Add,
+        @lib.LocalTee(final_local) as final_write,
+      )
+      | (
+        @lib.LocalGet(first_get),
+        @lib.I32Const(_) as first_const,
+        @lib.I32Add,
+        @lib.LocalTee(first_tee),
+        @lib.I32Const(_) as second_const,
+        @lib.I32Add,
+        @lib.LocalSet(final_local) as final_write,
+      ) if first_get == first_tee && first_tee == final_local =>
+        match
+          precompute_raw_try_fold_binary(
+            first_const,
+            second_const,
+            @lib.Instruction::i32_add(),
+          ) {
+          Some(folded_const) => {
+            for _ in 0..<7 {
+              ignore(out.pop())
+            }
+            out.push(@lib.Instruction::local_get(first_get))
+            out.push(folded_const)
+            out.push(@lib.Instruction::i32_add())
+            out.push(final_write)
+            return true
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if out.length() >= 8 {
+    let base = out.length() - 8
+    match
+      (
+        out[base],
+        out[base + 1],
+        out[base + 2],
+        out[base + 3],
+        out[base + 4],
+        out[base + 5],
+        out[base + 6],
+        out[base + 7],
+      ) {
+      (
+        @lib.LocalGet(first_get),
+        @lib.I32Const(_) as first_const,
+        @lib.I32Add,
+        @lib.LocalSet(first_set),
+        @lib.LocalGet(second_get),
+        @lib.I32Const(_) as second_const,
+        @lib.I32Add,
+        @lib.LocalSet(second_set),
+      ) if first_get == first_set &&
+        first_set == second_get &&
+        second_get == second_set =>
+        match
+          precompute_raw_try_fold_binary(
+            first_const,
+            second_const,
+            @lib.Instruction::i32_add(),
+          ) {
+          Some(folded_const) => {
+            for _ in 0..<8 {
+              ignore(out.pop())
+            }
+            out.push(@lib.Instruction::local_get(first_get))
+            out.push(folded_const)
+            out.push(@lib.Instruction::i32_add())
+            out.push(@lib.Instruction::local_set(first_set))
+            return true
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if out.length() >= 5 {
+    match out[out.length() - 4] {
+      @lib.LocalTee(local_idx) =>
+        match
+          precompute_raw_try_fold_ternary(
+            out[out.length() - 5],
+            out[out.length() - 3],
+            out[out.length() - 2],
+            out[out.length() - 1],
+          ) {
+          Some(folded) => {
+            let value = out[out.length() - 5]
+            for pop_idx = 0; pop_idx < 5; pop_idx = pop_idx + 1 {
+              ignore(pop_idx)
+              ignore(out.pop())
+            }
+            out.push(value)
+            out.push(@lib.Instruction::local_set(local_idx))
+            out.push(folded)
+            return true
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if out.length() >= 4 {
+    match
+      precompute_raw_try_fold_ternary(
+        out[out.length() - 4],
+        out[out.length() - 3],
+        out[out.length() - 2],
+        out[out.length() - 1],
+      ) {
+      Some(folded) => {
+        for pop_idx = 0; pop_idx < 4; pop_idx = pop_idx + 1 {
+          ignore(pop_idx)
+          ignore(out.pop())
+        }
+        out.push(folded)
+        return true
+      }
+      None => ()
+    }
   }
   if out.length() >= 2 {
     match (out[out.length() - 2], out[out.length() - 1]) {

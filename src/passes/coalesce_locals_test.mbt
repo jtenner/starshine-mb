@@ -215,6 +215,38 @@ fn cl_test_local_subtyping_fixture() -> @lib.Module {
 }
 
 ///|
+test "coalesce-locals-cfg intentionally fails closed for measured emscripten stateful runtime shapes" {
+  let wat = StringBuilder::new()
+  wat.write_string(
+    "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
+  )
+  for idx = 5; idx < 44; idx = idx + 1 {
+    wat.write_string(" (func)")
+  }
+  wat.write_string(")")
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      wat.to_string(),
+      ["coalesce-locals-cfg"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected guarded coalesce-locals-cfg success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("emscripten-main-stateful-runtime-coalesce-locals-cfg-noop")
+    }),
+    msg="\{trace}",
+  )
+}
+
+///|
 test "coalesce-locals registers as an active module pass" {
   match pass_registry_lookup("coalesce-locals") {
     Some(entry) => {
@@ -1011,6 +1043,42 @@ test "O4z late CFG coalesce uses loop liveness" {
   }
   let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
   assert_true(locals.length() < 2, msg=locals.to_string())
+}
+
+///|
+test "coalesce-locals-cfg fails closed for dense v128 loop carriers" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local v128 v128 v128 v128 v128 v128 v128 v128)
+    #|    v128.const i32x4 1 2 3 4 local.set 1
+    #|    v128.const i32x4 5 6 7 8 local.set 2
+    #|    v128.const i32x4 9 10 11 12 local.set 3
+    #|    v128.const i32x4 13 14 15 16 local.set 4
+    #|    v128.const i32x4 17 18 19 20 local.set 5
+    #|    v128.const i32x4 21 22 23 24 local.set 6
+    #|    v128.const i32x4 25 26 27 28 local.set 7
+    #|    v128.const i32x4 29 30 31 32 local.set 8
+    #|    loop
+    #|      local.get 0
+    #|      if
+    #|        local.get 1 local.tee 2 drop
+    #|        local.get 3 local.tee 4 drop
+    #|        local.get 5 local.tee 6 drop
+    #|        local.get 7 local.tee 8 drop
+    #|      end
+    #|      local.get 0 br_if 0
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let optimized = match
+    run_hot_pipeline(
+      original,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["coalesce-locals-cfg"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dense v128 loop boundary, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
 }
 
 ///|
@@ -3600,4 +3668,85 @@ test "coalesce-locals compacts unused locals above the dense-coloring threshold"
   }
   let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
   @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+}
+
+///|
+test "coalesce-locals preserves stack-carried tee aliases written to parameters" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32) (local i32)
+    #|    local.get 1
+    #|    local.get 0 i32.const 4 i32.add local.tee 2
+    #|    i32.load
+    #|    i32.eq
+    #|    local.get 2 local.set 1
+    #|    if
+    #|      local.get 1 drop
+    #|    end))
+  let original = pass_test_module_from_wat(input)
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried parameter alias boundary, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+    original.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+}
+
+///|
+test "coalesce-locals preserves local snapshots across parameter writes" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32) (result i32) (local i32)
+    #|    memory.size local.tee 1 drop
+    #|    i32.const 2 local.set 0
+    #|    local.get 1 local.get 0 i32.add))
+  let original = pass_test_module_from_wat(input)
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected parameter-write snapshot boundary, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+    original.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+}
+
+///|
+test "coalesce-locals-cfg fails closed for AssemblyScript startup memory" {
+  let source =
+    #|(module
+    #|  (memory (export "memory") 1)
+    #|  (func (export "result") (result i32) i32.const 7)
+    #|  (func (export "_start") (param i32) (local i32 i32)
+    #|    loop
+    #|      local.get 0 local.set 1
+    #|      local.get 1 local.set 2
+    #|      local.get 0 br_if 0
+    #|    end))
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["coalesce-locals-cfg"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected AssemblyScript startup CFG boundary, got \{err}")
+  }
+  let _ = optimized
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("assemblyscript-exported-memory-cfg-coalesce-noop")
+    }),
+    msg=trace.to_string(),
+  )
 }

@@ -4678,7 +4678,12 @@ fn hot_lower_impl_rewrite_binary_const_result_spills_in_body(
         match lhs {
           LocalGet(source_local) =>
             match set_instr {
-              LocalSet(target_local) if target_local != source_local =>
+              LocalSet(target_local) if target_local != source_local &&
+                !hot_lower_impl_body_has_later_local_get(
+                  nested,
+                  i + 5,
+                  target_local,
+                ) =>
                 match get_instr {
                   LocalGet(found_local) if found_local == target_local =>
                     match (source_local, target_local) {

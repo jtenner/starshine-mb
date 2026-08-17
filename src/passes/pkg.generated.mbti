@@ -127,6 +127,26 @@ pub fn no_inline_summary() -> String
 
 pub fn no_partial_inline_summary() -> String
 
+pub fn o4z_canonicalize_final_size_candidate(@lib.Module) -> @lib.Module
+
+pub fn o4z_outline_similar_size_functions(@lib.Module) -> @lib.Module
+
+pub fn o4z_size_candidate_has_observable_assemblyscript_memory(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_observable_assemblyscript_run(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_observable_assemblyscript_startup(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_root_default_local_copy(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_small_dense_i64_mul(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_stack_carried_simd_trunc_global_write(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_stateful_emscripten_main_runtime(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_unsafe_emscripten_main_runtime(@lib.Module) -> Bool
+
 pub fn once_reduction_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn once_reduction_summary() -> String

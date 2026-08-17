@@ -3800,6 +3800,118 @@ fn encode_module_for_pipeline(
 }
 
 ///|
+fn cmd_choose_smallest_encoded_candidate(
+  candidates : Array[(String, Bytes)],
+) -> (String, Bytes) {
+  if candidates.length() == 0 {
+    abort("size portfolio requires at least one encoded candidate")
+  }
+  let mut selected_label = candidates[0].0
+  let mut selected_bytes = candidates[0].1
+  for idx = 1; idx < candidates.length(); idx = idx + 1 {
+    let (label, bytes) = candidates[idx]
+    if bytes.length() < selected_bytes.length() {
+      selected_label = label
+      selected_bytes = bytes
+    }
+  }
+  (selected_label, selected_bytes)
+}
+
+///|
+fn cmd_o4z_size_portfolio_enabled(
+  format : CliInputFormat,
+  optimize_level : Int,
+  shrink_level : Int,
+  resolved_passes : Array[String],
+) -> Bool {
+  format == CliInputFormat::wasm() &&
+  optimize_level >= 4 &&
+  shrink_level >= 4 &&
+  resolved_passes.any(fn(name) { name == "optimize" || name == "shrink" })
+}
+
+///|
+fn cmd_o4z_late_cleanup_candidate_enabled(
+  input_size : Int,
+  optimized_size : Int,
+) -> Bool {
+  optimized_size >= 10000 || input_size <= optimized_size * 4
+}
+
+///|
+fn cmd_o4z_size_cleanup_passes() -> Array[String] {
+  [
+    "inlining-optimizing", "dae-optimizing", "coalesce-locals", "optimize-instructions",
+    "vacuum", "reorder-locals", "simplify-globals-optimizing", "remove-unused-module-elements",
+    "duplicate-function-elimination", "duplicate-import-elimination", "strip-debug",
+    "inlining-optimizing", "dae-optimizing", "coalesce-locals", "optimize-instructions",
+    "simplify-globals-optimizing", "remove-unused-module-elements",
+  ]
+}
+
+///|
+fn cmd_o4z_post_canonical_cleanup_passes() -> Array[String] {
+  ["ssa-nomerge", "remove-unused-brs", "vacuum"]
+}
+
+///|
+fn cmd_o4z_dense_i64_cleanup_passes() -> Array[String] {
+  ["simplify-locals", "simplify-locals", "coalesce-locals"]
+}
+
+///|
+fn cmd_o4z_post_canonical_fixed_point_passes() -> Array[String] {
+  [
+    "remove-unused-brs", "coalesce-locals", "simplify-locals-nostructure", "vacuum",
+    "coalesce-locals-cfg",
+  ]
+}
+
+///|
+fn cmd_o4z_post_canonical_fixed_point_rosters() -> Array[Array[String]] {
+  [
+    cmd_o4z_post_canonical_fixed_point_passes(),
+    cmd_o4z_post_canonical_fixed_point_passes(),
+  ]
+}
+
+///|
+fn cmd_o4z_original_simplify_fixed_point_passes() -> Array[String] {
+  ["vacuum", "simplify-locals-nostructure"]
+}
+
+///|
+fn cmd_o4z_post_fixed_point_finish_passes() -> Array[String] {
+  [
+    "precompute-propagate", "reorder-locals", "vacuum", "inlining-optimizing", "duplicate-function-elimination",
+    "remove-unused-module-elements",
+  ]
+}
+
+///|
+fn optimize_options_with_levels(
+  options : OptimizeOptions,
+  optimize_level : Int,
+  shrink_level : Int,
+) -> OptimizeOptions {
+  OptimizeOptions::new(
+    optimize_level~,
+    shrink_level~,
+    inlining=options.inlining,
+    monomorphize_min_benefit=options.monomorphize_min_benefit,
+    closed_world=options.closed_world,
+    zero_filled_memory=options.zero_filled_memory,
+    low_memory_unused=options.low_memory_unused,
+    low_memory_bound=options.low_memory_bound,
+    traps_never_happen=options.traps_never_happen,
+    ignore_implicit_traps=options.ignore_implicit_traps,
+    validation_policy=options.validation_policy,
+    stack_function_passes=options.stack_function_passes,
+  )
+}
+
+///|
 fn format_post_encode_validation_error(
   pre_encode_mod : Module,
   post_encode_mod : Module,
@@ -4560,7 +4672,7 @@ pub fn run_cmd_with_adapter(
     cmd_trace_timer_stop(
       io, trace_optimize, "reuse-input-check", reuse_check_start_us,
     )
-    let out_bytes = if reuse_input_wasm_bytes {
+    let normal_out_bytes = if reuse_input_wasm_bytes {
       wasm_bytes
     } else {
       let encode_start_us = cmd_trace_timer_start(trace_optimize)
@@ -4572,10 +4684,371 @@ pub fn run_cmd_with_adapter(
       cmd_trace_timer_stop(io, trace_optimize, "encode", encode_start_us)
       encoded
     }
+    let size_portfolio_enabled = cmd_o4z_size_portfolio_enabled(
+      format, optimize_level, shrink_level, resolved_passes,
+    )
+    let original_for_portfolio = if size_portfolio_enabled {
+      match decode_module_for_pipeline(input_path, wasm_bytes) {
+        Ok(mod_) => Some(mod_)
+        Err(_) => None
+      }
+    } else {
+      None
+    }
+    let unsafe_emscripten_main_runtime = match original_for_portfolio {
+      Some(original) =>
+        @passes.o4z_size_candidate_has_unsafe_emscripten_main_runtime(original)
+      None => false
+    }
+    let stack_carried_simd_trunc_global_write = match original_for_portfolio {
+      Some(original) =>
+        @passes.o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
+          original,
+        )
+      None => false
+    }
+    let root_default_local_copy = @passes.o4z_size_candidate_has_root_default_local_copy(
+      optimized,
+    )
+    let portfolio_candidates : Array[(String, Bytes)] = []
+    if !size_portfolio_enabled ||
+      (
+        !stack_carried_simd_trunc_global_write &&
+        !@passes.o4z_size_candidate_has_observable_assemblyscript_run(optimized)
+      ) {
+      portfolio_candidates.push(("optimized", normal_out_bytes))
+    }
+    if size_portfolio_enabled {
+      match original_for_portfolio {
+        Some(original) => {
+          match validate_module(original) {
+            Ok(_) => portfolio_candidates.push(("input", wasm_bytes))
+            Err(_) => ()
+          }
+          if stack_carried_simd_trunc_global_write {
+            match
+              optimize_module_with_pass_flags(
+                original,
+                [
+                  "duplicate-function-elimination", "remove-unused-module-elements",
+                ],
+                options,
+              ) {
+              Ok(cleaned) =>
+                match validate_module(cleaned) {
+                  Ok(_) =>
+                    match encode_module_for_pipeline(io, input_path, cleaned) {
+                      Ok(bytes) =>
+                        portfolio_candidates.push(
+                          ("stack-carried-simd-safe-cleanup", bytes),
+                        )
+                      Err(_) => ()
+                    }
+                  Err(_) => ()
+                }
+              Err(_) => ()
+            }
+          }
+        }
+        None => ()
+      }
+      if !unsafe_emscripten_main_runtime &&
+        !stack_carried_simd_trunc_global_write &&
+        !root_default_local_copy &&
+        !@passes.o4z_size_candidate_has_observable_assemblyscript_memory(
+          optimized,
+        ) {
+        let outlined = @passes.o4z_outline_similar_size_functions(optimized)
+        if outlined != optimized {
+          match validate_module(outlined) {
+            Ok(_) =>
+              match encode_module_for_pipeline(io, input_path, outlined) {
+                Ok(bytes) =>
+                  portfolio_candidates.push(
+                    ("optimized-similar-functions", bytes),
+                  )
+                Err(_) => ()
+              }
+            Err(_) => ()
+          }
+        }
+      }
+      if cmd_o4z_late_cleanup_candidate_enabled(
+          wasm_bytes.length(),
+          normal_out_bytes.length(),
+        ) &&
+        !stack_carried_simd_trunc_global_write &&
+        !root_default_local_copy &&
+        !@passes.o4z_size_candidate_has_observable_assemblyscript_memory(
+          optimized,
+        ) {
+        let cleanup_options = optimize_options_with_levels(options, 0, 0)
+        match
+          optimize_module_with_pass_flags(
+            optimized,
+            cmd_o4z_size_cleanup_passes(),
+            cleanup_options,
+          ) {
+          Ok(cleaned) => {
+            match encode_module_for_pipeline(io, input_path, cleaned) {
+              Ok(bytes) => portfolio_candidates.push(("late-cleanup", bytes))
+              Err(_) => ()
+            }
+            let late_root_default_local_copy = @passes.o4z_size_candidate_has_root_default_local_copy(
+              cleaned,
+            )
+            if unsafe_emscripten_main_runtime {
+              match
+                optimize_module_with_pass_flags(
+                  cleaned,
+                  ["ssa-nomerge"],
+                  cleanup_options,
+                ) {
+                Ok(ssa_cleaned) =>
+                  match validate_module(ssa_cleaned) {
+                    Ok(_) =>
+                      match
+                        encode_module_for_pipeline(io, input_path, ssa_cleaned) {
+                        Ok(bytes) =>
+                          portfolio_candidates.push(("late-cleanup-ssa", bytes))
+                        Err(_) => ()
+                      }
+                    Err(_) => ()
+                  }
+                Err(_) => ()
+              }
+            }
+            if !unsafe_emscripten_main_runtime && !late_root_default_local_copy {
+              let block_canonical = @passes.o4z_canonicalize_final_size_candidate(
+                cleaned,
+              )
+              match validate_module(block_canonical) {
+                Ok(_) => {
+                  match
+                    encode_module_for_pipeline(io, input_path, block_canonical) {
+                    Ok(bytes) =>
+                      portfolio_candidates.push(
+                        ("late-block-canonicalization", bytes),
+                      )
+                    Err(_) => ()
+                  }
+                  let block_root_default_local_copy = @passes.o4z_size_candidate_has_root_default_local_copy(
+                    block_canonical,
+                  )
+                  if !block_root_default_local_copy {
+                    let dense_i64 = @passes.o4z_size_candidate_has_small_dense_i64_mul(
+                      block_canonical,
+                    )
+                    let post_canonical_passes = if dense_i64 {
+                      cmd_o4z_dense_i64_cleanup_passes()
+                    } else {
+                      cmd_o4z_post_canonical_cleanup_passes()
+                    }
+                    match
+                      optimize_module_with_pass_flags(
+                        block_canonical, post_canonical_passes, cleanup_options,
+                      ) {
+                      Ok(post_canonical) =>
+                        match validate_module(post_canonical) {
+                          Ok(_) => {
+                            match
+                              encode_module_for_pipeline(
+                                io, input_path, post_canonical,
+                              ) {
+                              Ok(bytes) =>
+                                portfolio_candidates.push(
+                                  ("post-canonical-cleanup", bytes),
+                                )
+                              Err(_) => ()
+                            }
+                            let post_canonical_root_default_local_copy = @passes.o4z_size_candidate_has_root_default_local_copy(
+                              post_canonical,
+                            )
+                            if !dense_i64 &&
+                              !post_canonical_root_default_local_copy {
+                              let mut fixed_point_candidate = post_canonical
+                              let mut wave = 0
+                              for
+                                roster in cmd_o4z_post_canonical_fixed_point_rosters() {
+                                match
+                                  optimize_module_with_pass_flags(
+                                    fixed_point_candidate, roster, cleanup_options,
+                                  ) {
+                                  Ok(fixed_point) =>
+                                    match validate_module(fixed_point) {
+                                      Ok(_) => {
+                                        wave = wave + 1
+                                        fixed_point_candidate = fixed_point
+                                        match
+                                          encode_module_for_pipeline(
+                                            io, input_path, fixed_point,
+                                          ) {
+                                          Ok(bytes) =>
+                                            portfolio_candidates.push(
+                                              (
+                                                "post-canonical-fixed-point-wave-\{wave}",
+                                                bytes,
+                                              ),
+                                            )
+                                          Err(_) => ()
+                                        }
+                                      }
+                                      Err(_) => break
+                                    }
+                                  Err(_) => break
+                                }
+                              }
+                              match
+                                optimize_module_with_pass_flags(
+                                  fixed_point_candidate,
+                                  cmd_o4z_post_fixed_point_finish_passes(),
+                                  cleanup_options,
+                                ) {
+                                Ok(finished) => {
+                                  let finished = @passes.o4z_canonicalize_final_size_candidate(
+                                    finished,
+                                  )
+                                  match validate_module(finished) {
+                                    Ok(_) =>
+                                      match
+                                        encode_module_for_pipeline(
+                                          io, input_path, finished,
+                                        ) {
+                                        Ok(bytes) =>
+                                          portfolio_candidates.push(
+                                            ("post-fixed-point-finish", bytes),
+                                          )
+                                        Err(_) => ()
+                                      }
+                                    Err(_) => ()
+                                  }
+                                }
+                                Err(_) => ()
+                              }
+                              if !unsafe_emscripten_main_runtime {
+                                let finish_input = @passes.o4z_canonicalize_final_size_candidate(
+                                  fixed_point_candidate,
+                                )
+                                match
+                                  optimize_module_with_pass_flags(
+                                    finish_input,
+                                    cmd_o4z_post_fixed_point_finish_passes(),
+                                    cleanup_options,
+                                  ) {
+                                  Ok(finished) => {
+                                    let finished = @passes.o4z_canonicalize_final_size_candidate(
+                                      finished,
+                                    )
+                                    match validate_module(finished) {
+                                      Ok(_) =>
+                                        match
+                                          encode_module_for_pipeline(
+                                            io, input_path, finished,
+                                          ) {
+                                          Ok(bytes) =>
+                                            portfolio_candidates.push(
+                                              ("precanonical-finish", bytes),
+                                            )
+                                          Err(_) => ()
+                                        }
+                                      Err(_) => ()
+                                    }
+                                  }
+                                  Err(_) => ()
+                                }
+                              }
+                            }
+                          }
+                          Err(_) => ()
+                        }
+                      Err(_) => ()
+                    }
+                  }
+                }
+                Err(_) => ()
+              }
+            }
+          }
+          Err(_) => ()
+        }
+      }
+      if cmd_o4z_late_cleanup_candidate_enabled(
+          wasm_bytes.length(),
+          normal_out_bytes.length(),
+        ) &&
+        !stack_carried_simd_trunc_global_write {
+        match original_for_portfolio {
+          Some(original) =>
+            match
+              optimize_module_with_pass_flags(
+                original,
+                ["simplify-locals-nostructure"],
+                options,
+              ) {
+              Ok(simplified) => {
+                match encode_module_for_pipeline(io, input_path, simplified) {
+                  Ok(bytes) =>
+                    portfolio_candidates.push(
+                      ("original-simplify-locals", bytes),
+                    )
+                  Err(_) => ()
+                }
+                if !unsafe_emscripten_main_runtime &&
+                  !@passes.o4z_size_candidate_has_observable_assemblyscript_memory(
+                    simplified,
+                  ) {
+                  match
+                    optimize_module_with_pass_flags(
+                      simplified,
+                      cmd_o4z_original_simplify_fixed_point_passes(),
+                      options,
+                    ) {
+                    Ok(fixed_point) =>
+                      match validate_module(fixed_point) {
+                        Ok(_) =>
+                          match
+                            encode_module_for_pipeline(
+                              io, input_path, fixed_point,
+                            ) {
+                            Ok(bytes) =>
+                              portfolio_candidates.push(
+                                ("original-simplify-locals-fixed-point", bytes),
+                              )
+                            Err(_) => ()
+                          }
+                        Err(_) => ()
+                      }
+                    Err(_) => ()
+                  }
+                }
+              }
+              Err(_) => ()
+            }
+          None => ()
+        }
+      }
+    }
+    if portfolio_candidates.length() == 0 {
+      portfolio_candidates.push(("optimized", normal_out_bytes))
+    }
+    for candidate in portfolio_candidates {
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:candidate label=\{candidate.0} bytes=\{candidate.1.length()}",
+      )
+    }
+    let (selected_candidate, out_bytes) = cmd_choose_smallest_encoded_candidate(
+      portfolio_candidates,
+    )
+    let selected_pre_encode_mod = match decode_module(out_bytes) {
+      Ok(mod_) => mod_
+      Err(_) => optimized
+    }
     cmd_trace_emit(
       io,
       trace_optimize,
-      "input \{input_path}:encode bytes=\{out_bytes.length()}",
+      "input \{input_path}:encode bytes=\{out_bytes.length()} candidate=\{selected_candidate}",
     )
     if should_validate_encoded_module_after_encode(merged.debug_serial_passes) {
       cmd_trace_emit(
@@ -4584,7 +5057,9 @@ pub fn run_cmd_with_adapter(
         "input \{input_path}:post-encode-validate:start",
       )
       match
-        validate_encoded_module_for_pipeline(input_path, optimized, out_bytes) {
+        validate_encoded_module_for_pipeline(
+          input_path, selected_pre_encode_mod, out_bytes,
+        ) {
         Ok(_) => ()
         Err(e) =>
           return Err(

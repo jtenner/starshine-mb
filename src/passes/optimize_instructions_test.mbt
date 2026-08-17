@@ -143,6 +143,81 @@ fn optimize_instructions_assert_skip_reason(
 }
 
 ///|
+test "optimize-instructions preserves multi-use local assignment payloads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (export "f") (param i32) (result i32) (local i32 i32 i32)
+        #|    block
+        #|      local.get 0
+        #|      i32.const 74
+        #|      i32.add
+        #|      nop
+        #|      local.set 1
+        #|      local.get 1
+        #|      i32.load8_s
+        #|      local.set 2
+        #|      local.get 2
+        #|      i32.const 255
+        #|      i32.add
+        #|      nop
+        #|      local.get 2
+        #|      i32.or
+        #|      local.set 3
+        #|      local.get 1
+        #|      local.get 3
+        #|      i32.store8
+        #|    end
+        #|    local.get 1))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected optimize-instructions success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.LocalGet(source),
+                      @lib.I32Const(@lib.I32(74)),
+                      @lib.I32Add,
+                      @lib.LocalSet(assigned),
+                      ..,
+                    ]
+                  )
+                ),
+                @lib.LocalGet(returned),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(source, @lib.LocalIdx::new(0U))
+      @debug.assert_eq(assigned, @lib.LocalIdx::new(1U))
+      @debug.assert_eq(returned, assigned)
+    }
+    other =>
+      fail(
+        "expected complete assignment payload before both local uses, got \{other}",
+      )
+  }
+}
+
+///|
 test "optimize-instructions skips very large local-heavy functions" {
   optimize_instructions_assert_skip_reason(
     optimize_instructions_large_local_fixture(),
@@ -82789,6 +82864,78 @@ test "optimize-instructions flips if i32.eqz conditions with live else arms" {
 }
 
 ///|
+test "optimize-instructions preserves typed try_table reachability after eqz if flips" {
+  // Reduced from WAGO's exception-handling/try_table.1.wasm. Flipping the
+  // condition makes both arms exit, but the result-typed try_table body still
+  // needs an explicit unreachable marker if its trailing value is removed.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (func (param i32) (result i32)
+        #|    block $exit
+        #|      try_table (result i32) (catch $e $exit)
+        #|        local.get 0
+        #|        i32.eqz
+        #|        if
+        #|          br $exit
+        #|        else
+        #|          throw $e
+        #|        end
+        #|        i32.const 2
+        #|      end
+        #|      return
+        #|    end
+        #|    i32.const 4))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions typed try_table success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions preserves result block suffixes reached by catch_ref" {
+  // Reduced from the second invalid function in WAGO's
+  // exception-handling/try_table.1.wasm. The block body returns on its normal
+  // path, but catch_ref still reaches the block label with i32 + exnref results.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e (param i32))
+        #|  (func (param i32) (result i32)
+        #|    block (result i32 exnref)
+        #|      try_table (result i32) (catch_ref $e 0)
+        #|        local.get 0
+        #|        throw $e
+        #|        i32.const 2
+        #|      end
+        #|      return
+        #|    end
+        #|    drop
+        #|    return))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected optimize-instructions catch_ref result-block success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps pure multi-root constant-if chosen regions" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (result i32) i32.const 1 if (result i32) i32.const 2 drop i32.const 3 else i32.const 4 end))",
@@ -85345,4 +85492,218 @@ test "optimize-instructions preserves call results added to dynamic comparison f
     }),
     msg=trace.to_string(),
   )
+}
+
+///|
+fn optimize_instructions_test_large_sparse_br_table() -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module (func (param f64) block block block block local.get 0 i64.reinterpret_f64 i64.const 52 i64.shr_u i32.wrap_i64 i32.const 65535 i32.and i32.const 2047 i32.and i32.const 16 i32.shl i32.const 16 i32.shr_s br_table 0 ",
+  )
+  for _ in 1..<2047 {
+    out.write_string("2 ")
+  }
+  out.write_string("1 2 end end end end))")
+  out.to_string()
+}
+
+///|
+test "optimize-instructions compresses embenchen sparse exponent br_table" {
+  let optimized = match
+    pass_test_run_pipeline(optimize_instructions_test_large_sparse_br_table(), [
+      "optimize-instructions",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected sparse br_table compression success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("I32(2047)"), msg=pretty)
+  assert_false(pretty.contains("I32(65535)"), msg=pretty)
+  assert_false(pretty.contains("I32(16)"), msg=pretty)
+  assert_false(pretty.contains("i32.shl"), msg=pretty)
+}
+
+///|
+fn optimize_instructions_test_deep_local_tee_max_bits_chain(
+  width : String,
+  depth : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (param i32) (result ")
+  out.write_string(width)
+  out.write_string(") (local ")
+  out.write_string(width)
+  out.write_string(" ")
+  out.write_string(width)
+  out.write_string(") ")
+  out.write_string(width)
+  out.write_string(".const 1 local.set 1 local.get 0 ")
+  if width == "i64" {
+    out.write_string("i64.extend_i32_s ")
+  }
+  out.write_string("local.set 2 local.get 1 ")
+  for i = 0; i < depth; i = i + 1 {
+    out.write_string("local.get 2 ")
+    out.write_string(width)
+    out.write_string(".clz ")
+    out.write_string(width)
+    out.write_string(".sub local.tee 1 ")
+  }
+  out.write_string("local.get 2 ")
+  out.write_string(width)
+  out.write_string(".xor))")
+  out.to_string()
+}
+
+///|
+test "optimize-instructions bounds unsigned max facts for deep local.tee chains" {
+  // WAGO's isa_i32.wasm and isa_i64.wasm contain long stack chains whose every
+  // local.tee assignment shares the preceding expression. Assignment-side
+  // maxBits analysis must memoize those shared subproblems instead of revisiting
+  // the entire prefix exponentially for every tee.
+  for width in ["i32", "i64"] {
+    let optimized = match
+      pass_test_run_pipeline(
+        optimize_instructions_test_deep_local_tee_max_bits_chain(width, 24),
+        ["optimize-instructions"],
+      ) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected deep \{width} tee-chain optimization success, got \{err}",
+        )
+    }
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    assert_true(pretty.contains("\{width}.xor"), msg=pretty)
+  }
+}
+
+///|
+test "optimize-instructions cancels exact i32 conversion roundtrips" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32) local.get 0 i64.extend_i32_s i32.wrap_i64)
+        #|  (func (param i32) (result i32) local.get 0 i64.extend_i32_u i32.wrap_i64)
+        #|  (func (param i32) (result i32) local.get 0 f64.convert_i32_s i32.trunc_sat_f64_s)
+        #|  (func (param i32) (result i32) local.get 0 f64.convert_i32_u i32.trunc_sat_f64_u)
+        #|  (func (param i32) (result i32) local.get 0 f32.reinterpret_i32 i32.reinterpret_f32)
+        #|  (func (param i64) (result i64) local.get 0 f64.reinterpret_i64 i64.reinterpret_f64)
+        #|  (func (param f32) (result f32) local.get 0 i32.reinterpret_f32 f32.reinterpret_i32)
+        #|  (func (param f64) (result f64) local.get 0 i64.reinterpret_f64 f64.reinterpret_i64))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected exact conversion cancellation, got \{err}")
+  }
+  for idx = 0; idx < 8; idx = idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(idx.reinterpret_as_uint()),
+    )
+    assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+    assert_false(pretty.contains("extend_i32"), msg=pretty)
+    assert_false(pretty.contains("wrap_i64"), msg=pretty)
+    assert_false(pretty.contains("convert_i32"), msg=pretty)
+    assert_false(pretty.contains("trunc_sat_f64"), msg=pretty)
+    assert_false(pretty.contains("reinterpret"), msg=pretty)
+  }
+}
+
+///|
+test "optimize-instructions preserves stack-carried tee aliases written to parameters" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param i32 i32) (local i32)
+        #|    local.get 1
+        #|    local.get 0 i32.const 4 i32.add local.tee 2
+        #|    i32.load
+        #|    i32.eq
+        #|    local.get 2 local.set 1
+        #|    if
+        #|      local.get 1 drop
+        #|    end))
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried parameter alias boundary, got \{err}")
+  }
+  let _ = optimized
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "stack-carried-tee-parameter-alias-optimize-instructions-noop",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "optimize-instructions preserves store offsets with call-produced values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func $value (param i32) (result i32) local.get 0)
+        #|  (func (param i32)
+        #|    local.get 0
+        #|    i32.const 7872
+        #|    call $value
+        #|    i32.store offset=12))
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-carried store offset boundary, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("I32(7872)"), msg=pretty)
+  assert_true(pretty.contains("offset=U64(12)"), msg=pretty)
+  assert_false(pretty.contains("I32(7884)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions folds integer adds of zero-sub negations" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32 i32) (result i32)
+        #|    i32.const 0 local.get 0 i32.sub local.get 1 i32.add)
+        #|  (func (param i32 i32) (result i32)
+        #|    local.get 1 i32.const 0 local.get 0 i32.sub i32.add)
+        #|  (func (param i64 i64) (result i64)
+        #|    i64.const 0 local.get 0 i64.sub local.get 1 i64.add)
+        #|  (func (param i64 i64) (result i64)
+        #|    local.get 1 i64.const 0 local.get 0 i64.sub i64.add))
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected integer add-negation folding, got \{err}")
+  }
+  for func_idx = 0U; func_idx < 4U; func_idx = func_idx + 1U {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+    assert_false(
+      pretty.contains("i32.add") || pretty.contains("i64.add"),
+      msg=pretty,
+    )
+    assert_true(
+      pretty.contains("i32.sub") || pretty.contains("i64.sub"),
+      msg=pretty,
+    )
+  }
 }

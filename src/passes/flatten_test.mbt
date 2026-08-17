@@ -22271,3 +22271,66 @@ test "flatten removes an exclusively owned direct unsigned-shift call suffix" {
       fail("expected direct unsigned-shift call suffix to verify, got \{err}")
   }
 }
+
+///|
+test "flatten preserves stack-carried tee aliases written to parameters" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param i32 i32) (local i32)
+        #|    local.get 1
+        #|    local.get 0 i32.const 4 i32.add local.tee 2
+        #|    i32.load
+        #|    i32.eq
+        #|    local.get 2 local.set 1
+        #|    if
+        #|      local.get 1 drop
+        #|    end))
+      ),
+      ["flatten"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried parameter alias boundary, got \{err}")
+  }
+  let _ = optimized
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("stack-carried-tee-parameter-alias-flatten-noop")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "flatten fails closed for AssemblyScript exported memory runtimes" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory (export "memory") 1)
+        #|  (func (export "__new") (param i32 i32) (result i32) local.get 0)
+        #|  (func (export "__pin") (param i32) (result i32) local.get 0)
+        #|  (func (export "__collect"))
+        #|  (func (export "_initialize"))
+        #|  (func (export "run") (param i32) local.get 0 if i32.const 1 drop end))
+      ),
+      ["flatten"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected AssemblyScript flatten boundary, got \{err}")
+  }
+  let _ = optimized
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("assemblyscript-exported-memory-flatten-noop")
+    }),
+    msg=trace.join("\n"),
+  )
+}

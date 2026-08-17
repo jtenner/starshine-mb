@@ -3294,3 +3294,51 @@ test "remove-unused-module-elements preserves descriptor-trapping initializers u
   )
   @debug.assert_eq(tnh.global_sec, None)
 }
+
+///|
+test "remove-unused-module-elements prunes unreachable simple GC type families" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x28, 0x07, 0x50, 0x00,
+        0x5f, 0x00, 0x50, 0x01, 0x00, 0x5f, 0x01, 0x7f, 0x00, 0x50, 0x00, 0x5e, 0x63,
+        0x00, 0x00, 0x50, 0x01, 0x02, 0x5e, 0x63, 0x01, 0x00, 0x50, 0x00, 0x60, 0x00,
+        0x00, 0x50, 0x01, 0x04, 0x60, 0x00, 0x00, 0x60, 0x00, 0x01, 0x7f, 0x03, 0x02,
+        0x01, 0x06, 0x07, 0x23, 0x01, 0x1f, 0x6e, 0x75, 0x6c, 0x6c, 0x2d, 0x74, 0x6f,
+        0x2d, 0x6e, 0x75, 0x6c, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x2d, 0x63, 0x6f, 0x6e,
+        0x63, 0x72, 0x65, 0x74, 0x65, 0x2d, 0x74, 0x79, 0x70, 0x65, 0x73, 0x00, 0x00,
+        0x0a, 0x06, 0x01, 0x04, 0x00, 0x41, 0x01, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unused GC type fixture decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unused GC type pruning success, got \{err}")
+  }
+  match optimized.type_sec {
+    Some(
+      @lib.TypeSec(
+        [
+          @lib.SingleRecType(
+            @lib.CompTypeSubType(_, @lib.FuncCompType([], [result]))
+          ),
+        ]
+      )
+    ) => @debug.assert_eq(result, @lib.ValType::i32())
+    _ => fail("expected only the live i32 function type after GC type pruning")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec([@lib.TypeIdx(type_idx)])) =>
+      @debug.assert_eq(type_idx, 0U)
+    _ => fail("expected the live function type to be remapped to zero")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected pruned GC type module to validate, got \{err}")
+  }
+}

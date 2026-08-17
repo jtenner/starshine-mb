@@ -35,6 +35,38 @@ fn merge_blocks_large_jsonas_like_fixture() -> String {
 }
 
 ///|
+test "merge-blocks intentionally fails closed for measured emscripten stateful runtime shapes" {
+  let wat = StringBuilder::new()
+  wat.write_string(
+    "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
+  )
+  for idx = 5; idx < 44; idx = idx + 1 {
+    wat.write_string(" (func)")
+  }
+  wat.write_string(")")
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      wat.to_string(),
+      ["merge-blocks"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected guarded merge-blocks success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("emscripten-main-stateful-runtime-merge-blocks-noop")
+    }),
+    msg="\{trace}",
+  )
+}
+
+///|
 test "merge-blocks defers structured load-local carriers" {
   let input = StringBuilder::new()
   input.write_string("(module (memory 1) (func")

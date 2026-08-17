@@ -5665,8 +5665,9 @@ test "simplify-locals skips equivalent cleanup on giant structured copy webs" {
 
   let text = perf_test_join_lines(lines)
   let skipped_raw = text.contains(
-    "pass[simplify-locals]:skip-raw reason=structured-pure-copy-call-tail",
-  )
+      "pass[simplify-locals]:skip-raw reason=structured-pure-copy-call-tail",
+    ) ||
+    text.contains("pass[simplify-locals]:skip-raw reason=adjacent-set-get-tee")
   if skipped_raw {
     assert_false(text.contains("perf:timer name=lift"), msg=text)
     assert_false(
@@ -5707,8 +5708,9 @@ test "simplify-locals skips equivalent cleanup on large structured copy webs" {
 
   let text = perf_test_join_lines(lines)
   let skipped_raw = text.contains(
-    "pass[simplify-locals]:skip-raw reason=structured-pure-copy-call-tail",
-  )
+      "pass[simplify-locals]:skip-raw reason=structured-pure-copy-call-tail",
+    ) ||
+    text.contains("pass[simplify-locals]:skip-raw reason=adjacent-set-get-tee")
   if skipped_raw {
     assert_false(text.contains("perf:timer name=lift"), msg=text)
     assert_false(

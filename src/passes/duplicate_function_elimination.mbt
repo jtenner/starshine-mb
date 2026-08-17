@@ -3322,6 +3322,83 @@ fn dfe_rec_type_is_unused_suffix_prune_candidate(
 }
 
 ///|
+fn dfe_prune_unused_simple_types(mod_ : @lib.Module) -> @lib.Module {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) => {
+      if rec_types.length() == 0 {
+        return mod_
+      }
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(_) => ()
+          @lib.GroupRecType(_) => return mod_
+        }
+      }
+      let live : Array[Bool] = Array::make(rec_types.length(), false)
+      let without_types = mod_.with_type_sec(@lib.TypeSec::new([]))
+      let mut idx = 0
+      while idx < rec_types.length() {
+        let probe : Map[UInt, UInt] = Map([])
+        let raw_idx = idx.reinterpret_as_uint()
+        probe[raw_idx] = rec_types.length().reinterpret_as_uint()
+        if dfe_module_type_refs_use_remap(without_types, probe) {
+          live[idx] = true
+        }
+        idx += 1
+      }
+      let mut discovered = true
+      while discovered {
+        discovered = false
+        idx = 0
+        while idx < rec_types.length() {
+          if live[idx] {
+            let mut dependency_idx = 0
+            while dependency_idx < rec_types.length() {
+              if !live[dependency_idx] {
+                let probe : Map[UInt, UInt] = Map([])
+                let raw_dependency_idx = dependency_idx.reinterpret_as_uint()
+                probe[raw_dependency_idx] = rec_types
+                  .length()
+                  .reinterpret_as_uint()
+                if dfe_rec_type_uses_remap(rec_types[idx], probe) {
+                  live[dependency_idx] = true
+                  discovered = true
+                }
+              }
+              dependency_idx += 1
+            }
+          }
+          idx += 1
+        }
+      }
+      let kept : Array[@lib.RecType] = []
+      let remap : Map[UInt, UInt] = Map([])
+      idx = 0
+      while idx < rec_types.length() {
+        if live[idx] {
+          remap[idx.reinterpret_as_uint()] = kept.length().reinterpret_as_uint()
+          kept.push(rec_types[idx])
+        }
+        idx += 1
+      }
+      if kept.length() == rec_types.length() {
+        return mod_
+      }
+      let rewritten = dfe_rewrite_module_type_idxs(
+        mod_.with_type_sec(@lib.TypeSec::new(kept)),
+        remap,
+      )
+      match rewritten.name_sec {
+        Some(name_sec) =>
+          rewritten.with_name_sec(dfe_rewrite_type_name_sec(name_sec, remap))
+        None => rewritten
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
 fn dfe_prune_unused_simple_func_type_suffix(mod_ : @lib.Module) -> @lib.Module {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => {

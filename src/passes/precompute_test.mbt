@@ -2082,6 +2082,253 @@ test "precompute folds returned integer unary rotate and conversion values" {
 }
 
 ///|
+test "precompute folds constant SIMD reductions from WAGO isa_simd_reduce" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32) (v128.any_true (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
+        #|  (func (result i32) (i8x16.all_true (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
+        #|  (func (result i32) (i8x16.bitmask (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
+        #|  (func (result i32) (i16x8.all_true (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
+        #|  (func (result i32) (i16x8.bitmask (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
+        #|  (func (result i32) (i32x4.all_true (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
+        #|  (func (result i32) (i32x4.bitmask (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
+        #|  (func (result i32) (i64x2.all_true (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
+        #|  (func (result i32) (i64x2.bitmask (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected constant SIMD reduction success, got \{err}")
+  }
+  let expected = [1, 1, 13296, 1, 92, 1, 2, 1, 1]
+  for idx = 0; idx < expected.length(); idx = idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(idx.reinterpret_as_uint()),
+    )
+    assert_true(pretty.contains("I32(\{expected[idx]})"), msg=pretty)
+    assert_false(
+      pretty.contains("v128") ||
+      pretty.contains("x16") ||
+      pretty.contains("x8") ||
+      pretty.contains("x4") ||
+      pretty.contains("x2"),
+      msg=pretty,
+    )
+  }
+}
+
+///|
+test "precompute folds constant SIMD NaN fixup chains from WAGO 1793d" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result v128) (local v128)
+        #|    v128.const i32x4 -1 -1 -1 -1
+        #|    f64x2.nearest
+        #|    local.tee 0
+        #|    v128.const f64x2 nan nan
+        #|    local.get 0
+        #|    local.get 0
+        #|    f64x2.eq
+        #|    v128.bitselect
+        #|    i32.const -1
+        #|    i8x16.shr_s
+        #|    f32x4.convert_i32x4_s
+        #|    f64x2.floor))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected constant SIMD NaN fixup folding, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains("v128.const") || pretty.contains("V128Const"),
+    msg=pretty,
+  )
+  for
+    op in [
+      "f64x2.nearest", "f64x2.eq", "v128.bitselect", "i8x16.shr_s", "f32x4.convert_i32x4_s",
+      "f64x2.floor",
+    ] {
+    assert_false(pretty.contains(op), msg=pretty)
+  }
+}
+
+///|
+test "precompute folds materialized local SIMD NaN fixup chains" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result v128) (local v128 v128 v128)
+        #|    v128.const f64x2 nan nan
+        #|    local.set 0
+        #|    v128.const f64x2 nan nan
+        #|    local.set 1
+        #|    local.get 0
+        #|    local.get 0
+        #|    f64x2.eq
+        #|    local.set 2
+        #|    local.get 0
+        #|    local.get 1
+        #|    local.get 2
+        #|    v128.bitselect))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected materialized SIMD NaN fixup folding, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains("v128.const") || pretty.contains("V128Const"),
+    msg=pretty,
+  )
+  assert_false(pretty.contains("f64x2.eq"), msg=pretty)
+  assert_false(pretty.contains("v128.bitselect"), msg=pretty)
+}
+
+///|
+test "precompute folds zero SIMD lane extractions from edge-of-memory" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32) (i8x16.extract_lane_s 15 (v128.const i32x4 0 0 0 0)))
+        #|  (func (result i32) (i8x16.extract_lane_u 7 (v128.const i32x4 0 0 0 0)))
+        #|  (func (result i32) (i16x8.extract_lane_s 7 (v128.const i32x4 0 0 0 0)))
+        #|  (func (result i32) (i16x8.extract_lane_u 3 (v128.const i32x4 0 0 0 0)))
+        #|  (func (result i32) (i32x4.extract_lane 3 (v128.const i32x4 0 0 0 0)))
+        #|  (func (result i64) (i64x2.extract_lane 1 (v128.const i32x4 0 0 0 0)))
+        #|  (func (result f32) (f32x4.extract_lane 3 (v128.const i32x4 0 0 0 0)))
+        #|  (func (result f64) (f64x2.extract_lane 1 (v128.const i32x4 0 0 0 0))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected zero SIMD lane extraction success, got \{err}")
+  }
+  for idx = 0; idx < 8; idx = idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("extract_lane"), msg=pretty)
+    assert_false(pretty.contains("v128.const"), msg=pretty)
+  }
+  for idx = 0; idx < 5; idx = idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(idx.reinterpret_as_uint()),
+    )
+    assert_true(pretty.contains("I32(0)"), msg=pretty)
+  }
+  assert_true(
+    optimized.pretty_print_func(@lib.FuncIdx::new(5U)).contains("I64(0)"),
+  )
+  assert_true(
+    optimized.pretty_print_func(@lib.FuncIdx::new(6U)).contains("F32(0"),
+  )
+  assert_true(
+    optimized.pretty_print_func(@lib.FuncIdx::new(7U)).contains("F64(0"),
+  )
+}
+
+///|
+test "precompute combines repeated same-local i32 constant additions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32) (local i32)
+        #|    local.get 0 i32.const 1 i32.add local.set 0
+        #|    local.get 0 i32.const 1 i32.add local.set 0
+        #|    local.get 0 i32.const 1 i32.add local.set 0
+        #|    local.get 0 i32.const 1 i32.add local.set 0
+        #|    local.get 0)
+        #|  (func (result i32) (local i32)
+        #|    local.get 0
+        #|    i32.const 1 i32.add local.tee 0
+        #|    i32.const 1 i32.add local.tee 0
+        #|    i32.const 1 i32.add local.tee 0
+        #|    i32.const 1 i32.add local.set 0
+        #|    local.get 0))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected repeated additive-chain success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
+  let tee_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(tee_pretty.contains("I32(4)"), msg=tee_pretty)
+  assert_false(tee_pretty.contains("I32(1)"), msg=tee_pretty)
+}
+
+///|
+test "precompute-propagate raw-folds structured repeated SIMD accumulators" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32) (local i32)
+        #|    block
+        #|      loop
+        #|        local.get 0 i32.eqz br_if 1
+        #|        local.get 1 (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
+        #|        local.get 1 (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
+        #|        local.get 1 (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
+        #|        local.get 1 (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
+        #|        local.get 0 i32.const 1 i32.sub local.set 0
+        #|        br 0
+        #|      end
+        #|    end
+        #|    local.get 1)
+        #|  (func (result i32) (local i32)
+        #|    local.get 0
+        #|    i32.const 1 i32.add local.tee 0
+        #|    i32.const 1 i32.add local.tee 0
+        #|    i32.const 1 i32.add local.tee 0
+        #|    i32.const 1 i32.add local.set 0
+        #|    local.get 0)
+        #|  (func (result i32) (local i32 i32 i32)
+        #|    (v128.any_true (v128.const i32x4 1 2 3 4)) local.set 2
+        #|    local.get 1 local.get 2 i32.add local.tee 1
+        #|    (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.tee 1
+        #|    (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.tee 1
+        #|    (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
+        #|    local.get 1))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected structured SIMD accumulator success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_false(pretty.contains("v128.any_true"), msg=pretty)
+  let tee_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(tee_pretty.contains("I32(4)"), msg=tee_pretty)
+  let scratch_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(scratch_pretty.contains("I32(4)"), msg=scratch_pretty)
+  assert_false(
+    scratch_pretty.contains("local.get (Local 2)"),
+    msg=scratch_pretty,
+  )
+  assert_false(scratch_pretty.contains("v128.any_true"), msg=scratch_pretty)
+}
+
+///|
 test "precompute folds deterministic SIMD constants but preserves relaxed SIMD" {
   let optimized = match
     pass_test_run_pipeline(
@@ -2096,7 +2343,41 @@ test "precompute folds deterministic SIMD constants but preserves relaxed SIMD" 
         #|  (func (result v128)
         #|    (f32x4.relaxed_max
         #|      (v128.const f32x4 1 2 3 4)
-        #|      (v128.const f32x4 5 6 7 8))))
+        #|      (v128.const f32x4 5 6 7 8)))
+        #|  (func (result v128)
+        #|    (f32x4.min
+        #|      (v128.const f32x4 -0 0 -0 0)
+        #|      (v128.const f32x4 0 -0 -0 0)))
+        #|  (func (result v128)
+        #|    (f64x2.max
+        #|      (v128.const f64x2 -0 0)
+        #|      (v128.const f64x2 0 -0)))
+        #|  (func (result v128)
+        #|    (f64x2.min
+        #|      (v128.const f64x2 -0 0)
+        #|      (v128.const f64x2 0 -0)))
+        #|  (func (result v128)
+        #|    (f32x4.replace_lane 1
+        #|      (v128.const f32x4 2 3 4 5)
+        #|      (f32.const 1)))
+        #|  (func (result v128)
+        #|    (f64x2.replace_lane 0
+        #|      (v128.const f64x2 2 3)
+        #|      (f64.const 1)))
+        #|  (func (result v128)
+        #|    (f32x4.ceil
+        #|      (v128.const i32x4 1734829927 1734829927 -1452841369 1734829927)))
+        #|  (func (result v128)
+        #|    (f32x4.trunc
+        #|      (v128.const i32x4 21306432 1174405119 -12223803 -1)))
+        #|  (func (result v128)
+        #|    (i8x16.ne
+        #|      (v128.const i32x4 1 2 3 4)
+        #|      (v128.const i32x4 5 6 7 8)))
+        #|  (func (result v128)
+        #|    (i16x8.narrow_i32x4_u
+        #|      (v128.const i32x4 -1 96 65535 65536)
+        #|      (v128.const i32x4 0 1 65534 70000))))
         #|,
       ),
       ["precompute"],
@@ -2107,6 +2388,14 @@ test "precompute folds deterministic SIMD constants but preserves relaxed SIMD" 
   let max = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   let splat = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   let relaxed = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let f32_min = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let f64_max = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let f64_min = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  let f32_replace = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  let f64_replace = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  let f32_ceil = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
+  let f32_trunc = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
+  let i8_ne = optimized.pretty_print_func(@lib.FuncIdx::new(10U))
   assert_true(max.contains("v128.const") || max.contains("V128Const"), msg=max)
   assert_false(max.contains("f32x4.max") || max.contains("F32x4Max"), msg=max)
   assert_true(
@@ -2121,6 +2410,177 @@ test "precompute folds deterministic SIMD constants but preserves relaxed SIMD" 
     relaxed.contains("relaxed_max") || relaxed.contains("RelaxedMax"),
     msg=relaxed,
   )
+  assert_false(
+    f32_min.contains("f32x4.min") || f32_min.contains("F32x4Min"),
+    msg=f32_min,
+  )
+  assert_false(
+    f64_max.contains("f64x2.max") || f64_max.contains("F64x2Max"),
+    msg=f64_max,
+  )
+  assert_false(
+    f64_min.contains("f64x2.min") || f64_min.contains("F64x2Min"),
+    msg=f64_min,
+  )
+  assert_false(
+    f32_replace.contains("replace_lane") || f32_replace.contains("ReplaceLane"),
+    msg=f32_replace,
+  )
+  assert_false(
+    f64_replace.contains("replace_lane") || f64_replace.contains("ReplaceLane"),
+    msg=f64_replace,
+  )
+  assert_false(
+    f32_ceil.contains("f32x4.ceil") || f32_ceil.contains("F32x4Ceil"),
+    msg=f32_ceil,
+  )
+  assert_false(
+    f32_trunc.contains("f32x4.trunc") || f32_trunc.contains("F32x4Trunc"),
+    msg=f32_trunc,
+  )
+  assert_false(
+    i8_ne.contains("i8x16.ne") || i8_ne.contains("I8x16Ne"),
+    msg=i8_ne,
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(narrow_instrs)) = funcs[11]
+      @debug.assert_eq(narrow_instrs, [
+        @lib.Instruction::v128_const(
+          b'\x00', b'\x00', b'\x60', b'\x00', b'\xff', b'\xff', b'\xff', b'\xff',
+          b'\x00', b'\x00', b'\x01', b'\x00', b'\xfe', b'\xff', b'\xff', b'\xff',
+        ),
+      ])
+    }
+    None => fail("expected folded narrow function")
+  }
+}
+
+///|
+test "precompute folds constant SIMD promote bnot compare bitmask chains" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32)
+        #|    (i64x2.bitmask
+        #|      (v128.not
+        #|        (f64x2.gt
+        #|          (v128.not
+        #|            (f64x2.promote_low_f32x4
+        #|              (v128.const i32x4 -1 -2134900737 -2134963702 -2134963702)))
+        #|          (v128.const i32x4 0 0 0 0))))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected constant SIMD bnot chain success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::i32_const(@lib.I32(1))])
+    other => fail("expected one folded SIMD bnot function, got \{other}")
+  }
+}
+
+///|
+test "precompute folds constant SIMD abs splat compare floor extadd chains" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60, 0x00,
+        0x01, 0x7b, 0x03, 0x02, 0x01, 0x00, 0x07, 0x05, 0x01, 0x01, 0x78, 0x00, 0x00,
+        0x0a, 0x39, 0x01, 0x37, 0x00, 0xfd, 0x0c, 0x67, 0x3e, 0x3c, 0x73, 0x76, 0x67,
+        0x3e, 0x3c, 0x73, 0x76, 0x67, 0x3e, 0x3c, 0x73, 0x76, 0x67, 0xfd, 0xc0, 0x01,
+        0xfd, 0xc4, 0x01, 0xfd, 0x0f, 0xfd, 0x0c, 0x67, 0x3e, 0x3c, 0x73, 0x76, 0x67,
+        0x3e, 0x3c, 0x73, 0x76, 0x67, 0x3e, 0x3c, 0x73, 0x76, 0x67, 0xfd, 0xdb, 0x01,
+        0xfd, 0x68, 0xfd, 0x4d, 0xfd, 0x7d, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected issue-3327 fixture decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected constant SIMD extadd chain success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::v128_const(
+          b'\xfe', b'\x01', b'\xfe', b'\x01', b'\xfe', b'\x01', b'\xfe', b'\x01',
+          b'\xfe', b'\x01', b'\xfe', b'\x01', b'\xfe', b'\x01', b'\xfe', b'\x01',
+        ),
+      ])
+    other => fail("expected one folded SIMD extadd function, got \{other}")
+  }
+}
+
+///|
+test "precompute folds constant SIMD comparison shift negation extension chains" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result v128)
+        #|    (f32x4.eq
+        #|      (v128.const f32x4 nan nan nan nan)
+        #|      (v128.const f32x4 nan nan nan nan)))
+        #|  (func (result v128)
+        #|    (f64x2.neg
+        #|      (i8x16.shl
+        #|        (i8x16.splat (i32.const -1426063398))
+        #|        (i32.const -353703190))))
+        #|  (func (result i32)
+        #|    (i32.trunc_f64_s
+        #|      (f64x2.extract_lane 0
+        #|        (i64x2.neg
+        #|          (i64x2.extend_low_i32x4_s
+        #|            (v128.bitselect
+        #|              (v128.const f32x4 nan nan nan nan)
+        #|              (v128.const f32x4 nan nan nan nan)
+        #|              (f32x4.eq
+        #|                (v128.const f32x4 nan nan nan nan)
+        #|                (v128.const f32x4 nan nan nan nan)))))))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected constant SIMD 1797a chain success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(_, @lib.Expr(eq_instrs)),
+          @lib.Func(_, @lib.Expr(shift_instrs)),
+          @lib.Func(_, @lib.Expr(result_instrs)),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(eq_instrs, [
+        @lib.Instruction::v128_const(
+          b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+          b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+        ),
+      ])
+      @debug.assert_eq(shift_instrs, [
+        @lib.Instruction::v128_const(
+          b'\x68', b'\x68', b'\x68', b'\x68', b'\x68', b'\x68', b'\x68', b'\xe8',
+          b'\x68', b'\x68', b'\x68', b'\x68', b'\x68', b'\x68', b'\x68', b'\xe8',
+        ),
+      ])
+      match result_instrs {
+        [@lib.F64Const(@lib.F64(value)), @lib.I32TruncF64S] =>
+          assert_true(value.is_nan())
+        _ => fail("expected constant NaN truncation trap, got \{result_instrs}")
+      }
+    }
+    other => fail("expected three folded SIMD 1797a functions, got \{other}")
+  }
 }
 
 ///|

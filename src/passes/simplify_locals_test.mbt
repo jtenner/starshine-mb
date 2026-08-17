@@ -80,6 +80,99 @@ test "simplify-locals keeps global delta reads before realloc calls" {
 }
 
 ///|
+test "simplify-locals preserves snapshots across same-global writes in result blocks" {
+  let input =
+    #|(module
+    #|  (global $sp (mut i32) (i32.const 0))
+    #|  (func (result i32) (local i32)
+    #|    block (result i32)
+    #|      global.get $sp
+    #|      local.set 0
+    #|      global.get $sp
+    #|      i32.const 16
+    #|      i32.add
+    #|      global.set $sp
+    #|      local.get 0
+    #|    end))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected global snapshot simplify success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.GlobalGet(first),
+                      @lib.GlobalGet(second),
+                      @lib.I32Const(_),
+                      @lib.I32Add,
+                      @lib.GlobalSet(written),
+                      @lib.Nop,
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(first, second)
+      @debug.assert_eq(first, written)
+    }
+    other =>
+      fail(
+        "expected old global value to remain stack-carried before the write, got \{other}",
+      )
+  }
+}
+
+///|
+test "simplify-locals intentionally fails closed for measured emscripten stateful runtime shapes" {
+  let wat = StringBuilder::new()
+  wat.write_string(
+    "(module (func (export \"_main\") (local i32) i32.const 1 local.set 0 local.get 0 drop) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
+  )
+  for idx = 5; idx < 44; idx = idx + 1 {
+    wat.write_string(" (func)")
+  }
+  wat.write_string(")")
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      wat.to_string(),
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected guarded simplify-locals success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("emscripten-main-stateful-runtime-simplify-locals-noop")
+    }),
+    msg="\{trace}",
+  )
+}
+
+///|
 fn simplify_locals_test_low_local_structured_call_heavy_fixture() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2470,6 +2563,94 @@ test "simplify-locals forwards guarded commutative SIMD carrier chains" {
 }
 
 ///|
+test "simplify-locals stack-carries alternating SIMD recurrence locals" {
+  let source =
+    #|(module
+    #|  (func (param v128 v128) (result v128)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i16x8.narrow_i32x4_s
+    #|    local.set 0
+    #|    local.get 1
+    #|    local.get 0
+    #|    i16x8.narrow_i32x4_s
+    #|    local.set 1
+    #|    local.get 0
+    #|    local.get 1
+    #|    i16x8.narrow_i32x4_s
+    #|    local.set 0
+    #|    local.get 1
+    #|    local.get 0
+    #|    i16x8.narrow_i32x4_s
+    #|    local.set 1
+    #|    local.get 0
+    #|    local.get 1
+    #|    v128.xor))
+  let parsed = match
+    @wast.wast_to_binary_module(source, filename="simd-alternating-carrier.wat") {
+    Ok(mod_) => mod_
+    Err(err) => fail("fixture parse failed: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(parsed, HotPipelineOptions::new(), ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected alternating SIMD carrier forwarding, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.tee (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
+  @debug.assert_eq(
+    simplify_locals_test_count_substring(pretty, "local.set (Local 0)"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    simplify_locals_test_count_substring(pretty, "local.set (Local 1)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals stack-carries alternating integer recurrence locals" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    local.get 0 local.get 1 i32.sub local.set 0
+    #|    local.get 1 local.get 0 i32.sub local.set 1
+    #|    local.get 0 local.get 1 i32.sub local.set 0
+    #|    local.get 1 local.get 0 i32.sub local.set 1
+    #|    local.get 0 local.get 1 i32.xor)
+    #|  (func (param i64 i64) (result i64)
+    #|    local.get 0 local.get 1 i64.xor local.set 0
+    #|    local.get 1 local.get 0 i64.xor local.set 1
+    #|    local.get 0 local.get 1 i64.xor local.set 0
+    #|    local.get 1 local.get 0 i64.xor local.set 1
+    #|    local.get 0 local.get 1 i64.add))
+  let parsed = match
+    @wast.wast_to_binary_module(
+      source,
+      filename="integer-alternating-carrier.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("fixture parse failed: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(parsed, HotPipelineOptions::new(), ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected alternating integer carrier forwarding, got \{err}")
+  }
+  for idx = 0; idx < 2; idx = idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(idx.reinterpret_as_uint()),
+    )
+    assert_true(pretty.contains("local.tee (Local 0)"), msg=pretty)
+    assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
+  }
+}
+
+///|
 test "simplify-locals forwards SIMD carriers before generic loop-carrier fallback" {
   let source =
     #|(module
@@ -2717,7 +2898,7 @@ test "simplify-locals lowers dropped control tees to local sets" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.tee"), msg=pretty)
   assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
-  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
 }
 
 ///|
@@ -3048,7 +3229,8 @@ test "simplify-locals lifts if-else local writes into an if result" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("if I32"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_true(pretty.contains("I32(1)"), msg=pretty)
@@ -3068,10 +3250,10 @@ test "simplify-locals keeps later reads alive when lifting if results" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("if I32"), msg=pretty)
-  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("if I32"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
-  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
 }
 
 ///|
@@ -3105,7 +3287,8 @@ test "simplify-locals lifts one-armed if writes for defaultable locals" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("if I32"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
 }
@@ -3145,8 +3328,9 @@ test "simplify-locals preserves then-arm nop when lifting one-armed if writes" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("if I32"), msg=pretty)
-  assert_true(pretty.contains("if I32 nop"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("I32(42)"), msg=pretty)
 }
 
@@ -3492,4 +3676,233 @@ test "simplify-locals forwards a constant through copied control locals" {
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+}
+
+///|
+test "simplify-locals keeps SIMD countdown update before loop backedge" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32) (local i32)
+        #|    block
+        #|      loop
+        #|        local.get 0 i32.eqz br_if 1
+        #|        local.get 1 (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
+        #|        local.get 1 (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
+        #|        local.get 1 (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
+        #|        local.get 1 (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
+        #|        local.get 0 i32.const 1 i32.sub local.set 0
+        #|        br 0
+        #|      end
+        #|    end
+        #|    local.get 1))
+        #|,
+      ),
+      [
+        "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse",
+        "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
+        "optimize-instructions", "pick-load-signs", "precompute-propagate", "code-pushing",
+        "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
+        "merge-locals", "coalesce-locals", "local-cse", "simplify-locals",
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected SIMD countdown pipeline success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  simplify_locals_test_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "I32(1)", "i32.sub", "local.set (Local 0)", "br",
+  ])
+}
+
+///|
+test "simplify-locals folds SIMD NaN fixup exposed by adjacent set get" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result v128) (local v128)
+        #|    v128.const i32x4 -1 -1 -1 -1
+        #|    f64x2.nearest
+        #|    local.set 0
+        #|    local.get 0
+        #|    v128.const f64x2 nan nan
+        #|    local.get 0
+        #|    local.get 0
+        #|    f64x2.eq
+        #|    v128.bitselect))
+        #|,
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected adjacent SIMD NaN fixup folding, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains("v128.const") || pretty.contains("V128Const"),
+    msg=pretty,
+  )
+  assert_false(pretty.contains("f64x2.nearest"), msg=pretty)
+  assert_false(pretty.contains("f64x2.eq"), msg=pretty)
+  assert_false(pretty.contains("v128.bitselect"), msg=pretty)
+}
+
+///|
+test "simplify-locals carries call result across balanced statement" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $produce (result i32) i32.const 7)
+        #|  (func $side (param i32))
+        #|  (func (export "f") (param i32) (result i32)
+        #|    (local i32 i32 i32 i32 i32 i32 i32 i32)
+        #|    local.get 0
+        #|    local.tee 2
+        #|    drop
+        #|    block (result i32)
+        #|      call $produce
+        #|      local.set 1
+        #|      i32.const 0
+        #|      call $side
+        #|      local.get 1
+        #|    end))
+        #|,
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call-result stack carrying, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+}
+
+///|
+test "simplify-locals stackifies safe nested pair under structured tee guard" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (export "f") (param i32) (result i32)
+        #|    (local i32 i32 i32 i32 i32 i32 i32 i32)
+        #|    local.get 0
+        #|    local.tee 2
+        #|    drop
+        #|    block (result i32)
+        #|      i32.const 7
+        #|      local.set 1
+        #|      i32.const 0
+        #|      drop
+        #|      local.get 1
+        #|    end))
+        #|,
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded carrier cleanup, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "simplify-locals lowers pure one-sided local assignment to select" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (export "f") (param i32 i32) (result i32)
+        #|    (local i32)
+        #|    local.get 0
+        #|    local.set 2
+        #|    local.get 1
+        #|    if
+        #|      i32.const 7
+        #|      local.set 2
+        #|    end
+        #|    local.get 2))
+        #|,
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-locals success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("if"), msg=pretty)
+}
+
+///|
+test "simplify-locals lowers pure result if to select" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (export "f") (param i32 i32) (result i32)
+        #|    local.get 1
+        #|    if (result i32)
+        #|      i32.const 7
+        #|    else
+        #|      local.get 0
+        #|    end))
+        #|,
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-locals success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("if"), msg=pretty)
+}
+
+///|
+test "simplify-locals keeps scalar pointer update before loop backedge" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param i32 i32) (result i32)
+        #|    loop
+        #|      local.get 0 local.get 1 i32.lt_s
+        #|      if
+        #|        block
+        #|          local.get 0 i32.const 90 i32.store8
+        #|          local.get 0 i32.const 1 i32.add local.set 0
+        #|          br 2
+        #|        end
+        #|      end
+        #|    end
+        #|    local.get 0))
+        #|,
+      ),
+      [
+        "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse",
+        "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
+        "optimize-instructions", "pick-load-signs", "precompute-propagate", "code-pushing",
+        "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
+        "merge-locals", "coalesce-locals", "local-cse", "simplify-locals",
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected scalar pointer loop pipeline success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  simplify_locals_test_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "I32(1)", "i32.add", "local.set (Local 0)", "br",
+  ])
 }

@@ -320,20 +320,16 @@ fn h2l_local_can_hold_array_ref(
   array_type : @lib.TypeIdx,
 ) -> Bool {
   match @ir.hot_local_type(func, local_id) {
-    Some(@lib.RefTypeValType(ref_type)) => {
-      if !ref_type.is_nullable() {
-        return false
-      }
+    Some(@lib.RefTypeValType(ref_type)) =>
       match ref_type.get_heap_type() {
         @lib.HeapType(type_idx) => type_idx == array_type
         @lib.AbsHeapTypeHeapType(
           @lib.AnyAbsHeapType
           | @lib.EqAbsHeapType
           | @lib.ArrayAbsHeapType
-        ) => true
+        ) => ref_type.is_nullable()
         _ => false
       }
-    }
     _ => false
   }
 }
@@ -1188,7 +1184,7 @@ fn h2l_find_array_candidate_for_local(
   }
   let write_node = @ir.hot_node_get(func, write_node_id)
   match write_node.op {
-    @ir.HotOp::LocalSet =>
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
       if write_node.imm0 != local_id || write_node.child_count != 1 {
         return None
       }
@@ -1207,6 +1203,12 @@ fn h2l_find_array_candidate_for_local(
     return None
   }
   let use_sites : Array[H2LArrayUseSite] = []
+  if write_node.op is @ir.HotOp::LocalTee &&
+    !h2l_collect_array_use(
+      func, use_def, write_node_id, array_type, length, use_sites,
+    ) {
+    return None
+  }
   for read_node_id in use_def.local_reads[local_id] {
     if !h2l_collect_array_use(
         func, use_def, read_node_id, array_type, length, use_sites,
@@ -1534,7 +1536,9 @@ fn h2l_passthrough_child_node(func : @ir.HotFunc, source_node_id : Int) -> Int? 
       } else {
         None
       }
-    Some(@lib.Instruction::RefCast(_, _, _)) =>
+    Some(@lib.Instruction::RefCast(_, _, _))
+    | Some(@lib.Instruction::AnyConvertExtern)
+    | Some(@lib.Instruction::ExternConvertAny) =>
       if @ir.hot_child_count(func, source_node_id) == 1 {
         Some(@ir.hot_child_get(func, source_node_id, 0))
       } else {
@@ -1725,6 +1729,25 @@ fn h2l_direct_packed_read_replacement(
 }
 
 ///|
+fn h2l_direct_unused_struct_child_is_removable(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(
+      @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+      | @lib.RefNull(_)
+      | @lib.RefFunc(_)
+    ) => true
+    _ => false
+  }
+}
+
+///|
 fn h2l_try_fold_direct_struct_get(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
@@ -1745,7 +1768,17 @@ fn h2l_try_fold_direct_struct_get(
       (type_idx, raw_idx.reinterpret_as_int(), Some(false))
     _ => return false
   }
-  let alloc_node_id = @ir.hot_child_get(func, node_id, 0)
+  let passthrough_nodes : Array[Int] = []
+  let mut alloc_node_id = @ir.hot_child_get(func, node_id, 0)
+  while true {
+    match h2l_passthrough_child_node(func, alloc_node_id) {
+      Some(child_node_id) if child_node_id != alloc_node_id => {
+        passthrough_nodes.push(alloc_node_id)
+        alloc_node_id = child_node_id
+      }
+      _ => break
+    }
+  }
   let (alloc_type, fields, _) = match
     h2l_supported_struct_new_fields(func, module_ctx, alloc_node_id) {
     Some(info) => info
@@ -1761,8 +1794,21 @@ fn h2l_try_fold_direct_struct_get(
         Some(node_id) => node_id
         None => return false
       }
-    Some(@lib.Instruction::StructNew(_)) if fields.length() == 1 &&
-      field_idx == 0 => @ir.hot_child_get(func, alloc_node_id, 0)
+    Some(@lib.Instruction::StructNew(_)) if @ir.hot_child_count(
+        func, alloc_node_id,
+      ) ==
+      fields.length() => {
+      for child_idx = 0; child_idx < fields.length(); child_idx = child_idx + 1 {
+        if child_idx != field_idx &&
+          !h2l_direct_unused_struct_child_is_removable(
+            func,
+            @ir.hot_child_get(func, alloc_node_id, child_idx),
+          ) {
+          return false
+        }
+      }
+      @ir.hot_child_get(func, alloc_node_id, field_idx)
+    }
     _ => return false
   }
   let replacement = match
@@ -1773,7 +1819,34 @@ fn h2l_try_fold_direct_struct_get(
     None => return false
   }
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  for passthrough_node in passthrough_nodes {
+    detached_nodes.push(passthrough_node)
+  }
   detached_nodes.push(alloc_node_id)
+  true
+}
+
+///|
+fn h2l_try_fold_direct_ref_is_null(
+  func : @ir.HotFunc,
+  node_id : Int,
+  detached_nodes : Array[Int],
+) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_child_count(func, node_id) != 1 ||
+    @ir.hot_node_exact_instr(func, node_id) !=
+    Some(@lib.Instruction::ref_is_null()) {
+    return false
+  }
+  let operand = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_exact_instr(func, operand) {
+    Some(@lib.StructNewDefault(_)) if @ir.hot_child_count(func, operand) == 0 =>
+      ()
+    _ => return false
+  }
+  let replacement = @ir.hot_build_const_i32(func, @lib.I32(0))
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  detached_nodes.push(operand)
   true
 }
 
@@ -2315,6 +2388,9 @@ pub fn heap2local_run(
   let node_count = @ir.hot_node_count(func)
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
     if h2l_try_fold_direct_struct_get(func, module_ctx, node_id, detached_nodes) {
+      changed = true
+    }
+    if h2l_try_fold_direct_ref_is_null(func, node_id, detached_nodes) {
       changed = true
     }
     if h2l_try_fold_direct_array_get(func, module_ctx, node_id, detached_nodes) {

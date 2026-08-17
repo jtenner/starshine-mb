@@ -896,3 +896,47 @@ test "simplify-locals-nostructure optimizes local traffic inside try_table catch
       fail("expected catch-list local.get replaced by const, got \{other}")
   }
 }
+
+///|
+test "simplify-locals folds admitted adjacent set get pairs to tees" {
+  let target = @lib.LocalIdx::new(2U)
+  let input = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(48),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+  ]
+  let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
+    input,
+  )
+  inspect(count, content="1")
+  inspect(
+    rewritten,
+    content=(
+      #|[(local.get (Local 0)), (i32.const I32(48)), i32.add, (local.tee (Local 2)), drop]
+    ),
+  )
+}
+
+///|
+test "simplify-locals WAGO countdown guard admits local-only classifiers" {
+  let instrs : Array[@lib.Instruction] = []
+  for local_idx = 0; local_idx < 6; local_idx = local_idx + 1 {
+    instrs.push(@lib.Instruction::i32_const(local_idx))
+    instrs.push(
+      @lib.Instruction::local_set(@lib.LocalIdx::new(local_idx.to_uint())),
+    )
+  }
+  for if_idx = 0; if_idx < 2; if_idx = if_idx + 1 {
+    instrs.push(@lib.Instruction::i32_const(1))
+    instrs.push(@lib.Instruction::if_(@lib.BlockType::void_(), [], None))
+  }
+  while instrs.length() < 32 {
+    instrs.push(@lib.Instruction::nop())
+  }
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_has_wago_expansion_hazard(instrs),
+  )
+}

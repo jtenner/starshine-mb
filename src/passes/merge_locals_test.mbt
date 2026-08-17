@@ -362,3 +362,37 @@ test "merge-locals retargets source influences inside legacy try bodies" {
     2,
   )
 }
+
+///|
+test "merge-locals preserves stack-carried tee aliases written to parameters" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param i32 i32) (local i32)
+        #|    local.get 1
+        #|    local.get 0 i32.const 4 i32.add local.tee 2
+        #|    i32.load
+        #|    i32.eq
+        #|    local.get 2 local.set 1
+        #|    if
+        #|      local.get 1 drop
+        #|    end))
+      ),
+      ["merge-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried parameter alias boundary, got \{err}")
+  }
+  let _ = optimized
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("stack-carried-tee-parameter-alias-merge-locals-noop")
+    }),
+    msg=trace.join("\n"),
+  )
+}

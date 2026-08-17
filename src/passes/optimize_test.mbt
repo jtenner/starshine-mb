@@ -131,6 +131,53 @@ test "vacuum cleans dropped pure values at O4z levels" {
 }
 
 ///|
+test "level-zero vacuum removes unbranched function-root result blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (block (result i32) i32.const 7)))",
+      ["vacuum"],
+      options=HotPipelineOptions::new(optimize_level=0, shrink_level=0),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected root result block cleanup, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::i32_const(7)])
+    other =>
+      fail(
+        "expected flattened function-root result block, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "level-zero vacuum removes nested unbranched result blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (block (result i32) (block (result i32) i32.const 7))))",
+      ["vacuum"],
+      options=HotPipelineOptions::new(optimize_level=0, shrink_level=0),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested result block cleanup, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested result block output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::i32_const(7)])
+    other =>
+      fail(
+        "expected all nested result wrappers removed, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum flattens lowered rotate blocks ending in a direct owner branch at O4z" {
   let optimized = match
     pass_test_run_pipeline(
@@ -214,6 +261,76 @@ test "vacuum removes dropped pure SIMD shuffles" {
       ])
     other => fail("expected vacuumed SIMD function, got \{other}")
   }
+}
+
+///|
+test "vacuum strips dropped SIMD replace lanes but preserves load traps" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global (mut i32) (i32.const 0))
+      #|  (func (param i32)
+      #|    v128.const i32x4 0 0 0 0
+      #|    local.get 0
+      #|    i32.load8_u
+      #|    i8x16.replace_lane 0
+      #|    drop
+      #|    i32.const 7
+      #|    global.set 0))
+      #|,
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped replace-lane cleanup, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("v128.const"), msg=pretty)
+  assert_false(pretty.contains("replace_lane"), msg=pretty)
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "vacuum removes dropped pure SIMD shuffle arithmetic trees" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (global (mut i32) (i32.const 0))
+      #|  (func (param v128 v128)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i8x16.shuffle 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
+      #|    v128.const i32x4 0x60606060 0x60606060 0x60606060 0x60606060
+      #|    i8x16.sub_sat_u
+      #|    local.get 0
+      #|    local.get 1
+      #|    i8x16.shuffle 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28
+      #|    v128.const i32x4 0x70707070 0x70707070 0x70707070 0x70707070
+      #|    i8x16.sub_sat_u
+      #|    v128.or
+      #|    v128.const i32x4 0x80808080 0x80808080 0x80808080 0x80808080
+      #|    v128.and
+      #|    drop
+      #|    i32.const 7
+      #|    global.set 0))
+      #|,
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped pure SIMD tree cleanup, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i8x16.shuffle"), msg=pretty)
+  assert_false(pretty.contains("i8x16.sub_sat_u"), msg=pretty)
+  assert_false(pretty.contains("v128.or"), msg=pretty)
+  assert_false(pretty.contains("v128.and"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
 }
 
 ///|
@@ -391,6 +508,83 @@ test "vacuum removes pure drops in root local set call hazards" {
   assert_false(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("call"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
+test "vacuum preserves stack-carried global reads across writes" {
+  let input =
+    #|(module
+    #|  (global $sp (mut i32) (i32.const 0))
+    #|  (func (param i32) (result i32)
+    #|    global.get $sp
+    #|    local.get 0
+    #|    global.get $sp
+    #|    i32.add
+    #|    global.set $sp
+    #|    global.get $sp
+    #|    i32.const 15
+    #|    i32.add
+    #|    i32.const -16
+    #|    i32.and
+    #|    global.set $sp
+    #|    nop
+    #|    local.tee 0
+    #|    nop
+    #|    return))
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-carried global vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([@lib.GlobalGet(@lib.GlobalIdx(0U)), ..]))]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected the old global value to remain the first stack root, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum preserves stack-carried global reads through local set returns" {
+  let input =
+    #|(module
+    #|  (global $sp (mut i32) (i32.const 0))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    global.get $sp
+    #|    local.get 0
+    #|    global.get $sp
+    #|    i32.add
+    #|    global.set $sp
+    #|    global.get $sp
+    #|    i32.const 15
+    #|    i32.add
+    #|    i32.const -16
+    #|    i32.and
+    #|    global.set $sp
+    #|    nop
+    #|    local.set 1
+    #|    local.get 1
+    #|    return))
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried local-set vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([@lib.GlobalGet(@lib.GlobalIdx(0U)), ..]))]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected the old global value to remain before same-global writes, got \{@debug.to_string(other)}",
+      )
+  }
 }
 
 ///|
@@ -870,6 +1064,62 @@ test "vacuum removes finite local-only loops without backedges" {
 }
 
 ///|
+test "vacuum coalesces contiguous identical dropped scalar loads" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32)
+    #|    local.get 0 i32.load8_u drop
+    #|    local.get 0 i32.load8_u drop
+    #|    local.get 0 i32.load8_u drop))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected repeated-load vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      let mut loads = 0
+      for instr in instrs {
+        if instr is @lib.I32Load8U(_) {
+          loads += 1
+        }
+      }
+      assert_eq(loads, 1, msg=instrs.to_string())
+    }
+    other => fail("expected one repeated-load function, got \{other}")
+  }
+}
+
+///|
+test "vacuum preserves identical dropped loads separated by a store" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32)
+    #|    local.get 0 i32.load8_u drop
+    #|    local.get 0 i32.const 1 i32.store8
+    #|    local.get 0 i32.load8_u drop))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected store-separated load vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      let mut loads = 0
+      for instr in instrs {
+        if instr is @lib.I32Load8U(_) {
+          loads += 1
+        }
+      }
+      assert_eq(loads, 2, msg=instrs.to_string())
+    }
+    other => fail("expected one store-separated function, got \{other}")
+  }
+}
+
+///|
 test "vacuum removes unread default struct allocations" {
   let input =
     #|(module
@@ -902,6 +1152,195 @@ test "vacuum removes unread default struct allocations" {
       fail(
         "expected unread and observed struct allocation functions, got \{@debug.to_string(other)}",
       )
+  }
+}
+
+///|
+test "vacuum removes dropped pure GC allocations" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0b, 0x03, 0x5f, 0x01,
+        0x7f, 0x00, 0x5e, 0x7f, 0x00, 0x60, 0x00, 0x00, 0x03, 0x02, 0x01, 0x02, 0x0a,
+        0x18, 0x01, 0x16, 0x00, 0x41, 0x07, 0xfb, 0x00, 0x00, 0x1a, 0x41, 0x09, 0x41,
+        0x03, 0xfb, 0x06, 0x01, 0x1a, 0x41, 0x04, 0xfb, 0x07, 0x01, 0x1a, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dropped GC allocation fixture decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dropped GC allocation vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
+    other => fail("expected one empty GC-allocation function, got \{other}")
+  }
+}
+
+///|
+test "vacuum preserves effectful operands of dropped GC allocations" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0f, 0x04, 0x5f, 0x01,
+        0x7f, 0x00, 0x5e, 0x7f, 0x00, 0x60, 0x00, 0x01, 0x7f, 0x60, 0x00, 0x00, 0x02,
+        0x0b, 0x01, 0x01, 0x6d, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x00, 0x02, 0x03,
+        0x02, 0x01, 0x03, 0x0a, 0x12, 0x01, 0x10, 0x00, 0x10, 0x00, 0xfb, 0x00, 0x00,
+        0x1a, 0x10, 0x00, 0x41, 0x03, 0xfb, 0x06, 0x01, 0x1a, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful GC allocation fixture decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful GC allocation vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      assert_false(instrs.any(fn(instr) { instr is @lib.StructNew(_) }))
+      assert_false(instrs.any(fn(instr) { instr is @lib.ArrayNew(_) }))
+      let mut calls = 0
+      let mut drops = 0
+      for instr in instrs {
+        if instr is @lib.Call(_) {
+          calls += 1
+        } else if instr is @lib.Drop {
+          drops += 1
+        }
+      }
+      assert_eq(calls, 2)
+      assert_eq(drops, 2)
+    }
+    other => fail("expected one effectful GC-allocation function, got \{other}")
+  }
+}
+
+///|
+test "vacuum removes fresh in-bounds array set shells and preserves value effects" {
+  let pure = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x02, 0x5e, 0x7f,
+        0x01, 0x60, 0x00, 0x00, 0x03, 0x02, 0x01, 0x01, 0x0a, 0x10, 0x01, 0x0e, 0x00,
+        0x41, 0x01, 0xfb, 0x07, 0x00, 0x41, 0x00, 0x41, 0x2a, 0xfb, 0x0e, 0x00, 0x0b,
+        0x00, 0x0b, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x04, 0x04, 0x01, 0x00, 0x01, 0x61,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected pure fresh-array-set fixture decode, got \{err}")
+  }
+  let pure = match
+    run_hot_pipeline(pure, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected pure fresh-array-set vacuum success, got \{err}")
+  }
+  match pure.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
+    other => fail("expected empty pure fresh-array-set function, got \{other}")
+  }
+
+  let effectful = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0b, 0x03, 0x5e, 0x7f,
+        0x01, 0x60, 0x00, 0x01, 0x7f, 0x60, 0x00, 0x00, 0x03, 0x03, 0x02, 0x01, 0x02,
+        0x0a, 0x15, 0x02, 0x04, 0x00, 0x41, 0x2a, 0x0b, 0x0e, 0x00, 0x41, 0x01, 0xfb,
+        0x07, 0x00, 0x41, 0x00, 0x10, 0x00, 0xfb, 0x0e, 0x00, 0x0b, 0x00, 0x15, 0x04,
+        0x6e, 0x61, 0x6d, 0x65, 0x01, 0x08, 0x01, 0x00, 0x05, 0x76, 0x61, 0x6c, 0x75,
+        0x65, 0x04, 0x04, 0x01, 0x00, 0x01, 0x61,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful fresh-array-set fixture decode, got \{err}")
+  }
+  let effectful = match
+    run_hot_pipeline(effectful, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful fresh-array-set vacuum success, got \{err}")
+  }
+  match effectful.code_sec {
+    Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::drop(),
+      ])
+    other => fail("expected preserved fresh-array-set value call, got \{other}")
+  }
+}
+
+///|
+test "vacuum removes dropped multi-field struct shells with pure roots" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $inner (struct (field i32)))
+      #|  (type $outer (struct (field v128) (field (ref null $inner))))
+      #|  (func (local (ref null $inner))
+      #|    i32.const 42 struct.new $inner local.set 0
+      #|    v128.const i32x4 1 2 3 4 local.get 0 struct.new $outer drop))
+      #|,
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dropped multi-field struct vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      assert_false(
+        instrs.any(fn(instr) {
+          instr == @lib.Instruction::struct_new(@lib.TypeIdx::new(1U))
+        }),
+      )
+    other => fail("expected one multi-field struct function, got \{other}")
+  }
+}
+
+///|
+test "vacuum removes dropped ref.func struct allocation shells" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0e, 0x03, 0x60, 0x00,
+        0x00, 0x5e, 0x7f, 0x01, 0x50, 0x00, 0x5f, 0x01, 0x64, 0x00, 0x00, 0x03, 0x03,
+        0x02, 0x00, 0x00, 0x07, 0x04, 0x01, 0x00, 0x00, 0x01, 0x09, 0x05, 0x01, 0x01,
+        0x00, 0x01, 0x00, 0x0a, 0x27, 0x02, 0x03, 0x00, 0x01, 0x0b, 0x21, 0x01, 0x01,
+        0x7f, 0xd2, 0x00, 0xfb, 0x00, 0x02, 0x1a, 0x03, 0x40, 0x20, 0x00, 0x41, 0x80,
+        0x80, 0x01, 0x4b, 0x04, 0x40, 0x05, 0x20, 0x00, 0x41, 0x01, 0x6a, 0x21, 0x00,
+        0x0c, 0x01, 0x0b, 0x0b, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dropped ref.func struct fixture decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dropped ref.func struct vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(instrs))])) => {
+      assert_false(instrs.any(fn(instr) { instr is @lib.RefFunc(_) }))
+      assert_false(instrs.any(fn(instr) { instr is @lib.StructNew(_) }))
+    }
+    other => fail("expected two-function ref.func struct fixture, got \{other}")
   }
 }
 
