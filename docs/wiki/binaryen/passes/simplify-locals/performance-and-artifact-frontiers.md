@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-08-04
+last_reviewed: 2026-08-16
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -19,6 +19,30 @@ related:
 # `simplify-locals` Performance And Artifact Frontiers
 
 The 2026-07-27 v131 renewal is a behavioral, validity, idempotence, and canonical-size closeout. It does not replace the historical large-artifact timing caveat below; renewed wall-time work remains owned by `[WALL]001` and is not a simplify-locals v131 parity blocker.
+
+## 2026-08-16 O4z encoded-size portfolio
+
+The Wasm CLI now treats full O4z output as one candidate rather than an unconditional final choice. At O4z shrink levels it compares the normal encoded module with the original valid Wasm bytes, a conservative level-zero late cleanup result, an original-module `simplify-locals-nostructure` result, and validated final-only structural candidates. The structural lane removes unbranched typed/void wrappers with complete escaping-label rebasing, excludes owner-targeted and stack-polymorphic-unreachable bodies, folds exact sign-extension/boolean/terminal-return and fresh packed-array shells, strips nonsemantic branch-hint metadata, then runs either `ssa-nomerge -> remove-unused-brs -> vacuum` followed by two bounded local-cleanup waves and a cheap precompute/reorder/vacuum finish, or, for small dense-i64 modules, `simplify-locals -> simplify-locals -> coalesce-locals`. Stable ties prefer the normal result. Direct pass behavior and the locked normal schedule are unchanged.
+
+The expensive alternatives are skipped when the normal result is below 10 KiB and already compresses the input by more than four times. The red-first admission regression covers the 837 → 118-byte 1793d family and preserves its 45-second corpus bound. Exact runtime execution found that externally valid level-zero cleanup output trapped startup JSON, made both AssemblyScript binary-tree variants nonterminating at `run(0)`, and later made a 25,572-byte JSON-SIMD continuation nonterminating. Observable AssemblyScript JSON/startup modules now skip the entire late-cleanup branch. Observable `run`/memory modules additionally exclude normal O4z and choose only validated input or original-module SimplifyLocals candidates; minimal/incremental binary trees therefore settle at runtime-safe 3,604/4,115 bytes. On the fixed 766-file cohort the parity-closed result saves 7,373 bytes from the 422,820-byte checkpoint and emits 415,447 bytes versus Binaryen at 415,485, a 38-byte / 0.009% aggregate win. Seventy-eight final6 outputs shrink and none grow. Scalar f32/f64 select 3,048/3,100-byte candidates, scalar i64 reaches 5,820, JSON selects runtime-safe 23,408/25,574, startup JSON remains 22,340, and the four embenchen modules reach 23,690/24,082/22,493/21,991. The full sweep retains 807/807 valid successful outputs, zero valid-input timeouts or output-validation failures, and the same 35 compatibility failures. Native SHA-256 is `f73de433e82591f26c68fedb77277dd1468aa6a3f5dad2787b3263489ce6fabf`; 1,394 ISA/SIMD calls, all 37 stateful probes, and the fannkuch event/trap/memory oracle pass.
+
+## 2026-08-15 WAGO cleanup-expansion boundaries
+
+The full 1,330-file WAGO O4z audit found two valid inputs that stalled through repeated raw/HOT SimplifyLocals cleanup expansion: `tests/regressions/fuzzcases/1793b.wasm` and `tests/regressions/runtime/core/winch/issue-424666628/commands.0.wasm`. Reduction disproved deferred batch-writeback equality as the cause; the work was repeated simplify-locals scans plus cleanup/lowering growth across O4z rounds.
+
+`run_hot_pipeline_raw_simplify_locals_has_wago_expansion_hazard(...)` now fails closed only for the observed signatures: broad SIMD/global carrier bodies derived from `1793b`, and broad countdown/clamp bodies with repeated local writes derived from the Winch regression. These are bounded representation/performance boundaries, not claims that the source modules are invalid or that broad SimplifyLocals is unsafe. Focused regressions require the no-structure pass to bound both families. Complete O4z now finishes in about 8.9 ms / 250 bytes for `1793b` and 38.1 ms / 252 bytes for the Winch fixture, with externally valid outputs. Across the 842 externally valid WAGO inputs at or below 2 MiB, total Starshine timeouts fell from five to zero. A follow-up experiment admitted universally exact adjacent `local.set X; local.get X -> local.tee X` rewrites before this boundary and reduced several corpus artifacts, but it made the 1793b prefix test exceed its bound; the experiment was removed rather than weakening the fail-closed contract.
+
+## 2026-08-15 initial structural-expansion admission
+
+A second fixed-cohort audit found that the first top-level Flatten slot often creates structured/local traffic that later SimplifyLocals and coalescing spend substantial work undoing. The module-specific O4z roster now omits only that first slot for no-function-import modules unless GC, complex or zero-minimum memory, table-copy, dense integer arithmetic, protected WAGO SIMD, Winch countdown, or other measured lifetime shapes require it. Nested inlining and SGO rosters remain unchanged. A separate first-SSA omission is limited to modules with at least two function imports. AssemblyScript startup keeps the initial slot but skips Flatten per function except for the measured three-`i32.ctz` allocator-search body.
+
+The fixed 766-file cohort saves 5,024 bytes with no per-fixture size regressions. Blake SIMD falls from 24,269 to 23,435 bytes and its serial whole-command median falls from about 2,118 ms to 515 ms; scalar i32 falls from 5,680 to 4,908, scalar i64 from 6,338 to 6,014, ISA control from 2,114 to 1,623, and startup JSON from 22,684 to 22,384. The final 1,330-file sweep retains zero valid-input timeouts or output-validation failures, and both the 1,394-call ISA lane and 37-probe stateful lane remain green.
+
+## 2026-08-15 alternating recurrence stack carrying
+
+Binaryen's remaining ISA SimplifyLocals payoff centered on long repeated recurrences shaped `A = op(A, B); B = op(B, A)`. Starshine now recognizes at least two contiguous pairs whose operations are same-type i32/i64 binaries or pure two-input v128-result SIMD operations. It keeps the current `B` on the operand stack, uses `local.tee` for intermediate assignments, and restores stack neutrality with a final `local.set B`. Operation order, operand order, local assignment timing, and trap order are unchanged; nonmatching or mixed-type sequences remain untouched. This reduces the eight non-reduction ISA SIMD fixtures by 7,080 bytes and scalar `isa_i32`/`isa_i64` by another 708 bytes. Focused tests cover noncommutative SIMD narrowing plus i32 subtraction and i64 xor recurrences.
+
+Runtime differential execution of `embenchen_fannkuch/commands.1.wasm` then exposed two validating lifetime errors. Full SimplifyLocals converted `_memset` loops so a parameter `local.get; i32.const; i32.add/sub; local.set` update moved after an unconditional backedge; nonzero work no longer advanced and `_main` hung. The fail-closed boundary is deliberately limited to same-parameter updates immediately preceding the branch, so local-only loop-carrier and redundant self-tee cleanup remains enabled. A later post-SSA no-structure wave dropped an old stack-pointer `global.get` carried to a final `local.tee; return` across intervening writes to that global; Vacuum had the same unsafe root shape. The shared root-global-snapshot/tee-return guard preserves `stackAlloc(32) == 0`. Focused tests cover the scalar pointer loop, the earlier SIMD countdown loop, safe local-only loops, no-structure global snapshots, and Vacuum's corresponding stack root.
 
 ## 2026-08-14 commutative SIMD carrier forwarding
 

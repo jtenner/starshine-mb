@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-08-16
 sources:
   - ./index.md
   - ../../../../../src/passes/ssa_nomerge.mbt
@@ -26,6 +26,18 @@ related:
 # Starshine `ssa-nomerge` HOT-IR strategy
 
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `SSAify(false)` contract.
+
+## 2026-08-16 O4z post-canonical size candidate
+
+The Wasm-only O4z size portfolio may run `ssa-nomerge -> remove-unused-brs -> vacuum` after validated final-only block and exact-shell canonicalization, followed by two bounded local-cleanup waves and a cheap precompute/reorder/vacuum finish. This is a CLI candidate-selection role: direct `ssa-nomerge`, its HOT contract, and the locked normal O4z roster are unchanged. Small dense-i64 modules use a separate two-SimplifyLocals-plus-CoalesceLocals cleanup chain instead.
+
+Candidate validation alone is not treated as semantic proof. Exact runtime execution found that the broader level-zero late-cleanup family could trap startup JSON, make AssemblyScript binary-tree `run(0)` nonterminating, and make a later 25,572-byte JSON-SIMD continuation nonterminating. Observable AssemblyScript JSON/startup modules now skip that entire late-cleanup/canonical branch, and observable `run`/memory modules also exclude normal O4z so the portfolio chooses only validated input or original-module SimplifyLocals results. Parity-closed evidence under `.tmp/wago-o4z-parity-closed-final-20260816/` passes 1,394 ISA/SIMD calls and 37 stateful probes. The final fixed 766-file result is 415,447 bytes versus Binaryen v131 at 415,485.
+
+## 2026-08-15 multivalue function-exit `br_table` admission boundary
+
+The WAGO O4z audit reduced `tests/regressions/fuzzcases/1777.wasm` to a no-local-write, multi-result nested `br_table` whose target set includes the implicit function label. Current HOT lifting cannot represent that family safely and previously reached `InvalidBranchArity(6, -2, 0, 2)` before later HOT passes. `run_hot_pipeline_func(...)` now detects the exact unsupported family before lift and returns the original valid raw function unchanged with reason `multivalue-function-exit-br-table-hot-lift-noop`.
+
+This is a HOT representation boundary, not an input-validity claim and not a broad `br_table` disablement. A focused `ssa-nomerge` regression requires the no-local-write multivalue function-exit shape to remain unchanged. Complete O4z on the saved fixture now finishes in about 5.1 ms, emits 84 bytes, and validates externally. Broader HOT support remains preferable when function-label branch arity can be modeled and verified without weakening current branch invariants.
 
 ## Current local surface
 
