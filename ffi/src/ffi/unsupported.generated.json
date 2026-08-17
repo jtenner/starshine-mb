@@ -1,0 +1,137 @@
+[
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_for_each_child",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_for_each_root",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_rewrite_children_by_slot",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_rewrite_error",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_rewrite_remove",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_rewrite_replace",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_rewrite_same",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_verify_all",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_visit_continue",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_visit_error",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_visit_skip",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_visit_stop",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_walk_control_regions",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_walk_region",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_walk_subtree_postorder",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_walk_subtree_preorder",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/ir",
+    "symbol": "hot_worklist_walk",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/lib",
+    "symbol": "array_of_arbitrary",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/lib",
+    "symbol": "equals",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/lib",
+    "symbol": "inspect_debug",
+    "reason": "public signature references non-public type(s): SourceLoc, ArgsLoc, InspectError"
+  },
+  {
+    "packagePath": "jtenner/starshine/lib",
+    "symbol": "inspect_pretty_print",
+    "reason": "generic functions require concrete type instantiations before they can be Wasm exports"
+  },
+  {
+    "packagePath": "jtenner/starshine/lib",
+    "symbol": "Name::new",
+    "reason": "public signature references non-public type(s): StringView"
+  },
+  {
+    "packagePath": "jtenner/starshine/validate",
+    "symbol": "gen_valid_numtype",
+    "reason": "public signature references non-public type(s): GenValidContext"
+  },
+  {
+    "packagePath": "jtenner/starshine/validate",
+    "symbol": "gen_valid_tfunc",
+    "reason": "public signature references non-public type(s): GenValidContext"
+  },
+  {
+    "packagePath": "jtenner/starshine/validate",
+    "symbol": "gen_valid_valtype",
+    "reason": "public signature references non-public type(s): GenValidContext"
+  },
+  {
+    "packagePath": "jtenner/starshine/validate",
+    "symbol": "gen_valid_valtype_with_extra_refs",
+    "reason": "public signature references non-public type(s): GenValidContext"
+  },
+  {
+    "packagePath": "jtenner/starshine/passes",
+    "symbol": "Show::HotTupleOptimizationGroup",
+    "reason": "public trait implementation uses a non-public implementing type"
+  }
+]

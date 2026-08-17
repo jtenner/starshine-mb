@@ -1,0 +1,25 @@
+import {
+  "jtenner/starshine/binary",
+  "jtenner/starshine/bitset",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/builtin",
+  "jtenner/starshine/cli",
+  "jtenner/starshine/diff",
+  "jtenner/starshine/fs",
+  "jtenner/starshine/ir",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/passes",
+  "jtenner/starshine/passes_perf_long",
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
+  "jtenner/starshine/validate",
+  "jtenner/starshine/validate_proof",
+  "jtenner/starshine/wast",
+  "jtenner/starshine/wat",
+}
+
+pkgtype(kind: "foreign_library")
+
+options(
+  link: { "wasm-gc": { "export-memory-name": "memory" } },
+)

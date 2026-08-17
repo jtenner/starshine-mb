@@ -17,6 +17,7 @@ commands.txt
 result.json
 .artifacts/
 dist/component/
+dist/ffi/
 agent-lost-and-found.md
 .tmp/
 build/

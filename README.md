@@ -51,6 +51,16 @@ For language-neutral WIT bindings and the Component Model artifact, see [compone
 | `jtenner/starshine/spec_runner` | WAST spec-harness execution helpers. |
 | `jtenner/starshine/validate_trace` | Validation trace entrypoints and fixtures. |
 
+## WasmGC linker FFI
+
+```bash
+bun ffi generate
+bun ffi check
+bun ffi build
+```
+
+The generated `jtenner/starshine-ffi/ffi` foreign-library package lives under [`ffi/`](./ffi/). `bun ffi build` writes `dist/ffi/starshine-ffi.wasm` with concrete public APIs exported under stable names such as `BitSet::new`, package-qualified collision names such as `lib::Module::new`, and per-implementer trait names such as `Decode::Module::decode` or `Show::wast::Module::to_string`. Remaining standalone generics and inaccessible signatures are recorded in `ffi/src/ffi/unsupported.generated.json`.
+
 ## Component Model / WIT
 
 ```bash

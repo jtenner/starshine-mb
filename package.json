@@ -9,6 +9,7 @@
     "make": "bun scripts/make.ts",
     "examples": "bun scripts/examples.ts",
     "cli-benchmarks": "bun scripts/cli-benchmarks.ts",
-    "component": "bun scripts/component.ts"
+    "component": "bun scripts/component.ts",
+    "ffi": "bun scripts/ffi.ts"
   }
 }
