@@ -1,0 +1,47 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/ffi_bridge"
+
+import {
+  "jtenner/starshine/lib",
+}
+
+// Values
+pub fn encode_module(@lib.Module) -> EncodedModule
+
+pub fn funcs_new() -> Array[@lib.Func]
+
+pub fn funcs_push(Array[@lib.Func], @lib.Func) -> Unit
+
+pub fn instructions_new() -> Array[@lib.Instruction]
+
+pub fn instructions_push(Array[@lib.Instruction], @lib.Instruction) -> Unit
+
+pub fn module_new() -> @lib.Module
+
+pub fn rec_types_new() -> Array[@lib.RecType]
+
+pub fn rec_types_push(Array[@lib.RecType], @lib.RecType) -> Unit
+
+pub fn type_indices_new() -> Array[@lib.TypeIdx]
+
+pub fn type_indices_push(Array[@lib.TypeIdx], @lib.TypeIdx) -> Unit
+
+pub fn val_types_new() -> Array[@lib.ValType]
+
+pub fn val_types_push(Array[@lib.ValType], @lib.ValType) -> Unit
+
+pub fn validate_module(@lib.Module) -> Bool
+
+// Errors
+
+// Types and methods
+pub struct EncodedModule {
+  bytes : Bytes?
+}
+pub fn EncodedModule::byte_at(Self, UInt) -> Byte
+pub fn EncodedModule::byte_length(Self) -> UInt
+pub fn EncodedModule::is_ok(Self) -> Bool
+
+// Type aliases
+
+// Traits

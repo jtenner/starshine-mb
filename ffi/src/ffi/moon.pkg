@@ -5,6 +5,7 @@ import {
   "moonbitlang/core/builtin",
   "jtenner/starshine/cli",
   "jtenner/starshine/diff",
+  "jtenner/starshine/ffi_bridge",
   "jtenner/starshine/fs",
   "jtenner/starshine/ir",
   "jtenner/starshine/lib",

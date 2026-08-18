@@ -37,4 +37,6 @@ Standalone generic functions, inaccessible private implementing types, and publi
 
 The compiler first exports C-safe wrapper names. The JavaScript build step rewrites only the Wasm export-section strings to the linker-facing names above; function indices and WasmGC signatures are unchanged.
 
+The `jtenner/starshine/ffi_bridge` package provides the small typed bridges needed by WasmGC consumers that cannot directly construct MoonBit generic arrays or inspect MoonBit `Result` values. It exposes mutable builders for the compiler-facing `ValType`, `RecType`, `TypeIdx`, `Instruction`, and `Func` arrays, an empty `Module` constructor, validation, and an `EncodedModule` byte inspector. These are object-model bridges, not a second command language.
+
 `src/ffi/exports.generated.mbt`, `src/ffi/export-names.generated.json`, `src/ffi/moon.pkg`, and `src/ffi/unsupported.generated.json` are generated files and should not be edited manually.

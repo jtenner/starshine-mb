@@ -561,6 +561,142 @@ pub fn ffi_diff_DiffOptions_new(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_encode_module")
+pub fn ffi_ffi_bridge_encode_module(
+  value0 : @lib.Module,
+) -> @ffi_bridge.EncodedModule {
+  @ffi_bridge.encode_module(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_funcs_new")
+pub fn ffi_ffi_bridge_funcs_new() -> Array[@lib.Func] {
+  @ffi_bridge.funcs_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_funcs_push")
+pub fn ffi_ffi_bridge_funcs_push(
+  value0 : Array[@lib.Func],
+  value1 : @lib.Func,
+) -> Unit {
+  @ffi_bridge.funcs_push(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_instructions_new")
+pub fn ffi_ffi_bridge_instructions_new() -> Array[@lib.Instruction] {
+  @ffi_bridge.instructions_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_instructions_push")
+pub fn ffi_ffi_bridge_instructions_push(
+  value0 : Array[@lib.Instruction],
+  value1 : @lib.Instruction,
+) -> Unit {
+  @ffi_bridge.instructions_push(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_module_new")
+pub fn ffi_ffi_bridge_module_new() -> @lib.Module {
+  @ffi_bridge.module_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_rec_types_new")
+pub fn ffi_ffi_bridge_rec_types_new() -> Array[@lib.RecType] {
+  @ffi_bridge.rec_types_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_rec_types_push")
+pub fn ffi_ffi_bridge_rec_types_push(
+  value0 : Array[@lib.RecType],
+  value1 : @lib.RecType,
+) -> Unit {
+  @ffi_bridge.rec_types_push(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_type_indices_new")
+pub fn ffi_ffi_bridge_type_indices_new() -> Array[@lib.TypeIdx] {
+  @ffi_bridge.type_indices_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_type_indices_push")
+pub fn ffi_ffi_bridge_type_indices_push(
+  value0 : Array[@lib.TypeIdx],
+  value1 : @lib.TypeIdx,
+) -> Unit {
+  @ffi_bridge.type_indices_push(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_val_types_new")
+pub fn ffi_ffi_bridge_val_types_new() -> Array[@lib.ValType] {
+  @ffi_bridge.val_types_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_val_types_push")
+pub fn ffi_ffi_bridge_val_types_push(
+  value0 : Array[@lib.ValType],
+  value1 : @lib.ValType,
+) -> Unit {
+  @ffi_bridge.val_types_push(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_validate_module")
+pub fn ffi_ffi_bridge_validate_module(value0 : @lib.Module) -> Bool {
+  @ffi_bridge.validate_module(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedModule_byte_at")
+pub fn ffi_ffi_bridge_EncodedModule_byte_at(
+  receiver : @ffi_bridge.EncodedModule,
+  value1 : UInt,
+) -> Byte {
+  @ffi_bridge.EncodedModule::byte_at(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedModule_byte_length")
+pub fn ffi_ffi_bridge_EncodedModule_byte_length(
+  receiver : @ffi_bridge.EncodedModule,
+) -> UInt {
+  @ffi_bridge.EncodedModule::byte_length(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedModule_is_ok")
+pub fn ffi_ffi_bridge_EncodedModule_is_ok(
+  receiver : @ffi_bridge.EncodedModule,
+) -> Bool {
+  @ffi_bridge.EncodedModule::is_ok(receiver)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_fs_create_dir")
 pub fn ffi_fs_create_dir(value0 : String) -> Result[Unit, String] {
   @fs.create_dir(value0)
@@ -28233,6 +28369,46 @@ pub fn ffi_binary_Decode_lib_CompType_option_decode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Decode_Array_Func_decode")
+pub fn ffi_binary_Decode_Array_Func_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[@lib.Func], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Decode_Array_Instruction_decode")
+pub fn ffi_binary_Decode_Array_Instruction_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[@lib.Instruction], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Decode_Array_RecType_decode")
+pub fn ffi_binary_Decode_Array_RecType_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[@lib.RecType], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Decode_Array_TypeIdx_decode")
+pub fn ffi_binary_Decode_Array_TypeIdx_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[@lib.TypeIdx], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Decode_Array_ValType_decode")
 pub fn ffi_binary_Decode_Array_ValType_decode(
   value0 : Bytes,
@@ -28258,26 +28434,6 @@ pub fn ffi_binary_Decode_Array_SubType_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(Array[@lib.SubType], Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Array_TypeIdx_decode")
-pub fn ffi_binary_Decode_Array_TypeIdx_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.TypeIdx], Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Array_Func_decode")
-pub fn ffi_binary_Decode_Array_Func_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Func], Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -28328,16 +28484,6 @@ pub fn ffi_binary_Decode_Array_Export_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(Array[@lib.Export], Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Array_Instruction_decode")
-pub fn ffi_binary_Decode_Array_Instruction_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Instruction], Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -28468,16 +28614,6 @@ pub fn ffi_binary_Decode_Array_TagType_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(Array[@lib.TagType], Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Array_RecType_decode")
-pub fn ffi_binary_Decode_Array_RecType_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.RecType], Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -28893,6 +29029,46 @@ pub fn ffi_binary_Encode_lib_CompType_option_encode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Encode_Array_Func_encode")
+pub fn ffi_binary_Encode_Array_Func_encode(
+  receiver : Array[@lib.Func],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Encode_Array_Instruction_encode")
+pub fn ffi_binary_Encode_Array_Instruction_encode(
+  receiver : Array[@lib.Instruction],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Encode_Array_RecType_encode")
+pub fn ffi_binary_Encode_Array_RecType_encode(
+  receiver : Array[@lib.RecType],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Encode_Array_TypeIdx_encode")
+pub fn ffi_binary_Encode_Array_TypeIdx_encode(
+  receiver : Array[@lib.TypeIdx],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Encode_Array_ValType_encode")
 pub fn ffi_binary_Encode_Array_ValType_encode(
   receiver : Array[@lib.ValType],
@@ -28916,26 +29092,6 @@ pub fn ffi_binary_Encode_Array_FieldType_encode(
 #export_name("ffi_binary_Encode_Array_SubType_encode")
 pub fn ffi_binary_Encode_Array_SubType_encode(
   receiver : Array[@lib.SubType],
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_Array_TypeIdx_encode")
-pub fn ffi_binary_Encode_Array_TypeIdx_encode(
-  receiver : Array[@lib.TypeIdx],
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_Array_Func_encode")
-pub fn ffi_binary_Encode_Array_Func_encode(
-  receiver : Array[@lib.Func],
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)
@@ -28986,16 +29142,6 @@ pub fn ffi_binary_Encode_Array_Elem_encode(
 #export_name("ffi_binary_Encode_Array_Export_encode")
 pub fn ffi_binary_Encode_Array_Export_encode(
   receiver : Array[@lib.Export],
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_Array_Instruction_encode")
-pub fn ffi_binary_Encode_Array_Instruction_encode(
-  receiver : Array[@lib.Instruction],
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)
@@ -29133,16 +29279,6 @@ pub fn ffi_binary_Encode_Array_TagType_encode(
 
 ///|
 #doc(hidden)
-#export_name("ffi_binary_Encode_Array_RecType_encode")
-pub fn ffi_binary_Encode_Array_RecType_encode(
-  receiver : Array[@lib.RecType],
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
 #export_name("ffi_binary_Encode_Array_GlobalType_encode")
 pub fn ffi_binary_Encode_Array_GlobalType_encode(
   receiver : Array[@lib.GlobalType],
@@ -29250,6 +29386,26 @@ pub fn ffi_validate_Match_Array_TableType_matches(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_Validate_Array_RecType_validate")
+pub fn ffi_validate_Validate_Array_RecType_validate(
+  receiver : Array[@lib.RecType],
+  value1 : @validate.Env,
+) -> Result[Unit, String] {
+  @validate.Validate::validate(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_Validate_Array_TypeIdx_validate")
+pub fn ffi_validate_Validate_Array_TypeIdx_validate(
+  receiver : Array[@lib.TypeIdx],
+  value1 : @validate.Env,
+) -> Result[Unit, String] {
+  @validate.Validate::validate(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_Validate_Array_ValType_validate")
 pub fn ffi_validate_Validate_Array_ValType_validate(
   receiver : Array[@lib.ValType],
@@ -29273,16 +29429,6 @@ pub fn ffi_validate_Validate_Array_FieldType_validate(
 #export_name("ffi_validate_Validate_Array_SubType_validate")
 pub fn ffi_validate_Validate_Array_SubType_validate(
   receiver : Array[@lib.SubType],
-  value1 : @validate.Env,
-) -> Result[Unit, String] {
-  @validate.Validate::validate(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_validate_Validate_Array_TypeIdx_validate")
-pub fn ffi_validate_Validate_Array_TypeIdx_validate(
-  receiver : Array[@lib.TypeIdx],
   value1 : @validate.Env,
 ) -> Result[Unit, String] {
   @validate.Validate::validate(receiver, value1)
@@ -29373,16 +29519,6 @@ pub fn ffi_validate_Validate_Array_MemType_validate(
 #export_name("ffi_validate_Validate_Array_TagType_validate")
 pub fn ffi_validate_Validate_Array_TagType_validate(
   receiver : Array[@lib.TagType],
-  value1 : @validate.Env,
-) -> Result[Unit, String] {
-  @validate.Validate::validate(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_validate_Validate_Array_RecType_validate")
-pub fn ffi_validate_Validate_Array_RecType_validate(
-  receiver : Array[@lib.RecType],
   value1 : @validate.Env,
 ) -> Result[Unit, String] {
   @validate.Validate::validate(receiver, value1)

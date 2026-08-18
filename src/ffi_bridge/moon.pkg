@@ -1,0 +1,5 @@
+import {
+  "jtenner/starshine/binary",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/validate",
+}
