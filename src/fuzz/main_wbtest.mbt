@@ -3546,7 +3546,7 @@ test "emit_gen_valid_batch_to_dir creates the output directory for selected modu
     Ok(v) => v
     Err(e) => fail(e)
   }
-  let out_dir = ".tmp/fuzz-main-wbtest-gen-valid-batch"
+  let out_dir = ".tmp/fuzz-main-wbtest-gen-valid-batch-\{@lib.trace_now_us()}"
   let selection = match
     emit_gen_valid_batch_to_dir(
       EmitGenValidBatchArgs::new(

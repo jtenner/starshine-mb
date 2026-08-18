@@ -412,7 +412,35 @@ test "FUZ1044C WABT and Binaryen binary adapters map optional valid and malforme
         classify_binary_differential_results([binaryen_valid]),
         BinaryDifferentialClassification::adapter_unavailable(),
       )
-    _ => fail("expected Binaryen valid or unavailable outcome")
+    BinaryInvalidDecode =>
+      @debug.assert_eq(
+        classify_binary_differential_results([
+          BinaryDifferentialAdapterResult::valid("starshine"),
+          binaryen_valid,
+        ]),
+        BinaryDifferentialClassification::decoder_stage_disagreement(),
+      )
+    BinaryInvalidValidate =>
+      @debug.assert_eq(
+        classify_binary_differential_results([
+          BinaryDifferentialAdapterResult::valid("starshine"),
+          binaryen_valid,
+        ]),
+        BinaryDifferentialClassification::validator_stage_disagreement(),
+      )
+    BinaryUnsupportedFeature =>
+      @debug.assert_eq(
+        classify_binary_differential_results([
+          BinaryDifferentialAdapterResult::valid("starshine"),
+          binaryen_valid,
+        ]),
+        BinaryDifferentialClassification::proposal_gap(),
+      )
+    BinaryToolFailure =>
+      @debug.assert_eq(
+        classify_binary_differential_results([binaryen_valid]),
+        BinaryDifferentialClassification::tool_failure(),
+      )
   }
   let malformed = bytes_from_ascii_for_fuzz_reducer("not wasm")
   let wabt_malformed = run_wabt_binary_validation_adapter(malformed)

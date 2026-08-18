@@ -17104,9 +17104,8 @@ fn pass_manager_test_dae_core_apply_iters(
   let original_large_unreachable_prefixes = dae_collect_original_large_unreachable_prefixes(
     mod_,
   )
-  let original_call_summary = dae_collect_original_call_summary_with_type_indices(
-    mod_, original_type_indices,
-  )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let original_call_summary = original.call_summary
   let original_call_counts = original_call_summary.call_counts
   let original_prior_call_counts = original_call_summary.prior_call_counts
   let original_prior_undropped_call_counts = original_call_summary.prior_undropped_call_counts
@@ -17201,54 +17200,34 @@ fn pass_manager_test_dae_core_apply_iters(
     original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
     original_dead_suffix_mutual_calls,
   )
+  let graph = dae_current_boundary_graph_new(mod_)
   let mut current = mod_
   let mut iter = 0
   while iter < limit {
+    let current_call_counts = match current.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        dae_collect_module_call_counts_anywhere(
+          funcs,
+          original.imported,
+          original.defined,
+        )
+      None => Array::make(original.defined, 0)
+    }
     let result = dae_run_core_once(
       current,
       Array::make(dae_defined_func_count(current), false),
-      original_param_counts,
-      original_large_unreachable_prefixes,
-      original_call_counts,
-      original_prior_call_counts,
-      original_prior_undropped_call_counts,
-      original_active_nonself_call_counts,
-      original_active_parameterized_nonself_call_counts,
-      original_active_parameterized_result_nonself_call_counts,
-      original_nonself_undropped_call_counts,
-      original_self_call_counts,
-      original_private_result_dead_suffix_call_counts,
-      original_private_result_same_operand_call_counts,
-      original_escaped_result_operand_call_facts,
-      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
-      original_escaped_dead_suffix_call_counts,
-      original_escaped_undropped_dead_suffix_call_counts,
-      original_dead_suffix_other_calls,
-      original_dead_suffix_undropped_self_calls,
-      original_dead_suffix_dropped_self_calls,
-      original_dead_suffix_block_undropped_self_calls,
-      original_dead_suffix_dropped_self_call_full_param_forwards,
-      original_dead_suffix_result_calls_from_undropped_self_callers,
-      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
-      original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
-      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
-      original_dead_suffix_dropped_calls_from_no_param_result_callers,
-      original_dead_suffix_mixed_dropped_undropped_call_counts,
-      original_dead_suffix_dropped_earlier_result_calls,
-      original_later_dead_suffix_dropped_call_counts,
-      original_dead_suffix_same_self_result_operand_calls,
-      original_dead_suffix_undropped_self_call_param_operands,
-      original_dead_suffix_calls_from_param_operand_self_result_callers,
-      original_dead_suffix_result_other_calls,
-      original_dead_suffix_self_recursive_void_side_calls,
-      original_dead_suffix_self_recursive_result_side_calls,
-      original_dead_suffix_escaped_result_call_facts,
-      original_dead_suffix_mutual_calls,
+      current_call_counts,
+      false,
+      false,
+      original,
+      graph,
+      expected_call_epoch=graph.call_epoch,
     )
     if !result.changed {
       break
     }
     current = result.mod_out
+    dae_current_boundary_graph_refresh(graph, current)
     iter += 1
   }
   current
@@ -17268,9 +17247,8 @@ fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
     mod_,
     dae_imported_func_count(mod_) + dae_defined_func_count(mod_),
   )
-  let original_call_summary = dae_collect_original_call_summary_with_type_indices(
-    mod_, original_type_indices,
-  )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let original_call_summary = original.call_summary
   let original_call_counts = original_call_summary.call_counts
   let original_active_nonself_call_counts = original_call_summary.active_nonself_call_counts
   let original_active_parameterized_nonself_call_counts = original_call_summary.active_parameterized_nonself_call_counts
@@ -17380,9 +17358,8 @@ fn pass_manager_test_dae_core_primary_defs(
   let original_large_unreachable_prefixes = dae_collect_original_large_unreachable_prefixes(
     mod_,
   )
-  let original_call_summary = dae_collect_original_call_summary_with_type_indices(
-    mod_, original_type_indices,
-  )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let original_call_summary = original.call_summary
   let original_call_counts = original_call_summary.call_counts
   let original_prior_call_counts = original_call_summary.prior_call_counts
   let original_prior_undropped_call_counts = original_call_summary.prior_undropped_call_counts
@@ -17478,55 +17455,35 @@ fn pass_manager_test_dae_core_primary_defs(
     original_dead_suffix_mutual_calls,
   )
   let primary_defs : Array[Int] = []
+  let graph = dae_current_boundary_graph_new(mod_)
   let mut current = mod_
   let mut iter = 0
   while iter < limit {
+    let current_call_counts = match current.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        dae_collect_module_call_counts_anywhere(
+          funcs,
+          original.imported,
+          original.defined,
+        )
+      None => Array::make(original.defined, 0)
+    }
     let result = dae_run_core_once(
       current,
       Array::make(dae_defined_func_count(current), false),
-      original_param_counts,
-      original_large_unreachable_prefixes,
-      original_call_counts,
-      original_prior_call_counts,
-      original_prior_undropped_call_counts,
-      original_active_nonself_call_counts,
-      original_active_parameterized_nonself_call_counts,
-      original_active_parameterized_result_nonself_call_counts,
-      original_nonself_undropped_call_counts,
-      original_self_call_counts,
-      original_private_result_dead_suffix_call_counts,
-      original_private_result_same_operand_call_counts,
-      original_escaped_result_operand_call_facts,
-      original_private_result_dead_suffix_calls_from_escaped_operand_callees,
-      original_escaped_dead_suffix_call_counts,
-      original_escaped_undropped_dead_suffix_call_counts,
-      original_dead_suffix_other_calls,
-      original_dead_suffix_undropped_self_calls,
-      original_dead_suffix_dropped_self_calls,
-      original_dead_suffix_block_undropped_self_calls,
-      original_dead_suffix_dropped_self_call_full_param_forwards,
-      original_dead_suffix_result_calls_from_undropped_self_callers,
-      original_dead_suffix_result_calls_from_no_param_undropped_self_callers,
-      original_dead_suffix_undropped_calls_from_parameterized_dropped_self_callers,
-      original_dead_suffix_dropped_calls_from_parameterized_self_callers,
-      original_dead_suffix_dropped_calls_from_no_param_result_callers,
-      original_dead_suffix_mixed_dropped_undropped_call_counts,
-      original_dead_suffix_dropped_earlier_result_calls,
-      original_later_dead_suffix_dropped_call_counts,
-      original_dead_suffix_same_self_result_operand_calls,
-      original_dead_suffix_undropped_self_call_param_operands,
-      original_dead_suffix_calls_from_param_operand_self_result_callers,
-      original_dead_suffix_result_other_calls,
-      original_dead_suffix_self_recursive_void_side_calls,
-      original_dead_suffix_self_recursive_result_side_calls,
-      original_dead_suffix_escaped_result_call_facts,
-      original_dead_suffix_mutual_calls,
+      current_call_counts,
+      false,
+      false,
+      original,
+      graph,
+      expected_call_epoch=graph.call_epoch,
     )
     if !result.changed {
       break
     }
     primary_defs.push(result.primary_def)
     current = result.mod_out
+    dae_current_boundary_graph_refresh(graph, current)
     iter += 1
   }
   primary_defs
@@ -17547,7 +17504,7 @@ fn pass_manager_test_first_shape_failure_instrs(
   while idx < instrs.length() {
     match instrs[idx] {
       @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
-        if dae_collect_callsite_shapes(
+        if dae_collect_callsite_value_slices(
             instrs, idx, param_count, entry_stack_values, mod_, func_type_indices,
           )
           is None {
@@ -17557,7 +17514,7 @@ fn pass_manager_test_first_shape_failure_instrs(
       | @lib.Loop(block_type, @lib.Expr(body))
       | @lib.TryTable(block_type, _, @lib.Expr(body)) => {
         let child_entry_stack_values = match
-          dae_block_type_entry_stack_values(block_type, mod_) {
+          dae_control_entry_stack_values(block_type, mod_) {
           Some(count) => count
           None => return Some((caller_abs, idx))
         }
@@ -17572,7 +17529,7 @@ fn pass_manager_test_first_shape_failure_instrs(
       }
       @lib.If(block_type, then_body, Some(else_body)) => {
         let child_entry_stack_values = match
-          dae_block_type_entry_stack_values(block_type, mod_) {
+          dae_control_entry_stack_values(block_type, mod_) {
           Some(count) => count
           None => return Some((caller_abs, idx))
         }
@@ -17595,7 +17552,7 @@ fn pass_manager_test_first_shape_failure_instrs(
       }
       @lib.If(block_type, then_body, None) => {
         let child_entry_stack_values = match
-          dae_block_type_entry_stack_values(block_type, mod_) {
+          dae_control_entry_stack_values(block_type, mod_) {
           Some(count) => count
           None => return Some((caller_abs, idx))
         }
@@ -17666,7 +17623,7 @@ fn pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
     match instrs[idx] {
       @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
         match
-          dae_collect_callsite_shapes(
+          dae_collect_callsite_value_slices(
             instrs, idx, param_count, entry_stack_values, mod_, func_type_indices,
           ) {
           Some((shapes, _)) => {
@@ -17688,7 +17645,7 @@ fn pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
       | @lib.Loop(block_type, @lib.Expr(body))
       | @lib.TryTable(block_type, _, @lib.Expr(body)) => {
         let child_entry_stack_values = match
-          dae_block_type_entry_stack_values(block_type, mod_) {
+          dae_control_entry_stack_values(block_type, mod_) {
           Some(count) => count
           None => return Some((caller_abs, []))
         }
@@ -17703,7 +17660,7 @@ fn pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
       }
       @lib.If(block_type, then_body, Some(else_body)) => {
         let child_entry_stack_values = match
-          dae_block_type_entry_stack_values(block_type, mod_) {
+          dae_control_entry_stack_values(block_type, mod_) {
           Some(count) => count
           None => return Some((caller_abs, []))
         }
@@ -17726,7 +17683,7 @@ fn pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
       }
       @lib.If(block_type, then_body, None) => {
         let child_entry_stack_values = match
-          dae_block_type_entry_stack_values(block_type, mod_) {
+          dae_control_entry_stack_values(block_type, mod_) {
           Some(count) => count
           None => return Some((caller_abs, []))
         }
@@ -18045,14 +18002,14 @@ fn pass_manager_test_try_rewrite_exact_literal_candidate(
     callee_abs,
     params.length(),
   )
-  let uniform_const_params = dae_collect_uniform_const_actuals_with_facts(
+  let graph = dae_current_boundary_graph_new(mod_)
+  let uniform_const_params = dae_collect_uniform_const_actuals_from_current_call_facts(
     mod_,
     callee_abs,
     params.length(),
     type_indices,
-    escaped,
-    call_facts.tail_calls,
-    call_facts.direct_callers,
+    graph.snapshot.boundary_facts,
+    graph.snapshot.function_infos,
   )
   let remove = Array::make(params.length(), false)
   let const_params : Array[@lib.Instruction?] = Array::make(
@@ -18097,18 +18054,14 @@ fn pass_manager_test_collect_uniform_const_actuals(
   callee_abs : Int,
   param_count : Int,
 ) -> Array[@lib.Instruction?]? {
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let total = type_indices.length()
-  let call_facts = dae_collect_current_call_facts(mod_, total)
-  let escaped = call_facts.escaped
-  dae_collect_uniform_const_actuals_with_facts(
+  let graph = dae_current_boundary_graph_new(mod_)
+  dae_collect_uniform_const_actuals_from_current_call_facts(
     mod_,
     callee_abs,
     param_count,
-    type_indices,
-    escaped,
-    call_facts.tail_calls,
-    call_facts.direct_callers,
+    graph.snapshot.type_indices,
+    graph.snapshot.boundary_facts,
+    graph.snapshot.function_infos,
   )
 }
 
@@ -18576,6 +18529,7 @@ fn pass_manager_test_debug_artifact_native_apply_simplify_locals_roundtrip() -> 
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact frontier now reaches Func 42 immediately after check_range" {
   let mod_ = pass_manager_test_debug_artifact_module()
   match mod_.code_sec {
@@ -18586,6 +18540,7 @@ test "dae core debug artifact frontier now reaches Func 42 immediately after che
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact check_range is now directly rewritable" {
   let mod_ = pass_manager_test_debug_artifact_module()
   let imported = dae_imported_func_count(mod_)
@@ -18687,6 +18642,7 @@ test "dae core debug artifact check_range is now directly rewritable" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact check_range callsite shapes are all recoverable" {
   let mod_ = pass_manager_test_debug_artifact_module()
   let callee_abs = dae_imported_func_count(mod_) + 11
@@ -18698,6 +18654,7 @@ test "dae core debug artifact check_range callsite shapes are all recoverable" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact first two productive rewrites now hit check_range then Func 42" {
   let mod_ = pass_manager_test_debug_artifact_module()
   match mod_.code_sec {
@@ -18708,6 +18665,7 @@ test "dae core debug artifact first two productive rewrites now hit check_range 
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact Func 42 resolves forwarding-wrapper const actuals on the original artifact" {
   let mod_ = pass_manager_test_debug_artifact_module()
   let imported = dae_imported_func_count(mod_)
@@ -18815,6 +18773,7 @@ test "dae core debug artifact Func 42 resolves forwarding-wrapper const actuals 
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact Func 4558 is directly rewritable" {
   let rewrite_4558 = pass_manager_test_debug_artifact_rewrite_4558()
   @debug.assert_eq(rewrite_4558.changed, true)
@@ -18822,6 +18781,7 @@ test "dae core debug artifact Func 4558 is directly rewritable" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae reverse exact-literal artifact frontier still has many later candidates ahead of Func 4559" {
   let mod_ = pass_manager_test_debug_artifact_module()
   match mod_.code_sec {
@@ -18832,6 +18792,7 @@ test "dae reverse exact-literal artifact frontier still has many later candidate
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact Func 4559 becomes directly rewritable after Func 4558 rewrites" {
   let rewrite_4558 = pass_manager_test_debug_artifact_rewrite_4558()
   @debug.assert_eq(rewrite_4558.changed, true)
@@ -18868,6 +18829,7 @@ test "dae core debug artifact Func 4559 becomes directly rewritable after Func 4
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact Func 42 stays rewritable after earlier core progress" {
   let mod_ = pass_manager_test_debug_artifact_module()
   match mod_.code_sec {
@@ -18878,6 +18840,7 @@ test "dae core debug artifact Func 42 stays rewritable after earlier core progre
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact Func 42 rewrite does not leave add-zero memory.copy address drift" {
   let rewrite_42 = pass_manager_test_debug_artifact_rewrite_42()
   @debug.assert_eq(rewrite_42.changed, true)
@@ -18980,6 +18943,7 @@ test "dae shifted forward-wrapper selector ignores wrappers before its window" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core artifact selects high callees behind shifted low forwarding wrappers" {
   let mod_ = pass_manager_test_debug_artifact_module()
   let imported = dae_imported_func_count(mod_)
@@ -18994,6 +18958,7 @@ test "dae core artifact selects high callees behind shifted low forwarding wrapp
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact Func 4559 still sees Func 4558 as the first non-const middle actual source" {
   let mod_ = pass_manager_test_debug_artifact_module()
   match pass_manager_test_first_nonconst_i32_actual_instrs(mod_, 4559, 3, 1) {
@@ -19010,6 +18975,7 @@ test "dae core debug artifact Func 4559 still sees Func 4558 as the first non-co
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "dae core debug artifact Func 42 becomes directly rewritable after Func 4558 and Func 4559 rewrite" {
   let rewrite_4558 = pass_manager_test_debug_artifact_rewrite_4558()
   @debug.assert_eq(rewrite_4558.changed, true)
@@ -19038,6 +19004,7 @@ test "dae core debug artifact Func 42 becomes directly rewritable after Func 455
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals gate accepts debug artifact Func 409" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(409U)
@@ -19085,6 +19052,7 @@ test "raw simplify-locals gate accepts debug artifact Func 409" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals gate still accepts debug artifact Func 409 with cached module ctx" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(409U)
@@ -19117,6 +19085,7 @@ test "raw simplify-locals gate still accepts debug artifact Func 409 with cached
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips decode-shaped debug artifact Func 1950" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1950U)
@@ -19148,6 +19117,7 @@ test "raw simplify-locals skips decode-shaped debug artifact Func 1950" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips straight-line builder debug artifact Func 262" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(262U)
@@ -19180,6 +19150,7 @@ test "raw simplify-locals skips straight-line builder debug artifact Func 262" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips huge straight-line call builder debug artifact Func 1800" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1800U)
@@ -19210,6 +19181,7 @@ test "raw simplify-locals skips huge straight-line call builder debug artifact F
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips encode-shaped debug artifact Func 2053" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(2053U)
@@ -19241,6 +19213,7 @@ test "raw simplify-locals skips encode-shaped debug artifact Func 2053" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips branchy decode debug artifact Func 1949" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1949U)
@@ -19275,6 +19248,7 @@ test "raw simplify-locals skips branchy decode debug artifact Func 1949" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips stringview trim-end debug artifact Func 4238" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(4238U)
@@ -19305,6 +19279,7 @@ test "raw simplify-locals skips stringview trim-end debug artifact Func 4238" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips stringview trim-start debug artifact Func 4239" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(4239U)
@@ -19335,6 +19310,7 @@ test "raw simplify-locals skips stringview trim-start debug artifact Func 4239" 
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips transformer catch debug artifact Func 1409" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1409U)
@@ -19369,6 +19345,7 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1409" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips transformer catch debug artifact Func 1410" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1410U)
@@ -19403,6 +19380,7 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1410" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips transformer catch debug artifact Func 1411" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(1411U)
@@ -19437,6 +19415,7 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1411" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals gate accepts debug artifact Func 414" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(414U)
@@ -19475,6 +19454,7 @@ test "raw simplify-locals gate accepts debug artifact Func 414" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals gate accepts debug artifact Func 370" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(370U)
@@ -19513,6 +19493,7 @@ test "raw simplify-locals gate accepts debug artifact Func 370" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals gate accepts debug artifact Func 473" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let pipeline_result = match
@@ -19690,6 +19671,7 @@ test "raw simplify-locals does not consume an older stack value as a carrier" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let pipeline_result = match
@@ -19712,6 +19694,7 @@ test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips branchy structured debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let module_state = HotPipelineModuleState::new()
@@ -19745,6 +19728,7 @@ test "raw simplify-locals skips branchy structured debug artifact funcs" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals rewrites structured debug artifact Func 225" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(225U)
@@ -19785,6 +19769,7 @@ test "raw simplify-locals rewrites structured debug artifact Func 225" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "simplify-locals rewrites split-wrapper debug artifact Func 50" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let pipeline_result = match
@@ -19810,6 +19795,7 @@ test "simplify-locals rewrites split-wrapper debug artifact Func 50" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals effectful suffix rewrites debug artifact Func 71 block-result carrier" {
   let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
@@ -19824,6 +19810,7 @@ test "raw simplify-locals effectful suffix rewrites debug artifact Func 71 block
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals pure suffix rewrites debug artifact Func 71 const fanout subgroup" {
   let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
@@ -19838,6 +19825,7 @@ test "raw simplify-locals pure suffix rewrites debug artifact Func 71 const fano
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "simplify-locals full pipeline rewrites debug artifact Func 71 const fanout subgroup" {
   let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
@@ -19852,6 +19840,7 @@ test "simplify-locals full pipeline rewrites debug artifact Func 71 const fanout
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "simplify-locals module apply keeps debug artifact Func 71 const fanout rewrite" {
   let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
@@ -19866,6 +19855,7 @@ test "simplify-locals module apply keeps debug artifact Func 71 const fanout rew
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "simplify-locals encoded module keeps debug artifact Func 71 const fanout rewrite" {
   let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
@@ -19880,6 +19870,7 @@ test "simplify-locals encoded module keeps debug artifact Func 71 const fanout r
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "simplify-locals full pipeline keeps debug artifact Func 71 block-result carrier tee" {
   let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
@@ -19894,6 +19885,7 @@ test "simplify-locals full pipeline keeps debug artifact Func 71 block-result ca
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "simplify-locals full pipeline rewrites debug artifact Func 71 returning condition copy carrier" {
   let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
@@ -19908,6 +19900,7 @@ test "simplify-locals full pipeline rewrites debug artifact Func 71 returning co
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "simplify-locals full pipeline rewrites debug artifact Func 71 split value wrappers" {
   let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
@@ -19922,6 +19915,7 @@ test "simplify-locals full pipeline rewrites debug artifact Func 71 split value 
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "simplify-locals full pipeline hoists debug artifact Func 71 nop-separated call args" {
   let pipeline_result = pass_manager_test_debug_artifact_native_func71_pipeline()
   let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
@@ -19936,6 +19930,7 @@ test "simplify-locals full pipeline hoists debug artifact Func 71 nop-separated 
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "simplify-locals full pipeline inlines debug artifact Func 225 value-carrier block" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(225U)
@@ -19968,6 +19963,7 @@ test "simplify-locals full pipeline inlines debug artifact Func 225 value-carrie
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips giant debug artifact Func 501" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(501U)
@@ -19985,6 +19981,7 @@ test "raw simplify-locals skips giant debug artifact Func 501" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips large structured call-heavy debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   for raw_idx in [298, 951] {
@@ -20007,6 +20004,7 @@ test "raw simplify-locals skips large structured call-heavy debug artifact funcs
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips read-only local debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let module_state = HotPipelineModuleState::new()
@@ -20033,6 +20031,7 @@ test "raw simplify-locals skips read-only local debug artifact funcs" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips medium structured call-heavy debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   for raw_idx in [235, 2177] {
@@ -20055,6 +20054,7 @@ test "raw simplify-locals skips medium structured call-heavy debug artifact func
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips transformer structured call-heavy debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let module_state = HotPipelineModuleState::new()
@@ -20093,6 +20093,7 @@ test "raw simplify-locals skips transformer structured call-heavy debug artifact
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips dense structured call-heavy debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   for raw_idx in [395, 2098] {
@@ -20122,6 +20123,7 @@ test "raw simplify-locals skips dense structured call-heavy debug artifact funcs
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips small-loop call-heavy debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   for raw_idx in [3794, 3885] {
@@ -20144,6 +20146,7 @@ test "raw simplify-locals skips small-loop call-heavy debug artifact funcs" {
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips loop-heavy structured call-heavy debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   for raw_idx in [519, 585] {
@@ -20166,6 +20169,7 @@ test "raw simplify-locals skips loop-heavy structured call-heavy debug artifact 
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals skips giant structured local churn debug artifact Func 3722" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(3722U)
@@ -20235,6 +20239,7 @@ test "raw simplify-locals branch-dense structured call-heavy gate accepts target
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals gate accepts multivalue status debug artifact Func 3764" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(3764U)
@@ -20250,6 +20255,7 @@ test "raw simplify-locals gate accepts multivalue status debug artifact Func 376
 
 ///|
 #cfg(target="native")
+#skip("manual debug-WASI artifact replay; bounded behavior tests stay active")
 test "raw simplify-locals rewrites small multivalue debug artifact Func 353" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(353U)

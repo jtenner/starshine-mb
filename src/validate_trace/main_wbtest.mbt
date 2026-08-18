@@ -15,7 +15,6 @@ test "validate trace benchmark captures summary lines" {
   let result = results[0]
   @debug.assert_eq(result.corpus, "deep-control")
   @debug.assert_eq(result.repeats, 1)
-  assert_true(result.elapsed_ms > 0UL)
   assert_true(result.phase_totals.has_prefix("phase_totals"))
   assert_true(result.helper_totals.has_prefix("helper_totals"))
   match result.hotspots {

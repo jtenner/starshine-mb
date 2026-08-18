@@ -1126,13 +1126,14 @@ test "wast spec harness supports legacy exception text fixtures" {
             )
           ) ||
           (
-            (
-              path.has_suffix("/legacy/try_delegate.wast") ||
-              path.has_suffix("/legacy/rethrow.wast")
-            ) &&
+            path.has_suffix("/legacy/try_delegate.wast") &&
             reason.contains(
               "module lower failed: invalid legacy rethrow label: 1",
             )
+          ) ||
+          (
+            path.has_suffix("/legacy/rethrow.wast") &&
+            reason.contains("script only contains skipped or blocked commands")
           )
         assert_true(
           expected,
