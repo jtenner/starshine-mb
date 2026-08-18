@@ -1857,6 +1857,42 @@ test "remove-unused-module-elements keeps declarative elems needed by live ref.f
 }
 
 ///|
+test "remove-unused-module-elements prunes dead functions from declaration-only elems" {
+  let input =
+    #|(module
+    #|  (type $t (func))
+    #|  (func $dead (type $t))
+    #|  (func $live (type $t))
+    #|  (func $main (result (ref $t)) ref.func $live)
+    #|  (elem declare func $dead $live)
+    #|  (export "main" (func $main)))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected declaration-only elem pruning success, got \{err}")
+  }
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec(
+        [@lib.Elem(_, @lib.FuncsElemKind([@lib.FuncIdx(declared_func_idx)]))]
+      )
+    ) => @debug.assert_eq(declared_func_idx, 0U)
+    _ =>
+      fail(
+        "expected only the remapped live declaration target, got \{@debug.to_string(optimized.elem_sec)}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected declaration-only elem pruning output to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "remove-unused-module-elements nullifies declaration-only active elems on dead tables" {
   let input =
     #|(module

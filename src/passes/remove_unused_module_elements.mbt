@@ -1184,14 +1184,20 @@ fn rume_mark_tag(
 fn rume_mark_elem(
   queue : Array[RumeItem],
   used_elems : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
   idx : @lib.ElemIdx,
 ) -> Unit {
   let @lib.ElemIdx(raw) = idx
   let slot = raw.reinterpret_as_int()
-  if slot < 0 || slot >= used_elems.length() || used_elems[slot] {
+  if slot < 0 || slot >= used_elems.length() {
+    return
+  }
+  let was_declaration_only = decl_only_elems[slot]
+  if used_elems[slot] && !was_declaration_only {
     return
   }
   used_elems[slot] = true
+  decl_only_elems[slot] = false
   queue.push(RumeItem::Elem(raw))
 }
 
@@ -1924,13 +1930,14 @@ fn rume_scan_instruction(
       )
     }
     @lib.TableInit(elem_idx, table_idx) => {
-      rume_mark_elem(queue, used_elems, elem_idx)
+      rume_mark_elem(queue, used_elems, decl_only_elems, elem_idx)
       rume_mark_table(queue, used_tables, analysis.queued_tables, table_idx)
       rume_note_table_runtime_modification(
         analysis, queue, used_funcs, table_idx,
       )
     }
-    @lib.ElemDrop(elem_idx) => rume_mark_elem(queue, used_elems, elem_idx)
+    @lib.ElemDrop(elem_idx) =>
+      rume_mark_elem(queue, used_elems, decl_only_elems, elem_idx)
     @lib.TableCopy(dst, src) => {
       rume_mark_table(queue, used_tables, analysis.queued_tables, dst)
       rume_mark_table(queue, used_tables, analysis.queued_tables, src)
@@ -1962,7 +1969,7 @@ fn rume_scan_instruction(
           elem_idx,
         )
       } else {
-        rume_mark_elem(queue, used_elems, elem_idx)
+        rume_mark_elem(queue, used_elems, decl_only_elems, elem_idx)
       }
     @lib.I32Load(memarg)
     | @lib.I64Load(memarg)
@@ -2171,7 +2178,7 @@ fn rume_process_table(
   }
   let slot = abs_idx.reinterpret_as_int()
   for elem_idx in table_to_elems[slot] {
-    rume_mark_elem(queue, used_elems, elem_idx)
+    rume_mark_elem(queue, used_elems, decl_only_elems, elem_idx)
   }
 }
 
@@ -2573,6 +2580,7 @@ fn rume_mark_trapping_initializers(
   queue : Array[RumeItem],
   used_globals : @bitset.BitSet,
   used_elems : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
 ) -> Unit {
   let global_imports = rume_imported_global_count(mod_)
   match mod_.global_sec {
@@ -2611,6 +2619,7 @@ fn rume_mark_trapping_initializers(
           rume_mark_elem(
             queue,
             used_elems,
+            decl_only_elems,
             @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
           )
         }
@@ -2627,6 +2636,7 @@ fn rume_mark_nonfunction_active_offset_segments(
   queue : Array[RumeItem],
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
 ) -> Unit {
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) => {
@@ -2640,6 +2650,7 @@ fn rume_mark_nonfunction_active_offset_segments(
               rume_mark_elem(
                 queue,
                 used_elems,
+                decl_only_elems,
                 @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
               )
             }
@@ -2682,6 +2693,7 @@ fn rume_mark_imported_parent_segments(
   queue : Array[RumeItem],
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
 ) -> Unit {
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) => {
@@ -2694,6 +2706,7 @@ fn rume_mark_imported_parent_segments(
               rume_mark_elem(
                 queue,
                 used_elems,
+                decl_only_elems,
                 @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
               )
             }
@@ -2851,14 +2864,16 @@ fn rume_collect_liveness_with_import_parent_policy(
   }
   if keep_import_parent_segments {
     rume_mark_imported_parent_segments(
-      mod_, table_imports, mem_imports, queue, used_elems, used_datas,
+      mod_, table_imports, mem_imports, queue, used_elems, used_datas, decl_only_elems,
     )
   }
   rume_mark_nonfunction_active_offset_segments(
-    mod_, queue, used_elems, used_datas,
+    mod_, queue, used_elems, used_datas, decl_only_elems,
   )
   if !traps_never_happen {
-    rume_mark_trapping_initializers(mod_, queue, used_globals, used_elems)
+    rume_mark_trapping_initializers(
+      mod_, queue, used_globals, used_elems, decl_only_elems,
+    )
   }
 
   let mut cursor = 0
@@ -3615,6 +3630,25 @@ fn rume_rewrite_expr(
 }
 
 ///|
+fn rume_func_idx_is_mapped(idx : @lib.FuncIdx, func_remap : Array[Int]) -> Bool {
+  let @lib.FuncIdx(raw) = idx
+  let slot = raw.reinterpret_as_int()
+  slot >= 0 && slot < func_remap.length() && func_remap[slot] >= 0
+}
+
+///|
+fn rume_decl_only_expr_has_dropped_func(
+  expr : @lib.Expr,
+  func_remap : Array[Int],
+) -> Bool {
+  match expr {
+    @lib.Expr([@lib.RefFunc(func_idx)]) =>
+      !rume_func_idx_is_mapped(func_idx, func_remap)
+    _ => false
+  }
+}
+
+///|
 fn rume_rewrite_elem_kind(
   kind : @lib.ElemKind,
   func_remap : Array[Int],
@@ -3624,18 +3658,25 @@ fn rume_rewrite_elem_kind(
   tag_remap : Array[Int],
   elem_remap : Array[Int],
   data_remap : Array[Int],
+  declaration_only : Bool,
 ) -> @lib.ElemKind {
   match kind {
     @lib.FuncsElemKind(funcs) => {
       let rewritten : Array[@lib.FuncIdx] = []
       for func_idx in funcs {
-        rewritten.push(rume_rewrite_func_idx(func_idx, func_remap))
+        if !declaration_only || rume_func_idx_is_mapped(func_idx, func_remap) {
+          rewritten.push(rume_rewrite_func_idx(func_idx, func_remap))
+        }
       }
       @lib.ElemKind::funcs(rewritten)
     }
     @lib.FuncExprsElemKind(exprs) => {
       let rewritten : Array[@lib.Expr] = []
       for expr in exprs {
+        if declaration_only &&
+          rume_decl_only_expr_has_dropped_func(expr, func_remap) {
+          continue
+        }
         rewritten.push(
           rume_rewrite_expr(
             expr, func_remap, global_remap, table_remap, mem_remap, tag_remap, elem_remap,
@@ -3648,6 +3689,10 @@ fn rume_rewrite_elem_kind(
     @lib.TypedExprsElemKind(ref_type, exprs) => {
       let rewritten : Array[@lib.Expr] = []
       for expr in exprs {
+        if declaration_only &&
+          rume_decl_only_expr_has_dropped_func(expr, func_remap) {
+          continue
+        }
         rewritten.push(
           rume_rewrite_expr(
             expr, func_remap, global_remap, table_remap, mem_remap, tag_remap, elem_remap,
@@ -4783,8 +4828,15 @@ fn rume_apply_module_rewrite(
                 }
               },
               rume_rewrite_elem_kind(
-                kind, func_remap, global_remap, table_remap, mem_remap, tag_remap,
-                elem_remap, data_remap,
+                kind,
+                func_remap,
+                global_remap,
+                table_remap,
+                mem_remap,
+                tag_remap,
+                elem_remap,
+                data_remap,
+                decl_only_elems[idx],
               ),
             ),
           )
@@ -5297,8 +5349,15 @@ fn rume_rewrite_functions_only(
               _ => mode
             },
             rume_rewrite_elem_kind(
-              kind, func_remap, global_remap, table_remap, mem_remap, tag_remap,
-              elem_remap, data_remap,
+              kind,
+              func_remap,
+              global_remap,
+              table_remap,
+              mem_remap,
+              tag_remap,
+              elem_remap,
+              data_remap,
+              mode == @lib.ElemMode::declarative(),
             ),
           ),
         )

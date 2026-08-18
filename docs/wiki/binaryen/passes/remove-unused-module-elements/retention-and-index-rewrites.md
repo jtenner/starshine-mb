@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-18
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -46,7 +46,7 @@ related:
 - Elem and data indices:
   `array.new_elem`, `array.init_elem`, `elem.drop`, `array.new_data`, `array.init_data`, `data.drop`, `memory.init`, `table.init`, name maps, and count sections.
 - Function-declaration element modes:
-  declaration-only `ref.func` elem users may keep an elem segment solely as a declaration source; if such an elem was active on a dropped table, Starshine rewrites the mode to declarative while remapping the surviving function indices.
+  declaration-only `ref.func` elem users may keep an elem segment solely as a declaration source; if such an elem was active on a dropped table, Starshine rewrites the mode to declarative. The rewrite removes payload entries for dead functions before it remaps survivors, so a large shared declaration segment cannot retain invalid `-1` function remaps. If a segment later becomes runtime-used through `table.init`, `elem.drop`, an active table, or a GC array element operation, liveness clears its declaration-only state and processes the complete payload.
 
 ## Metadata Rewrites
 
