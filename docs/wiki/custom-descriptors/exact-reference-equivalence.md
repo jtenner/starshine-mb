@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-18
 sources:
   - descriptor-instruction-surface.md
   - ../../../src/validate/match.mbt
@@ -31,7 +31,9 @@ Two rules are easy to confuse:
 1. **Subtype matching** still handles ordinary reference compatibility: non-null is a subtype of nullable, declared subtypes can match supertypes, and structs can widen by trailing fields when the target is inexact.
 2. **Exact matching** is a structural-equivalence check for exact refs. Starshine does not require raw `TypeIdx` identity; it compares the full reachable defined-type closure with cycle guards so independently declared but structurally identical exact types can match.
 
-This page owns the second rule. The descriptor instruction-family overview lives in [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), the `ref.get_desc` operand/result exactness flow lives in [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md), the broader WAST type authoring surface lives in [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), and the validator-side type-section normalization/subtype-matching contract lives in [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md).
+Ordinary defined references also use canonical structural equivalence before following declared subtype chains. This permits a value with `(ref $a)` to satisfy an operation expecting `(ref null $b)` when `$a` and `$b` are separately indexed but structurally equivalent, such as two mutable `array f64` definitions emitted by MoonBit. Nullability and exactness rules still apply after the heap-type comparison.
+
+This page owns the structural-equivalence rule. The descriptor instruction-family overview lives in [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), the `ref.get_desc` operand/result exactness flow lives in [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md), the broader WAST type authoring surface lives in [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), and the validator-side type-section normalization/subtype-matching contract lives in [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md).
 
 The current instruction-surface boundary is [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), building on the broader [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). These sources cover the Phase-3 custom-descriptors proposal, the upstream `ref.get_desc` bottom-input discussion, the V8 fix, and current Starshine validator sources. The proposal still uses exact heap types for descriptor-allocation soundness, but Starshine's structural exact-reference equivalence is a local validator implementation rule: it can compare structs, functions, and arrays because the shared `Match::matches(...)` engine works over the whole type system, not because the descriptor proposal standardizes metadata on every composite family.
 
@@ -92,7 +94,7 @@ For recursive types, exact matching tracks visited `(TypeIdx, TypeIdx)` pairs. S
 
 ## Invariants And Edge Cases
 
-- **Exact-to-exact is structural, not index-only.** Two different flat type indices may match if their entire reachable shapes match.
+- **Defined-type equivalence is structural, not index-only.** Two different flat type indices may match if their entire reachable shapes match. Ordinary refs use that equivalence before declared subtype traversal; exact refs require it.
 - **Exact matching preserves declared-supertype metadata.** The structural comparison includes `final`, supertype lists, and type metadata, so descriptor-bearing types with different `describes` / `descriptor` relationships do not become accidentally equal.
 - **Exact refs are not subtype wildcards.** A subtype/supertype pair that is valid under ordinary inexact matching should still fail exact matching when the full shape differs.
 - **Bottom-null families are special at the reference-matching boundary.** The exact-ref matcher has explicit paths for inexact abstract bottom refs (`none` for struct/array targets, `nofunc` for function targets) when the expected type is exact. The `ref.get_desc` page explains why that matters for exact descriptor results.

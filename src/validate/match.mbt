@@ -470,6 +470,12 @@ fn heaptype_matches_fuel(
     (DefTypeHeapType(dt1), DefTypeHeapType(dt2)) =>
       deftype_matches_fuel(dt1, dt2, env, fuel - 1)
 
+    // Defined types first compare by canonical structural equivalence, then by
+    // their declared subtype chains. This matters when a producer emits the
+    // same non-recursive type at two distinct type indices.
+    (HeapType(tidx1), HeapType(tidx2)) =>
+      typeidx_leq_typeidx_with_fuel(tidx1, tidx2, env, fuel - 1)
+
     // typeidx/recidx unfold on either side
     (HeapType(tidx), _) =>
       match env.resolve_subtype(tidx) {
@@ -826,6 +832,9 @@ fn typeidx_leq_typeidx_fuel(
   }
   if fuel <= 0 {
     return false
+  }
+  if exact_typeidx_matches_fuel(a, b, env, fuel - 1, []) {
+    return true
   }
 
   // cycle guard
