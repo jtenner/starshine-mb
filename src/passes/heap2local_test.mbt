@@ -116,6 +116,162 @@ test "heap2local rewrites a non-escaping struct local into scalar locals" {
 }
 
 ///|
+test "heap2local scalarizes branch-selected struct variants consumed by field reads" {
+  let base = @lib.TypeIdx::new(0U)
+  let some = @lib.TypeIdx::new(1U)
+  let function_type = @lib.TypeIdx::new(2U)
+  let i32_field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::const_(),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([i32_field])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            true,
+            [base],
+            @lib.CompType::struct_([i32_field, i32_field]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([function_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::eqref_null()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(@lib.ValType::eqref_null()),
+              [
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::struct_new(some),
+              ],
+              Some([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::struct_new(base),
+              ]),
+            ),
+            @lib.Instruction::ref_cast(false, @lib.HeapType::new(base)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, @lib.HeapType::new(base)),
+            @lib.Instruction::struct_get(base, @lib.U32(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, @lib.HeapType::new(some)),
+            @lib.Instruction::struct_get(some, @lib.U32(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = heap2local_run_module(module_)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(error) =>
+      fail("expected scalarized variant output to validate: \{error}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("ref.cast"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "heap2local scalarizes repeated branch-selected variant writes" {
+  let base = @lib.TypeIdx::new(0U)
+  let some = @lib.TypeIdx::new(1U)
+  let function_type = @lib.TypeIdx::new(2U)
+  let owner = @lib.LocalIdx::new(0U)
+  let i32_field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::const_(),
+  )
+  let make_value = fn(payload : Int) -> Array[@lib.Instruction] {
+    [
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(@lib.ValType::eqref_null()),
+        [
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::i32_const(@lib.I32(payload)),
+          @lib.Instruction::struct_new(some),
+        ],
+        Some([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::struct_new(base),
+        ]),
+      ),
+      @lib.Instruction::ref_cast(false, @lib.HeapType::new(base)),
+      @lib.Instruction::local_set(owner),
+    ]
+  }
+  let body = make_value(7)
+  body.append([
+    @lib.Instruction::local_get(owner),
+    @lib.Instruction::ref_cast(false, @lib.HeapType::new(base)),
+    @lib.Instruction::struct_get(base, @lib.U32(0U)),
+    @lib.Instruction::drop(),
+  ])
+  body.append(make_value(9))
+  body.append([
+    @lib.Instruction::local_get(owner),
+    @lib.Instruction::ref_cast(false, @lib.HeapType::new(some)),
+    @lib.Instruction::struct_get(some, @lib.U32(1U)),
+  ])
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([i32_field])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            true,
+            [base],
+            @lib.CompType::struct_([i32_field, i32_field]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([function_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::eqref_null()]),
+          @lib.Expr::new(body),
+        ),
+      ]),
+    )
+  let optimized = heap2local_run_module(module_)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(error) => fail("expected repeated variant output to validate: \{error}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("ref.cast"), msg=pretty)
+}
+
+///|
 test "heap2local leaves escaping struct locals unchanged" {
   let pair = @lib.TypeIdx::new(0U)
   let owner_local = @lib.LocalIdx::new(0U)
