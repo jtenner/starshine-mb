@@ -1037,6 +1037,79 @@ test "heap2local v131 scalarizes array allocation flowing through unreachable br
 }
 
 ///|
+test "heap2local preserves mixed array scratch write order" {
+  let refs = @lib.TypeIdx::new(0U)
+  let ints = @lib.TypeIdx::new(1U)
+  let wrapper = @lib.TypeIdx::new(2U)
+  let mixed = @lib.TypeIdx::new(3U)
+  let scratch = @lib.LocalIdx::new(0U)
+  let mutable_eqref = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::eqref_null()),
+    @lib.Mut::var_(),
+  )
+  let mutable_i32 = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::var_(),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::array(mutable_eqref)),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::array(mutable_i32)),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([mutable_eqref, mutable_i32, mutable_i32]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([mutable_eqref, mutable_eqref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::eqref_null()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(4U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::eqref_null()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_new_default(refs),
+            @lib.Instruction::local_set(scratch),
+            @lib.Instruction::local_get(scratch),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::struct_new(wrapper),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_new_default(ints),
+            @lib.Instruction::local_set(scratch),
+            @lib.Instruction::local_get(scratch),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::struct_new(wrapper),
+            @lib.Instruction::struct_new(mixed),
+          ]),
+        ),
+      ]),
+    )
+  let before = module_.pretty_print_func(@lib.FuncIdx::new(0U))
+  let after = heap2local_run_module(module_).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_eq(after, before)
+}
+
+///|
 test "heap2local leaves parameter-backed ownership unchanged" {
   let pretty = heap2local_pretty_text(
     (

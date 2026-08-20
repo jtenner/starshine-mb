@@ -1323,6 +1323,82 @@ fn h2l_write_is_next_array_alloc_boundary(
 }
 
 ///|
+/// HOT IR preserves local effects as region order rather than data edges. If
+/// one scratch local carries more than one array allocation, rewriting another
+/// allocation in the same function can let reconstruction move a later scratch
+/// write before an earlier wrapper consumes it. This is unsafe even when both
+/// arrays use the same eqref carrier because their logical element types can
+/// differ. Keep the function unchanged until these local effects are represented
+/// by explicit dependencies.
+fn h2l_array_allocation_write_type(
+  func : @ir.HotFunc,
+  write_node_id : Int,
+  local_id : Int,
+) -> @lib.TypeIdx? {
+  let write = @ir.hot_node_get(func, write_node_id)
+  match write.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      if write.imm0 != local_id || write.child_count != 1 {
+        return None
+      }
+    _ => return None
+  }
+  let source = h2l_allocation_source_node(
+    func,
+    @ir.hot_child_get(func, write_node_id, 0),
+  )
+  match @ir.hot_node_exact_instr(func, source) {
+    Some(@lib.Instruction::ArrayNew(type_idx))
+    | Some(@lib.Instruction::ArrayNewDefault(type_idx))
+    | Some(@lib.Instruction::ArrayNewFixed(type_idx, _)) => Some(type_idx)
+    _ => None
+  }
+}
+
+///|
+fn h2l_has_repeated_array_allocation_writes(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+) -> Bool {
+  for local_id = 0
+      local_id < @ir.hot_local_count(func)
+      local_id = local_id + 1 {
+    let allocation_slots : Array[Int] = []
+    for write_node_id in use_def.local_writes[local_id] {
+      match h2l_array_allocation_write_type(func, write_node_id, local_id) {
+        Some(_) =>
+          match h2l_root_slot_containing_node(func, write_node_id) {
+            Some(slot) => allocation_slots.push(slot)
+            None => return true
+          }
+        None => ()
+      }
+    }
+    if allocation_slots.length() <= 1 {
+      continue
+    }
+    allocation_slots.sort()
+    for index = 0; index + 1 < allocation_slots.length(); index = index + 1 {
+      let write_slot = allocation_slots[index]
+      let next_write_slot = allocation_slots[index + 1]
+      let mut first_read_slot = 0x7fffffff
+      for read_node_id in use_def.local_reads[local_id] {
+        match h2l_root_slot_containing_node(func, read_node_id) {
+          Some(read_slot) if read_slot >= write_slot &&
+            read_slot < first_read_slot => first_read_slot = read_slot
+          Some(_) => ()
+          None => return true
+        }
+      }
+      if first_read_slot >= next_write_slot {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
 fn h2l_collect_sequential_array_source_use(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
@@ -3002,6 +3078,9 @@ pub fn heap2local_run(
     None => return HotPassResult::unchanged()
   }
   let use_def = pass_require_use_def(ctx, func)
+  if h2l_has_repeated_array_allocation_writes(func, use_def) {
+    return HotPassResult::unchanged()
+  }
   let variant_candidates : Array[H2LVariantCandidate] = []
   let variant_local_candidates : Array[H2LVariantLocalCandidate] = []
   let variant_owner_locals : Array[Int] = []
