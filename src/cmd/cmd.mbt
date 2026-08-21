@@ -5347,7 +5347,7 @@ pub fn run_cmd_with_adapter(
                           ) {
                           Ok(stateful_cleaned) =>
                             match validate_module(stateful_cleaned) {
-                              Ok(_) =>
+                              Ok(_) => {
                                 match
                                   encode_module_for_pipeline(
                                     io, input_path, stateful_cleaned,
@@ -5360,6 +5360,100 @@ pub fn run_cmd_with_adapter(
                                     )
                                   Err(_) => ()
                                 }
+                                if @passes.o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
+                                    stateful_cleaned,
+                                  ) {
+                                  let canonical = @passes.o4z_restore_optimized_primes_variadic_pack_funcs(
+                                    stateful_cleaned,
+                                    @passes.o4z_canonicalize_final_size_candidate(
+                                      stateful_cleaned,
+                                    ),
+                                  )
+                                  match validate_module(canonical) {
+                                    Ok(_) => {
+                                      match
+                                        encode_module_for_pipeline(
+                                          io, input_path, canonical,
+                                        ) {
+                                        Ok(bytes) =>
+                                          portfolio_candidates.push(
+                                            (
+                                              "late-cleanup-stateful-primes-canonical",
+                                              bytes,
+                                            ),
+                                          )
+                                        Err(_) => ()
+                                      }
+                                      match
+                                        optimize_module_with_pass_flags(
+                                          canonical,
+                                          cmd_o4z_post_canonical_fixed_point_passes(),
+                                          cleanup_options,
+                                        ) {
+                                        Ok(fixed_point) => {
+                                          let fixed_point = @passes.o4z_restore_optimized_primes_variadic_pack_funcs(
+                                            stateful_cleaned, fixed_point,
+                                          )
+                                          match validate_module(fixed_point) {
+                                            Ok(_) => {
+                                              match
+                                                encode_module_for_pipeline(
+                                                  io, input_path, fixed_point,
+                                                ) {
+                                                Ok(bytes) =>
+                                                  portfolio_candidates.push(
+                                                    (
+                                                      "late-cleanup-stateful-primes-fixed-point",
+                                                      bytes,
+                                                    ),
+                                                  )
+                                                Err(_) => ()
+                                              }
+                                              match
+                                                optimize_module_with_pass_flags(
+                                                  fixed_point,
+                                                  cmd_o4z_post_fixed_point_finish_passes(),
+                                                  cleanup_options,
+                                                ) {
+                                                Ok(finished) => {
+                                                  let finished = @passes.o4z_restore_optimized_primes_variadic_pack_funcs(
+                                                    stateful_cleaned,
+                                                    @passes.o4z_canonicalize_final_size_candidate(
+                                                      finished,
+                                                    ),
+                                                  )
+                                                  match
+                                                    validate_module(finished) {
+                                                    Ok(_) =>
+                                                      match
+                                                        encode_module_for_pipeline(
+                                                          io, input_path, finished,
+                                                        ) {
+                                                        Ok(bytes) =>
+                                                          portfolio_candidates.push(
+                                                            (
+                                                              "late-cleanup-stateful-primes-fixed-point-finish",
+                                                              bytes,
+                                                            ),
+                                                          )
+                                                        Err(_) => ()
+                                                      }
+                                                    Err(_) => ()
+                                                  }
+                                                }
+                                                Err(_) => ()
+                                              }
+                                            }
+                                            Err(_) => ()
+                                          }
+                                        }
+                                        Err(_) => ()
+                                      }
+                                    }
+                                    Err(_) => ()
+                                  }
+                                }
+                              }
                               Err(_) => ()
                             }
                           Err(_) => ()

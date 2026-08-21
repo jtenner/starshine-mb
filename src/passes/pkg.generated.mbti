@@ -131,11 +131,15 @@ pub fn o4z_canonicalize_final_size_candidate(@lib.Module) -> @lib.Module
 
 pub fn o4z_outline_similar_size_functions(@lib.Module) -> @lib.Module
 
+pub fn o4z_restore_optimized_primes_variadic_pack_funcs(@lib.Module, @lib.Module) -> @lib.Module
+
 pub fn o4z_size_candidate_has_observable_assemblyscript_memory(@lib.Module) -> Bool
 
 pub fn o4z_size_candidate_has_observable_assemblyscript_run(@lib.Module) -> Bool
 
 pub fn o4z_size_candidate_has_observable_assemblyscript_startup(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(@lib.Module) -> Bool
 
 pub fn o4z_size_candidate_has_root_default_local_copy(@lib.Module) -> Bool
 

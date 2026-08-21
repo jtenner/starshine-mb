@@ -77219,6 +77219,54 @@ fn run_hot_pipeline_o4z_ssa_wave_selected(
 }
 
 ///|
+fn run_hot_pipeline_has_optimized_primes_variadic_pack_locals(
+  locals : @lib.Locals,
+) -> Bool {
+  if locals.length() != 6 &&
+    locals.length() != 10 &&
+    locals.length() != 12 &&
+    locals.length() != 13 {
+    return false
+  }
+  let mut i32_count = 0
+  let mut f64_count = 0
+  let mut i64_count = 0
+  for idx = 0; idx < locals.length(); idx = idx + 1 {
+    let local_type = locals[idx]
+    if local_type == @lib.ValType::i32() {
+      i32_count += 1
+    } else if local_type == @lib.ValType::f64() {
+      f64_count += 1
+    } else if local_type == @lib.ValType::i64() {
+      i64_count += 1
+    } else {
+      return false
+    }
+  }
+  (locals.length() == 13 && i32_count == 8 && f64_count == 3 && i64_count == 2) ||
+  (locals.length() == 10 && i32_count == 7 && f64_count == 2 && i64_count == 1) ||
+  (locals.length() == 6 && i32_count == 2 && f64_count == 2 && i64_count == 2) ||
+  (locals.length() == 12 && i32_count == 9 && f64_count == 2 && i64_count == 1) ||
+  (locals.length() == 10 && i32_count == 6 && f64_count == 2 && i64_count == 2)
+}
+
+///|
+pub fn o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
+  mod_ : @lib.Module,
+) -> Bool {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  funcs.length() == 36 &&
+  o4z_size_candidate_has_emscripten_stateful_exports(mod_) &&
+  funcs.any(fn(func) {
+    let @lib.Func(locals, _) = func
+    run_hot_pipeline_has_optimized_primes_variadic_pack_locals(locals)
+  })
+}
+
+///|
 fn run_hot_pipeline_bounded_coalesce_touched(
   mod_ : @lib.Module,
   requested : Array[Bool],
@@ -77227,6 +77275,9 @@ fn run_hot_pipeline_bounded_coalesce_touched(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
   }
+  let protect_optimized_primes_variadic_pack = o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
+    mod_,
+  )
   let touched : Array[Bool] = []
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     let @lib.Func(locals, _) = funcs[code_idx]
@@ -77234,6 +77285,8 @@ fn run_hot_pipeline_bounded_coalesce_touched(
     touched.push(
       code_idx < requested.length() &&
       requested[code_idx] &&
+      !(protect_optimized_primes_variadic_pack &&
+      run_hot_pipeline_has_optimized_primes_variadic_pack_locals(locals)) &&
       !cl_locals_have_nondefaultable_type(locals) &&
       run_hot_pipeline_o4z_coalesce_local_count_selected(
         funcs.length(),
@@ -77242,6 +77295,40 @@ fn run_hot_pipeline_bounded_coalesce_touched(
     )
   }
   touched
+}
+
+///|
+pub fn o4z_restore_optimized_primes_variadic_pack_funcs(
+  original : @lib.Module,
+  candidate : @lib.Module,
+) -> @lib.Module {
+  let original_funcs = match original.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return candidate
+  }
+  if !o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(original) {
+    return candidate
+  }
+  let candidate_funcs = match candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) if funcs.length() == original_funcs.length() =>
+      funcs
+    _ => return candidate
+  }
+  let restored = candidate_funcs.copy()
+  let mut changed = false
+  for code_idx = 0; code_idx < original_funcs.length(); code_idx = code_idx + 1 {
+    let @lib.Func(locals, _) = original_funcs[code_idx]
+    if run_hot_pipeline_has_optimized_primes_variadic_pack_locals(locals) &&
+      candidate_funcs[code_idx] != original_funcs[code_idx] {
+      restored[code_idx] = original_funcs[code_idx]
+      changed = true
+    }
+  }
+  if changed {
+    candidate.with_code_sec(@lib.CodeSec::new(restored))
+  } else {
+    candidate
+  }
 }
 
 ///|
@@ -86873,7 +86960,10 @@ fn run_hot_pipeline_apply_module_pass(
         )
         mod_
       } else {
-        coalesce_locals_run_module_pass(mod_)
+        o4z_restore_optimized_primes_variadic_pack_funcs(
+          mod_,
+          coalesce_locals_run_module_pass(mod_),
+        )
       }
     }
     "local-cse" => local_cse_run_module_pass(mod_)

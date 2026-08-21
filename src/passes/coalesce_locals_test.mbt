@@ -215,6 +215,120 @@ fn cl_test_local_subtyping_fixture() -> @lib.Module {
 }
 
 ///|
+test "coalesce-locals preserves the optimized primes variadic packer only" {
+  let wat = StringBuilder::new()
+  let prefix =
+    #|(module
+    #|  (func (export "_main"))
+    #|  (func (export "runPostSets"))
+    #|  (func (export "stackAlloc"))
+    #|  (func (export "stackSave"))
+    #|  (func (export "stackRestore"))
+    #|  (func
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 f64 f64 f64 i64 i64))
+    #|  (func
+    #|    (local i32 i32 i32 i32 i32 i64 i32 i32 f64 f64))
+    #|  (func
+    #|    (local f64 f64 i32 i32 i64 i64))
+    #|  (func
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 f64 f64 i64))
+    #|  (func
+    #|    (local i32 i32 i32 i32 i32 i32 f64 f64 i64 i64))
+    #|  (func (local i32 i32)
+    #|    i32.const 1
+    #|    local.set 0
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop)
+    #|
+  wat.write_string(prefix)
+  for idx = 11; idx < 36; idx = idx + 1 {
+    wat.write_string(" (func)")
+  }
+  wat.write_string(")")
+  let optimized = match
+    pass_test_run_pipeline(
+      wat.to_string(),
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(optimized) => optimized
+    Err(err) => fail("expected guarded coalesce-locals success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(original_protected_locals, _) = funcs[5]
+      let @lib.Func(reordered_protected_locals, _) = funcs[6]
+      let @lib.Func(ssa_protected_locals, _) = funcs[7]
+      let @lib.Func(second_ssa_protected_locals, _) = funcs[8]
+      let @lib.Func(final_ssa_protected_locals, _) = funcs[9]
+      let @lib.Func(coalesced_locals, _) = funcs[10]
+      @debug.assert_eq(original_protected_locals.length(), 13)
+      @debug.assert_eq(reordered_protected_locals.length(), 10)
+      @debug.assert_eq(ssa_protected_locals.length(), 6)
+      @debug.assert_eq(second_ssa_protected_locals.length(), 12)
+      @debug.assert_eq(final_ssa_protected_locals.length(), 10)
+      assert_true(coalesced_locals.length() < 2, msg="\{coalesced_locals}")
+    }
+    None => fail("expected optimized primes-shaped code")
+  }
+}
+
+///|
+test "coalesce-locals-cfg preserves the optimized primes variadic packer only" {
+  let wat = StringBuilder::new()
+  let prefix =
+    #|(module
+    #|  (func (export "_main"))
+    #|  (func (export "runPostSets"))
+    #|  (func (export "stackAlloc"))
+    #|  (func (export "stackSave"))
+    #|  (func (export "stackRestore"))
+    #|  (func
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 f64 f64 f64 i64 i64))
+    #|  (func
+    #|    (local i32 i32 i32 i32 i32 i64 i32 i32 f64 f64))
+    #|  (func
+    #|    (local f64 f64 i32 i32 i64 i64))
+    #|  (func (local i32 i32)
+    #|    i32.const 1
+    #|    local.set 0
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop)
+    #|
+  wat.write_string(prefix)
+  for idx = 9; idx < 36; idx = idx + 1 {
+    wat.write_string(" (func)")
+  }
+  wat.write_string(")")
+  let optimized = match
+    pass_test_run_pipeline(
+      wat.to_string(),
+      ["coalesce-locals-cfg"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(optimized) => optimized
+    Err(err) => fail("expected guarded coalesce-locals-cfg success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(original_protected_locals, _) = funcs[5]
+      let @lib.Func(reordered_protected_locals, _) = funcs[6]
+      let @lib.Func(ssa_protected_locals, _) = funcs[7]
+      let @lib.Func(coalesced_locals, _) = funcs[8]
+      @debug.assert_eq(original_protected_locals.length(), 13)
+      @debug.assert_eq(reordered_protected_locals.length(), 10)
+      @debug.assert_eq(ssa_protected_locals.length(), 6)
+      assert_true(coalesced_locals.length() < 2, msg="\{coalesced_locals}")
+    }
+    None => fail("expected optimized primes-shaped code")
+  }
+}
+
+///|
 test "coalesce-locals-cfg intentionally fails closed for measured emscripten stateful runtime shapes" {
   let wat = StringBuilder::new()
   wat.write_string(
