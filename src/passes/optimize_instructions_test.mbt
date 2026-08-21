@@ -54889,6 +54889,59 @@ test "optimize-instructions folds impossible ref.test and ref.cast on local i31 
 }
 
 ///|
+test "optimize-instructions folds ref.test against abstract bottom targets" {
+  let sources = [
+    @lib.ValType::anyref(),
+    @lib.ValType::externref(),
+    @lib.ValType::funcref(),
+    @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::exn())),
+    @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::cont())),
+  ]
+  let targets = [
+    @lib.HeapType::abs(@lib.AbsHeapType::none()),
+    @lib.HeapType::abs(@lib.AbsHeapType::no_extern()),
+    @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+    @lib.HeapType::abs(@lib.AbsHeapType::no_exn()),
+    @lib.HeapType::abs(@lib.AbsHeapType::no_cont()),
+  ]
+  let types : Array[@lib.RecType] = []
+  let func_types : Array[@lib.TypeIdx] = []
+  let funcs : Array[@lib.Func] = []
+  for idx = 0; idx < sources.length(); idx = idx + 1 {
+    types.push(
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([sources[idx]], [@lib.ValType::i32()]),
+        ),
+      ),
+    )
+    func_types.push(@lib.TypeIdx::new(idx.reinterpret_as_uint()))
+    funcs.push(
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::ref_test(false, targets[idx]),
+        ]),
+      ),
+    )
+  }
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new(types))
+    .with_func_sec(@lib.FuncSec::new(func_types))
+    .with_code_sec(@lib.CodeSec::new(funcs)),
+  )
+  for idx = 0; idx < sources.length(); idx = idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("ref.test"), msg=pretty)
+    assert_true(pretty.contains("I32(0)"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions folds successful ref.test and ref.cast on local ref.func refs" {
   let func_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
   let i32_type = @lib.TypeIdx::new(0U)

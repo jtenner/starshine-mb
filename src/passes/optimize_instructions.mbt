@@ -2010,6 +2010,7 @@ fn OiHeapRelationMatchFact::proves_module_heap_match(
 priv enum OiHeapRelationMissKind {
   HeapRelationNoKnownMiss
   HeapRelationI31CannotMatchTarget
+  HeapRelationBottomTargetCannotMatchSource
   HeapRelationAbsStructArrayDisjoint
   HeapRelationConcreteSourceNoTargetOverlap
 }
@@ -2017,6 +2018,20 @@ priv enum OiHeapRelationMissKind {
 ///|
 priv struct OiHeapRelationMissFact {
   kind : OiHeapRelationMissKind
+}
+
+///|
+fn optimize_instructions_heap_is_bottom(heap : @lib.HeapType) -> Bool {
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::none()) ||
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::no_extern()) ||
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::no_func()) ||
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::no_exn()) ||
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::no_cont()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::none()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::no_extern()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::no_func()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::no_exn()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::no_cont())
 }
 
 ///|
@@ -2031,6 +2046,8 @@ fn OiHeapRelationMissFact::from_heaps(
   let kind = if source == @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
     OiI31HeapTargetFact::from_target(target).proves_miss_target() {
     HeapRelationI31CannotMatchTarget
+  } else if source != target && optimize_instructions_heap_is_bottom(target) {
+    HeapRelationBottomTargetCannotMatchSource
   } else if OiAbsStructArrayHeapRelationFact::from_heaps(source, target).proves_disjoint_target() {
     HeapRelationAbsStructArrayDisjoint
   } else if OiConcreteSourceTargetOverlapFact::from_heaps(
@@ -2052,6 +2069,7 @@ fn OiHeapRelationMissFact::proves_known_miss_target(
   match self.kind {
     HeapRelationNoKnownMiss => false
     HeapRelationI31CannotMatchTarget
+    | HeapRelationBottomTargetCannotMatchSource
     | HeapRelationAbsStructArrayDisjoint
     | HeapRelationConcreteSourceNoTargetOverlap => true
   }
@@ -2065,6 +2083,7 @@ fn OiHeapRelationMissFact::proves_abs_struct_array_disjoint(
     HeapRelationAbsStructArrayDisjoint => true
     HeapRelationNoKnownMiss
     | HeapRelationI31CannotMatchTarget
+    | HeapRelationBottomTargetCannotMatchSource
     | HeapRelationConcreteSourceNoTargetOverlap => false
   }
 }
