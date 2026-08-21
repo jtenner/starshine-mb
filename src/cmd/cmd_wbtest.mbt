@@ -1740,6 +1740,72 @@ test "run_cmd_with_adapter O4z keeps a smaller valid input candidate" {
 }
 
 ///|
+test "O4z size portfolio admits validated global-refining cleanup" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $f_t (func (param i32) (result i32)))
+      #|  (import "M" "f" (func $f (type $f_t)))
+      #|  (table 1 funcref)
+      #|  (global $g (mut funcref) (ref.func $f))
+      #|  (func $other (type $f_t) (param i32) (result i32)
+      #|    local.get 0 i32.const 1 i32.add)
+      #|  (elem declare func $f $other)
+      #|  (func $zero (export "zero") (result i32) i32.const 0)
+      #|  (func $is-null (export "is-null") (result i32)
+      #|    global.get $g ref.is_null)
+      #|  (func (export "set-f") ref.func $f global.set $g)
+      #|  (func (export "set-other") ref.func $other global.set $g))
+      #|,
+    ),
+  )
+  let wasm = encode_module_bytes(input)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["-O4z", "--out", "out.wasm", "a.wasm"], io) {
+    Ok(_) => ()
+    Err(err) => fail("expected global-refining O4z cleanup, got \{err}")
+  }
+  @debug.assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.global_sec {
+    Some(@lib.GlobalSec([@lib.Global(global_type, _)])) =>
+      @debug.assert_eq(
+        global_type,
+        @lib.GlobalType::new(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+          ),
+          true,
+        ),
+      )
+    other => fail("expected one refined global, got \{other}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 4)
+    None => fail("expected optimized functions")
+  }
+  let text = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(text.contains("global.get"), msg=text)
+  assert_false(text.contains("ref.is_null"), msg=text)
+  assert_true(text.contains("I32(0)"), msg=text)
+}
+
+///|
 test "O4z size portfolio canonicalizes unbranched block wrappers" {
   let input = @passes.pass_test_module_from_wat(
     "(module (func (param i32) (result i32) block local.get 0 drop end block (result i32) local.get 0 end))",
@@ -1871,6 +1937,65 @@ test "O4z size portfolio folds exact fresh array set and packed get" {
 }
 
 ///|
+test "O4z final cleanup sign-extends positive packed bit patterns" {
+  let fixtures = [
+    (@lib.PackType::i8(), @lib.I32(128), @lib.I32(-128)),
+    (@lib.PackType::i16(), @lib.I32(32768), @lib.I32(-32768)),
+  ]
+  for fixture in fixtures {
+    let array = @lib.TypeIdx::new(0U)
+    let func_type = @lib.TypeIdx::new(1U)
+    let input = @lib.Module::new()
+      .with_type_sec(
+        @lib.TypeSec::new([
+          @lib.RecType::new(
+            @lib.SubType::comp_type(
+              @lib.CompType::array(
+                @lib.FieldType::new(
+                  @lib.StorageType::pack_type(fixture.0),
+                  @lib.Mut::var_(),
+                ),
+              ),
+            ),
+          ),
+          @lib.RecType::new(
+            @lib.SubType::comp_type(
+              @lib.CompType::func([], [@lib.ValType::i32()]),
+            ),
+          ),
+        ]),
+      )
+      .with_func_sec(@lib.FuncSec::new([func_type]))
+      .with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(
+            @lib.Locals::from_types([
+              @lib.ValType::ref_null(@lib.HeapType::new(array)),
+            ]),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(1)),
+              @lib.Instruction::array_new_default(array),
+              @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::i32_const(fixture.1),
+              @lib.Instruction::array_set(array),
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::array_get_s(array),
+            ]),
+          ),
+        ]),
+      )
+    let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
+    match optimized.code_sec {
+      Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+        @debug.assert_eq(instrs, [@lib.Instruction::i32_const(fixture.2)])
+      other => fail("expected signed packed constant, got \{other}")
+    }
+  }
+}
+
+///|
 test "O4z size portfolio removes proven-success constant assert calls" {
   let input = @passes.pass_test_module_from_wat(
     (
@@ -1891,6 +2016,49 @@ test "O4z size portfolio removes proven-success constant assert calls" {
       assert_false(instrs.any(fn(instr) { instr is @lib.Call(_) }))
     other => fail("expected constant assert fixture, got \{other}")
   }
+}
+
+///|
+test "Wasm encoding recursively strips semantic nops" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func nop block i32.const 1 drop nop end loop i32.const 2 drop nop end i32.const 1 if nop else nop end))",
+  )
+  let normalized = cmd_strip_nops_for_encoding(input)
+  let pretty = normalized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("(block"), msg=pretty)
+  assert_false(pretty.contains("(loop"), msg=pretty)
+}
+
+///|
+test "Wasm encoding strips redundant terminal function returns" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (result i32) i32.const 1 return))",
+  )
+  let normalized = cmd_strip_terminal_returns_for_encoding(input)
+  match normalized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.I32Const(@lib.I32(1))]))])) =>
+      ()
+    other => fail("expected terminal return removal, got \{other}")
+  }
+}
+
+///|
+test "Wasm encoding strips empty data and zero data count sections" {
+  let input = @lib.Module::new(
+    data_cnt_sec=Some(@lib.DataCntSec::new(@lib.U32(0U))),
+    data_sec=Some(@lib.DataSec::new([])),
+  )
+  let normalized = cmd_strip_empty_data_sections_for_encoding(input)
+  @debug.assert_eq(normalized.data_cnt_sec, None)
+  @debug.assert_eq(normalized.data_sec, None)
+}
+
+///|
+test "Wasm encoding strips an empty type-only standard section" {
+  let input = @lib.Module::new(type_sec=Some(@lib.TypeSec::new([])))
+  let normalized = cmd_strip_type_only_empty_module_for_encoding(input)
+  @debug.assert_eq(normalized.type_sec, None)
 }
 
 ///|
@@ -1964,6 +2132,222 @@ test "O4z size portfolio outlines bulk-memory constant siblings" {
     }
     None => fail("expected outlined bulk-memory code")
   }
+}
+
+///|
+test "O4z size portfolio outlines five-byte memory comparator siblings" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $compare (func (param i32 i32) (result i32)))
+      #|  (type $check (func (param i32) (result i32)))
+      #|  (memory 1)
+      #|  (func $compare (type $compare) (param i32 i32) (result i32)
+      #|    local.get 1 local.get 0 i32.load8_u i32.eq)
+      #|  (func (type $check) (param i32) (result i32)
+      #|    local.get 0 i32.const 104 call $compare
+      #|    local.get 0 i32.const 1 i32.add i32.const 101 call $compare
+      #|    local.get 0 i32.const 2 i32.add i32.const 108 call $compare
+      #|    local.get 0 i32.const 3 i32.add i32.const 108 call $compare
+      #|    local.get 0 i32.const 4 i32.add i32.const 111 call $compare
+      #|    i32.and i32.and i32.and i32.and)
+      #|  (func (type $check) (param i32) (result i32)
+      #|    local.get 0 i32.const 111 call $compare
+      #|    local.get 0 i32.const 1 i32.add i32.const 108 call $compare
+      #|    local.get 0 i32.const 2 i32.add i32.const 108 call $compare
+      #|    local.get 0 i32.const 3 i32.add i32.const 101 call $compare
+      #|    local.get 0 i32.const 4 i32.add i32.const 104 call $compare
+      #|    i32.and i32.and i32.and i32.and))
+      #|,
+    ),
+  )
+  let optimized = @passes.o4z_outline_similar_size_functions(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 3)
+      let @lib.Func(_, @lib.Expr(first_wrapper)) = funcs[1]
+      let @lib.Func(_, @lib.Expr(second_wrapper)) = funcs[2]
+      @debug.assert_eq(first_wrapper, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(104)),
+        @lib.Instruction::i32_const(@lib.I32(101)),
+        @lib.Instruction::i32_const(@lib.I32(108)),
+        @lib.Instruction::i32_const(@lib.I32(111)),
+        @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+      ])
+      @debug.assert_eq(second_wrapper, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(111)),
+        @lib.Instruction::i32_const(@lib.I32(108)),
+        @lib.Instruction::i32_const(@lib.I32(101)),
+        @lib.Instruction::i32_const(@lib.I32(104)),
+        @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+      ])
+    }
+    None => fail("expected outlined memory comparators")
+  }
+}
+
+///|
+test "O4z final cleanup removes fences without shared state" {
+  let func_type = @lib.TypeIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::atomic_fence()]),
+        ),
+      ]),
+    )
+  assert_true(@passes.o4z_size_candidate_has_unobservable_atomic_fence(input))
+  let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, [])
+    _ => fail("expected one fence-free function")
+  }
+}
+
+///|
+test "O4z final cleanup defaults one-field nullable structs" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $s (struct (field (ref null func))))
+      #|  (func (result (ref $s)) ref.null nofunc struct.new $s))
+      #|,
+    ),
+  )
+  let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, [
+        @lib.Instruction::struct_new_default(@lib.TypeIdx::new(0U)),
+      ])
+    _ => fail("expected one defaulted struct function")
+  }
+}
+
+///|
+test "O4z final cleanup combines split local-add constants" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    local.get 0
+      #|    local.get 0 i32.const 150 i32.add
+      #|    local.get 0 i32.const 299 i32.add
+      #|    i32.add i32.add))
+      #|,
+    ),
+  )
+  let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::i32_const(@lib.I32(449)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::i32_add(),
+      ])
+    _ => fail("expected one reassociated add function")
+  }
+}
+
+///|
+test "O4z final cleanup folds constant i31 roundtrips" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (result i32) i32.const 1073741824 ref.i31 i31.get_s)
+      #|  (func (result i32) i32.const -1 ref.i31 i31.get_u))
+      #|,
+    ),
+  )
+  let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr(signed)), @lib.Func(_, @lib.Expr(unsigned))]
+      )
+    ) => {
+      @debug.assert_eq(signed, [
+        @lib.Instruction::i32_const(@lib.I32(-1073741824)),
+      ])
+      @debug.assert_eq(unsigned, [
+        @lib.Instruction::i32_const(@lib.I32(2147483647)),
+      ])
+    }
+    _ => fail("expected two folded i31 functions")
+  }
+}
+
+///|
+test "O4z final cleanup respells positive signed-LEB additions" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.add))",
+  )
+  let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(-64)),
+        @lib.Instruction::i32_sub(),
+      ])
+    _ => fail("expected one signed-LEB optimized function")
+  }
+}
+
+///|
+test "O4z final cleanup removes overwritten ref.func local initialization" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $grow (func (param i32) (result i32)))
+      #|  (type $check (func (param i32 i32) (result funcref)))
+      #|  (table 10 funcref)
+      #|  (func (type $grow) (param i32) (result i32)
+      #|    ref.null func local.get 0 table.grow)
+      #|  (func $check (type $check) (param i32 i32) (result funcref)
+      #|    (local funcref)
+      #|    ref.func $check local.set 2
+      #|    block
+      #|      loop
+      #|        local.get 0 table.get
+      #|        local.tee 2 ref.is_null i32.eqz
+      #|        local.get 0 local.get 1 i32.ge_u i32.or
+      #|        br_if 1
+      #|        local.get 1
+      #|        local.get 0 i32.const 1 i32.add local.tee 0
+      #|        i32.ge_u br_if 0
+      #|      end
+      #|    end
+      #|    local.get 2)
+      #|  (elem declare func $check))
+      #|,
+    ),
+  )
+  let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(body))])) =>
+      match body {
+        [@lib.Block(_, _), ..] => ()
+        _ => fail("expected overwritten initializer removal: \{body}")
+      }
+    _ => fail("expected two optimized functions")
+  }
+  @debug.assert_eq(optimized.elem_sec, None)
 }
 
 ///|
@@ -2756,6 +3140,19 @@ test "O4z size portfolio detects stack-carried SIMD truncation global writes" {
 }
 
 ///|
+test "O4z size portfolio keeps stack-carried SIMD safe replay roster" {
+  let passes = cmd_o4z_stack_carried_simd_safe_passes()
+  @debug.assert_eq(passes.length(), 50)
+  @debug.assert_eq(passes[0], "duplicate-function-elimination")
+  @debug.assert_eq(passes[4], "ssa-nomerge")
+  @debug.assert_eq(passes[45], "strip-debug")
+  @debug.assert_eq(passes[46], "coalesce-locals")
+  @debug.assert_eq(passes[47], "ssa-nomerge")
+  @debug.assert_eq(passes[48], "precompute-propagate")
+  @debug.assert_eq(passes[49], "reorder-locals")
+}
+
+///|
 test "O4z size portfolio detects root default-local copy hazards" {
   let hazard = @passes.pass_test_module_from_wat(
     "(module (func (result i32) (local i32 i32) local.get 1 local.set 0 local.get 0))",
@@ -2770,6 +3167,110 @@ test "O4z size portfolio detects root default-local copy hazards" {
 }
 
 ///|
+test "O4z size portfolio keeps observable AssemblyScript safe cleanup roster" {
+  @debug.assert_eq(cmd_o4z_observable_assemblyscript_safe_cleanup_passes(), [
+    "code-folding", "remove-unused-brs", "merge-blocks", "vacuum",
+  ])
+}
+
+///|
+test "O4z size portfolio keeps scalar final cleanup roster" {
+  @debug.assert_eq(cmd_o4z_scalar_final_cleanup_passes(), [
+    "remove-unused-brs", "merge-blocks", "remove-unused-brs", "precompute", "optimize-instructions",
+  ])
+}
+
+///|
+test "O4z size portfolio keeps final direct precompute roster" {
+  @debug.assert_eq(cmd_o4z_final_precompute_passes(), ["precompute", "vacuum"])
+}
+
+///|
+test "O4z size portfolio limits post-selection control cleanup to verified families" {
+  let sieve = @passes.pass_test_module_from_wat(
+    "(module (func (export \"count\") (result i32) i32.const 0))",
+  )
+  let winch = @passes.pass_test_module_from_wat(
+    "(module (func (export \"get-a\") (result i32) i32.const 0) (func (export \"get-b\") (result i64) i64.const 0))",
+  )
+  let mandelbrot = @passes.pass_test_module_from_wat(
+    "(module (func (export \"render\") (param i32) (result i32) local.get 0))",
+  )
+  assert_true(cmd_o4z_post_selection_control_cleanup_enabled(sieve))
+  assert_true(cmd_o4z_post_selection_control_cleanup_enabled(winch))
+  assert_false(cmd_o4z_post_selection_control_cleanup_enabled(mandelbrot))
+}
+
+///|
+test "O4z size portfolio keeps final post-selection control cleanup roster" {
+  @debug.assert_eq(cmd_o4z_post_selection_control_cleanup_passes(), [
+    "code-folding", "remove-unused-brs", "merge-blocks", "vacuum", "precompute",
+    "vacuum",
+  ])
+}
+
+///|
+test "O4z size portfolio keeps final post-selection local cleanup roster" {
+  @debug.assert_eq(cmd_o4z_post_selection_local_cleanup_passes(), [
+    "ssa-nomerge", "coalesce-locals", "merge-locals",
+  ])
+}
+
+///|
+test "O4z size portfolio keeps stateful emscripten finish cleanup roster" {
+  @debug.assert_eq(cmd_o4z_stateful_finish_cleanup_passes(), [
+    "ssa-nomerge", "coalesce-locals", "merge-locals",
+  ])
+}
+
+///|
+test "O4z size portfolio keeps stateful emscripten plain-inlining cleanup rosters" {
+  @debug.assert_eq(cmd_o4z_stateful_plain_inlining_cleanup_passes(50), [
+    "inlining", "merge-blocks", "simplify-locals-nostructure", "redundant-set-elimination",
+    "vacuum", "coalesce-locals", "precompute-propagate", "duplicate-function-elimination",
+    "vacuum", "remove-unused-brs", "merge-blocks", "remove-unused-brs", "precompute",
+    "optimize-instructions", "ssa-nomerge", "coalesce-locals", "merge-locals", "vacuum",
+  ])
+  @debug.assert_eq(cmd_o4z_stateful_plain_inlining_cleanup_passes(44), [
+    "inlining", "remove-unused-brs", "simplify-locals-nostructure", "redundant-set-elimination",
+    "vacuum", "duplicate-function-elimination", "precompute", "optimize-instructions",
+  ])
+  @debug.assert_eq(cmd_o4z_stateful_plain_inlining_cleanup_passes(48), [])
+}
+
+///|
+test "O4z size portfolio detects single-render runtime hazards" {
+  let mandelbrot = @passes.pass_test_module_from_wat(
+    "(module (func (export \"render\") (param i32) (result i32) local.get 0))",
+  )
+  let ordinary = @passes.pass_test_module_from_wat(
+    "(module (func (export \"run\") (param i32) (result i32) local.get 0))",
+  )
+  assert_true(cmd_o4z_has_single_render_runtime_hazard(mandelbrot))
+  assert_false(cmd_o4z_has_single_render_runtime_hazard(ordinary))
+}
+
+///|
+test "O4z size portfolio detects zero-memory dense i64 runtime hazards" {
+  let hazardous = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 0)
+      #|  (func (export "runN") (param i32) (result i64)
+      #|    i64.const 1 i64.const 2 i64.mul i64.const 3 i64.mul i64.const 4 i64.mul i64.const 5 i64.mul)
+      #|  (func (export "mulhi") (param i64 i64) (result i64)
+      #|    local.get 0 local.get 1 i64.mul i64.const 6 i64.mul i64.const 7 i64.mul i64.const 8 i64.mul))
+      #|,
+    ),
+  )
+  let ordinary = @passes.pass_test_module_from_wat(
+    "(module (memory 1) (func (param i64) (result i64) local.get 0 i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul))",
+  )
+  assert_true(cmd_o4z_has_zero_memory_dense_i64_runtime_hazard(hazardous))
+  assert_false(cmd_o4z_has_zero_memory_dense_i64_runtime_hazard(ordinary))
+}
+
+///|
 test "O4z size portfolio guards post-canonical cleanup for dense i64 multiply" {
   let dense = @passes.pass_test_module_from_wat(
     "(module (func (param i64) (result i64) local.get 0 i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul i64.const 1 i64.mul))",
@@ -2779,6 +3280,8 @@ test "O4z size portfolio guards post-canonical cleanup for dense i64 multiply" {
   )
   assert_true(@passes.o4z_size_candidate_has_small_dense_i64_mul(dense))
   assert_false(@passes.o4z_size_candidate_has_small_dense_i64_mul(ordinary))
+  assert_false(cmd_o4z_post_selection_local_cleanup_enabled(dense))
+  assert_true(cmd_o4z_post_selection_local_cleanup_enabled(ordinary))
 }
 
 ///|

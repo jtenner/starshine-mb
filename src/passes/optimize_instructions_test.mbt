@@ -31081,19 +31081,33 @@ test "optimize-instructions preserves signed-leb-friendly negative adds" {
 }
 
 ///|
-test "optimize-instructions preserves positive add immediates for parity" {
+test "optimize-instructions prefers negative signed-LEB add immediates" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
   @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i32_add()),
+    Some(@lib.Instruction::i32_sub()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
   @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(64)),
+    @ir.HotConstPayload::i32_const(@lib.I32(-64)),
+  )
+
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 8192 i64.add))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_func, i64_root),
+    Some(@lib.Instruction::i64_sub()),
+  )
+  let i64_rhs = @ir.hot_child_get(i64_func, i64_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(i64_func, @ir.hot_node_get(i64_func, i64_rhs).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(-8192L)),
   )
 }
 
@@ -31105,7 +31119,7 @@ test "optimize-instructions canonicalizes leading positive const adds" {
   let root = @ir.hot_root_get(func, 0)
   @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i32_add()),
+    Some(@lib.Instruction::i32_sub()),
   )
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
@@ -31116,11 +31130,14 @@ test "optimize-instructions canonicalizes leading positive const adds" {
   let rhs_node = @ir.hot_node_get(func, rhs)
   match rhs_node.op {
     @ir.HotOp::Const => ()
-    _ => fail("expected leading positive add const to move to the rhs")
+    _ =>
+      fail(
+        "expected leading positive add const to become the rhs subtraction immediate",
+      )
   }
   @debug.assert_eq(
     @ir.hot_const_get(func, rhs_node.imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(64)),
+    @ir.HotConstPayload::i32_const(@lib.I32(-64)),
   )
 }
 
@@ -31586,6 +31603,33 @@ test "optimize-instructions canonicalizes default scalar float spellings" {
   let f64_div_neg_root = @ir.hot_root_get(f64_div_neg, 0)
   @debug.assert_eq(
     @ir.hot_node_exact_instr(f64_div_neg, f64_div_neg_root),
+    Some(@lib.Instruction::f64_sub()),
+  )
+
+  let f32_sub_neg = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32) (result f32) local.get 0 local.get 1 f32.neg f32.sub))",
+  )
+  let f32_sub_neg_root = @ir.hot_root_get(f32_sub_neg, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f32_sub_neg, f32_sub_neg_root),
+    Some(@lib.Instruction::f32_add()),
+  )
+  let f32_sub_neg_rhs = @ir.hot_node_get(
+    f32_sub_neg,
+    @ir.hot_child_get(f32_sub_neg, f32_sub_neg_root, 1),
+  )
+  match f32_sub_neg_rhs.op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected the original rhs local after removing f32.neg")
+  }
+  @debug.assert_eq(f32_sub_neg_rhs.imm0, 1)
+
+  let f64_add_neg = optimize_instructions_test_run_hot(
+    "(module (func (param f64 f64) (result f64) local.get 0 local.get 1 f64.neg f64.add))",
+  )
+  let f64_add_neg_root = @ir.hot_root_get(f64_add_neg, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f64_add_neg, f64_add_neg_root),
     Some(@lib.Instruction::f64_sub()),
   )
 }

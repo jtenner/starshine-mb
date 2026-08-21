@@ -69,7 +69,7 @@ fn gr_ref_func_result_type(
 ) -> @lib.RefType? {
   match env.get_functypeidx_by_funcidx(func_idx) {
     Some(type_idx) =>
-      Some(@lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true))
+      Some(@lib.RefType::new(false, @lib.HeapType::new(type_idx)))
     None => None
   }
 }
@@ -135,6 +135,11 @@ fn gr_expr_result_type(env : @validate.Env, expr : @lib.Expr) -> @lib.ValType? {
   match expr {
     @lib.Expr([@lib.RefNull(ref_type)]) =>
       Some(@lib.ValType::ref_type(gr_ref_null_result_type(ref_type, env)))
+    @lib.Expr([@lib.RefFunc(func_idx)]) =>
+      match gr_ref_func_result_type(env, func_idx) {
+        Some(ref_type) => Some(@lib.ValType::ref_type(ref_type))
+        None => None
+      }
     _ => gr_expr_typechecked_result_type(env, expr)
   }
 }
@@ -426,21 +431,62 @@ fn gr_collect_heaptype_candidates(
 }
 
 ///|
+fn gr_typeidx_is_declared_subtype(
+  source : @lib.TypeIdx,
+  target : @lib.TypeIdx,
+  env : @validate.Env,
+) -> Bool {
+  let work : Array[@lib.TypeIdx] = [source]
+  let visited : Array[@lib.TypeIdx] = []
+  while work.length() > 0 {
+    let current = work.pop().unwrap()
+    if current == target {
+      return true
+    }
+    if visited.contains(current) {
+      continue
+    }
+    visited.push(current)
+    match env.resolve_subtype(current) {
+      Some(subtype) =>
+        for super_type in subtype.super_types() {
+          work.push(super_type)
+        }
+      None => ()
+    }
+  }
+  false
+}
+
+///|
+fn gr_heaptype_matches_join_candidate(
+  source : @lib.HeapType,
+  candidate : @lib.HeapType,
+  env : @validate.Env,
+) -> Bool {
+  match (source, candidate) {
+    (@lib.HeapType(source), @lib.HeapType(candidate)) =>
+      gr_typeidx_is_declared_subtype(source, candidate, env)
+    _ => @validate.Match::matches(source, candidate, env)
+  }
+}
+
+///|
 fn gr_join_heaptypes(
   left : @lib.HeapType,
   right : @lib.HeapType,
   env : @validate.Env,
 ) -> @lib.HeapType? {
-  if @validate.Match::matches(left, right, env) {
+  if gr_heaptype_matches_join_candidate(left, right, env) {
     return Some(right)
   }
-  if @validate.Match::matches(right, left, env) {
+  if gr_heaptype_matches_join_candidate(right, left, env) {
     return Some(left)
   }
   let candidates = gr_collect_heaptype_candidates(left, env)
   for candidate in candidates {
-    if @validate.Match::matches(left, candidate, env) &&
-      @validate.Match::matches(right, candidate, env) {
+    if gr_heaptype_matches_join_candidate(left, candidate, env) &&
+      gr_heaptype_matches_join_candidate(right, candidate, env) {
       return Some(candidate)
     }
   }

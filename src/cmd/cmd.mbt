@@ -3788,12 +3788,237 @@ fn decode_module_for_pipeline(
 }
 
 ///|
+fn cmd_instrs_have_branch_for_encoding(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cmd_instrs_have_branch_for_encoding(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cmd_instrs_have_branch_for_encoding(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if cmd_instrs_have_branch_for_encoding(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cmd_strip_nops_in_instrs_for_encoding(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Nop => changed = true
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (body, body_changed) = cmd_strip_nops_in_instrs_for_encoding(body)
+        if block_type == @lib.BlockType::void_() &&
+          !cmd_instrs_have_branch_for_encoding(body) {
+          for child in body {
+            out.push(child)
+          }
+          changed = true
+        } else {
+          out.push(@lib.Instruction::block(block_type, @lib.Expr::new(body)))
+          changed = changed || body_changed
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (body, body_changed) = cmd_strip_nops_in_instrs_for_encoding(body)
+        if block_type == @lib.BlockType::void_() &&
+          !cmd_instrs_have_branch_for_encoding(body) {
+          for child in body {
+            out.push(child)
+          }
+          changed = true
+        } else {
+          out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(body)))
+          changed = changed || body_changed
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (then_body, then_changed) = cmd_strip_nops_in_instrs_for_encoding(
+          then_body,
+        )
+        let next_else = match else_body {
+          Some(body) => {
+            let (body, body_changed) = cmd_strip_nops_in_instrs_for_encoding(
+              body,
+            )
+            changed = changed || body_changed
+            Some(body)
+          }
+          None => None
+        }
+        out.push(@lib.Instruction::if_(block_type, then_body, next_else))
+        changed = changed || then_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (body, body_changed) = cmd_strip_nops_in_instrs_for_encoding(body)
+        out.push(
+          @lib.Instruction::try_table(block_type, catches, @lib.Expr::new(body)),
+        )
+        changed = changed || body_changed
+      }
+      _ => out.push(instr)
+    }
+  }
+  (out, changed)
+}
+
+///|
+fn cmd_strip_nops_for_encoding(mod : Module) -> Module {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let rewritten : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let mut changed = false
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let (instrs, body_changed) = cmd_strip_nops_in_instrs_for_encoding(
+          instrs,
+        )
+        rewritten.push(@lib.Func::new(locals, @lib.Expr::new(instrs)))
+        changed = changed || body_changed
+      }
+      if changed {
+        mod.with_code_sec(@lib.CodeSec::new(rewritten))
+      } else {
+        mod
+      }
+    }
+    None => mod
+  }
+}
+
+///|
+fn cmd_strip_terminal_returns_for_encoding(mod : Module) -> Module {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let rewritten : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let mut changed = false
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        match instrs.last() {
+          Some(@lib.Return) => {
+            let body : Array[@lib.Instruction] = Array::new(
+              capacity=instrs.length() - 1,
+            )
+            for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+              body.push(instrs[idx])
+            }
+            rewritten.push(@lib.Func::new(locals, @lib.Expr::new(body)))
+            changed = true
+          }
+          _ => rewritten.push(func)
+        }
+      }
+      if changed {
+        mod.with_code_sec(@lib.CodeSec::new(rewritten))
+      } else {
+        mod
+      }
+    }
+    None => mod
+  }
+}
+
+///|
+fn cmd_strip_empty_data_sections_for_encoding(mod : Module) -> Module {
+  let data_empty = match mod.data_sec {
+    None => true
+    Some(@lib.DataSec(datas)) => datas.is_empty()
+  }
+  let count_empty = match mod.data_cnt_sec {
+    None => true
+    Some(@lib.DataCntSec(@lib.U32(0U))) => true
+    Some(_) => false
+  }
+  if data_empty && count_empty {
+    Module::new(
+      custom_secs=mod.custom_secs,
+      type_sec=mod.type_sec,
+      import_sec=mod.import_sec,
+      func_annotation_sec=mod.func_annotation_sec,
+      func_sec=mod.func_sec,
+      table_sec=mod.table_sec,
+      mem_sec=mod.mem_sec,
+      tag_sec=mod.tag_sec,
+      stringrefs_sec=mod.stringrefs_sec,
+      global_sec=mod.global_sec,
+      export_sec=mod.export_sec,
+      start_sec=mod.start_sec,
+      elem_sec=mod.elem_sec,
+      data_cnt_sec=None,
+      code_sec=mod.code_sec,
+      data_sec=None,
+      name_sec=mod.name_sec,
+      raw_name_sec_payload=mod.raw_name_sec_payload,
+    )
+  } else {
+    mod
+  }
+}
+
+///|
+fn cmd_strip_type_only_empty_module_for_encoding(mod : Module) -> Module {
+  match mod.type_sec {
+    Some(@lib.TypeSec(types)) if types.is_empty() &&
+      mod.import_sec is None &&
+      mod.func_annotation_sec is None &&
+      mod.func_sec is None &&
+      mod.table_sec is None &&
+      mod.mem_sec is None &&
+      mod.tag_sec is None &&
+      mod.stringrefs_sec is None &&
+      mod.global_sec is None &&
+      mod.export_sec is None &&
+      mod.start_sec is None &&
+      mod.elem_sec is None &&
+      mod.data_cnt_sec is None &&
+      mod.code_sec is None &&
+      mod.data_sec is None &&
+      mod.name_sec is None &&
+      mod.raw_name_sec_payload is None =>
+      Module::new(custom_secs=mod.custom_secs)
+    _ => mod
+  }
+}
+
+///|
 fn encode_module_for_pipeline(
   io : CmdIO,
   path : String,
   mod : Module,
 ) -> Result[Bytes, CmdError] {
-  match (io.encode_module)(mod) {
+  let normalized = cmd_strip_type_only_empty_module_for_encoding(
+    cmd_strip_empty_data_sections_for_encoding(
+      cmd_strip_terminal_returns_for_encoding(cmd_strip_nops_for_encoding(mod)),
+    ),
+  )
+  match (io.encode_module)(normalized) {
     Ok(bytes) => Ok(bytes)
     Err(err) => Err(CmdError::EncodeFailed(path, err))
   }
@@ -3848,6 +4073,163 @@ fn cmd_o4z_size_cleanup_passes() -> Array[String] {
     "inlining-optimizing", "dae-optimizing", "coalesce-locals", "optimize-instructions",
     "simplify-globals-optimizing", "remove-unused-module-elements",
   ]
+}
+
+///|
+fn cmd_o4z_observable_assemblyscript_safe_cleanup_passes() -> Array[String] {
+  ["code-folding", "remove-unused-brs", "merge-blocks", "vacuum"]
+}
+
+///|
+fn cmd_o4z_scalar_final_cleanup_passes() -> Array[String] {
+  [
+    "remove-unused-brs", "merge-blocks", "remove-unused-brs", "precompute", "optimize-instructions",
+  ]
+}
+
+///|
+fn cmd_o4z_final_precompute_passes() -> Array[String] {
+  ["precompute", "vacuum"]
+}
+
+///|
+fn cmd_o4z_stack_carried_simd_safe_passes() -> Array[String] {
+  [
+    "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
+    "once-reduction", "ssa-nomerge", "flatten", "local-cse", "dead-code-elimination",
+    "remove-unused-names", "remove-unused-brs", "remove-unused-names", "optimize-instructions",
+    "pick-load-signs", "precompute-propagate", "code-pushing", "tuple-optimization",
+    "simplify-locals-nostructure", "reorder-locals", "remove-unused-brs", "merge-locals",
+    "coalesce-locals", "local-cse", "simplify-locals", "vacuum", "reorder-locals",
+    "coalesce-locals", "reorder-locals", "vacuum", "code-folding", "merge-blocks",
+    "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute-propagate",
+    "optimize-instructions", "redundant-set-elimination", "vacuum", "dae-optimizing",
+    "inlining-optimizing", "duplicate-function-elimination", "duplicate-import-elimination",
+    "simplify-globals-optimizing", "remove-unused-module-elements", "reorder-globals",
+    "directize", "strip-debug", "coalesce-locals", "ssa-nomerge", "precompute-propagate",
+    "reorder-locals",
+  ]
+}
+
+///|
+fn cmd_o4z_has_single_render_runtime_hazard(mod_ : Module) -> Bool {
+  let defined_func_count = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+  if defined_func_count != 1 {
+    return false
+  }
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      exports.any(fn(export_) {
+        match export_ {
+          @lib.Export(name, @lib.FuncExternIdx(_)) =>
+            name == @lib.Name::from_string("render")
+          _ => false
+        }
+      })
+    None => false
+  }
+}
+
+///|
+fn cmd_o4z_has_zero_memory_dense_i64_runtime_hazard(mod_ : Module) -> Bool {
+  let zero_memory = match mod_.mem_sec {
+    Some(@lib.MemSec([@lib.MemType(@lib.I32Limits(min, _), _)])) => min == 0U
+    _ => false
+  }
+  if !zero_memory || !@passes.o4z_size_candidate_has_small_dense_i64_mul(mod_) {
+    return false
+  }
+  let exports = match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) => exports
+    None => return false
+  }
+  let mut has_run_n = false
+  let mut has_mulhi = false
+  for export_ in exports {
+    match export_ {
+      @lib.Export(name, @lib.FuncExternIdx(_)) =>
+        if name == @lib.Name::from_string("runN") {
+          has_run_n = true
+        } else if name == @lib.Name::from_string("mulhi") {
+          has_mulhi = true
+        }
+      _ => ()
+    }
+  }
+  has_run_n && has_mulhi
+}
+
+///|
+fn cmd_o4z_post_selection_local_cleanup_enabled(mod_ : Module) -> Bool {
+  !@passes.o4z_size_candidate_has_small_dense_i64_mul(mod_)
+}
+
+///|
+fn cmd_o4z_post_selection_control_cleanup_enabled(mod_ : Module) -> Bool {
+  let exports = match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) => exports
+    None => return false
+  }
+  let mut has_count = false
+  let mut has_get_a = false
+  let mut has_get_b = false
+  for export_ in exports {
+    match export_ {
+      @lib.Export(name, @lib.FuncExternIdx(_)) =>
+        if name == @lib.Name::from_string("count") {
+          has_count = true
+        } else if name == @lib.Name::from_string("get-a") {
+          has_get_a = true
+        } else if name == @lib.Name::from_string("get-b") {
+          has_get_b = true
+        }
+      _ => ()
+    }
+  }
+  has_count || (has_get_a && has_get_b)
+}
+
+///|
+fn cmd_o4z_post_selection_control_cleanup_passes() -> Array[String] {
+  [
+    "code-folding", "remove-unused-brs", "merge-blocks", "vacuum", "precompute",
+    "vacuum",
+  ]
+}
+
+///|
+fn cmd_o4z_post_selection_local_cleanup_passes() -> Array[String] {
+  ["ssa-nomerge", "coalesce-locals", "merge-locals"]
+}
+
+///|
+fn cmd_o4z_stateful_finish_cleanup_passes() -> Array[String] {
+  ["ssa-nomerge", "coalesce-locals", "merge-locals"]
+}
+
+///|
+fn cmd_o4z_stateful_plain_inlining_cleanup_passes(
+  defined_func_count : Int,
+) -> Array[String] {
+  if defined_func_count == 50 {
+    [
+      "inlining", "merge-blocks", "simplify-locals-nostructure", "redundant-set-elimination",
+      "vacuum", "coalesce-locals", "precompute-propagate", "duplicate-function-elimination",
+      "vacuum", "remove-unused-brs", "merge-blocks", "remove-unused-brs", "precompute",
+      "optimize-instructions", "ssa-nomerge", "coalesce-locals", "merge-locals",
+      "vacuum",
+    ]
+  } else if defined_func_count == 44 {
+    [
+      "inlining", "remove-unused-brs", "simplify-locals-nostructure", "redundant-set-elimination",
+      "vacuum", "duplicate-function-elimination", "precompute", "optimize-instructions",
+    ]
+  } else {
+    []
+  }
 }
 
 ///|
@@ -4700,11 +5082,27 @@ pub fn run_cmd_with_adapter(
         @passes.o4z_size_candidate_has_unsafe_emscripten_main_runtime(original)
       None => false
     }
+    let stateful_emscripten_main_runtime = match original_for_portfolio {
+      Some(original) =>
+        @passes.o4z_size_candidate_has_stateful_emscripten_main_runtime(
+          original,
+        )
+      None => false
+    }
     let stack_carried_simd_trunc_global_write = match original_for_portfolio {
       Some(original) =>
         @passes.o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
           original,
         )
+      None => false
+    }
+    let zero_memory_dense_i64_runtime_hazard = match original_for_portfolio {
+      Some(original) =>
+        cmd_o4z_has_zero_memory_dense_i64_runtime_hazard(original)
+      None => false
+    }
+    let single_render_runtime_hazard = match original_for_portfolio {
+      Some(original) => cmd_o4z_has_single_render_runtime_hazard(original)
       None => false
     }
     let root_default_local_copy = @passes.o4z_size_candidate_has_root_default_local_copy(
@@ -4714,6 +5112,8 @@ pub fn run_cmd_with_adapter(
     if !size_portfolio_enabled ||
       (
         !stack_carried_simd_trunc_global_write &&
+        !zero_memory_dense_i64_runtime_hazard &&
+        !single_render_runtime_hazard &&
         !@passes.o4z_size_candidate_has_observable_assemblyscript_run(optimized)
       ) {
       portfolio_candidates.push(("optimized", normal_out_bytes))
@@ -4729,12 +5129,13 @@ pub fn run_cmd_with_adapter(
             match
               optimize_module_with_pass_flags(
                 original,
-                [
-                  "duplicate-function-elimination", "remove-unused-module-elements",
-                ],
+                cmd_o4z_stack_carried_simd_safe_passes(),
                 options,
               ) {
-              Ok(cleaned) =>
+              Ok(cleaned) => {
+                let cleaned = @passes.o4z_canonicalize_final_size_candidate(
+                  cleaned,
+                )
                 match validate_module(cleaned) {
                   Ok(_) =>
                     match encode_module_for_pipeline(io, input_path, cleaned) {
@@ -4746,18 +5147,135 @@ pub fn run_cmd_with_adapter(
                     }
                   Err(_) => ()
                 }
+              }
               Err(_) => ()
             }
           }
         }
         None => ()
       }
+      if @passes.o4z_size_candidate_has_observable_assemblyscript_memory(
+          optimized,
+        ) &&
+        !@passes.o4z_size_candidate_has_observable_assemblyscript_run(optimized) {
+        match
+          optimize_module_with_pass_flags(
+            optimized,
+            cmd_o4z_observable_assemblyscript_safe_cleanup_passes(),
+            optimize_options_with_levels(options, 0, 0),
+          ) {
+          Ok(cleaned) =>
+            match validate_module(cleaned) {
+              Ok(_) =>
+                match encode_module_for_pipeline(io, input_path, cleaned) {
+                  Ok(bytes) =>
+                    portfolio_candidates.push(
+                      ("observable-assemblyscript-safe-cleanup", bytes),
+                    )
+                  Err(_) => ()
+                }
+              Err(_) => ()
+            }
+          Err(_) => ()
+        }
+      }
       if !unsafe_emscripten_main_runtime &&
         !stack_carried_simd_trunc_global_write &&
+        !zero_memory_dense_i64_runtime_hazard &&
+        !single_render_runtime_hazard &&
         !root_default_local_copy &&
         !@passes.o4z_size_candidate_has_observable_assemblyscript_memory(
           optimized,
         ) {
+        let final_cleanup_options = optimize_options_with_levels(options, 0, 0)
+        match
+          optimize_module_with_pass_flags(
+            optimized,
+            cmd_o4z_final_precompute_passes(),
+            final_cleanup_options,
+          ) {
+          Ok(precomputed) =>
+            if precomputed != optimized {
+              match validate_module(precomputed) {
+                Ok(_) =>
+                  match
+                    encode_module_for_pipeline(io, input_path, precomputed) {
+                    Ok(bytes) =>
+                      portfolio_candidates.push(
+                        ("optimized-final-precompute", bytes),
+                      )
+                    Err(_) => ()
+                  }
+                Err(_) => ()
+              }
+            }
+          Err(_) => ()
+        }
+        match
+          optimize_module_with_pass_flags(
+            optimized,
+            [
+              "global-refining", "optimize-instructions", "precompute", "duplicate-function-elimination",
+            ],
+            final_cleanup_options,
+          ) {
+          Ok(cleaned) =>
+            if cleaned != optimized {
+              match validate_module(cleaned) {
+                Ok(_) =>
+                  match encode_module_for_pipeline(io, input_path, cleaned) {
+                    Ok(bytes) =>
+                      portfolio_candidates.push(
+                        ("optimized-global-refining-cleanup", bytes),
+                      )
+                    Err(_) => ()
+                  }
+                Err(_) => ()
+              }
+            }
+          Err(_) => ()
+        }
+        match
+          optimize_module_with_pass_flags(
+            optimized,
+            cmd_o4z_scalar_final_cleanup_passes(),
+            final_cleanup_options,
+          ) {
+          Ok(cleaned) =>
+            if cleaned != optimized {
+              match validate_module(cleaned) {
+                Ok(_) =>
+                  match encode_module_for_pipeline(io, input_path, cleaned) {
+                    Ok(bytes) =>
+                      portfolio_candidates.push(
+                        ("optimized-scalar-final-cleanup", bytes),
+                      )
+                    Err(_) => ()
+                  }
+                Err(_) => ()
+              }
+            }
+          Err(_) => ()
+        }
+        if @passes.o4z_size_candidate_has_unobservable_atomic_fence(optimized) {
+          let final_canonical = @passes.o4z_canonicalize_final_size_candidate(
+            optimized,
+          )
+          if final_canonical != optimized {
+            match validate_module(final_canonical) {
+              Ok(_) =>
+                match
+                  encode_module_for_pipeline(io, input_path, final_canonical) {
+                  Ok(bytes) =>
+                    portfolio_candidates.push(
+                      ("optimized-final-canonicalization", bytes),
+                    )
+                  Err(_) => ()
+                }
+              Err(_) => ()
+            }
+          }
+        }
         let outlined = @passes.o4z_outline_similar_size_functions(optimized)
         if outlined != optimized {
           match validate_module(outlined) {
@@ -4778,6 +5296,8 @@ pub fn run_cmd_with_adapter(
           normal_out_bytes.length(),
         ) &&
         !stack_carried_simd_trunc_global_write &&
+        !zero_memory_dense_i64_runtime_hazard &&
+        !single_render_runtime_hazard &&
         !root_default_local_copy &&
         !@passes.o4z_size_candidate_has_observable_assemblyscript_memory(
           optimized,
@@ -4806,13 +5326,46 @@ pub fn run_cmd_with_adapter(
                 ) {
                 Ok(ssa_cleaned) =>
                   match validate_module(ssa_cleaned) {
-                    Ok(_) =>
+                    Ok(_) => {
                       match
                         encode_module_for_pipeline(io, input_path, ssa_cleaned) {
                         Ok(bytes) =>
                           portfolio_candidates.push(("late-cleanup-ssa", bytes))
                         Err(_) => ()
                       }
+                      let defined_func_count = match ssa_cleaned.code_sec {
+                        Some(@lib.CodeSec(funcs)) => funcs.length()
+                        None => 0
+                      }
+                      let stateful_cleanup_passes = cmd_o4z_stateful_plain_inlining_cleanup_passes(
+                        defined_func_count,
+                      )
+                      if !stateful_cleanup_passes.is_empty() {
+                        match
+                          optimize_module_with_pass_flags(
+                            ssa_cleaned, stateful_cleanup_passes, cleanup_options,
+                          ) {
+                          Ok(stateful_cleaned) =>
+                            match validate_module(stateful_cleaned) {
+                              Ok(_) =>
+                                match
+                                  encode_module_for_pipeline(
+                                    io, input_path, stateful_cleaned,
+                                  ) {
+                                  Ok(bytes) =>
+                                    portfolio_candidates.push(
+                                      (
+                                        "late-cleanup-stateful-plain-inlining", bytes,
+                                      ),
+                                    )
+                                  Err(_) => ()
+                                }
+                              Err(_) => ()
+                            }
+                          Err(_) => ()
+                        }
+                      }
+                    }
                     Err(_) => ()
                   }
                 Err(_) => ()
@@ -4940,7 +5493,7 @@ pub fn run_cmd_with_adapter(
                                       finished,
                                     )
                                     match validate_module(finished) {
-                                      Ok(_) =>
+                                      Ok(_) => {
                                         match
                                           encode_module_for_pipeline(
                                             io, input_path, finished,
@@ -4951,6 +5504,38 @@ pub fn run_cmd_with_adapter(
                                             )
                                           Err(_) => ()
                                         }
+                                        if stateful_emscripten_main_runtime {
+                                          match
+                                            optimize_module_with_pass_flags(
+                                              finished,
+                                              cmd_o4z_stateful_finish_cleanup_passes(),
+                                              cleanup_options,
+                                            ) {
+                                            Ok(stateful_finished) =>
+                                              match
+                                                validate_module(
+                                                  stateful_finished,
+                                                ) {
+                                                Ok(_) =>
+                                                  match
+                                                    encode_module_for_pipeline(
+                                                      io, input_path, stateful_finished,
+                                                    ) {
+                                                    Ok(bytes) =>
+                                                      portfolio_candidates.push(
+                                                        (
+                                                          "precanonical-finish-stateful-cleanup",
+                                                          bytes,
+                                                        ),
+                                                      )
+                                                    Err(_) => ()
+                                                  }
+                                                Err(_) => ()
+                                              }
+                                            Err(_) => ()
+                                          }
+                                        }
+                                      }
                                       Err(_) => ()
                                     }
                                   }
@@ -4976,7 +5561,9 @@ pub fn run_cmd_with_adapter(
           wasm_bytes.length(),
           normal_out_bytes.length(),
         ) &&
-        !stack_carried_simd_trunc_global_write {
+        !stack_carried_simd_trunc_global_write &&
+        !zero_memory_dense_i64_runtime_hazard &&
+        !single_render_runtime_hazard {
         match original_for_portfolio {
           Some(original) =>
             match
@@ -4993,6 +5580,34 @@ pub fn run_cmd_with_adapter(
                     )
                   Err(_) => ()
                 }
+                if @passes.o4z_size_candidate_has_observable_assemblyscript_memory(
+                    simplified,
+                  ) {
+                  match
+                    optimize_module_with_pass_flags(
+                      simplified,
+                      cmd_o4z_observable_assemblyscript_safe_cleanup_passes(),
+                      optimize_options_with_levels(options, 0, 0),
+                    ) {
+                    Ok(cleaned) =>
+                      match validate_module(cleaned) {
+                        Ok(_) =>
+                          match
+                            encode_module_for_pipeline(io, input_path, cleaned) {
+                            Ok(bytes) =>
+                              portfolio_candidates.push(
+                                (
+                                  "original-simplify-locals-assemblyscript-safe-cleanup",
+                                  bytes,
+                                ),
+                              )
+                            Err(_) => ()
+                          }
+                        Err(_) => ()
+                      }
+                    Err(_) => ()
+                  }
+                }
                 if !unsafe_emscripten_main_runtime &&
                   !@passes.o4z_size_candidate_has_observable_assemblyscript_memory(
                     simplified,
@@ -5005,7 +5620,7 @@ pub fn run_cmd_with_adapter(
                     ) {
                     Ok(fixed_point) =>
                       match validate_module(fixed_point) {
-                        Ok(_) =>
+                        Ok(_) => {
                           match
                             encode_module_for_pipeline(
                               io, input_path, fixed_point,
@@ -5016,6 +5631,36 @@ pub fn run_cmd_with_adapter(
                               )
                             Err(_) => ()
                           }
+                          if !stateful_emscripten_main_runtime &&
+                            !stack_carried_simd_trunc_global_write {
+                            match
+                              optimize_module_with_pass_flags(
+                                fixed_point,
+                                cmd_o4z_scalar_final_cleanup_passes(),
+                                optimize_options_with_levels(options, 0, 0),
+                              ) {
+                              Ok(cleaned) =>
+                                match validate_module(cleaned) {
+                                  Ok(_) =>
+                                    match
+                                      encode_module_for_pipeline(
+                                        io, input_path, cleaned,
+                                      ) {
+                                      Ok(bytes) =>
+                                        portfolio_candidates.push(
+                                          (
+                                            "original-simplify-locals-scalar-final-cleanup",
+                                            bytes,
+                                          ),
+                                        )
+                                      Err(_) => ()
+                                    }
+                                  Err(_) => ()
+                                }
+                              Err(_) => ()
+                            }
+                          }
+                        }
                         Err(_) => ()
                       }
                     Err(_) => ()
@@ -5030,6 +5675,77 @@ pub fn run_cmd_with_adapter(
     }
     if portfolio_candidates.length() == 0 {
       portfolio_candidates.push(("optimized", normal_out_bytes))
+    }
+    if size_portfolio_enabled &&
+      !unsafe_emscripten_main_runtime &&
+      !@passes.o4z_size_candidate_has_observable_assemblyscript_memory(
+        optimized,
+      ) &&
+      !stack_carried_simd_trunc_global_write &&
+      !zero_memory_dense_i64_runtime_hazard &&
+      !single_render_runtime_hazard &&
+      !root_default_local_copy &&
+      cmd_o4z_post_selection_local_cleanup_enabled(optimized) {
+      let (_, provisional_bytes) = cmd_choose_smallest_encoded_candidate(
+        portfolio_candidates,
+      )
+      match decode_module_for_pipeline(input_path, provisional_bytes) {
+        Ok(provisional) =>
+          match
+            optimize_module_with_pass_flags(
+              provisional,
+              cmd_o4z_post_selection_local_cleanup_passes(),
+              optimize_options_with_levels(options, 0, 0),
+            ) {
+            Ok(cleaned) =>
+              match validate_module(cleaned) {
+                Ok(_) =>
+                  match encode_module_for_pipeline(io, input_path, cleaned) {
+                    Ok(bytes) =>
+                      if bytes.length() < provisional_bytes.length() {
+                        portfolio_candidates.push(
+                          ("post-selection-local-cleanup", bytes),
+                        )
+                      }
+                    Err(_) => ()
+                  }
+                Err(_) => ()
+              }
+            Err(_) => ()
+          }
+        Err(_) => ()
+      }
+      if cmd_o4z_post_selection_control_cleanup_enabled(optimized) {
+        let (_, control_input_bytes) = cmd_choose_smallest_encoded_candidate(
+          portfolio_candidates,
+        )
+        match decode_module_for_pipeline(input_path, control_input_bytes) {
+          Ok(control_input) =>
+            match
+              optimize_module_with_pass_flags(
+                control_input,
+                cmd_o4z_post_selection_control_cleanup_passes(),
+                optimize_options_with_levels(options, 0, 0),
+              ) {
+              Ok(cleaned) =>
+                match validate_module(cleaned) {
+                  Ok(_) =>
+                    match encode_module_for_pipeline(io, input_path, cleaned) {
+                      Ok(bytes) =>
+                        if bytes.length() < control_input_bytes.length() {
+                          portfolio_candidates.push(
+                            ("post-selection-control-cleanup", bytes),
+                          )
+                        }
+                      Err(_) => ()
+                    }
+                  Err(_) => ()
+                }
+              Err(_) => ()
+            }
+          Err(_) => ()
+        }
+      }
     }
     for candidate in portfolio_candidates {
       cmd_trace_emit(

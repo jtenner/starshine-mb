@@ -2664,6 +2664,45 @@ test "remove-unused-brs keeps condition value ifs whose tee invalidates an arm" 
 }
 
 ///|
+test "remove-unused-brs intentionally fails closed for root global snapshot write prefixes" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 10))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    (local i32)
+    #|    global.get $g
+    #|    local.tee 1
+    #|    global.get $g
+    #|    i32.const 16
+    #|    i32.add
+    #|    global.set $g
+    #|    block
+    #|      local.get 0
+    #|      br_if 0
+    #|    end
+    #|    return))
+    #|
+  let input = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected intentional snapshot fallback, got \{err}")
+  }
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("root-global-snapshot-write-prefix-remove-unused-brs-noop")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "remove-unused-brs keeps call-conditioned arms that read mutable globals" {
   let optimized = match
     pass_test_run_pipeline(

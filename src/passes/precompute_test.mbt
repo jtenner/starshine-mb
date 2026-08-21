@@ -36,6 +36,45 @@ test "precompute skips load-call-set ownership hazards" {
 }
 
 ///|
+test "precompute intentionally fails closed for root global snapshot write prefixes" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 10))
+    #|  (func (export "run") (result i32)
+    #|    (local i32)
+    #|    global.get $g
+    #|    local.tee 0
+    #|    global.get $g
+    #|    i32.const 16
+    #|    i32.add
+    #|    global.set $g
+    #|    i32.const 1
+    #|    i32.const 1
+    #|    i32.add
+    #|    drop
+    #|    return))
+    #|
+  let input = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected intentional snapshot fallback, got \{err}")
+  }
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("root-global-snapshot-write-prefix-precompute-noop")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "precompute runs narrow raw scalar folds under O4z gate" {
   let trace : Array[String] = []
   let optimized = match
@@ -1053,6 +1092,65 @@ test "precompute removes selector-only self-targeting br_table blocks" {
   assert_false(pretty.contains("br_table"), msg=pretty)
   assert_false(pretty.contains("(block"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "precompute sign-extends positive packed array bit patterns" {
+  let fixtures = [
+    (@lib.PackType::i8(), @lib.I32(128), @lib.I32(-128)),
+    (@lib.PackType::i16(), @lib.I32(32768), @lib.I32(-32768)),
+  ]
+  for fixture in fixtures {
+    let array = @lib.TypeIdx::new(0U)
+    let func_type = @lib.TypeIdx::new(1U)
+    let input = @lib.Module::new()
+      .with_type_sec(
+        @lib.TypeSec::new([
+          @lib.RecType::new(
+            @lib.SubType::comp_type(
+              @lib.CompType::array(
+                @lib.FieldType::new(
+                  @lib.StorageType::pack_type(fixture.0),
+                  @lib.Mut::const_(),
+                ),
+              ),
+            ),
+          ),
+          @lib.RecType::new(
+            @lib.SubType::comp_type(
+              @lib.CompType::func([], [@lib.ValType::i32()]),
+            ),
+          ),
+        ]),
+      )
+      .with_func_sec(@lib.FuncSec::new([func_type]))
+      .with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(
+            @lib.Locals::empty(),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(fixture.1),
+              @lib.Instruction::array_new_fixed(array, @lib.U32(1U)),
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::array_get_s(array),
+            ]),
+          ),
+        ]),
+      )
+    let optimized = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected packed precompute success, got \{err}")
+    }
+    match optimized.code_sec {
+      Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+        assert_true(
+          body.contains(@lib.Instruction::i32_const(fixture.2)),
+          msg="\{body}",
+        )
+      _ => fail("expected one packed precompute function")
+    }
+  }
 }
 
 ///|
@@ -2481,6 +2579,125 @@ test "precompute folds constant SIMD promote bnot compare bitmask chains" {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
       @debug.assert_eq(instrs, [@lib.Instruction::i32_const(@lib.I32(1))])
     other => fail("expected one folded SIMD bnot function, got \{other}")
+  }
+}
+
+///|
+test "precompute removes exact zero-length memory64 init" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x04, 0x01, 0x60, 0x00,
+        0x00, 0x03, 0x02, 0x01, 0x00, 0x05, 0x03, 0x01, 0x04, 0x00, 0x0c, 0x01, 0x01,
+        0x0a, 0x0e, 0x01, 0x0c, 0x00, 0x42, 0x00, 0x41, 0x00, 0x41, 0x00, 0xfc, 0x08,
+        0x00, 0x00, 0x0b, 0x0b, 0x04, 0x01, 0x01, 0x01, 0x78,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected zero-length memory64 init fixture, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected zero-length memory64 init cleanup, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.init"), msg=pretty)
+  assert_false(pretty.contains("I64(0)"), msg=pretty)
+  assert_false(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
+test "precompute folds f32x4 abs before v128 not" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result v128)
+        #|    (v128.not
+        #|      (f32x4.abs
+        #|        (v128.const i32x4 0 0 0 0)))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected f32x4 abs bnot folding, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::v128_const(
+          b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+          b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+        ),
+      ])
+    other => fail("expected one folded f32x4 abs bnot function, got \{other}")
+  }
+}
+
+///|
+test "precompute folds unsigned i32x4 conversion before pairwise add" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60, 0x00,
+        0x01, 0x7b, 0x03, 0x02, 0x01, 0x00, 0x0a, 0x1b, 0x01, 0x19, 0x00, 0xfd, 0x0c,
+        0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a,
+        0x4a, 0x4a, 0x4a, 0xfd, 0xfb, 0x01, 0xfd, 0x7d, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unsigned SIMD conversion fixture, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected unsigned SIMD conversion chain folding, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::v128_const(
+          b'\x29', b'\x01', b'\xe2', b'\x00', b'\x29', b'\x01', b'\xe2', b'\x00',
+          b'\x29', b'\x01', b'\xe2', b'\x00', b'\x29', b'\x01', b'\xe2', b'\x00',
+        ),
+      ])
+    other =>
+      fail("expected one folded unsigned conversion function, got \{other}")
+  }
+}
+
+///|
+test "precompute folds signed i8x16 pairwise add constants" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x05, 0x01, 0x60, 0x00,
+        0x01, 0x7b, 0x03, 0x02, 0x01, 0x00, 0x0a, 0x18, 0x01, 0x16, 0x00, 0xfd, 0x0c,
+        0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0xfd, 0x7c, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected signed pairwise-add fixture, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected signed pairwise-add folding, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::v128_const(
+          b'\x80', b'\xff', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+          b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+        ),
+      ])
+    other =>
+      fail("expected one folded signed pairwise-add function, got \{other}")
   }
 }
 

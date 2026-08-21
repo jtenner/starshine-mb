@@ -3105,6 +3105,52 @@ fn precompute_constant_if_chosen_region_can_inline(
 }
 
 ///|
+fn precompute_node_is_integer_zero(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, @ir.hot_node_get(func, node_id).imm0) {
+        @ir.HotConstPayload::I32Const(@lib.I32(0))
+        | @ir.HotConstPayload::I64Const(@lib.I64(0L)) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn precompute_try_remove_exact_zero_memory_init(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_child_count(func, node_id) != 3 {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::MemoryInit => ()
+    _ => return false
+  }
+  for slot = 0; slot < 3; slot = slot + 1 {
+    if !precompute_node_is_integer_zero(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  let temp = @ir.hot_build_nop(func)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn precompute_try_fold_constant_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4748,6 +4794,27 @@ fn precompute_raw_try_fold_f32x4_convert_i32x4_s(
 }
 
 ///|
+fn precompute_raw_try_fold_f32x4_convert_i32x4_u(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 4; lane = lane + 1 {
+    let offset = lane * 4
+    let value = precompute_v128_read_u32(bytes, offset)
+    precompute_v128_write_u32(
+      out,
+      offset,
+      Float::from_uint(value).reinterpret_as_uint(),
+    )
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
 fn precompute_raw_try_fold_f64x2_eq(
   lhs_instr : @lib.Instruction,
   rhs_instr : @lib.Instruction,
@@ -5091,6 +5158,22 @@ fn precompute_raw_try_fold_i64x2_extend_low_i32x4_s(
 }
 
 ///|
+fn precompute_raw_try_fold_f32x4_abs(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = bytes.copy()
+  for lane = 0; lane < 4; lane = lane + 1 {
+    let sign_byte = lane * 4 + 3
+    out[sign_byte] = (out[sign_byte].to_uint() & 0x7fU).to_byte()
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
 fn precompute_raw_try_fold_f32x4_unary(
   operand : @lib.Instruction,
   scalar_op : @lib.Instruction,
@@ -5143,6 +5226,25 @@ fn precompute_raw_try_fold_i16x8_narrow_i32x4_u(
     }
     out[lane * 2] = narrowed.to_byte()
     out[lane * 2 + 1] = (narrowed >> 8).to_byte()
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
+fn precompute_raw_try_fold_i16x8_extadd_pairwise_i8x16_s(
+  operand : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bytes = match precompute_v128_const_bytes(operand) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 8; lane = lane + 1 {
+    let lhs = (bytes[lane * 2].to_uint() << 24).reinterpret_as_int() >> 24
+    let rhs = (bytes[lane * 2 + 1].to_uint() << 24).reinterpret_as_int() >> 24
+    let value = lhs + rhs
+    out[lane * 2] = value.to_byte()
+    out[lane * 2 + 1] = (value >> 8).to_byte()
   }
   precompute_v128_const_from_bytes(out)
 }
@@ -5357,6 +5459,11 @@ fn precompute_raw_try_fold_unary(
         Some(folded) => return Some(folded)
         None => ()
       }
+    @lib.F32x4Abs =>
+      match precompute_raw_try_fold_f32x4_abs(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
     @lib.F32x4Floor =>
       match
         precompute_raw_try_fold_f32x4_unary(
@@ -5384,6 +5491,11 @@ fn precompute_raw_try_fold_unary(
         Some(folded) => return Some(folded)
         None => ()
       }
+    @lib.I16x8ExtaddPairwiseI8x16S =>
+      match precompute_raw_try_fold_i16x8_extadd_pairwise_i8x16_s(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
     @lib.I16x8ExtaddPairwiseI8x16U =>
       match precompute_raw_try_fold_i16x8_extadd_pairwise_i8x16_u(operand) {
         Some(folded) => return Some(folded)
@@ -5408,6 +5520,11 @@ fn precompute_raw_try_fold_unary(
   match instr {
     @lib.F32x4ConvertI32x4S =>
       match precompute_raw_try_fold_f32x4_convert_i32x4_s(operand) {
+        Some(folded) => return Some(folded)
+        None => ()
+      }
+    @lib.F32x4ConvertI32x4U =>
+      match precompute_raw_try_fold_f32x4_convert_i32x4_u(operand) {
         Some(folded) => return Some(folded)
         None => ()
       }
@@ -7620,6 +7737,24 @@ fn precompute_raw_fold_output_tail(
   module_ctx? : @ir.HotModuleContext? = None,
   label_arities? : Array[Int?] = [],
 ) -> Bool {
+  if out.length() >= 4 {
+    let base = out.length() - 4
+    match (out[base], out[base + 1], out[base + 2], out[base + 3]) {
+      (
+        @lib.I32Const(@lib.I32(0))
+        | @lib.I64Const(@lib.I64(0L)),
+        @lib.I32Const(@lib.I32(0)),
+        @lib.I32Const(@lib.I32(0)),
+        @lib.MemoryInit(_, _),
+      ) => {
+        for _ in 0..<4 {
+          ignore(out.pop())
+        }
+        return true
+      }
+      _ => ()
+    }
+  }
   if out.length() >= 12 {
     let base = out.length() - 12
     match
@@ -10126,7 +10261,8 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
         changed_any = true
         continue
       }
-      if precompute_try_fold_constant_if(ctx, func, node_id) {
+      if precompute_try_fold_constant_if(ctx, func, node_id) ||
+        precompute_try_remove_exact_zero_memory_init(ctx, func, node_id) {
         changed_round = true
         changed_any = true
         continue

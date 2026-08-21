@@ -1892,6 +1892,9 @@ fn simplify_locals_node_is_nonfallthrough_exit(
     | @ir.HotOp::Br
     | @ir.HotOp::BrTable
     | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
     | @ir.HotOp::Throw
     | @ir.HotOp::Rethrow
     | @ir.HotOp::ThrowRef
