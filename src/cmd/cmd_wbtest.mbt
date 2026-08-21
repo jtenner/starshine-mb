@@ -103,6 +103,48 @@ fn decode_module_bytes(bytes : Bytes) -> Module {
 }
 
 ///|
+fn encode_pipeline_roundtrip_for_test(mod_ : Module) -> Module {
+  let bytes = match
+    encode_module_for_pipeline(
+      CmdIO::new(),
+      "encoding-label-fixture.wasm",
+      mod_,
+    ) {
+    Ok(bytes) => bytes
+    Err(err) => abort("unexpected pipeline encode failure: \{err}")
+  }
+  decode_module_bytes(bytes)
+}
+
+///|
+fn encoding_label_fixture(body : Array[@lib.Instruction]) -> Module {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
+fn assert_encoding_pipeline_roundtrip_valid(mod_ : Module) -> Module raise {
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) => fail("expected encoding fixture to validate, got \{err}")
+  }
+  let roundtripped = encode_pipeline_roundtrip_for_test(mod_)
+  match @validate.validate_module(roundtripped) {
+    Ok(_) => roundtripped
+    Err(err) => fail("expected encoded roundtrip to validate, got \{err}")
+  }
+}
+
+///|
 fn count_substring(text : String, needle : String) -> Int {
   if needle.length() == 0 {
     return 0
@@ -1698,6 +1740,21 @@ test "O4z size portfolio is limited to Wasm shrink presets" {
   assert_false(
     cmd_o4z_size_portfolio_enabled(CliInputFormat::wasm(), 4, 4, ["vacuum"]),
   )
+  assert_true(
+    cmd_o4z_size_portfolio_enabled(CliInputFormat::wasm(), 4, 4, [
+      "optimize", "shrink",
+    ]),
+  )
+  assert_false(
+    cmd_o4z_size_portfolio_enabled(CliInputFormat::wasm(), 4, 4, [
+      "shrink", "vacuum",
+    ]),
+  )
+  assert_false(
+    cmd_o4z_size_portfolio_enabled(CliInputFormat::wasm(), 4, 4, [
+      "optimize", "coalesce-locals",
+    ]),
+  )
 }
 
 ///|
@@ -1737,6 +1794,44 @@ test "run_cmd_with_adapter O4z keeps a smaller valid input candidate" {
   }
   @debug.assert_eq(writes.length(), 1)
   @debug.assert_eq(writes[0].1, wasm)
+}
+
+///|
+test "run_cmd_with_adapter mixed O4z queues do not enable the size portfolio" {
+  let input = @passes.pass_test_module_from_wat("(module (func nop))")
+  let wasm = encode_module_bytes(input)
+  let inflated = bytes_from_ints([
+    0, 97, 115, 109, 1, 0, 0, 0, 0, 12, 10, 109, 105, 120, 101, 100, 45, 113, 117,
+    101, 117, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  ])
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    encode_module=fn(_) { Ok(inflated) },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["-O4z", "--shrink", "--vacuum", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(summary) => summary
+    Err(err) => fail("expected mixed O4z queue success, got \{err}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["shrink", "vacuum"])
+  @debug.assert_eq(writes.length(), 1)
+  @debug.assert_eq(writes[0].1, inflated)
 }
 
 ///|
@@ -2028,6 +2123,253 @@ test "Wasm encoding recursively strips semantic nops" {
   assert_false(pretty.contains("nop"), msg=pretty)
   assert_false(pretty.contains("(block"), msg=pretty)
   assert_false(pretty.contains("(loop"), msg=pretty)
+}
+
+///|
+test "Wasm encoding shell scan covers catch and continuation label metadata" {
+  let tag = @lib.TagIdx::new(0U)
+  let target = @lib.LabelIdx::new(0U)
+  let catch_forms : Array[@lib.Catch] = [
+    @lib.Catch::new(tag, target),
+    @lib.Catch::ref_(tag, target),
+    @lib.Catch::all(target),
+    @lib.Catch::all_ref(target),
+  ]
+  for catch_ in catch_forms {
+    assert_true(
+      cmd_instrs_reference_control_shell_for_encoding([
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [catch_],
+          @lib.Expr::new([]),
+        ),
+      ]),
+    )
+  }
+  assert_false(
+    cmd_instrs_reference_control_shell_for_encoding([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            [@lib.Catch::all(target)],
+            @lib.Expr::new([]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  assert_true(
+    cmd_instrs_reference_control_shell_for_encoding([
+      @lib.Instruction::resume_(@lib.TypeIdx::new(0U), [
+        @lib.ResumeHandler::on_label(tag, target),
+      ]),
+    ]),
+  )
+  assert_false(
+    cmd_instrs_reference_control_shell_for_encoding([
+      @lib.Instruction::resume_(@lib.TypeIdx::new(0U), [
+        @lib.ResumeHandler::on_switch(tag),
+      ]),
+    ]),
+  )
+}
+
+///|
+test "Wasm encoding nop normalization reuses unchanged instruction arrays" {
+  let instrs = [
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::drop()],
+      None,
+    ),
+  ]
+  let (rewritten, changed) = cmd_strip_nops_in_instrs_for_encoding(instrs)
+  assert_false(changed)
+  rewritten[0] = @lib.Instruction::i32_const(@lib.I32::new(2))
+  @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(@lib.I32::new(2)))
+}
+
+///|
+test "Wasm encoding preserves a block targeted by try_table catch metadata" {
+  let input = encoding_label_fixture([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+  ])
+  let output = assert_encoding_pipeline_roundtrip_valid(input)
+  match output.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [@lib.TryTable(_, [@lib.CatchAll(@lib.LabelIdx(0U))], _)]
+                  )
+                ),
+                @lib.I32Const(@lib.I32(7)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail("expected catch-targeted block to survive encoding, got \{other}")
+  }
+}
+
+///|
+test "Wasm encoding preserves a loop targeted by try_table catch metadata" {
+  let input = encoding_label_fixture([
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+  ])
+  let output = assert_encoding_pipeline_roundtrip_valid(input)
+  match output.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Loop(
+                  _,
+                  @lib.Expr(
+                    [@lib.TryTable(_, [@lib.CatchAll(@lib.LabelIdx(0U))], _)]
+                  )
+                ),
+                @lib.I32Const(@lib.I32(7)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail("expected catch-targeted loop to survive encoding, got \{other}")
+  }
+}
+
+///|
+test "Wasm encoding preserves nested shells crossed by a try_table catch target" {
+  let input = encoding_label_fixture([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::void_(),
+              [@lib.Catch::all(@lib.LabelIdx::new(1U))],
+              @lib.Expr::new([@lib.Instruction::nop()]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+  ])
+  let output = assert_encoding_pipeline_roundtrip_valid(input)
+  match output.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.Block(
+                        _,
+                        @lib.Expr(
+                          [
+                            @lib.TryTable(
+                              _,
+                              [@lib.CatchAll(@lib.LabelIdx(1U))],
+                              _
+                            ),
+                          ]
+                        )
+                      ),
+                    ]
+                  )
+                ),
+                @lib.I32Const(@lib.I32(7)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail("expected both crossed shells to survive encoding, got \{other}")
+  }
+}
+
+///|
+test "Wasm encoding preserves shells containing legacy EH branches" {
+  let input = encoding_label_fixture([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::try_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(1U))]),
+          [@lib.LegacyCatch::all(@lib.Expr::new([@lib.Instruction::nop()]))],
+        ),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+  ])
+  let output = assert_encoding_pipeline_roundtrip_valid(input)
+  match output.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(_, @lib.Expr([@lib.Try(_, _, _, _)])),
+                @lib.I32Const(@lib.I32(7)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other => fail("expected legacy-EH shell to survive encoding, got \{other}")
+  }
 }
 
 ///|

@@ -66,6 +66,13 @@
 
 The measurements below are whole-command medians on the 4,977,401-byte canonical production artifact, with one warmup and three serial measured runs. Starshine's no-op floor is 0.615 seconds and verified Binaryen v131's is 0.515 seconds. Each item must first separate pass-local work from decode, encode, validation, HOT lift/lower, and process startup under `[WALL]001`; size improvements do not excuse wall-time regressions, and timing improvements do not excuse validation or runtime failures.
 
+### [PERF-GR]001 - Reuse GlobalRefining nominal-ancestry scratch
+
+- **Evidence:** the nominal join repair is semantically covered, but `gr_collect_heaptype_candidates(...)` allocates candidate/fallback/work arrays per join, while `gr_typeidx_is_declared_subtype(...)` allocates work/visited arrays per query and uses linear `visited.contains(...)`; `gr_join_heaptypes(...)` can repeat those traversals for several candidates. The allocation and potentially quadratic membership behavior are confirmed; an end-to-end wall-time regression on ordinary shallow hierarchies is not yet measured.
+- **Work:** add pass-scoped reusable ancestry scratch with a generation-stamped dense visited table keyed by absolute `TypeIdx`, reusable work/candidate arrays, and either memoized declared-subtype queries or cached ancestor sets. Instrument ancestry queries, visited nodes, temporary-array allocations, and pass time without adding default-suite stress.
+- **Suggested benchmark:** an explicit `#skip` perf fixture with 1,000–5,000 nominal GC types, branching declared ancestry, and many mutable-global writes; record pass time and allocation counters separately from whole-command startup/codec cost.
+- **Exit criteria:** preserve the sibling-write shared-supertype regressions and direct parity evidence, eliminate per-query traversal allocations, demonstrate bounded ancestry complexity, and report synthetic plus representative-module timing before claiming a wall-time win.
+
 ### [PERF-DAE]001 - Bound plain DAE convergence
 
 - **Evidence:** direct `dae` exceeds the 150-second limit; verified-v131 completes in 0.621 seconds in the diagnostic screen.

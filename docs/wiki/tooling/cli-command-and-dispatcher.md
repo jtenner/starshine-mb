@@ -99,7 +99,7 @@ Boundary-only and removed registry names are intentionally tracked for planning,
 
 ### Preset and `-O` behavior
 
-`--optimize` and `--shrink` are both pass flags and optimize-level hints. Raw `-O...` / `--optimize-level` / `--shrink-level` values update the effective numeric levels. If no explicit pass flags are present, the dispatcher synthesizes one default pass name from levels: `shrink` wins when the shrink level is nonzero, otherwise `optimize` wins when the optimize level is nonzero. If any explicit pass/debug flag exists, the explicit queue is used as written.
+`--optimize` and `--shrink` are both pass flags and optimize-level hints. Raw `-O...` / `--optimize-level` / `--shrink-level` values update the effective numeric levels. If no explicit pass flags are present, the dispatcher synthesizes one default pass name from levels: `shrink` wins when the shrink level is nonzero, otherwise `optimize` wins when the optimize level is nonzero. If any explicit pass/debug flag exists, the explicit queue is used as written. The Wasm O4z encoded-size portfolio is enabled only when the resolved queue is nonempty and consists exclusively of `optimize` and/or `shrink`; mixed explicit queues such as `shrink -> vacuum` run exactly their requested pass contract without portfolio candidates.
 
 Both local presets currently expand to the same implemented mixed module/hot pass sequence in [`optimize_preset_passes(...)`](../../../src/passes/optimize.mbt) and [`shrink_preset_passes(...)`](../../../src/passes/optimize.mbt). The deeper Binaryen `-O` / no-DWARF comparison lives in [`../binaryen/no-dwarf-default-optimize-path.md`](../binaryen/no-dwarf-default-optimize-path.md) and the pass namespace map lives in [`../ir2/registry-map.md`](../ir2/registry-map.md).
 

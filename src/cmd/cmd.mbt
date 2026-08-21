@@ -3788,36 +3788,127 @@ fn decode_module_for_pipeline(
 }
 
 ///|
-fn cmd_instrs_have_branch_for_encoding(
+fn cmd_label_escapes_control_shell_for_encoding(
+  label : @lib.LabelIdx,
+  control_depth : Int,
+) -> Bool {
+  let @lib.LabelIdx(raw) = label
+  raw >= control_depth.reinterpret_as_uint()
+}
+
+///|
+fn cmd_catch_escapes_control_shell_for_encoding(
+  catch_ : @lib.Catch,
+  control_depth : Int,
+) -> Bool {
+  let label = match catch_ {
+    @lib.Catch(_, label)
+    | @lib.CatchRef(_, label)
+    | @lib.CatchAll(label)
+    | @lib.CatchAllRef(label) => label
+  }
+  cmd_label_escapes_control_shell_for_encoding(label, control_depth)
+}
+
+///|
+fn cmd_resume_handlers_escape_control_shell_for_encoding(
+  handlers : Array[@lib.ResumeHandler],
+  control_depth : Int,
+) -> Bool {
+  for handler in handlers {
+    match handler {
+      @lib.ResumeOnLabel(_, label) =>
+        if cmd_label_escapes_control_shell_for_encoding(label, control_depth) {
+          return true
+        }
+      @lib.ResumeOnSwitch(_) => ()
+    }
+  }
+  false
+}
+
+///|
+fn cmd_instrs_reference_control_shell_for_encoding(
   instrs : Array[@lib.Instruction],
+  control_depth? : Int = 0,
 ) -> Bool {
   for instr in instrs {
     match instr {
-      @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_, _)
-      | @lib.BrOnNull(_)
-      | @lib.BrOnNonNull(_)
-      | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => return true
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if cmd_instrs_have_branch_for_encoding(body) {
+      @lib.Br(label)
+      | @lib.BrIf(label)
+      | @lib.BrOnNull(label)
+      | @lib.BrOnNonNull(label)
+      | @lib.BrOnCast(label, _, _, _)
+      | @lib.BrOnCastFail(label, _, _, _)
+      | @lib.BrOnCastDescEq(label, _, _)
+      | @lib.BrOnCastDescEqFail(label, _, _) =>
+        if cmd_label_escapes_control_shell_for_encoding(label, control_depth) {
+          return true
+        }
+      @lib.BrTable(labels, fallback) => {
+        if cmd_label_escapes_control_shell_for_encoding(fallback, control_depth) {
+          return true
+        }
+        for label in labels {
+          if cmd_label_escapes_control_shell_for_encoding(label, control_depth) {
+            return true
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if cmd_instrs_reference_control_shell_for_encoding(
+            body,
+            control_depth=control_depth + 1,
+          ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
-        if cmd_instrs_have_branch_for_encoding(then_body) {
+        if cmd_instrs_reference_control_shell_for_encoding(
+            then_body,
+            control_depth=control_depth + 1,
+          ) {
           return true
         }
         match else_body {
           Some(body) =>
-            if cmd_instrs_have_branch_for_encoding(body) {
+            if cmd_instrs_reference_control_shell_for_encoding(
+                body,
+                control_depth=control_depth + 1,
+              ) {
               return true
             }
           None => ()
         }
       }
+      @lib.TryTable(_, catches, @lib.Expr(body)) => {
+        for catch_ in catches {
+          if cmd_catch_escapes_control_shell_for_encoding(catch_, control_depth) {
+            return true
+          }
+        }
+        if cmd_instrs_reference_control_shell_for_encoding(
+            body,
+            control_depth=control_depth + 1,
+          ) {
+          return true
+        }
+      }
+      // Legacy EH uses a distinct catch-depth space for rethrow and an outer
+      // label space for delegates. This size-only cleanup fails closed rather
+      // than trying to rebase either legacy metadata or nested branches.
+      @lib.Try(_, _, _, _) | @lib.Rethrow(_) => return true
+      @lib.Resume(_, handlers) | @lib.ResumeThrowRef(_, handlers) =>
+        if cmd_resume_handlers_escape_control_shell_for_encoding(
+            handlers, control_depth,
+          ) {
+          return true
+        }
+      @lib.ResumeThrow(_, _, handlers) =>
+        if cmd_resume_handlers_escape_control_shell_for_encoding(
+            handlers, control_depth,
+          ) {
+          return true
+        }
       _ => ()
     }
   }
@@ -3825,88 +3916,196 @@ fn cmd_instrs_have_branch_for_encoding(
 }
 
 ///|
+fn cmd_copy_instruction_prefix_for_encoding(
+  instrs : Array[@lib.Instruction],
+  end : Int,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  for idx = 0; idx < end; idx = idx + 1 {
+    out.push(instrs[idx])
+  }
+  out
+}
+
+///|
 fn cmd_strip_nops_in_instrs_for_encoding(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
-  let out : Array[@lib.Instruction] = []
-  let mut changed = false
-  for instr in instrs {
+  let mut out : Array[@lib.Instruction]? = None
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
     match instr {
-      @lib.Nop => changed = true
+      @lib.Nop => {
+        let rewritten = match out {
+          Some(rewritten) => rewritten
+          None => cmd_copy_instruction_prefix_for_encoding(instrs, idx)
+        }
+        out = Some(rewritten)
+      }
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (body, body_changed) = cmd_strip_nops_in_instrs_for_encoding(body)
-        if block_type == @lib.BlockType::void_() &&
-          !cmd_instrs_have_branch_for_encoding(body) {
-          for child in body {
-            out.push(child)
+        let flatten = block_type == @lib.BlockType::void_() &&
+          !cmd_instrs_reference_control_shell_for_encoding(body)
+        if flatten {
+          let rewritten = match out {
+            Some(rewritten) => rewritten
+            None => cmd_copy_instruction_prefix_for_encoding(instrs, idx)
           }
-          changed = true
+          for child in body {
+            rewritten.push(child)
+          }
+          out = Some(rewritten)
+        } else if body_changed {
+          let rewritten = match out {
+            Some(rewritten) => rewritten
+            None => cmd_copy_instruction_prefix_for_encoding(instrs, idx)
+          }
+          rewritten.push(
+            @lib.Instruction::block(block_type, @lib.Expr::new(body)),
+          )
+          out = Some(rewritten)
         } else {
-          out.push(@lib.Instruction::block(block_type, @lib.Expr::new(body)))
-          changed = changed || body_changed
+          match out {
+            Some(rewritten) => rewritten.push(instr)
+            None => ()
+          }
         }
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (body, body_changed) = cmd_strip_nops_in_instrs_for_encoding(body)
-        if block_type == @lib.BlockType::void_() &&
-          !cmd_instrs_have_branch_for_encoding(body) {
-          for child in body {
-            out.push(child)
+        let flatten = block_type == @lib.BlockType::void_() &&
+          !cmd_instrs_reference_control_shell_for_encoding(body)
+        if flatten {
+          let rewritten = match out {
+            Some(rewritten) => rewritten
+            None => cmd_copy_instruction_prefix_for_encoding(instrs, idx)
           }
-          changed = true
+          for child in body {
+            rewritten.push(child)
+          }
+          out = Some(rewritten)
+        } else if body_changed {
+          let rewritten = match out {
+            Some(rewritten) => rewritten
+            None => cmd_copy_instruction_prefix_for_encoding(instrs, idx)
+          }
+          rewritten.push(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(body)),
+          )
+          out = Some(rewritten)
         } else {
-          out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(body)))
-          changed = changed || body_changed
+          match out {
+            Some(rewritten) => rewritten.push(instr)
+            None => ()
+          }
         }
       }
       @lib.If(block_type, then_body, else_body) => {
         let (then_body, then_changed) = cmd_strip_nops_in_instrs_for_encoding(
           then_body,
         )
+        let mut else_changed = false
         let next_else = match else_body {
           Some(body) => {
             let (body, body_changed) = cmd_strip_nops_in_instrs_for_encoding(
               body,
             )
-            changed = changed || body_changed
+            else_changed = body_changed
             Some(body)
           }
           None => None
         }
-        out.push(@lib.Instruction::if_(block_type, then_body, next_else))
-        changed = changed || then_changed
+        if then_changed || else_changed {
+          let rewritten = match out {
+            Some(rewritten) => rewritten
+            None => cmd_copy_instruction_prefix_for_encoding(instrs, idx)
+          }
+          rewritten.push(
+            @lib.Instruction::if_(block_type, then_body, next_else),
+          )
+          out = Some(rewritten)
+        } else {
+          match out {
+            Some(rewritten) => rewritten.push(instr)
+            None => ()
+          }
+        }
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (body, body_changed) = cmd_strip_nops_in_instrs_for_encoding(body)
-        out.push(
-          @lib.Instruction::try_table(block_type, catches, @lib.Expr::new(body)),
-        )
-        changed = changed || body_changed
+        if body_changed {
+          let rewritten = match out {
+            Some(rewritten) => rewritten
+            None => cmd_copy_instruction_prefix_for_encoding(instrs, idx)
+          }
+          rewritten.push(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(body),
+            ),
+          )
+          out = Some(rewritten)
+        } else {
+          match out {
+            Some(rewritten) => rewritten.push(instr)
+            None => ()
+          }
+        }
       }
-      _ => out.push(instr)
+      _ =>
+        match out {
+          Some(rewritten) => rewritten.push(instr)
+          None => ()
+        }
     }
   }
-  (out, changed)
+  match out {
+    Some(rewritten) => (rewritten, true)
+    None => (instrs, false)
+  }
+}
+
+///|
+fn cmd_copy_func_prefix_for_encoding(
+  funcs : Array[@lib.Func],
+  end : Int,
+) -> Array[@lib.Func] {
+  let out : Array[@lib.Func] = Array::new(capacity=funcs.length())
+  for idx = 0; idx < end; idx = idx + 1 {
+    out.push(funcs[idx])
+  }
+  out
 }
 
 ///|
 fn cmd_strip_nops_for_encoding(mod : Module) -> Module {
   match mod.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let rewritten : Array[@lib.Func] = Array::new(capacity=funcs.length())
-      let mut changed = false
-      for func in funcs {
+      let mut rewritten : Array[@lib.Func]? = None
+      for idx = 0; idx < funcs.length(); idx = idx + 1 {
+        let func = funcs[idx]
         let @lib.Func(locals, @lib.Expr(instrs)) = func
         let (instrs, body_changed) = cmd_strip_nops_in_instrs_for_encoding(
           instrs,
         )
-        rewritten.push(@lib.Func::new(locals, @lib.Expr::new(instrs)))
-        changed = changed || body_changed
+        if body_changed {
+          let out = match rewritten {
+            Some(out) => out
+            None => cmd_copy_func_prefix_for_encoding(funcs, idx)
+          }
+          out.push(@lib.Func::new(locals, @lib.Expr::new(instrs)))
+          rewritten = Some(out)
+        } else {
+          match rewritten {
+            Some(out) => out.push(func)
+            None => ()
+          }
+        }
       }
-      if changed {
-        mod.with_code_sec(@lib.CodeSec::new(rewritten))
-      } else {
-        mod
+      match rewritten {
+        Some(funcs) => mod.with_code_sec(@lib.CodeSec::new(funcs))
+        None => mod
       }
     }
     None => mod
@@ -4053,7 +4252,8 @@ fn cmd_o4z_size_portfolio_enabled(
   format == CliInputFormat::wasm() &&
   optimize_level >= 4 &&
   shrink_level >= 4 &&
-  resolved_passes.any(fn(name) { name == "optimize" || name == "shrink" })
+  !resolved_passes.is_empty() &&
+  resolved_passes.all(fn(name) { name == "optimize" || name == "shrink" })
 }
 
 ///|
