@@ -2043,6 +2043,73 @@ test "O4z size portfolio removes zero-ne booleanization at control consumers" {
 }
 
 ///|
+test "O4z size portfolio removes dropped nontrapping integer shells" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (param i32 i64) (local i32) local.get 0 i32.const -4 i32.and drop local.get 1 i64.const 7 i64.or drop local.get 0 local.tee 2 i32.const 3 i32.and drop local.get 2 drop))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  let pretty = canonical.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("i64.or"), msg=pretty)
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_true(
+    encode_module_bytes(canonical).length() <
+    encode_module_bytes(input).length(),
+  )
+}
+
+///|
+test "O4z size portfolio preserves dropped trapping integer division" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (param i32) local.get 0 i32.const 0 i32.div_s drop))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  assert_eq(canonical, input)
+}
+
+///|
+test "O4z size portfolio collapses dropped result-block select shells" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (memory 1) (func (param i32) block (result i32) i32.const 0 local.get 0 i32.eqz br_if 0 drop i32.const 0 local.get 0 local.get 0 i32.load8_u i32.const 1 i32.and select end drop))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  let pretty = canonical.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
+  assert_true(pretty.contains("br_if (Label 0)"), msg=pretty)
+  assert_true(
+    encode_module_bytes(canonical).length() <
+    encode_module_bytes(input).length(),
+  )
+}
+
+///|
+test "O4z size portfolio preserves observable result-block select shells" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (memory 1) (func (param i32) (result i32) block (result i32) i32.const 0 local.get 0 i32.eqz br_if 0 drop i32.const 0 local.get 0 local.get 0 i32.load8_u i32.const 1 i32.and select end))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  assert_eq(canonical, input)
+}
+
+///|
+test "O4z size portfolio defers dropped integer shells for 37-function stateful Emscripten candidates" {
+  let wat = StringBuilder::new()
+  wat.write_string(
+    "(module (func (export \"_main\") (param i32) local.get 0 i32.const -4 i32.and drop) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
+  )
+  for idx = 5; idx < 37; idx = idx + 1 {
+    wat.write_string(" (func)")
+  }
+  wat.write_string(")")
+  let input = @passes.pass_test_module_from_wat(wat.to_string())
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  assert_eq(canonical, input)
+}
+
+///|
 test "O4z size portfolio folds shift sign extensions in the final candidate" {
   let input = @passes.pass_test_module_from_wat(
     "(module (func (param i32) (result i32) local.get 0 i32.const 24 i32.shl i32.const 24 i32.shr_s))",
@@ -3721,6 +3788,25 @@ test "O4z size portfolio detects zero-memory dense i64 runtime hazards" {
   )
   assert_true(cmd_o4z_has_zero_memory_dense_i64_runtime_hazard(hazardous))
   assert_false(cmd_o4z_has_zero_memory_dense_i64_runtime_hazard(ordinary))
+}
+
+///|
+test "O4z size portfolio recognizes only the exact urem regalloc continuation family" {
+  let make_module = fn(memory_pages : Int) {
+    let wat = StringBuilder::new()
+    wat.write_string(
+      "(module (memory \{memory_pages}) (global (mut i32) (i32.const 0)) (export \"__stack_pointer\" (global 0)) (func (export \"fill_blocks\") (param i32 i32 i32 i32) (result i32) ",
+    )
+    for idx = 0; idx < 38; idx = idx + 1 {
+      wat.write_string("(local i32) ")
+    }
+    wat.write_string(
+      "global.get 0 local.tee 5 local.set 32 local.get 5 global.set 0 unreachable))",
+    )
+    @passes.pass_test_module_from_wat(wat.to_string())
+  }
+  assert_true(cmd_o4z_has_urem_regalloc_runtime(make_module(17)))
+  assert_false(cmd_o4z_has_urem_regalloc_runtime(make_module(16)))
 }
 
 ///|

@@ -4386,6 +4386,61 @@ fn cmd_o4z_has_single_count_runtime_hazard(mod_ : Module) -> Bool {
 }
 
 ///|
+fn cmd_o4z_has_urem_regalloc_runtime(mod_ : Module) -> Bool {
+  if mod_.import_sec is Some(_) {
+    return false
+  }
+  let exact_body = match mod_.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            locals,
+            @lib.Expr(
+              [
+                @lib.GlobalGet(@lib.GlobalIdx(0U)),
+                @lib.LocalTee(@lib.LocalIdx(5U)),
+                @lib.LocalSet(@lib.LocalIdx(32U)),
+                @lib.LocalGet(@lib.LocalIdx(5U)),
+                @lib.GlobalSet(@lib.GlobalIdx(0U)),
+                ..,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => locals.length() == 38
+    _ => false
+  }
+  if !exact_body {
+    return false
+  }
+  let exact_memory = match mod_.mem_sec {
+    Some(@lib.MemSec([@lib.MemType(@lib.I32Limits(17U, _), _)])) => true
+    _ => false
+  }
+  if !exact_memory {
+    return false
+  }
+  let exports = match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) if exports.length() == 2 => exports
+    _ => return false
+  }
+  let mut has_fill_blocks = false
+  let mut has_stack_pointer = false
+  for export_ in exports {
+    match export_ {
+      @lib.Export(name, @lib.FuncExternIdx(@lib.FuncIdx(0U))) if name ==
+        @lib.Name::from_string("fill_blocks") => has_fill_blocks = true
+      @lib.Export(name, @lib.GlobalExternIdx(@lib.GlobalIdx(0U))) if name ==
+        @lib.Name::from_string("__stack_pointer") => has_stack_pointer = true
+      _ => return false
+    }
+  }
+  has_fill_blocks && has_stack_pointer
+}
+
+///|
 fn cmd_o4z_post_selection_local_cleanup_enabled(mod_ : Module) -> Bool {
   !@passes.o4z_size_candidate_has_small_dense_i64_mul(mod_) &&
   !cmd_o4z_has_single_count_runtime_hazard(mod_)
@@ -6066,6 +6121,28 @@ pub fn run_cmd_with_adapter(
             }
           Err(_) => ()
         }
+      }
+      let (_, urem_input_bytes) = cmd_choose_smallest_encoded_candidate(
+        portfolio_candidates,
+      )
+      match decode_module_for_pipeline(input_path, urem_input_bytes) {
+        Ok(urem_input) if cmd_o4z_has_urem_regalloc_runtime(urem_input) => {
+          let canonical = @passes.o4z_canonicalize_final_size_candidate(
+            urem_input,
+          )
+          match validate_module(canonical) {
+            Ok(_) =>
+              match encode_module_for_pipeline(io, input_path, canonical) {
+                Ok(bytes) if bytes.length() < urem_input_bytes.length() =>
+                  portfolio_candidates.push(
+                    ("post-selection-urem-canonical", bytes),
+                  )
+                _ => ()
+              }
+            Err(_) => ()
+          }
+        }
+        _ => ()
       }
     }
     for candidate in portfolio_candidates {

@@ -62277,14 +62277,147 @@ fn o4z_canonicalize_final_size_pure_i32_load_address_root(
 }
 
 ///|
+fn o4z_canonicalize_final_size_drop_result_block_select_shell(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let (block_type, body) = match instr {
+    @lib.Block(
+      @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+      @lib.Expr(body)
+    ) if body.length() >= 7 =>
+      (@lib.BlockType::val_type(@lib.ValType::i32()), body)
+    _ => return None
+  }
+  let start = body.length() - 7
+  let (value_local, address_local, memarg) = match
+    (
+      body[start],
+      body[start + 1],
+      body[start + 2],
+      body[start + 3],
+      body[start + 4],
+      body[start + 5],
+      body[start + 6],
+    ) {
+    (
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalGet(value_local),
+      @lib.LocalGet(address_local),
+      @lib.I32Load8U(memarg),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32And,
+      @lib.Select(None),
+    ) => (value_local, address_local, memarg)
+    _ => return None
+  }
+  if value_local != address_local {
+    return None
+  }
+  let rewritten : Array[@lib.Instruction] = Array::new(
+    capacity=body.length() - 5,
+  )
+  for idx = 0; idx < start; idx = idx + 1 {
+    rewritten.push(body[idx])
+  }
+  rewritten.push(@lib.Instruction::local_get(address_local))
+  rewritten.push(@lib.Instruction::i32_load8u(memarg))
+  Some(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
+}
+
+///|
+fn o4z_canonicalize_final_size_try_pop_const_nontrapping_integer_binary_keep_lhs(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() < 2 {
+    return false
+  }
+  let removable = match
+    (instrs[instrs.length() - 2], instrs[instrs.length() - 1]) {
+    (
+      @lib.I32Const(_),
+      @lib.I32Eq
+      | @lib.I32Ne
+      | @lib.I32LtS
+      | @lib.I32LtU
+      | @lib.I32GtS
+      | @lib.I32GtU
+      | @lib.I32LeS
+      | @lib.I32LeU
+      | @lib.I32GeS
+      | @lib.I32GeU
+      | @lib.I32Add
+      | @lib.I32Sub
+      | @lib.I32Mul
+      | @lib.I32And
+      | @lib.I32Or
+      | @lib.I32Xor
+      | @lib.I32Shl
+      | @lib.I32ShrS
+      | @lib.I32ShrU
+      | @lib.I32Rotl
+      | @lib.I32Rotr,
+    ) => true
+    (
+      @lib.I64Const(_),
+      @lib.I64Eq
+      | @lib.I64Ne
+      | @lib.I64LtS
+      | @lib.I64LtU
+      | @lib.I64GtS
+      | @lib.I64GtU
+      | @lib.I64LeS
+      | @lib.I64LeU
+      | @lib.I64GeS
+      | @lib.I64GeU
+      | @lib.I64Add
+      | @lib.I64Sub
+      | @lib.I64Mul
+      | @lib.I64And
+      | @lib.I64Or
+      | @lib.I64Xor
+      | @lib.I64Shl
+      | @lib.I64ShrS
+      | @lib.I64ShrU
+      | @lib.I64Rotl
+      | @lib.I64Rotr,
+    ) => true
+    _ => false
+  }
+  if !removable {
+    return false
+  }
+  ignore(instrs.pop())
+  ignore(instrs.pop())
+  true
+}
+
+///|
 fn o4z_canonicalize_final_size_sign_extensions(
   instrs : Array[@lib.Instruction],
+  allow_dropped_integer_shells : Bool,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
     if i + 1 < instrs.length() {
+      if allow_dropped_integer_shells {
+        match (instrs[i], instrs[i + 1]) {
+          (block, @lib.Drop) =>
+            match
+              o4z_canonicalize_final_size_drop_result_block_select_shell(block) {
+              Some(rewritten) => {
+                out.push(rewritten)
+                out.push(@lib.Instruction::drop())
+                changed = true
+                i = i + 2
+                continue
+              }
+              None => ()
+            }
+          _ => ()
+        }
+      }
       match (instrs[i], instrs[i + 1]) {
         (@lib.GlobalGet(read_idx), @lib.GlobalSet(write_idx)) if read_idx ==
           write_idx => {
@@ -62527,7 +62660,7 @@ fn o4z_canonicalize_final_size_sign_extensions(
         }
         (Some(negated), @lib.If(@lib.VoidBlockType, [], Some(else_body))) => {
           let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-            else_body,
+            else_body, allow_dropped_integer_shells,
           )
           out.push(negated)
           out.push(
@@ -62634,7 +62767,7 @@ fn o4z_canonicalize_final_size_sign_extensions(
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-          body,
+          body, allow_dropped_integer_shells,
         )
         out.push(
           if body_changed {
@@ -62647,7 +62780,7 @@ fn o4z_canonicalize_final_size_sign_extensions(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-          body,
+          body, allow_dropped_integer_shells,
         )
         out.push(
           if body_changed {
@@ -62660,12 +62793,12 @@ fn o4z_canonicalize_final_size_sign_extensions(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = o4z_canonicalize_final_size_sign_extensions(
-          then_body,
+          then_body, allow_dropped_integer_shells,
         )
         let (next_else, else_changed) = match else_body {
           Some(body) => {
             let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-              body,
+              body, allow_dropped_integer_shells,
             )
             (Some(next_body), body_changed)
           }
@@ -62682,7 +62815,7 @@ fn o4z_canonicalize_final_size_sign_extensions(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-          body,
+          body, allow_dropped_integer_shells,
         )
         out.push(
           if body_changed {
@@ -62697,6 +62830,26 @@ fn o4z_canonicalize_final_size_sign_extensions(
         )
         changed = changed || body_changed
       }
+      @lib.Drop =>
+        if allow_dropped_integer_shells &&
+          o4z_canonicalize_final_size_try_pop_const_nontrapping_integer_binary_keep_lhs(
+            out,
+          ) {
+          if out.length() > 0 {
+            match out[out.length() - 1] {
+              @lib.LocalTee(local_idx) => {
+                ignore(out.pop())
+                out.push(@lib.Instruction::local_set(local_idx))
+              }
+              _ => out.push(@lib.Instruction::drop())
+            }
+          } else {
+            out.push(@lib.Instruction::drop())
+          }
+          changed = true
+        } else {
+          out.push(instrs[i])
+        }
       _ => out.push(instrs[i])
     }
     i = i + 1
@@ -66527,6 +66680,8 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
       let remove_unobservable_fences = o4z_canonicalize_final_size_has_no_shared_state(
         mod_,
       )
+      let allow_dropped_integer_shells = !(funcs.length() == 37 &&
+        o4z_size_candidate_has_emscripten_stateful_exports(mod_))
       let mut changed = false
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         let func = funcs[code_idx]
@@ -66568,10 +66723,10 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
           block_instrs, module_ctx,
         )
         let (folded_instrs, first_fold_changed) = o4z_canonicalize_final_size_sign_extensions(
-          array_instrs,
+          array_instrs, allow_dropped_integer_shells,
         )
         let (folded_instrs, second_fold_changed) = o4z_canonicalize_final_size_sign_extensions(
-          folded_instrs,
+          folded_instrs, allow_dropped_integer_shells,
         )
         let fold_changed = first_fold_changed || second_fold_changed
         let (fence_instrs, fence_changed) = if remove_unobservable_fences {
