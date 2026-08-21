@@ -1934,6 +1934,77 @@ test "O4z size portfolio preserves branch-targeted blocks" {
 }
 
 ///|
+test "O4z size portfolio removes dead suffixes after unconditional branches" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (param i32) block local.get 0 drop br 0 i32.const 99 drop end))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  let pretty = canonical.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("br (Label 0)"), msg=pretty)
+  assert_false(pretty.contains("I32(99)"), msg=pretty)
+}
+
+///|
+test "O4z size portfolio preserves fallthrough after conditional branches" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (param i32) block local.get 0 br_if 0 i32.const 99 drop end))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  let pretty = canonical.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("br_if (Label 0)"), msg=pretty)
+  assert_true(pretty.contains("I32(99)"), msg=pretty)
+}
+
+///|
+test "O4z size portfolio carries repeated local reads across an exact store shell" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (memory 1) (func (param i32 i32) (result i32) (local i32) i32.const 7 local.set 2 local.get 0 local.get 1 i32.const 4 i32.add i32.store local.get 2 local.get 2 i32.add))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  match @validate.validate_module(canonical) {
+    Ok(_) => ()
+    Err(err) => fail("expected carried-store candidate to validate, got \{err}")
+  }
+  let pretty = canonical.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("local.tee (Local 2)"), msg=pretty)
+  @debug.assert_eq(
+    count_substring(pretty, "local.get (Local 2)"),
+    1,
+    msg=pretty,
+  )
+  assert_true(
+    encode_module_bytes(canonical).length() <
+    encode_module_bytes(input).length(),
+  )
+}
+
+///|
+test "O4z size portfolio combines bounded consecutive constant shifts" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 1 i32.shl i32.const 2 i32.shl) (func (param i32) (result i32) local.get 0 i32.const 31 i32.shl i32.const 1 i32.shl))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  match canonical.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(first)), _])) =>
+      @debug.assert_eq(first, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(3),
+        @lib.Instruction::i32_shl(),
+      ])
+    other =>
+      fail(
+        "expected bounded consecutive-shift canonicalization, got \{@debug.to_string(other)}",
+      )
+  }
+  let second_text = canonical.pretty_print_defined_func(1U)
+  @debug.assert_eq(count_substring(second_text, "i32.shl"), 2)
+  assert_true(
+    encode_module_bytes(canonical).length() <
+    encode_module_bytes(input).length(),
+  )
+}
+
+///|
 test "O4z size portfolio folds shift sign extensions in the final candidate" {
   let input = @passes.pass_test_module_from_wat(
     "(module (func (param i32) (result i32) local.get 0 i32.const 24 i32.shl i32.const 24 i32.shr_s))",

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-12
+last_reviewed: 2026-08-21
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -10,6 +10,24 @@ sources:
 ---
 
 # `simplify-globals-optimizing` Fuzzing Profile
+
+## 2026-08-21 stateful suffix-deferral smoke
+
+Native SHA-256 `dcfc1383f399312fa1dc3fce21a84ed6a0bf6ba607d47ec78464a7a3a633c093` defers the broad final suffix only for O4z executions on the exact 44/50-function stateful Emscripten export family. Ordinary generated direct-pass cases retain the existing suffix and parity surface.
+
+- `.tmp/pass-fuzz-sgo-tranche2-final-v131-regular-1000`: explicit pinned Binaryen v131, seed `0x5eed`, 1,000/1,000 compared and normalized, zero mismatches or validation/property/generator/command failures, Binaryen cache 1,000/0.
+- `.tmp/pass-fuzz-sgo-tranche2-final-v131-dedicated-1000`: `simplify-globals-optimizing-all`, seed `0x5eed`, 1,000/1,000 compared, 471 normalized plus 529 established smaller Starshine residuals, zero validation/property/generator/command failures, Binaryen cache 1,000/0. Residuals remain exactly 375 at -1 byte and 154 at -3 bytes, aggregate -837. Selected leaves remain same-init/dead-set 132, runtime propagation 210, startup propagation 129, nested cleanup 148, initializer folding 154, and read-only-to-write 227.
+
+These lanes demonstrate that the exact stateful O4z scheduler boundary does not perturb ordinary or dedicated direct SGO generation. They remain development smoke rather than a replacement for the full four-lane closeout matrix.
+
+## 2026-08-21 final-validation batching smoke
+
+Native SHA-256 `3fce0ab9e1d4934084d1e4e0312e598b53633a950247cd6d83cc8688e78cd92b` batches the nested roster's redundant whole-module checks into one final transactional validation while preserving per-pass changed-definition validation and rollback.
+
+- `.tmp/pass-fuzz-sgo-primes-perf-final-v131-regular-1000`: explicit pinned Binaryen v131, seed `0x5eed`, 1,000/1,000 compared and normalized, zero mismatches or validation/property/generator/command failures, Binaryen cache 1,000/0.
+- `.tmp/pass-fuzz-sgo-primes-perf-final-v131-dedicated-1000`: `simplify-globals-optimizing-all`, seed `0x5eed`, 1,000/1,000 compared, 471 normalized plus 529 established smaller Starshine residuals, zero validation/property/generator/command failures, Binaryen cache 1,000/0. The residuals are exactly 375 one-byte nested-cleanup/read-only-to-write wins and 154 three-byte initializer-alias wins, aggregate -837 bytes. Selected leaves: same-init/dead-set 132, runtime propagation 210, startup propagation 129, nested cleanup 148, initializer folding 154, and read-only-to-write 227.
+
+Alternating traced primes measurements reduce median SGO time 46.539 → 21.847 ms and nested time 28.505 → 3.700 ms. These 1,000-case lanes refresh development evidence for the performance-only scheduler change; they do not replace the documented full four-lane closeout matrix.
 
 Recommended ordinary GenValid compare-pass smoke lane with a current native binary:
 

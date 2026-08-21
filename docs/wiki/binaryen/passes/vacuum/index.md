@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-08-21
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
@@ -90,6 +90,12 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - current GitHub `main` still matches `version_129` `Vacuum.cpp` in substance
 
 So explicit `unreachable` preservation is part of the tagged `version_129` oracle here, not a newer trunk-only drift note.
+
+## 2026-08-21 guarded-hazard-first scheduling
+
+The raw preclean admission path now computes its already-required instruction and stack-effect facts before the specialized candidate chain. When a function has both local writes and stack-effect hazards, Vacuum immediately runs the same preclean, optional second-preclean, and finalization used previously, or returns the same unchanged guarded-hazard classification. This avoids repeatedly scanning large guarded Emscripten functions for nop, SIMD, owner-branch, dropped-tee, div/rem, and repeated-load candidates that do not admit them.
+
+A controlled primes A/B reduces aggregate raw-preclean time 39.701 → 36.876 ms (-7.12%) and direct level-correct Vacuum 12.176 → 11.779 ms (-3.27%) with byte-identical direct output. Regular explicit-v131 smoke is 1,000/1,000 normalized. The pass-owned aggregate's 301 smaller residuals are byte-identical under isolated pre-change and final binaries, so this is an execution-order performance improvement rather than a direct behavior change.
 
 ## Beginner warning: what the name hides
 

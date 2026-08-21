@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-08-21
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -9,6 +9,17 @@ sources:
 ---
 
 # `vacuum` Fuzzing Profile
+
+## Guarded-hazard-first preclean refresh — 2026-08-21
+
+Native SHA-256 `84c39740f7056c4bef913badd5c946484bd375b7f4f117d2165360d4239003d8` computes Vacuum's existing instruction and stack-effect facts before the specialized candidate chain. Functions with both local writes and stack-effect hazards now run the same raw preclean immediately, retain the same optional second-preclean and finalization, and return the same unchanged guarded-hazard result when no rewrite occurs. Non-guarded specialized and terminal-debris paths are unchanged.
+
+- Controlled 16-pair primes A/B: raw preclean 39.701 → 36.876 ms (-7.12%), pipeline 192.925 → 188.934 ms (-2.07%), whole command 359.286 → 354.869 ms (-1.23%). Direct level-correct `--vacuum` is byte-identical and improves 12.176 → 11.779 ms (-3.27%).
+- `.tmp/pass-fuzz-vacuum-third-tranche-final-v131-regular-1000`: explicit pinned Binaryen v131, seed `0x5eed`, 1,000/1,000 compared and normalized, zero mismatches or validation/property/generator/command failures, Binaryen cache 1,000/0.
+- `.tmp/pass-fuzz-vacuum-third-tranche-final-v131-dedicated-1000`: profile `vacuum`, seed `0x5eed`, 1,000/1,000 compared, 699 normalized plus 301 smaller Starshine residuals, zero failures, Binaryen cache 1,000/0. Residuals are exactly 155 `vacuum-hazard-boundary` cases at -2 bytes and 146 `vacuum-localset-prefix-preserve` cases at -1 byte.
+- `.tmp/pass-fuzz-vacuum-third-tranche-baseline-v131-dedicated-1000`: the isolated pre-change binary produces the same 699/301 split and byte-identical Starshine output for all 301 residual cases. Agent classification: these are pre-existing smaller output families, not execution-order drift from this performance change.
+
+These are development smoke lanes, not a replacement for Vacuum's documented complete closeout matrix.
 
 ## Dropped pure SIMD shuffle refresh — 2026-08-14
 
