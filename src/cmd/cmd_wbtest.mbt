@@ -2005,6 +2005,44 @@ test "O4z size portfolio combines bounded consecutive constant shifts" {
 }
 
 ///|
+test "O4z size portfolio folds exact same-local and negated integer comparisons" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (param i32 i32 i64) (result i32) local.get 0 local.get 0 i32.ne drop local.get 2 local.get 2 i64.ge_u drop local.get 0 local.get 1 i32.gt_u i32.eqz drop local.get 0 local.get 1 i32.eq))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  let pretty = canonical.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("i32.ne"), msg=pretty)
+  assert_false(pretty.contains("i64.ge_u"), msg=pretty)
+  assert_false(pretty.contains("i32.gt_u"), msg=pretty)
+  assert_false(pretty.contains("i32.eqz"), msg=pretty)
+  assert_true(pretty.contains("i32.le_u"), msg=pretty)
+  assert_true(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(
+    encode_module_bytes(canonical).length() <
+    encode_module_bytes(input).length(),
+  )
+}
+
+///|
+test "O4z size portfolio removes zero-ne booleanization at control consumers" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (param i32) block local.get 0 i32.const 0 i32.ne br_if 0 local.get 0 i32.const 0 i32.ne if i32.const 1 drop end end))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  let pretty = canonical.pretty_print_defined_func(0U)
+  assert_false(pretty.contains("i32.ne"), msg=pretty)
+  assert_false(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("br_if (Label 0)"), msg=pretty)
+  assert_true(pretty.contains("if (Void)"), msg=pretty)
+  assert_true(
+    encode_module_bytes(canonical).length() <
+    encode_module_bytes(input).length(),
+  )
+}
+
+///|
 test "O4z size portfolio folds shift sign extensions in the final candidate" {
   let input = @passes.pass_test_module_from_wat(
     "(module (func (param i32) (result i32) local.get 0 i32.const 24 i32.shl i32.const 24 i32.shr_s))",
@@ -3609,7 +3647,9 @@ test "O4z size portfolio limits post-selection control cleanup to verified famil
   let mandelbrot = @passes.pass_test_module_from_wat(
     "(module (func (export \"render\") (param i32) (result i32) local.get 0))",
   )
-  assert_true(cmd_o4z_post_selection_control_cleanup_enabled(sieve))
+  // The fresh WAGO sieve replay proved that the count-only control cleanup can
+  // remove its loop-carried increment and make count(10) nonterminating.
+  assert_false(cmd_o4z_post_selection_control_cleanup_enabled(sieve))
   assert_true(cmd_o4z_post_selection_control_cleanup_enabled(winch))
   assert_false(cmd_o4z_post_selection_control_cleanup_enabled(mandelbrot))
 }
@@ -3691,9 +3731,13 @@ test "O4z size portfolio guards post-canonical cleanup for dense i64 multiply" {
   let ordinary = @passes.pass_test_module_from_wat(
     "(module (func (param i64) (result i64) local.get 0 i64.const 1 i64.mul))",
   )
+  let sieve = @passes.pass_test_module_from_wat(
+    "(module (memory 8) (func (export \"count\") (param i32) (result i32) (local i32 i32 i32) i32.const 0))",
+  )
   assert_true(@passes.o4z_size_candidate_has_small_dense_i64_mul(dense))
   assert_false(@passes.o4z_size_candidate_has_small_dense_i64_mul(ordinary))
   assert_false(cmd_o4z_post_selection_local_cleanup_enabled(dense))
+  assert_false(cmd_o4z_post_selection_local_cleanup_enabled(sieve))
   assert_true(cmd_o4z_post_selection_local_cleanup_enabled(ordinary))
 }
 

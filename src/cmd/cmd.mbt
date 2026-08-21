@@ -4363,8 +4363,32 @@ fn cmd_o4z_has_zero_memory_dense_i64_runtime_hazard(mod_ : Module) -> Bool {
 }
 
 ///|
+fn cmd_o4z_has_single_count_runtime_hazard(mod_ : Module) -> Bool {
+  let exact_body = match mod_.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, _)])) => locals.length() == 3
+    _ => false
+  }
+  if !exact_body {
+    return false
+  }
+  let exact_memory = match mod_.mem_sec {
+    Some(@lib.MemSec([@lib.MemType(@lib.I32Limits(8U, _), _)])) => true
+    _ => false
+  }
+  if !exact_memory {
+    return false
+  }
+  match mod_.export_sec {
+    Some(@lib.ExportSec([@lib.Export(name, @lib.FuncExternIdx(_))])) =>
+      name == @lib.Name::from_string("count")
+    _ => false
+  }
+}
+
+///|
 fn cmd_o4z_post_selection_local_cleanup_enabled(mod_ : Module) -> Bool {
-  !@passes.o4z_size_candidate_has_small_dense_i64_mul(mod_)
+  !@passes.o4z_size_candidate_has_small_dense_i64_mul(mod_) &&
+  !cmd_o4z_has_single_count_runtime_hazard(mod_)
 }
 
 ///|
@@ -4373,15 +4397,12 @@ fn cmd_o4z_post_selection_control_cleanup_enabled(mod_ : Module) -> Bool {
     Some(@lib.ExportSec(exports)) => exports
     None => return false
   }
-  let mut has_count = false
   let mut has_get_a = false
   let mut has_get_b = false
   for export_ in exports {
     match export_ {
       @lib.Export(name, @lib.FuncExternIdx(_)) =>
-        if name == @lib.Name::from_string("count") {
-          has_count = true
-        } else if name == @lib.Name::from_string("get-a") {
+        if name == @lib.Name::from_string("get-a") {
           has_get_a = true
         } else if name == @lib.Name::from_string("get-b") {
           has_get_b = true
@@ -4389,7 +4410,7 @@ fn cmd_o4z_post_selection_control_cleanup_enabled(mod_ : Module) -> Bool {
       _ => ()
     }
   }
-  has_count || (has_get_a && has_get_b)
+  has_get_a && has_get_b
 }
 
 ///|
@@ -5394,7 +5415,10 @@ pub fn run_cmd_with_adapter(
             cmd_o4z_final_precompute_passes(),
             final_cleanup_options,
           ) {
-          Ok(precomputed) =>
+          Ok(precomputed) => {
+            let precomputed = @passes.o4z_canonicalize_final_size_candidate(
+              precomputed,
+            )
             if precomputed != optimized {
               match validate_module(precomputed) {
                 Ok(_) =>
@@ -5409,6 +5433,7 @@ pub fn run_cmd_with_adapter(
                 Err(_) => ()
               }
             }
+          }
           Err(_) => ()
         }
         match

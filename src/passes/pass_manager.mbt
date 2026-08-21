@@ -62492,12 +62492,39 @@ fn o4z_canonicalize_final_size_sign_extensions(
         _ => ()
       }
     }
+    if i + 2 < instrs.length() {
+      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (
+          @lib.I32Const(@lib.I32(0)),
+          @lib.I32Ne,
+          @lib.If(block_type, then_body, else_body),
+        ) => {
+          out.push(@lib.Instruction::if_(block_type, then_body, else_body))
+          changed = true
+          i = i + 3
+          continue
+        }
+        (@lib.I32Const(@lib.I32(0)), @lib.I32Ne, @lib.BrIf(label)) => {
+          out.push(@lib.Instruction::br_if(label))
+          changed = true
+          i = i + 3
+          continue
+        }
+        _ => ()
+      }
+    }
     if i + 1 < instrs.length() {
       match
         (
           o4z_canonicalize_final_size_negate_integer_compare(instrs[i]),
           instrs[i + 1],
         ) {
+        (Some(negated), @lib.I32Eqz) => {
+          out.push(negated)
+          changed = true
+          i = i + 2
+          continue
+        }
         (Some(negated), @lib.If(@lib.VoidBlockType, [], Some(else_body))) => {
           let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
             else_body,
@@ -66098,6 +66125,135 @@ fn o4z_canonicalize_final_size_restore_emscripten_stack_alloc(
 }
 
 ///|
+fn o4z_canonicalize_final_size_same_local_integer_compare_result(
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.I32Eq
+    | @lib.I64Eq
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I64GeS
+    | @lib.I64GeU => Some(1)
+    @lib.I32Ne
+    | @lib.I64Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I64GtS
+    | @lib.I64GtU => Some(0)
+    _ => None
+  }
+}
+
+///|
+fn o4z_canonicalize_final_size_fold_same_local_integer_compares(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = Array::new(
+    capacity=instrs.length(),
+  )
+  let mut changed = false
+  for instr in instrs {
+    let next = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        changed = changed || then_changed || else_changed
+        if then_changed || else_changed {
+          @lib.Instruction::if_(block_type, next_then, next_else)
+        } else {
+          instr
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      _ => instr
+    }
+    normalized.push(next)
+  }
+  let rewritten : Array[@lib.Instruction] = Array::new(
+    capacity=normalized.length(),
+  )
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 2 < normalized.length() {
+      match (normalized[idx], normalized[idx + 1]) {
+        (@lib.LocalGet(lhs), @lib.LocalGet(rhs)) if lhs == rhs =>
+          match
+            o4z_canonicalize_final_size_same_local_integer_compare_result(
+              normalized[idx + 2],
+            ) {
+            Some(result) => {
+              rewritten.push(@lib.Instruction::i32_const(result))
+              idx = idx + 3
+              changed = true
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    rewritten.push(normalized[idx])
+    idx = idx + 1
+  }
+  (rewritten, changed)
+}
+
+///|
 fn o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
@@ -66441,8 +66597,11 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
         let (init_instrs, init_changed) = o4z_canonicalize_final_size_overwritten_ref_func_initializer(
           tee_instrs,
         )
-        let (branch_instrs, branch_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+        let (compare_instrs, compare_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
           init_instrs,
+        )
+        let (branch_instrs, branch_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          compare_instrs,
         )
         let (carry_instrs, carry_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
           branch_instrs,
@@ -66485,6 +66644,7 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
           leb_changed ||
           tee_changed ||
           init_changed ||
+          compare_changed ||
           branch_changed ||
           carry_changed ||
           return_changed ||
