@@ -1791,6 +1791,53 @@ test "run_cmd_with_adapter O4z preserves transitive function type equivalence" {
 }
 
 ///|
+test "O4z final cleanup removes explicit empty void else arms" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [@lib.Instruction::nop()],
+              Some([]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr([@lib.LocalGet(_), @lib.If(_, [@lib.Nop], None)])
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail(
+        "expected empty void else arm to be omitted: \{optimized.pretty_print_func(@lib.FuncIdx::new(0U))}",
+      )
+  }
+}
+
+///|
 test "O4z size portfolio selects the shortest encoded candidate stably" {
   let first = bytes_from_ints([0, 1, 2])
   let second = bytes_from_ints([3, 4])

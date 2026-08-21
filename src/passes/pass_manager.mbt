@@ -66722,6 +66722,87 @@ fn o4z_canonicalize_final_size_instrs_have_local_access(
 }
 
 ///|
+fn o4z_canonicalize_final_size_empty_void_else_arms(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let mut changed = false
+  for instr in instrs {
+    let next = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          then_body,
+        )
+        let (initial_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        let mut next_else = initial_else
+        let mut removed_empty_else = false
+        match next_else {
+          Some(body) if block_type == @lib.BlockType::void_() && body.is_empty() => {
+            next_else = None
+            removed_empty_else = true
+          }
+          _ => ()
+        }
+        changed = changed || then_changed || else_changed || removed_empty_else
+        if then_changed || else_changed || removed_empty_else {
+          @lib.Instruction::if_(block_type, next_then, next_else)
+        } else {
+          instr
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      _ => instr
+    }
+    rewritten.push(next)
+  }
+  (rewritten, changed)
+}
+
+///|
 pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
   let canonical = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -66748,12 +66829,13 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
             }
           _ => (instrs, false)
         }
+        let (else_instrs, else_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          snapshot_instrs,
+        )
         let (spill_instrs, spill_changed) = match
-          o4z_canonicalize_final_size_function_result_block_spill(
-            snapshot_instrs,
-          ) {
+          o4z_canonicalize_final_size_function_result_block_spill(else_instrs) {
           Some(next) => (next, true)
-          None => (snapshot_instrs, false)
+          None => (else_instrs, false)
         }
         let (exit_instrs, exit_changed) = match
           o4z_canonicalize_final_size_nested_f64_pair_function_exit(
@@ -66840,6 +66922,7 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
           locals
         }
         if snapshot_changed ||
+          else_changed ||
           spill_changed ||
           exit_changed ||
           block_changed ||
