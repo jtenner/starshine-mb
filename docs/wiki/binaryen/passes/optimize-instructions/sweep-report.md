@@ -44,6 +44,23 @@ Current positive residual leaders are:
 
 The next continuation should first preserve the exact pass7 binary and reproduce the ifs/primes stateful oracle before changing candidate admission. Isolate canonical descendants one roster at a time from the accepted late-cleanup/SSA artifacts; do not re-enable post-SSA CoalesceLocals, broad SimplifyLocals, MergeBlocks, CFG CoalesceLocals, DAE, or optimizing inlining for the measured 44/50-function family without allocator/event/trap/full-memory equality. After embenchen, investigate JSON-SIMD termination, then fannkuch/fasta residual structure, scalar JSON, `urem_regalloc`, startup JSON, and scalar ISA. Separately retain `[WALL]001` work for portfolio orchestration and repeated encode/validate costs, audit the three tracked Wasm fixtures above 2 MiB, and classify the 35 compatibility failures including `InvalidNameSubsectionOrder` families. Validation alone must not admit candidates: startup, binary-tree, JSON-SIMD, ifs/primes, and 1797a all produced externally valid wrong-runtime artifacts during this audit.
 
+## 2026-08-21 final16 transitive DFE type-remap repair
+
+Native optimizer SHA-256 `7fb646d4cd84c7e9eeddef364498f9ed3ad3fe17b5f14700c18a328aff098823` produces the definitive fresh sweep `.tmp/wago-o4z-pass8-final16-dfe-transitive-type-remap-fresh-v2-20260821/`. On the unchanged 766-file stable cohort Starshine emits **413,300 bytes** versus pinned Binaryen v131 at 415,485, a fresh **2,185-byte / 0.526% win**. The distribution improves to 110 smaller / 602 equal / 54 larger, positive residual bytes fall to 3,025, and Starshine removes 46,830 bytes from the original 460,130-byte baseline for 104.89% gap closure.
+
+The change repairs a Starshine-local DuplicateFunctionElimination type-compaction bug. Duplicate leaf function types were canonicalized, and module uses were rewritten through the old-to-new map, but retained function type definitions were reinstalled without recursively rewriting indexed references in their parameters or results. `type-equivalence.5` therefore produced an invalid direct-DFE module; later O4z cleanup masked the invalid intermediate by selecting an `unreachable` body even though the source and Binaryen return normally. Final16 rewrites only retained definitions proven to mention a remapped type index.
+
+Exactly two fresh artifacts change, with no regressions:
+
+- `type-equivalence.5`: 34 → **33**, byte-identical to Binaryen; the direct DFE output validates and 100 fresh source/Binaryen/Starshine instances return normally.
+- `type-equivalence.8`: 66 → **59**, byte-identical to Binaryen after the transitive signatures collapse correctly.
+
+Red-first DFE coverage asserts the nested retained-type index, and command coverage runs the returning indirect-call family through `-O4z` and rejects the prior `unreachable` body. The pinned-v131 DFE development lane compares 10,000/10,000 with 9,942 normalized, 58 raw residuals, and zero validation/property/generator/command failures. All 58 raw residuals reproduce under the exact final14-era baseline binary, proving they are not introduced here but not yet classifying their semantics. DFE pass-local 500-pair median improves 134.5 → 133.0 µs. Over 1,000 alternating whole-command pairs, `type-equivalence.5` is +0.43% paired-median noise and `type-equivalence.8` is 1.11% faster.
+
+The retained-artifact projection remains distinct: **412,164** Starshine bytes versus 415,485 Binaryen, a projected **3,321-byte / 0.799% win**, with 112/601/53 smaller/equal/larger, 1,986 positive residual bytes, 47,966 bytes removed, and 107.44% original-gap closure.
+
+Command tests pass 269/269, pass tests 6,953/6,953, and the full repository **10,604/10,604**. Formatting, interfaces, native release, API sync, diff checks, direct validation, runtime, performance, fuzz development evidence, external validation, and the fresh sweep pass.
+
 ## 2026-08-21 final15 abstract-bottom ref.test parity
 
 Native optimizer SHA-256 `33ee0c5763bf247aa57d99ad773c3fd33ca3852d3b78ab2464fa16a9733d6143` produces the definitive fresh sweep `.tmp/wago-o4z-pass8-final15-bottom-ref-test-fresh-20260821/`. On the unchanged 766-file stable cohort Starshine emits **413,308 bytes** versus pinned Binaryen v131 at 415,485, a fresh **2,177-byte / 0.524% win**. The distribution improves to 110 smaller / 600 equal / 56 larger, positive residual bytes fall to 3,033, and Starshine removes 46,822 bytes from the original 460,130-byte baseline for 104.88% gap closure.
