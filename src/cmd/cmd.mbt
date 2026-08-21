@@ -6015,7 +6015,16 @@ pub fn run_cmd_with_adapter(
                                 cmd_o4z_scalar_final_cleanup_passes(),
                                 optimize_options_with_levels(options, 0, 0),
                               ) {
-                              Ok(cleaned) =>
+                              Ok(cleaned) => {
+                                let cleaned = if @passes.o4z_size_candidate_has_unreferenced_defined_global(
+                                    cleaned,
+                                  ) {
+                                  @passes.o4z_prune_final_size_unreferenced_globals(
+                                    cleaned,
+                                  )
+                                } else {
+                                  cleaned
+                                }
                                 match validate_module(cleaned) {
                                   Ok(_) =>
                                     match
@@ -6033,6 +6042,7 @@ pub fn run_cmd_with_adapter(
                                     }
                                   Err(_) => ()
                                 }
+                              }
                               Err(_) => ()
                             }
                           }

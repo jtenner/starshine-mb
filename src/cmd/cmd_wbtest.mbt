@@ -3233,6 +3233,22 @@ test "O4z size portfolio removes pure writes to unobserved defined globals" {
 }
 
 ///|
+test "O4z size portfolio removes unreferenced pure global declarations" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (global (mut i32) (i32.const 1000)) (func (export \"f\")))",
+  )
+  assert_true(@passes.o4z_size_candidate_has_unreferenced_defined_global(input))
+  let pruned = @passes.o4z_prune_final_size_unreferenced_globals(input)
+  assert_eq(pruned.global_sec, None)
+  assert_eq(pruned.code_sec, input.code_sec)
+  match @validate.validate_module(pruned) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected removed unreferenced global to validate, got \{err}")
+  }
+}
+
+///|
 test "O4z size portfolio removes pure local reference writes to unobserved globals" {
   let input = @passes.pass_test_module_from_wat(
     "(module (global (mut externref) (ref.null extern)) (func (export \"init\") (param externref) local.get 0 global.set 0))",

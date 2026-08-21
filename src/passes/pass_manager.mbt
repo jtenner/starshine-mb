@@ -65512,6 +65512,50 @@ fn o4z_canonicalize_final_size_remove_write_only_global_stores_in_body(
 }
 
 ///|
+pub fn o4z_size_candidate_has_unreferenced_defined_global(
+  mod_ : @lib.Module,
+) -> Bool {
+  if mod_.elem_sec is Some(_) || mod_.data_sec is Some(_) {
+    return false
+  }
+  let globals = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) if !globals.is_empty() => globals
+    _ => return false
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  let imported = rume_imported_global_count(mod_)
+  let candidates = Array::make(imported + globals.length(), false)
+  for idx = 0; idx < globals.length(); idx = idx + 1 {
+    candidates[imported + idx] = true
+    let @lib.Global(_, @lib.Expr(init)) = globals[idx]
+    o4z_canonicalize_final_size_mark_global_reads(init, candidates)
+  }
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(raw))) => {
+            let slot = raw.reinterpret_as_int()
+            if slot >= 0 && slot < candidates.length() {
+              candidates[slot] = false
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  for func in funcs {
+    let @lib.Func(_, @lib.Expr(body)) = func
+    o4z_canonicalize_final_size_mark_global_reads(body, candidates)
+  }
+  candidates.any(fn(candidate) { candidate })
+}
+
+///|
 fn o4z_canonicalize_final_size_remove_write_only_globals(
   mod_ : @lib.Module,
 ) -> @lib.Module {
@@ -65576,6 +65620,15 @@ fn o4z_canonicalize_final_size_remove_write_only_globals(
   } else {
     mod_
   }
+}
+
+///|
+pub fn o4z_prune_final_size_unreferenced_globals(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  rume_run_nonfunction_module_pass(
+    o4z_canonicalize_final_size_remove_write_only_globals(mod_),
+  )
 }
 
 ///|
