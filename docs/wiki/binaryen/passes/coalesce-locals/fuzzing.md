@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-14
+last_reviewed: 2026-08-21
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -11,6 +11,16 @@ sources:
 ---
 
 # `coalesce-locals` Fuzzing Profile
+
+## 2026-08-21 optimized-primes variadic-packer boundary
+
+A fresh original-input primes replay exposed a validating but semantically wrong local collapse in the internal variadic argument packer. The unsafe 21,955-byte output changed `_main` from `unreachable` to out-of-bounds and changed full-memory state. Function-body isolation proved that replacing only the packer body reproduced the failure, while allocator, free, memset, memcpy, stack, and neighboring internal body reductions remained runtime-equal under the retained state oracle.
+
+The bounded O4z touch set now excludes only the exact packer layouts observed across ordered cleanup: 13 locals (`8 i32 / 3 f64 / 2 i64`), 10 (`7/2/1`), 6 (`2/2/2`), 12 (`9/2/1`), and the later 10-local form (`6/2/2`). Admission additionally requires exactly 36 defined functions and the stateful Emscripten `_main`, `runPostSets`, `stackAlloc`, `stackSave`, and `stackRestore` exports. Plain CoalesceLocals leaves matching definitions untouched. CFG CoalesceLocals runs normally on the module and restores only matching owner bodies, retaining all neighboring rewrites. Focused regressions cover all five layouts for plain CoalesceLocals, three observed CFG-entry layouts, and a neighboring two-local positive that still shrinks. The complete focused suite is 87/87.
+
+Native SHA-256 `32c4cc048afcfe5457aad04c3308b01a0e436754c2f92895a0b7663c1facf901` integrates the protected stateful continuation and reduces primes 23,162 → 22,480 while preserving all runtime events, trap classes, pages, and full-memory hashes. The ordinary and expanded fresh-instance state oracles remain exact.
+
+Explicit-v131 development smoke did not replace the prior closeout matrix. Reducer-enabled 1,000- and 100-case regular lanes exceeded the command limit because current raw residuals trigger expensive artifact reduction. `.tmp/pass-fuzz-coalesce-locals-primes-guard-v131-regular-100-capped20-noreduce` stopped at the parallel mismatch cap after 36/100 comparisons: 3 normalized, 33 smaller Starshine residuals, and zero validation/property/generator/command failures. All 100 generated inputs were inspected and none contains the stateful-export trigger, so the lane neither exercises nor signs off this exact boundary.
 
 Recommended direct smoke lane:
 
