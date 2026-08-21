@@ -302,6 +302,93 @@ fn gr_refined_export_type_is_public(
 }
 
 ///|
+priv struct GrNominalAncestryStats {
+  mut declared_subtype_queries : Int
+  mut visited_type_nodes : Int
+  mut candidate_collections : Int
+  mut declared_ancestor_collections : Int
+  mut candidate_nodes_visited : Int
+  temporary_arrays_allocated : Int
+}
+
+///|
+priv struct GrNominalAncestryScratch {
+  mut generation : Int
+  marks : Array[Int]
+  type_work : Array[@lib.TypeIdx]
+  non_absolute_visited : Array[@lib.TypeIdx]
+  heap_work : Array[@lib.HeapType]
+  candidates : Array[@lib.HeapType]
+  abstract_fallbacks : Array[@lib.HeapType]
+  stats : GrNominalAncestryStats
+}
+
+///|
+fn GrNominalAncestryScratch::new(
+  env : @validate.Env,
+) -> GrNominalAncestryScratch {
+  {
+    generation: 0,
+    marks: Array::make(env.global_types.length(), 0),
+    type_work: [],
+    non_absolute_visited: [],
+    heap_work: [],
+    candidates: [],
+    abstract_fallbacks: [],
+    stats: {
+      declared_subtype_queries: 0,
+      visited_type_nodes: 0,
+      candidate_collections: 0,
+      declared_ancestor_collections: 0,
+      candidate_nodes_visited: 0,
+      temporary_arrays_allocated: 6,
+    },
+  }
+}
+
+///|
+fn GrNominalAncestryScratch::next_generation(
+  self : GrNominalAncestryScratch,
+) -> Int {
+  if self.generation >= 0x7FFFFFFF {
+    for idx = 0; idx < self.marks.length(); idx = idx + 1 {
+      self.marks[idx] = 0
+    }
+    self.generation = 1
+  } else {
+    self.generation += 1
+  }
+  self.generation
+}
+
+///|
+fn GrNominalAncestryScratch::observed_work(
+  self : GrNominalAncestryScratch,
+) -> Int {
+  self.stats.declared_subtype_queries +
+  self.stats.visited_type_nodes +
+  self.stats.candidate_collections +
+  self.stats.declared_ancestor_collections +
+  self.stats.candidate_nodes_visited +
+  self.stats.temporary_arrays_allocated
+}
+
+///|
+fn gr_absolute_type_slot(type_idx : @lib.TypeIdx, type_count : Int) -> Int {
+  match type_idx {
+    @lib.TypeIdx(raw) => {
+      let slot = raw.reinterpret_as_int()
+      if slot >= 0 && slot < type_count {
+        slot
+      } else {
+        -1
+      }
+    }
+    @lib.RecIdx(_) => -1
+  }
+}
+
+///|
 fn gr_append_unique_heaptype(
   out : Array[@lib.HeapType],
   heap_type : @lib.HeapType,
@@ -381,29 +468,55 @@ fn gr_append_shape_heap_supertypes(
 fn gr_collect_heaptype_candidates(
   heap_type : @lib.HeapType,
   env : @validate.Env,
+  scratch : GrNominalAncestryScratch,
 ) -> Array[@lib.HeapType] {
-  let out : Array[@lib.HeapType] = []
-  let abstract_fallbacks : Array[@lib.HeapType] = []
-  let work : Array[@lib.HeapType] = [heap_type]
-  while work.length() > 0 {
-    let current = work.pop().unwrap()
-    let prior_len = out.length()
-    gr_append_unique_heaptype(out, current)
-    if out.length() == prior_len {
+  scratch.stats.candidate_collections += 1
+  let generation = scratch.next_generation()
+  scratch.heap_work.clear()
+  scratch.candidates.clear()
+  scratch.abstract_fallbacks.clear()
+  scratch.non_absolute_visited.clear()
+  scratch.heap_work.push(heap_type)
+  while scratch.heap_work.length() > 0 {
+    let current = scratch.heap_work.pop().unwrap()
+    let duplicate = match current {
+      @lib.HeapType(type_idx) => {
+        let slot = gr_absolute_type_slot(type_idx, scratch.marks.length())
+        if slot >= 0 {
+          if scratch.marks[slot] == generation {
+            true
+          } else {
+            scratch.marks[slot] = generation
+            false
+          }
+        } else if scratch.non_absolute_visited.contains(type_idx) {
+          true
+        } else {
+          scratch.non_absolute_visited.push(type_idx)
+          false
+        }
+      }
+      @lib.AbsHeapTypeHeapType(_)
+      | @lib.SharedAbsHeapTypeHeapType(_)
+      | @lib.DefTypeHeapType(_) => scratch.candidates.contains(current)
+    }
+    if duplicate {
       continue
     }
+    scratch.stats.candidate_nodes_visited += 1
+    scratch.candidates.push(current)
     match current {
       @lib.AbsHeapTypeHeapType(abs) =>
-        gr_append_abs_heap_supertypes(abstract_fallbacks, abs)
+        gr_append_abs_heap_supertypes(scratch.abstract_fallbacks, abs)
       @lib.SharedAbsHeapTypeHeapType(_) => ()
       @lib.HeapType(type_idx) =>
         match env.resolve_subtype(type_idx) {
           Some(subtype) => {
             for super_type in subtype.super_types().rev_iter() {
-              work.push(@lib.HeapType::new(super_type))
+              scratch.heap_work.push(@lib.HeapType::new(super_type))
             }
             gr_append_shape_heap_supertypes(
-              abstract_fallbacks,
+              scratch.abstract_fallbacks,
               subtype.get_comptype(),
             )
           }
@@ -413,10 +526,10 @@ fn gr_collect_heaptype_candidates(
         match def_type.project() {
           Some(subtype) => {
             for super_type in subtype.super_types().rev_iter() {
-              work.push(@lib.HeapType::new(super_type))
+              scratch.heap_work.push(@lib.HeapType::new(super_type))
             }
             gr_append_shape_heap_supertypes(
-              abstract_fallbacks,
+              scratch.abstract_fallbacks,
               subtype.get_comptype(),
             )
           }
@@ -424,10 +537,10 @@ fn gr_collect_heaptype_candidates(
         }
     }
   }
-  for fallback in abstract_fallbacks {
-    gr_append_unique_heaptype(out, fallback)
+  for fallback in scratch.abstract_fallbacks {
+    gr_append_unique_heaptype(scratch.candidates, fallback)
   }
-  out
+  scratch.candidates
 }
 
 ///|
@@ -435,22 +548,34 @@ fn gr_typeidx_is_declared_subtype(
   source : @lib.TypeIdx,
   target : @lib.TypeIdx,
   env : @validate.Env,
+  scratch : GrNominalAncestryScratch,
 ) -> Bool {
-  let work : Array[@lib.TypeIdx] = [source]
-  let visited : Array[@lib.TypeIdx] = []
-  while work.length() > 0 {
-    let current = work.pop().unwrap()
+  scratch.stats.declared_subtype_queries += 1
+  let generation = scratch.next_generation()
+  scratch.type_work.clear()
+  scratch.non_absolute_visited.clear()
+  scratch.type_work.push(source)
+  while scratch.type_work.length() > 0 {
+    let current = scratch.type_work.pop().unwrap()
+    let slot = gr_absolute_type_slot(current, scratch.marks.length())
+    if slot >= 0 {
+      if scratch.marks[slot] == generation {
+        continue
+      }
+      scratch.marks[slot] = generation
+    } else if scratch.non_absolute_visited.contains(current) {
+      continue
+    } else {
+      scratch.non_absolute_visited.push(current)
+    }
+    scratch.stats.visited_type_nodes += 1
     if current == target {
       return true
     }
-    if visited.contains(current) {
-      continue
-    }
-    visited.push(current)
     match env.resolve_subtype(current) {
       Some(subtype) =>
         for super_type in subtype.super_types() {
-          work.push(super_type)
+          scratch.type_work.push(super_type)
         }
       None => ()
     }
@@ -459,14 +584,65 @@ fn gr_typeidx_is_declared_subtype(
 }
 
 ///|
+fn gr_mark_declared_ancestors(
+  source : @lib.TypeIdx,
+  env : @validate.Env,
+  scratch : GrNominalAncestryScratch,
+) -> Int {
+  scratch.stats.declared_ancestor_collections += 1
+  let generation = scratch.next_generation()
+  scratch.type_work.clear()
+  scratch.non_absolute_visited.clear()
+  scratch.type_work.push(source)
+  while scratch.type_work.length() > 0 {
+    let current = scratch.type_work.pop().unwrap()
+    let slot = gr_absolute_type_slot(current, scratch.marks.length())
+    if slot >= 0 {
+      if scratch.marks[slot] == generation {
+        continue
+      }
+      scratch.marks[slot] = generation
+    } else if scratch.non_absolute_visited.contains(current) {
+      continue
+    } else {
+      scratch.non_absolute_visited.push(current)
+    }
+    scratch.stats.visited_type_nodes += 1
+    match env.resolve_subtype(current) {
+      Some(subtype) =>
+        for super_type in subtype.super_types() {
+          scratch.type_work.push(super_type)
+        }
+      None => ()
+    }
+  }
+  generation
+}
+
+///|
+fn gr_declared_ancestor_was_marked(
+  candidate : @lib.TypeIdx,
+  generation : Int,
+  scratch : GrNominalAncestryScratch,
+) -> Bool {
+  let slot = gr_absolute_type_slot(candidate, scratch.marks.length())
+  if slot >= 0 {
+    scratch.marks[slot] == generation
+  } else {
+    scratch.non_absolute_visited.contains(candidate)
+  }
+}
+
+///|
 fn gr_heaptype_matches_join_candidate(
   source : @lib.HeapType,
   candidate : @lib.HeapType,
   env : @validate.Env,
+  scratch : GrNominalAncestryScratch,
 ) -> Bool {
   match (source, candidate) {
     (@lib.HeapType(source), @lib.HeapType(candidate)) =>
-      gr_typeidx_is_declared_subtype(source, candidate, env)
+      gr_typeidx_is_declared_subtype(source, candidate, env, scratch)
     _ => @validate.Match::matches(source, candidate, env)
   }
 }
@@ -476,19 +652,41 @@ fn gr_join_heaptypes(
   left : @lib.HeapType,
   right : @lib.HeapType,
   env : @validate.Env,
+  scratch : GrNominalAncestryScratch,
 ) -> @lib.HeapType? {
-  if gr_heaptype_matches_join_candidate(left, right, env) {
+  if gr_heaptype_matches_join_candidate(left, right, env, scratch) {
     return Some(right)
   }
-  if gr_heaptype_matches_join_candidate(right, left, env) {
+  if gr_heaptype_matches_join_candidate(right, left, env, scratch) {
     return Some(left)
   }
-  let candidates = gr_collect_heaptype_candidates(left, env)
-  for candidate in candidates {
-    if gr_heaptype_matches_join_candidate(left, candidate, env) &&
-      gr_heaptype_matches_join_candidate(right, candidate, env) {
-      return Some(candidate)
+  let candidates = gr_collect_heaptype_candidates(left, env, scratch)
+  match right {
+    @lib.HeapType(right_type_idx) => {
+      let generation = gr_mark_declared_ancestors(right_type_idx, env, scratch)
+      for candidate in candidates {
+        match candidate {
+          @lib.HeapType(candidate_type_idx) =>
+            if gr_declared_ancestor_was_marked(
+                candidate_type_idx, generation, scratch,
+              ) {
+              return Some(candidate)
+            }
+          _ =>
+            if @validate.Match::matches(right, candidate, env) {
+              return Some(candidate)
+            }
+        }
+      }
     }
+    _ =>
+      for candidate in candidates {
+        // Every collected candidate is already a supertype of `left`, so only
+        // the right side requires a compatibility query here.
+        if gr_heaptype_matches_join_candidate(right, candidate, env, scratch) {
+          return Some(candidate)
+        }
+      }
   }
   None
 }
@@ -560,9 +758,10 @@ fn gr_join_reftypes(
   left : @lib.RefType,
   right : @lib.RefType,
   env : @validate.Env,
+  scratch : GrNominalAncestryScratch,
 ) -> @lib.RefType? {
   let heap_type = match
-    gr_join_heaptypes(left.get_heap_type(), right.get_heap_type(), env) {
+    gr_join_heaptypes(left.get_heap_type(), right.get_heap_type(), env, scratch) {
     Some(heap_type) => heap_type
     None => return None
   }
@@ -586,6 +785,7 @@ fn gr_note_ref_type(
   slot : Int,
   next : @lib.RefType,
   env : @validate.Env,
+  scratch : GrNominalAncestryScratch,
 ) -> Unit {
   if slot < 0 || slot >= noted.length() {
     return
@@ -593,7 +793,7 @@ fn gr_note_ref_type(
   match noted[slot] {
     None => noted[slot] = Some(next)
     Some(current) =>
-      match gr_join_reftypes(current, next, env) {
+      match gr_join_reftypes(current, next, env, scratch) {
         Some(joined) => noted[slot] = Some(joined)
         None => ()
       }
@@ -643,6 +843,7 @@ fn gr_collect_func_global_sets(
   candidate_slots : Array[Int],
   noted : Array[@lib.RefType?],
   env : @validate.Env,
+  scratch : GrNominalAncestryScratch,
 ) -> Unit {
   let stack : Array[Int] = []
   for root_idx = @ir.hot_root_count(hot_func) - 1
@@ -671,7 +872,7 @@ fn gr_collect_func_global_sets(
                         @lib.FuncIdx::new(value_node.imm0.reinterpret_as_uint()),
                       ) {
                       Some(ref_type) =>
-                        gr_note_ref_type(noted, slot, ref_type, env)
+                        gr_note_ref_type(noted, slot, ref_type, env, scratch)
                       None => ()
                     }
                   }
@@ -684,7 +885,9 @@ fn gr_collect_func_global_sets(
                             gr_ref_null_result_type(ref_type, env)
                           _ => ref_type
                         }
-                        gr_note_ref_type(noted, slot, noted_ref_type, env)
+                        gr_note_ref_type(
+                          noted, slot, noted_ref_type, env, scratch,
+                        )
                       }
                       _ => ()
                     }
@@ -696,7 +899,7 @@ fn gr_collect_func_global_sets(
                       @ir.hot_node_type(hot_func, value_id),
                     ) {
                     [@lib.RefTypeValType(ref_type)] =>
-                      gr_note_ref_type(noted, slot, ref_type, env)
+                      gr_note_ref_type(noted, slot, ref_type, env, scratch)
                     _ => ()
                   }
               }
@@ -887,6 +1090,7 @@ pub fn global_refining_run_module_pass(
     return mod_
   }
 
+  let scratch = GrNominalAncestryScratch::new(env)
   let noted : Array[@lib.RefType?] = []
   for _ in candidate_abs_globals {
     noted.push(None)
@@ -903,7 +1107,7 @@ pub fn global_refining_run_module_pass(
     let @lib.Global(_, init) = globals[defined_idx]
     match gr_expr_result_type(env, init) {
       Some(@lib.RefTypeValType(ref_type)) =>
-        gr_note_ref_type(noted, slot, ref_type, env)
+        gr_note_ref_type(noted, slot, ref_type, env, scratch)
       _ => ()
     }
   }
@@ -925,12 +1129,15 @@ pub fn global_refining_run_module_pass(
           @lib.FuncIdx::new(abs_idx.reinterpret_as_uint()),
           module_ctx,
         )
-        gr_collect_func_global_sets(hot_func, candidate_slots, noted, env)
+        gr_collect_func_global_sets(
+          hot_func, candidate_slots, noted, env, scratch,
+        )
       }
     }
     None => ()
   }
 
+  ignore(scratch.observed_work())
   let next_globals = globals.copy()
   let refined_globals : Array[@lib.RefType?] = Array::make(total_globals, None)
   let mut changed = false
