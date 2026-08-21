@@ -44,6 +44,33 @@ Current positive residual leaders are:
 
 The next continuation should first preserve the exact pass7 binary and reproduce the ifs/primes stateful oracle before changing candidate admission. Isolate canonical descendants one roster at a time from the accepted late-cleanup/SSA artifacts; do not re-enable post-SSA CoalesceLocals, broad SimplifyLocals, MergeBlocks, CFG CoalesceLocals, DAE, or optimizing inlining for the measured 44/50-function family without allocator/event/trap/full-memory equality. After embenchen, investigate JSON-SIMD termination, then fannkuch/fasta residual structure, scalar JSON, `urem_regalloc`, startup JSON, and scalar ISA. Separately retain `[WALL]001` work for portfolio orchestration and repeated encode/validate costs, audit the three tracked Wasm fixtures above 2 MiB, and classify the 35 compatibility failures including `InvalidNameSubsectionOrder` families. Validation alone must not admit candidates: startup, binary-tree, JSON-SIMD, ifs/primes, and 1797a all produced externally valid wrong-runtime artifacts during this audit.
 
+## 2026-08-21 final17 empty void else omission
+
+Native optimizer SHA-256 `b02cacf4c9a673339a89f3bf1d0c8470187ca07dc61126d444514d878bbbf92d` produces the definitive fresh sweep `.tmp/wago-o4z-pass8-final17-empty-void-else-fresh-20260821/`. On the unchanged 766-file stable cohort Starshine emits **413,297 bytes** versus pinned Binaryen v131 at 415,485, a fresh **2,188-byte / 0.527% win**. The distribution improves to 110 smaller / 603 equal / 53 larger, positive residual bytes fall to 3,022, and Starshine removes 46,833 bytes from the original 460,130-byte baseline for 104.90% gap closure.
+
+Final candidate canonicalization now recursively replaces `if (type void) ... else {}` with the identical no-else encoding. The rewrite does not alter the condition, then body, nested control, labels, effects, or traps. Result-typed `if` instructions and nonempty else bodies remain untouched. Red-first command coverage asserts the exact IR field changes from `Some([])` to `None`.
+
+Exactly three stable artifacts improve, with no regressions:
+
+- `many_table_gets_lead_to_gc`: 103 → **102**, byte-identical to Binaryen.
+- fannkuch: 23,332 → **23,331**.
+- fasta: 23,721 → **23,720**.
+
+A fourth broad-only artifact, `exception-handling/try_table.1`, falls 1,180 → **1,176**. Removing the empty else permits the existing exact `if { br }` → `br_if` canonicalization. It is intentionally excluded from stable totals because pinned Binaryen v131 times out on this input.
+
+Runtime signoff covers the changed families:
+
+- Many-table: 30 fresh-instance cases across null, object, array, function, and `WebAssembly.Global` externrefs and counts 0, 1, 2, 17, 1,000, and 100,000; input, final16, Binaryen, and final17 return identically.
+- Fannkuch: allocator/event order and 131,072-byte full-memory SHA-256 `b46c752a789beced575e808e38bc59fed14b584a257f686338849381b77c0ea0` remain exact.
+- Fasta: allocator/event order and 131,072-byte full-memory SHA-256 `c5f619ac224a8890782b031dfa981bfcbf7957c9a1726dc4fee33f2750c2b464` remain exact.
+- `try_table.1`: fresh instances preserve `simple-throw-catch` results 23 for zero and 42 for positive, negative, and max-i32 inputs.
+
+WAT diffs for all changed artifacts contain only explicit empty-else omission and, for `try_table.1`, the resulting exact `br_if` form. Paired whole-command medians are neutral or better: many-table -0.78% over 1,000 pairs, fannkuch +0.08% over 100, fasta +0.01% over 100, and try-table +0.09% over 500.
+
+The retained-artifact projection remains distinct: **412,161** Starshine bytes versus 415,485 Binaryen, a projected **3,324-byte / 0.800% win**, with 112/602/52 smaller/equal/larger, 1,983 positive residual bytes, 47,969 bytes removed, and 107.45% original-gap closure.
+
+Command tests pass 270/270, pass tests 6,953/6,953, and the full repository **10,605/10,605**. Formatting, interfaces, native release, API sync, diff checks, external validation, runtime, performance, and the fresh sweep pass.
+
 ## 2026-08-21 final16 transitive DFE type-remap repair
 
 Native optimizer SHA-256 `7fb646d4cd84c7e9eeddef364498f9ed3ad3fe17b5f14700c18a328aff098823` produces the definitive fresh sweep `.tmp/wago-o4z-pass8-final16-dfe-transitive-type-remap-fresh-v2-20260821/`. On the unchanged 766-file stable cohort Starshine emits **413,300 bytes** versus pinned Binaryen v131 at 415,485, a fresh **2,185-byte / 0.526% win**. The distribution improves to 110 smaller / 602 equal / 54 larger, positive residual bytes fall to 3,025, and Starshine removes 46,830 bytes from the original 460,130-byte baseline for 104.89% gap closure.
