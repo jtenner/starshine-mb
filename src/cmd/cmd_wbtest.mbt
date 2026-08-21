@@ -1713,6 +1713,84 @@ test "run_cmd_with_adapter infers shrink preset from -O level with z bias" {
 }
 
 ///|
+test "run_cmd_with_adapter O4z preserves transitive function type equivalence" {
+  let wat =
+    #|(module
+    #|  (type $s0 (func (param i32)))
+    #|  (type $s1 (func (param i32 (ref $s0))))
+    #|  (type $s2 (func (param i32 (ref $s0))))
+    #|  (type $t1 (func (param (ref $s1))))
+    #|  (type $t2 (func (param (ref $s2))))
+    #|  (table 4 4 funcref)
+    #|  (elem (i32.const 0) func $f1 $f2 $s1 $s2)
+    #|  (func $s1 (type $s1) (param i32 (ref $s0)))
+    #|  (func $s2 (type $s2) (param i32 (ref $s0)))
+    #|  (func $f1 (type $t1) (param (ref $s1)))
+    #|  (func $f2 (type $t2) (param (ref $s2)))
+    #|  (func (export "run")
+    #|    ref.func $s1
+    #|    i32.const 0
+    #|    call_indirect (type $t1)
+    #|    ref.func $s1
+    #|    i32.const 1
+    #|    call_indirect (type $t1)
+    #|    ref.func $s2
+    #|    i32.const 0
+    #|    call_indirect (type $t1)
+    #|    ref.func $s2
+    #|    i32.const 1
+    #|    call_indirect (type $t1)
+    #|    ref.func $s1
+    #|    i32.const 0
+    #|    call_indirect (type $t2)
+    #|    ref.func $s1
+    #|    i32.const 1
+    #|    call_indirect (type $t2)
+    #|    ref.func $s2
+    #|    i32.const 0
+    #|    call_indirect (type $t2)
+    #|    ref.func $s2
+    #|    i32.const 1
+    #|    call_indirect (type $t2)))
+  let input = @passes.pass_test_module_from_wat(wat)
+  let wasm = encode_module_bytes(input)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["-O4z", "--out", "out.wasm", "a.wasm"], io) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected transitive type-equivalence O4z success, got \{err}")
+  }
+  @debug.assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected valid transitive type-equivalence output: \{err}")
+  }
+  let run = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(run.contains("unreachable"), msg=run)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_])) => ()
+    _ => fail("expected one returning function after O4z")
+  }
+}
+
+///|
 test "O4z size portfolio selects the shortest encoded candidate stably" {
   let first = bytes_from_ints([0, 1, 2])
   let second = bytes_from_ints([3, 4])

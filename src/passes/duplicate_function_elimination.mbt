@@ -3498,8 +3498,18 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
         perf~,
         code_rewrite_flags~,
       )
+      let rewritten_kept_types : Array[@lib.RecType] = []
+      for kept_type in kept_types {
+        if dfe_rec_type_uses_remap(kept_type, type_remap) {
+          rewritten_kept_types.push(dfe_rewrite_rec_type(kept_type, type_remap))
+        } else {
+          rewritten_kept_types.push(kept_type)
+        }
+      }
       dfe_perf_stop_timer_opt(perf, "type-canon:rewrite", rewrite_timer)
-      let with_types = rewritten.with_type_sec(@lib.TypeSec::new(kept_types))
+      let with_types = rewritten.with_type_sec(
+        @lib.TypeSec::new(rewritten_kept_types),
+      )
       match with_types.name_sec {
         Some(name_sec) =>
           with_types.with_name_sec(

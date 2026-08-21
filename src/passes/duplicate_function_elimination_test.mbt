@@ -1645,6 +1645,96 @@ test "duplicate-function-elimination rewrites call_indirect and tag type indices
 }
 
 ///|
+test "duplicate-function-elimination rewrites nested kept function type refs during compaction" {
+  let ref_to_type0 = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let ref_to_type1 = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let ref_to_type2 = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(2U))),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), ref_to_type0], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), ref_to_type0], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([ref_to_type1], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([ref_to_type2], [])),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(1U),
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(3U),
+        @lib.TypeIdx::new(4U),
+        @lib.TypeIdx::new(5U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  match optimized.type_sec {
+    Some(
+      @lib.TypeSec(
+        [
+          _,
+          _,
+          _,
+          @lib.SingleRecType(
+            @lib.CompTypeSubType(
+              _,
+              @lib.FuncCompType(
+                [
+                  @lib.RefTypeValType(
+                    @lib.HeapTypeRefType(
+                      _,
+                      _,
+                      @lib.HeapType(@lib.TypeIdx(param_type))
+                    )
+                  ),
+                ],
+                []
+              )
+            )
+          ),
+          _,
+        ]
+      )
+    ) => @debug.assert_eq(param_type, 1U)
+    _ =>
+      fail("expected compacted kept function type with one indexed ref param")
+  }
+}
+
+///|
 test "duplicate-function-elimination rewrites concrete local and global ref types during local type compaction" {
   let ref_sig = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
