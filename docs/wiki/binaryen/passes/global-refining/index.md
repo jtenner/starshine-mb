@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-20
 sources:
   - ../../../../../src/passes/global_refining.mbt
   - ../../../../../src/passes/global_refining_test.mbt
@@ -65,7 +65,7 @@ It is a small whole-module **global declaration tightening** pass.
   - the next `remove-unused-module-elements` and later `gsi` see a cleaner, more precise module
 - The 2026-06-18 O4z closeout audit reopened `[O4Z-AUDIT-GR]` for source-backed Binaryen `version_130` watchpoints.
   - `[GR-001]` is closed as a Starshine feature-model proof for the Binaryen GC gate.
-  - `[GR-002]` exact `ref.func` LUB implementation/tests are locally Moon-validated and closed for the targeted function-ref exactness behavior.
+  - `[GR-002]` records the historical Binaryen-v130 exact `ref.func` LUB behavior; `[GR-008]` supersedes it for pinned v131 with externally valid non-exact indexed facts.
   - `[GR-003]` initializer expression typing is locally Moon-validated and direct-compare green for the known nested `ref.i31` / conversion mismatch families.
   - `[GR-004]` custom-descriptor public-type behavior is locally Moon-validated and direct-compare green under the Binaryen `--all-features` oracle lane.
   - `[GR-005]` proves Binaryen-style `global.get` retagging/refinalization is representation-specific locally and covered by dependent-initializer plus function-body typechecking fixtures.
@@ -96,7 +96,7 @@ It is a small whole-module **global declaration tightening** pass.
 - The current local Starshine pass is still narrower than upstream Binaryen in representation, but now covers the important boundary matrix:
   - it refines defined reference globals and still skips exported mutable ones
   - it filters immutable exported refinements through the local all-features/custom-descriptors public-type model and skips exported globals when `closed_world` is set
-  - it seeds initializer facts from full local expression typechecking, with direct `ref.null` bottom-reference handling and coverage for exact `ref.func`, nested `ref.i31`, conversions, `string.const`, and exact GC constructors such as `struct.new_default` plus array constructors
+  - it seeds initializer facts from full local expression typechecking, with direct `ref.null` bottom-reference handling, deliberate non-exact indexed normalization for `ref.func`, and coverage for nested `ref.i31`, conversions, `string.const`, and exact GC constructors such as `struct.new_default` plus array constructors
   - it collects writes through HOT lifting only for functions that mention candidate globals
   - and it rewrites declarations without Binaryen-style post-pass `global.get` retagging because the local representation does not use the same cached expression-type model here
 - The pass does **not** remove `global.set`s, replace `global.get`s with constants, or run `gsi`-style field-value inference.

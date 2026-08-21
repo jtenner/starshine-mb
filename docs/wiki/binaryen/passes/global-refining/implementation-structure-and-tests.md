@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-20
 sources:
   - ./index.md
 related:
@@ -101,9 +101,9 @@ What it proves:
 What it directly proves:
 
 - init-only null-ref globals can narrow from broad function refs to `nullfuncref`
-- init-only `ref.func` globals can narrow to exact internal function-ref types, e.g. `(ref (exact $foo_t))`
-- later null writes can produce nullable exact results instead of forcing a return to broad `funcref`, e.g. `(ref null (exact $foo_t))`
-- all-non-null function-ref traffic can remove nullability while preserving exactness
+- init-only `ref.func` globals can narrow to non-null indexed function-ref types, e.g. `(ref $foo_t)`
+- later null writes can produce nullable indexed results instead of forcing a return to broad `funcref`, e.g. `(ref null $foo_t)`
+- all-non-null function-ref traffic can remove nullability without claiming exactness
 - heterogeneous writes can shrink a broad declaration like `anyref` down to `eqref`
 - a dependent global initializer using `global.get` remains valid after another global narrows
 - exported mutable globals stay unoptimized in open world

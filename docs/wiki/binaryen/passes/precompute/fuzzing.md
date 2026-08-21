@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-26
+last_reviewed: 2026-08-20
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ./index.md
@@ -12,6 +12,14 @@ sources:
 ---
 
 # `precompute` Fuzzing Profile
+
+## 2026-08-20 compact SIMD and zero-memory-init refresh
+
+Native SHA-256 `b536e6105356d6b51dc10c7954047c933159dd46809b7c47566f979198a91093` adds exact constant folds for `f32x4.abs`, `f32x4.convert_i32x4_u`, and signed `i16x8.extadd_pairwise_i8x16_s`, completing the existing unsigned pairwise fold. `f32x4.abs` clears only each lane sign bit, preserving NaN payloads and signed-zero semantics; unsigned conversion uses the existing scalar unsigned-to-f32 rounding path and writes exact lane bits. Precompute also removes only the exact all-zero `memory.init` shape (`dst=0`, `src=0`, `len=0`), including memory64 destinations. The raw tail folder owns modules that would otherwise exit through `no-precompute-candidates`; the HOT path owns the same exact fact when another candidate already requires lifting.
+
+Focused tests are 106/106. Retained WAGO artifact replay reduces issue-3327 62 → 57, fuzzcase 2057 55 → 50, Winch issue-10331 55 → 53, fuzzcase 1797b 123 → 120, and memory64 codegen 241 → 221. The first four preserve exact v128 lanes through Wasm observation wrappers; memory64 `run` matches final7. All outputs validate externally, and the memory64 output is byte-identical to pinned Binaryen v131 after command-layer empty data/data-count encoding cleanup.
+
+All smoke uses explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`. Regular `.tmp/pass-fuzz-precompute-final8-regular-1000` compares 1,000/1,000 with 4 direct and 996 cleanup-normalized matches. Dedicated `.tmp/pass-fuzz-precompute-final8-dedicated-1000` compares 1,000/1,000 with 349 direct and 651 cleanup-normalized matches. Explicit wasm-smith `.tmp/pass-fuzz-precompute-final8-wasm-smith-1000` compares 997/1,000 with 994 direct and 3 cleanup-normalized matches, three Binaryen command failures, and no mismatches. Bounded random-all `.tmp/pass-fuzz-precompute-final8-random-all-100` completes 100/100 with 27 direct, 30 cleanup-normalized, and 43 existing cross-pass residuals; there are zero validation, property, generator, or command failures. The random lane is development smoke, not renewed four-lane closeout evidence.
 
 ## Current release-gating status
 

@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-20
 sources:
   - ./index.md
 related:
@@ -26,7 +26,7 @@ related:
   - current official `version_130` closed-world behavior still skips all exported globals
 - The current Starshine implementation now matches the broad exported-boundary split on the direct parity lane: mutable exports stay untouched, immutable exports can refine only when the refined type remains public, closed-world exports stay untouched, and private globals still tighten from initializer-plus-write LUBs.
 - The 2026-06-03 O4z audit restored the direct `global-refining` slot under `-O4z` options and added initializer coverage for `ref.func`, `ref.i31`, `string.const`, and exact GC constructor results.
-- The 2026-06-18 `[GR-002]` slice aligned Starshine's function-reference LUB behavior with Binaryen `version_130`: `ref.func` facts are exact, nullable function bottom plus exact `ref.func` joins to nullable exact, and all-non-null `ref.func` families refine to non-null exact function refs.
+- The 2026-06-18 `[GR-002]` slice aligned Starshine's function-reference LUB behavior with the then-pinned Binaryen `version_130` exact-ref surface. This historical conclusion is superseded for current pinned v131 execution by `[GR-008]`: v131 emits non-exact indexed `ref.func` facts, and exact mutable-global refinement can fail external validation.
 - The 2026-06-18 `[GR-003]` slice replaced the syntax-limited initializer classifier with local expression typechecking for global initializers, while preserving Binaryen-style bottom typing for direct `ref.null` initializers. This closed the direct `ref.i31` and `extern.convert_any` initializer mismatch family from `.tmp/pass-fuzz-global-refining-gr002-10000`; the follow-up direct 10000-case lane `.tmp/pass-fuzz-global-refining-gr003-10000` had `0` mismatches.
 - The 2026-06-18 `[GR-004]` slice aligned open-world immutable exported globals with the local all-features/custom-descriptors feature model used by the Binaryen oracle lane: exact refs and types whose bodies mention exact refs are public for this pass locally, matching Binaryen `--all-features` `PublicTypeValidator` behavior.
 - The 2026-06-18 `[GR-005]` proof closed Binaryen-style `global.get` retagging as representation-specific locally: Starshine does not cache `global.get` result types in boundary IR, so fresh validation/typechecking sees refined declarations directly.
@@ -61,7 +61,7 @@ The focused local tests currently cover these main families:
 - exported immutable global refined from an abstract `ref.null` initializer
 - exported mutable global kept at its declared boundary type
 - abstract `ref.null` initializers tightened to Binaryen's bottom reference types
-- private `ref.func` initializer refinement to exact function heap types, including nullable-bottom joins and subtype targets
+- private `ref.func` initializer refinement to non-exact indexed function heap types, including nullable-bottom joins and subtype targets
 - `ref.i31` initializer refinement through full expression typing, including nested numeric constant expressions and mutable `eqref` / `i31ref` declarations tightening to non-null `(ref i31)`
 - conversion initializer refinement for non-null `extern.convert_any` and `any.convert_extern` results
 - private exact GC constructor initializer refinement, including exact struct and array constructor result typing
@@ -69,16 +69,30 @@ The focused local tests currently cover these main families:
 - closed-world exported-global bailout
 - dependent `global.get` initializers staying valid after source global refinement
 - function-body `global.get` users seeing refined declarations through fresh validation/typechecking
-- sibling writes joined at a shared declared supertype
+- sibling writes joined through declared nominal ancestry at a shared declared supertype, without treating structurally identical siblings as subtypes
 - direct `-O4z` option slot execution for `global-refining`
 
 That closes the known `[GR-003]` initializer-typing mismatch family, `[GR-004]` custom-descriptor public-type family, and `[GR-005]` retagging/refinalization representation proof. The direct audit is closed with the `[GR-006]` evidence below.
 
 ## Recently closed watchpoints
 
-### `[GR-002]` exact `ref.func` LUB behavior
+### `[GR-008]` pinned-v131 non-exact `ref.func` correction
 
-Starshine now treats `ref.func` instruction typing plus initializer-side and direct-write `ref.func` facts as exact function references, matching Binaryen's `ref.func` expression typing in the dedicated `global-refining.wast` surface. The local join also preserves exactness when the other observed value is the nullable function bottom (`nofunc`), so `ref.null func` plus one exact function family refines to `(ref null (exact $f_t))` instead of widening to non-exact `funcref`.
+Pinned Binaryen v131 emits `ref.func` facts as non-null indexed function references `(ref $type)`, not exact references. Starshine's inherited v130-era exact initializer/write fact could refine a mutable global to `(ref (exact $type))` even though the initializer or a later `global.set` still produced `(ref $type)`. The resulting module could pass the local optimization path but fail independent `wasm-tools` validation with `expected (ref (exact $type)), found (ref $type)`.
+
+`gr_ref_func_result_type(...)` now returns a non-exact indexed reference, and direct `ref.func` initializers use that helper instead of accepting the validator's broader expression-type exactness. Allocation constructors remain exact. The five ref.func-specific tests now lock indexed/non-exact nullability and subtype outcomes; all 22 GlobalRefining tests pass. Direct output for `ref_func.1` validates externally, and the validated O4z continuation folds the non-null `ref.is_null` duplicate to reach 225 bytes, byte-identical to Binaryen. Fresh runtime probes preserve all global mutation and indirect-call behavior.
+
+Validation on 2026-08-20 passes `moon fmt`, `moon info`, full `moon test` at 10,565/10,565, native release build, and `git diff --check`. Direct compare `.tmp/pass-fuzz-global-refining-ref-func-indexed-10000` compares 10,000/10,000 with 10,000 normalized matches and zero mismatches or failures.
+
+### `[GR-007]` nominal sibling least-upper-bound repair
+
+Concrete `HeapType(TypeIdx)` joins now follow the declared subtype graph instead of using general structural `Match` acceptance for concrete candidates. This prevents two structurally identical sibling definitions from being mistaken for a subtype pair and incorrectly refining a mutable global to one sibling rather than their shared declared parent. Abstract heap candidates and non-index heap forms continue to use the general matcher.
+
+The existing public-pipeline regression `global-refining joins sibling writes at the shared declared supertype` was red with `(ref null 1)` where `(ref null 0)` was required and is now green. Validation on 2026-08-20 passed the focused regression, all 22 GlobalRefining tests, `moon info`, `moon fmt`, the full `moon test` suite at 10,556/10,556, native release build, and `git diff --check`. Direct compare `.tmp/pass-fuzz-global-refining-sibling-join-10000` requested and compared 10,000 ordinary GenValid cases at seed `0x5eed`: 10,000 normalized matches, zero mismatches, zero validation/property/generator/command failures, and Binaryen cache 2 hits/9,998 misses. The refreshed WAGO run `.tmp/wago-o4z-pass8-final6-global-refining-20260820/` produced byte-identical Starshine artifacts for all 1,276 successful outputs relative to final5, preserving the accepted 415,013-byte stable-cohort result.
+
+### `[GR-002]` historical exact `ref.func` LUB behavior — superseded
+
+This section records the 2026-06-18 Binaryen v130-era conclusion. It is superseded by `[GR-008]` for current pinned v131 execution and must not be used as the implementation rule. Current Starshine normalizes initializer-side and direct-write `ref.func` facts to non-exact indexed references so refined mutable globals remain externally valid.
 
 Focused coverage in [`../../../../../src/passes/global_refining_test.mbt`](../../../../../src/passes/global_refining_test.mbt) locks init-only exact refs, null-plus-exact writes, exact-plus-null writes, all-non-null writes, and a function subtype `$sub` initializer refining through a `$super` declaration. Validation on 2026-06-18 passed `moon info`, `moon fmt`, focused `global_refining_test.mbt`, focused `typecheck.mbt`, `moon test src/passes`, `moon test src/validate`, full `moon test`, native `src/cmd` build, and `git diff --check`. Direct compare `.tmp/pass-fuzz-global-refining-gr002-10000` compared `4651/10000` before max-failures, with `4640` normalized matches, `11` mismatches, and `9` Binaryen/tool command failures; sampled mismatches are existing `[GR-003]` initializer-typing gaps (`ref.i31` and `extern.convert_any`), not `[GR-002]` function-ref exactness drift.
 
@@ -151,7 +165,7 @@ That is likely fine for the current representation, but future typed caches in b
 
 ## Practical rule for future work
 
-- Keep the current local mutable-export boundary, closed-world exported-global bailout, all-features/custom-descriptor public-type model, expression-typed initializer facts, exact `ref.func` / array-constructor typing, and bottom-null handling unless new compare evidence says they are wrong.
+- Keep the current local mutable-export boundary, closed-world exported-global bailout, all-features/custom-descriptor public-type model, expression-typed initializer facts, non-exact indexed `ref.func` typing, exact allocation-constructor typing, and bottom-null handling unless new compare evidence says they are wrong.
 - If Starshine later adds feature-disabled direct-pass execution, revisit both the Binaryen GC gate and the non-custom-descriptor public-type scan.
 - If the local IR ever starts caching expression result types more aggressively, preserve the Binaryen rule that declaration refinement must be paired with `global.get` retagging and refinalization.
 
