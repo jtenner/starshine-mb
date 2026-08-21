@@ -5416,10 +5416,12 @@ pub fn run_cmd_with_adapter(
                                                   cleanup_options,
                                                 ) {
                                                 Ok(finished) => {
-                                                  let finished = @passes.o4z_restore_optimized_primes_variadic_pack_funcs(
-                                                    stateful_cleaned,
-                                                    @passes.o4z_canonicalize_final_size_candidate(
-                                                      finished,
+                                                  let finished = @passes.o4z_canonicalize_final_size_store_carries(
+                                                    @passes.o4z_restore_optimized_primes_variadic_pack_funcs(
+                                                      stateful_cleaned,
+                                                      @passes.o4z_canonicalize_final_size_candidate(
+                                                        finished,
+                                                      ),
                                                     ),
                                                   )
                                                   match

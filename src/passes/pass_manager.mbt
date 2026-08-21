@@ -62516,6 +62516,22 @@ fn o4z_canonicalize_final_size_sign_extensions(
     if i + 3 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
         (
+          @lib.I32Const(@lib.I32(first_shift)),
+          @lib.I32Shl,
+          @lib.I32Const(@lib.I32(second_shift)),
+          @lib.I32Shl,
+        ) if first_shift >= 0 &&
+          first_shift < 32 &&
+          second_shift >= 0 &&
+          second_shift < 32 &&
+          first_shift + second_shift < 32 => {
+          out.push(@lib.Instruction::i32_const(first_shift + second_shift))
+          out.push(@lib.Instruction::i32_shl())
+          changed = true
+          i = i + 4
+          continue
+        }
+        (
           @lib.I32Const(@lib.I32(1)),
           @lib.I32And,
           @lib.I32Const(@lib.I32(1)),
@@ -66082,6 +66098,237 @@ fn o4z_canonicalize_final_size_restore_emscripten_stack_alloc(
 }
 
 ///|
+fn o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = Array::new(
+    capacity=instrs.length(),
+  )
+  let mut changed = false
+  for instr in instrs {
+    let next = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        changed = changed || then_changed || else_changed
+        if then_changed || else_changed {
+          @lib.Instruction::if_(block_type, next_then, next_else)
+        } else {
+          instr
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      _ => instr
+    }
+    normalized.push(next)
+  }
+  let rewritten : Array[@lib.Instruction] = Array::new(
+    capacity=normalized.length(),
+  )
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 7 < normalized.length() {
+      match
+        (
+          normalized[idx],
+          normalized[idx + 1],
+          normalized[idx + 2],
+          normalized[idx + 3],
+          normalized[idx + 4],
+          normalized[idx + 5],
+          normalized[idx + 6],
+          normalized[idx + 7],
+        ) {
+        (
+          @lib.LocalSet(target),
+          @lib.LocalGet(_),
+          @lib.LocalGet(_),
+          @lib.I32Const(_),
+          @lib.I32Add,
+          @lib.I32Store(_),
+          @lib.LocalGet(first_read),
+          @lib.LocalGet(second_read),
+        ) if target == first_read && target == second_read => {
+          rewritten.push(@lib.Instruction::local_tee(target))
+          for keep = idx + 1; keep <= idx + 6; keep = keep + 1 {
+            rewritten.push(normalized[keep])
+          }
+          idx = idx + 8
+          changed = true
+          continue
+        }
+        _ => ()
+      }
+    }
+    rewritten.push(normalized[idx])
+    idx = idx + 1
+  }
+  (rewritten, changed)
+}
+
+///|
+pub fn o4z_canonicalize_final_size_store_carries(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let mut changed = false
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let (next_instrs, func_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          instrs,
+        )
+        if func_changed {
+          next_funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          changed = true
+        } else {
+          next_funcs.push(func)
+        }
+      }
+      if changed {
+        mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+      } else {
+        mod_
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
+fn o4z_canonicalize_final_size_strip_dead_after_br(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = Array::new(
+    capacity=instrs.length(),
+  )
+  let mut changed = false
+  for instr in instrs {
+    let next = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        changed = changed || then_changed || else_changed
+        if then_changed || else_changed {
+          @lib.Instruction::if_(block_type, next_then, next_else)
+        } else {
+          instr
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      _ => instr
+    }
+    normalized.push(next)
+  }
+  for idx = 0; idx < normalized.length(); idx = idx + 1 {
+    match normalized[idx] {
+      @lib.Br(_) if idx + 1 < normalized.length() => {
+        let out : Array[@lib.Instruction] = Array::new(capacity=idx + 1)
+        for keep = 0; keep <= idx; keep = keep + 1 {
+          out.push(normalized[keep])
+        }
+        return (out, true)
+      }
+      _ => ()
+    }
+  }
+  (normalized, changed)
+}
+
+///|
 fn o4z_canonicalize_final_size_instrs_have_local_access(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -66194,17 +66441,23 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
         let (init_instrs, init_changed) = o4z_canonicalize_final_size_overwritten_ref_func_initializer(
           tee_instrs,
         )
-        let (next_instrs, return_changed) = match init_instrs.last() {
+        let (branch_instrs, branch_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          init_instrs,
+        )
+        let (carry_instrs, carry_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          branch_instrs,
+        )
+        let (next_instrs, return_changed) = match carry_instrs.last() {
           Some(@lib.Return) => {
             let without_return : Array[@lib.Instruction] = Array::new(
-              capacity=init_instrs.length() - 1,
+              capacity=carry_instrs.length() - 1,
             )
-            for idx = 0; idx + 1 < init_instrs.length(); idx = idx + 1 {
-              without_return.push(init_instrs[idx])
+            for idx = 0; idx + 1 < carry_instrs.length(); idx = idx + 1 {
+              without_return.push(carry_instrs[idx])
             }
             (without_return, true)
           }
-          _ => (init_instrs, false)
+          _ => (carry_instrs, false)
         }
         let (next_instrs, nop_changed) = if next_instrs ==
           [@lib.Instruction::nop()] {
@@ -66232,6 +66485,8 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
           leb_changed ||
           tee_changed ||
           init_changed ||
+          branch_changed ||
+          carry_changed ||
           return_changed ||
           nop_changed ||
           remove_all_body_locals {
@@ -66352,6 +66607,44 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   } else {
     None
   }
+  let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  let has_stack_effect = run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
+    instrs,
+  )
+  let guarded_hot_hazard = has_writes && has_stack_effect
+  if guarded_hot_hazard {
+    let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+      instrs, module_ctx,
+    )
+    if !changed {
+      return Some({
+        reason: "raw-vacuum-guarded-hazard",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    let final_rewritten = if run_hot_pipeline_raw_vacuum_instrs_need_load_linked_second_preclean(
+        rewritten,
+      ) {
+      let (rerun, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+        rewritten, module_ctx,
+      )
+      rerun
+    } else {
+      rewritten
+    }
+    return Some({
+      reason: "raw-vacuum-preclean",
+      func: run_hot_pipeline_raw_vacuum_finalize_precleaned_func(
+        mod_, func_idx, module_state, options, locals, final_rewritten,
+      ),
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
   let has_dropped_local_tee = run_hot_pipeline_raw_vacuum_instrs_have_dropped_local_tee(
     instrs,
   )
@@ -66398,13 +66691,6 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       })
     }
   }
-  let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
-    instrs,
-  )
-  let has_stack_effect = run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
-    instrs,
-  )
-  let guarded_hot_hazard = has_writes && has_stack_effect
   let branchy_structured_writes = has_writes &&
     has_structured_control &&
     has_branches
@@ -66414,7 +66700,6 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     instrs,
   )
   if instr_count <= 2048 &&
-    !guarded_hot_hazard &&
     !branchy_structured_nop_debris &&
     !has_terminal_debris {
     return None
@@ -66422,14 +66707,6 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
     instrs, module_ctx,
   )
-  if guarded_hot_hazard && !changed {
-    return Some({
-      reason: "raw-vacuum-guarded-hazard",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
   if branchy_structured_nop_debris && !changed {
     return Some({
       reason: "raw-vacuum-structured-writes",
@@ -85760,27 +86037,12 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
         return Err("SGO nested cleanup pass \{pass_name}: \{err}")
       }
     }
-    current = match
-      run_hot_pipeline_sgo_validate_nested_cleanup_output(
-        candidate,
-        pass_name,
-        options.trace,
-      ) {
-      Ok(next) => next
-      Err(_) => {
-        perf_stop_timer_opt(
-          options.perf,
-          "detail:sgo:nested:\{pass_name}",
-          nested_pass_start_us,
-        )
-        perf_stop_timer_opt(
-          options.perf,
-          "detail:sgo:nested-total",
-          nested_total_start_us,
-        )
-        return Ok(rollback)
-      }
-    }
+    // The touched-pass writeback path already validates every changed
+    // function against the current module and repairs invalid definitions.
+    // Keep the broader transaction check, but pay for it once after the
+    // complete nested roster instead of revalidating the whole module after
+    // every individual hot pass.
+    current = candidate
     perf_stop_timer_opt(
       options.perf,
       "detail:sgo:nested:\{pass_name}",
@@ -85790,12 +86052,38 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
   current = run_hot_pipeline_sgo_collapse_large_unreachable_tails(
     current, cleanup_touched,
   )
+  let final_validate_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:sgo:nested:validate-final",
+  )
+  let validated = run_hot_pipeline_sgo_validate_nested_cleanup_output(
+    current,
+    "final",
+    options.trace,
+  )
   perf_stop_timer_opt(
     options.perf,
-    "detail:sgo:nested-total",
-    nested_total_start_us,
+    "detail:sgo:nested:validate-final",
+    final_validate_start_us,
   )
-  Ok(current)
+  match validated {
+    Ok(validated) => {
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:sgo:nested-total",
+        nested_total_start_us,
+      )
+      Ok(validated)
+    }
+    Err(_) => {
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:sgo:nested-total",
+        nested_total_start_us,
+      )
+      Ok(rollback)
+    }
+  }
 }
 
 ///|
@@ -85912,10 +86200,20 @@ fn run_hot_pipeline_apply_sgo_optimizing_module_pass(
   if result.mod_out == mod_ {
     Ok(cleaned)
   } else {
-    run_hot_pipeline_apply_sgo_final_cleanup_suffix(
-      sgo_apply_final_cleanup(cleaned),
-      options,
-    )
+    let cleaned = sgo_apply_final_cleanup(cleaned)
+    if options.optimize_level >= 4 &&
+      options.shrink_level >= 1 &&
+      o4z_size_candidate_has_unsafe_emscripten_main_runtime(mod_) {
+      pipeline_trace_hook(
+        options.trace,
+        "simplify-globals-optimizing",
+        "final-cleanup-suffix",
+        payload="skipped=true reason=o4z-stateful-emscripten-later-schedule",
+      )
+      Ok(cleaned)
+    } else {
+      run_hot_pipeline_apply_sgo_final_cleanup_suffix(cleaned, options)
+    }
   }
 }
 
