@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-21
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../tooling/pass-fuzz-compare.md
@@ -12,6 +12,14 @@ sources:
 ---
 
 # `remove-unused-module-elements` Fuzzing Profile
+
+## 2026-08-21 composite `ref.func` repair
+
+Runtime-used typed element expressions now recursively contribute nested `ref.func` references, and declaration-only composite expressions retain every function index inside the same indivisible expression while still pruning independent entries. Native SHA-256 is `fa740eba2fb1b5b1c167cc75c682b265995e19cffbc241567cfcb0f436ae8884`.
+
+The renewed `rume-all` lane at `.tmp/pass-fuzz-rume-composite-ref-func-cleanup-10000-20260821` requested and compared **10,000/10,000** with `rume-all`, seed `0x5eed`, explicit Binaryen v131, `--jobs auto`, and `--normalize local-cleanup-debris`: **4,106** ordinary normalized matches plus **5,894** compare-normalized matches, zero remaining mismatches, validation failures, generator failures, property failures, or command failures, and Binaryen cache **10,000/0**. The compare normalizer is required after the CLI-wide encoding cleanup began omitting standalone function-body `nop`s; an unnormalized development run stopped at 3,432 compared with 2,011 output-shape mismatches, and inspected legacy-EH/index-remap representatives differed only by Binaryen-retained standalone `nop`s. This is an encoding-shape family, not a RUME liveness/remap regression.
+
+Two binary-decoded focused fixtures own the repaired boundary because the local WAT helper does not yet parse these extended-const composite element forms. A passive typed elem containing `ref.func; struct.new` feeds `array.new_elem -> array.get -> struct.get -> call_ref` and returns **42** before/after the native pass; a declarative two-`ref.func` struct expression keeps both indices reference-only with `unreachable` bodies and externally validates. `wasm-tools --features all` validates both outputs. Pinned Binaryen v131 rejects the composite fixture while parsing (`unused expressions without block context`), so this exact proposal boundary has focused Starshine/runtime evidence rather than a direct Binaryen artifact comparison.
 
 Use a freshly built native CLI and an explicit official Binaryen v131 oracle. On the 2026-07-27 audit, PATH `wasm-opt` was v116; all oracle commands therefore used:
 

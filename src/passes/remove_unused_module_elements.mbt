@@ -802,13 +802,10 @@ fn rume_call_ref_type_from_operand(
 }
 
 ///|
-fn rume_mark_ref_func(
+fn rume_note_ref_func_liveness(
   analysis : RumeCallTableAnalysis,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
-  used_elems : @bitset.BitSet,
-  decl_only_elems : @bitset.BitSet,
-  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
   idx : @lib.FuncIdx,
 ) -> Unit {
   if !analysis.closed_world ||
@@ -819,11 +816,28 @@ fn rume_mark_ref_func(
   } else {
     rume_reference_func(used_funcs, analysis.referenced_funcs, idx)
   }
+}
+
+///|
+fn rume_mark_ref_func(
+  mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  used_elems : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
+  idx : @lib.FuncIdx,
+) -> Unit {
+  rume_note_ref_func_liveness(analysis, queue, used_funcs, idx)
   let @lib.FuncIdx(raw) = idx
   let slot = raw.reinterpret_as_int()
   if slot >= 0 && slot < func_to_declaring_elems.length() {
     for elem_idx in func_to_declaring_elems[slot] {
       rume_mark_declaring_elem(used_elems, decl_only_elems, elem_idx)
+      rume_note_declaring_expr_ref_func_siblings(
+        mod_, analysis, queue, used_funcs, elem_idx, idx,
+      )
     }
   }
 }
@@ -904,10 +918,172 @@ fn rume_reference_func(
 }
 
 ///|
+fn rume_scan_ref_func_liveness_instr(
+  instr : @lib.Instruction,
+  analysis : RumeCallTableAnalysis,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  strong : Bool,
+) -> Unit {
+  match instr {
+    @lib.Block(_, body) | @lib.Loop(_, body) =>
+      rume_scan_ref_func_liveness_expr(
+        body, analysis, queue, used_funcs, strong,
+      )
+    @lib.If(_, then_body, else_body) => {
+      for nested in then_body {
+        rume_scan_ref_func_liveness_instr(
+          nested, analysis, queue, used_funcs, strong,
+        )
+      }
+      match else_body {
+        Some(body) =>
+          for nested in body {
+            rume_scan_ref_func_liveness_instr(
+              nested, analysis, queue, used_funcs, strong,
+            )
+          }
+        None => ()
+      }
+    }
+    @lib.Try(_, body, catches, _) => {
+      rume_scan_ref_func_liveness_expr(
+        body, analysis, queue, used_funcs, strong,
+      )
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            catch_body
+        }
+        rume_scan_ref_func_liveness_expr(
+          catch_body, analysis, queue, used_funcs, strong,
+        )
+      }
+    }
+    @lib.TryTable(_, _, body) =>
+      rume_scan_ref_func_liveness_expr(
+        body, analysis, queue, used_funcs, strong,
+      )
+    @lib.RefFunc(func_idx) =>
+      if strong {
+        rume_mark_func(queue, used_funcs, func_idx)
+      } else {
+        rume_reference_func(used_funcs, analysis.referenced_funcs, func_idx)
+      }
+    _ => ()
+  }
+}
+
+///|
+fn rume_scan_ref_func_liveness_expr(
+  expr : @lib.Expr,
+  analysis : RumeCallTableAnalysis,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  strong : Bool,
+) -> Unit {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    rume_scan_ref_func_liveness_instr(
+      instr, analysis, queue, used_funcs, strong,
+    )
+  }
+}
+
+///|
+fn rume_instr_contains_ref_func(
+  instr : @lib.Instruction,
+  target : @lib.FuncIdx,
+) -> Bool {
+  match instr {
+    @lib.Block(_, body) | @lib.Loop(_, body) =>
+      rume_expr_contains_ref_func(body, target)
+    @lib.If(_, then_body, else_body) => {
+      for nested in then_body {
+        if rume_instr_contains_ref_func(nested, target) {
+          return true
+        }
+      }
+      match else_body {
+        Some(body) =>
+          for nested in body {
+            if rume_instr_contains_ref_func(nested, target) {
+              return true
+            }
+          }
+        None => ()
+      }
+      false
+    }
+    @lib.Try(_, body, catches, _) => {
+      if rume_expr_contains_ref_func(body, target) {
+        return true
+      }
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            catch_body
+        }
+        if rume_expr_contains_ref_func(catch_body, target) {
+          return true
+        }
+      }
+      false
+    }
+    @lib.TryTable(_, _, body) => rume_expr_contains_ref_func(body, target)
+    @lib.RefFunc(func_idx) => func_idx == target
+    _ => false
+  }
+}
+
+///|
+fn rume_expr_contains_ref_func(expr : @lib.Expr, target : @lib.FuncIdx) -> Bool {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    if rume_instr_contains_ref_func(instr, target) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn rume_note_declaring_expr_ref_func_siblings(
+  mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  elem_idx : @lib.ElemIdx,
+  target : @lib.FuncIdx,
+) -> Unit {
+  let @lib.ElemIdx(raw) = elem_idx
+  let slot = raw.reinterpret_as_int()
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      match elems.get(slot) {
+        Some(@lib.Elem(_, kind)) =>
+          match kind {
+            @lib.FuncsElemKind(_) => ()
+            @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+              for expr in exprs {
+                if rume_expr_contains_ref_func(expr, target) {
+                  rume_scan_ref_func_liveness_expr(
+                    expr, analysis, queue, used_funcs, false,
+                  )
+                }
+              }
+          }
+        None => ()
+      }
+    None => ()
+  }
+}
+
+///|
 fn rume_reference_elem_payload(
   mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
   used_funcs : @bitset.BitSet,
-  referenced_funcs : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   queue : Array[RumeItem],
   used_globals : @bitset.BitSet,
@@ -944,15 +1120,17 @@ fn rume_reference_elem_payload(
           match kind {
             @lib.FuncsElemKind(funcs) =>
               for func_idx in funcs {
-                rume_reference_func(used_funcs, referenced_funcs, func_idx)
+                rume_reference_func(
+                  used_funcs,
+                  analysis.referenced_funcs,
+                  func_idx,
+                )
               }
             @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
               for expr in exprs {
-                match expr {
-                  @lib.Expr([@lib.RefFunc(func_idx)]) =>
-                    rume_reference_func(used_funcs, referenced_funcs, func_idx)
-                  _ => ()
-                }
+                rume_scan_ref_func_liveness_expr(
+                  expr, analysis, queue, used_funcs, false,
+                )
               }
           }
         }
@@ -965,9 +1143,10 @@ fn rume_reference_elem_payload(
 ///|
 fn rume_reference_table_init(
   mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
   table_imports : Int,
+  queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
-  referenced_funcs : @bitset.BitSet,
   idx : @lib.TableIdx,
 ) -> Unit {
   let @lib.TableIdx(raw) = idx
@@ -978,8 +1157,10 @@ fn rume_reference_table_init(
   match mod_.table_sec {
     Some(@lib.TableSec(tables)) =>
       match tables.get(def_idx) {
-        Some(@lib.Table(_, Some(@lib.Expr([@lib.RefFunc(func_idx)])))) =>
-          rume_reference_func(used_funcs, referenced_funcs, func_idx)
+        Some(@lib.Table(_, Some(init))) =>
+          rume_scan_ref_func_liveness_expr(
+            init, analysis, queue, used_funcs, false,
+          )
         _ => ()
       }
     None => ()
@@ -1046,11 +1227,7 @@ fn rume_use_indirect_call(
     rume_use_call_ref_type(analysis, queue, used_funcs, call_type)
   }
   rume_reference_table_init(
-    mod_,
-    table_imports,
-    used_funcs,
-    analysis.referenced_funcs,
-    table_idx,
+    mod_, analysis, table_imports, queue, used_funcs, table_idx,
   )
   let @lib.TableIdx(raw_table) = table_idx
   let table_slot = raw_table.reinterpret_as_int()
@@ -1120,13 +1297,7 @@ fn rume_use_indirect_call(
             }
             if matches_call {
               rume_reference_elem_payload(
-                mod_,
-                used_funcs,
-                analysis.referenced_funcs,
-                used_elems,
-                queue,
-                used_globals,
-                elem_idx,
+                mod_, analysis, used_funcs, used_elems, queue, used_globals, elem_idx,
               )
             }
           }
@@ -1138,13 +1309,7 @@ fn rume_use_indirect_call(
   if !analysis.traps_never_happen && (info.has_init || info.may_overlap) {
     for elem_idx in info.all_elems {
       rume_reference_elem_payload(
-        mod_,
-        used_funcs,
-        analysis.referenced_funcs,
-        used_elems,
-        queue,
-        used_globals,
-        elem_idx,
+        mod_, analysis, used_funcs, used_elems, queue, used_globals, elem_idx,
       )
     }
   }
@@ -1261,6 +1426,7 @@ fn rume_scan_resume_handlers(
 ///|
 fn rume_mark_elem_funcs(
   mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
   elem_idx : @lib.ElemIdx,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
@@ -1278,11 +1444,9 @@ fn rume_mark_elem_funcs(
               }
             @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
               for expr in exprs {
-                match expr {
-                  @lib.Expr([@lib.RefFunc(func_idx)]) =>
-                    rume_mark_func(queue, used_funcs, func_idx)
-                  _ => ()
-                }
+                rume_scan_ref_func_liveness_expr(
+                  expr, analysis, queue, used_funcs, true,
+                )
               }
           }
         None => ()
@@ -1697,7 +1861,8 @@ fn rume_process_direct_call(
       rume_configure_all_elem_operand(
         mod_, analysis, instrs, call_index, func_idx,
       ) {
-      Some(elem_idx) => rume_mark_elem_funcs(mod_, elem_idx, queue, used_funcs)
+      Some(elem_idx) =>
+        rume_mark_elem_funcs(mod_, analysis, elem_idx, queue, used_funcs)
       None => ()
     }
   }
@@ -1822,7 +1987,7 @@ fn rume_scan_instruction(
       )
     @lib.RefFunc(func_idx) =>
       rume_mark_ref_func(
-        analysis, queue, used_funcs, used_elems, decl_only_elems, func_to_declaring_elems,
+        mod_, analysis, queue, used_funcs, used_elems, decl_only_elems, func_to_declaring_elems,
         func_idx,
       )
     @lib.CallRef(call_type) | @lib.ReturnCallRef(call_type) =>
@@ -1960,13 +2125,7 @@ fn rume_scan_instruction(
     @lib.ArrayNewElem(_, elem_idx) | @lib.ArrayInitElem(_, elem_idx) =>
       if analysis.closed_world {
         rume_reference_elem_payload(
-          mod_,
-          used_funcs,
-          analysis.referenced_funcs,
-          used_elems,
-          queue,
-          used_globals,
-          elem_idx,
+          mod_, analysis, used_funcs, used_elems, queue, used_globals, elem_idx,
         )
       } else {
         rume_mark_elem(queue, used_elems, decl_only_elems, elem_idx)
@@ -3637,15 +3796,64 @@ fn rume_func_idx_is_mapped(idx : @lib.FuncIdx, func_remap : Array[Int]) -> Bool 
 }
 
 ///|
+fn rume_decl_only_instr_has_dropped_func(
+  instr : @lib.Instruction,
+  func_remap : Array[Int],
+) -> Bool {
+  match instr {
+    @lib.Block(_, body) | @lib.Loop(_, body) =>
+      rume_decl_only_expr_has_dropped_func(body, func_remap)
+    @lib.If(_, then_body, else_body) => {
+      for nested in then_body {
+        if rume_decl_only_instr_has_dropped_func(nested, func_remap) {
+          return true
+        }
+      }
+      match else_body {
+        Some(body) =>
+          for nested in body {
+            if rume_decl_only_instr_has_dropped_func(nested, func_remap) {
+              return true
+            }
+          }
+        None => ()
+      }
+      false
+    }
+    @lib.Try(_, body, catches, _) => {
+      if rume_decl_only_expr_has_dropped_func(body, func_remap) {
+        return true
+      }
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            catch_body
+        }
+        if rume_decl_only_expr_has_dropped_func(catch_body, func_remap) {
+          return true
+        }
+      }
+      false
+    }
+    @lib.TryTable(_, _, body) =>
+      rume_decl_only_expr_has_dropped_func(body, func_remap)
+    @lib.RefFunc(func_idx) => !rume_func_idx_is_mapped(func_idx, func_remap)
+    _ => false
+  }
+}
+
+///|
 fn rume_decl_only_expr_has_dropped_func(
   expr : @lib.Expr,
   func_remap : Array[Int],
 ) -> Bool {
-  match expr {
-    @lib.Expr([@lib.RefFunc(func_idx)]) =>
-      !rume_func_idx_is_mapped(func_idx, func_remap)
-    _ => false
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    if rume_decl_only_instr_has_dropped_func(instr, func_remap) {
+      return true
+    }
   }
+  false
 }
 
 ///|

@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-21
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -30,7 +30,7 @@ RUME is **closed again after correctness repair and renewed verification on 2026
 
 The implementation now routes ordinary and tail direct calls through one helper, validates the exact `configureAll` producer contract, treats closed-world `array.new_elem` / `array.init_elem` payload functions as references until a real callable use upgrades them, and removes the per-expression temporary accumulator. A detached pre-fix worktree running the new focused file produced the intended red state (`44/52` passing, eight failures across the tail/special-import/configureAll families); the repaired tree passes `52/52`.
 
-The renewed explicit-v131 matrix is green for all RUME-owned behavior. The same historical random-all local-run family and wasm-smith memory64 case remain classified outside parity failure: the former is a one-byte decoder/encoder size gap with no RUME mutation, and the latter is the existing full-u64 Starshine correctness/size win. The sibling `remove-unused-nonfunction-module-elements` still shares the graph engine while preserving function declarations, and the optimize/shrink rosters still contain all three intended RUME positions.
+The renewed explicit-v131 matrix is green for all RUME-owned behavior. A 2026-08-21 review follow-up additionally repaired nested `ref.func` liveness in composite typed elem expressions: runtime-used payloads recursively reference embedded functions, and declaration-only composite expressions keep all indices in the same indivisible expression while still pruning independent entries. The focused file is now `56/56`; both exact fixtures externally validate, and the executable passive-elem case returns 42 before/after RUME. The same historical random-all local-run family and wasm-smith memory64 case remain classified outside parity failure: the former is a one-byte decoder/encoder size gap with no RUME mutation, and the latter is the existing full-u64 Starshine correctness/size win. The sibling `remove-unused-nonfunction-module-elements` still shares the graph engine while preserving function declarations, and the optimize/shrink rosters still contain all three intended RUME positions.
 
 ## Transform-family audit
 
@@ -46,7 +46,7 @@ The renewed explicit-v131 matrix is green for all RUME-owned behavior. The same 
 | Memories | loads/stores/atomics/SIMD/memory ops and active data startup traps retain memories; full-u64 memory64 bounds avoid Binaryen's truncation bug | focused data tests and wasm-smith `004700` |
 | Tags and EH | legacy `try` body/catches/catch tags, typed EH, throws, and exports participate in reachability and remapping | legacy-EH focused and dedicated profile |
 | Continuations | `cont.new`, `cont.bind`, `suspend`, `resume`, `resume_throw`, `resume_throw_ref`, `stack.switch`, and resume-handler tags carry type/tag liveness and remaps | synthetic continuation binary fixture |
-| Elem segments | active/passive/declarative modes, parent retention, declaration-only `ref.func`, overlap/null/wrong-type writes, and active-to-declarative weakening are covered | v131 table fixtures and focused suite |
+| Elem segments | active/passive/declarative modes, parent retention, direct and composite nested `ref.func`, declaration-only indivisible-expression siblings, overlap/null/wrong-type writes, and active-to-declarative weakening are covered | v131 table fixtures plus composite binary-decoded focused suite |
 | Data segments | active/passive users, trap-sensitive startup writes, data-count rebuild, and data-index rewrites are covered | focused data/remap tests |
 | GC/type carriers | struct/array/ref casts, descriptor casts, atomic GC operations, array data/elem operations, recursive groups, and subtype-compatible call types are marked | recursive-type and all-features audit |
 | Type cleanup | dead types are compacted only when the local safety checks can preserve recursive-group validity; surviving type-index carriers are rewritten through the shared DFE traversal | recursive-group validity tests |
@@ -65,7 +65,7 @@ The focused file retains the earlier 43 tests and adds nine strict regressions f
 - an underspecified intrinsic shape that Binaryen rejects
 - generated high-risk families whose callable bodies must not become `unreachable`
 
-Focused verification passes `52/52`. The dedicated generator file passes `3/3`; its special-import test directly validates ordinary and tail forms of both `call.without.effects` and `configureAll`.
+Focused verification passes `56/56`. The 2026-08-21 additions cover a passive composite elem whose embedded function becomes callable through `struct.get -> call_ref`, plus a declaration-only composite expression whose sibling function indices must remain reference-live together. The dedicated generator file passes `3/3`; its special-import test directly validates ordinary and tail forms of both `call.without.effects` and `configureAll`.
 
 ## Renewed explicit-v131 evidence
 
@@ -80,7 +80,7 @@ Current-master native Starshine SHA-256: `f4ea93419d8bb8c98d3e09c28a823b30a119ee
 | Random all-profiles, 10,000 | `9375` normalized plus `625` classified one-byte local-run representation gaps; zero validation/property/command failures |
 | wasm-smith, 10,000 | `9956` comparable; `9955` normalized; one known memory64 Starshine win; `44` Binaryen/tool failures; zero Starshine failures |
 | Four new singleton profiles, 10,000 each | all four `10000/10000` normalized with zero failures |
-| Focused RUME tests | `52/52` |
+| Focused RUME tests | `56/56` |
 | Dedicated profile tests | `3/3` |
 | Current-master native full `moon test` | `10012/10012` |
 | Retained-versus-fresh DAE checks | focused `3/3`, topology `1/1`, bounded differential `10000/10000` normalized |
