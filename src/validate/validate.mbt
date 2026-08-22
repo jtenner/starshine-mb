@@ -1227,6 +1227,23 @@ fn validate_const_expr(
 }
 
 ///|
+fn validate_offset_const_expr(
+  env : Env,
+  expr : Expr,
+  want : ValType,
+) -> Result[Unit, String] {
+  let Expr(instrs) = expr
+  for ins in instrs {
+    match ins {
+      I32Clz | I32Ctz | I32Popcnt | I64Clz | I64Ctz | I64Popcnt =>
+        return Err("initializer expression is not constant")
+      _ => ()
+    }
+  }
+  validate_const_expr(env, expr, want)
+}
+
+///|
 fn validate_global(env : Env, g : Global) -> Result[GlobalType, String] {
   let Global(gt, init) = g
   if Validate::validate(gt, env) is Err(t) {
@@ -1784,7 +1801,7 @@ pub impl Validate for DataMode with fn validate(self, env) {
       let at = lim.addr_valtype()
 
       // expr : at const
-      validate_const_expr(env, offset_expr, at)
+      validate_offset_const_expr(env, offset_expr, at)
     }
   }
 }
@@ -1845,7 +1862,7 @@ fn validate_elem_mode(
 
       // offset expr : at const
       let at = lim.addr_valtype()
-      validate_const_expr(env, offset_expr, at)
+      validate_offset_const_expr(env, offset_expr, at)
     }
   }
 }
@@ -10058,6 +10075,42 @@ test "validate_module accepts global initializer global.get from imported immuta
     Err(err) =>
       fail(
         "expected imported immutable global.get in const expression to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module rejects non-extended unary arithmetic in elem offsets" {
+  let mod = Module::new()
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(
+            RefType::abs(AbsHeapType::func()),
+            Limits::i32(1U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      ElemSec::new([
+        Elem::new(
+          ElemMode::active(
+            TableIdx::new(0U),
+            Expr::new([Instruction::i32_const(I32(0)), Instruction::i32_ctz()]),
+          ),
+          ElemKind::funcs([]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => fail("expected i32.ctz element offset to be rejected")
+    Err(err) =>
+      assert_true(
+        validation_error_message(err).contains(
+          "initializer expression is not constant",
+        ),
       )
   }
 }
