@@ -66803,6 +66803,36 @@ fn o4z_canonicalize_final_size_empty_void_else_arms(
 }
 
 ///|
+pub fn o4z_canonicalize_final_size_ifs_stateful_candidate(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let mut changed = false
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let (block_instrs, block_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
+          instrs, true,
+        )
+        if block_changed {
+          next_funcs.push(@lib.Func::new(locals, @lib.Expr::new(block_instrs)))
+          changed = true
+        } else {
+          next_funcs.push(func)
+        }
+      }
+      if changed {
+        mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+      } else {
+        mod_
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
 pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
   let canonical = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {

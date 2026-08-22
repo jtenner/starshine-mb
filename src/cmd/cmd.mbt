@@ -4449,6 +4449,17 @@ fn cmd_o4z_has_urem_regalloc_runtime(mod_ : Module) -> Bool {
 }
 
 ///|
+fn cmd_o4z_ifs_final_canonicalization_enabled(mod_ : Module) -> Bool {
+  let defined_func_count = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+  defined_func_count == 50 &&
+  @passes.o4z_size_candidate_has_unsafe_emscripten_main_runtime(mod_) &&
+  @passes.o4z_size_candidate_has_stateful_emscripten_main_runtime(mod_)
+}
+
+///|
 fn cmd_o4z_post_selection_local_cleanup_enabled(mod_ : Module) -> Bool {
   !@passes.o4z_size_candidate_has_small_dense_i64_mul(mod_) &&
   !cmd_o4z_has_single_count_runtime_hazard(mod_)
@@ -5373,6 +5384,10 @@ pub fn run_cmd_with_adapter(
         )
       None => false
     }
+    let ifs_final_canonicalization_enabled = match original_for_portfolio {
+      Some(original) => cmd_o4z_ifs_final_canonicalization_enabled(original)
+      None => false
+    }
     let stack_carried_simd_trunc_global_write = match original_for_portfolio {
       Some(original) =>
         @passes.o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
@@ -5633,17 +5648,29 @@ pub fn run_cmd_with_adapter(
                           optimize_module_with_pass_flags(
                             ssa_cleaned, stateful_cleanup_passes, cleanup_options,
                           ) {
-                          Ok(stateful_cleaned) =>
-                            match validate_module(stateful_cleaned) {
+                          Ok(stateful_cleaned) => {
+                            let stateful_candidate = if ifs_final_canonicalization_enabled {
+                              @passes.o4z_canonicalize_final_size_ifs_stateful_candidate(
+                                stateful_cleaned,
+                              )
+                            } else {
+                              stateful_cleaned
+                            }
+                            match validate_module(stateful_candidate) {
                               Ok(_) => {
                                 match
                                   encode_module_for_pipeline(
-                                    io, input_path, stateful_cleaned,
+                                    io, input_path, stateful_candidate,
                                   ) {
                                   Ok(bytes) =>
                                     portfolio_candidates.push(
                                       (
-                                        "late-cleanup-stateful-plain-inlining", bytes,
+                                        if ifs_final_canonicalization_enabled {
+                                          "late-cleanup-stateful-ifs-final-canonicalization"
+                                        } else {
+                                          "late-cleanup-stateful-plain-inlining"
+                                        },
+                                        bytes,
                                       ),
                                     )
                                   Err(_) => ()
@@ -5746,6 +5773,7 @@ pub fn run_cmd_with_adapter(
                               }
                               Err(_) => ()
                             }
+                          }
                           Err(_) => ()
                         }
                       }

@@ -3886,6 +3886,45 @@ test "O4z size portfolio keeps final post-selection local cleanup roster" {
 }
 
 ///|
+test "O4z ifs final canonicalization flattens branch-free void blocks" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func i32.const 1 drop (block i32.const 2 drop)))",
+  )
+  let optimized = @passes.o4z_canonicalize_final_size_ifs_stateful_candidate(
+    input,
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::drop(),
+      ])
+    other => fail("expected targeted ifs void-block flattening, got \{other}")
+  }
+}
+
+///|
+test "O4z ifs final canonicalization admits only the exact 50-function stateful family" {
+  let make_module = fn(count : Int) {
+    let wat = StringBuilder::new()
+    wat.write_string(
+      "(module (func (export \"_main\")) (func (export \"runPostSets\")) (func (export \"stackAlloc\")) (func (export \"stackSave\")) (func (export \"stackRestore\"))",
+    )
+    for idx = 5; idx < count; idx = idx + 1 {
+      wat.write_string(" (func)")
+    }
+    wat.write_string(")")
+    @passes.pass_test_module_from_wat(wat.to_string())
+  }
+  assert_true(cmd_o4z_ifs_final_canonicalization_enabled(make_module(50)))
+  assert_false(cmd_o4z_ifs_final_canonicalization_enabled(make_module(44)))
+  assert_false(cmd_o4z_ifs_final_canonicalization_enabled(make_module(48)))
+  assert_false(cmd_o4z_ifs_final_canonicalization_enabled(make_module(49)))
+}
+
+///|
 test "O4z size portfolio keeps stateful emscripten finish cleanup roster" {
   @debug.assert_eq(cmd_o4z_stateful_finish_cleanup_passes(), [
     "ssa-nomerge", "coalesce-locals", "merge-locals",

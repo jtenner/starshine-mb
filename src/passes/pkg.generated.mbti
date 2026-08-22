@@ -129,6 +129,8 @@ pub fn no_partial_inline_summary() -> String
 
 pub fn o4z_canonicalize_final_size_candidate(@lib.Module) -> @lib.Module
 
+pub fn o4z_canonicalize_final_size_ifs_stateful_candidate(@lib.Module) -> @lib.Module
+
 pub fn o4z_canonicalize_final_size_store_carries(@lib.Module) -> @lib.Module
 
 pub fn o4z_outline_similar_size_functions(@lib.Module) -> @lib.Module
