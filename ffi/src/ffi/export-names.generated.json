@@ -62,6 +62,7 @@
   "ffi_ffi_bridge_encode_module": "ffi_bridge::encode_module",
   "ffi_ffi_bridge_funcs_new": "ffi_bridge::funcs_new",
   "ffi_ffi_bridge_funcs_push": "ffi_bridge::funcs_push",
+  "ffi_ffi_bridge_instruction_if": "ffi_bridge::instruction_if",
   "ffi_ffi_bridge_instructions_new": "ffi_bridge::instructions_new",
   "ffi_ffi_bridge_instructions_push": "ffi_bridge::instructions_push",
   "ffi_ffi_bridge_module_new": "ffi_bridge::module_new",

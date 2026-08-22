@@ -56,6 +56,15 @@ pub fn instructions_push(
 }
 
 ///|
+pub fn instruction_if(
+  type_ : @lib.BlockType,
+  consequent : Array[@lib.Instruction],
+  alternative : Array[@lib.Instruction],
+) -> @lib.Instruction {
+  @lib.Instruction::if_(type_, consequent, Some(alternative))
+}
+
+///|
 pub fn funcs_new() -> Array[@lib.Func] {
   []
 }

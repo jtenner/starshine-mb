@@ -12,6 +12,8 @@ pub fn funcs_new() -> Array[@lib.Func]
 
 pub fn funcs_push(Array[@lib.Func], @lib.Func) -> Unit
 
+pub fn instruction_if(@lib.BlockType, Array[@lib.Instruction], Array[@lib.Instruction]) -> @lib.Instruction
+
 pub fn instructions_new() -> Array[@lib.Instruction]
 
 pub fn instructions_push(Array[@lib.Instruction], @lib.Instruction) -> Unit

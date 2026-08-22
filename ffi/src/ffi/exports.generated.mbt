@@ -587,6 +587,17 @@ pub fn ffi_ffi_bridge_funcs_push(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_instruction_if")
+pub fn ffi_ffi_bridge_instruction_if(
+  value0 : @lib.BlockType,
+  value1 : Array[@lib.Instruction],
+  value2 : Array[@lib.Instruction],
+) -> @lib.Instruction {
+  @ffi_bridge.instruction_if(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_instructions_new")
 pub fn ffi_ffi_bridge_instructions_new() -> Array[@lib.Instruction] {
   @ffi_bridge.instructions_new()
