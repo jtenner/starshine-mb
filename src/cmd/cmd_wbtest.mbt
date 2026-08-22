@@ -3886,9 +3886,9 @@ test "O4z size portfolio keeps final post-selection local cleanup roster" {
 }
 
 ///|
-test "O4z ifs final canonicalization flattens branch-free void blocks" {
+test "O4z ifs final canonicalization fuses block and sign-extension cleanup" {
   let input = @passes.pass_test_module_from_wat(
-    "(module (func i32.const 1 drop (block i32.const 2 drop)))",
+    "(module (func (param i32) i32.const 1 drop (block local.get 0 i32.const 24 i32.shl i32.const 24 i32.shr_s drop)))",
   )
   let optimized = @passes.o4z_canonicalize_final_size_ifs_stateful_candidate(
     input,
@@ -3898,10 +3898,11 @@ test "O4z ifs final canonicalization flattens branch-free void blocks" {
       @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(1)),
         @lib.Instruction::drop(),
-        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_extend8s(),
         @lib.Instruction::drop(),
       ])
-    other => fail("expected targeted ifs void-block flattening, got \{other}")
+    other => fail("expected fused ifs block/sign cleanup, got \{other}")
   }
 }
 

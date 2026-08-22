@@ -62122,9 +62122,49 @@ fn run_hot_pipeline_raw_vacuum_has_dense_nop_debris(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_push_fused_sign_extension(
+  rewritten : Array[@lib.Instruction],
+  instr : @lib.Instruction,
+) -> Bool {
+  if rewritten.length() >= 3 {
+    let n = rewritten.length()
+    match (rewritten[n - 3], rewritten[n - 2], rewritten[n - 1], instr) {
+      (
+        @lib.I32Const(@lib.I32(24)),
+        @lib.I32Shl,
+        @lib.I32Const(@lib.I32(24)),
+        @lib.I32ShrS,
+      ) => {
+        ignore(rewritten.pop())
+        ignore(rewritten.pop())
+        ignore(rewritten.pop())
+        rewritten.push(@lib.Instruction::i32_extend8s())
+        return true
+      }
+      (
+        @lib.I32Const(@lib.I32(16)),
+        @lib.I32Shl,
+        @lib.I32Const(@lib.I32(16)),
+        @lib.I32ShrS,
+      ) => {
+        ignore(rewritten.pop())
+        ignore(rewritten.pop())
+        ignore(rewritten.pop())
+        rewritten.push(@lib.Instruction::i32_extend16s())
+        return true
+      }
+      _ => ()
+    }
+  }
+  rewritten.push(instr)
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
   instrs : Array[@lib.Instruction],
   include_void : Bool,
+  fold_sign_extensions : Bool,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
@@ -62132,7 +62172,7 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          body, include_void,
+          body, include_void, fold_sign_extensions,
         )
         if (
             block_type is @lib.ValTypeBlockType(_) ||
@@ -62158,7 +62198,7 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          body, include_void,
+          body, include_void, fold_sign_extensions,
         )
         rewritten.push(
           @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
@@ -62169,13 +62209,13 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          then_body, include_void,
+          then_body, include_void, fold_sign_extensions,
         )
         let mut else_changed = false
         let next_else = match else_body {
           Some(body) => {
             let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-              body, include_void,
+              body, include_void, fold_sign_extensions,
             )
             else_changed = body_changed
             Some(next_body)
@@ -62189,7 +62229,7 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          body, include_void,
+          body, include_void, fold_sign_extensions,
         )
         rewritten.push(
           @lib.Instruction::try_table(
@@ -62202,7 +62242,16 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
           changed = true
         }
       }
-      _ => rewritten.push(instr)
+      _ =>
+        if fold_sign_extensions && instr is @lib.I32ShrS {
+          if run_hot_pipeline_raw_vacuum_push_fused_sign_extension(
+              rewritten, instr,
+            ) {
+            changed = true
+          }
+        } else {
+          rewritten.push(instr)
+        }
     }
   }
   (rewritten, changed)
@@ -66813,7 +66862,7 @@ pub fn o4z_canonicalize_final_size_ifs_stateful_candidate(
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
         let (block_instrs, block_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          instrs, true,
+          instrs, true, true,
         )
         if block_changed {
           next_funcs.push(@lib.Func::new(locals, @lib.Expr::new(block_instrs)))
@@ -66882,7 +66931,7 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
             }
         }
         let (block_instrs, block_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          exit_instrs, true,
+          exit_instrs, true, false,
         )
         let (array_instrs, array_changed) = o4z_canonicalize_final_size_fresh_packed_array_gets(
           block_instrs, module_ctx,
@@ -67055,7 +67104,7 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   }
   if options.optimize_level == 0 && options.shrink_level == 0 {
     let (flattened, changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-      instrs, false,
+      instrs, false, false,
     )
     if changed {
       return Some({
