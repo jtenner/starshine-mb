@@ -1838,6 +1838,14 @@ test "O4z final cleanup removes explicit empty void else arms" {
 }
 
 ///|
+test "O4z finish reuse requires an unchanged canonical input" {
+  let unchanged = fixture_i32_const_module(7)
+  let changed = fixture_i32_const_module(8)
+  assert_true(cmd_o4z_can_reuse_precanonical_finish(unchanged, unchanged))
+  assert_false(cmd_o4z_can_reuse_precanonical_finish(unchanged, changed))
+}
+
+///|
 test "O4z size portfolio selects the shortest encoded candidate stably" {
   let first = bytes_from_ints([0, 1, 2])
   let second = bytes_from_ints([3, 4])

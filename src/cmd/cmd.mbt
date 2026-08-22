@@ -4265,6 +4265,14 @@ fn cmd_o4z_late_cleanup_candidate_enabled(
 }
 
 ///|
+fn cmd_o4z_can_reuse_precanonical_finish(
+  fixed_point_candidate : @lib.Module,
+  finish_input : @lib.Module,
+) -> Bool {
+  finish_input == fixed_point_candidate
+}
+
+///|
 fn cmd_o4z_size_cleanup_passes() -> Array[String] {
   [
     "inlining-optimizing", "dae-optimizing", "coalesce-locals", "optimize-instructions",
@@ -5827,6 +5835,7 @@ pub fn run_cmd_with_adapter(
                                   Err(_) => break
                                 }
                               }
+                              let mut post_fixed_point_finished : @lib.Module? = None
                               match
                                 optimize_module_with_pass_flags(
                                   fixed_point_candidate,
@@ -5838,7 +5847,8 @@ pub fn run_cmd_with_adapter(
                                     finished,
                                   )
                                   match validate_module(finished) {
-                                    Ok(_) =>
+                                    Ok(_) => {
+                                      post_fixed_point_finished = Some(finished)
                                       match
                                         encode_module_for_pipeline(
                                           io, input_path, finished,
@@ -5849,6 +5859,7 @@ pub fn run_cmd_with_adapter(
                                           )
                                         Err(_) => ()
                                       }
+                                    }
                                     Err(_) => ()
                                   }
                                 }
@@ -5858,16 +5869,29 @@ pub fn run_cmd_with_adapter(
                                 let finish_input = @passes.o4z_canonicalize_final_size_candidate(
                                   fixed_point_candidate,
                                 )
-                                match
-                                  optimize_module_with_pass_flags(
-                                    finish_input,
-                                    cmd_o4z_post_fixed_point_finish_passes(),
-                                    cleanup_options,
+                                let mut precanonical_finished : @lib.Module? = None
+                                if cmd_o4z_can_reuse_precanonical_finish(
+                                    fixed_point_candidate, finish_input,
                                   ) {
-                                  Ok(finished) => {
-                                    let finished = @passes.o4z_canonicalize_final_size_candidate(
-                                      finished,
-                                    )
+                                  precanonical_finished = post_fixed_point_finished
+                                } else {
+                                  match
+                                    optimize_module_with_pass_flags(
+                                      finish_input,
+                                      cmd_o4z_post_fixed_point_finish_passes(),
+                                      cleanup_options,
+                                    ) {
+                                    Ok(finished) =>
+                                      precanonical_finished = Some(
+                                        @passes.o4z_canonicalize_final_size_candidate(
+                                          finished,
+                                        ),
+                                      )
+                                    Err(_) => ()
+                                  }
+                                }
+                                match precanonical_finished {
+                                  Some(finished) =>
                                     match validate_module(finished) {
                                       Ok(_) => {
                                         match
@@ -5914,8 +5938,7 @@ pub fn run_cmd_with_adapter(
                                       }
                                       Err(_) => ()
                                     }
-                                  }
-                                  Err(_) => ()
+                                  None => ()
                                 }
                               }
                             }
