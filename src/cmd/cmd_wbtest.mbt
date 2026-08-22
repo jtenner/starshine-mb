@@ -3888,7 +3888,7 @@ test "O4z size portfolio keeps final post-selection local cleanup roster" {
 ///|
 test "O4z ifs final canonicalization fuses block and sign-extension cleanup" {
   let input = @passes.pass_test_module_from_wat(
-    "(module (func (param i32) i32.const 1 drop (block local.get 0 i32.const 24 i32.shl i32.const 24 i32.shr_s drop)))",
+    "(module (func (param i32) i32.const 1 drop (block local.get 0 i32.const 24 i32.shl i32.const 24 i32.shr_s drop local.get 0 i32.const 1 i32.and i32.const 1 i32.xor drop local.get 0 i32.const 1 i32.shl i32.const 2 i32.shl drop)))",
   )
   let optimized = @passes.o4z_canonicalize_final_size_ifs_stateful_candidate(
     input,
@@ -3900,6 +3900,15 @@ test "O4z ifs final canonicalization fuses block and sign-extension cleanup" {
         @lib.Instruction::drop(),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
         @lib.Instruction::i32_extend8s(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_and(),
+        @lib.Instruction::i32_eqz(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(3)),
+        @lib.Instruction::i32_shl(),
         @lib.Instruction::drop(),
       ])
     other => fail("expected fused ifs block/sign cleanup, got \{other}")

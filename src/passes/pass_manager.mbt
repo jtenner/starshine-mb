@@ -62126,8 +62126,42 @@ fn run_hot_pipeline_raw_vacuum_push_fused_sign_extension(
   rewritten : Array[@lib.Instruction],
   instr : @lib.Instruction,
 ) -> Bool {
-  if rewritten.length() >= 3 {
-    let n = rewritten.length()
+  let n = rewritten.length()
+  match instr {
+    @lib.I32Xor if n >= 2 =>
+      match (rewritten[n - 2], rewritten[n - 1]) {
+        (@lib.I32And, @lib.I32Const(@lib.I32(1))) => {
+          ignore(rewritten.pop())
+          rewritten.push(@lib.Instruction::i32_eqz())
+          return true
+        }
+        _ => ()
+      }
+    @lib.I32Shl if n >= 3 =>
+      match (rewritten[n - 3], rewritten[n - 2], rewritten[n - 1]) {
+        (
+          @lib.I32Const(@lib.I32(first_shift)),
+          @lib.I32Shl,
+          @lib.I32Const(@lib.I32(second_shift)),
+        ) if first_shift >= 0 &&
+          first_shift < 32 &&
+          second_shift >= 0 &&
+          second_shift < 32 &&
+          first_shift + second_shift < 32 => {
+          ignore(rewritten.pop())
+          ignore(rewritten.pop())
+          ignore(rewritten.pop())
+          rewritten.push(
+            @lib.Instruction::i32_const(first_shift + second_shift),
+          )
+          rewritten.push(@lib.Instruction::i32_shl())
+          return true
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  if n >= 3 {
     match (rewritten[n - 3], rewritten[n - 2], rewritten[n - 1], instr) {
       (
         @lib.I32Const(@lib.I32(24)),
@@ -62243,7 +62277,12 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
         }
       }
       _ =>
-        if fold_sign_extensions && instr is @lib.I32ShrS {
+        if fold_sign_extensions &&
+          (
+            instr is @lib.I32ShrS ||
+            instr is @lib.I32Shl ||
+            instr is @lib.I32Xor
+          ) {
           if run_hot_pipeline_raw_vacuum_push_fused_sign_extension(
               rewritten, instr,
             ) {
