@@ -44,6 +44,14 @@ Current positive residual leaders are:
 
 The next continuation should first preserve the exact pass7 binary and reproduce the ifs/primes stateful oracle before changing candidate admission. Isolate canonical descendants one roster at a time from the accepted late-cleanup/SSA artifacts; do not re-enable post-SSA CoalesceLocals, broad SimplifyLocals, MergeBlocks, CFG CoalesceLocals, DAE, or optimizing inlining for the measured 44/50-function family without allocator/event/trap/full-memory equality. After embenchen, investigate JSON-SIMD termination, then fannkuch/fasta residual structure, scalar JSON, `urem_regalloc`, startup JSON, and scalar ISA. Separately retain `[WALL]001` work for portfolio orchestration and repeated encode/validate costs, audit the three tracked Wasm fixtures above 2 MiB, and classify the 35 compatibility failures including `InvalidNameSubsectionOrder` families. Validation alone must not admit candidates: startup, binary-tree, JSON-SIMD, ifs/primes, and 1797a all produced externally valid wrong-runtime artifacts during this audit.
 
+## 2026-08-22 final22 fused ifs streaming folds
+
+Native optimizer SHA-256 `ad62f2710723d3ca4336ac158d9d6e681dcbe22f5034d74139e7c5169200095c` produces `.tmp/wago-o4z-pass8-final22-ifs-streaming-folds-fresh-20260822/`. The fresh replay changes exactly ifs 23,086 → **23,042**, producing stable totals of **412,792** Starshine versus 415,485 Binaryen, a **2,693-byte / 0.648% win** with 2,517 positive residual bytes.
+
+The leaf-gated fused traversal now also rewrites exact `i32.const 1; i32.and; i32.const 1; i32.xor` suffixes to `i32.const 1; i32.and; i32.eqz`, and combines consecutive constant `i32.shl` counts only when each count and their sum are below 32. These are the same established truth and masked-shift guards as the broad final canonicalizer, but they execute during the existing ifs-only recursive scan. Runtime state remains exact. Over 240 alternating pairs final22 is **0.09% faster** than final21.
+
+Command tests remain 273/273, pass tests 6,953/6,953, and the full repository 10,609/10,609. The retained projection remains **412,161** versus 415,485.
+
 ## 2026-08-22 final21 fused ifs sign-extension cleanup
 
 Native optimizer SHA-256 `f453e39ace2e2a7da597c3dd27607829d1d3ceb989ae02cf83535bd8972b9df8` produces `.tmp/wago-o4z-pass8-final21-ifs-fused-sign-fresh-20260822/`. The fresh replay changes exactly ifs 23,166 → **23,086**, so stable totals become **412,836** Starshine versus 415,485 Binaryen, a **2,649-byte / 0.638% win** with 2,561 positive residual bytes.
