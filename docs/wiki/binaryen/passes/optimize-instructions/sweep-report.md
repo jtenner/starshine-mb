@@ -44,6 +44,16 @@ Current positive residual leaders are:
 
 The next continuation should first preserve the exact pass7 binary and reproduce the ifs/primes stateful oracle before changing candidate admission. Isolate canonical descendants one roster at a time from the accepted late-cleanup/SSA artifacts; do not re-enable post-SSA CoalesceLocals, broad SimplifyLocals, MergeBlocks, CFG CoalesceLocals, DAE, or optimizing inlining for the measured 44/50-function family without allocator/event/trap/full-memory equality. After embenchen, investigate JSON-SIMD termination, then fannkuch/fasta residual structure, scalar JSON, `urem_regalloc`, startup JSON, and scalar ISA. Separately retain `[WALL]001` work for portfolio orchestration and repeated encode/validate costs, audit the three tracked Wasm fixtures above 2 MiB, and classify the 35 compatibility failures including `InvalidNameSubsectionOrder` families. Validation alone must not admit candidates: startup, binary-tree, JSON-SIMD, ifs/primes, and 1797a all produced externally valid wrong-runtime artifacts during this audit.
 
+## 2026-08-22 final18 fixed-point finish reuse
+
+Native optimizer SHA-256 `b6b917b163a619c6b813892ab20c06f67c5e7dd3cedb54f4caddbbba331ac372` produces `.tmp/wago-o4z-pass8-final18-finish-reuse-fresh-20260822/`. The fresh 1,330-file replay is byte-, command-status-, and validator-status-identical to final17, so the stable 766-file totals remain **413,297** Starshine versus 415,485 Binaryen, a **2,188-byte / 0.527% win** with 110/603/53 smaller/equal/larger and 3,022 positive residual bytes.
+
+The O4z portfolio previously ran `cmd_o4z_post_fixed_point_finish_passes()` twice when `o4z_canonicalize_final_size_candidate(fixed_point_candidate)` returned the same module. Fannkuch demonstrated the duplicate path with identical 23,347-byte post-finish and precanonical-finish candidates before the stateful suffix. Final18 retains the first validated finish module and reuses it only when exact module equality proves the canonical input unchanged. If canonicalization changes the input, the second finish roster still runs independently.
+
+Thirty alternating pairs show neutral or improved paired medians with byte-identical selected output: ifs -0.05%, primes -0.25%, fannkuch -0.17%, and fasta -0.48%. A separate 60-pair fannkuch run measured -0.47%. Command tests pass 271/271, pass tests 6,953/6,953, and the full repository 10,606/10,606.
+
+The retained projection remains **412,161** versus 415,485, a projected **3,324-byte / 0.800% win**.
+
 ## 2026-08-21 final17 empty void else omission
 
 Native optimizer SHA-256 `b02cacf4c9a673339a89f3bf1d0c8470187ca07dc61126d444514d878bbbf92d` produces the definitive fresh sweep `.tmp/wago-o4z-pass8-final17-empty-void-else-fresh-20260821/`. On the unchanged 766-file stable cohort Starshine emits **413,297 bytes** versus pinned Binaryen v131 at 415,485, a fresh **2,188-byte / 0.527% win**. The distribution improves to 110 smaller / 603 equal / 53 larger, positive residual bytes fall to 3,022, and Starshine removes 46,833 bytes from the original 460,130-byte baseline for 104.90% gap closure.
