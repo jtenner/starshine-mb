@@ -8,6 +8,10 @@ import {
 // Values
 pub fn encode_module(@lib.Module) -> EncodedModule
 
+pub fn field_types_new() -> Array[@lib.FieldType]
+
+pub fn field_types_push(Array[@lib.FieldType], @lib.FieldType) -> Unit
+
 pub fn funcs_new() -> Array[@lib.Func]
 
 pub fn funcs_push(Array[@lib.Func], @lib.Func) -> Unit

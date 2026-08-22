@@ -17,6 +17,19 @@ pub fn val_types_push(
 }
 
 ///|
+pub fn field_types_new() -> Array[@lib.FieldType] {
+  []
+}
+
+///|
+pub fn field_types_push(
+  values : Array[@lib.FieldType],
+  value : @lib.FieldType,
+) -> Unit {
+  values.push(value)
+}
+
+///|
 pub fn rec_types_new() -> Array[@lib.RecType] {
   []
 }

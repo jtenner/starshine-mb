@@ -570,6 +570,23 @@ pub fn ffi_ffi_bridge_encode_module(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_field_types_new")
+pub fn ffi_ffi_bridge_field_types_new() -> Array[@lib.FieldType] {
+  @ffi_bridge.field_types_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_field_types_push")
+pub fn ffi_ffi_bridge_field_types_push(
+  value0 : Array[@lib.FieldType],
+  value1 : @lib.FieldType,
+) -> Unit {
+  @ffi_bridge.field_types_push(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_funcs_new")
 pub fn ffi_ffi_bridge_funcs_new() -> Array[@lib.Func] {
   @ffi_bridge.funcs_new()
@@ -28380,6 +28397,16 @@ pub fn ffi_binary_Decode_lib_CompType_option_decode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Decode_Array_FieldType_decode")
+pub fn ffi_binary_Decode_Array_FieldType_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[@lib.FieldType], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Decode_Array_Func_decode")
 pub fn ffi_binary_Decode_Array_Func_decode(
   value0 : Bytes,
@@ -28425,16 +28452,6 @@ pub fn ffi_binary_Decode_Array_ValType_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(Array[@lib.ValType], Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Array_FieldType_decode")
-pub fn ffi_binary_Decode_Array_FieldType_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.FieldType], Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -29040,6 +29057,16 @@ pub fn ffi_binary_Encode_lib_CompType_option_encode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Encode_Array_FieldType_encode")
+pub fn ffi_binary_Encode_Array_FieldType_encode(
+  receiver : Array[@lib.FieldType],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Encode_Array_Func_encode")
 pub fn ffi_binary_Encode_Array_Func_encode(
   receiver : Array[@lib.Func],
@@ -29083,16 +29110,6 @@ pub fn ffi_binary_Encode_Array_TypeIdx_encode(
 #export_name("ffi_binary_Encode_Array_ValType_encode")
 pub fn ffi_binary_Encode_Array_ValType_encode(
   receiver : Array[@lib.ValType],
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_Array_FieldType_encode")
-pub fn ffi_binary_Encode_Array_FieldType_encode(
-  receiver : Array[@lib.FieldType],
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)
@@ -29320,10 +29337,10 @@ pub fn ffi_binary_Encode_Array_TableType_encode(
 
 ///|
 #doc(hidden)
-#export_name("ffi_validate_Match_Array_ValType_matches")
-pub fn ffi_validate_Match_Array_ValType_matches(
-  receiver : Array[@lib.ValType],
-  value1 : Array[@lib.ValType],
+#export_name("ffi_validate_Match_Array_FieldType_matches")
+pub fn ffi_validate_Match_Array_FieldType_matches(
+  receiver : Array[@lib.FieldType],
+  value1 : Array[@lib.FieldType],
   value2 : @validate.Env,
 ) -> Bool {
   @validate.Match::matches(receiver, value1, value2)
@@ -29331,10 +29348,10 @@ pub fn ffi_validate_Match_Array_ValType_matches(
 
 ///|
 #doc(hidden)
-#export_name("ffi_validate_Match_Array_FieldType_matches")
-pub fn ffi_validate_Match_Array_FieldType_matches(
-  receiver : Array[@lib.FieldType],
-  value1 : Array[@lib.FieldType],
+#export_name("ffi_validate_Match_Array_ValType_matches")
+pub fn ffi_validate_Match_Array_ValType_matches(
+  receiver : Array[@lib.ValType],
+  value1 : Array[@lib.ValType],
   value2 : @validate.Env,
 ) -> Bool {
   @validate.Match::matches(receiver, value1, value2)
@@ -29397,6 +29414,16 @@ pub fn ffi_validate_Match_Array_TableType_matches(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_Validate_Array_FieldType_validate")
+pub fn ffi_validate_Validate_Array_FieldType_validate(
+  receiver : Array[@lib.FieldType],
+  value1 : @validate.Env,
+) -> Result[Unit, String] {
+  @validate.Validate::validate(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_Validate_Array_RecType_validate")
 pub fn ffi_validate_Validate_Array_RecType_validate(
   receiver : Array[@lib.RecType],
@@ -29420,16 +29447,6 @@ pub fn ffi_validate_Validate_Array_TypeIdx_validate(
 #export_name("ffi_validate_Validate_Array_ValType_validate")
 pub fn ffi_validate_Validate_Array_ValType_validate(
   receiver : Array[@lib.ValType],
-  value1 : @validate.Env,
-) -> Result[Unit, String] {
-  @validate.Validate::validate(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_validate_Validate_Array_FieldType_validate")
-pub fn ffi_validate_Validate_Array_FieldType_validate(
-  receiver : Array[@lib.FieldType],
   value1 : @validate.Env,
 ) -> Result[Unit, String] {
   @validate.Validate::validate(receiver, value1)
