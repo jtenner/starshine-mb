@@ -753,6 +753,43 @@ test "coalesce-locals dense-tee intervals preserve branch-skipped default reads"
 }
 
 ///|
+test "coalesce-locals dense-tee intervals keep branch-reachable continuation locals distinct" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (param i32) (result i32) (local")
+  for _i = 0; _i < 24; _i = _i + 1 {
+    input.write_string(" i32")
+  }
+  input.write_string(")")
+  for i = 0; i < 8; i = i + 1 {
+    input.write_string(" i32.const \{i} local.tee 3 drop")
+  }
+  input.write_string(
+    " block local.get 0 if (result i32) i32.const 0 else i32.const 7 local.set 1 br 1 end return end local.get 1 i32.const 1 i32.add local.set 2 local.get 1 i32.const 2 i32.add local.set 4 local.get 2 local.get 4 i32.sub))",
+  )
+  let optimized = match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["coalesce-locals"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dense-tee interval coalescing, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = cl_test_first_defined_func(optimized)
+  let first_derived = match body[body.length() - 3] {
+    @lib.LocalGet(local_idx) => local_idx
+    other =>
+      fail("expected first trailing local.get, got \{@debug.to_string(other)}")
+  }
+  let second_derived = match body[body.length() - 2] {
+    @lib.LocalGet(local_idx) => local_idx
+    other =>
+      fail("expected second trailing local.get, got \{@debug.to_string(other)}")
+  }
+  assert_false(first_derived == second_derived)
+}
+
+///|
 test "coalesce-locals processes defaultable structured functions without suppressing neighbors" {
   let input = StringBuilder::new()
   let prefix =

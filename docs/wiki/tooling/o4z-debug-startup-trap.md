@@ -30,8 +30,9 @@ The historical host-visible symptom was `RuntimeError: unreachable`; the August 
 
 - The stale committed debug-WASI artifact path is repaired. The reduced `malloc` shape now carries the TLSF root/control pointer into `tlsf/removeBlock` instead of leaving a literal zero on the stack.
 - One current-source owner is repaired: raw SimplifyLocals effectful-suffix sinking moved a stack-carried producer containing `local.set` or `local.tee` writes behind instructions that read those locals. The rewrite now tracks producer-written locals and treats conflicting reads and writes as movement barriers.
-- The next independent failure remains open at the O4z `dae-optimizing` slot. Plain `dae` happened not to reproduce the artifact-scale crash, but module-size-based pass substitution is not a semantic fix and is intentionally not retained.
-- Smaller final-precompute, global-refining, and scalar-cleanup portfolio candidates also reproduced runtime failure during isolation. Those pass owners must be reduced and repaired individually; the portfolio is not disabled by an artifact-size threshold.
+- The apparent `dae-optimizing` failure was reduced to its typed-loop-safe nested `coalesce-locals` stage. The DAE boundary batch and nested SimplifyLocals output both remained runtime-safe; function-body hybridization isolated the first bad coalesced body to absolute function 8017.
+- Dense-tee interval marking incorrectly treated a block as never falling through when its textual tail returned, even though an earlier nested branch targeted that block's continuation. The marker stopped scanning, classified continuation locals as unused, and merged simultaneously live values into one slot. Structured escape classification now checks for branches to the instruction's own continuation before declaring its tail terminal.
+- The unmodified 69-pass main O4z sequence is now runtime-safe. The next open boundary is the final-precompute portfolio candidate: applying `precompute` alone to the safe main artifact remains structurally valid but fails at runtime. Global-refining and scalar-cleanup candidates still require independent verification after that owner is repaired.
 - `scripts/lib/build-self-optimized.mjs` describes the build/copy flow that produces the debug artifact used by later self-optimize runs.
 - `scripts/lib/self-optimized-artifacts.mjs` names the debug artifact path that the build pipeline copies into the node-dist layout.
 - The runtime-trap semantics remain source-backed in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md); use that guide to remember that `RuntimeError: unreachable` is a wasm trap surface, not a Node-specific exception class.
@@ -43,8 +44,10 @@ The historical host-visible symptom was `RuntimeError: unreachable`; the August 
 - Exact main-pipeline runtime bisection placed the first failure at prefix 24, where `simplify-locals` followed a runtime-safe prefix ending in `local-cse`.
 - Function-body hybridization reduced that failure to defined function 8037 and exposed a `local.get` moved before its corresponding producer write.
 - The focused regression is `raw simplify-locals keeps stack-carried producer writes before destination reads`.
-- After that repair, the next runtime failure appears when the main pipeline adds `dae-optimizing`; structural validation remains green, so runtime and native-equivalence evidence remain mandatory.
-- Generated replay and bisection artifacts remain under `.tmp/self-opt-current-prefix-bisect/` and `.tmp/isolate-self-opt-address-dae.py`.
+- The next apparent failure at `dae-optimizing` was narrowed through stage dumps: boundary batch runtime `0`, nested SimplifyLocals runtime `0`, nested coalescing runtime `1`. Hybridization across 345 changed coalesced functions isolated absolute function 8017.
+- The focused coalescer regression is `coalesce-locals dense-tee intervals keep branch-reachable continuation locals distinct`; the repaired artifact-scale DAE replay passes `tests/spec/address.wast`.
+- The current explicit 69-pass main artifact validates and passes runtime replay. Applying final `precompute` changes that status from runtime `0` to runtime `1`, establishing the next pass-level boundary.
+- Generated replay and bisection artifacts remain under `.tmp/self-opt-current-prefix-bisect/`, `.tmp/self-opt-address-prefix-bisect/`, and `.tmp/isolate-dae-coalesce.py`.
 
 ## Current TDD guard
 

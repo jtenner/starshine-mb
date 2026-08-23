@@ -247,11 +247,15 @@ fn cl_instr_escapes_past_depth(
     @lib.BrTable(labels, default_label) =>
       cl_br_table_all_past_depth(labels, default_label, boundary_depth)
     @lib.Block(_, @lib.Expr(body)) =>
+      !body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
       cl_instrs_end_in_escape_past_depth(body, boundary_depth + 1)
     @lib.If(_, then_body, Some(else_body)) =>
+      !then_body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
+      !else_body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
       cl_instrs_end_in_escape_past_depth(then_body, boundary_depth + 1) &&
       cl_instrs_end_in_escape_past_depth(else_body, boundary_depth + 1)
     @lib.TryTable(_, _, @lib.Expr(body)) =>
+      !body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
       cl_instrs_end_in_escape_past_depth(body, boundary_depth + 1)
     _ => false
   }
@@ -288,11 +292,15 @@ fn cl_instr_never_falls_through(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Br(_) | @lib.BrTable(_, _) => true
     @lib.Block(_, @lib.Expr(body)) =>
+      !body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
       cl_instrs_end_in_escape_past_depth(body, 0)
     @lib.If(_, then_body, Some(else_body)) =>
+      !then_body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
+      !else_body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
       cl_instrs_end_in_escape_past_depth(then_body, 0) &&
       cl_instrs_end_in_escape_past_depth(else_body, 0)
     @lib.TryTable(_, _, @lib.Expr(body)) =>
+      !body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
       cl_instrs_end_in_escape_past_depth(body, 0)
     _ => false
   }
