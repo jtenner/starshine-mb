@@ -19658,6 +19658,47 @@ test "raw simplify-locals gate accepts debug artifact Func 473" {
 }
 
 ///|
+test "raw simplify-locals keeps stack-carried producer writes before destination reads" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $callee (param i32 i32 i32) (result i32) local.get 0)
+      #|  (func (param i32) (result i32) (local i32 i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    local.set 1
+      #|    local.set 2
+      #|    local.get 1
+      #|    i32.const 0
+      #|    local.get 2
+      #|    call $callee
+      #|    local.get 2
+      #|    i32.add))
+      #|,
+    ),
+  )
+  let func_idx = @lib.FuncIdx::new(1U)
+  let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
+    mod_, func_idx,
+  )
+  let module_state = HotPipelineModuleState::new()
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_,
+    module_state,
+    HotPipelineOptions::new(),
+  )
+  let env = run_hot_pipeline_raw_simplify_locals_func_env(
+    mod_, func_idx, module_ctx, locals,
+  )
+  let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
+    instrs, env,
+  )
+
+  assert_eq(rewrite_count, 0)
+  @debug.assert_eq(rewritten, instrs)
+}
+
+///|
 test "raw simplify-locals stackifies a set across independent expressions" {
   let mod_ = pass_test_module_from_wat(
     (

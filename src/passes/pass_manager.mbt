@@ -6642,6 +6642,38 @@ fn run_hot_pipeline_raw_simplify_locals_instr_source_locals(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_instr_written_locals(
+  instrs : Array[@lib.Instruction],
+) -> Array[Int] {
+  let written_locals : Array[Int] = []
+  fn collect(body : Array[@lib.Instruction]) -> Unit {
+    for instr in body {
+      match instr {
+        @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+          let local_id = raw.reinterpret_as_int()
+          if !written_locals.any(fn(existing) { existing == local_id }) {
+            written_locals.push(local_id)
+          }
+        }
+        @lib.Block(_, @lib.Expr(nested))
+        | @lib.Loop(_, @lib.Expr(nested))
+        | @lib.TryTable(_, _, @lib.Expr(nested)) => collect(nested)
+        @lib.If(_, then_body, else_body) => {
+          collect(then_body)
+          match else_body {
+            Some(nested) => collect(nested)
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  collect(instrs)
+  written_locals
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_instr_is_call_like(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -8469,6 +8501,9 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat
           let source_locals = run_hot_pipeline_raw_simplify_locals_instr_source_locals(
             producer_suffix,
           )
+          let written_locals = run_hot_pipeline_raw_simplify_locals_instr_written_locals(
+            producer_suffix,
+          )
           let pure_prefix : Array[@lib.Instruction] = []
           let mut use_idx = scan_idx + 1
           while use_idx < instrs.length() {
@@ -8501,6 +8536,10 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat
                   scan_idx = cursor
                   rewrite_count = rewrite_count + 1
                   rewritten_here = true
+                  break
+                } else if written_locals.any(fn(local_id) {
+                    local_id == read_raw.reinterpret_as_int()
+                  }) {
                   break
                 } else {
                   pure_prefix.push(instrs[use_idx])
@@ -8552,7 +8591,10 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat
                   break
                 }
               @lib.LocalSet(@lib.LocalIdx(barrier_raw)) =>
-                if run_hot_pipeline_raw_simplify_locals_pure_prefix_can_append_local_set_barrier(
+                if !written_locals.any(fn(local_id) {
+                    local_id == barrier_raw.reinterpret_as_int()
+                  }) &&
+                  run_hot_pipeline_raw_simplify_locals_pure_prefix_can_append_local_set_barrier(
                     pure_prefix,
                     target_local,
                     source_locals,
