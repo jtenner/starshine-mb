@@ -36,6 +36,43 @@ test "precompute skips load-call-set ownership hazards" {
 }
 
 ///|
+test "precompute keeps stack-carried call producers before intervening effects" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $produce (param i32) (result i32) local.get 0)
+        #|  (func $effect (param i32))
+        #|  (func (param i32)
+        #|    local.get 0
+        #|    call $produce
+        #|    i32.const 1
+        #|    call $effect
+        #|    if
+        #|      i32.const 0
+        #|      drop
+        #|    end))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-carried precompute success, got \{err}")
+  }
+  let body = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[2]
+      body
+    }
+    None => fail("expected code section")
+  }
+  @debug.assert_eq(body[0], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(body[1], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  @debug.assert_eq(body[2], @lib.Instruction::i32_const(@lib.I32(1)))
+  @debug.assert_eq(body[3], @lib.Instruction::call(@lib.FuncIdx::new(1U)))
+}
+
+///|
 test "precompute intentionally fails closed for root global snapshot write prefixes" {
   let source =
     #|(module

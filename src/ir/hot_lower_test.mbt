@@ -2828,6 +2828,35 @@ test "hot lower roundtrips multi-result producers consumed across instructions" 
 }
 
 ///|
+test "hot lower preserves stack-carried call before intervening effect" {
+  let module_ = match
+    @wast.wast_to_binary_module(
+      (
+        #|(module
+        #|  (func $produce (param i32) (result i32) local.get 0)
+        #|  (func $effect (param i32))
+        #|  (func (param i32)
+        #|    local.get 0
+        #|    call $produce
+        #|    i32.const 1
+        #|    call $effect
+        #|    if
+        #|    end))
+        #|,
+      ),
+    ) {
+    Ok(module_) => module_
+    Err(err) => fail("expected module to parse, got \{err}")
+  }
+  let original = match module_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[2]
+    None => fail("expected code section")
+  }
+  let lowered = hot_lower_func(hot_lift_func(module_, @lib.FuncIdx::new(2U)))
+  @debug.assert_eq(lowered, original)
+}
+
+///|
 test "hot lower preserves result blocks consumed by local.set" {
   let body = @lib.Expr::new([
     @lib.Instruction::block(

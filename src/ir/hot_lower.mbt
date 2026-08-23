@@ -630,6 +630,92 @@ fn hot_lower_impl_direct_delegate_target(
 }
 
 ///|
+fn hot_lower_impl_stack_has_node(
+  stack : Array[HotLowerStackValue],
+  node_id : NodeId,
+) -> Bool {
+  stack.any(fn(value) { value.node_id == node_id })
+}
+
+///|
+fn hot_lower_impl_collect_preceding_dependency(
+  func : HotFunc,
+  node_id : NodeId,
+  before_node_id : NodeId,
+  seen : Array[Bool],
+  out : Array[NodeId],
+) -> Unit {
+  if node_id < 0 ||
+    node_id >= seen.length() ||
+    seen[node_id] ||
+    !hot_node_is_live(func, node_id) {
+    return
+  }
+  seen[node_id] = true
+  if node_id < before_node_id &&
+    hot_node_result_arity(func, node_id) > 0 &&
+    !effects_is_pure(effects_for_node(func, node_id)) {
+    out.push(node_id)
+    return
+  }
+  let inputs = hot_lower_impl_input_info(func, node_id)
+  for input_id in inputs.nodes {
+    hot_lower_impl_collect_preceding_dependency(
+      func, input_id, before_node_id, seen, out,
+    )
+  }
+}
+
+///|
+fn hot_lower_impl_emit_preceding_future_dependencies(
+  func : HotFunc,
+  current_root : NodeId,
+  future_roots : Array[NodeId],
+  future_start : Int,
+  use_def : HotUseDef,
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
+  stack : Array[HotLowerStackValue],
+  out : Array[Instruction],
+  extra_locals : Array[ValType],
+  options : HotLowerOptions,
+) -> Unit {
+  match hot_query_op(func, current_root) {
+    HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => ()
+    _ => return
+  }
+  if hot_node_result_arity(func, current_root) != 0 {
+    return
+  }
+  let seen = Array::make(hot_node_count(func), false)
+  let carried : Array[NodeId] = []
+  for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
+    let inputs = hot_lower_impl_input_info(func, future_roots[idx])
+    for input_id in inputs.nodes {
+      hot_lower_impl_collect_preceding_dependency(
+        func, input_id, current_root, seen, carried,
+      )
+    }
+  }
+  carried.sort_by(fn(left, right) { left.compare(right) })
+  for node_id in carried {
+    if !hot_lower_impl_stack_has_node(stack, node_id) {
+      hot_lower_impl_emit_value(
+        func,
+        node_id,
+        use_def,
+        label_frames,
+        label_stack_head,
+        stack,
+        out,
+        extra_locals,
+        options,
+      )
+    }
+  }
+}
+
+///|
 fn hot_lower_impl_body_items(
   func : HotFunc,
   id : NodeId,
@@ -707,6 +793,19 @@ fn hot_lower_impl_body_items(
           child, value_stack, out,
         )
       }
+      hot_lower_impl_emit_preceding_future_dependencies(
+        func,
+        child,
+        root_ids,
+        root_idx + 1,
+        use_def,
+        label_frames,
+        next_stack,
+        value_stack,
+        out,
+        extra_locals,
+        options,
+      )
       hot_lower_impl_emit_root(
         func, child, use_def, label_frames, next_stack, value_stack, out, extra_locals,
         options,
@@ -4756,6 +4855,19 @@ fn hot_lower_body_with_extras_unverified_with_options(
   )
   for i = 0; i < hot_root_count(func); i = i + 1 {
     let root_id = root_ids[i]
+    hot_lower_impl_emit_preceding_future_dependencies(
+      func,
+      root_id,
+      root_ids,
+      i + 1,
+      use_def,
+      label_frames,
+      -1,
+      value_stack,
+      out,
+      extra_locals,
+      options,
+    )
     hot_lower_impl_emit_root(
       func, root_id, use_def, label_frames, -1, value_stack, out, extra_locals, options,
     )
