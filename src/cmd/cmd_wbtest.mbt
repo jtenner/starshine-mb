@@ -316,7 +316,7 @@ fn fixture_i32_const_module(value : Int) -> Module {
 
 ///|
 fn fixture_f32_nan_module() -> Module {
-  let nan_bits : UInt = 0x7FC00000
+  let nan_bits : UInt = 0x7FC00001
   let nan = @lib.F32(Float::reinterpret_from_uint(nan_bits))
   let t_f32 = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::f32()])),
@@ -331,6 +331,25 @@ fn fixture_f32_nan_module() -> Module {
     ]),
   )
   .with_type_sec(@lib.TypeSec::new([t_f32]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
+}
+
+///|
+fn fixture_f64_nan_module() -> Module {
+  let nan = @lib.F64(0x7FF8000000000001UL.reinterpret_as_double())
+  let t_f64 = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::f64()])),
+  )
+  Module::new()
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::f64_const(nan)]),
+      ),
+    ]),
+  )
+  .with_type_sec(@lib.TypeSec::new([t_f64]))
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0)]))
 }
 
@@ -1838,11 +1857,42 @@ test "O4z final cleanup removes explicit empty void else arms" {
 }
 
 ///|
-test "O4z finish reuse requires an unchanged canonical input" {
-  let unchanged = fixture_i32_const_module(7)
-  let changed = fixture_i32_const_module(8)
-  assert_true(cmd_o4z_can_reuse_precanonical_finish(unchanged, unchanged))
-  assert_false(cmd_o4z_can_reuse_precanonical_finish(unchanged, changed))
+test "O4z finish reuse follows the canonicalizer changed bit" {
+  assert_true(cmd_o4z_can_reuse_precanonical_finish(false))
+  assert_false(cmd_o4z_can_reuse_precanonical_finish(true))
+}
+
+///|
+test "O4z finish reuse skips the second finish roster for unchanged NaN candidates" {
+  for input in [fixture_f32_nan_module(), fixture_f64_nan_module()] {
+    let (finish_input, changed) = @passes.o4z_canonicalize_final_size_candidate_with_changed(
+      input,
+    )
+    assert_false(changed)
+    let mut finish_invocations = 0
+    let selected = cmd_o4z_choose_precanonical_finish(
+      finish_input,
+      changed,
+      Some(input),
+      fn(candidate) {
+        finish_invocations = finish_invocations + 1
+        Some(candidate)
+      },
+    )
+    @debug.assert_eq(finish_invocations, 0)
+    assert_true(selected is Some(_))
+  }
+}
+
+///|
+test "O4z canonicalizer reports real final-candidate mutations" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (export \"f\") nop))",
+  )
+  let (_, changed) = @passes.o4z_canonicalize_final_size_candidate_with_changed(
+    input,
+  )
+  assert_true(changed)
 }
 
 ///|
@@ -1891,10 +1941,12 @@ test "O4z size portfolio is limited to Wasm shrink presets" {
 }
 
 ///|
-test "O4z size portfolio bounds late cleanup on already compressed modules" {
-  assert_false(cmd_o4z_late_cleanup_candidate_enabled(837, 118))
-  assert_true(cmd_o4z_late_cleanup_candidate_enabled(626, 420))
-  assert_true(cmd_o4z_late_cleanup_candidate_enabled(28208, 25407))
+test "O4z size portfolio bounds late cleanup on compressed and artifact-scale modules" {
+  assert_false(cmd_o4z_late_cleanup_candidate_enabled(837, 118, 1))
+  assert_true(cmd_o4z_late_cleanup_candidate_enabled(626, 420, 1))
+  assert_true(cmd_o4z_late_cleanup_candidate_enabled(28208, 25407, 50))
+  assert_false(cmd_o4z_late_cleanup_candidate_enabled(4977401, 5000000, 2000))
+  assert_false(cmd_o4z_late_cleanup_candidate_enabled(4977401, 5000000, 9264))
 }
 
 ///|
@@ -3807,6 +3859,50 @@ test "O4z size portfolio detects stack-carried SIMD truncation global writes" {
 }
 
 ///|
+test "O4z size portfolio detects nested stack-carried SIMD truncation global writes" {
+  let hazard = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (global (mut v128) (v128.const i32x4 0 0 0 0))
+      #|  (func (result i32)
+      #|    block (result i32)
+      #|      v128.const i32x4 0 0 0 0
+      #|      f32x4.floor
+      #|      drop
+      #|      v128.const i32x4 0 0 0 0
+      #|      v128.const i32x4 0 0 0 0
+      #|      v128.const i32x4 0 0 0 0
+      #|      v128.bitselect
+      #|      i64x2.extend_low_i32x4_s
+      #|      drop
+      #|      f64.const 0
+      #|      i32.trunc_f64_s
+      #|      f64.convert_i32_u
+      #|      i32.trunc_f64_s
+      #|      f64.convert_i32_u
+      #|      i32.trunc_f64_s
+      #|      f64.convert_i32_u
+      #|      i32.trunc_f64_s
+      #|      f64.convert_i32_u
+      #|      i32.trunc_f64_s
+      #|      f64.convert_i32_u
+      #|      i32.trunc_f64_s
+      #|      f64.convert_i32_u
+      #|      i32.trunc_f64_s
+      #|      f64.convert_i32_u
+      #|      i32.trunc_f64_s
+      #|      v128.const i32x4 0 0 0 0
+      #|      global.set 0
+      #|    end))
+      #|,
+    ),
+  )
+  assert_true(
+    @passes.o4z_size_candidate_has_stack_carried_simd_trunc_global_write(hazard),
+  )
+}
+
+///|
 test "O4z size portfolio keeps stack-carried SIMD safe replay roster" {
   let passes = cmd_o4z_stack_carried_simd_safe_passes()
   @debug.assert_eq(passes.length(), 50)
@@ -3912,6 +4008,74 @@ test "O4z ifs final canonicalization fuses block and sign-extension cleanup" {
         @lib.Instruction::drop(),
       ])
     other => fail("expected fused ifs block/sign cleanup, got \{other}")
+  }
+}
+
+///|
+fn eval_o4z_test_i32_body(mod_ : @lib.Module, args : Array[Int]) -> Int {
+  let instrs = match mod_.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => instrs
+    other => abort("expected one test function, got \{other}")
+  }
+  let stack : Array[Int] = []
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        stack.push(args[raw.reinterpret_as_int()])
+      @lib.I32Const(@lib.I32(value)) => stack.push(value)
+      @lib.I32And => {
+        let rhs = stack.pop().unwrap()
+        let lhs = stack.pop().unwrap()
+        stack.push(lhs & rhs)
+      }
+      @lib.I32Xor => {
+        let rhs = stack.pop().unwrap()
+        let lhs = stack.pop().unwrap()
+        stack.push(lhs ^ rhs)
+      }
+      @lib.I32Eqz => {
+        let value = stack.pop().unwrap()
+        stack.push(if value == 0 { 1 } else { 0 })
+      }
+      other => abort("unsupported O4z test instruction: \{other}")
+    }
+  }
+  if stack.length() != 1 {
+    abort("expected one O4z test result, got \{stack.length()}")
+  }
+  stack[0]
+}
+
+///|
+test "O4z ifs boolean xor fusion requires an exact one-bit mask" {
+  for mask in [2, 3, -1] {
+    let input = @passes.pass_test_module_from_wat(
+      "(module (func (param i32) (result i32) local.get 0 i32.const \{mask} i32.and i32.const 1 i32.xor))",
+    )
+    let optimized = @passes.o4z_canonicalize_final_size_ifs_stateful_candidate(
+      input,
+    )
+    @debug.assert_eq(optimized, input)
+    for arg in [0, 1, 2, 3, -1] {
+      @debug.assert_eq(
+        eval_o4z_test_i32_body(optimized, [arg]),
+        eval_o4z_test_i32_body(input, [arg]),
+      )
+    }
+  }
+
+  let dynamic = @passes.pass_test_module_from_wat(
+    "(module (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.and i32.const 1 i32.xor))",
+  )
+  let dynamic_optimized = @passes.o4z_canonicalize_final_size_ifs_stateful_candidate(
+    dynamic,
+  )
+  @debug.assert_eq(dynamic_optimized, dynamic)
+  for args in [[0, 0], [2, 2], [3, 2], [-1, 3]] {
+    @debug.assert_eq(
+      eval_o4z_test_i32_body(dynamic_optimized, args),
+      eval_o4z_test_i32_body(dynamic, args),
+    )
   }
 }
 

@@ -6481,15 +6481,17 @@ fn run_hot_pipeline_raw_simplify_locals_func_env(
   func_idx : @lib.FuncIdx,
   module_ctx : @ir.HotModuleContext,
   locals : @lib.Locals,
+  module_env? : @validate.Env? = None,
 ) -> @validate.Env {
   match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(params, results)) => {
       let all_locals = @lib.Locals::from_types(params)
       all_locals.append(locals)
-      @validate.Env::new()
-      .with_module(mod_)
-      .with_locals(all_locals)
-      .with_return_type(Some(results))
+      let base_env = match module_env {
+        Some(env) => env
+        None => @validate.Env::new().with_module(mod_)
+      }
+      base_env.with_locals(all_locals).with_return_type(Some(results))
     }
     None =>
       abort(
@@ -13921,6 +13923,7 @@ priv struct HsoCandidateScanState {
 ///|
 priv struct HotPipelineModuleState {
   mut module_ctx : @ir.HotModuleContext?
+  mut validation_module_env : @validate.Env?
   mut vacuum_raw_preclean_elapsed_us : UInt64
   mut vacuum_raw_preclean_count : Int
   mut vacuum_no_candidate_elapsed_us : UInt64
@@ -13937,6 +13940,7 @@ priv struct HotPipelineModuleState {
 fn HotPipelineModuleState::new() -> HotPipelineModuleState {
   {
     module_ctx: None,
+    validation_module_env: None,
     vacuum_raw_preclean_elapsed_us: 0UL,
     vacuum_raw_preclean_count: 0,
     vacuum_no_candidate_elapsed_us: 0UL,
@@ -14038,6 +14042,31 @@ fn run_hot_pipeline_require_module_ctx(
       perf_stop_timer_opt(options.perf, "analysis:module-context", start_us)
       module_state.module_ctx = Some(module_ctx)
       module_ctx
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_require_validation_module_env(
+  mod_ : @lib.Module,
+  module_state : HotPipelineModuleState,
+  options : HotPipelineOptions,
+) -> @validate.Env {
+  match module_state.validation_module_env {
+    Some(env) => env
+    None => {
+      let start_us = perf_start_timer_opt(
+        options.perf,
+        "analysis:optimize-instructions-validation-module-env",
+      )
+      let env = @validate.Env::new().with_module(mod_)
+      perf_stop_timer_opt(
+        options.perf,
+        "analysis:optimize-instructions-validation-module-env",
+        start_us,
+      )
+      module_state.validation_module_env = Some(env)
+      env
     }
   }
 }
@@ -33393,6 +33422,169 @@ fn RawOiRawBridgeCandidateFact::needs_call_ref_or_null_repair(
 }
 
 ///|
+priv struct RawOiAdmissionGuardFacts {
+  mut has_call_value_store_offset : Bool
+  mut has_call_comparison_add : Bool
+  mut has_stack_carried_call_zero_shift : Bool
+  mut has_subtracted_local_multi_use : Bool
+  mut has_dynamic_store_offset_value_arithmetic : Bool
+  mut has_result_try_table : Bool
+  mut has_sparse_exponent_br_table_candidate : Bool
+  mut has_const_fold_candidate : Bool
+  mut has_global : Bool
+  mut has_call : Bool
+  mut has_tee : Bool
+  mut has_control : Bool
+}
+
+///|
+fn RawOiAdmissionGuardFacts::new() -> RawOiAdmissionGuardFacts {
+  {
+    has_call_value_store_offset: false,
+    has_call_comparison_add: false,
+    has_stack_carried_call_zero_shift: false,
+    has_subtracted_local_multi_use: false,
+    has_dynamic_store_offset_value_arithmetic: false,
+    has_result_try_table: false,
+    has_sparse_exponent_br_table_candidate: false,
+    has_const_fold_candidate: false,
+    has_global: false,
+    has_call: false,
+    has_tee: false,
+    has_control: false,
+  }
+}
+
+///|
+fn RawOiAdmissionGuardFacts::record_region(
+  self : RawOiAdmissionGuardFacts,
+  instrs : Array[@lib.Instruction],
+) -> Unit {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.I32Const(_), @lib.I32Eqz) => self.has_const_fold_candidate = true
+        _ => ()
+      }
+      if run_hot_pipeline_raw_simplify_locals_instr_is_call_like(instrs[idx]) {
+        match RawOiMemoryAccessMemargFact::from_store_instr(instrs[idx + 1]) {
+          Some(fact) => {
+            let @lib.MemArg(_, _, @lib.U64(offset)) = fact.memarg
+            if offset > 0UL {
+              self.has_call_value_store_offset = true
+            }
+          }
+          None => ()
+        }
+      }
+      match (instrs[idx], instrs[idx + 1]) {
+        (
+          @lib.I32Add
+          | @lib.I32Sub
+          | @lib.I32Mul,
+          @lib.I32Store(@lib.MemArg(_, _, @lib.U64(offset))),
+        ) if offset > 0UL =>
+          self.has_dynamic_store_offset_value_arithmetic = true
+        _ => ()
+      }
+    }
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.I32Const(_), @lib.I32Eqz, @lib.I32Eqz)
+        | (@lib.I32Const(_), @lib.I32Const(_), @lib.I32Add) =>
+          self.has_const_fold_candidate = true
+        _ => ()
+      }
+    }
+    if idx + 4 < instrs.length() {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+        ) {
+        (
+          @lib.Call(_)
+          | @lib.CallIndirect(_, _)
+          | @lib.CallRef(_),
+          @lib.LocalGet(_),
+          @lib.I32Const(value),
+          @lib.I32Ne,
+          @lib.I32Add,
+        ) if value == 0 => self.has_call_comparison_add = true
+        (
+          @lib.Call(_)
+          | @lib.CallIndirect(_, _)
+          | @lib.CallRef(_),
+          @lib.LocalGet(_),
+          @lib.I32Const(@lib.I32(0)),
+          @lib.I32Shl
+          | @lib.I32ShrS
+          | @lib.I32ShrU,
+          @lib.I32Add,
+        ) => self.has_stack_carried_call_zero_shift = true
+        _ => ()
+      }
+    }
+    if idx + 3 < instrs.length() {
+      let target = match
+        (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+        (@lib.LocalGet(_), @lib.I32Const(_), @lib.I32Sub, @lib.LocalSet(target)) =>
+          target
+        _ => continue
+      }
+      let mut reads = 0
+      for later = idx + 4; later < instrs.length(); later = later + 1 {
+        match instrs[later] {
+          @lib.LocalGet(read) if read == target => {
+            reads += 1
+            if reads >= 2 {
+              self.has_subtracted_local_multi_use = true
+              break
+            }
+          }
+          _ => ()
+        }
+      }
+    }
+  }
+}
+
+///|
+fn RawOiAdmissionGuardFacts::record_instr(
+  self : RawOiAdmissionGuardFacts,
+  instr : @lib.Instruction,
+) -> Unit {
+  match instr {
+    @lib.GlobalGet(_) | @lib.GlobalSet(_) => self.has_global = true
+    @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+      self.has_call = true
+    @lib.LocalTee(_) => self.has_tee = true
+    @lib.Block(_, _) | @lib.Loop(_, _) | @lib.If(_, _, _) =>
+      self.has_control = true
+    @lib.TryTable(block_type, _, _) => {
+      self.has_control = true
+      match block_type {
+        @lib.VoidBlockType => ()
+        _ => self.has_result_try_table = true
+      }
+    }
+    @lib.BrTable(labels, _) if labels.length() == 2048 =>
+      self.has_sparse_exponent_br_table_candidate = true
+    _ => ()
+  }
+}
+
+///|
+fn RawOiAdmissionGuardFacts::has_global_call_tee_control(
+  self : RawOiAdmissionGuardFacts,
+) -> Bool {
+  self.has_global && self.has_call && self.has_tee && self.has_control
+}
+
+///|
 priv struct RawOiFunctionRevisionFactIndex {
   instruction_count : Int
   lowered_stats : OptimizeInstructionsLoweredStats
@@ -33402,6 +33594,7 @@ priv struct RawOiFunctionRevisionFactIndex {
   call_sites : Array[RawOiCallSiteFact]
   select_anchors : Array[RawOiSelectAnchorFact]
   bridge_candidates : RawOiRawBridgeCandidateFact
+  admission_guards : RawOiAdmissionGuardFacts
 }
 
 ///|
@@ -33412,12 +33605,14 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
   select_anchors : Array[RawOiSelectAnchorFact],
   regions : Array[RawOiInstructionRegionFact],
   bridge_candidates : RawOiRawBridgeCandidateFact,
+  admission_guards : RawOiAdmissionGuardFacts,
 ) -> Int {
   let mut count = 1
   run_hot_pipeline_optimize_instructions_record_stats_instr(
     instr, lowered_stats,
   )
   bridge_candidates.record_instr(instr)
+  admission_guards.record_instr(instr)
   match instr {
     @lib.Call(call_idx) =>
       call_sites.push({ call_idx, call_ordinal: call_sites.length() })
@@ -33428,15 +33623,18 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       count += RawOiFunctionRevisionFactIndex::collect_body(
         body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+        admission_guards,
       )
     @lib.If(_, then_body, else_body) => {
       count += RawOiFunctionRevisionFactIndex::collect_body(
         then_body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+        admission_guards,
       )
       match else_body {
         Some(body) =>
           count += RawOiFunctionRevisionFactIndex::collect_body(
             body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+            admission_guards,
           )
         None => ()
       }
@@ -33454,12 +33652,15 @@ fn RawOiFunctionRevisionFactIndex::collect_body(
   select_anchors : Array[RawOiSelectAnchorFact],
   regions : Array[RawOiInstructionRegionFact],
   bridge_candidates : RawOiRawBridgeCandidateFact,
+  admission_guards : RawOiAdmissionGuardFacts,
 ) -> Int {
+  admission_guards.record_region(instrs)
   regions.push(RawOiInstructionRegionFact::from_instrs(instrs))
   let mut count = 0
   for instr in instrs {
     count += RawOiFunctionRevisionFactIndex::collect_instr(
       instr, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+      admission_guards,
     )
   }
   count
@@ -33474,8 +33675,10 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
   let select_anchors : Array[RawOiSelectAnchorFact] = []
   let regions : Array[RawOiInstructionRegionFact] = []
   let bridge_candidates = RawOiRawBridgeCandidateFact::new()
+  let admission_guards = RawOiAdmissionGuardFacts::new()
   let instruction_count = RawOiFunctionRevisionFactIndex::collect_body(
     instrs, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+    admission_guards,
   )
   let top_level_roots = regions[0].roots
   let mut top_level_pure_stack_prefix_count = 0
@@ -33495,7 +33698,43 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
     call_sites,
     select_anchors,
     bridge_candidates,
+    admission_guards,
   }
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::has_stack_carried_tee_parameter_alias(
+  self : RawOiFunctionRevisionFactIndex,
+  parameter_count : Int,
+) -> Bool {
+  if parameter_count <= 0 {
+    return false
+  }
+  for region in self.regions {
+    let roots = region.roots
+    for tee_idx = 0; tee_idx < roots.length(); tee_idx = tee_idx + 1 {
+      let target = match roots[tee_idx].instr {
+        @lib.LocalTee(target) => target
+        _ => continue
+      }
+      let limit = if tee_idx + 9 < roots.length() {
+        tee_idx + 9
+      } else {
+        roots.length()
+      }
+      for read_idx = tee_idx + 2; read_idx + 1 < limit; read_idx = read_idx + 1 {
+        match (roots[read_idx].instr, roots[read_idx + 1].instr) {
+          (@lib.LocalGet(read), @lib.LocalSet(@lib.LocalIdx(raw_parameter))) =>
+            if read == target &&
+              raw_parameter.reinterpret_as_int() < parameter_count {
+              return true
+            }
+          _ => ()
+        }
+      }
+    }
+  }
+  false
 }
 
 ///|
@@ -40852,6 +41091,119 @@ fn RawOiBottomNullDescriptorCastRegionFact::from_index(
 }
 
 ///|
+fn RawOiInstructionRegionFact::has_effectful_sibling_rewrite_candidate(
+  self : RawOiInstructionRegionFact,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  // Every represented family has a distinctive terminal root. Dispatching from
+  // that terminal avoids attempting all eight fact parsers at every operand in
+  // large regions while preserving each family's exact proof constructor.
+  for terminal = 0; terminal < self.roots.length(); terminal = terminal + 1 {
+    match self.roots[terminal].kind {
+      RawOiRootKind::RefCastDescEq =>
+        if terminal >= 2 &&
+          RawOiBottomNullDescriptorCastFact::from_region_at(self, terminal - 2)
+          is Some(_) {
+          return true
+        }
+      RawOiRootKind::BulkMemory => {
+        let mut start = if terminal > 4 { terminal - 4 } else { 0 }
+        while start <= terminal {
+          if RawOiBulkLoweringRewriteFact::from_region(self, start) is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      RawOiRootKind::If => {
+        if terminal >= 1 &&
+          RawOiDroppedConstBranchIfFact::from_region(self, terminal - 1)
+          is Some(_) {
+          return true
+        }
+        if terminal >= 3 &&
+          RawOiMemorySizeNonzeroIfFact::from_region(self, terminal - 3)
+          is Some(_) {
+          return true
+        }
+        match self.roots[terminal].instr {
+          @lib.If(block_type, then_body, Some(else_body)) => {
+            if RawOiIdenticalIfArmsFact::from_arms(then_body, else_body)
+              is Some(_) ||
+              RawOiSameLocalConstIfSinkFact::from_arms(
+                block_type, then_body, else_body,
+              )
+              is Some(_) {
+              return true
+            }
+            match
+              RawOiSameGlobalIfSinkFact::from_if_arms(
+                block_type, then_body, else_body, module_ctx,
+              ) {
+              Some(fact) if fact.to_rewrite() is Some(_) => return true
+              _ => ()
+            }
+          }
+          _ => ()
+        }
+      }
+      RawOiRootKind::Select => {
+        let mut start = if terminal > 5 { terminal - 5 } else { 0 }
+        while start <= terminal {
+          if RawOiSelectRewriteFact::from_region(self, start) is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      RawOiRootKind::MemoryStore => {
+        let mut start = if terminal > 6 { terminal - 6 } else { 0 }
+        while start <= terminal {
+          if RawOiDropStoreMaskRewriteFact::from_region(self, start) is Some(_) ||
+            RawOiMemoryOffsetFoldRewriteFact::from_region(self, start)
+            is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      RawOiRootKind::PlainLoad => {
+        let mut start = if terminal > 3 { terminal - 3 } else { 0 }
+        while start <= terminal {
+          if RawOiMemoryOffsetFoldRewriteFact::from_region(self, start)
+            is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      RawOiRootKind::ScalarNumericTerminal
+      | RawOiRootKind::CommutativeIntegerBinop => {
+        let mut start = if terminal > 5 { terminal - 5 } else { 0 }
+        while start <= terminal {
+          if RawOiScalarNumericRewriteFact::from_region(self, start) is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::has_effectful_sibling_rewrite_candidate(
+  self : RawOiFunctionRevisionFactIndex,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  self.regions.any(fn(region) {
+    region.has_effectful_sibling_rewrite_candidate(module_ctx)
+  })
+}
+
+///|
 // Accepted raw OI-D/F/G/J bridge boundary. This straight-line walker is now a
 // fact table: descriptor-bottom-null, bulk-lowering, dropped-branch, select,
 // memory-size boolean, narrow-store mask, scalar numeric, and memory-offset
@@ -41708,327 +42060,6 @@ fn run_hot_pipeline_raw_optimize_instructions_const_fold_body(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for i = 1; i < instrs.length(); i = i + 1 {
-    match (instrs[i - 1], instrs[i]) {
-      (
-        @lib.I32Add
-        | @lib.I32Sub
-        | @lib.I32Mul,
-        @lib.I32Store(@lib.MemArg(_, _, @lib.U64(offset))),
-      ) if offset > 0UL => return true
-      _ => ()
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(else_body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-                else_body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
-    match
-      (
-        instrs[idx],
-        instrs[idx + 1],
-        instrs[idx + 2],
-        instrs[idx + 3],
-        instrs[idx + 4],
-      ) {
-      (
-        @lib.Call(_)
-        | @lib.CallIndirect(_, _)
-        | @lib.CallRef(_),
-        @lib.LocalGet(_),
-        @lib.I32Const(@lib.I32(0)),
-        @lib.I32Shl
-        | @lib.I32ShrS
-        | @lib.I32ShrU,
-        @lib.I32Add,
-      ) => return true
-      _ => ()
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-priv struct RawOiGlobalCallTeeControlFact {
-  mut has_global : Bool
-  mut has_call : Bool
-  mut has_tee : Bool
-  mut has_control : Bool
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-  instrs : Array[@lib.Instruction],
-  fact : RawOiGlobalCallTeeControlFact,
-) -> Unit {
-  for instr in instrs {
-    match instr {
-      @lib.GlobalGet(_) | @lib.GlobalSet(_) => fact.has_global = true
-      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
-        fact.has_call = true
-      @lib.LocalTee(_) => fact.has_tee = true
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) => {
-        fact.has_control = true
-        run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-          body, fact,
-        )
-      }
-      @lib.If(_, then_body, else_body) => {
-        fact.has_control = true
-        run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-          then_body, fact,
-        )
-        match else_body {
-          Some(body) =>
-            run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-              body, fact,
-            )
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_global_call_tee_control(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  let fact = RawOiGlobalCallTeeControlFact::{
-    has_global: false,
-    has_call: false,
-    has_tee: false,
-    has_control: false,
-  }
-  run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-    instrs, fact,
-  )
-  fact.has_global && fact.has_call && fact.has_tee && fact.has_control
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for idx = 0; idx + 3 < instrs.length(); idx = idx + 1 {
-    let target = match
-      (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
-      (@lib.LocalGet(_), @lib.I32Const(_), @lib.I32Sub, @lib.LocalSet(target)) =>
-        target
-      _ => continue
-    }
-    let mut reads = 0
-    for later = idx + 4; later < instrs.length(); later = later + 1 {
-      match instrs[later] {
-        @lib.LocalGet(read) if read == target => {
-          reads += 1
-          if reads >= 2 {
-            return true
-          }
-        }
-        _ => ()
-      }
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
-    match
-      (
-        instrs[idx],
-        instrs[idx + 1],
-        instrs[idx + 2],
-        instrs[idx + 3],
-        instrs[idx + 4],
-      ) {
-      (
-        @lib.Call(_)
-        | @lib.CallIndirect(_, _)
-        | @lib.CallRef(_),
-        @lib.LocalGet(_),
-        @lib.I32Const(value),
-        @lib.I32Ne,
-        @lib.I32Add,
-      ) if value == 0 => return true
-      _ => ()
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_result_try_table(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.TryTable(block_type, _, @lib.Expr(body)) => {
-        match block_type {
-          @lib.VoidBlockType => ()
-          _ => return true
-        }
-        if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(body) {
-          return true
-        }
-      }
-      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(body) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 priv struct RawOiSparseExponentBrTableFact {
   end : Int
   selector : Array[@lib.Instruction]
@@ -42231,13 +42262,30 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   module_state : HotPipelineModuleState,
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
+  oi_index? : RawOiFunctionRevisionFactIndex? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "optimize-instructions" {
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(body)) = original
-  if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(body) {
+  let oi_index = match oi_index {
+    Some(index) => index
+    None => {
+      let raw_index_start_us = perf_start_timer_opt(
+        options.perf,
+        "detail:optimize-instructions:raw-revision-index",
+      )
+      let index = RawOiFunctionRevisionFactIndex::from_instrs(body)
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:optimize-instructions:raw-revision-index",
+        raw_index_start_us,
+      )
+      index
+    }
+  }
+  if oi_index.admission_guards.has_result_try_table {
     return Some({
       reason: "result-try-table-optimize-instructions-noop",
       func: original,
@@ -42245,9 +42293,13 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  let (sparse_br_table_body, sparse_br_table_changed) = run_hot_pipeline_raw_optimize_instructions_compress_sparse_br_table_body(
-    body,
-  )
+  let (sparse_br_table_body, sparse_br_table_changed) = if oi_index.admission_guards.has_sparse_exponent_br_table_candidate {
+    run_hot_pipeline_raw_optimize_instructions_compress_sparse_br_table_body(
+      body,
+    )
+  } else {
+    (body, false)
+  }
   if sparse_br_table_changed {
     return Some({
       reason: "sparse-exponent-br-table-optimize-instructions",
@@ -42256,7 +42308,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(body) {
+  if oi_index.admission_guards.has_call_comparison_add {
     return Some({
       reason: "call-comparison-add-optimize-instructions-noop",
       func: original,
@@ -42264,9 +42316,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-      body,
-    ) {
+  if oi_index.admission_guards.has_stack_carried_call_zero_shift {
     return Some({
       reason: "stack-carried-call-zero-shift-optimize-instructions-noop",
       func: original,
@@ -42274,9 +42324,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_global_call_tee_control(
-      body,
-    ) {
+  if oi_index.admission_guards.has_global_call_tee_control() {
     return Some({
       reason: "global-call-tee-control-optimize-instructions-noop",
       func: original,
@@ -42284,9 +42332,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-      body,
-    ) {
+  if oi_index.admission_guards.has_subtracted_local_multi_use {
     return Some({
       reason: "subtracted-local-multi-use-optimize-instructions-noop",
       func: original,
@@ -42294,9 +42340,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-      body,
-    ) {
+  if oi_index.admission_guards.has_dynamic_store_offset_value_arithmetic {
     return Some({
       reason: "dynamic-store-offset-value-arithmetic-alias-hazard",
       func: original,
@@ -42337,19 +42381,9 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       })
     None => ()
   }
-  // Build the original revision once before raw routing. Candidate facts only
-  // decide which raw bridges can possibly apply; each selected family still
-  // performs its exact descriptor/type/effect/order/trap proof.
-  let raw_index_start_us = perf_start_timer_opt(
-    options.perf,
-    "detail:optimize-instructions:raw-revision-index",
-  )
-  let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
-  perf_stop_timer_opt(
-    options.perf,
-    "detail:optimize-instructions:raw-revision-index",
-    raw_index_start_us,
-  )
+  // Candidate facts only decide which raw bridges can possibly apply; each
+  // selected family still performs its exact descriptor/type/effect/order/trap
+  // proof against this one immutable original revision.
   let raw_descriptor_start_us = perf_start_timer_opt(
     options.perf,
     "detail:optimize-instructions:raw-descriptor-bridges",
@@ -42424,9 +42458,19 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   } else {
     (tnh_exact_success_body, false)
   }
-  let (const_fold_body, const_fold_changed) = run_hot_pipeline_raw_optimize_instructions_const_fold_body(
-    tnh_indirect_exact_success_body,
-  )
+  let (const_fold_body, const_fold_changed) = if oi_index.admission_guards.has_const_fold_candidate ||
+    exact_success_changed ||
+    exactification_changed ||
+    exact_miss_changed ||
+    directized_changed ||
+    tnh_exact_success_changed ||
+    tnh_indirect_exact_success_changed {
+    run_hot_pipeline_raw_optimize_instructions_const_fold_body(
+      tnh_indirect_exact_success_body,
+    )
+  } else {
+    (tnh_indirect_exact_success_body, false)
+  }
   if const_fold_changed &&
     locals.length() == 0 &&
     !exact_success_changed &&
@@ -42445,9 +42489,21 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  let (effectful_sibling_body, effectful_sibling_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
-    const_fold_body, module_ctx,
-  )
+  let body_changed_before_effectful_sibling = exact_success_changed ||
+    exactification_changed ||
+    exact_miss_changed ||
+    directized_changed ||
+    tnh_exact_success_changed ||
+    tnh_indirect_exact_success_changed ||
+    const_fold_changed
+  let (effectful_sibling_body, effectful_sibling_changed) = if body_changed_before_effectful_sibling ||
+    oi_index.has_effectful_sibling_rewrite_candidate(module_ctx) {
+    run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+      const_fold_body, module_ctx,
+    )
+  } else {
+    (const_fold_body, false)
+  }
   let (
     same_flat_pure_scalar_memory_copy_body,
     same_flat_pure_scalar_memory_copy_changed,
@@ -42637,8 +42693,15 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       })
     _ => ()
   }
+  let validation_module_env = run_hot_pipeline_require_validation_module_env(
+    mod_, module_state, options,
+  )
   let env = run_hot_pipeline_raw_simplify_locals_func_env(
-    mod_, func_idx, module_ctx, locals,
+    mod_,
+    func_idx,
+    module_ctx,
+    locals,
+    module_env=Some(validation_module_env),
   )
   let simple_stack_call_binop = match
     RawOiSimpleStackCallBinopFact::from_index(oi_index, body, module_ctx) {
@@ -62128,9 +62191,9 @@ fn run_hot_pipeline_raw_vacuum_push_fused_sign_extension(
 ) -> Bool {
   let n = rewritten.length()
   match instr {
-    @lib.I32Xor if n >= 2 =>
-      match (rewritten[n - 2], rewritten[n - 1]) {
-        (@lib.I32And, @lib.I32Const(@lib.I32(1))) => {
+    @lib.I32Xor if n >= 3 =>
+      match (rewritten[n - 3], rewritten[n - 2], rewritten[n - 1]) {
+        (@lib.I32Const(@lib.I32(1)), @lib.I32And, @lib.I32Const(@lib.I32(1))) => {
           ignore(rewritten.pop())
           rewritten.push(@lib.Instruction::i32_eqz())
           return true
@@ -63978,19 +64041,21 @@ pub fn o4z_size_candidate_has_stateful_emscripten_main_runtime(
 }
 
 ///|
-pub fn o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
-  mod_ : @lib.Module,
-) -> Bool {
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec([func])) => [func]
-    _ => return false
-  }
-  let @lib.Func(_, @lib.Expr(instrs)) = funcs[0]
+fn o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+  instrs : Array[@lib.Instruction],
+) -> (Bool, Bool, Bool, Bool, Int) {
   let mut has_floor = false
   let mut has_bitselect = false
   let mut has_extend = false
   let mut has_global_write = false
   let mut trunc_count = 0
+  let merge = fn(facts : (Bool, Bool, Bool, Bool, Int)) {
+    has_floor = has_floor || facts.0
+    has_bitselect = has_bitselect || facts.1
+    has_extend = has_extend || facts.2
+    has_global_write = has_global_write || facts.3
+    trunc_count = trunc_count + facts.4
+  }
   for instr in instrs {
     match instr {
       @lib.F32x4Floor => has_floor = true
@@ -63998,9 +64063,61 @@ pub fn o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
       @lib.I64x2ExtendLowI32x4S => has_extend = true
       @lib.GlobalSet(_) => has_global_write = true
       @lib.I32TruncF64S => trunc_count = trunc_count + 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        merge(
+          o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(body),
+        )
+      @lib.If(_, then_body, else_body) => {
+        merge(
+          o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+            then_body,
+          ),
+        )
+        match else_body {
+          Some(body) =>
+            merge(
+              o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+                body,
+              ),
+            )
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        merge(
+          o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(body),
+        )
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          merge(
+            o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+              catch_body,
+            ),
+          )
+        }
+      }
       _ => ()
     }
   }
+  (has_floor, has_bitselect, has_extend, has_global_write, trunc_count)
+}
+
+///|
+pub fn o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
+  mod_ : @lib.Module,
+) -> Bool {
+  let func = match mod_.code_sec {
+    Some(@lib.CodeSec([func])) => func
+    _ => return false
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = func
+  let (has_floor, has_bitselect, has_extend, has_global_write, trunc_count) = o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+    instrs,
+  )
   has_floor &&
   has_bitselect &&
   has_extend &&
@@ -66921,7 +67038,9 @@ pub fn o4z_canonicalize_final_size_ifs_stateful_candidate(
 }
 
 ///|
-pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
+fn o4z_canonicalize_final_size_candidate_impl(
+  mod_ : @lib.Module,
+) -> @lib.Module {
   let canonical = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let module_ctx = @ir.hot_module_context_from_module(mod_)
@@ -67096,6 +67215,24 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
       ),
     ),
   )
+}
+
+///|
+pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
+  o4z_canonicalize_final_size_candidate_impl(mod_)
+}
+
+///|
+pub fn o4z_canonicalize_final_size_candidate_with_changed(
+  mod_ : @lib.Module,
+) -> (@lib.Module, Bool) {
+  let canonical = o4z_canonicalize_final_size_candidate_impl(mod_)
+  let changed = match
+    (@binary.encode_module(mod_), @binary.encode_module(canonical)) {
+    (Ok(before), Ok(after)) => before != after
+    _ => true
+  }
+  (canonical, changed)
 }
 
 ///|
@@ -74647,55 +74784,6 @@ fn run_hot_pipeline_raw_optimize_casts_no_candidates(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
-    if run_hot_pipeline_raw_simplify_locals_instr_is_call_like(instrs[idx]) {
-      match RawOiMemoryAccessMemargFact::from_store_instr(instrs[idx + 1]) {
-        Some(fact) => {
-          let @lib.MemArg(_, _, @lib.U64(offset)) = fact.memarg
-          if offset > 0UL {
-            return true
-          }
-        }
-        None => ()
-      }
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn run_hot_pipeline_raw_flatten_has_stack_carried_tee_parameter_alias(
   instrs : Array[@lib.Instruction],
   parameter_count : Int,
@@ -74790,6 +74878,21 @@ fn run_hot_pipeline_func(
 ) -> Result[HotPipelineFuncResult, String] {
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(_, @lib.Expr(original_instrs)) = original
+  let oi_index = if descriptor.name == "optimize-instructions" {
+    let raw_index_start_us = perf_start_timer_opt(
+      options.perf,
+      "detail:optimize-instructions:raw-revision-index",
+    )
+    let index = RawOiFunctionRevisionFactIndex::from_instrs(original_instrs)
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:optimize-instructions:raw-revision-index",
+      raw_index_start_us,
+    )
+    Some(index)
+  } else {
+    None
+  }
   if descriptor.name == "flatten" &&
     run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(mod_) &&
     run_hot_pipeline_raw_i32_ctz_count(original_instrs) < 3 {
@@ -74810,9 +74913,7 @@ fn run_hot_pipeline_func(
     })
   }
   if descriptor.name == "optimize-instructions" &&
-    run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-      original_instrs,
-    ) {
+    oi_index.unwrap().admission_guards.has_call_value_store_offset {
     return Ok({
       reason: "call-value-store-offset-optimize-instructions-noop",
       func: original,
@@ -74829,10 +74930,16 @@ fn run_hot_pipeline_func(
     let params = run_hot_pipeline_required_raw_func_params(
       mod_, module_ctx, func_idx,
     )
-    if run_hot_pipeline_raw_flatten_has_stack_carried_tee_parameter_alias(
-        original_instrs,
-        params.length(),
-      ) {
+    let has_stack_carried_tee_parameter_alias = match oi_index {
+      Some(index) =>
+        index.has_stack_carried_tee_parameter_alias(params.length())
+      None =>
+        run_hot_pipeline_raw_flatten_has_stack_carried_tee_parameter_alias(
+          original_instrs,
+          params.length(),
+        )
+    }
+    if has_stack_carried_tee_parameter_alias {
       let reason = match descriptor.name {
         "flatten" => "stack-carried-tee-parameter-alias-flatten-noop"
         "merge-locals" => "stack-carried-tee-parameter-alias-merge-locals-noop"
@@ -74941,7 +75048,12 @@ fn run_hot_pipeline_func(
   }
   match
     run_hot_pipeline_raw_optimize_instructions_skip(
-      mod_, func_idx, module_state, descriptor, options,
+      mod_,
+      func_idx,
+      module_state,
+      descriptor,
+      options,
+      oi_index~,
     ) {
     Some(result) => return Ok(result)
     None => ()
@@ -76817,6 +76929,9 @@ fn run_hot_pipeline_apply_hot_pass(
         }
         if lower_state.type_sec_changed {
           current_mod = validation_mod
+          // Later functions must see tuple/block types introduced by this
+          // function's lowering rather than the earlier cached module snapshot.
+          module_state.validation_module_env = None
         }
         if descriptor.name == "ssa-nomerge" &&
           result.reason.contains("-mutated") &&
@@ -77767,6 +77882,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         }
         if lower_state.type_sec_changed {
           current_mod = validation_mod
+          module_state.validation_module_env = None
         }
         if descriptor.name == "vacuum" && !result.trace_skip_raw {
           vacuum_hot_func_count += 1
@@ -78033,6 +78149,13 @@ fn run_hot_pipeline_o4z_coalesce_local_count_selected(
 ) -> Bool {
   local_count > 50000 ||
   (module_defined_func_count < 2000 && local_count > 0 && local_count <= 512)
+}
+
+///|
+fn run_hot_pipeline_o4z_late_convergence_selected(
+  module_defined_func_count : Int,
+) -> Bool {
+  module_defined_func_count < 2000
 }
 
 ///|
@@ -87378,24 +87501,111 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   }
   if dae_defined_func_count(mod_) >= 32 &&
     run_hot_pipeline_module_has_typeidx_loop(mod_) {
-    let results_only = options.optimize_level >= 3 || options.shrink_level >= 2
     pipeline_trace_hook(
       options.trace,
       "dae-optimizing",
-      if results_only {
-        "fallback-plain-results-only"
-      } else {
-        "fallback-plain"
-      },
+      "fallback-typed-loop-safe-batch",
       payload="reason=typed-loop-param-control",
     )
-    return Ok(
-      dae_run_module_pass_with_trap_policy(
-        mod_,
-        trace=Some(options.trace),
-        perf=options.perf,
-        skip_param_removal=results_only,
-      ),
+    let (bounded, _, changed, cleanup_touched) = dae_run_typed_loop_safe_batch_result(
+      mod_,
+      options.trace,
+      perf=options.perf,
+      cleanup_dropped_pure_leaves=true,
+    )
+    if !changed {
+      return Ok(mod_)
+    }
+    let simplify_local_touched = Array::make(cleanup_touched.length(), false)
+    let coalesce_local_touched = Array::make(cleanup_touched.length(), false)
+    let high_local_touched = Array::make(cleanup_touched.length(), false)
+    match bounded.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+          if def_idx < cleanup_touched.length() && cleanup_touched[def_idx] {
+            let @lib.Func(locals, _) = funcs[def_idx]
+            if locals.length() >= 384 {
+              simplify_local_touched[def_idx] = true
+            }
+            if locals.length() >= 32 && locals.length() <= 512 {
+              coalesce_local_touched[def_idx] = true
+            }
+            if locals.length() >= 128 {
+              high_local_touched[def_idx] = true
+            }
+          }
+        }
+      None => ()
+    }
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "nested-pass",
+      payload="name=simplify-locals-nostructure touched=\{dae_count_touched(simplify_local_touched)} min-body-locals=384",
+    )
+    let simplify_start_us = perf_start_timer_opt(
+      options.perf,
+      "detail:dae:typed-loop-safe:simplify-locals-nostructure",
+    )
+    let simplified = match
+      run_hot_pipeline_apply_hot_pass_to_touched(
+        bounded,
+        simplify_locals_nostructure_descriptor(),
+        simplify_local_touched,
+        options,
+      ) {
+      Ok(next) => next
+      Err(err) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:dae:typed-loop-safe:simplify-locals-nostructure",
+          simplify_start_us,
+        )
+        return Err(err)
+      }
+    }
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:dae:typed-loop-safe:simplify-locals-nostructure",
+      simplify_start_us,
+    )
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "nested-pass",
+      payload="name=coalesce-locals touched=\{dae_count_touched(coalesce_local_touched)} min-body-locals=32 max-body-locals=512",
+    )
+    let coalesce_start_us = perf_start_timer_opt(
+      options.perf,
+      "detail:dae:typed-loop-safe:coalesce-locals",
+    )
+    let coalesced = match
+      run_hot_pipeline_apply_coalesce_locals_to_touched(
+        simplified, coalesce_local_touched,
+      ) {
+      Ok(next) => next
+      Err(err) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:dae:typed-loop-safe:coalesce-locals",
+          coalesce_start_us,
+        )
+        return Err(err)
+      }
+    }
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:dae:typed-loop-safe:coalesce-locals",
+      coalesce_start_us,
+    )
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "nested-pass",
+      payload="name=reorder-locals touched=\{dae_count_touched(high_local_touched)} min-body-locals=128",
+    )
+    return run_hot_pipeline_apply_reorder_locals_to_touched(
+      coalesced, high_local_touched,
     )
   }
   let core_start_us = perf_start_timer_opt(options.perf, "detail:dae:core")
@@ -87842,17 +88052,30 @@ fn run_hot_pipeline_apply_module_pass(
         Err(err) => return Err(err)
       }
     "dead-argument-elimination" | "dae" =>
-      dae_run_module_pass_with_trap_policy(
-        mod_,
-        trace=Some(options.trace),
-        traps_never_happen=options.traps_never_happen,
-      )
+      if dae_defined_func_count(mod_) >= 32 &&
+        run_hot_pipeline_module_has_typeidx_loop(mod_) {
+        (options.trace)(
+          "pass[dae]:fallback-typed-loop-safe-batch reason=typed-loop-param-control",
+        )
+        dae_run_typed_loop_safe_batch(mod_, options.trace, perf=options.perf)
+      } else {
+        dae_run_module_pass_with_trap_policy(
+          mod_,
+          trace=Some(options.trace),
+          traps_never_happen=options.traps_never_happen,
+          perf=options.perf,
+        )
+      }
     "dae-optimizing" | "dead-argument-elimination-optimizing" =>
       if run_hot_pipeline_should_defer_call_bulk_memory_module(mod_, 1000) {
         (options.trace)(
           "pass[dae-optimizing]:fallback-plain-results-only reason=medium-call-bulk-memory-param-control",
         )
-        dae_run_dropped_result_batch_only(mod_, options.trace)
+        dae_run_dropped_result_batch_only(
+          mod_,
+          options.trace,
+          perf=options.perf,
+        )
       } else {
         match run_hot_pipeline_apply_dae_optimizing_module_pass(mod_, options) {
           Ok(next) => next

@@ -14776,6 +14776,38 @@ test "dae stable callsites ignore inactive conflicting uniform actuals" {
 }
 
 ///|
+test "dae stable callsites collect active uniform actuals without caller rescans" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    block
+      #|      i32.const 42
+      #|      call $target
+      #|      return
+      #|    end
+      #|    i32.const 0))
+    ),
+  )
+  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let values = dae_collect_uniform_const_actuals_from_current_call_facts(
+    mod_,
+    0,
+    1,
+    snapshot.type_indices,
+    snapshot.boundary_facts,
+    snapshot.function_infos,
+    prefer_stable_paths=true,
+  )
+  match values {
+    Some([Some(@lib.I32Const(value))]) => assert_eq(value, 42)
+    _ => fail("expected the active stable callsite literal")
+  }
+}
+
+///|
 fn dae_scalar_rewrite_plan_fixture(
   tail_call? : Bool = false,
 ) -> (
@@ -16780,6 +16812,34 @@ test "dae unread parameter batch transaction is definition-count independent" {
   match @validate.validate_module(application.mod_out) {
     Ok(_) => ()
     Err(err) => fail("expected valid compact unread batch, got \{err}")
+  }
+}
+
+///|
+test "dae unread parameter batch reuses a supplied boundary snapshot" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    i32.const 7)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 9
+      #|    call $target))
+    ),
+  )
+  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let candidate = dae_try_apply_unread_param_batch(
+    mod_,
+    boundary_snapshot=Some(snapshot),
+  )
+  assert_true(candidate.changed)
+  let type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  match dae_resolve_func_type(candidate.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(params, [result_type])) => {
+      assert_eq(params.length(), 0)
+      assert_eq(result_type, @lib.ValType::i32())
+    }
+    _ => fail("expected supplied-snapshot parameter removal")
   }
 }
 

@@ -4260,16 +4260,29 @@ fn cmd_o4z_size_portfolio_enabled(
 fn cmd_o4z_late_cleanup_candidate_enabled(
   input_size : Int,
   optimized_size : Int,
+  defined_func_count : Int,
 ) -> Bool {
-  optimized_size >= 10000 || input_size <= optimized_size * 4
+  defined_func_count < 2000 &&
+  (optimized_size >= 10000 || input_size <= optimized_size * 4)
 }
 
 ///|
-fn cmd_o4z_can_reuse_precanonical_finish(
-  fixed_point_candidate : @lib.Module,
+fn cmd_o4z_can_reuse_precanonical_finish(finish_input_changed : Bool) -> Bool {
+  !finish_input_changed
+}
+
+///|
+fn cmd_o4z_choose_precanonical_finish(
   finish_input : @lib.Module,
-) -> Bool {
-  finish_input == fixed_point_candidate
+  finish_input_changed : Bool,
+  post_fixed_point_finished : @lib.Module?,
+  run_finish : (@lib.Module) -> @lib.Module?,
+) -> @lib.Module? {
+  if cmd_o4z_can_reuse_precanonical_finish(finish_input_changed) {
+    post_fixed_point_finished
+  } else {
+    run_finish(finish_input)
+  }
 }
 
 ///|
@@ -5407,6 +5420,10 @@ pub fn run_cmd_with_adapter(
     let root_default_local_copy = @passes.o4z_size_candidate_has_root_default_local_copy(
       optimized,
     )
+    let optimized_defined_func_count = match optimized.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs.length()
+      None => 0
+    }
     let portfolio_candidates : Array[(String, Bytes)] = []
     if !size_portfolio_enabled ||
       (
@@ -5492,6 +5509,7 @@ pub fn run_cmd_with_adapter(
             optimized,
             cmd_o4z_final_precompute_passes(),
             final_cleanup_options,
+            validate_final_module=false,
           ) {
           Ok(precomputed) => {
             let precomputed = @passes.o4z_canonicalize_final_size_candidate(
@@ -5521,6 +5539,7 @@ pub fn run_cmd_with_adapter(
               "global-refining", "optimize-instructions", "precompute", "duplicate-function-elimination",
             ],
             final_cleanup_options,
+            validate_final_module=false,
           ) {
           Ok(cleaned) =>
             if cleaned != optimized {
@@ -5543,6 +5562,7 @@ pub fn run_cmd_with_adapter(
             optimized,
             cmd_o4z_scalar_final_cleanup_passes(),
             final_cleanup_options,
+            validate_final_module=false,
           ) {
           Ok(cleaned) =>
             if cleaned != optimized {
@@ -5597,6 +5617,7 @@ pub fn run_cmd_with_adapter(
       if cmd_o4z_late_cleanup_candidate_enabled(
           wasm_bytes.length(),
           normal_out_bytes.length(),
+          optimized_defined_func_count,
         ) &&
         !stack_carried_simd_trunc_global_write &&
         !zero_memory_dense_i64_runtime_hazard &&
@@ -5626,6 +5647,7 @@ pub fn run_cmd_with_adapter(
                   cleaned,
                   ["ssa-nomerge"],
                   cleanup_options,
+                  validate_final_module=false,
                 ) {
                 Ok(ssa_cleaned) =>
                   match validate_module(ssa_cleaned) {
@@ -5646,7 +5668,10 @@ pub fn run_cmd_with_adapter(
                       if !stateful_cleanup_passes.is_empty() {
                         match
                           optimize_module_with_pass_flags(
-                            ssa_cleaned, stateful_cleanup_passes, cleanup_options,
+                            ssa_cleaned,
+                            stateful_cleanup_passes,
+                            cleanup_options,
+                            validate_final_module=false,
                           ) {
                           Ok(stateful_cleaned) => {
                             let stateful_candidate = if ifs_final_canonicalization_enabled {
@@ -5704,6 +5729,7 @@ pub fn run_cmd_with_adapter(
                                           canonical,
                                           cmd_o4z_post_canonical_fixed_point_passes(),
                                           cleanup_options,
+                                          validate_final_module=false,
                                         ) {
                                         Ok(fixed_point) => {
                                           let fixed_point = @passes.o4z_restore_optimized_primes_variadic_pack_funcs(
@@ -5729,6 +5755,7 @@ pub fn run_cmd_with_adapter(
                                                   fixed_point,
                                                   cmd_o4z_post_fixed_point_finish_passes(),
                                                   cleanup_options,
+                                                  validate_final_module=false,
                                                 ) {
                                                 Ok(finished) => {
                                                   let finished = @passes.o4z_canonicalize_final_size_store_carries(
@@ -5811,7 +5838,10 @@ pub fn run_cmd_with_adapter(
                     }
                     match
                       optimize_module_with_pass_flags(
-                        block_canonical, post_canonical_passes, cleanup_options,
+                        block_canonical,
+                        post_canonical_passes,
+                        cleanup_options,
+                        validate_final_module=false,
                       ) {
                       Ok(post_canonical) =>
                         match validate_module(post_canonical) {
@@ -5837,7 +5867,10 @@ pub fn run_cmd_with_adapter(
                                 roster in cmd_o4z_post_canonical_fixed_point_rosters() {
                                 match
                                   optimize_module_with_pass_flags(
-                                    fixed_point_candidate, roster, cleanup_options,
+                                    fixed_point_candidate,
+                                    roster,
+                                    cleanup_options,
+                                    validate_final_module=false,
                                   ) {
                                   Ok(fixed_point) =>
                                     match validate_module(fixed_point) {
@@ -5869,6 +5902,7 @@ pub fn run_cmd_with_adapter(
                                   fixed_point_candidate,
                                   cmd_o4z_post_fixed_point_finish_passes(),
                                   cleanup_options,
+                                  validate_final_module=false,
                                 ) {
                                 Ok(finished) => {
                                   let finished = @passes.o4z_canonicalize_final_size_candidate(
@@ -5894,30 +5928,31 @@ pub fn run_cmd_with_adapter(
                                 Err(_) => ()
                               }
                               if !unsafe_emscripten_main_runtime {
-                                let finish_input = @passes.o4z_canonicalize_final_size_candidate(
+                                let (finish_input, finish_input_changed) = @passes.o4z_canonicalize_final_size_candidate_with_changed(
                                   fixed_point_candidate,
                                 )
-                                let mut precanonical_finished : @lib.Module? = None
-                                if cmd_o4z_can_reuse_precanonical_finish(
-                                    fixed_point_candidate, finish_input,
-                                  ) {
-                                  precanonical_finished = post_fixed_point_finished
-                                } else {
-                                  match
-                                    optimize_module_with_pass_flags(
-                                      finish_input,
-                                      cmd_o4z_post_fixed_point_finish_passes(),
-                                      cleanup_options,
-                                    ) {
-                                    Ok(finished) =>
-                                      precanonical_finished = Some(
-                                        @passes.o4z_canonicalize_final_size_candidate(
-                                          finished,
-                                        ),
-                                      )
-                                    Err(_) => ()
-                                  }
-                                }
+                                let precanonical_finished = cmd_o4z_choose_precanonical_finish(
+                                  finish_input,
+                                  finish_input_changed,
+                                  post_fixed_point_finished,
+                                  fn(finish_input) {
+                                    match
+                                      optimize_module_with_pass_flags(
+                                        finish_input,
+                                        cmd_o4z_post_fixed_point_finish_passes(),
+                                        cleanup_options,
+                                        validate_final_module=false,
+                                      ) {
+                                      Ok(finished) =>
+                                        Some(
+                                          @passes.o4z_canonicalize_final_size_candidate(
+                                            finished,
+                                          ),
+                                        )
+                                      Err(_) => None
+                                    }
+                                  },
+                                )
                                 match precanonical_finished {
                                   Some(finished) =>
                                     match validate_module(finished) {
@@ -5938,6 +5973,7 @@ pub fn run_cmd_with_adapter(
                                               finished,
                                               cmd_o4z_stateful_finish_cleanup_passes(),
                                               cleanup_options,
+                                              validate_final_module=false,
                                             ) {
                                             Ok(stateful_finished) =>
                                               match
@@ -5987,6 +6023,7 @@ pub fn run_cmd_with_adapter(
       if cmd_o4z_late_cleanup_candidate_enabled(
           wasm_bytes.length(),
           normal_out_bytes.length(),
+          optimized_defined_func_count,
         ) &&
         !stack_carried_simd_trunc_global_write &&
         !zero_memory_dense_i64_runtime_hazard &&
@@ -6015,6 +6052,7 @@ pub fn run_cmd_with_adapter(
                       simplified,
                       cmd_o4z_observable_assemblyscript_safe_cleanup_passes(),
                       optimize_options_with_levels(options, 0, 0),
+                      validate_final_module=false,
                     ) {
                     Ok(cleaned) =>
                       match validate_module(cleaned) {
@@ -6044,6 +6082,7 @@ pub fn run_cmd_with_adapter(
                       simplified,
                       cmd_o4z_original_simplify_fixed_point_passes(),
                       options,
+                      validate_final_module=false,
                     ) {
                     Ok(fixed_point) =>
                       match validate_module(fixed_point) {
@@ -6065,6 +6104,7 @@ pub fn run_cmd_with_adapter(
                                 fixed_point,
                                 cmd_o4z_scalar_final_cleanup_passes(),
                                 optimize_options_with_levels(options, 0, 0),
+                                validate_final_module=false,
                               ) {
                               Ok(cleaned) => {
                                 let cleaned = if @passes.o4z_size_candidate_has_unreferenced_defined_global(
@@ -6122,6 +6162,7 @@ pub fn run_cmd_with_adapter(
       !zero_memory_dense_i64_runtime_hazard &&
       !single_render_runtime_hazard &&
       !root_default_local_copy &&
+      optimized_defined_func_count < 2000 &&
       cmd_o4z_post_selection_local_cleanup_enabled(optimized) {
       let (_, provisional_bytes) = cmd_choose_smallest_encoded_candidate(
         portfolio_candidates,
@@ -6133,6 +6174,7 @@ pub fn run_cmd_with_adapter(
               provisional,
               cmd_o4z_post_selection_local_cleanup_passes(),
               optimize_options_with_levels(options, 0, 0),
+              validate_final_module=false,
             ) {
             Ok(cleaned) =>
               match validate_module(cleaned) {
@@ -6163,6 +6205,7 @@ pub fn run_cmd_with_adapter(
                 control_input,
                 cmd_o4z_post_selection_control_cleanup_passes(),
                 optimize_options_with_levels(options, 0, 0),
+                validate_final_module=false,
               ) {
               Ok(cleaned) =>
                 match validate_module(cleaned) {

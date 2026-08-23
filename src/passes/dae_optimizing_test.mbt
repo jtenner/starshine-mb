@@ -171,7 +171,7 @@ test "plain DAE emits canonical worklist diagnostics" {
 }
 
 ///|
-test "dae-optimizing intentionally keeps parameters in large typed-loop fallback" {
+test "dae-optimizing typed-loop fallback batches safe parameters and results without scanning the full core" {
   let source = StringBuilder::new()
   source.write_string(
     (
@@ -191,10 +191,277 @@ test "dae-optimizing intentionally keeps parameters in large typed-loop fallback
       #|      end
       #|    end
       #|    local.get 1)
-      #|  (func $target (param i32) nop)
+      #|  (func $param_target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func $result_leaf (result i32) i32.const 42)
+      #|  (func $result_middle (result i32) call $result_leaf)
       #|  (func (export "run")
       #|    i32.const 7
+      #|    call $param_target
+      #|    drop
+      #|    call $result_middle
+      #|    drop)
+      #|
+    ),
+  )
+  for def_idx = 5; def_idx < 32; def_idx = def_idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")\n")
+  let trace : Array[String] = []
+  let trace_fn = fn(line) { trace.push(line) }
+  let perf = HotPerfSession::new(
+    trace=trace_fn,
+    dump_options=HotPerfDumpOptions::new(),
+  )
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source.to_string()),
+      HotPipelineOptions::new(
+        optimize_level=3,
+        trace=Some(trace_fn),
+        perf=Some(perf),
+      ),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed-loop results-only fallback, got \{err}")
+  }
+  assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  assert_eq(dae_test_func_results(optimized, 2).length(), 0)
+  assert_eq(dae_test_func_results(optimized, 3).length(), 0)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:fallback-typed-loop-safe-batch reason=typed-loop-param-control",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dae-optimizing]:dropped-result-batch-only")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("perf:timer name=detail:dae:core:fixed-loop")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "perf:timer name=detail:dae:dropped-result-batch-only:exposure",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "perf:timer name=detail:dae:dropped-result-batch-only:snapshot",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_eq(
+    trace
+    .filter(fn(line) {
+      line.contains(
+        "perf:timer name=detail:dae:dropped-result-transaction:graph",
+      )
+    })
+    .length(),
+    1,
+  )
+  assert_eq(
+    trace
+    .filter(fn(line) {
+      line.contains(
+        "perf:timer name=detail:dae:dropped-result-transaction:validate",
+      )
+    })
+    .length(),
+    1,
+  )
+}
+
+///|
+test "dae-optimizing typed-loop safe batch reorders high-local touched functions only" {
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module\n  (type $loop_t (func (param i32)))\n  (func $target (param i32) (result i32) (local",
+  )
+  for _local_idx = 0; _local_idx < 128; _local_idx = _local_idx + 1 {
+    source.write_string(" i32")
+  }
+  source.write_string(
+    (
+      #|)
+      #|    i32.const 11)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
       #|    call $target)
+      #|  (func (export "untouched") (result i32) (local i32 i64)
+      #|    i32.const 11)
+      #|  (func
+      #|    i32.const 0
+      #|    loop (type $loop_t)
+      #|      drop
+      #|    end)
+      #|
+    ),
+  )
+  for def_idx = 4; def_idx < 32; def_idx = def_idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")\n")
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source.to_string()),
+      HotPipelineOptions::new(
+        optimize_level=3,
+        shrink_level=2,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected bounded typed-loop DAEO cleanup, got \{err}")
+  }
+  assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let @lib.Func(touched_locals, _) = dae_test_defined_func(optimized, 0)
+  let @lib.Func(untouched_locals, _) = dae_test_defined_func(optimized, 2)
+  assert_eq(touched_locals, @lib.Locals::empty())
+  assert_eq(
+    untouched_locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i64()]),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:nested-pass name=reorder-locals touched=1 min-body-locals=128",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing typed-loop safe batch raw-cleans owned and indexed pair functions" {
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module\n  (type $loop_t (func (param i32)))\n  (func $target (param i32) (result i32) (local",
+  )
+  for _local_idx = 0; _local_idx < 384; _local_idx = _local_idx + 1 {
+    source.write_string(" i32")
+  }
+  source.write_string(
+    (
+      #|)
+      #|    i32.const 5
+      #|    drop
+      #|    i32.const 11
+      #|    local.set 1
+      #|    local.get 1)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target)
+      #|  (func (export "untouched") (result i32)
+      #|    i32.const 5
+      #|    drop
+      #|    i32.const 11)
+      #|  (func (export "pair_only")
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i32)
+      #|    i32.const 23
+      #|    local.set 0
+      #|    local.get 0
+      #|    drop)
+      #|  (func
+      #|    i32.const 0
+      #|    loop (type $loop_t)
+      #|      drop
+      #|    end)
+      #|
+    ),
+  )
+  for _def_idx = 5; _def_idx < 32; _def_idx = _def_idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")\n")
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source.to_string()),
+      HotPipelineOptions::new(
+        optimize_level=3,
+        shrink_level=2,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected bounded typed-loop DAEO cleanup, got \{err}")
+  }
+  assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(2U)
+  let pair_only = optimized.pretty_print_defined_func(3U)
+  assert_false(touched.contains("drop"), msg=touched)
+  assert_false(touched.contains("I32(5)"), msg=touched)
+  assert_false(touched.contains("LocalSet"), msg=touched)
+  assert_false(touched.contains("LocalGet"), msg=touched)
+  assert_true(untouched.contains("drop"), msg=untouched)
+  assert_true(untouched.contains("I32(5)"), msg=untouched)
+  assert_false(pair_only.contains("LocalSet"), msg=pair_only)
+  assert_false(pair_only.contains("LocalGet"), msg=pair_only)
+  assert_true(pair_only.contains("local.tee"), msg=pair_only)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae]:typed-loop-safe-raw-cleanup cleanup-owned=1 original-local-set-get-candidates=2 touched=2 min-body-locals=8 dropped-i32-const-pairs=1 local-set-get-pairs=2",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:nested-pass name=simplify-locals-nostructure touched=1 min-body-locals=384",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:nested-pass name=coalesce-locals touched=1 min-body-locals=32 max-body-locals=512",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "plain DAE typed-loop fallback uses the bounded safe batch" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (type $loop_t (func (param i32)))
+      #|  (func $target (param i32) (result i32)
+      #|    i32.const 11)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target)
+      #|  (func
+      #|    i32.const 0
+      #|    loop (type $loop_t)
+      #|      drop
+      #|    end)
       #|
     ),
   )
@@ -206,24 +473,118 @@ test "dae-optimizing intentionally keeps parameters in large typed-loop fallback
   let optimized = match
     run_hot_pipeline(
       pass_test_module_from_wat(source.to_string()),
-      HotPipelineOptions::new(
-        optimize_level=3,
-        trace=Some(fn(line) { trace.push(line) }),
-      ),
-      ["dae-optimizing"],
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["dae"],
     ) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected typed-loop results-only fallback, got \{err}")
+    Err(err) => fail("expected bounded plain typed-loop DAE, got \{err}")
   }
-  assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  assert_eq(dae_test_func_params(optimized, 0).length(), 0)
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:fallback-plain-results-only reason=typed-loop-param-control",
+        "pass[dae]:fallback-typed-loop-safe-batch reason=typed-loop-param-control",
       )
     }),
     msg=trace.to_string(),
   )
+  assert_false(
+    trace.any(fn(line) { line.contains("detail:dae:core:fixed-loop") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing default typed-loop fallback uses the bounded safe batch" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (type $loop_t (func (param i32)))
+      #|  (func $typed (param i32) (local i32)
+      #|    i32.const 0
+      #|    loop $again (type $loop_t)
+      #|      local.tee 1
+      #|      local.get 0
+      #|      i32.lt_s
+      #|      if
+      #|        local.get 1
+      #|        i32.const 1
+      #|        i32.add
+      #|        br $again
+      #|      end
+      #|    end)
+      #|  (func $target (param i32) nop)
+      #|  (func (export "run") i32.const 7 call $target)
+      #|
+    ),
+  )
+  for def_idx = 3; def_idx < 32; def_idx = def_idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")\n")
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source.to_string()),
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected bounded default typed-loop DAEO, got \{err}")
+  }
+  assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:fallback-typed-loop-safe-batch reason=typed-loop-param-control",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("detail:dae:core:fixed-loop") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing typed-loop safe batch preserves callees called from typed loops" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (type $loop_t (func (param i32)))
+      #|  (func $target (param i32) nop)
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    loop (type $loop_t)
+      #|      drop
+      #|      i32.const 7
+      #|      call $target
+      #|    end)
+      #|
+    ),
+  )
+  for def_idx = 2; def_idx < 32; def_idx = def_idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")\n")
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source.to_string()),
+      HotPipelineOptions::new(optimize_level=3),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed-loop caller boundary success, got \{err}")
+  }
+  assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected typed-loop caller output to validate, got \{err}")
+  }
 }
 
 ///|
