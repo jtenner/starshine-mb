@@ -701,14 +701,7 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   for node_id in carried {
     if !hot_lower_impl_stack_has_node(stack, node_id) {
       hot_lower_impl_emit_value(
-        func,
-        node_id,
-        use_def,
-        label_frames,
-        label_stack_head,
-        stack,
-        out,
-        extra_locals,
+        func, node_id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
         options,
       )
     }

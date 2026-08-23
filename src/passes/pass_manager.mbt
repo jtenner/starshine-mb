@@ -63892,21 +63892,48 @@ fn o4z_canonicalize_final_size_overwritten_ref_func_initializer(
 }
 
 ///|
+fn o4z_canonicalize_final_size_continuation(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  continuation : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = Array::new(
+    capacity=instrs.length() - start + continuation.length(),
+  )
+  for idx = start; idx < instrs.length(); idx = idx + 1 {
+    out.push(instrs[idx])
+  }
+  out.append(continuation)
+  out
+}
+
+///|
 fn o4z_canonicalize_final_size_dead_local_tees(
   instrs : Array[@lib.Instruction],
+  continuation? : Array[@lib.Instruction] = [],
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
       @lib.LocalTee(local_idx) if o4z_canonicalize_final_size_local_tee_is_dead_before_read(
-          instrs,
-          idx + 1,
+          o4z_canonicalize_final_size_continuation(
+            instrs,
+            idx + 1,
+            continuation,
+          ),
+          0,
           local_idx,
         ) => changed = true
       @lib.Block(block_type, @lib.Expr(body)) => {
+        let child_continuation = o4z_canonicalize_final_size_continuation(
+          instrs,
+          idx + 1,
+          continuation,
+        )
         let (next_body, body_changed) = o4z_canonicalize_final_size_dead_local_tees(
           body,
+          continuation=child_continuation,
         )
         out.push(
           if body_changed {
@@ -63918,8 +63945,17 @@ fn o4z_canonicalize_final_size_dead_local_tees(
         changed = changed || body_changed
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
+        let loop_continuation = body.copy()
+        loop_continuation.append(
+          o4z_canonicalize_final_size_continuation(
+            instrs,
+            idx + 1,
+            continuation,
+          ),
+        )
         let (next_body, body_changed) = o4z_canonicalize_final_size_dead_local_tees(
           body,
+          continuation=loop_continuation,
         )
         out.push(
           if body_changed {
@@ -63931,13 +63967,20 @@ fn o4z_canonicalize_final_size_dead_local_tees(
         changed = changed || body_changed
       }
       @lib.If(block_type, then_body, else_body) => {
+        let child_continuation = o4z_canonicalize_final_size_continuation(
+          instrs,
+          idx + 1,
+          continuation,
+        )
         let (next_then, then_changed) = o4z_canonicalize_final_size_dead_local_tees(
           then_body,
+          continuation=child_continuation,
         )
         let (next_else, else_changed) = match else_body {
           Some(body) => {
             let (next_body, body_changed) = o4z_canonicalize_final_size_dead_local_tees(
               body,
+              continuation=child_continuation,
             )
             (Some(next_body), body_changed)
           }
@@ -63953,8 +63996,14 @@ fn o4z_canonicalize_final_size_dead_local_tees(
         changed = changed || then_changed || else_changed
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let child_continuation = o4z_canonicalize_final_size_continuation(
+          instrs,
+          idx + 1,
+          continuation,
+        )
         let (next_body, body_changed) = o4z_canonicalize_final_size_dead_local_tees(
           body,
+          continuation=child_continuation,
         )
         out.push(
           if body_changed {

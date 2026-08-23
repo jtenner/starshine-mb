@@ -2357,6 +2357,16 @@ test "O4z size portfolio inverts integer comparisons for empty then arms" {
 }
 
 ///|
+test "O4z final canonicalizer preserves nested tees read by the continuation" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 7 local.tee 1 drop end local.get 1))",
+  )
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(input)
+  let pretty = canonical.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
+}
+
+///|
 test "O4z size portfolio removes dead intermediate local tees" {
   let removable = @passes.pass_test_module_from_wat(
     "(module (func (result i32) (local $x i32) i32.const 1 local.tee $x i32.const 2 i32.add local.set $x local.get $x))",
