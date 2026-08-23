@@ -326,7 +326,7 @@ test "global-refining refines nested i31 initializers through expression typing"
 test "global-refining refines mutable eqref i31 initializers to non-null i31" {
   let input =
     #| (module
-    #|   (global $g (mut eqref) (ref.i31 (i32.xor (i32.const 11) (i32.const 3)))))
+    #|   (global $g (mut eqref) (ref.i31 (i32.sub (i32.const 11) (i32.const 3)))))
   let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
     Ok(mod_) => mod_
     Err(err) =>

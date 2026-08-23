@@ -1028,150 +1028,19 @@ fn validate_const_instr(env : Env, ins : Instruction) -> Result[Unit, String] {
             Ok(())
           }
       }
-    I32Eqz
-    | I32Eq
-    | I32Ne
-    | I32LtS
-    | I32LtU
-    | I32GtS
-    | I32GtU
-    | I32LeS
-    | I32LeU
-    | I32GeS
-    | I32GeU
-    | I64Eqz
-    | I64Eq
-    | I64Ne
-    | I64LtS
-    | I64LtU
-    | I64GtS
-    | I64GtU
-    | I64LeS
-    | I64LeU
-    | I64GeS
-    | I64GeU
-    | F32Eq
-    | F32Ne
-    | F32Lt
-    | F32Gt
-    | F32Le
-    | F32Ge
-    | F64Eq
-    | F64Ne
-    | F64Lt
-    | F64Gt
-    | F64Le
-    | F64Ge
-    | I32Clz
-    | I32Ctz
-    | I32Popcnt
-    | I32Add
+    // WebAssembly 3.0 extended constant expressions add only integer
+    // add/sub/mul to the core numeric constants. Reference and GC
+    // constructors/conversions remain explicitly enumerated below; every
+    // other instruction is rejected by default.
+    I32Add
     | I32Sub
     | I32Mul
-    | I32DivS
-    | I32DivU
-    | I32RemS
-    | I32RemU
-    | I32And
-    | I32Or
-    | I32Xor
-    | I32Shl
-    | I32ShrS
-    | I32ShrU
-    | I32Rotl
-    | I32Rotr
-    | I64Clz
-    | I64Ctz
-    | I64Popcnt
     | I64Add
     | I64Sub
     | I64Mul
-    | I64DivS
-    | I64DivU
-    | I64RemS
-    | I64RemU
-    | I64And
-    | I64Or
-    | I64Xor
-    | I64Shl
-    | I64ShrS
-    | I64ShrU
-    | I64Rotl
-    | I64Rotr
-    | F32Abs
-    | F32Neg
-    | F32Ceil
-    | F32Floor
-    | F32Trunc
-    | F32Nearest
-    | F32Sqrt
-    | F32Add
-    | F32Sub
-    | F32Mul
-    | F32Div
-    | F32Min
-    | F32Max
-    | F32Copysign
-    | F64Abs
-    | F64Neg
-    | F64Ceil
-    | F64Floor
-    | F64Trunc
-    | F64Nearest
-    | F64Sqrt
-    | F64Add
-    | F64Sub
-    | F64Mul
-    | F64Div
-    | F64Min
-    | F64Max
-    | F64Copysign
-    | I32WrapI64
-    | I32TruncF32S
-    | I32TruncF32U
-    | I32TruncF64S
-    | I32TruncF64U
-    | I64ExtendI32S
-    | I64ExtendI32U
-    | I64TruncF32S
-    | I64TruncF32U
-    | I64TruncF64S
-    | I64TruncF64U
-    | F32ConvertI32S
-    | F32ConvertI32U
-    | F32ConvertI64S
-    | F32ConvertI64U
-    | F32DemoteF64
-    | F64ConvertI32S
-    | F64ConvertI32U
-    | F64ConvertI64S
-    | F64ConvertI64U
-    | F64PromoteF32
-    | I32ReinterpretF32
-    | I64ReinterpretF64
-    | F32ReinterpretI32
-    | F64ReinterpretI64
-    | I32Extend8S
-    | I32Extend16S
-    | I64Extend8S
-    | I64Extend16S
-    | I64Extend32S
-    | RefIsNull
-    | RefEq
-    | RefAsNonNull
     | AnyConvertExtern
     | ExternConvertAny
-    | RefI31
-    | I31GetS
-    | I31GetU
-    | I32TruncSatF32S
-    | I32TruncSatF32U
-    | I32TruncSatF64S
-    | I32TruncSatF64U
-    | I64TruncSatF32S
-    | I64TruncSatF32U
-    | I64TruncSatF64S
-    | I64TruncSatF64U => Ok(())
+    | RefI31 => Ok(())
     _ => Err("initializer expression is not constant")
   }
 }
@@ -1224,23 +1093,6 @@ fn validate_const_expr(
   } else {
     Err("const expr result type mismatch")
   }
-}
-
-///|
-fn validate_offset_const_expr(
-  env : Env,
-  expr : Expr,
-  want : ValType,
-) -> Result[Unit, String] {
-  let Expr(instrs) = expr
-  for ins in instrs {
-    match ins {
-      I32Clz | I32Ctz | I32Popcnt | I64Clz | I64Ctz | I64Popcnt =>
-        return Err("initializer expression is not constant")
-      _ => ()
-    }
-  }
-  validate_const_expr(env, expr, want)
 }
 
 ///|
@@ -1801,7 +1653,7 @@ pub impl Validate for DataMode with fn validate(self, env) {
       let at = lim.addr_valtype()
 
       // expr : at const
-      validate_offset_const_expr(env, offset_expr, at)
+      validate_const_expr(env, offset_expr, at)
     }
   }
 }
@@ -1862,7 +1714,7 @@ fn validate_elem_mode(
 
       // offset expr : at const
       let at = lim.addr_valtype()
-      validate_offset_const_expr(env, offset_expr, at)
+      validate_const_expr(env, offset_expr, at)
     }
   }
 }
@@ -10152,6 +10004,187 @@ test "validate_module accepts arithmetic in const expressions" {
       fail(
         "expected arithmetic const expressions to validate: \{validation_error_message(err)}",
       )
+  }
+}
+
+///|
+fn validate_test_const_expr_modules_for_numeric_body(
+  body : Array[Instruction],
+) -> Array[(String, Module)] {
+  let i31_ref = RefType::new(true, HeapType::abs(AbsHeapType::i31()))
+  let ref_body = body.copy()
+  ref_body.push(Instruction::ref_i31())
+  [
+    (
+      "global initializer",
+      Module::new().with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), false),
+            Expr::new(body.copy()),
+          ),
+        ]),
+      ),
+    ),
+    (
+      "data offset",
+      Module::new()
+      .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1, None))]))
+      .with_data_sec(
+        DataSec::new([
+          Data::new(
+            DataMode::active(MemIdx::new(0U), Expr::new(body.copy())),
+            b"x",
+          ),
+        ]),
+      ),
+    ),
+    (
+      "element offset",
+      Module::new()
+      .with_table_sec(
+        TableSec::new([
+          Table::new(
+            TableType::new(
+              RefType::abs(AbsHeapType::func()),
+              Limits::i32(1U, None),
+            ),
+            None,
+          ),
+        ]),
+      )
+      .with_elem_sec(
+        ElemSec::new([
+          Elem::new(
+            ElemMode::active(TableIdx::new(0U), Expr::new(body.copy())),
+            ElemKind::funcs([]),
+          ),
+        ]),
+      ),
+    ),
+    (
+      "table initializer",
+      Module::new().with_table_sec(
+        TableSec::new([
+          Table::new(
+            TableType::new(i31_ref, Limits::i32(1U, None)),
+            Some(Expr::new(ref_body.copy())),
+          ),
+        ]),
+      ),
+    ),
+    (
+      "element initializer",
+      Module::new().with_elem_sec(
+        ElemSec::new([
+          Elem::new(
+            ElemMode::passive(),
+            ElemKind::typed_exprs(i31_ref, [Expr::new(ref_body)]),
+          ),
+        ]),
+      ),
+    ),
+  ]
+}
+
+///|
+test "validate_module rejects non-spec numeric instructions in every const-expression context" {
+  let cases : Array[(String, Array[Instruction])] = [
+    (
+      "integer division",
+      [
+        Instruction::i32_const(I32(4)),
+        Instruction::i32_const(I32(2)),
+        Instruction::i32_div_s(),
+      ],
+    ),
+    (
+      "integer remainder",
+      [
+        Instruction::i32_const(I32(5)),
+        Instruction::i32_const(I32(2)),
+        Instruction::i32_rem_u(),
+      ],
+    ),
+    (
+      "bitwise and",
+      [
+        Instruction::i32_const(I32(3)),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_and(),
+      ],
+    ),
+    (
+      "bitwise or",
+      [
+        Instruction::i32_const(I32(2)),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_or(),
+      ],
+    ),
+    (
+      "bitwise xor",
+      [
+        Instruction::i32_const(I32(3)),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_xor(),
+      ],
+    ),
+    (
+      "shift",
+      [
+        Instruction::i32_const(I32(4)),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_shl(),
+      ],
+    ),
+    (
+      "rotate",
+      [
+        Instruction::i32_const(I32(4)),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_rotr(),
+      ],
+    ),
+    (
+      "comparison",
+      [
+        Instruction::i32_const(I32(4)),
+        Instruction::i32_const(I32(2)),
+        Instruction::i32_eq(),
+      ],
+    ),
+    (
+      "float arithmetic",
+      [
+        Instruction::f32_const(@lib.F32::new(1.0)),
+        Instruction::f32_const(@lib.F32::new(2.0)),
+        Instruction::f32_add(),
+        Instruction::i32_reinterpret_f32(),
+      ],
+    ),
+    ("bit count", [Instruction::i32_const(I32(4)), Instruction::i32_clz()]),
+    (
+      "unsupported conversion",
+      [Instruction::i64_const(I64(4L)), Instruction::i32_wrap_i64()],
+    ),
+  ]
+  for case in cases {
+    for fixture in validate_test_const_expr_modules_for_numeric_body(case.1) {
+      match validate_module(fixture.1) {
+        Ok(_) =>
+          fail(
+            "expected \{case.0} to be rejected in \{fixture.0} constant expression",
+          )
+        Err(err) =>
+          assert_true(
+            validation_error_message(err).contains(
+              "initializer expression is not constant",
+            ),
+            msg="unexpected \{case.0} / \{fixture.0} error: \{validation_error_message(err)}",
+          )
+      }
+    }
   }
 }
 
