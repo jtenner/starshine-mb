@@ -6481,15 +6481,17 @@ fn run_hot_pipeline_raw_simplify_locals_func_env(
   func_idx : @lib.FuncIdx,
   module_ctx : @ir.HotModuleContext,
   locals : @lib.Locals,
+  module_env? : @validate.Env? = None,
 ) -> @validate.Env {
   match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(params, results)) => {
       let all_locals = @lib.Locals::from_types(params)
       all_locals.append(locals)
-      @validate.Env::new()
-      .with_module(mod_)
-      .with_locals(all_locals)
-      .with_return_type(Some(results))
+      let base_env = match module_env {
+        Some(env) => env
+        None => @validate.Env::new().with_module(mod_)
+      }
+      base_env.with_locals(all_locals).with_return_type(Some(results))
     }
     None =>
       abort(
@@ -10167,6 +10169,314 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_flat(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut copy_start = 0
+  let mut idx = 0
+  let mut rewrite_count = 0
+  while idx + 19 < instrs.length() {
+    let (seed, first, second, third) = match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+        instrs[idx + 5],
+        instrs[idx + 6],
+        instrs[idx + 7],
+        instrs[idx + 8],
+        instrs[idx + 9],
+      ) {
+      (
+        @lib.LocalGet(seed),
+        @lib.LocalGet(second),
+        @lib.I32Add,
+        @lib.LocalTee(first),
+        @lib.LocalGet(third),
+        @lib.I32Add,
+        @lib.LocalTee(written_second),
+        @lib.LocalGet(read_first),
+        @lib.I32Add,
+        @lib.LocalSet(written_third),
+      ) if written_second == second &&
+        read_first == first &&
+        written_third == third &&
+        seed != first &&
+        seed != second &&
+        seed != third &&
+        first != second &&
+        first != third &&
+        second != third => (seed, first, second, third)
+      _ => {
+        idx = idx + 1
+        continue
+      }
+    }
+    let mut recurrence_end = idx
+    let mut recurrence_count = 0
+    while recurrence_end + 9 < instrs.length() {
+      match
+        (
+          instrs[recurrence_end],
+          instrs[recurrence_end + 1],
+          instrs[recurrence_end + 2],
+          instrs[recurrence_end + 3],
+          instrs[recurrence_end + 4],
+          instrs[recurrence_end + 5],
+          instrs[recurrence_end + 6],
+          instrs[recurrence_end + 7],
+          instrs[recurrence_end + 8],
+          instrs[recurrence_end + 9],
+        ) {
+        (
+          @lib.LocalGet(read_seed),
+          @lib.LocalGet(read_second),
+          @lib.I32Add,
+          @lib.LocalTee(write_first),
+          @lib.LocalGet(read_third),
+          @lib.I32Add,
+          @lib.LocalTee(write_second),
+          @lib.LocalGet(read_first),
+          @lib.I32Add,
+          @lib.LocalSet(write_third),
+        ) if read_seed == seed &&
+          read_second == second &&
+          write_first == first &&
+          read_third == third &&
+          write_second == second &&
+          read_first == first &&
+          write_third == third => {
+          recurrence_count = recurrence_count + 1
+          recurrence_end = recurrence_end + 10
+        }
+        _ => break
+      }
+    }
+    if recurrence_count < 2 {
+      idx = idx + 1
+      continue
+    }
+    for copy_idx = copy_start; copy_idx < idx; copy_idx = copy_idx + 1 {
+      rewritten.push(instrs[copy_idx])
+    }
+    rewritten.push(@lib.Instruction::local_get(third))
+    for recurrence = 0
+        recurrence < recurrence_count
+        recurrence = recurrence + 1 {
+      let recurrence_start = idx + recurrence * 10
+      rewritten.push(instrs[recurrence_start])
+      rewritten.push(instrs[recurrence_start + 1])
+      rewritten.push(instrs[recurrence_start + 2])
+      rewritten.push(instrs[recurrence_start + 3])
+      rewritten.push(instrs[recurrence_start + 5])
+      rewritten.push(instrs[recurrence_start + 6])
+      rewritten.push(instrs[recurrence_start + 7])
+      rewritten.push(instrs[recurrence_start + 8])
+      if recurrence + 1 == recurrence_count {
+        rewritten.push(@lib.Instruction::local_set(third))
+      } else {
+        rewritten.push(@lib.Instruction::local_tee(third))
+      }
+    }
+    rewrite_count = rewrite_count + recurrence_count
+    copy_start = recurrence_end
+    idx = recurrence_end
+  }
+  for copy_idx = copy_start; copy_idx < instrs.length(); copy_idx = copy_idx + 1 {
+    rewritten.push(instrs[copy_idx])
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_bitselect_recurrences_flat(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut copy_start = 0
+  let mut idx = 0
+  let mut rewrite_count = 0
+  while idx + 19 < instrs.length() {
+    let (left, right, mask) = match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+        instrs[idx + 5],
+        instrs[idx + 6],
+        instrs[idx + 7],
+        instrs[idx + 8],
+        instrs[idx + 9],
+      ) {
+      (
+        @lib.LocalGet(left),
+        @lib.LocalGet(right),
+        mask,
+        @lib.V128Bitselect,
+        @lib.LocalSet(write_left),
+        @lib.LocalGet(read_right),
+        @lib.LocalGet(read_left),
+        repeated_mask,
+        @lib.V128Bitselect,
+        @lib.LocalSet(write_right),
+      ) if left != right &&
+        write_left == left &&
+        read_right == right &&
+        read_left == left &&
+        write_right == right &&
+        mask is @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) &&
+        repeated_mask == mask => (left, right, mask)
+      _ => {
+        idx = idx + 1
+        continue
+      }
+    }
+    let mut recurrence_end = idx
+    let mut recurrence_count = 0
+    while recurrence_end + 9 < instrs.length() {
+      match
+        (
+          instrs[recurrence_end],
+          instrs[recurrence_end + 1],
+          instrs[recurrence_end + 2],
+          instrs[recurrence_end + 3],
+          instrs[recurrence_end + 4],
+          instrs[recurrence_end + 5],
+          instrs[recurrence_end + 6],
+          instrs[recurrence_end + 7],
+          instrs[recurrence_end + 8],
+          instrs[recurrence_end + 9],
+        ) {
+        (
+          @lib.LocalGet(read_left),
+          @lib.LocalGet(read_right),
+          first_mask,
+          @lib.V128Bitselect,
+          @lib.LocalSet(write_left),
+          @lib.LocalGet(read_right_again),
+          @lib.LocalGet(read_left_again),
+          second_mask,
+          @lib.V128Bitselect,
+          @lib.LocalSet(write_right),
+        ) if read_left == left &&
+          read_right == right &&
+          first_mask == mask &&
+          write_left == left &&
+          read_right_again == right &&
+          read_left_again == left &&
+          second_mask == mask &&
+          write_right == right => {
+          recurrence_count = recurrence_count + 1
+          recurrence_end = recurrence_end + 10
+        }
+        _ => break
+      }
+    }
+    if recurrence_count < 2 {
+      idx = idx + 1
+      continue
+    }
+    for copy_idx = copy_start; copy_idx < idx; copy_idx = copy_idx + 1 {
+      rewritten.push(instrs[copy_idx])
+    }
+    rewritten.push(@lib.Instruction::local_get(right))
+    for recurrence = 0
+        recurrence < recurrence_count
+        recurrence = recurrence + 1 {
+      let recurrence_start = idx + recurrence * 10
+      rewritten.push(instrs[recurrence_start])
+      rewritten.push(instrs[recurrence_start + 1])
+      rewritten.push(instrs[recurrence_start + 2])
+      rewritten.push(instrs[recurrence_start + 3])
+      rewritten.push(@lib.Instruction::local_tee(left))
+      rewritten.push(instrs[recurrence_start + 7])
+      rewritten.push(instrs[recurrence_start + 8])
+      if recurrence + 1 == recurrence_count {
+        rewritten.push(@lib.Instruction::local_set(right))
+      } else {
+        rewritten.push(@lib.Instruction::local_tee(right))
+      }
+    }
+    rewrite_count = rewrite_count + recurrence_count
+    copy_start = recurrence_end
+    idx = recurrence_end
+  }
+  for copy_idx = copy_start; copy_idx < instrs.length(); copy_idx = copy_idx + 1 {
+    rewritten.push(instrs[copy_idx])
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(block_type, catches, @lib.Expr::new(body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (then_body, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+          then_body,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        let else_body = match else_body {
+          Some(body) => {
+            let (body, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+              body,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(body)
+          }
+          None => None
+        }
+        normalized.push(@lib.Instruction::if_(block_type, then_body, else_body))
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let (three_local_rewritten, three_local_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_flat(
+    normalized,
+  )
+  let (rewritten, bitselect_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_alternating_bitselect_recurrences_flat(
+    three_local_rewritten,
+  )
+  (rewritten, rewrite_count + three_local_rewrites + bitselect_rewrites)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_simd_recurrences_flat(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Int) {
@@ -10565,6 +10875,32 @@ fn run_hot_pipeline_raw_simplify_locals_has_self_update_loop_lifetime(
 }
 
 ///|
+fn run_hot_pipeline_raw_has_root_global_snapshot_write_prefix(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let live : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Nop => ()
+      _ => live.push(instr)
+    }
+  }
+  let target = match live {
+    [@lib.GlobalGet(target), @lib.LocalTee(_), @lib.GlobalGet(second_read), ..] if second_read ==
+      target => target
+    _ => return false
+  }
+  let limit = if live.length() < 16 { live.length() } else { 16 }
+  for idx = 3; idx < limit; idx = idx + 1 {
+    match live[idx] {
+      @lib.GlobalSet(written) if written == target => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_has_root_global_snapshot_return_hazard(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -10763,6 +11099,22 @@ fn run_hot_pipeline_raw_simplify_locals(
       unchanged_original: true,
       trace_skip_raw: true,
     })
+  }
+  if allows_tee {
+    let (recurrence_instrs, recurrence_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences(
+      instrs,
+    )
+    if recurrence_rewrites > 0 {
+      let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+        @lib.Func::new(locals, @lib.Expr::new(recurrence_instrs)),
+      )
+      return Some({
+        reason: "stack-carried-local-recurrence",
+        func: cleaned,
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
   }
   if descriptor.name == "simplify-locals" &&
     run_hot_pipeline_raw_simplify_locals_has_unconditional_backedge_self_update(
@@ -13571,6 +13923,7 @@ priv struct HsoCandidateScanState {
 ///|
 priv struct HotPipelineModuleState {
   mut module_ctx : @ir.HotModuleContext?
+  mut validation_module_env : @validate.Env?
   mut vacuum_raw_preclean_elapsed_us : UInt64
   mut vacuum_raw_preclean_count : Int
   mut vacuum_no_candidate_elapsed_us : UInt64
@@ -13587,6 +13940,7 @@ priv struct HotPipelineModuleState {
 fn HotPipelineModuleState::new() -> HotPipelineModuleState {
   {
     module_ctx: None,
+    validation_module_env: None,
     vacuum_raw_preclean_elapsed_us: 0UL,
     vacuum_raw_preclean_count: 0,
     vacuum_no_candidate_elapsed_us: 0UL,
@@ -13688,6 +14042,31 @@ fn run_hot_pipeline_require_module_ctx(
       perf_stop_timer_opt(options.perf, "analysis:module-context", start_us)
       module_state.module_ctx = Some(module_ctx)
       module_ctx
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_require_validation_module_env(
+  mod_ : @lib.Module,
+  module_state : HotPipelineModuleState,
+  options : HotPipelineOptions,
+) -> @validate.Env {
+  match module_state.validation_module_env {
+    Some(env) => env
+    None => {
+      let start_us = perf_start_timer_opt(
+        options.perf,
+        "analysis:optimize-instructions-validation-module-env",
+      )
+      let env = @validate.Env::new().with_module(mod_)
+      perf_stop_timer_opt(
+        options.perf,
+        "analysis:optimize-instructions-validation-module-env",
+        start_us,
+      )
+      module_state.validation_module_env = Some(env)
+      env
     }
   }
 }
@@ -33043,6 +33422,169 @@ fn RawOiRawBridgeCandidateFact::needs_call_ref_or_null_repair(
 }
 
 ///|
+priv struct RawOiAdmissionGuardFacts {
+  mut has_call_value_store_offset : Bool
+  mut has_call_comparison_add : Bool
+  mut has_stack_carried_call_zero_shift : Bool
+  mut has_subtracted_local_multi_use : Bool
+  mut has_dynamic_store_offset_value_arithmetic : Bool
+  mut has_result_try_table : Bool
+  mut has_sparse_exponent_br_table_candidate : Bool
+  mut has_const_fold_candidate : Bool
+  mut has_global : Bool
+  mut has_call : Bool
+  mut has_tee : Bool
+  mut has_control : Bool
+}
+
+///|
+fn RawOiAdmissionGuardFacts::new() -> RawOiAdmissionGuardFacts {
+  {
+    has_call_value_store_offset: false,
+    has_call_comparison_add: false,
+    has_stack_carried_call_zero_shift: false,
+    has_subtracted_local_multi_use: false,
+    has_dynamic_store_offset_value_arithmetic: false,
+    has_result_try_table: false,
+    has_sparse_exponent_br_table_candidate: false,
+    has_const_fold_candidate: false,
+    has_global: false,
+    has_call: false,
+    has_tee: false,
+    has_control: false,
+  }
+}
+
+///|
+fn RawOiAdmissionGuardFacts::record_region(
+  self : RawOiAdmissionGuardFacts,
+  instrs : Array[@lib.Instruction],
+) -> Unit {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.I32Const(_), @lib.I32Eqz) => self.has_const_fold_candidate = true
+        _ => ()
+      }
+      if run_hot_pipeline_raw_simplify_locals_instr_is_call_like(instrs[idx]) {
+        match RawOiMemoryAccessMemargFact::from_store_instr(instrs[idx + 1]) {
+          Some(fact) => {
+            let @lib.MemArg(_, _, @lib.U64(offset)) = fact.memarg
+            if offset > 0UL {
+              self.has_call_value_store_offset = true
+            }
+          }
+          None => ()
+        }
+      }
+      match (instrs[idx], instrs[idx + 1]) {
+        (
+          @lib.I32Add
+          | @lib.I32Sub
+          | @lib.I32Mul,
+          @lib.I32Store(@lib.MemArg(_, _, @lib.U64(offset))),
+        ) if offset > 0UL =>
+          self.has_dynamic_store_offset_value_arithmetic = true
+        _ => ()
+      }
+    }
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.I32Const(_), @lib.I32Eqz, @lib.I32Eqz)
+        | (@lib.I32Const(_), @lib.I32Const(_), @lib.I32Add) =>
+          self.has_const_fold_candidate = true
+        _ => ()
+      }
+    }
+    if idx + 4 < instrs.length() {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+        ) {
+        (
+          @lib.Call(_)
+          | @lib.CallIndirect(_, _)
+          | @lib.CallRef(_),
+          @lib.LocalGet(_),
+          @lib.I32Const(value),
+          @lib.I32Ne,
+          @lib.I32Add,
+        ) if value == 0 => self.has_call_comparison_add = true
+        (
+          @lib.Call(_)
+          | @lib.CallIndirect(_, _)
+          | @lib.CallRef(_),
+          @lib.LocalGet(_),
+          @lib.I32Const(@lib.I32(0)),
+          @lib.I32Shl
+          | @lib.I32ShrS
+          | @lib.I32ShrU,
+          @lib.I32Add,
+        ) => self.has_stack_carried_call_zero_shift = true
+        _ => ()
+      }
+    }
+    if idx + 3 < instrs.length() {
+      let target = match
+        (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+        (@lib.LocalGet(_), @lib.I32Const(_), @lib.I32Sub, @lib.LocalSet(target)) =>
+          target
+        _ => continue
+      }
+      let mut reads = 0
+      for later = idx + 4; later < instrs.length(); later = later + 1 {
+        match instrs[later] {
+          @lib.LocalGet(read) if read == target => {
+            reads += 1
+            if reads >= 2 {
+              self.has_subtracted_local_multi_use = true
+              break
+            }
+          }
+          _ => ()
+        }
+      }
+    }
+  }
+}
+
+///|
+fn RawOiAdmissionGuardFacts::record_instr(
+  self : RawOiAdmissionGuardFacts,
+  instr : @lib.Instruction,
+) -> Unit {
+  match instr {
+    @lib.GlobalGet(_) | @lib.GlobalSet(_) => self.has_global = true
+    @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+      self.has_call = true
+    @lib.LocalTee(_) => self.has_tee = true
+    @lib.Block(_, _) | @lib.Loop(_, _) | @lib.If(_, _, _) =>
+      self.has_control = true
+    @lib.TryTable(block_type, _, _) => {
+      self.has_control = true
+      match block_type {
+        @lib.VoidBlockType => ()
+        _ => self.has_result_try_table = true
+      }
+    }
+    @lib.BrTable(labels, _) if labels.length() == 2048 =>
+      self.has_sparse_exponent_br_table_candidate = true
+    _ => ()
+  }
+}
+
+///|
+fn RawOiAdmissionGuardFacts::has_global_call_tee_control(
+  self : RawOiAdmissionGuardFacts,
+) -> Bool {
+  self.has_global && self.has_call && self.has_tee && self.has_control
+}
+
+///|
 priv struct RawOiFunctionRevisionFactIndex {
   instruction_count : Int
   lowered_stats : OptimizeInstructionsLoweredStats
@@ -33052,6 +33594,7 @@ priv struct RawOiFunctionRevisionFactIndex {
   call_sites : Array[RawOiCallSiteFact]
   select_anchors : Array[RawOiSelectAnchorFact]
   bridge_candidates : RawOiRawBridgeCandidateFact
+  admission_guards : RawOiAdmissionGuardFacts
 }
 
 ///|
@@ -33062,12 +33605,14 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
   select_anchors : Array[RawOiSelectAnchorFact],
   regions : Array[RawOiInstructionRegionFact],
   bridge_candidates : RawOiRawBridgeCandidateFact,
+  admission_guards : RawOiAdmissionGuardFacts,
 ) -> Int {
   let mut count = 1
   run_hot_pipeline_optimize_instructions_record_stats_instr(
     instr, lowered_stats,
   )
   bridge_candidates.record_instr(instr)
+  admission_guards.record_instr(instr)
   match instr {
     @lib.Call(call_idx) =>
       call_sites.push({ call_idx, call_ordinal: call_sites.length() })
@@ -33078,15 +33623,18 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       count += RawOiFunctionRevisionFactIndex::collect_body(
         body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+        admission_guards,
       )
     @lib.If(_, then_body, else_body) => {
       count += RawOiFunctionRevisionFactIndex::collect_body(
         then_body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+        admission_guards,
       )
       match else_body {
         Some(body) =>
           count += RawOiFunctionRevisionFactIndex::collect_body(
             body, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+            admission_guards,
           )
         None => ()
       }
@@ -33104,12 +33652,15 @@ fn RawOiFunctionRevisionFactIndex::collect_body(
   select_anchors : Array[RawOiSelectAnchorFact],
   regions : Array[RawOiInstructionRegionFact],
   bridge_candidates : RawOiRawBridgeCandidateFact,
+  admission_guards : RawOiAdmissionGuardFacts,
 ) -> Int {
+  admission_guards.record_region(instrs)
   regions.push(RawOiInstructionRegionFact::from_instrs(instrs))
   let mut count = 0
   for instr in instrs {
     count += RawOiFunctionRevisionFactIndex::collect_instr(
       instr, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+      admission_guards,
     )
   }
   count
@@ -33124,8 +33675,10 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
   let select_anchors : Array[RawOiSelectAnchorFact] = []
   let regions : Array[RawOiInstructionRegionFact] = []
   let bridge_candidates = RawOiRawBridgeCandidateFact::new()
+  let admission_guards = RawOiAdmissionGuardFacts::new()
   let instruction_count = RawOiFunctionRevisionFactIndex::collect_body(
     instrs, lowered_stats, call_sites, select_anchors, regions, bridge_candidates,
+    admission_guards,
   )
   let top_level_roots = regions[0].roots
   let mut top_level_pure_stack_prefix_count = 0
@@ -33145,7 +33698,43 @@ fn RawOiFunctionRevisionFactIndex::from_instrs(
     call_sites,
     select_anchors,
     bridge_candidates,
+    admission_guards,
   }
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::has_stack_carried_tee_parameter_alias(
+  self : RawOiFunctionRevisionFactIndex,
+  parameter_count : Int,
+) -> Bool {
+  if parameter_count <= 0 {
+    return false
+  }
+  for region in self.regions {
+    let roots = region.roots
+    for tee_idx = 0; tee_idx < roots.length(); tee_idx = tee_idx + 1 {
+      let target = match roots[tee_idx].instr {
+        @lib.LocalTee(target) => target
+        _ => continue
+      }
+      let limit = if tee_idx + 9 < roots.length() {
+        tee_idx + 9
+      } else {
+        roots.length()
+      }
+      for read_idx = tee_idx + 2; read_idx + 1 < limit; read_idx = read_idx + 1 {
+        match (roots[read_idx].instr, roots[read_idx + 1].instr) {
+          (@lib.LocalGet(read), @lib.LocalSet(@lib.LocalIdx(raw_parameter))) =>
+            if read == target &&
+              raw_parameter.reinterpret_as_int() < parameter_count {
+              return true
+            }
+          _ => ()
+        }
+      }
+    }
+  }
+  false
 }
 
 ///|
@@ -40502,6 +41091,119 @@ fn RawOiBottomNullDescriptorCastRegionFact::from_index(
 }
 
 ///|
+fn RawOiInstructionRegionFact::has_effectful_sibling_rewrite_candidate(
+  self : RawOiInstructionRegionFact,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  // Every represented family has a distinctive terminal root. Dispatching from
+  // that terminal avoids attempting all eight fact parsers at every operand in
+  // large regions while preserving each family's exact proof constructor.
+  for terminal = 0; terminal < self.roots.length(); terminal = terminal + 1 {
+    match self.roots[terminal].kind {
+      RawOiRootKind::RefCastDescEq =>
+        if terminal >= 2 &&
+          RawOiBottomNullDescriptorCastFact::from_region_at(self, terminal - 2)
+          is Some(_) {
+          return true
+        }
+      RawOiRootKind::BulkMemory => {
+        let mut start = if terminal > 4 { terminal - 4 } else { 0 }
+        while start <= terminal {
+          if RawOiBulkLoweringRewriteFact::from_region(self, start) is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      RawOiRootKind::If => {
+        if terminal >= 1 &&
+          RawOiDroppedConstBranchIfFact::from_region(self, terminal - 1)
+          is Some(_) {
+          return true
+        }
+        if terminal >= 3 &&
+          RawOiMemorySizeNonzeroIfFact::from_region(self, terminal - 3)
+          is Some(_) {
+          return true
+        }
+        match self.roots[terminal].instr {
+          @lib.If(block_type, then_body, Some(else_body)) => {
+            if RawOiIdenticalIfArmsFact::from_arms(then_body, else_body)
+              is Some(_) ||
+              RawOiSameLocalConstIfSinkFact::from_arms(
+                block_type, then_body, else_body,
+              )
+              is Some(_) {
+              return true
+            }
+            match
+              RawOiSameGlobalIfSinkFact::from_if_arms(
+                block_type, then_body, else_body, module_ctx,
+              ) {
+              Some(fact) if fact.to_rewrite() is Some(_) => return true
+              _ => ()
+            }
+          }
+          _ => ()
+        }
+      }
+      RawOiRootKind::Select => {
+        let mut start = if terminal > 5 { terminal - 5 } else { 0 }
+        while start <= terminal {
+          if RawOiSelectRewriteFact::from_region(self, start) is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      RawOiRootKind::MemoryStore => {
+        let mut start = if terminal > 6 { terminal - 6 } else { 0 }
+        while start <= terminal {
+          if RawOiDropStoreMaskRewriteFact::from_region(self, start) is Some(_) ||
+            RawOiMemoryOffsetFoldRewriteFact::from_region(self, start)
+            is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      RawOiRootKind::PlainLoad => {
+        let mut start = if terminal > 3 { terminal - 3 } else { 0 }
+        while start <= terminal {
+          if RawOiMemoryOffsetFoldRewriteFact::from_region(self, start)
+            is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      RawOiRootKind::ScalarNumericTerminal
+      | RawOiRootKind::CommutativeIntegerBinop => {
+        let mut start = if terminal > 5 { terminal - 5 } else { 0 }
+        while start <= terminal {
+          if RawOiScalarNumericRewriteFact::from_region(self, start) is Some(_) {
+            return true
+          }
+          start += 1
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn RawOiFunctionRevisionFactIndex::has_effectful_sibling_rewrite_candidate(
+  self : RawOiFunctionRevisionFactIndex,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  self.regions.any(fn(region) {
+    region.has_effectful_sibling_rewrite_candidate(module_ctx)
+  })
+}
+
+///|
 // Accepted raw OI-D/F/G/J bridge boundary. This straight-line walker is now a
 // fact table: descriptor-bottom-null, bulk-lowering, dropped-branch, select,
 // memory-size boolean, narrow-store mask, scalar numeric, and memory-offset
@@ -41358,327 +42060,6 @@ fn run_hot_pipeline_raw_optimize_instructions_const_fold_body(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for i = 1; i < instrs.length(); i = i + 1 {
-    match (instrs[i - 1], instrs[i]) {
-      (
-        @lib.I32Add
-        | @lib.I32Sub
-        | @lib.I32Mul,
-        @lib.I32Store(@lib.MemArg(_, _, @lib.U64(offset))),
-      ) if offset > 0UL => return true
-      _ => ()
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(else_body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-                else_body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
-    match
-      (
-        instrs[idx],
-        instrs[idx + 1],
-        instrs[idx + 2],
-        instrs[idx + 3],
-        instrs[idx + 4],
-      ) {
-      (
-        @lib.Call(_)
-        | @lib.CallIndirect(_, _)
-        | @lib.CallRef(_),
-        @lib.LocalGet(_),
-        @lib.I32Const(@lib.I32(0)),
-        @lib.I32Shl
-        | @lib.I32ShrS
-        | @lib.I32ShrU,
-        @lib.I32Add,
-      ) => return true
-      _ => ()
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-priv struct RawOiGlobalCallTeeControlFact {
-  mut has_global : Bool
-  mut has_call : Bool
-  mut has_tee : Bool
-  mut has_control : Bool
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-  instrs : Array[@lib.Instruction],
-  fact : RawOiGlobalCallTeeControlFact,
-) -> Unit {
-  for instr in instrs {
-    match instr {
-      @lib.GlobalGet(_) | @lib.GlobalSet(_) => fact.has_global = true
-      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
-        fact.has_call = true
-      @lib.LocalTee(_) => fact.has_tee = true
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) => {
-        fact.has_control = true
-        run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-          body, fact,
-        )
-      }
-      @lib.If(_, then_body, else_body) => {
-        fact.has_control = true
-        run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-          then_body, fact,
-        )
-        match else_body {
-          Some(body) =>
-            run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-              body, fact,
-            )
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_global_call_tee_control(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  let fact = RawOiGlobalCallTeeControlFact::{
-    has_global: false,
-    has_call: false,
-    has_tee: false,
-    has_control: false,
-  }
-  run_hot_pipeline_raw_optimize_instructions_collect_global_call_tee_control(
-    instrs, fact,
-  )
-  fact.has_global && fact.has_call && fact.has_tee && fact.has_control
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for idx = 0; idx + 3 < instrs.length(); idx = idx + 1 {
-    let target = match
-      (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
-      (@lib.LocalGet(_), @lib.I32Const(_), @lib.I32Sub, @lib.LocalSet(target)) =>
-        target
-      _ => continue
-    }
-    let mut reads = 0
-    for later = idx + 4; later < instrs.length(); later = later + 1 {
-      match instrs[later] {
-        @lib.LocalGet(read) if read == target => {
-          reads += 1
-          if reads >= 2 {
-            return true
-          }
-        }
-        _ => ()
-      }
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for idx = 0; idx + 4 < instrs.length(); idx = idx + 1 {
-    match
-      (
-        instrs[idx],
-        instrs[idx + 1],
-        instrs[idx + 2],
-        instrs[idx + 3],
-        instrs[idx + 4],
-      ) {
-      (
-        @lib.Call(_)
-        | @lib.CallIndirect(_, _)
-        | @lib.CallRef(_),
-        @lib.LocalGet(_),
-        @lib.I32Const(value),
-        @lib.I32Ne,
-        @lib.I32Add,
-      ) if value == 0 => return true
-      _ => ()
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn run_hot_pipeline_raw_optimize_instructions_has_result_try_table(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.TryTable(block_type, _, @lib.Expr(body)) => {
-        match block_type {
-          @lib.VoidBlockType => ()
-          _ => return true
-        }
-        if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(body) {
-          return true
-        }
-      }
-      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(body) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 priv struct RawOiSparseExponentBrTableFact {
   end : Int
   selector : Array[@lib.Instruction]
@@ -41881,13 +42262,30 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   module_state : HotPipelineModuleState,
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
+  oi_index? : RawOiFunctionRevisionFactIndex? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "optimize-instructions" {
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(body)) = original
-  if run_hot_pipeline_raw_optimize_instructions_has_result_try_table(body) {
+  let oi_index = match oi_index {
+    Some(index) => index
+    None => {
+      let raw_index_start_us = perf_start_timer_opt(
+        options.perf,
+        "detail:optimize-instructions:raw-revision-index",
+      )
+      let index = RawOiFunctionRevisionFactIndex::from_instrs(body)
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:optimize-instructions:raw-revision-index",
+        raw_index_start_us,
+      )
+      index
+    }
+  }
+  if oi_index.admission_guards.has_result_try_table {
     return Some({
       reason: "result-try-table-optimize-instructions-noop",
       func: original,
@@ -41895,9 +42293,13 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  let (sparse_br_table_body, sparse_br_table_changed) = run_hot_pipeline_raw_optimize_instructions_compress_sparse_br_table_body(
-    body,
-  )
+  let (sparse_br_table_body, sparse_br_table_changed) = if oi_index.admission_guards.has_sparse_exponent_br_table_candidate {
+    run_hot_pipeline_raw_optimize_instructions_compress_sparse_br_table_body(
+      body,
+    )
+  } else {
+    (body, false)
+  }
   if sparse_br_table_changed {
     return Some({
       reason: "sparse-exponent-br-table-optimize-instructions",
@@ -41906,7 +42308,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_call_comparison_add(body) {
+  if oi_index.admission_guards.has_call_comparison_add {
     return Some({
       reason: "call-comparison-add-optimize-instructions-noop",
       func: original,
@@ -41914,9 +42316,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_stack_carried_call_zero_shift(
-      body,
-    ) {
+  if oi_index.admission_guards.has_stack_carried_call_zero_shift {
     return Some({
       reason: "stack-carried-call-zero-shift-optimize-instructions-noop",
       func: original,
@@ -41924,9 +42324,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_global_call_tee_control(
-      body,
-    ) {
+  if oi_index.admission_guards.has_global_call_tee_control() {
     return Some({
       reason: "global-call-tee-control-optimize-instructions-noop",
       func: original,
@@ -41934,9 +42332,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_subtracted_local_multi_use(
-      body,
-    ) {
+  if oi_index.admission_guards.has_subtracted_local_multi_use {
     return Some({
       reason: "subtracted-local-multi-use-optimize-instructions-noop",
       func: original,
@@ -41944,9 +42340,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_dynamic_store_offset_value_arithmetic(
-      body,
-    ) {
+  if oi_index.admission_guards.has_dynamic_store_offset_value_arithmetic {
     return Some({
       reason: "dynamic-store-offset-value-arithmetic-alias-hazard",
       func: original,
@@ -41987,19 +42381,9 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       })
     None => ()
   }
-  // Build the original revision once before raw routing. Candidate facts only
-  // decide which raw bridges can possibly apply; each selected family still
-  // performs its exact descriptor/type/effect/order/trap proof.
-  let raw_index_start_us = perf_start_timer_opt(
-    options.perf,
-    "detail:optimize-instructions:raw-revision-index",
-  )
-  let oi_index = RawOiFunctionRevisionFactIndex::from_instrs(body)
-  perf_stop_timer_opt(
-    options.perf,
-    "detail:optimize-instructions:raw-revision-index",
-    raw_index_start_us,
-  )
+  // Candidate facts only decide which raw bridges can possibly apply; each
+  // selected family still performs its exact descriptor/type/effect/order/trap
+  // proof against this one immutable original revision.
   let raw_descriptor_start_us = perf_start_timer_opt(
     options.perf,
     "detail:optimize-instructions:raw-descriptor-bridges",
@@ -42074,9 +42458,19 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   } else {
     (tnh_exact_success_body, false)
   }
-  let (const_fold_body, const_fold_changed) = run_hot_pipeline_raw_optimize_instructions_const_fold_body(
-    tnh_indirect_exact_success_body,
-  )
+  let (const_fold_body, const_fold_changed) = if oi_index.admission_guards.has_const_fold_candidate ||
+    exact_success_changed ||
+    exactification_changed ||
+    exact_miss_changed ||
+    directized_changed ||
+    tnh_exact_success_changed ||
+    tnh_indirect_exact_success_changed {
+    run_hot_pipeline_raw_optimize_instructions_const_fold_body(
+      tnh_indirect_exact_success_body,
+    )
+  } else {
+    (tnh_indirect_exact_success_body, false)
+  }
   if const_fold_changed &&
     locals.length() == 0 &&
     !exact_success_changed &&
@@ -42095,9 +42489,21 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  let (effectful_sibling_body, effectful_sibling_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
-    const_fold_body, module_ctx,
-  )
+  let body_changed_before_effectful_sibling = exact_success_changed ||
+    exactification_changed ||
+    exact_miss_changed ||
+    directized_changed ||
+    tnh_exact_success_changed ||
+    tnh_indirect_exact_success_changed ||
+    const_fold_changed
+  let (effectful_sibling_body, effectful_sibling_changed) = if body_changed_before_effectful_sibling ||
+    oi_index.has_effectful_sibling_rewrite_candidate(module_ctx) {
+    run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+      const_fold_body, module_ctx,
+    )
+  } else {
+    (const_fold_body, false)
+  }
   let (
     same_flat_pure_scalar_memory_copy_body,
     same_flat_pure_scalar_memory_copy_changed,
@@ -42287,8 +42693,15 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       })
     _ => ()
   }
+  let validation_module_env = run_hot_pipeline_require_validation_module_env(
+    mod_, module_state, options,
+  )
   let env = run_hot_pipeline_raw_simplify_locals_func_env(
-    mod_, func_idx, module_ctx, locals,
+    mod_,
+    func_idx,
+    module_ctx,
+    locals,
+    module_env=Some(validation_module_env),
   )
   let simple_stack_call_binop = match
     RawOiSimpleStackCallBinopFact::from_index(oi_index, body, module_ctx) {
@@ -43637,6 +44050,14 @@ fn run_hot_pipeline_raw_precompute(
   let o4z_precompute_gate = options.optimize_level >= 4 &&
     options.shrink_level >= 1
   let @lib.Func(locals, @lib.Expr(body)) = original
+  if run_hot_pipeline_raw_has_root_global_snapshot_write_prefix(body) {
+    return Some({
+      reason: "root-global-snapshot-write-prefix-\{descriptor.name}-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if propagating &&
     run_hot_pipeline_raw_precompute_has_multi_read_arithmetic_local(body) {
     return Some({
@@ -61764,9 +62185,83 @@ fn run_hot_pipeline_raw_vacuum_has_dense_nop_debris(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_push_fused_sign_extension(
+  rewritten : Array[@lib.Instruction],
+  instr : @lib.Instruction,
+) -> Bool {
+  let n = rewritten.length()
+  match instr {
+    @lib.I32Xor if n >= 3 =>
+      match (rewritten[n - 3], rewritten[n - 2], rewritten[n - 1]) {
+        (@lib.I32Const(@lib.I32(1)), @lib.I32And, @lib.I32Const(@lib.I32(1))) => {
+          ignore(rewritten.pop())
+          rewritten.push(@lib.Instruction::i32_eqz())
+          return true
+        }
+        _ => ()
+      }
+    @lib.I32Shl if n >= 3 =>
+      match (rewritten[n - 3], rewritten[n - 2], rewritten[n - 1]) {
+        (
+          @lib.I32Const(@lib.I32(first_shift)),
+          @lib.I32Shl,
+          @lib.I32Const(@lib.I32(second_shift)),
+        ) if first_shift >= 0 &&
+          first_shift < 32 &&
+          second_shift >= 0 &&
+          second_shift < 32 &&
+          first_shift + second_shift < 32 => {
+          ignore(rewritten.pop())
+          ignore(rewritten.pop())
+          ignore(rewritten.pop())
+          rewritten.push(
+            @lib.Instruction::i32_const(first_shift + second_shift),
+          )
+          rewritten.push(@lib.Instruction::i32_shl())
+          return true
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  if n >= 3 {
+    match (rewritten[n - 3], rewritten[n - 2], rewritten[n - 1], instr) {
+      (
+        @lib.I32Const(@lib.I32(24)),
+        @lib.I32Shl,
+        @lib.I32Const(@lib.I32(24)),
+        @lib.I32ShrS,
+      ) => {
+        ignore(rewritten.pop())
+        ignore(rewritten.pop())
+        ignore(rewritten.pop())
+        rewritten.push(@lib.Instruction::i32_extend8s())
+        return true
+      }
+      (
+        @lib.I32Const(@lib.I32(16)),
+        @lib.I32Shl,
+        @lib.I32Const(@lib.I32(16)),
+        @lib.I32ShrS,
+      ) => {
+        ignore(rewritten.pop())
+        ignore(rewritten.pop())
+        ignore(rewritten.pop())
+        rewritten.push(@lib.Instruction::i32_extend16s())
+        return true
+      }
+      _ => ()
+    }
+  }
+  rewritten.push(instr)
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
   instrs : Array[@lib.Instruction],
   include_void : Bool,
+  fold_sign_extensions : Bool,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
@@ -61774,7 +62269,7 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          body, include_void,
+          body, include_void, fold_sign_extensions,
         )
         if (
             block_type is @lib.ValTypeBlockType(_) ||
@@ -61800,7 +62295,7 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          body, include_void,
+          body, include_void, fold_sign_extensions,
         )
         rewritten.push(
           @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
@@ -61811,13 +62306,13 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          then_body, include_void,
+          then_body, include_void, fold_sign_extensions,
         )
         let mut else_changed = false
         let next_else = match else_body {
           Some(body) => {
             let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-              body, include_void,
+              body, include_void, fold_sign_extensions,
             )
             else_changed = body_changed
             Some(next_body)
@@ -61831,7 +62326,7 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          body, include_void,
+          body, include_void, fold_sign_extensions,
         )
         rewritten.push(
           @lib.Instruction::try_table(
@@ -61844,7 +62339,21 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
           changed = true
         }
       }
-      _ => rewritten.push(instr)
+      _ =>
+        if fold_sign_extensions &&
+          (
+            instr is @lib.I32ShrS ||
+            instr is @lib.I32Shl ||
+            instr is @lib.I32Xor
+          ) {
+          if run_hot_pipeline_raw_vacuum_push_fused_sign_extension(
+              rewritten, instr,
+            ) {
+            changed = true
+          }
+        } else {
+          rewritten.push(instr)
+        }
     }
   }
   (rewritten, changed)
@@ -61919,14 +62428,147 @@ fn o4z_canonicalize_final_size_pure_i32_load_address_root(
 }
 
 ///|
+fn o4z_canonicalize_final_size_drop_result_block_select_shell(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let (block_type, body) = match instr {
+    @lib.Block(
+      @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+      @lib.Expr(body)
+    ) if body.length() >= 7 =>
+      (@lib.BlockType::val_type(@lib.ValType::i32()), body)
+    _ => return None
+  }
+  let start = body.length() - 7
+  let (value_local, address_local, memarg) = match
+    (
+      body[start],
+      body[start + 1],
+      body[start + 2],
+      body[start + 3],
+      body[start + 4],
+      body[start + 5],
+      body[start + 6],
+    ) {
+    (
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalGet(value_local),
+      @lib.LocalGet(address_local),
+      @lib.I32Load8U(memarg),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32And,
+      @lib.Select(None),
+    ) => (value_local, address_local, memarg)
+    _ => return None
+  }
+  if value_local != address_local {
+    return None
+  }
+  let rewritten : Array[@lib.Instruction] = Array::new(
+    capacity=body.length() - 5,
+  )
+  for idx = 0; idx < start; idx = idx + 1 {
+    rewritten.push(body[idx])
+  }
+  rewritten.push(@lib.Instruction::local_get(address_local))
+  rewritten.push(@lib.Instruction::i32_load8u(memarg))
+  Some(@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)))
+}
+
+///|
+fn o4z_canonicalize_final_size_try_pop_const_nontrapping_integer_binary_keep_lhs(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() < 2 {
+    return false
+  }
+  let removable = match
+    (instrs[instrs.length() - 2], instrs[instrs.length() - 1]) {
+    (
+      @lib.I32Const(_),
+      @lib.I32Eq
+      | @lib.I32Ne
+      | @lib.I32LtS
+      | @lib.I32LtU
+      | @lib.I32GtS
+      | @lib.I32GtU
+      | @lib.I32LeS
+      | @lib.I32LeU
+      | @lib.I32GeS
+      | @lib.I32GeU
+      | @lib.I32Add
+      | @lib.I32Sub
+      | @lib.I32Mul
+      | @lib.I32And
+      | @lib.I32Or
+      | @lib.I32Xor
+      | @lib.I32Shl
+      | @lib.I32ShrS
+      | @lib.I32ShrU
+      | @lib.I32Rotl
+      | @lib.I32Rotr,
+    ) => true
+    (
+      @lib.I64Const(_),
+      @lib.I64Eq
+      | @lib.I64Ne
+      | @lib.I64LtS
+      | @lib.I64LtU
+      | @lib.I64GtS
+      | @lib.I64GtU
+      | @lib.I64LeS
+      | @lib.I64LeU
+      | @lib.I64GeS
+      | @lib.I64GeU
+      | @lib.I64Add
+      | @lib.I64Sub
+      | @lib.I64Mul
+      | @lib.I64And
+      | @lib.I64Or
+      | @lib.I64Xor
+      | @lib.I64Shl
+      | @lib.I64ShrS
+      | @lib.I64ShrU
+      | @lib.I64Rotl
+      | @lib.I64Rotr,
+    ) => true
+    _ => false
+  }
+  if !removable {
+    return false
+  }
+  ignore(instrs.pop())
+  ignore(instrs.pop())
+  true
+}
+
+///|
 fn o4z_canonicalize_final_size_sign_extensions(
   instrs : Array[@lib.Instruction],
+  allow_dropped_integer_shells : Bool,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
     if i + 1 < instrs.length() {
+      if allow_dropped_integer_shells {
+        match (instrs[i], instrs[i + 1]) {
+          (block, @lib.Drop) =>
+            match
+              o4z_canonicalize_final_size_drop_result_block_select_shell(block) {
+              Some(rewritten) => {
+                out.push(rewritten)
+                out.push(@lib.Instruction::drop())
+                changed = true
+                i = i + 2
+                continue
+              }
+              None => ()
+            }
+          _ => ()
+        }
+      }
       match (instrs[i], instrs[i + 1]) {
         (@lib.GlobalGet(read_idx), @lib.GlobalSet(write_idx)) if read_idx ==
           write_idx => {
@@ -62134,15 +62776,42 @@ fn o4z_canonicalize_final_size_sign_extensions(
         _ => ()
       }
     }
+    if i + 2 < instrs.length() {
+      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (
+          @lib.I32Const(@lib.I32(0)),
+          @lib.I32Ne,
+          @lib.If(block_type, then_body, else_body),
+        ) => {
+          out.push(@lib.Instruction::if_(block_type, then_body, else_body))
+          changed = true
+          i = i + 3
+          continue
+        }
+        (@lib.I32Const(@lib.I32(0)), @lib.I32Ne, @lib.BrIf(label)) => {
+          out.push(@lib.Instruction::br_if(label))
+          changed = true
+          i = i + 3
+          continue
+        }
+        _ => ()
+      }
+    }
     if i + 1 < instrs.length() {
       match
         (
           o4z_canonicalize_final_size_negate_integer_compare(instrs[i]),
           instrs[i + 1],
         ) {
+        (Some(negated), @lib.I32Eqz) => {
+          out.push(negated)
+          changed = true
+          i = i + 2
+          continue
+        }
         (Some(negated), @lib.If(@lib.VoidBlockType, [], Some(else_body))) => {
           let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-            else_body,
+            else_body, allow_dropped_integer_shells,
           )
           out.push(negated)
           out.push(
@@ -62157,6 +62826,22 @@ fn o4z_canonicalize_final_size_sign_extensions(
     }
     if i + 3 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+        (
+          @lib.I32Const(@lib.I32(first_shift)),
+          @lib.I32Shl,
+          @lib.I32Const(@lib.I32(second_shift)),
+          @lib.I32Shl,
+        ) if first_shift >= 0 &&
+          first_shift < 32 &&
+          second_shift >= 0 &&
+          second_shift < 32 &&
+          first_shift + second_shift < 32 => {
+          out.push(@lib.Instruction::i32_const(first_shift + second_shift))
+          out.push(@lib.Instruction::i32_shl())
+          changed = true
+          i = i + 4
+          continue
+        }
         (
           @lib.I32Const(@lib.I32(1)),
           @lib.I32And,
@@ -62233,7 +62918,7 @@ fn o4z_canonicalize_final_size_sign_extensions(
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-          body,
+          body, allow_dropped_integer_shells,
         )
         out.push(
           if body_changed {
@@ -62246,7 +62931,7 @@ fn o4z_canonicalize_final_size_sign_extensions(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-          body,
+          body, allow_dropped_integer_shells,
         )
         out.push(
           if body_changed {
@@ -62259,12 +62944,12 @@ fn o4z_canonicalize_final_size_sign_extensions(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = o4z_canonicalize_final_size_sign_extensions(
-          then_body,
+          then_body, allow_dropped_integer_shells,
         )
         let (next_else, else_changed) = match else_body {
           Some(body) => {
             let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-              body,
+              body, allow_dropped_integer_shells,
             )
             (Some(next_body), body_changed)
           }
@@ -62281,7 +62966,7 @@ fn o4z_canonicalize_final_size_sign_extensions(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = o4z_canonicalize_final_size_sign_extensions(
-          body,
+          body, allow_dropped_integer_shells,
         )
         out.push(
           if body_changed {
@@ -62296,6 +62981,26 @@ fn o4z_canonicalize_final_size_sign_extensions(
         )
         changed = changed || body_changed
       }
+      @lib.Drop =>
+        if allow_dropped_integer_shells &&
+          o4z_canonicalize_final_size_try_pop_const_nontrapping_integer_binary_keep_lhs(
+            out,
+          ) {
+          if out.length() > 0 {
+            match out[out.length() - 1] {
+              @lib.LocalTee(local_idx) => {
+                ignore(out.pop())
+                out.push(@lib.Instruction::local_set(local_idx))
+              }
+              _ => out.push(@lib.Instruction::drop())
+            }
+          } else {
+            out.push(@lib.Instruction::drop())
+          }
+          changed = true
+        } else {
+          out.push(instrs[i])
+        }
       _ => out.push(instrs[i])
     }
     i = i + 1
@@ -62482,6 +63187,666 @@ fn o4z_canonicalize_final_size_fresh_packed_array_gets(
     idx = idx + 1
   }
   (out, changed)
+}
+
+///|
+fn o4z_canonicalize_final_size_has_no_shared_state(mod_ : @lib.Module) -> Bool {
+  match mod_.import_sec {
+    Some(@lib.ImportSec(items)) if !items.is_empty() => return false
+    _ => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(items)) if !items.is_empty() => return false
+    _ => ()
+  }
+  match mod_.mem_sec {
+    Some(@lib.MemSec(items)) if !items.is_empty() => return false
+    _ => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(items)) if !items.is_empty() => return false
+    _ => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(items)) if !items.is_empty() => return false
+    _ => ()
+  }
+  match mod_.data_sec {
+    Some(@lib.DataSec(items)) if !items.is_empty() => return false
+    _ => ()
+  }
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(subtype) =>
+            if subtype.metadata().is_shared() {
+              return false
+            }
+          @lib.GroupRecType(subtypes) =>
+            for subtype in subtypes {
+              if subtype.metadata().is_shared() {
+                return false
+              }
+            }
+        }
+      }
+    None => ()
+  }
+  true
+}
+
+///|
+fn o4z_canonicalize_final_size_instrs_have_atomic_fence(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.AtomicFence(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if o4z_canonicalize_final_size_instrs_have_atomic_fence(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if o4z_canonicalize_final_size_instrs_have_atomic_fence(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if o4z_canonicalize_final_size_instrs_have_atomic_fence(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+pub fn o4z_size_candidate_has_unobservable_atomic_fence(
+  mod_ : @lib.Module,
+) -> Bool {
+  if !o4z_canonicalize_final_size_has_no_shared_state(mod_) {
+    return false
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      funcs.any(fn(func) {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        o4z_canonicalize_final_size_instrs_have_atomic_fence(body)
+      })
+    None => false
+  }
+}
+
+///|
+fn o4z_canonicalize_final_size_remove_unobservable_fences(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.AtomicFence(_) => changed = true
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_remove_unobservable_fences(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_remove_unobservable_fences(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_remove_unobservable_fences(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_remove_unobservable_fences(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        out.push(
+          if then_changed || else_changed {
+            @lib.Instruction::if_(block_type, next_then, next_else)
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || then_changed || else_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_remove_unobservable_fences(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            )
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      _ => out.push(instrs[idx])
+    }
+  }
+  (out, changed)
+}
+
+///|
+fn o4z_canonicalize_final_size_nullable_struct_defaults(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.RefNull(_), @lib.StructNew(type_idx)) =>
+          match @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+            Some(
+              [
+                @lib.FieldType(
+                  @lib.ValTypeStorageType(@lib.RefTypeValType(ref_type)),
+                  _
+                ),
+              ]
+            ) if ref_type.is_nullable() => {
+              out.push(@lib.Instruction::struct_new_default(type_idx))
+              changed = true
+              idx += 2
+              continue
+            }
+            _ => ()
+          }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_nullable_struct_defaults(
+          body, module_ctx,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_nullable_struct_defaults(
+          body, module_ctx,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_nullable_struct_defaults(
+          then_body, module_ctx,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_nullable_struct_defaults(
+              body, module_ctx,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        out.push(
+          if then_changed || else_changed {
+            @lib.Instruction::if_(block_type, next_then, next_else)
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || then_changed || else_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_nullable_struct_defaults(
+          body, module_ctx,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            )
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn o4z_canonicalize_final_size_split_local_add_constants(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 8 < instrs.length() {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+          instrs[idx + 5],
+          instrs[idx + 6],
+          instrs[idx + 7],
+          instrs[idx + 8],
+        ) {
+        (
+          @lib.LocalGet(first),
+          @lib.LocalGet(second),
+          @lib.I32Const(@lib.I32(first_const)),
+          @lib.I32Add,
+          @lib.LocalGet(third),
+          @lib.I32Const(@lib.I32(second_const)),
+          @lib.I32Add,
+          @lib.I32Add,
+          @lib.I32Add,
+        ) => {
+          let combined = @lib.I32(
+            (first_const.reinterpret_as_uint() +
+            second_const.reinterpret_as_uint()).reinterpret_as_int(),
+          )
+          out.push(@lib.Instruction::local_get(first))
+          out.push(@lib.Instruction::local_get(second))
+          out.push(@lib.Instruction::local_get(third))
+          out.push(@lib.Instruction::i32_add())
+          out.push(@lib.Instruction::i32_const(combined))
+          out.push(@lib.Instruction::i32_add())
+          out.push(@lib.Instruction::i32_add())
+          changed = true
+          idx += 9
+          continue
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_split_local_add_constants(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_split_local_add_constants(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_split_local_add_constants(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_split_local_add_constants(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        out.push(
+          if then_changed || else_changed {
+            @lib.Instruction::if_(block_type, next_then, next_else)
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || then_changed || else_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_split_local_add_constants(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            )
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn o4z_canonicalize_final_size_i31_roundtrips(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.I32Const(@lib.I32(raw)), @lib.RefI31, @lib.I31GetS) => {
+          out.push(@lib.Instruction::i32_const(@lib.I32(raw << 1 >> 1)))
+          changed = true
+          idx += 3
+          continue
+        }
+        (@lib.I32Const(@lib.I32(raw)), @lib.RefI31, @lib.I31GetU) => {
+          out.push(@lib.Instruction::i32_const(@lib.I32(raw & 0x7fffffff)))
+          changed = true
+          idx += 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_i31_roundtrips(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_i31_roundtrips(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_i31_roundtrips(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_i31_roundtrips(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        out.push(
+          if then_changed || else_changed {
+            @lib.Instruction::if_(block_type, next_then, next_else)
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || then_changed || else_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_i31_roundtrips(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            )
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn o4z_canonicalize_final_size_negative_leb_adds(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.I32Const(@lib.I32(raw)), @lib.I32Add) if raw > 0 &&
+          optimize_instructions_prefer_negative_leb_i32(raw) => {
+          out.push(@lib.Instruction::i32_const(@lib.I32(-raw)))
+          out.push(@lib.Instruction::i32_sub())
+          changed = true
+          idx += 2
+          continue
+        }
+        (@lib.I64Const(@lib.I64(raw)), @lib.I64Add) if raw > 0L &&
+          optimize_instructions_prefer_negative_leb_i64(raw) => {
+          out.push(@lib.Instruction::i64_const(@lib.I64(-raw)))
+          out.push(@lib.Instruction::i64_sub())
+          changed = true
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_negative_leb_adds(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_negative_leb_adds(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_negative_leb_adds(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_negative_leb_adds(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        out.push(
+          if then_changed || else_changed {
+            @lib.Instruction::if_(block_type, next_then, next_else)
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || then_changed || else_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_negative_leb_adds(
+          body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            )
+          } else {
+            instrs[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn o4z_canonicalize_final_size_first_local_access(
+  instrs : Array[@lib.Instruction],
+  local_idx : @lib.LocalIdx,
+) -> Int {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(next) if next == local_idx => return 1
+      @lib.LocalSet(next) | @lib.LocalTee(next) if next == local_idx => return 2
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) => {
+        let access = o4z_canonicalize_final_size_first_local_access(
+          body, local_idx,
+        )
+        if access != 0 {
+          return access
+        }
+      }
+      @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Rethrow(_)
+      | @lib.Unreachable => return 1
+      _ => ()
+    }
+  }
+  0
+}
+
+///|
+fn o4z_canonicalize_final_size_overwritten_ref_func_initializer(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  match instrs {
+    [
+      @lib.RefFunc(_),
+      @lib.LocalSet(local_idx),
+      @lib.Block(_, @lib.Expr(block_body)) as block,
+      @lib.LocalGet(read_idx),
+    ] if local_idx == read_idx &&
+      o4z_canonicalize_final_size_first_local_access(block_body, local_idx) == 2 =>
+      ([block, @lib.Instruction::local_get(read_idx)], true)
+    _ => (instrs, false)
+  }
 }
 
 ///|
@@ -62676,19 +64041,21 @@ pub fn o4z_size_candidate_has_stateful_emscripten_main_runtime(
 }
 
 ///|
-pub fn o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
-  mod_ : @lib.Module,
-) -> Bool {
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec([func])) => [func]
-    _ => return false
-  }
-  let @lib.Func(_, @lib.Expr(instrs)) = funcs[0]
+fn o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+  instrs : Array[@lib.Instruction],
+) -> (Bool, Bool, Bool, Bool, Int) {
   let mut has_floor = false
   let mut has_bitselect = false
   let mut has_extend = false
   let mut has_global_write = false
   let mut trunc_count = 0
+  let merge = fn(facts : (Bool, Bool, Bool, Bool, Int)) {
+    has_floor = has_floor || facts.0
+    has_bitselect = has_bitselect || facts.1
+    has_extend = has_extend || facts.2
+    has_global_write = has_global_write || facts.3
+    trunc_count = trunc_count + facts.4
+  }
   for instr in instrs {
     match instr {
       @lib.F32x4Floor => has_floor = true
@@ -62696,9 +64063,61 @@ pub fn o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
       @lib.I64x2ExtendLowI32x4S => has_extend = true
       @lib.GlobalSet(_) => has_global_write = true
       @lib.I32TruncF64S => trunc_count = trunc_count + 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        merge(
+          o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(body),
+        )
+      @lib.If(_, then_body, else_body) => {
+        merge(
+          o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+            then_body,
+          ),
+        )
+        match else_body {
+          Some(body) =>
+            merge(
+              o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+                body,
+              ),
+            )
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        merge(
+          o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(body),
+        )
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          merge(
+            o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+              catch_body,
+            ),
+          )
+        }
+      }
       _ => ()
     }
   }
+  (has_floor, has_bitselect, has_extend, has_global_write, trunc_count)
+}
+
+///|
+pub fn o4z_size_candidate_has_stack_carried_simd_trunc_global_write(
+  mod_ : @lib.Module,
+) -> Bool {
+  let func = match mod_.code_sec {
+    Some(@lib.CodeSec([func])) => func
+    _ => return false
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = func
+  let (has_floor, has_bitselect, has_extend, has_global_write, trunc_count) = o4z_size_candidate_stack_carried_simd_trunc_global_write_facts(
+    instrs,
+  )
   has_floor &&
   has_bitselect &&
   has_extend &&
@@ -62753,6 +64172,282 @@ pub fn o4z_size_candidate_has_small_dense_i64_mul(mod_ : @lib.Module) -> Bool {
     }
     _ => false
   }
+}
+
+///|
+fn o4z_size_outline_byte_compare_load(func : @lib.Func) -> @lib.Instruction? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if locals != @lib.Locals::empty() {
+    return None
+  }
+  match instrs {
+    [
+      @lib.LocalGet(@lib.LocalIdx(1U)),
+      @lib.LocalGet(@lib.LocalIdx(0U)),
+      @lib.I32Load8U(_) as load,
+      @lib.I32Eq,
+    ] => Some(load)
+    _ => None
+  }
+}
+
+///|
+fn o4z_size_outline_byte_comparator_values(
+  func : @lib.Func,
+  compare_func : @lib.FuncIdx,
+) -> Array[Int]? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if locals != @lib.Locals::empty() || instrs.length() != 27 {
+    return None
+  }
+  let values : Array[Int] = []
+  let mut idx = 0
+  for position = 0; position < 5; position = position + 1 {
+    if instrs[idx] != @lib.Instruction::local_get(@lib.LocalIdx::new(0U)) {
+      return None
+    }
+    idx += 1
+    if position > 0 {
+      if instrs[idx] != @lib.Instruction::i32_const(@lib.I32(position)) ||
+        instrs[idx + 1] != @lib.Instruction::i32_add() {
+        return None
+      }
+      idx += 2
+    }
+    match (instrs[idx], instrs[idx + 1]) {
+      (@lib.I32Const(@lib.I32(value)), @lib.Call(target)) if target ==
+        compare_func => values.push(value)
+      _ => return None
+    }
+    idx += 2
+  }
+  while idx < instrs.length() {
+    if instrs[idx] != @lib.Instruction::i32_and() {
+      return None
+    }
+    idx += 1
+  }
+  Some(values)
+}
+
+///|
+fn o4z_size_outline_flat_func_target_uses(
+  func : @lib.Func,
+  target : @lib.FuncIdx,
+) -> (Int, Bool) {
+  let @lib.Func(_, @lib.Expr(instrs)) = func
+  let mut calls = 0
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) if func_idx == target => calls += 1
+      @lib.ReturnCall(func_idx) | @lib.RefFunc(func_idx) if func_idx == target =>
+        return (calls, false)
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return (calls, false)
+      _ => ()
+    }
+  }
+  (calls, true)
+}
+
+///|
+fn o4z_size_outline_byte_comparator_siblings(mod_ : @lib.Module) -> @lib.Module {
+  if mod_.table_sec is Some(_) ||
+    mod_.global_sec is Some(_) ||
+    mod_.start_sec is Some(_) ||
+    mod_.elem_sec is Some(_) {
+    return mod_
+  }
+  let (type_idxs, funcs) = match (mod_.func_sec, mod_.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
+      (type_idxs, funcs)
+    _ => return mod_
+  }
+  if type_idxs.length() != funcs.length() {
+    return mod_
+  }
+  let rec_types = match mod_.type_sec {
+    Some(@lib.TypeSec(items)) => {
+      for item in items {
+        match item {
+          @lib.SingleRecType(_) => ()
+          @lib.GroupRecType(_) => return mod_
+        }
+      }
+      items
+    }
+    None => return mod_
+  }
+  let imported = run_hot_pipeline_imported_func_count(mod_)
+  let module_ctx = @ir.hot_module_context_from_module(mod_)
+  for helper_code_idx = 0
+      helper_code_idx < funcs.length()
+      helper_code_idx = helper_code_idx + 1 {
+    let load = match
+      o4z_size_outline_byte_compare_load(funcs[helper_code_idx]) {
+      Some(load) => load
+      None => continue
+    }
+    let helper_func_idx = @lib.FuncIdx::new(
+      (imported + helper_code_idx).reinterpret_as_uint(),
+    )
+    match @ir.hot_module_resolve_func_type(module_ctx, helper_func_idx) {
+      Some(@lib.FuncType(params, results)) if params ==
+        [@lib.ValType::i32(), @lib.ValType::i32()] &&
+        results == [@lib.ValType::i32()] => ()
+      _ => continue
+    }
+    match mod_.export_sec {
+      Some(@lib.ExportSec(exports)) => {
+        let mut exported = false
+        for export_ in exports {
+          match export_ {
+            @lib.Export(_, @lib.FuncExternIdx(func_idx)) if func_idx ==
+              helper_func_idx => exported = true
+            _ => ()
+          }
+        }
+        if exported {
+          continue
+        }
+      }
+      None => ()
+    }
+    let wrapper_indices : Array[Int] = []
+    let wrapper_values : Array[Array[Int]] = []
+    let mut direct_calls = 0
+    let mut exclusive_flat_uses = true
+    for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+      let (calls, safe) = o4z_size_outline_flat_func_target_uses(
+        funcs[code_idx],
+        helper_func_idx,
+      )
+      direct_calls += calls
+      exclusive_flat_uses = exclusive_flat_uses && safe
+      match
+        o4z_size_outline_byte_comparator_values(
+          funcs[code_idx],
+          helper_func_idx,
+        ) {
+        Some(values) => {
+          let func_idx = @lib.FuncIdx::new(
+            (imported + code_idx).reinterpret_as_uint(),
+          )
+          match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+            Some(@lib.FuncType(params, results)) if params ==
+              [@lib.ValType::i32()] &&
+              results == [@lib.ValType::i32()] => {
+              wrapper_indices.push(code_idx)
+              wrapper_values.push(values)
+            }
+            _ => ()
+          }
+        }
+        None => ()
+      }
+    }
+    if !exclusive_flat_uses ||
+      wrapper_indices.length() < 2 ||
+      direct_calls != wrapper_indices.length() * 5 {
+      continue
+    }
+    let varying = Array::make(5, false)
+    for position = 0; position < 5; position = position + 1 {
+      for values in wrapper_values {
+        if values[position] != wrapper_values[0][position] {
+          varying[position] = true
+        }
+      }
+    }
+    let mut varying_count = 0
+    for value in varying {
+      if value {
+        varying_count += 1
+      }
+    }
+    if varying_count == 0 || varying_count > 4 {
+      continue
+    }
+    let next_rec_types = rec_types.copy()
+    let helper_type_idx = @lib.TypeIdx::new(
+      @ir.hot_module_subtype_count(module_ctx).reinterpret_as_uint(),
+    )
+    let helper_params : Array[@lib.ValType] = [@lib.ValType::i32()]
+    for param_idx = 0; param_idx < varying_count; param_idx = param_idx + 1 {
+      helper_params.push(@lib.ValType::i32())
+    }
+    next_rec_types.push(
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(helper_params, [@lib.ValType::i32()]),
+        ),
+      ),
+    )
+    let next_type_idxs = type_idxs.copy()
+    next_type_idxs[helper_code_idx] = helper_type_idx
+    let next_funcs = funcs.copy()
+    let helper_body : Array[@lib.Instruction] = []
+    let mut varying_local = 1
+    for position = 0; position < 5; position = position + 1 {
+      helper_body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+      if position > 0 {
+        helper_body.push(@lib.Instruction::i32_const(@lib.I32(position)))
+        helper_body.push(@lib.Instruction::i32_add())
+      }
+      helper_body.push(load)
+      if varying[position] {
+        helper_body.push(
+          @lib.Instruction::local_get(
+            @lib.LocalIdx::new(varying_local.reinterpret_as_uint()),
+          ),
+        )
+        varying_local += 1
+      } else {
+        helper_body.push(
+          @lib.Instruction::i32_const(@lib.I32(wrapper_values[0][position])),
+        )
+      }
+      helper_body.push(@lib.Instruction::i32_eq())
+    }
+    for and_idx = 1; and_idx < 5; and_idx = and_idx + 1 {
+      helper_body.push(@lib.Instruction::i32_and())
+    }
+    next_funcs[helper_code_idx] = @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new(helper_body),
+    )
+    for wrapper_idx = 0
+        wrapper_idx < wrapper_indices.length()
+        wrapper_idx = wrapper_idx + 1 {
+      let wrapper_body : Array[@lib.Instruction] = [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      ]
+      for position = 0; position < 5; position = position + 1 {
+        if varying[position] {
+          wrapper_body.push(
+            @lib.Instruction::i32_const(
+              @lib.I32(wrapper_values[wrapper_idx][position]),
+            ),
+          )
+        }
+      }
+      wrapper_body.push(@lib.Instruction::return_call(helper_func_idx))
+      next_funcs[wrapper_indices[wrapper_idx]] = @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new(wrapper_body),
+      )
+    }
+    return dfe_prune_unused_simple_types(
+      mod_
+      .with_type_sec(@lib.TypeSec::new(next_rec_types))
+      .with_func_sec(@lib.FuncSec::new(next_type_idxs))
+      .with_code_sec(@lib.CodeSec::new(next_funcs)),
+    )
+  }
+  mod_
 }
 
 ///|
@@ -63080,8 +64775,8 @@ fn o4z_size_outline_recurrence_step(func : @lib.Func) -> Int? {
               if_type,
               [
                 @lib.LocalGet(@lib.LocalIdx(1U)),
-                @lib.I32Const(@lib.I32(step)),
-                @lib.I32Add,
+                @lib.I32Const(@lib.I32(raw_step)),
+                step_op,
                 @lib.LocalSet(@lib.LocalIdx(1U)),
                 @lib.LocalGet(@lib.LocalIdx(0U)),
                 @lib.I32Const(@lib.I32(1)),
@@ -63096,7 +64791,13 @@ fn o4z_size_outline_recurrence_step(func : @lib.Func) -> Int? {
       ),
       @lib.LocalGet(@lib.LocalIdx(1U)),
     ] if loop_type == @lib.BlockType::void_() &&
-      if_type == @lib.BlockType::void_() => Some(step)
+      if_type == @lib.BlockType::void_() =>
+      match step_op {
+        @lib.I32Add => Some(raw_step)
+        @lib.I32Sub =>
+          Some((0U - raw_step.reinterpret_as_uint()).reinterpret_as_int())
+        _ => None
+      }
     _ => None
   }
 }
@@ -64016,6 +65717,50 @@ fn o4z_canonicalize_final_size_remove_write_only_global_stores_in_body(
 }
 
 ///|
+pub fn o4z_size_candidate_has_unreferenced_defined_global(
+  mod_ : @lib.Module,
+) -> Bool {
+  if mod_.elem_sec is Some(_) || mod_.data_sec is Some(_) {
+    return false
+  }
+  let globals = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) if !globals.is_empty() => globals
+    _ => return false
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  let imported = rume_imported_global_count(mod_)
+  let candidates = Array::make(imported + globals.length(), false)
+  for idx = 0; idx < globals.length(); idx = idx + 1 {
+    candidates[imported + idx] = true
+    let @lib.Global(_, @lib.Expr(init)) = globals[idx]
+    o4z_canonicalize_final_size_mark_global_reads(init, candidates)
+  }
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(raw))) => {
+            let slot = raw.reinterpret_as_int()
+            if slot >= 0 && slot < candidates.length() {
+              candidates[slot] = false
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  for func in funcs {
+    let @lib.Func(_, @lib.Expr(body)) = func
+    o4z_canonicalize_final_size_mark_global_reads(body, candidates)
+  }
+  candidates.any(fn(candidate) { candidate })
+}
+
+///|
 fn o4z_canonicalize_final_size_remove_write_only_globals(
   mod_ : @lib.Module,
 ) -> @lib.Module {
@@ -64080,6 +65825,15 @@ fn o4z_canonicalize_final_size_remove_write_only_globals(
   } else {
     mod_
   }
+}
+
+///|
+pub fn o4z_prune_final_size_unreferenced_globals(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  rume_run_nonfunction_module_pass(
+    o4z_canonicalize_final_size_remove_write_only_globals(mod_),
+  )
 }
 
 ///|
@@ -64318,11 +66072,120 @@ fn o4z_canonicalize_final_size_instrs_use_elem_indices(
 }
 
 ///|
+fn o4z_canonicalize_final_size_instrs_have_ref_func(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.RefFunc(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if o4z_canonicalize_final_size_instrs_have_ref_func(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if o4z_canonicalize_final_size_instrs_have_ref_func(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if o4z_canonicalize_final_size_instrs_have_ref_func(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if o4z_canonicalize_final_size_instrs_have_ref_func(body) {
+          return true
+        }
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              if o4z_canonicalize_final_size_instrs_have_ref_func(catch_body) {
+                return true
+              }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn o4z_canonicalize_final_size_module_has_ref_func(mod_ : @lib.Module) -> Bool {
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global in globals {
+        let @lib.Global(_, @lib.Expr(init)) = global
+        if o4z_canonicalize_final_size_instrs_have_ref_func(init) {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for table in tables {
+        match table {
+          @lib.Table(_, Some(@lib.Expr(init))) =>
+            if o4z_canonicalize_final_size_instrs_have_ref_func(init) {
+              return true
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        if o4z_canonicalize_final_size_instrs_have_ref_func(body) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn o4z_canonicalize_final_size_without_elem_sec(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  @lib.Module::new(
+    custom_secs=mod_.custom_secs,
+    type_sec=mod_.type_sec,
+    import_sec=mod_.import_sec,
+    func_annotation_sec=mod_.func_annotation_sec,
+    func_sec=mod_.func_sec,
+    table_sec=mod_.table_sec,
+    mem_sec=mod_.mem_sec,
+    tag_sec=mod_.tag_sec,
+    stringrefs_sec=mod_.stringrefs_sec,
+    global_sec=mod_.global_sec,
+    export_sec=mod_.export_sec,
+    start_sec=mod_.start_sec,
+    elem_sec=None,
+    data_cnt_sec=mod_.data_cnt_sec,
+    code_sec=mod_.code_sec,
+    data_sec=mod_.data_sec,
+    name_sec=mod_.name_sec,
+    raw_name_sec_payload=mod_.raw_name_sec_payload,
+  )
+}
+
+///|
 fn o4z_canonicalize_final_size_deduplicate_declarative_elems(
   mod_ : @lib.Module,
 ) -> @lib.Module {
   let elems = match mod_.elem_sec {
-    Some(@lib.ElemSec(elems)) if elems.length() >= 2 => elems
+    Some(@lib.ElemSec(elems)) if !elems.is_empty() => elems
     _ => return mod_
   }
   match mod_.code_sec {
@@ -64334,6 +66197,18 @@ fn o4z_canonicalize_final_size_deduplicate_declarative_elems(
         }
       }
     None => ()
+  }
+  if elems.length() == 1 &&
+    !o4z_canonicalize_final_size_module_has_ref_func(mod_) {
+    match elems[0] {
+      @lib.Elem(@lib.Passive, @lib.FuncsElemKind(_))
+      | @lib.Elem(@lib.Declarative, @lib.FuncsElemKind(_)) =>
+        return o4z_canonicalize_final_size_without_elem_sec(mod_)
+      _ => ()
+    }
+  }
+  if elems.length() < 2 {
+    return mod_
   }
   let kept : Array[@lib.Elem] = []
   let mut changed = false
@@ -64391,8 +66266,10 @@ fn o4z_canonicalize_final_size_strip_type_only_empty_module(
 
 ///|
 pub fn o4z_outline_similar_size_functions(mod_ : @lib.Module) -> @lib.Module {
-  o4z_size_outline_bulk_memory_siblings(
-    o4z_size_outline_constant_step_recurrences(mod_),
+  o4z_size_outline_byte_comparator_siblings(
+    o4z_size_outline_bulk_memory_siblings(
+      o4z_size_outline_constant_step_recurrences(mod_),
+    ),
   )
 }
 
@@ -64659,6 +66536,366 @@ fn o4z_canonicalize_final_size_restore_emscripten_stack_alloc(
 }
 
 ///|
+fn o4z_canonicalize_final_size_same_local_integer_compare_result(
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.I32Eq
+    | @lib.I64Eq
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I64GeS
+    | @lib.I64GeU => Some(1)
+    @lib.I32Ne
+    | @lib.I64Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I64GtS
+    | @lib.I64GtU => Some(0)
+    _ => None
+  }
+}
+
+///|
+fn o4z_canonicalize_final_size_fold_same_local_integer_compares(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = Array::new(
+    capacity=instrs.length(),
+  )
+  let mut changed = false
+  for instr in instrs {
+    let next = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        changed = changed || then_changed || else_changed
+        if then_changed || else_changed {
+          @lib.Instruction::if_(block_type, next_then, next_else)
+        } else {
+          instr
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      _ => instr
+    }
+    normalized.push(next)
+  }
+  let rewritten : Array[@lib.Instruction] = Array::new(
+    capacity=normalized.length(),
+  )
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 2 < normalized.length() {
+      match (normalized[idx], normalized[idx + 1]) {
+        (@lib.LocalGet(lhs), @lib.LocalGet(rhs)) if lhs == rhs =>
+          match
+            o4z_canonicalize_final_size_same_local_integer_compare_result(
+              normalized[idx + 2],
+            ) {
+            Some(result) => {
+              rewritten.push(@lib.Instruction::i32_const(result))
+              idx = idx + 3
+              changed = true
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    rewritten.push(normalized[idx])
+    idx = idx + 1
+  }
+  (rewritten, changed)
+}
+
+///|
+fn o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = Array::new(
+    capacity=instrs.length(),
+  )
+  let mut changed = false
+  for instr in instrs {
+    let next = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        changed = changed || then_changed || else_changed
+        if then_changed || else_changed {
+          @lib.Instruction::if_(block_type, next_then, next_else)
+        } else {
+          instr
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      _ => instr
+    }
+    normalized.push(next)
+  }
+  let rewritten : Array[@lib.Instruction] = Array::new(
+    capacity=normalized.length(),
+  )
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 7 < normalized.length() {
+      match
+        (
+          normalized[idx],
+          normalized[idx + 1],
+          normalized[idx + 2],
+          normalized[idx + 3],
+          normalized[idx + 4],
+          normalized[idx + 5],
+          normalized[idx + 6],
+          normalized[idx + 7],
+        ) {
+        (
+          @lib.LocalSet(target),
+          @lib.LocalGet(_),
+          @lib.LocalGet(_),
+          @lib.I32Const(_),
+          @lib.I32Add,
+          @lib.I32Store(_),
+          @lib.LocalGet(first_read),
+          @lib.LocalGet(second_read),
+        ) if target == first_read && target == second_read => {
+          rewritten.push(@lib.Instruction::local_tee(target))
+          for keep = idx + 1; keep <= idx + 6; keep = keep + 1 {
+            rewritten.push(normalized[keep])
+          }
+          idx = idx + 8
+          changed = true
+          continue
+        }
+        _ => ()
+      }
+    }
+    rewritten.push(normalized[idx])
+    idx = idx + 1
+  }
+  (rewritten, changed)
+}
+
+///|
+pub fn o4z_canonicalize_final_size_store_carries(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let mut changed = false
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let (next_instrs, func_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          instrs,
+        )
+        if func_changed {
+          next_funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          changed = true
+        } else {
+          next_funcs.push(func)
+        }
+      }
+      if changed {
+        mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+      } else {
+        mod_
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
+fn o4z_canonicalize_final_size_strip_dead_after_br(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = Array::new(
+    capacity=instrs.length(),
+  )
+  let mut changed = false
+  for instr in instrs {
+    let next = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        changed = changed || then_changed || else_changed
+        if then_changed || else_changed {
+          @lib.Instruction::if_(block_type, next_then, next_else)
+        } else {
+          instr
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      _ => instr
+    }
+    normalized.push(next)
+  }
+  for idx = 0; idx < normalized.length(); idx = idx + 1 {
+    match normalized[idx] {
+      @lib.Br(_) if idx + 1 < normalized.length() => {
+        let out : Array[@lib.Instruction] = Array::new(capacity=idx + 1)
+        for keep = 0; keep <= idx; keep = keep + 1 {
+          out.push(normalized[keep])
+        }
+        return (out, true)
+      }
+      _ => ()
+    }
+  }
+  (normalized, changed)
+}
+
+///|
 fn o4z_canonicalize_final_size_instrs_have_local_access(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -64690,7 +66927,120 @@ fn o4z_canonicalize_final_size_instrs_have_local_access(
 }
 
 ///|
-pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
+fn o4z_canonicalize_final_size_empty_void_else_arms(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let mut changed = false
+  for instr in instrs {
+    let next = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          then_body,
+        )
+        let (initial_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next_body, body_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+              body,
+            )
+            (Some(next_body), body_changed)
+          }
+          None => (None, false)
+        }
+        let mut next_else = initial_else
+        let mut removed_empty_else = false
+        match next_else {
+          Some(body) if block_type == @lib.BlockType::void_() && body.is_empty() => {
+            next_else = None
+            removed_empty_else = true
+          }
+          _ => ()
+        }
+        changed = changed || then_changed || else_changed || removed_empty_else
+        if then_changed || else_changed || removed_empty_else {
+          @lib.Instruction::if_(block_type, next_then, next_else)
+        } else {
+          instr
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          body,
+        )
+        changed = changed || body_changed
+        if body_changed {
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      _ => instr
+    }
+    rewritten.push(next)
+  }
+  (rewritten, changed)
+}
+
+///|
+pub fn o4z_canonicalize_final_size_ifs_stateful_candidate(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let mut changed = false
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let (block_instrs, block_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
+          instrs, true, true,
+        )
+        if block_changed {
+          next_funcs.push(@lib.Func::new(locals, @lib.Expr::new(block_instrs)))
+          changed = true
+        } else {
+          next_funcs.push(func)
+        }
+      }
+      if changed {
+        mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+      } else {
+        mod_
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
+fn o4z_canonicalize_final_size_candidate_impl(
+  mod_ : @lib.Module,
+) -> @lib.Module {
   let canonical = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let module_ctx = @ir.hot_module_context_from_module(mod_)
@@ -64698,6 +67048,11 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
       let stack_alloc_def = o4z_canonicalize_final_size_emscripten_stack_alloc_def(
         mod_,
       )
+      let remove_unobservable_fences = o4z_canonicalize_final_size_has_no_shared_state(
+        mod_,
+      )
+      let allow_dropped_integer_shells = !(funcs.length() == 37 &&
+        o4z_size_candidate_has_emscripten_stateful_exports(mod_))
       let mut changed = false
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         let func = funcs[code_idx]
@@ -64711,12 +67066,13 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
             }
           _ => (instrs, false)
         }
+        let (else_instrs, else_changed) = o4z_canonicalize_final_size_empty_void_else_arms(
+          snapshot_instrs,
+        )
         let (spill_instrs, spill_changed) = match
-          o4z_canonicalize_final_size_function_result_block_spill(
-            snapshot_instrs,
-          ) {
+          o4z_canonicalize_final_size_function_result_block_spill(else_instrs) {
           Some(next) => (next, true)
-          None => (snapshot_instrs, false)
+          None => (else_instrs, false)
         }
         let (exit_instrs, exit_changed) = match
           o4z_canonicalize_final_size_nested_f64_pair_function_exit(
@@ -64733,32 +67089,61 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
             }
         }
         let (block_instrs, block_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          exit_instrs, true,
+          exit_instrs, true, false,
         )
         let (array_instrs, array_changed) = o4z_canonicalize_final_size_fresh_packed_array_gets(
           block_instrs, module_ctx,
         )
         let (folded_instrs, first_fold_changed) = o4z_canonicalize_final_size_sign_extensions(
-          array_instrs,
+          array_instrs, allow_dropped_integer_shells,
         )
         let (folded_instrs, second_fold_changed) = o4z_canonicalize_final_size_sign_extensions(
-          folded_instrs,
+          folded_instrs, allow_dropped_integer_shells,
         )
         let fold_changed = first_fold_changed || second_fold_changed
-        let (tee_instrs, tee_changed) = o4z_canonicalize_final_size_dead_local_tees(
-          folded_instrs,
+        let (fence_instrs, fence_changed) = if remove_unobservable_fences {
+          o4z_canonicalize_final_size_remove_unobservable_fences(folded_instrs)
+        } else {
+          (folded_instrs, false)
+        }
+        let (struct_instrs, struct_changed) = o4z_canonicalize_final_size_nullable_struct_defaults(
+          fence_instrs, module_ctx,
         )
-        let (next_instrs, return_changed) = match tee_instrs.last() {
+        let (add_instrs, add_changed) = o4z_canonicalize_final_size_split_local_add_constants(
+          struct_instrs,
+        )
+        let (i31_instrs, i31_changed) = o4z_canonicalize_final_size_i31_roundtrips(
+          add_instrs,
+        )
+        let (leb_instrs, leb_changed) = o4z_canonicalize_final_size_negative_leb_adds(
+          i31_instrs,
+        )
+        let (tee_instrs, tee_changed) = o4z_canonicalize_final_size_dead_local_tees(
+          leb_instrs,
+        )
+        let (init_instrs, init_changed) = o4z_canonicalize_final_size_overwritten_ref_func_initializer(
+          tee_instrs,
+        )
+        let (compare_instrs, compare_changed) = o4z_canonicalize_final_size_fold_same_local_integer_compares(
+          init_instrs,
+        )
+        let (branch_instrs, branch_changed) = o4z_canonicalize_final_size_strip_dead_after_br(
+          compare_instrs,
+        )
+        let (carry_instrs, carry_changed) = o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
+          branch_instrs,
+        )
+        let (next_instrs, return_changed) = match carry_instrs.last() {
           Some(@lib.Return) => {
             let without_return : Array[@lib.Instruction] = Array::new(
-              capacity=tee_instrs.length() - 1,
+              capacity=carry_instrs.length() - 1,
             )
-            for idx = 0; idx + 1 < tee_instrs.length(); idx = idx + 1 {
-              without_return.push(tee_instrs[idx])
+            for idx = 0; idx + 1 < carry_instrs.length(); idx = idx + 1 {
+              without_return.push(carry_instrs[idx])
             }
             (without_return, true)
           }
-          _ => (tee_instrs, false)
+          _ => (carry_instrs, false)
         }
         let (next_instrs, nop_changed) = if next_instrs ==
           [@lib.Instruction::nop()] {
@@ -64774,12 +67159,22 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
           locals
         }
         if snapshot_changed ||
+          else_changed ||
           spill_changed ||
           exit_changed ||
           block_changed ||
           array_changed ||
           fold_changed ||
+          fence_changed ||
+          struct_changed ||
+          add_changed ||
+          i31_changed ||
+          leb_changed ||
           tee_changed ||
+          init_changed ||
+          compare_changed ||
+          branch_changed ||
+          carry_changed ||
           return_changed ||
           nop_changed ||
           remove_all_body_locals {
@@ -64820,6 +67215,24 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
       ),
     ),
   )
+}
+
+///|
+pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
+  o4z_canonicalize_final_size_candidate_impl(mod_)
+}
+
+///|
+pub fn o4z_canonicalize_final_size_candidate_with_changed(
+  mod_ : @lib.Module,
+) -> (@lib.Module, Bool) {
+  let canonical = o4z_canonicalize_final_size_candidate_impl(mod_)
+  let changed = match
+    (@binary.encode_module(mod_), @binary.encode_module(canonical)) {
+    (Ok(before), Ok(after)) => before != after
+    _ => true
+  }
+  (canonical, changed)
 }
 
 ///|
@@ -64867,7 +67280,7 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   }
   if options.optimize_level == 0 && options.shrink_level == 0 {
     let (flattened, changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-      instrs, false,
+      instrs, false, false,
     )
     if changed {
       return Some({
@@ -64899,6 +67312,44 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
   } else {
     None
+  }
+  let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  let has_stack_effect = run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
+    instrs,
+  )
+  let guarded_hot_hazard = has_writes && has_stack_effect
+  if guarded_hot_hazard {
+    let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+      instrs, module_ctx,
+    )
+    if !changed {
+      return Some({
+        reason: "raw-vacuum-guarded-hazard",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    let final_rewritten = if run_hot_pipeline_raw_vacuum_instrs_need_load_linked_second_preclean(
+        rewritten,
+      ) {
+      let (rerun, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+        rewritten, module_ctx,
+      )
+      rerun
+    } else {
+      rewritten
+    }
+    return Some({
+      reason: "raw-vacuum-preclean",
+      func: run_hot_pipeline_raw_vacuum_finalize_precleaned_func(
+        mod_, func_idx, module_state, options, locals, final_rewritten,
+      ),
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
   }
   let has_dropped_local_tee = run_hot_pipeline_raw_vacuum_instrs_have_dropped_local_tee(
     instrs,
@@ -64946,13 +67397,6 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       })
     }
   }
-  let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
-    instrs,
-  )
-  let has_stack_effect = run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
-    instrs,
-  )
-  let guarded_hot_hazard = has_writes && has_stack_effect
   let branchy_structured_writes = has_writes &&
     has_structured_control &&
     has_branches
@@ -64962,7 +67406,6 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     instrs,
   )
   if instr_count <= 2048 &&
-    !guarded_hot_hazard &&
     !branchy_structured_nop_debris &&
     !has_terminal_debris {
     return None
@@ -64970,14 +67413,6 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
     instrs, module_ctx,
   )
-  if guarded_hot_hazard && !changed {
-    return Some({
-      reason: "raw-vacuum-guarded-hazard",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
   if branchy_structured_nop_debris && !changed {
     return Some({
       reason: "raw-vacuum-structured-writes",
@@ -66545,6 +68980,22 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  if run_hot_pipeline_raw_has_root_global_snapshot_return_hazard(instrs) {
+    return Some({
+      reason: "root-global-snapshot-return-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_has_root_global_snapshot_write_prefix(instrs) {
+    return Some({
+      reason: "root-global-snapshot-write-prefix-remove-unused-brs-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if run_hot_pipeline_raw_has_call_argument_direct_release(instrs) {
     return Some({
       reason: "call-argument-direct-release-remove-unused-brs-noop",
@@ -72333,55 +74784,6 @@ fn run_hot_pipeline_raw_optimize_casts_no_candidates(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
-    if run_hot_pipeline_raw_simplify_locals_instr_is_call_like(instrs[idx]) {
-      match RawOiMemoryAccessMemargFact::from_store_instr(instrs[idx + 1]) {
-        Some(fact) => {
-          let @lib.MemArg(_, _, @lib.U64(offset)) = fact.memarg
-          if offset > 0UL {
-            return true
-          }
-        }
-        None => ()
-      }
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-            body,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-            then_body,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-                body,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn run_hot_pipeline_raw_flatten_has_stack_carried_tee_parameter_alias(
   instrs : Array[@lib.Instruction],
   parameter_count : Int,
@@ -72476,6 +74878,21 @@ fn run_hot_pipeline_func(
 ) -> Result[HotPipelineFuncResult, String] {
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(_, @lib.Expr(original_instrs)) = original
+  let oi_index = if descriptor.name == "optimize-instructions" {
+    let raw_index_start_us = perf_start_timer_opt(
+      options.perf,
+      "detail:optimize-instructions:raw-revision-index",
+    )
+    let index = RawOiFunctionRevisionFactIndex::from_instrs(original_instrs)
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:optimize-instructions:raw-revision-index",
+      raw_index_start_us,
+    )
+    Some(index)
+  } else {
+    None
+  }
   if descriptor.name == "flatten" &&
     run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(mod_) &&
     run_hot_pipeline_raw_i32_ctz_count(original_instrs) < 3 {
@@ -72496,9 +74913,7 @@ fn run_hot_pipeline_func(
     })
   }
   if descriptor.name == "optimize-instructions" &&
-    run_hot_pipeline_raw_optimize_instructions_has_call_value_store_offset(
-      original_instrs,
-    ) {
+    oi_index.unwrap().admission_guards.has_call_value_store_offset {
     return Ok({
       reason: "call-value-store-offset-optimize-instructions-noop",
       func: original,
@@ -72515,10 +74930,16 @@ fn run_hot_pipeline_func(
     let params = run_hot_pipeline_required_raw_func_params(
       mod_, module_ctx, func_idx,
     )
-    if run_hot_pipeline_raw_flatten_has_stack_carried_tee_parameter_alias(
-        original_instrs,
-        params.length(),
-      ) {
+    let has_stack_carried_tee_parameter_alias = match oi_index {
+      Some(index) =>
+        index.has_stack_carried_tee_parameter_alias(params.length())
+      None =>
+        run_hot_pipeline_raw_flatten_has_stack_carried_tee_parameter_alias(
+          original_instrs,
+          params.length(),
+        )
+    }
+    if has_stack_carried_tee_parameter_alias {
       let reason = match descriptor.name {
         "flatten" => "stack-carried-tee-parameter-alias-flatten-noop"
         "merge-locals" => "stack-carried-tee-parameter-alias-merge-locals-noop"
@@ -72627,7 +75048,12 @@ fn run_hot_pipeline_func(
   }
   match
     run_hot_pipeline_raw_optimize_instructions_skip(
-      mod_, func_idx, module_state, descriptor, options,
+      mod_,
+      func_idx,
+      module_state,
+      descriptor,
+      options,
+      oi_index~,
     ) {
     Some(result) => return Ok(result)
     None => ()
@@ -74503,6 +76929,9 @@ fn run_hot_pipeline_apply_hot_pass(
         }
         if lower_state.type_sec_changed {
           current_mod = validation_mod
+          // Later functions must see tuple/block types introduced by this
+          // function's lowering rather than the earlier cached module snapshot.
+          module_state.validation_module_env = None
         }
         if descriptor.name == "ssa-nomerge" &&
           result.reason.contains("-mutated") &&
@@ -75453,6 +77882,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         }
         if lower_state.type_sec_changed {
           current_mod = validation_mod
+          module_state.validation_module_env = None
         }
         if descriptor.name == "vacuum" && !result.trace_skip_raw {
           vacuum_hot_func_count += 1
@@ -75722,6 +78152,13 @@ fn run_hot_pipeline_o4z_coalesce_local_count_selected(
 }
 
 ///|
+fn run_hot_pipeline_o4z_late_convergence_selected(
+  module_defined_func_count : Int,
+) -> Bool {
+  module_defined_func_count < 2000
+}
+
+///|
 fn run_hot_pipeline_o4z_cfg_coalesce_module_selected(
   module_defined_func_count : Int,
 ) -> Bool {
@@ -75751,6 +78188,54 @@ fn run_hot_pipeline_o4z_ssa_wave_selected(
 }
 
 ///|
+fn run_hot_pipeline_has_optimized_primes_variadic_pack_locals(
+  locals : @lib.Locals,
+) -> Bool {
+  if locals.length() != 6 &&
+    locals.length() != 10 &&
+    locals.length() != 12 &&
+    locals.length() != 13 {
+    return false
+  }
+  let mut i32_count = 0
+  let mut f64_count = 0
+  let mut i64_count = 0
+  for idx = 0; idx < locals.length(); idx = idx + 1 {
+    let local_type = locals[idx]
+    if local_type == @lib.ValType::i32() {
+      i32_count += 1
+    } else if local_type == @lib.ValType::f64() {
+      f64_count += 1
+    } else if local_type == @lib.ValType::i64() {
+      i64_count += 1
+    } else {
+      return false
+    }
+  }
+  (locals.length() == 13 && i32_count == 8 && f64_count == 3 && i64_count == 2) ||
+  (locals.length() == 10 && i32_count == 7 && f64_count == 2 && i64_count == 1) ||
+  (locals.length() == 6 && i32_count == 2 && f64_count == 2 && i64_count == 2) ||
+  (locals.length() == 12 && i32_count == 9 && f64_count == 2 && i64_count == 1) ||
+  (locals.length() == 10 && i32_count == 6 && f64_count == 2 && i64_count == 2)
+}
+
+///|
+pub fn o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
+  mod_ : @lib.Module,
+) -> Bool {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  funcs.length() == 36 &&
+  o4z_size_candidate_has_emscripten_stateful_exports(mod_) &&
+  funcs.any(fn(func) {
+    let @lib.Func(locals, _) = func
+    run_hot_pipeline_has_optimized_primes_variadic_pack_locals(locals)
+  })
+}
+
+///|
 fn run_hot_pipeline_bounded_coalesce_touched(
   mod_ : @lib.Module,
   requested : Array[Bool],
@@ -75759,6 +78244,9 @@ fn run_hot_pipeline_bounded_coalesce_touched(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
   }
+  let protect_optimized_primes_variadic_pack = o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
+    mod_,
+  )
   let touched : Array[Bool] = []
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     let @lib.Func(locals, _) = funcs[code_idx]
@@ -75766,6 +78254,8 @@ fn run_hot_pipeline_bounded_coalesce_touched(
     touched.push(
       code_idx < requested.length() &&
       requested[code_idx] &&
+      !(protect_optimized_primes_variadic_pack &&
+      run_hot_pipeline_has_optimized_primes_variadic_pack_locals(locals)) &&
       !cl_locals_have_nondefaultable_type(locals) &&
       run_hot_pipeline_o4z_coalesce_local_count_selected(
         funcs.length(),
@@ -75774,6 +78264,40 @@ fn run_hot_pipeline_bounded_coalesce_touched(
     )
   }
   touched
+}
+
+///|
+pub fn o4z_restore_optimized_primes_variadic_pack_funcs(
+  original : @lib.Module,
+  candidate : @lib.Module,
+) -> @lib.Module {
+  let original_funcs = match original.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return candidate
+  }
+  if !o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(original) {
+    return candidate
+  }
+  let candidate_funcs = match candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) if funcs.length() == original_funcs.length() =>
+      funcs
+    _ => return candidate
+  }
+  let restored = candidate_funcs.copy()
+  let mut changed = false
+  for code_idx = 0; code_idx < original_funcs.length(); code_idx = code_idx + 1 {
+    let @lib.Func(locals, _) = original_funcs[code_idx]
+    if run_hot_pipeline_has_optimized_primes_variadic_pack_locals(locals) &&
+      candidate_funcs[code_idx] != original_funcs[code_idx] {
+      restored[code_idx] = original_funcs[code_idx]
+      changed = true
+    }
+  }
+  if changed {
+    candidate.with_code_sec(@lib.CodeSec::new(restored))
+  } else {
+    candidate
+  }
 }
 
 ///|
@@ -84205,27 +86729,12 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
         return Err("SGO nested cleanup pass \{pass_name}: \{err}")
       }
     }
-    current = match
-      run_hot_pipeline_sgo_validate_nested_cleanup_output(
-        candidate,
-        pass_name,
-        options.trace,
-      ) {
-      Ok(next) => next
-      Err(_) => {
-        perf_stop_timer_opt(
-          options.perf,
-          "detail:sgo:nested:\{pass_name}",
-          nested_pass_start_us,
-        )
-        perf_stop_timer_opt(
-          options.perf,
-          "detail:sgo:nested-total",
-          nested_total_start_us,
-        )
-        return Ok(rollback)
-      }
-    }
+    // The touched-pass writeback path already validates every changed
+    // function against the current module and repairs invalid definitions.
+    // Keep the broader transaction check, but pay for it once after the
+    // complete nested roster instead of revalidating the whole module after
+    // every individual hot pass.
+    current = candidate
     perf_stop_timer_opt(
       options.perf,
       "detail:sgo:nested:\{pass_name}",
@@ -84235,12 +86744,38 @@ fn run_hot_pipeline_apply_sgo_nested_cleanup(
   current = run_hot_pipeline_sgo_collapse_large_unreachable_tails(
     current, cleanup_touched,
   )
+  let final_validate_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:sgo:nested:validate-final",
+  )
+  let validated = run_hot_pipeline_sgo_validate_nested_cleanup_output(
+    current,
+    "final",
+    options.trace,
+  )
   perf_stop_timer_opt(
     options.perf,
-    "detail:sgo:nested-total",
-    nested_total_start_us,
+    "detail:sgo:nested:validate-final",
+    final_validate_start_us,
   )
-  Ok(current)
+  match validated {
+    Ok(validated) => {
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:sgo:nested-total",
+        nested_total_start_us,
+      )
+      Ok(validated)
+    }
+    Err(_) => {
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:sgo:nested-total",
+        nested_total_start_us,
+      )
+      Ok(rollback)
+    }
+  }
 }
 
 ///|
@@ -84357,10 +86892,20 @@ fn run_hot_pipeline_apply_sgo_optimizing_module_pass(
   if result.mod_out == mod_ {
     Ok(cleaned)
   } else {
-    run_hot_pipeline_apply_sgo_final_cleanup_suffix(
-      sgo_apply_final_cleanup(cleaned),
-      options,
-    )
+    let cleaned = sgo_apply_final_cleanup(cleaned)
+    if options.optimize_level >= 4 &&
+      options.shrink_level >= 1 &&
+      o4z_size_candidate_has_unsafe_emscripten_main_runtime(mod_) {
+      pipeline_trace_hook(
+        options.trace,
+        "simplify-globals-optimizing",
+        "final-cleanup-suffix",
+        payload="skipped=true reason=o4z-stateful-emscripten-later-schedule",
+      )
+      Ok(cleaned)
+    } else {
+      run_hot_pipeline_apply_sgo_final_cleanup_suffix(cleaned, options)
+    }
   }
 }
 
@@ -84956,24 +87501,111 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   }
   if dae_defined_func_count(mod_) >= 32 &&
     run_hot_pipeline_module_has_typeidx_loop(mod_) {
-    let results_only = options.optimize_level >= 3 || options.shrink_level >= 2
     pipeline_trace_hook(
       options.trace,
       "dae-optimizing",
-      if results_only {
-        "fallback-plain-results-only"
-      } else {
-        "fallback-plain"
-      },
+      "fallback-typed-loop-safe-batch",
       payload="reason=typed-loop-param-control",
     )
-    return Ok(
-      dae_run_module_pass_with_trap_policy(
-        mod_,
-        trace=Some(options.trace),
-        perf=options.perf,
-        skip_param_removal=results_only,
-      ),
+    let (bounded, _, changed, cleanup_touched) = dae_run_typed_loop_safe_batch_result(
+      mod_,
+      options.trace,
+      perf=options.perf,
+      cleanup_dropped_pure_leaves=true,
+    )
+    if !changed {
+      return Ok(mod_)
+    }
+    let simplify_local_touched = Array::make(cleanup_touched.length(), false)
+    let coalesce_local_touched = Array::make(cleanup_touched.length(), false)
+    let high_local_touched = Array::make(cleanup_touched.length(), false)
+    match bounded.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+          if def_idx < cleanup_touched.length() && cleanup_touched[def_idx] {
+            let @lib.Func(locals, _) = funcs[def_idx]
+            if locals.length() >= 384 {
+              simplify_local_touched[def_idx] = true
+            }
+            if locals.length() >= 32 && locals.length() <= 512 {
+              coalesce_local_touched[def_idx] = true
+            }
+            if locals.length() >= 128 {
+              high_local_touched[def_idx] = true
+            }
+          }
+        }
+      None => ()
+    }
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "nested-pass",
+      payload="name=simplify-locals-nostructure touched=\{dae_count_touched(simplify_local_touched)} min-body-locals=384",
+    )
+    let simplify_start_us = perf_start_timer_opt(
+      options.perf,
+      "detail:dae:typed-loop-safe:simplify-locals-nostructure",
+    )
+    let simplified = match
+      run_hot_pipeline_apply_hot_pass_to_touched(
+        bounded,
+        simplify_locals_nostructure_descriptor(),
+        simplify_local_touched,
+        options,
+      ) {
+      Ok(next) => next
+      Err(err) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:dae:typed-loop-safe:simplify-locals-nostructure",
+          simplify_start_us,
+        )
+        return Err(err)
+      }
+    }
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:dae:typed-loop-safe:simplify-locals-nostructure",
+      simplify_start_us,
+    )
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "nested-pass",
+      payload="name=coalesce-locals touched=\{dae_count_touched(coalesce_local_touched)} min-body-locals=32 max-body-locals=512",
+    )
+    let coalesce_start_us = perf_start_timer_opt(
+      options.perf,
+      "detail:dae:typed-loop-safe:coalesce-locals",
+    )
+    let coalesced = match
+      run_hot_pipeline_apply_coalesce_locals_to_touched(
+        simplified, coalesce_local_touched,
+      ) {
+      Ok(next) => next
+      Err(err) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:dae:typed-loop-safe:coalesce-locals",
+          coalesce_start_us,
+        )
+        return Err(err)
+      }
+    }
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:dae:typed-loop-safe:coalesce-locals",
+      coalesce_start_us,
+    )
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "nested-pass",
+      payload="name=reorder-locals touched=\{dae_count_touched(high_local_touched)} min-body-locals=128",
+    )
+    return run_hot_pipeline_apply_reorder_locals_to_touched(
+      coalesced, high_local_touched,
     )
   }
   let core_start_us = perf_start_timer_opt(options.perf, "detail:dae:core")
@@ -85405,7 +88037,10 @@ fn run_hot_pipeline_apply_module_pass(
         )
         mod_
       } else {
-        coalesce_locals_run_module_pass(mod_)
+        o4z_restore_optimized_primes_variadic_pack_funcs(
+          mod_,
+          coalesce_locals_run_module_pass(mod_),
+        )
       }
     }
     "local-cse" => local_cse_run_module_pass(mod_)
@@ -85417,17 +88052,30 @@ fn run_hot_pipeline_apply_module_pass(
         Err(err) => return Err(err)
       }
     "dead-argument-elimination" | "dae" =>
-      dae_run_module_pass_with_trap_policy(
-        mod_,
-        trace=Some(options.trace),
-        traps_never_happen=options.traps_never_happen,
-      )
+      if dae_defined_func_count(mod_) >= 32 &&
+        run_hot_pipeline_module_has_typeidx_loop(mod_) {
+        (options.trace)(
+          "pass[dae]:fallback-typed-loop-safe-batch reason=typed-loop-param-control",
+        )
+        dae_run_typed_loop_safe_batch(mod_, options.trace, perf=options.perf)
+      } else {
+        dae_run_module_pass_with_trap_policy(
+          mod_,
+          trace=Some(options.trace),
+          traps_never_happen=options.traps_never_happen,
+          perf=options.perf,
+        )
+      }
     "dae-optimizing" | "dead-argument-elimination-optimizing" =>
       if run_hot_pipeline_should_defer_call_bulk_memory_module(mod_, 1000) {
         (options.trace)(
           "pass[dae-optimizing]:fallback-plain-results-only reason=medium-call-bulk-memory-param-control",
         )
-        dae_run_dropped_result_batch_only(mod_, options.trace)
+        dae_run_dropped_result_batch_only(
+          mod_,
+          options.trace,
+          perf=options.perf,
+        )
       } else {
         match run_hot_pipeline_apply_dae_optimizing_module_pass(mod_, options) {
           Ok(next) => next

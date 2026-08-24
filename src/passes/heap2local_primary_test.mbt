@@ -497,6 +497,49 @@ test "heap2local primary lowers local.tee array allocation through set and get" 
 }
 
 ///|
+test "heap2local primary sign-extends positive packed bit patterns" {
+  let fixtures = [
+    (@lib.PackType::i8(), @lib.I32(128), @lib.Instruction::i32_extend8s()),
+    (@lib.PackType::i16(), @lib.I32(32768), @lib.Instruction::i32_extend16s()),
+  ]
+  for fixture in fixtures {
+    let array = @lib.TypeIdx::new(0U)
+    let ref_local = @lib.LocalIdx::new(0U)
+    let input = heap2local_primary_module_with_heap_type(
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::array(
+            @lib.FieldType::new(
+              @lib.StorageType::pack_type(fixture.0),
+              @lib.Mut::var_(),
+            ),
+          ),
+        ),
+      ),
+      [@lib.ValType::i32()],
+      [@lib.ValType::ref_null(@lib.HeapType::new(array))],
+      [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::array_new_default(array),
+        @lib.Instruction::local_tee(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(fixture.1),
+        @lib.Instruction::array_set(array),
+        @lib.Instruction::local_get(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::array_get_s(array),
+      ],
+    )
+    let optimized = heap2local_primary_run_module(input)
+    match optimized.code_sec {
+      Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+        assert_true(body.contains(fixture.2), msg="\{body}")
+      _ => fail("expected one packed heap2local function")
+    }
+  }
+}
+
+///|
 test "heap2local primary lowers non-null array locals through set and get" {
   let input = match
     @binary.decode_module(

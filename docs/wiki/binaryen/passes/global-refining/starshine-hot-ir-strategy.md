@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-20
 sources:
   - ./index.md
   - ../../../../../src/passes/global_refining.mbt
@@ -58,7 +58,7 @@ The easiest way to follow the in-tree implementation is this file map:
 - `src/passes/global_refining.mbt:760`
   - `global_refining_run_module_pass(...)`: exported-global filtering, initializer seeding, per-function collection, public export guard, and declaration rewrite
 - `src/validate/typecheck.mbt:1891`
-  - `typecheck_ref_func(...)`: gives concrete `ref.func` results exact heap refs when a type index is available
+  - `typecheck_ref_func(...)`: currently gives concrete `ref.func` expression results exact heap refs, but `global-refining` deliberately normalizes initializer/write facts to non-exact indexed refs for pinned-v131 parity and external validity
 - `src/validate/typecheck.mbt:2744`
   - `extern.convert_any` / `any.convert_extern` instruction typing preserves operand nullability, which lets initializer expression typing expose non-null conversion results
 - `src/passes/global_refining_test.mbt:17`
@@ -108,7 +108,7 @@ So the local boundary policy now matches Binaryen's broad open-world mutable-exp
 
 `gr_expr_result_type(...)` now seeds initializer facts by typechecking the full initializer expression under the module validation environment. That mirrors Binaryen's `global->init->type` contract more closely than the previous syntax whitelist and covers nested reference-producing constant expressions such as arithmetic feeding `ref.i31`, conversions such as `extern.convert_any`, string expressions, exact struct/array aggregate constructors, and dependent `global.get` initializers according to the local validator's result type.
 
-Direct `ref.null` initializers remain a deliberate special case. Starshine classifies them with Binaryen-style bottom reference types (`none`, `nofunc`, `noextern`, `noexn`) instead of reusing the broader declared heap kind directly. This preserves the null-bottom behavior used by the exact `ref.func` LUB fixtures and by abstract null initializer narrowing.
+Direct `ref.null` initializers remain a deliberate special case. Starshine classifies them with Binaryen-style bottom reference types (`none`, `nofunc`, `noextern`, `noexn`) instead of reusing the broader declared heap kind directly. This preserves the null-bottom behavior used by the indexed `ref.func` LUB fixtures and by abstract null initializer narrowing.
 
 The 2026-06-18 `[GR-003]` compare lane confirmed that the known direct mismatches from nested `ref.i31` and `extern.convert_any(ref.i31)` initializers are gone: `.tmp/pass-fuzz-global-refining-gr003-10000` compared `7602/10000` with `7602` normalized matches and `0` mismatches; the remaining `20` failures were Binaryen/tool command failures.
 
@@ -138,7 +138,7 @@ When a function does mention a candidate global, the pass:
 
 - lifts it with `@ir.hot_lift_func_with_context(...)`
 - walks live HOT nodes
-- records the value type of each candidate `GlobalSet`, with an explicit local exact-type path for direct `ref.func` writes to keep this pass aligned with Binaryen even if upstream HOT typing changes
+- records the value type of each candidate `GlobalSet`, with an explicit local non-exact indexed-type path for direct `ref.func` writes so pinned-v131 behavior does not inherit incompatible validator exactness
 
 This is the biggest architectural difference from Binaryen's tiny AST-side `FindAll<GlobalSet>` approach.
 The local pass pays a HOT-lift cost only for functions that matter, then reasons from HOT node result types.
@@ -175,9 +175,9 @@ The focused local tests lock these main families:
 - exported mutable bailout
 - closed-world exported-global bailout
 - abstract `ref.null` bottom-type tightening
-- exact `ref.func`, nested `ref.i31`, conversion, exact struct/array constructor initializer facts, including nullable-bottom exact joins for function refs
+- non-exact indexed `ref.func`, nested `ref.i31`, conversion, and exact struct/array constructor initializer facts, including nullable-bottom indexed joins for function refs
 - exported exact/private initializer refinement under the local all-features/custom-descriptors public-type model
-- sibling-write join at the shared declared supertype
+- sibling-write join through declared nominal ancestry at the shared declared supertype, excluding structurally identical sibling types
 - direct `-O4z` option slot execution
 
 That is a much better local floor for the current implementation. The direct audit is closed for ordinary `global-refining`; future work should reopen only if Starshine adds feature-disabled pass modes or typed caches that need a local `global.get` repair equivalent.
@@ -192,7 +192,7 @@ Starshine does not expose a Binaryen-style per-module no-GC feature bit to passe
 
 Compared with upstream Binaryen `version_130`, Starshine currently does **not** do these `global-refining` behaviors here:
 
-- broad AST-side `FindAll<GlobalSet>` collection; Starshine now recognizes direct HOT `ref.func` writes as exact for the local collection path, but the traversal strategy remains different
+- broad AST-side `FindAll<GlobalSet>` collection; Starshine recognizes direct HOT `ref.func` writes as non-exact indexed references for the local collection path, but the traversal strategy remains different
 - feature-disabled non-custom-descriptor public-type validation mode; Starshine currently matches the Binaryen `--all-features` custom-descriptor lane for direct pass execution
 - explicit `global.get` retagging after declaration rewrites
 - `runOnModuleCode(...)` repair of dependent global initializers

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-21
 sources:
   - ./index.md
+  - ../../../../../src/passes/global_refining.mbt
+  - ../../../../../src/passes/global_refining_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -101,9 +103,9 @@ What it proves:
 What it directly proves:
 
 - init-only null-ref globals can narrow from broad function refs to `nullfuncref`
-- init-only `ref.func` globals can narrow to exact internal function-ref types, e.g. `(ref (exact $foo_t))`
-- later null writes can produce nullable exact results instead of forcing a return to broad `funcref`, e.g. `(ref null (exact $foo_t))`
-- all-non-null function-ref traffic can remove nullability while preserving exactness
+- init-only `ref.func` globals can narrow to non-null indexed function-ref types, e.g. `(ref $foo_t)`
+- later null writes can produce nullable indexed results instead of forcing a return to broad `funcref`, e.g. `(ref null $foo_t)`
+- all-non-null function-ref traffic can remove nullability without claiming exactness
 - heterogeneous writes can shrink a broad declaration like `anyref` down to `eqref`
 - a dependent global initializer using `global.get` remains valid after another global narrows
 - exported mutable globals stay unoptimized in open world
@@ -137,6 +139,22 @@ If Starshine tightens or re-ports `global-refining`, the local port should prese
 - `global.get` cached-type repair in both functions and module code when the local representation caches expression types; current Starshine boundary IR has no cached `global.get` result type and covers this with focused validation/typechecking proof fixtures
 - `ReFinalize` after changed `global.get`s when using a representation with cached enclosing expression types
 - no non-nullable-local fixups required
+
+## 2026-08-21 nominal-ancestry scratch and complexity repair
+
+The local nominal sibling-join repair now owns one pass-scoped `GrNominalAncestryScratch` instead of allocating traversal state for every join/query. It contains:
+
+- one generation-stamped dense mark table keyed by absolute `TypeIdx`;
+- reusable type and heap work stacks;
+- reusable nominal candidate and abstract-fallback arrays;
+- one reusable fallback list for non-absolute indices; and
+- counters for subtype queries, ancestor collections, visited nodes, candidate collections, candidate nodes, and scratch-array allocation.
+
+Declared-subtype queries no longer allocate fresh work/visited arrays or use linear `visited.contains(...)` for ordinary absolute module types. After the two direct subtype checks, sibling joins collect the left ancestry once, mark the right ancestry once, and find the first common declared candidate by dense membership rather than rerunning DFS for each candidate. Rec-group-local or malformed non-absolute indices retain a small fail-safe linear fallback.
+
+Red-first whitebox coverage in `src/passes/global_refining_wbtest.mbt` repeats branching sibling joins while proving that temporary-array allocation stays fixed at six pass-scoped arrays. The explicit skipped 5,000-type branching benchmark compares the former helper algorithm with the retained scratch implementation over 2,500 joins per sample. On the default WasmGC test target, former medians were **20 ms** versus **6 ms** retained, a **70% reduction / 3.33x speedup**; modeled temporary traversal arrays fell from **905,968** to **6** for the full seven-sample run. The exact samples were old `[30, 20, 20, 20, 19, 19, 20]` ms and retained `[9, 6, 6, 5, 6, 5, 6]` ms.
+
+A separate native CLI fixture with 1,000 branching nominal types and 500 mutable-global writes measures a **11.655 ms** no-op median and **15.346 ms** direct `global-refining` median, or about **3.691 ms** incremental whole-command time; the output externally validates. This is representative synthetic evidence, not a production-artifact GC-byte claim. Native-release compilation of the skipped whitebox benchmark itself exceeded the bounded 300-second test-build window, so the old/new helper timings above are reported from the default target rather than mislabeled as native-release timings.
 
 ## Sources
 

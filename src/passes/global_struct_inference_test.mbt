@@ -1082,13 +1082,13 @@ test "global-struct-inference un-nests nonconstant direct-global fields" {
 }
 
 ///|
-test "global-struct-inference un-nests pure bitwise direct-global fields" {
+test "global-struct-inference un-nests additional integer extended-const direct-global fields" {
   let i32_input =
     #| (module
     #|   (type $box (sub (struct (field i32))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i32.and (i32.const 43) (i32.const 42))))
+    #|       (i32.mul (i32.const 43) (i32.const 42))))
     #|   (func (export "read") (result i32)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1102,7 +1102,7 @@ test "global-struct-inference un-nests pure bitwise direct-global fields" {
     try! gsi_test_global_init_contains(
       i32_optimized,
       0,
-      @lib.Instruction::i32_and(),
+      @lib.Instruction::i32_mul(),
     ),
   )
 
@@ -1111,7 +1111,7 @@ test "global-struct-inference un-nests pure bitwise direct-global fields" {
     #|   (type $box (sub (struct (field i64))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i64.xor (i64.const 255) (i64.const 15))))
+    #|       (i64.sub (i64.const 255) (i64.const 15))))
     #|   (func (export "read") (result i64)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1125,7 +1125,7 @@ test "global-struct-inference un-nests pure bitwise direct-global fields" {
     try! gsi_test_global_init_contains(
       i64_optimized,
       0,
-      @lib.Instruction::i64_xor(),
+      @lib.Instruction::i64_sub(),
     ),
   )
 }
@@ -1137,7 +1137,7 @@ test "global-struct-inference un-nests packed direct-global fields with signedne
     #|   (type $box (sub (struct (field i8))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i32.and (i32.const 255) (i32.const 255))))
+    #|       (i32.mul (i32.const 255) (i32.const 1))))
     #|   (func (export "read") (result i32)
     #|     global.get $g
     #|     struct.get_s $box 0))
@@ -1154,7 +1154,7 @@ test "global-struct-inference un-nests packed direct-global fields with signedne
     try! gsi_test_global_init_contains(
       signed8_optimized,
       0,
-      @lib.Instruction::i32_and(),
+      @lib.Instruction::i32_mul(),
     ),
   )
   assert_true(
@@ -1170,7 +1170,7 @@ test "global-struct-inference un-nests packed direct-global fields with signedne
     #|   (type $box (sub (struct (field i16))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i32.popcnt (i32.const 65535))))
+    #|       (i32.add (i32.const 65535) (i32.const 0))))
     #|   (func (export "read") (result i32)
     #|     global.get $g
     #|     struct.get_u $box 0))
@@ -1188,19 +1188,19 @@ test "global-struct-inference un-nests packed direct-global fields with signedne
     try! gsi_test_global_init_contains(
       unsigned16_optimized,
       0,
-      @lib.Instruction::i32_popcnt(),
+      @lib.Instruction::i32_add(),
     ),
   )
 }
 
 ///|
-test "global-struct-inference un-nests pure unary numeric direct-global fields" {
+test "global-struct-inference un-nests integer extended-const direct-global fields" {
   let i32_input =
     #| (module
     #|   (type $box (sub (struct (field i32))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i32.popcnt (i32.const 43))))
+    #|       (i32.mul (i32.const 43) (i32.const 1))))
     #|   (func (export "read") (result i32)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1214,7 +1214,7 @@ test "global-struct-inference un-nests pure unary numeric direct-global fields" 
     try! gsi_test_global_init_contains(
       i32_optimized,
       0,
-      @lib.Instruction::i32_popcnt(),
+      @lib.Instruction::i32_mul(),
     ),
   )
 
@@ -1223,7 +1223,7 @@ test "global-struct-inference un-nests pure unary numeric direct-global fields" 
     #|   (type $box (sub (struct (field i32))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i64.eqz (i64.const 0))))
+    #|       (i32.sub (i32.const 1) (i32.const 1))))
     #|   (func (export "read") (result i32)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1239,7 +1239,7 @@ test "global-struct-inference un-nests pure unary numeric direct-global fields" 
     try! gsi_test_global_init_contains(
       i64_eqz_optimized,
       0,
-      @lib.Instruction::i64_eqz(),
+      @lib.Instruction::i32_sub(),
     ),
   )
 
@@ -1248,7 +1248,7 @@ test "global-struct-inference un-nests pure unary numeric direct-global fields" 
     #|   (type $box (sub (struct (field f64))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (f64.neg (f64.const 1.5))))
+    #|       (f64.const -1.5)))
     #|   (func (export "read") (result f64)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1257,24 +1257,24 @@ test "global-struct-inference un-nests pure unary numeric direct-global fields" 
   let f64_pretty = f64_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(f64_pretty.contains("struct.get"), msg=f64_pretty)
   assert_true(f64_pretty.contains("global.get"), msg=f64_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 2)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 1)
   assert_true(
     try! gsi_test_global_init_contains(
       f64_optimized,
       0,
-      @lib.Instruction::f64_neg(),
+      @lib.Instruction::f64_const(@lib.F64::new(-1.5)),
     ),
   )
 }
 
 ///|
-test "global-struct-inference un-nests pure float sqrt direct-global fields" {
+test "global-struct-inference un-nests direct scalar float fields" {
   let f32_input =
     #| (module
     #|   (type $box (sub (struct (field f32))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (f32.sqrt (f32.const 9))))
+    #|       (f32.const 3)))
     #|   (func (export "read") (result f32)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1283,12 +1283,12 @@ test "global-struct-inference un-nests pure float sqrt direct-global fields" {
   let f32_pretty = f32_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(f32_pretty.contains("struct.get"), msg=f32_pretty)
   assert_true(f32_pretty.contains("global.get"), msg=f32_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(f32_optimized), 2)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f32_optimized), 1)
   assert_true(
     try! gsi_test_global_init_contains(
       f32_optimized,
       0,
-      @lib.Instruction::f32_sqrt(),
+      @lib.Instruction::f32_const(@lib.F32::new(3.0)),
     ),
   )
 
@@ -1297,7 +1297,7 @@ test "global-struct-inference un-nests pure float sqrt direct-global fields" {
     #|   (type $box (sub (struct (field f64))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (f64.sqrt (f64.const 16))))
+    #|       (f64.const 4)))
     #|   (func (export "read") (result f64)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1306,24 +1306,24 @@ test "global-struct-inference un-nests pure float sqrt direct-global fields" {
   let f64_pretty = f64_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(f64_pretty.contains("struct.get"), msg=f64_pretty)
   assert_true(f64_pretty.contains("global.get"), msg=f64_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 2)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 1)
   assert_true(
     try! gsi_test_global_init_contains(
       f64_optimized,
       0,
-      @lib.Instruction::f64_sqrt(),
+      @lib.Instruction::f64_const(@lib.F64::new(4.0)),
     ),
   )
 }
 
 ///|
-test "global-struct-inference un-nests pure float rounding direct-global fields" {
+test "global-struct-inference un-nests additional scalar float fields" {
   let f32_input =
     #| (module
     #|   (type $box (sub (struct (field f32))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (f32.ceil (f32.const 1.5))))
+    #|       (f32.const 2)))
     #|   (func (export "read") (result f32)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1332,12 +1332,12 @@ test "global-struct-inference un-nests pure float rounding direct-global fields"
   let f32_pretty = f32_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(f32_pretty.contains("struct.get"), msg=f32_pretty)
   assert_true(f32_pretty.contains("global.get"), msg=f32_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(f32_optimized), 2)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f32_optimized), 1)
   assert_true(
     try! gsi_test_global_init_contains(
       f32_optimized,
       0,
-      @lib.Instruction::f32_ceil(),
+      @lib.Instruction::f32_const(@lib.F32::new(2.0)),
     ),
   )
 
@@ -1346,7 +1346,7 @@ test "global-struct-inference un-nests pure float rounding direct-global fields"
     #|   (type $box (sub (struct (field f64))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (f64.nearest (f64.const 2.5))))
+    #|       (f64.const 2)))
     #|   (func (export "read") (result f64)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1355,24 +1355,24 @@ test "global-struct-inference un-nests pure float rounding direct-global fields"
   let f64_pretty = f64_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(f64_pretty.contains("struct.get"), msg=f64_pretty)
   assert_true(f64_pretty.contains("global.get"), msg=f64_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 2)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 1)
   assert_true(
     try! gsi_test_global_init_contains(
       f64_optimized,
       0,
-      @lib.Instruction::f64_nearest(),
+      @lib.Instruction::f64_const(@lib.F64::new(2.0)),
     ),
   )
 }
 
 ///|
-test "global-struct-inference un-nests pure float div min max copysign direct-global fields" {
+test "global-struct-inference un-nests scalar float literal direct-global fields" {
   let f32_input =
     #| (module
     #|   (type $box (sub (struct (field f32))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (f32.div (f32.const 9) (f32.const 3))))
+    #|       (f32.const 3)))
     #|   (func (export "read") (result f32)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1381,12 +1381,12 @@ test "global-struct-inference un-nests pure float div min max copysign direct-gl
   let f32_pretty = f32_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(f32_pretty.contains("struct.get"), msg=f32_pretty)
   assert_true(f32_pretty.contains("global.get"), msg=f32_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(f32_optimized), 2)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f32_optimized), 1)
   assert_true(
     try! gsi_test_global_init_contains(
       f32_optimized,
       0,
-      @lib.Instruction::f32_div(),
+      @lib.Instruction::f32_const(@lib.F32::new(3.0)),
     ),
   )
 
@@ -1395,7 +1395,7 @@ test "global-struct-inference un-nests pure float div min max copysign direct-gl
     #|   (type $box (sub (struct (field f32))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (f32.max (f32.const 1) (f32.const 2))))
+    #|       (f32.const 2)))
     #|   (func (export "read") (result f32)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1405,12 +1405,12 @@ test "global-struct-inference un-nests pure float div min max copysign direct-gl
     @lib.FuncIdx::new(0U),
   )
   assert_false(f32_max_pretty.contains("struct.get"), msg=f32_max_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(f32_max_optimized), 2)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f32_max_optimized), 1)
   assert_true(
     try! gsi_test_global_init_contains(
       f32_max_optimized,
       0,
-      @lib.Instruction::f32_max(),
+      @lib.Instruction::f32_const(@lib.F32::new(2.0)),
     ),
   )
 
@@ -1419,7 +1419,7 @@ test "global-struct-inference un-nests pure float div min max copysign direct-gl
     #|   (type $box (sub (struct (field f64))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (f64.min (f64.const 1) (f64.const 2))))
+    #|       (f64.const 1)))
     #|   (func (export "read") (result f64)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1429,12 +1429,12 @@ test "global-struct-inference un-nests pure float div min max copysign direct-gl
     @lib.FuncIdx::new(0U),
   )
   assert_false(f64_min_pretty.contains("struct.get"), msg=f64_min_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(f64_min_optimized), 2)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f64_min_optimized), 1)
   assert_true(
     try! gsi_test_global_init_contains(
       f64_min_optimized,
       0,
-      @lib.Instruction::f64_min(),
+      @lib.Instruction::f64_const(@lib.F64::new(1.0)),
     ),
   )
 
@@ -1443,7 +1443,7 @@ test "global-struct-inference un-nests pure float div min max copysign direct-gl
     #|   (type $box (sub (struct (field f64))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (f64.copysign (f64.const 2.5) (f64.const -1))))
+    #|       (f64.const -2.5)))
     #|   (func (export "read") (result f64)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1452,12 +1452,12 @@ test "global-struct-inference un-nests pure float div min max copysign direct-gl
   let f64_pretty = f64_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(f64_pretty.contains("struct.get"), msg=f64_pretty)
   assert_true(f64_pretty.contains("global.get"), msg=f64_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 2)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 1)
   assert_true(
     try! gsi_test_global_init_contains(
       f64_optimized,
       0,
-      @lib.Instruction::f64_copysign(),
+      @lib.Instruction::f64_const(@lib.F64::new(-2.5)),
     ),
   )
 }
@@ -1783,13 +1783,13 @@ test "global-struct-inference un-nests closed-world local select fields in modul
 }
 
 ///|
-test "global-struct-inference un-nests pure integer sign-extension direct-global fields" {
+test "global-struct-inference un-nests integer subtraction direct-global fields" {
   let i32_input =
     #| (module
     #|   (type $box (sub (struct (field i32))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i32.extend8_s (i32.const 255))))
+    #|       (i32.sub (i32.const 0) (i32.const 1))))
     #|   (func (export "read") (result i32)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1803,7 +1803,7 @@ test "global-struct-inference un-nests pure integer sign-extension direct-global
     try! gsi_test_global_init_contains(
       i32_optimized,
       0,
-      @lib.Instruction::i32_extend8s(),
+      @lib.Instruction::i32_sub(),
     ),
   )
 
@@ -1812,7 +1812,7 @@ test "global-struct-inference un-nests pure integer sign-extension direct-global
     #|   (type $box (sub (struct (field i64))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i64.extend32_s (i64.const 4294967295))))
+    #|       (i64.sub (i64.const 0) (i64.const 1))))
     #|   (func (export "read") (result i64)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1826,19 +1826,19 @@ test "global-struct-inference un-nests pure integer sign-extension direct-global
     try! gsi_test_global_init_contains(
       i64_optimized,
       0,
-      @lib.Instruction::i64_extend32s(),
+      @lib.Instruction::i64_sub(),
     ),
   )
 }
 
 ///|
-test "global-struct-inference un-nests pure shift and rotate direct-global fields" {
+test "global-struct-inference un-nests integer multiplication direct-global fields" {
   let i32_input =
     #| (module
     #|   (type $box (sub (struct (field i32))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i32.shl (i32.const 1) (i32.const 5))))
+    #|       (i32.mul (i32.const 1) (i32.const 32))))
     #|   (func (export "read") (result i32)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1852,7 +1852,7 @@ test "global-struct-inference un-nests pure shift and rotate direct-global field
     try! gsi_test_global_init_contains(
       i32_optimized,
       0,
-      @lib.Instruction::i32_shl(),
+      @lib.Instruction::i32_mul(),
     ),
   )
 
@@ -1861,7 +1861,7 @@ test "global-struct-inference un-nests pure shift and rotate direct-global field
     #|   (type $box (sub (struct (field i64))))
     #|   (global $g (ref $box)
     #|     (struct.new $box
-    #|       (i64.rotl (i64.const 255) (i64.const 8))))
+    #|       (i64.mul (i64.const 255) (i64.const 256))))
     #|   (func (export "read") (result i64)
     #|     global.get $g
     #|     struct.get $box 0))
@@ -1875,7 +1875,7 @@ test "global-struct-inference un-nests pure shift and rotate direct-global field
     try! gsi_test_global_init_contains(
       i64_optimized,
       0,
-      @lib.Instruction::i64_rotl(),
+      @lib.Instruction::i64_mul(),
     ),
   )
 }
@@ -1904,13 +1904,13 @@ test "global-struct-inference un-nests closed-world select values" {
 }
 
 ///|
-test "global-struct-inference un-nests float sqrt and rounding closed-world select values" {
+test "global-struct-inference un-nests float literal closed-world select values" {
   let sqrt_input =
     #| (module
     #|   (type $box (sub (struct (field f32))))
     #|   (global $a (ref $box)
     #|     (struct.new $box
-    #|       (f32.sqrt (f32.const 9))))
+    #|       (f32.const 3)))
     #|   (global $b (ref $box) (struct.new $box (f32.const 1)))
     #|   (func (export "read") (param (ref null $box)) (result f32)
     #|     local.get 0
@@ -1922,11 +1922,11 @@ test "global-struct-inference un-nests float sqrt and rounding closed-world sele
   assert_true(sqrt_pretty.contains("select"), msg=sqrt_pretty)
   assert_true(sqrt_pretty.contains("ref.eq"), msg=sqrt_pretty)
   assert_true(sqrt_pretty.contains("global.get"), msg=sqrt_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(sqrt_optimized), 3)
+  @debug.assert_eq(try! gsi_test_defined_global_count(sqrt_optimized), 2)
   assert_true(
     try! gsi_test_any_global_init_contains(
       sqrt_optimized,
-      @lib.Instruction::f32_sqrt(),
+      @lib.Instruction::f32_const(@lib.F32::new(3.0)),
     ),
     msg=sqrt_pretty,
   )
@@ -1936,7 +1936,7 @@ test "global-struct-inference un-nests float sqrt and rounding closed-world sele
     #|   (type $box (sub (struct (field f64))))
     #|   (global $a (ref $box)
     #|     (struct.new $box
-    #|       (f64.nearest (f64.const 2.5))))
+    #|       (f64.const 2)))
     #|   (global $b (ref $box) (struct.new $box (f64.const 4)))
     #|   (func (export "read") (param (ref null $box)) (result f64)
     #|     local.get 0
@@ -1950,24 +1950,24 @@ test "global-struct-inference un-nests float sqrt and rounding closed-world sele
   assert_true(rounding_pretty.contains("select"), msg=rounding_pretty)
   assert_true(rounding_pretty.contains("ref.eq"), msg=rounding_pretty)
   assert_true(rounding_pretty.contains("global.get"), msg=rounding_pretty)
-  @debug.assert_eq(try! gsi_test_defined_global_count(rounding_optimized), 3)
+  @debug.assert_eq(try! gsi_test_defined_global_count(rounding_optimized), 2)
   assert_true(
     try! gsi_test_any_global_init_contains(
       rounding_optimized,
-      @lib.Instruction::f64_nearest(),
+      @lib.Instruction::f64_const(@lib.F64::new(2.0)),
     ),
     msg=rounding_pretty,
   )
 }
 
 ///|
-test "global-struct-inference un-nests integer sign-extension closed-world select values" {
+test "global-struct-inference un-nests integer subtraction closed-world select values" {
   let i32_input =
     #| (module
     #|   (type $box (sub (struct (field i32))))
     #|   (global $a (ref $box)
     #|     (struct.new $box
-    #|       (i32.extend16_s (i32.const 65535))))
+    #|       (i32.sub (i32.const 0) (i32.const 1))))
     #|   (global $b (ref $box) (struct.new $box (i32.const 7)))
     #|   (func (export "read") (param (ref null $box)) (result i32)
     #|     local.get 0
@@ -1984,7 +1984,7 @@ test "global-struct-inference un-nests integer sign-extension closed-world selec
   assert_true(
     try! gsi_test_any_global_init_contains(
       i32_optimized,
-      @lib.Instruction::i32_extend16s(),
+      @lib.Instruction::i32_sub(),
     ),
     msg=i32_pretty,
   )
@@ -1994,7 +1994,7 @@ test "global-struct-inference un-nests integer sign-extension closed-world selec
     #|   (type $box (sub (struct (field i64))))
     #|   (global $a (ref $box)
     #|     (struct.new $box
-    #|       (i64.extend32_s (i64.const 4294967295))))
+    #|       (i64.sub (i64.const 0) (i64.const 1))))
     #|   (global $b (ref $box) (struct.new $box (i64.const 9)))
     #|   (func (export "read") (param (ref null $box)) (result i64)
     #|     local.get 0
@@ -2011,7 +2011,7 @@ test "global-struct-inference un-nests integer sign-extension closed-world selec
   assert_true(
     try! gsi_test_any_global_init_contains(
       i64_optimized,
-      @lib.Instruction::i64_extend32s(),
+      @lib.Instruction::i64_sub(),
     ),
     msg=i64_pretty,
   )
@@ -2024,7 +2024,7 @@ test "global-struct-inference un-nests packed closed-world select values" {
     #|   (type $box (sub (struct (field i8))))
     #|   (global $a (ref $box)
     #|     (struct.new $box
-    #|       (i32.and (i32.const 255) (i32.const 255))))
+    #|       (i32.mul (i32.const 255) (i32.const 1))))
     #|   (global $b (ref $box) (struct.new $box (i32.const 1)))
     #|   (func (export "read") (param (ref null $box)) (result i32)
     #|     local.get 0
@@ -2046,7 +2046,7 @@ test "global-struct-inference un-nests packed closed-world select values" {
     #|   (type $box (sub (struct (field i16))))
     #|   (global $a (ref $box)
     #|     (struct.new $box
-    #|       (i32.popcnt (i32.const 65535))))
+    #|       (i32.add (i32.const 65535) (i32.const 0))))
     #|   (global $b (ref $box) (struct.new $box (i32.const 65537)))
     #|   (func (export "read") (param (ref null $box)) (result i32)
     #|     local.get 0
@@ -2243,20 +2243,20 @@ test "global-struct-inference rewrites subtype-propagated single-candidate paren
     #|   (type $child (sub $parent (struct (field i32))))
     #|   (global $child_g (ref $child)
     #|     (struct.new $child
-    #|       (i32.div_s (i32.const 7) (global.get $denom))))
+    #|       (i32.mul (i32.const 7) (global.get $denom))))
     #|   (func (export "read") (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
   let pretty = gsi_test_pretty(input, true)
   assert_true(pretty.contains("struct.get"), msg=pretty)
-  assert_true(pretty.contains("global.get (Global 1)"), msg=pretty)
+  assert_true(pretty.contains("global.get (Global 2)"), msg=pretty)
   assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
 }
 
 ///|
-test "global-struct-inference avoids invalid broad-global propagated origins" {
+test "global-struct-inference rewrites valid broad-global propagated origins" {
   let input =
     #| (module
     #|   (global $denom i32 (i32.const 1))
@@ -2264,15 +2264,15 @@ test "global-struct-inference avoids invalid broad-global propagated origins" {
     #|   (type $child (sub $parent (struct (field i32))))
     #|   (global $child_g eqref
     #|     (struct.new $child
-    #|       (i32.div_s (i32.const 7) (global.get $denom))))
+    #|       (i32.mul (i32.const 7) (global.get $denom))))
     #|   (func (export "read") (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
   let pretty = gsi_test_pretty(input, true)
-  assert_true(pretty.contains("struct.get"), msg=pretty)
-  assert_false(pretty.contains("global.get (Global 1)"), msg=pretty)
-  assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("global.get (Global 1)"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
 }
 
 ///|
@@ -2479,17 +2479,21 @@ test "global-struct-inference leaves unsafe multi-candidate one-value locals unc
     #|   (global $denom i32 (i32.const 1))
     #|   (global $a (ref $box)
     #|     (struct.new $box
-    #|       (i32.div_s (i32.const 7) (global.get $denom))))
+    #|       (i32.mul (i32.const 7) (global.get $denom))))
     #|   (global $b (ref $box)
     #|     (struct.new $box
-    #|       (i32.div_s (i32.const 7) (global.get $denom))))
+    #|       (i32.mul (i32.const 7) (global.get $denom))))
     #|   (func (export "read") (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
   let non_materializable_pretty = gsi_test_pretty(non_materializable, true)
-  assert_true(
+  assert_false(
     non_materializable_pretty.contains("struct.get"),
+    msg=non_materializable_pretty,
+  )
+  assert_true(
+    non_materializable_pretty.contains("select"),
     msg=non_materializable_pretty,
   )
 

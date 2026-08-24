@@ -1811,6 +1811,8 @@ priv struct DaeFunctionInfo {
   dropped_calls : Array[DaeStableCallsite]
   mut has_tail_calls : Bool
   tail_callees : Array[Int]
+  loop_type_indices : Array[@lib.TypeIdx]
+  mut has_adjacent_local_set_get : Bool
   mut has_unseen_calls : Bool
 }
 
@@ -1827,6 +1829,8 @@ priv struct DaeCurrentCallFacts {
 priv struct DaeFunctionAnalysis {
   call_facts : DaeCurrentCallFacts
   function_infos : Array[DaeFunctionInfo]
+  exposure : Array[DaeFunctionExposure]
+  parameter_loop_free : Array[Bool]
 }
 
 ///|
@@ -1897,6 +1901,8 @@ priv struct DaeModuleBoundarySnapshot {
   call_facts : DaeCurrentCallFacts
   boundary_facts : DaeCallBoundaryFacts
   function_infos : Array[DaeFunctionInfo]
+  exposure : Array[DaeFunctionExposure]
+  parameter_loop_free : Array[Bool]
 }
 
 ///|
@@ -2621,6 +2627,8 @@ fn dae_collect_module_boundary_snapshot(
     call_facts,
     boundary_facts: dae_call_boundary_facts_from_current(call_facts),
     function_infos: analysis.function_infos,
+    exposure: analysis.exposure,
+    parameter_loop_free: analysis.parameter_loop_free,
   }
 }
 
@@ -3174,14 +3182,26 @@ fn dae_can_change_parameters_reason(
 /// Dropped-result legality. Requires owned incoming boundaries, then rejects
 /// when the function itself has any outgoing tail, is a direct return_call
 /// callee, or existing dropped-result observers do not all drop the result.
-fn dae_can_remove_function_result(
-  facts : DaeBoundaryFacts,
+fn dae_can_remove_function_result_with_exposure(
+  exposure : Array[DaeFunctionExposure],
+  graph : DaeCurrentBoundaryGraph,
   func_abs : Int,
 ) -> Bool {
-  if !dae_can_change_parameters(facts, func_abs) {
+  if func_abs < 0 || func_abs >= exposure.length() {
     return false
   }
-  let topology = dae_boundary_facts_topology(facts)
+  if dae_function_exposure_blocks_boundary(exposure[func_abs]) {
+    return false
+  }
+  if func_abs < graph.snapshot.call_facts.escaped.length() &&
+    graph.snapshot.call_facts.escaped[func_abs] {
+    return false
+  }
+  match dae_call_boundary_candidate(graph.snapshot.boundary_facts, func_abs) {
+    Some(candidate) if candidate.owned => ()
+    _ => return false
+  }
+  let topology = graph.topology
   if func_abs < topology.has_outgoing_return_call.length() &&
     topology.has_outgoing_return_call[func_abs] {
     return false
@@ -3194,18 +3214,30 @@ fn dae_can_remove_function_result(
     topology.has_outgoing_return_call_ref[func_abs] {
     return false
   }
-  if func_abs < facts.graph.snapshot.call_facts.tail_calls.length() &&
-    facts.graph.snapshot.call_facts.tail_calls[func_abs] {
+  if func_abs < graph.snapshot.call_facts.tail_calls.length() &&
+    graph.snapshot.call_facts.tail_calls[func_abs] {
     return false
   }
   match
     dae_dropped_result_candidate_from_boundary_facts(
-      facts.graph.snapshot.boundary_facts,
+      graph.snapshot.boundary_facts,
       func_abs,
     ) {
     Some(candidate) => candidate.owned_dropped_result_candidate
     None => false
   }
+}
+
+///|
+fn dae_can_remove_function_result(
+  facts : DaeBoundaryFacts,
+  func_abs : Int,
+) -> Bool {
+  dae_can_remove_function_result_with_exposure(
+    dae_boundary_facts_exposure(facts),
+    facts.graph,
+    func_abs,
+  )
 }
 
 ///|
@@ -4647,6 +4679,8 @@ fn dae_body_only_boundary_graph_new(
     call_facts,
     boundary_facts: dae_call_boundary_facts_from_current(call_facts),
     function_infos: dae_make_function_infos(total, escaped),
+    exposure: Array::make(total, dae_function_exposure_empty()),
+    parameter_loop_free: Array::make(defined, true),
   }
   {
     mod_,
@@ -6499,6 +6533,8 @@ fn dae_new_function_info(has_unseen_calls : Bool) -> DaeFunctionInfo {
     dropped_calls: [],
     has_tail_calls: false,
     tail_callees: [],
+    loop_type_indices: [],
+    has_adjacent_local_set_get: false,
     has_unseen_calls,
   }
 }
@@ -6547,6 +6583,16 @@ fn dae_function_info_add_tail_callee(
 }
 
 ///|
+fn dae_function_info_add_loop_type_index(
+  info : DaeFunctionInfo,
+  type_idx : @lib.TypeIdx,
+) -> Unit {
+  if !info.loop_type_indices.contains(type_idx) {
+    info.loop_type_indices.push(type_idx)
+  }
+}
+
+///|
 fn dae_scan_current_call_facts_instrs(
   instrs : Array[@lib.Instruction],
   caller_def : Int,
@@ -6564,6 +6610,15 @@ fn dae_scan_current_call_facts_instrs(
   let mut idx = 0
   let mut current_active = active
   while idx < instrs.length() {
+    if idx + 1 < instrs.length() &&
+      caller_abs >= 0 &&
+      caller_abs < function_infos.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalSet(target), @lib.LocalGet(read)) if target == read =>
+          function_infos[caller_abs].has_adjacent_local_set_get = true
+        _ => ()
+      }
+    }
     if current_active && dae_instr_is_unreachable_root(instrs[idx]) {
       current_active = false
     }
@@ -6666,7 +6721,17 @@ fn dae_scan_current_call_facts_instrs(
           caller_seen_stamps,
           current_active,
         )
-      @lib.Loop(_, @lib.Expr(body)) =>
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        match block_type {
+          @lib.TypeIdxBlockType(type_idx) =>
+            if caller_abs >= 0 && caller_abs < function_infos.length() {
+              dae_function_info_add_loop_type_index(
+                function_infos[caller_abs],
+                type_idx,
+              )
+            }
+          _ => ()
+        }
         dae_scan_current_call_facts_instrs(
           body,
           caller_def,
@@ -6681,6 +6746,7 @@ fn dae_scan_current_call_facts_instrs(
           caller_seen_stamps,
           current_active,
         )
+      }
       @lib.If(_, then_body, Some(else_body)) => {
         dae_scan_current_call_facts_instrs(
           then_body,
@@ -6882,6 +6948,33 @@ fn dae_collect_current_function_analysis(
       function_infos[escaped_idx].has_unseen_calls
     escaped_idx += 1
   }
+  let defined = total_funcs - imported
+  let parameter_loop_free = Array::make(defined, true)
+  match mod_.type_sec {
+    Some(type_sec) =>
+      for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
+        let func_abs = imported + def_idx
+        if func_abs < 0 || func_abs >= function_infos.length() {
+          parameter_loop_free[def_idx] = false
+          continue
+        }
+        for type_idx in function_infos[func_abs].loop_type_indices {
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, _)) if params.length() > 0 => {
+              parameter_loop_free[def_idx] = false
+              break
+            }
+            _ => ()
+          }
+        }
+      }
+    None =>
+      for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
+        if function_infos[imported + def_idx].loop_type_indices.length() > 0 {
+          parameter_loop_free[def_idx] = false
+        }
+      }
+  }
   ignore(direct_calls)
   ignore(tail_calls)
   ignore(direct_callers)
@@ -6889,6 +6982,8 @@ fn dae_collect_current_function_analysis(
   {
     call_facts: dae_call_facts_from_function_infos(function_infos),
     function_infos,
+    exposure,
+    parameter_loop_free,
   }
 }
 
@@ -12043,6 +12138,7 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
   function_infos : Array[DaeFunctionInfo],
   allow_immutable_global_get? : Bool = false,
   collect_params? : Array[Bool]? = None,
+  prefer_stable_paths? : Bool = false,
 ) -> Array[@lib.Instruction?]? {
   let mut has_inactive_direct_call = false
   if callee_abs >= 0 && callee_abs < function_infos.length() {
@@ -12056,7 +12152,7 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
   // Stable paths keep inactive suffix calls from poisoning current-value facts.
   // Select the exact scope-aware collector whenever an inactive direct call is
   // present; module cardinality is not part of value legality.
-  if has_inactive_direct_call {
+  if prefer_stable_paths || has_inactive_direct_call {
     dae_collect_uniform_const_actuals_from_function_infos(
       mod_,
       callee_abs,
@@ -19925,8 +20021,22 @@ fn dae_batchable_uniform_literal(instr : @lib.Instruction) -> Bool {
 fn dae_try_apply_unread_param_batch(
   mod_ : @lib.Module,
   active_defs? : Array[Bool]? = None,
+  require_active_callers? : Bool = false,
+  allow_uniform_params? : Bool = false,
+  boundary_snapshot? : DaeModuleBoundarySnapshot? = None,
+  cleanup_targets? : Array[Bool]? = None,
+  perf? : HotPerfSession? = None,
 ) -> DaePassResult {
-  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let snapshot_start_us = perf_start_timer_opt(
+    perf, "detail:dae:parameter-batch:snapshot",
+  )
+  let snapshot = match boundary_snapshot {
+    Some(snapshot) => snapshot
+    None => dae_collect_module_boundary_snapshot(mod_)
+  }
+  perf_stop_timer_opt(
+    perf, "detail:dae:parameter-batch:snapshot", snapshot_start_us,
+  )
   let imported = snapshot.imported
   let defined = snapshot.defined
   // Definition-count-independent batch candidate construction. The family
@@ -19957,6 +20067,12 @@ fn dae_try_apply_unread_param_batch(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let plans : Array[DaeBoundaryParamBatchPlan] = []
+  let candidate_start_us = perf_start_timer_opt(
+    perf, "detail:dae:parameter-batch:candidates",
+  )
+  let mut cycle_check_us = 0UL
+  let mut local_use_us = 0UL
+  let mut uniform_actual_us = 0UL
   for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
     match active_defs {
       Some(active) if def_idx >= active.length() || !active[def_idx] => continue
@@ -19970,9 +20086,36 @@ fn dae_try_apply_unread_param_batch(
     }
     if !boundary.owned ||
       !boundary.allows_nonself_direct_rewrite ||
-      boundary.has_self_direct_caller ||
-      dae_boundary_has_direct_caller_cycle(boundary_facts, imported, callee_abs) {
+      boundary.has_self_direct_caller {
       continue
+    }
+    let cycle_start_us = perf_start_timer_opt(
+      perf, "detail:dae:parameter-batch:cycle-check",
+    )
+    let has_direct_caller_cycle = dae_boundary_has_direct_caller_cycle(
+      boundary_facts, imported, callee_abs,
+    )
+    cycle_check_us += perf_elapsed_since_start_opt(perf, cycle_start_us)
+    if has_direct_caller_cycle {
+      continue
+    }
+    if require_active_callers {
+      let active = match active_defs {
+        Some(active) => active
+        None => continue
+      }
+      let mut callers_active = true
+      for caller_def in boundary.direct_callers {
+        if caller_def < 0 ||
+          caller_def >= active.length() ||
+          !active[caller_def] {
+          callers_active = false
+          break
+        }
+      }
+      if !callers_active {
+        continue
+      }
     }
     let @lib.FuncType(params, results) = match
       dae_resolve_func_type(mod_, snapshot.type_indices, callee_abs) {
@@ -19983,22 +20126,66 @@ fn dae_try_apply_unread_param_batch(
       continue
     }
     let @lib.Func(locals, _) = funcs[def_idx]
+    let local_use_start_us = perf_start_timer_opt(
+      perf, "detail:dae:parameter-batch:local-use",
+    )
     let local_use = dae_local_use_for_callee(
       funcs[def_idx],
       params.length() + locals.length(),
       callee_abs,
       params.length(),
     )
+    local_use_us += perf_elapsed_since_start_opt(perf, local_use_start_us)
     let remove = Array::make(params.length(), false)
     let const_params : Array[@lib.Instruction?] = Array::make(
       params.length(),
       None,
     )
+    let collect_const_params = Array::make(params.length(), false)
+    let mut has_collect_const_param = false
+    for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
+      if allow_uniform_params &&
+        local_use.gets[param_idx] &&
+        !local_use.writes[param_idx] {
+        collect_const_params[param_idx] = true
+        has_collect_const_param = true
+      }
+    }
+    let uniform_start_us = perf_start_timer_opt(
+      perf, "detail:dae:parameter-batch:uniform-actuals",
+    )
+    let uniform_const_params = if has_collect_const_param {
+      dae_collect_uniform_const_actuals_from_current_call_facts(
+        mod_,
+        callee_abs,
+        params.length(),
+        snapshot.type_indices,
+        boundary_facts,
+        snapshot.function_infos,
+        collect_params=Some(collect_const_params),
+      )
+    } else {
+      None
+    }
+    uniform_actual_us += perf_elapsed_since_start_opt(perf, uniform_start_us)
     let mut any = false
     for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
       if !local_use.gets[param_idx] {
         remove[param_idx] = true
         any = true
+      } else if allow_uniform_params && !local_use.writes[param_idx] {
+        match uniform_const_params {
+          Some(values) =>
+            match values[param_idx] {
+              Some(value) if dae_batchable_uniform_literal(value) => {
+                remove[param_idx] = true
+                const_params[param_idx] = Some(value)
+                any = true
+              }
+              _ => ()
+            }
+          None => ()
+        }
       }
     }
     if any {
@@ -20015,9 +20202,24 @@ fn dae_try_apply_unread_param_batch(
       })
     }
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:parameter-batch:candidates", candidate_start_us,
+  )
+  perf_record_timer_elapsed_opt(
+    perf, "detail:dae:parameter-batch:cycle-check", cycle_check_us,
+  )
+  perf_record_timer_elapsed_opt(
+    perf, "detail:dae:parameter-batch:local-use", local_use_us,
+  )
+  perf_record_timer_elapsed_opt(
+    perf, "detail:dae:parameter-batch:uniform-actuals", uniform_actual_us,
+  )
   if plans.length() == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let commit_start_us = perf_start_timer_opt(
+    perf, "detail:dae:parameter-batch:commit",
+  )
   let rewritten_funcs = funcs.copy()
   let touched = Array::make(defined, false)
   let mut applied = 0
@@ -20141,11 +20343,19 @@ fn dae_try_apply_unread_param_batch(
     type_idxs[plan.def_idx] = next_type_idx
     current_type_indices[imported + plan.def_idx] = next_type_idx
     touched[plan.def_idx] = true
+    match cleanup_targets {
+      Some(targets) if plan.def_idx < targets.length() =>
+        targets[plan.def_idx] = true
+      _ => ()
+    }
     if first_def < 0 {
       first_def = plan.def_idx
     }
     applied += 1
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:parameter-batch:commit", commit_start_us,
+  )
   if applied == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -20304,7 +20514,7 @@ fn dae_current_graph_has_dropped_result_candidate(
 ///|
 fn dae_try_apply_dropped_result_batch(
   mod_ : @lib.Module,
-  original : DaeOriginalBoundarySnapshot,
+  original_exposure : Array[DaeFunctionExposure],
   graph : DaeCurrentBoundaryGraph,
   active_defs? : Array[Bool]? = None,
   topology_preserved_report? : Array[Bool] = [],
@@ -20341,7 +20551,6 @@ fn dae_try_apply_dropped_result_batch(
       },
     )
   }
-  let boundary_facts = dae_boundary_facts_from_snapshots(original, graph)
   let plans : Array[DaeDroppedResultBatchPlan] = []
   for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
     match active_defs {
@@ -20360,7 +20569,9 @@ fn dae_try_apply_dropped_result_batch(
     if !candidate.owned ||
       candidate.direct_call_count ==
       dae_count_self_calls(funcs[def_idx], callee_abs) ||
-      !dae_can_remove_function_result(boundary_facts, callee_abs) {
+      !dae_can_remove_function_result_with_exposure(
+        original_exposure, graph, callee_abs,
+      ) {
       continue
     }
     let @lib.FuncType(params, results) = match
@@ -20637,11 +20848,182 @@ fn dae_refresh_changed_caller_function_infos(
       } else {
         previous.tail_callees
       },
+      loop_type_indices: if caller_changed {
+        refreshed.loop_type_indices
+      } else {
+        previous.loop_type_indices
+      },
+      has_adjacent_local_set_get: previous.has_adjacent_local_set_get ||
+      refreshed.has_adjacent_local_set_get,
       has_unseen_calls: previous.has_unseen_calls || refreshed.has_unseen_calls,
     })
     callee_abs += 1
   }
   Some(merged_infos)
+}
+
+///|
+fn dae_current_boundary_graph_adopt_parameter_batch_lightweight(
+  graph : DaeCurrentBoundaryGraph,
+  mod_ : @lib.Module,
+) -> Bool {
+  let imported = graph.snapshot.imported
+  let defined = graph.snapshot.defined
+  if dae_imported_func_count(mod_) != imported ||
+    dae_defined_func_count(mod_) != defined {
+    return false
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) if funcs.length() == defined => funcs
+    _ => return false
+  }
+  let type_indices = dae_collect_func_type_indices(mod_)
+  if type_indices.length() != graph.snapshot.total {
+    return false
+  }
+  let function_types = graph.snapshot.function_types.copy()
+  let defined_function_types = dae_collect_defined_function_types(
+    mod_, imported, defined, type_indices,
+  )
+  for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
+    function_types[imported + def_idx] = defined_function_types[def_idx]
+  }
+  graph.mod_ = mod_
+  graph.snapshot = {
+    imported,
+    defined,
+    total: graph.snapshot.total,
+    type_indices,
+    function_types,
+    funcs,
+    // Parameter removal preserves call targets, caller sets, tail status,
+    // result-drop status, and escape ownership. Stable paths may shift as call
+    // operands disappear, but the following results-only waves do not consume
+    // those paths for unchanged callers.
+    call_facts: graph.snapshot.call_facts,
+    boundary_facts: graph.snapshot.boundary_facts,
+    function_infos: graph.snapshot.function_infos,
+    exposure: graph.snapshot.exposure,
+    parameter_loop_free: graph.snapshot.parameter_loop_free,
+  }
+  graph.function_epochs = dae_make_function_epochs(defined, 0, 0)
+  graph.module_epoch = 0
+  graph.call_epoch = 0
+  graph.type_epoch = 0
+  true
+}
+
+///|
+fn dae_current_boundary_graph_adopt_dropped_result_batch_lightweight(
+  graph : DaeCurrentBoundaryGraph,
+  mod_ : @lib.Module,
+  effects : DaeCommitEffects,
+  type_indices : Array[@lib.TypeIdx],
+  defined_function_types : Array[@lib.FuncType?],
+) -> Bool {
+  let imported = graph.snapshot.imported
+  let defined = graph.snapshot.defined
+  if dae_imported_func_count(mod_) != imported ||
+    dae_defined_func_count(mod_) != defined ||
+    effects.result_removed.length() != defined ||
+    type_indices.length() != graph.snapshot.total ||
+    defined_function_types.length() != defined {
+    return false
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) if funcs.length() == defined => funcs
+    _ => return false
+  }
+  let function_types = graph.snapshot.function_types.copy()
+  for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
+    function_types[imported + def_idx] = defined_function_types[def_idx]
+  }
+  // Removing a result may insert a drop inside the changed callee body, making
+  // one of its own callees eligible in the next wave. Update only dropped-call
+  // counts: the transaction has already proven that call topology is stable.
+  let dropped_calls = graph.snapshot.call_facts.dropped_calls.copy()
+  let mut callee_abs = 0
+  while callee_abs < graph.snapshot.total {
+    for callsite in graph.snapshot.function_infos[callee_abs].dropped_calls {
+      let caller_def = callsite.caller_def
+      if caller_def >= 0 &&
+        caller_def < effects.result_changed.length() &&
+        effects.result_changed[caller_def] &&
+        dropped_calls[callee_abs] > 0 {
+        dropped_calls[callee_abs] -= 1
+      }
+    }
+    callee_abs += 1
+  }
+  let refreshed_infos = dae_make_function_infos(
+    graph.snapshot.total,
+    graph.snapshot.call_facts.escaped,
+  )
+  let refreshed_direct_calls = Array::make(graph.snapshot.total, 0)
+  let refreshed_tail_calls = Array::make(graph.snapshot.total, false)
+  let refreshed_direct_callers = dae_make_direct_callers(graph.snapshot.total)
+  let refreshed_dropped_calls = Array::make(graph.snapshot.total, 0)
+  let refreshed_escaped = graph.snapshot.call_facts.escaped.copy()
+  let caller_seen_stamps = Array::make(graph.snapshot.total, -1)
+  for caller_def = 0; caller_def < defined; caller_def = caller_def + 1 {
+    if effects.result_changed[caller_def] {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+      dae_scan_current_call_facts_instrs(
+        body,
+        caller_def,
+        imported + caller_def,
+        [],
+        refreshed_direct_calls,
+        refreshed_tail_calls,
+        refreshed_direct_callers,
+        refreshed_dropped_calls,
+        refreshed_escaped,
+        refreshed_infos,
+        caller_seen_stamps,
+        true,
+      )
+    }
+  }
+  callee_abs = 0
+  while callee_abs < graph.snapshot.total {
+    dropped_calls[callee_abs] += refreshed_dropped_calls[callee_abs]
+    callee_abs += 1
+  }
+  for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
+    if effects.result_removed[def_idx] {
+      // Every admitted caller lost its now-redundant drop.
+      dropped_calls[imported + def_idx] = 0
+    }
+  }
+  let call_facts : DaeCurrentCallFacts = {
+    direct_calls: graph.snapshot.call_facts.direct_calls,
+    tail_calls: graph.snapshot.call_facts.tail_calls,
+    direct_callers: graph.snapshot.call_facts.direct_callers,
+    dropped_calls,
+    escaped: graph.snapshot.call_facts.escaped,
+  }
+  graph.mod_ = mod_
+  graph.snapshot = {
+    imported,
+    defined,
+    total: graph.snapshot.total,
+    type_indices,
+    function_types,
+    funcs,
+    call_facts,
+    boundary_facts: dae_call_boundary_facts_from_current(call_facts),
+    // Each result-changing definition can participate only once. Future waves
+    // scan a previously unchanged result-changing body, so stable paths for
+    // already changed callers need not be globally rebased here.
+    function_infos: graph.snapshot.function_infos,
+    exposure: graph.snapshot.exposure,
+    parameter_loop_free: graph.snapshot.parameter_loop_free,
+  }
+  graph.function_epochs = dae_make_function_epochs(defined, 0, 0)
+  graph.module_epoch = 0
+  graph.call_epoch = 0
+  graph.type_epoch = 0
+  true
 }
 
 ///|
@@ -20697,6 +21079,8 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch(
     call_facts,
     boundary_facts: dae_call_boundary_facts_from_current(call_facts),
     function_infos,
+    exposure: graph.snapshot.exposure,
+    parameter_loop_free: graph.snapshot.parameter_loop_free,
   }
   graph.function_epochs = dae_make_function_epochs(defined, 0, 0)
   graph.module_epoch = 0
@@ -20712,15 +21096,70 @@ fn dae_apply_dropped_result_batch_transaction(
   touched : Array[Bool],
   changed : Bool,
   retain_post_graph? : Bool = false,
+  perf? : HotPerfSession? = None,
 ) -> DaeDroppedResultBatchApplication {
+  dae_apply_dropped_result_batch_transaction_with_exposure(
+    original.exposure,
+    current,
+    touched,
+    changed,
+    retain_post_graph~,
+    perf~,
+  )
+}
+
+///|
+fn dae_apply_dropped_result_batch_transaction_with_exposure(
+  original_exposure : Array[DaeFunctionExposure],
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  retain_post_graph? : Bool = false,
+  perf? : HotPerfSession? = None,
+) -> DaeDroppedResultBatchApplication {
+  let graph_start_us = perf_start_timer_opt(
+    perf, "detail:dae:dropped-result-transaction:graph",
+  )
   let graph = dae_current_boundary_graph_new(current)
+  perf_stop_timer_opt(
+    perf, "detail:dae:dropped-result-transaction:graph", graph_start_us,
+  )
+  dae_apply_dropped_result_batch_transaction_on_graph(
+    original_exposure,
+    current,
+    touched,
+    changed,
+    graph,
+    retain_post_graph~,
+    perf~,
+  )
+}
+
+///|
+fn dae_apply_dropped_result_batch_transaction_on_graph(
+  original_exposure : Array[DaeFunctionExposure],
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  graph : DaeCurrentBoundaryGraph,
+  retain_post_graph? : Bool = false,
+  perf? : HotPerfSession? = None,
+  validate_candidate? : Bool = true,
+  lightweight_post_graph? : Bool = false,
+) -> DaeDroppedResultBatchApplication {
   let defined = graph.snapshot.defined
   let topology_preserved_report : Array[Bool] = []
+  let candidate_start_us = perf_start_timer_opt(
+    perf, "detail:dae:dropped-result-transaction:candidate",
+  )
   let candidate = dae_try_apply_dropped_result_batch(
     current,
-    original,
+    original_exposure,
     graph,
     topology_preserved_report~,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:dae:dropped-result-transaction:candidate", candidate_start_us,
   )
   if !candidate.changed {
     return {
@@ -20849,8 +21288,40 @@ fn dae_apply_dropped_result_batch_transaction(
     ),
     decision_reasons,
   }
-  match @validate.validate_module(candidate.mod_out) {
-    Ok(_) =>
+  let validation = if validate_candidate {
+    let validation_start_us = perf_start_timer_opt(
+      perf, "detail:dae:dropped-result-transaction:validate",
+    )
+    let result = @validate.validate_module(candidate.mod_out)
+    perf_stop_timer_opt(
+      perf, "detail:dae:dropped-result-transaction:validate", validation_start_us,
+    )
+    result
+  } else {
+    Ok(())
+  }
+  match validation {
+    Ok(_) => {
+      let graph_adopted = if retain_post_graph &&
+        topology_preserved_report.get(0) == Some(true) {
+        if lightweight_post_graph {
+          dae_current_boundary_graph_adopt_dropped_result_batch_lightweight(
+            graph,
+            candidate.mod_out,
+            finalized_effects,
+            candidate_type_indices,
+            candidate_function_types,
+          )
+        } else {
+          dae_current_boundary_graph_adopt_dropped_result_batch(
+            graph,
+            candidate.mod_out,
+            finalized_effects,
+          )
+        }
+      } else {
+        false
+      }
       {
         mod_out: candidate.mod_out,
         touched: dae_merge_touched(touched, candidate.touched),
@@ -20858,18 +21329,13 @@ fn dae_apply_dropped_result_batch_transaction(
         applied: true,
         primary_def: first_def,
         effects: finalized_effects,
-        post_graph: if retain_post_graph &&
-          topology_preserved_report.get(0) == Some(true) &&
-          dae_current_boundary_graph_adopt_dropped_result_batch(
-            graph,
-            candidate.mod_out,
-            finalized_effects,
-          ) {
+        post_graph: if graph_adopted {
           Some(graph)
         } else {
           None
         },
       }
+    }
     Err(_) =>
       {
         mod_out: current,
@@ -33685,6 +34151,186 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
     idx += 1
   }
   out
+}
+
+///|
+fn dae_strip_dropped_i32_const_pairs_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction]?, Int, Int) {
+  let mut out : Array[@lib.Instruction]? = None
+  let mut removed = 0
+  let mut stackified = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() &&
+      instrs[idx] is @lib.I32Const(_) &&
+      instrs[idx + 1] == @lib.Instruction::drop() {
+      if out is None {
+        out = Some(dae_copy_instr_prefix(instrs, idx))
+      }
+      removed += 1
+      idx += 2
+      continue
+    }
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalSet(target), @lib.LocalGet(read)) if target == read => {
+          if out is None {
+            out = Some(dae_copy_instr_prefix(instrs, idx))
+          }
+          out.unwrap().push(@lib.Instruction::local_tee(target))
+          stackified += 1
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    let rewritten_instr = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten, child_removed, child_stackified) = dae_strip_dropped_i32_const_pairs_instrs(
+          body,
+        )
+        removed += child_removed
+        stackified += child_stackified
+        match rewritten {
+          Some(body) =>
+            Some(@lib.Instruction::block(block_type, @lib.Expr::new(body)))
+          None => None
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten, child_removed, child_stackified) = dae_strip_dropped_i32_const_pairs_instrs(
+          body,
+        )
+        removed += child_removed
+        stackified += child_stackified
+        match rewritten {
+          Some(body) =>
+            Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(body)))
+          None => None
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten, child_removed, child_stackified) = dae_strip_dropped_i32_const_pairs_instrs(
+          body,
+        )
+        removed += child_removed
+        stackified += child_stackified
+        match rewritten {
+          Some(body) =>
+            Some(
+              @lib.Instruction::try_table(
+                block_type,
+                catches,
+                @lib.Expr::new(body),
+              ),
+            )
+          None => None
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (rewritten_then, then_removed, then_stackified) = dae_strip_dropped_i32_const_pairs_instrs(
+          then_body,
+        )
+        let (rewritten_else, else_removed, else_stackified) = match else_body {
+          Some(body) => dae_strip_dropped_i32_const_pairs_instrs(body)
+          None => (None, 0, 0)
+        }
+        removed += then_removed + else_removed
+        stackified += then_stackified + else_stackified
+        if then_removed + else_removed + then_stackified + else_stackified > 0 {
+          Some(
+            @lib.Instruction::if_(
+              block_type,
+              match rewritten_then {
+                Some(body) => body
+                None => then_body
+              },
+              match (else_body, rewritten_else) {
+                (_, Some(body)) => Some(body)
+                (Some(body), None) => Some(body)
+                (None, None) => None
+              },
+            ),
+          )
+        } else {
+          None
+        }
+      }
+      _ => None
+    }
+    match rewritten_instr {
+      Some(instr) => {
+        if out is None {
+          out = Some(dae_copy_instr_prefix(instrs, idx))
+        }
+        out.unwrap().push(instr)
+      }
+      None =>
+        match out {
+          Some(copy) => copy.push(instrs[idx])
+          None => ()
+        }
+    }
+    idx += 1
+  }
+  (out, removed, stackified)
+}
+
+///|
+fn dae_cleanup_touched_dropped_i32_const_pairs(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> (@lib.Module, Int, Int) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, 0, 0)
+  }
+  let mut rewritten_funcs : Array[@lib.Func]? = None
+  let mut removed = 0
+  let mut stackified = 0
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    if def_idx >= touched.length() || !touched[def_idx] {
+      def_idx += 1
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    if locals.length() < 8 {
+      def_idx += 1
+      continue
+    }
+    let (rewritten, func_removed, func_stackified) = dae_strip_dropped_i32_const_pairs_instrs(
+      body,
+    )
+    match rewritten {
+      Some(body) => {
+        removed += func_removed
+        stackified += func_stackified
+        match rewritten_funcs {
+          Some(copy) =>
+            copy[def_idx] = @lib.Func::new(locals, @lib.Expr::new(body))
+          None => {
+            let copy = funcs.copy()
+            copy[def_idx] = @lib.Func::new(locals, @lib.Expr::new(body))
+            rewritten_funcs = Some(copy)
+          }
+        }
+      }
+      None => ()
+    }
+    def_idx += 1
+  }
+  match rewritten_funcs {
+    Some(funcs) =>
+      (
+        mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec(),
+        removed,
+        stackified,
+      )
+    None => (mod_, 0, 0)
+  }
 }
 
 ///|
@@ -48464,20 +49110,106 @@ fn dae_run_nested_cleanup(
 }
 
 ///|
-fn dae_run_dropped_result_batch_only(
+fn dae_run_dropped_result_batch_only_result(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
-) -> @lib.Module {
-  let original = dae_collect_original_boundary_snapshot(mod_)
+  perf? : HotPerfSession? = None,
+  safe_parameter_batch? : Bool = false,
+  cleanup_dropped_pure_leaves? : Bool = false,
+) -> (@lib.Module, Array[Bool], Bool, Array[Bool]) {
+  let total_start_us = perf_start_timer_opt(
+    perf, "detail:dae:dropped-result-batch-only:total",
+  )
   let mut current = mod_
   let mut touched : Array[Bool] = []
+  let mut parameter_changed = false
+  let graph_start_us = perf_start_timer_opt(
+    perf, "detail:dae:dropped-result-transaction:graph",
+  )
+  let mut graph = dae_current_boundary_graph_new(current)
+  let original_local_set_get_candidates = Array::make(
+    graph.snapshot.defined,
+    false,
+  )
+  let mut candidate_def = 0
+  while candidate_def < graph.snapshot.defined {
+    let candidate_abs = graph.snapshot.imported + candidate_def
+    if candidate_abs >= 0 &&
+      candidate_abs < graph.snapshot.function_infos.length() &&
+      graph.snapshot.function_infos[candidate_abs].has_adjacent_local_set_get {
+      original_local_set_get_candidates[candidate_def] = true
+    }
+    candidate_def += 1
+  }
+  let mut cleanup_touched = Array::make(graph.snapshot.defined, false)
+  perf_stop_timer_opt(
+    perf, "detail:dae:dropped-result-transaction:graph", graph_start_us,
+  )
+  let exposure_start_us = perf_start_timer_opt(
+    perf, "detail:dae:dropped-result-batch-only:exposure",
+  )
+  let original_exposure = graph.snapshot.exposure
+  perf_stop_timer_opt(
+    perf, "detail:dae:dropped-result-batch-only:exposure", exposure_start_us,
+  )
+  if safe_parameter_batch {
+    let parameter_start_us = perf_start_timer_opt(
+      perf, "detail:dae:typed-loop-safe-batch:parameters",
+    )
+    let admission_start_us = perf_start_timer_opt(
+      perf, "detail:dae:typed-loop-safe-batch:admission",
+    )
+    let active_defs = graph.snapshot.parameter_loop_free
+    perf_stop_timer_opt(
+      perf, "detail:dae:typed-loop-safe-batch:admission", admission_start_us,
+    )
+    let parameter_candidate = dae_try_apply_unread_param_batch(
+      current,
+      active_defs=Some(active_defs),
+      require_active_callers=true,
+      allow_uniform_params=true,
+      boundary_snapshot=Some(graph.snapshot),
+      cleanup_targets=Some(cleanup_touched),
+      perf~,
+    )
+    if parameter_candidate.changed {
+      current = parameter_candidate.mod_out
+      touched = parameter_candidate.touched
+      parameter_changed = true
+      if !dae_current_boundary_graph_adopt_parameter_batch_lightweight(
+          graph, current,
+        ) {
+        graph = dae_current_boundary_graph_new(current)
+      }
+      trace(
+        "pass[dae-optimizing]:typed-loop-safe-parameter-batch first_def=\{parameter_candidate.primary_def}",
+      )
+    }
+    perf_stop_timer_opt(
+      perf, "detail:dae:typed-loop-safe-batch:parameters", parameter_start_us,
+    )
+  }
   let mut wave = 0
   while true {
-    let application = dae_apply_dropped_result_batch_transaction(
-      original,
+    let transaction_start_us = perf_start_timer_opt(
+      perf, "detail:dae:dropped-result-batch-only:transaction",
+    )
+    // This helper owns the whole fallback as one atomic transaction. Intermediate
+    // waves update only the private candidate graph; cleanup, pruning, and one
+    // final module validation decide whether any wave is published.
+    let application = dae_apply_dropped_result_batch_transaction_on_graph(
+      original_exposure,
       current,
       touched,
       wave > 0,
+      graph,
+      retain_post_graph=true,
+      perf~,
+      validate_candidate=false,
+      lightweight_post_graph=true,
+    )
+    perf_stop_timer_opt(
+      perf, "detail:dae:dropped-result-batch-only:transaction", transaction_start_us,
     )
     if !application.applied {
       break
@@ -48487,15 +49219,126 @@ fn dae_run_dropped_result_batch_only(
     )
     current = application.mod_out
     touched = application.touched
+    cleanup_touched = dae_merge_touched(
+      cleanup_touched,
+      application.effects.worth_optimizing,
+    )
     wave += 1
+    match application.post_graph {
+      Some(next_graph) => graph = next_graph
+      None => {
+        let rebuild_start_us = perf_start_timer_opt(
+          perf, "detail:dae:dropped-result-transaction:graph",
+        )
+        graph = dae_current_boundary_graph_new(current)
+        perf_stop_timer_opt(
+          perf, "detail:dae:dropped-result-transaction:graph", rebuild_start_us,
+        )
+      }
+    }
   }
-  if wave == 0 {
-    return mod_
+  if wave == 0 && !parameter_changed {
+    perf_stop_timer_opt(
+      perf, "detail:dae:dropped-result-batch-only:total", total_start_us,
+    )
+    return (mod_, [], false, [])
   }
-  let (cleaned, _) = dae_cleanup_dropped_unreachable_debris_touched(
+  let cleanup_start_us = perf_start_timer_opt(
+    perf, "detail:dae:dropped-result-batch-only:cleanup",
+  )
+  let (debris_cleaned, _) = dae_cleanup_dropped_unreachable_debris_touched(
     current, touched,
   )
-  dae_prune_unused_simple_func_types(cleaned)
+  let raw_cleaned = if cleanup_dropped_pure_leaves {
+    let cleanup_owned_count = dae_count_touched(cleanup_touched)
+    let original_local_set_get_candidate_count = dae_count_touched(
+      original_local_set_get_candidates,
+    )
+    let raw_cleanup_touched = dae_merge_touched(
+      cleanup_touched.copy(),
+      original_local_set_get_candidates,
+    )
+    let (next, removed, stackified) = dae_cleanup_touched_dropped_i32_const_pairs(
+      debris_cleaned, raw_cleanup_touched,
+    )
+    trace(
+      "pass[dae]:typed-loop-safe-raw-cleanup cleanup-owned=\{cleanup_owned_count} original-local-set-get-candidates=\{original_local_set_get_candidate_count} touched=\{dae_count_touched(raw_cleanup_touched)} min-body-locals=8 dropped-i32-const-pairs=\{removed} local-set-get-pairs=\{stackified}",
+    )
+    next
+  } else {
+    debris_cleaned
+  }
+  perf_stop_timer_opt(
+    perf, "detail:dae:dropped-result-batch-only:cleanup", cleanup_start_us,
+  )
+  let prune_start_us = perf_start_timer_opt(
+    perf, "detail:dae:dropped-result-batch-only:prune",
+  )
+  let pruned = dae_prune_unused_simple_func_types(raw_cleaned)
+  perf_stop_timer_opt(
+    perf, "detail:dae:dropped-result-batch-only:prune", prune_start_us,
+  )
+  let validation_start_us = perf_start_timer_opt(
+    perf, "detail:dae:dropped-result-transaction:validate",
+  )
+  let validation = @validate.validate_module(pruned)
+  perf_stop_timer_opt(
+    perf, "detail:dae:dropped-result-transaction:validate", validation_start_us,
+  )
+  let result = match validation {
+    Ok(_) => (pruned, touched, true, cleanup_touched)
+    Err(_) => (mod_, [], false, [])
+  }
+  perf_stop_timer_opt(
+    perf, "detail:dae:dropped-result-batch-only:total", total_start_us,
+  )
+  result
+}
+
+///|
+fn dae_run_dropped_result_batch_only(
+  mod_ : @lib.Module,
+  trace : (String) -> Unit,
+  perf? : HotPerfSession? = None,
+  safe_parameter_batch? : Bool = false,
+) -> @lib.Module {
+  let (mod_out, _, _, _) = dae_run_dropped_result_batch_only_result(
+    mod_,
+    trace,
+    perf~,
+    safe_parameter_batch~,
+  )
+  mod_out
+}
+
+///|
+fn dae_run_typed_loop_safe_batch_result(
+  mod_ : @lib.Module,
+  trace : (String) -> Unit,
+  perf? : HotPerfSession? = None,
+  cleanup_dropped_pure_leaves? : Bool = false,
+) -> (@lib.Module, Array[Bool], Bool, Array[Bool]) {
+  dae_run_dropped_result_batch_only_result(
+    mod_,
+    trace,
+    perf~,
+    safe_parameter_batch=true,
+    cleanup_dropped_pure_leaves~,
+  )
+}
+
+///|
+fn dae_run_typed_loop_safe_batch(
+  mod_ : @lib.Module,
+  trace : (String) -> Unit,
+  perf? : HotPerfSession? = None,
+) -> @lib.Module {
+  let (mod_out, _, _, _) = dae_run_typed_loop_safe_batch_result(
+    mod_,
+    trace,
+    perf~,
+  )
+  mod_out
 }
 
 ///|

@@ -146,7 +146,7 @@ test "global-refining treats abstract ref.null initializers as bottom references
 }
 
 ///|
-test "global-refining refines private ref.func initializers to exact function heap types" {
+test "global-refining refines private ref.func initializers to indexed function heap types" {
   let input =
     #| (module
     #|   (type $f_t (func))
@@ -162,11 +162,7 @@ test "global-refining refines private ref.func initializers to exact function he
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-          exact=true,
-        ),
+        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
       ),
       true,
     ),
@@ -174,7 +170,7 @@ test "global-refining refines private ref.func initializers to exact function he
 }
 
 ///|
-test "global-refining joins ref.null func initializers with exact ref.func writes" {
+test "global-refining joins ref.null func initializers with indexed ref.func writes" {
   let input =
     #| (module
     #|   (type $f_t (func))
@@ -193,11 +189,7 @@ test "global-refining joins ref.null func initializers with exact ref.func write
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(
-          true,
-          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-          exact=true,
-        ),
+        @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
       ),
       true,
     ),
@@ -205,7 +197,7 @@ test "global-refining joins ref.null func initializers with exact ref.func write
 }
 
 ///|
-test "global-refining preserves exact ref.func LUB across nullable writes" {
+test "global-refining preserves indexed ref.func LUB across nullable writes" {
   let input =
     #| (module
     #|   (type $f_t (func))
@@ -224,11 +216,7 @@ test "global-refining preserves exact ref.func LUB across nullable writes" {
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(
-          true,
-          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-          exact=true,
-        ),
+        @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
       ),
       true,
     ),
@@ -236,7 +224,7 @@ test "global-refining preserves exact ref.func LUB across nullable writes" {
 }
 
 ///|
-test "global-refining keeps non-null ref.func initializer and writes exact" {
+test "global-refining keeps non-null ref.func initializer and writes indexed" {
   let input =
     #| (module
     #|   (type $f_t (func))
@@ -255,11 +243,7 @@ test "global-refining keeps non-null ref.func initializer and writes exact" {
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-          exact=true,
-        ),
+        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
       ),
       true,
     ),
@@ -267,7 +251,7 @@ test "global-refining keeps non-null ref.func initializer and writes exact" {
 }
 
 ///|
-test "global-refining ref.func subtype LUB keeps the exact subtype" {
+test "global-refining ref.func subtype LUB keeps the indexed subtype" {
   let input =
     #| (module
     #|   (type $super (sub (func)))
@@ -285,11 +269,7 @@ test "global-refining ref.func subtype LUB keeps the exact subtype" {
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-          exact=true,
-        ),
+        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
       ),
       false,
     ),
@@ -346,7 +326,7 @@ test "global-refining refines nested i31 initializers through expression typing"
 test "global-refining refines mutable eqref i31 initializers to non-null i31" {
   let input =
     #| (module
-    #|   (global $g (mut eqref) (ref.i31 (i32.xor (i32.const 11) (i32.const 3)))))
+    #|   (global $g (mut eqref) (ref.i31 (i32.sub (i32.const 11) (i32.const 3)))))
   let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
     Ok(mod_) => mod_
     Err(err) =>

@@ -31081,19 +31081,33 @@ test "optimize-instructions preserves signed-leb-friendly negative adds" {
 }
 
 ///|
-test "optimize-instructions preserves positive add immediates for parity" {
+test "optimize-instructions prefers negative signed-LEB add immediates" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
   @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i32_add()),
+    Some(@lib.Instruction::i32_sub()),
   )
   let rhs = @ir.hot_child_get(func, root, 1)
   @debug.assert_eq(
     @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(64)),
+    @ir.HotConstPayload::i32_const(@lib.I32(-64)),
+  )
+
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 8192 i64.add))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_func, i64_root),
+    Some(@lib.Instruction::i64_sub()),
+  )
+  let i64_rhs = @ir.hot_child_get(i64_func, i64_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(i64_func, @ir.hot_node_get(i64_func, i64_rhs).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(-8192L)),
   )
 }
 
@@ -31105,7 +31119,7 @@ test "optimize-instructions canonicalizes leading positive const adds" {
   let root = @ir.hot_root_get(func, 0)
   @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i32_add()),
+    Some(@lib.Instruction::i32_sub()),
   )
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
@@ -31116,11 +31130,14 @@ test "optimize-instructions canonicalizes leading positive const adds" {
   let rhs_node = @ir.hot_node_get(func, rhs)
   match rhs_node.op {
     @ir.HotOp::Const => ()
-    _ => fail("expected leading positive add const to move to the rhs")
+    _ =>
+      fail(
+        "expected leading positive add const to become the rhs subtraction immediate",
+      )
   }
   @debug.assert_eq(
     @ir.hot_const_get(func, rhs_node.imm0),
-    @ir.HotConstPayload::i32_const(@lib.I32(64)),
+    @ir.HotConstPayload::i32_const(@lib.I32(-64)),
   )
 }
 
@@ -31586,6 +31603,33 @@ test "optimize-instructions canonicalizes default scalar float spellings" {
   let f64_div_neg_root = @ir.hot_root_get(f64_div_neg, 0)
   @debug.assert_eq(
     @ir.hot_node_exact_instr(f64_div_neg, f64_div_neg_root),
+    Some(@lib.Instruction::f64_sub()),
+  )
+
+  let f32_sub_neg = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32) (result f32) local.get 0 local.get 1 f32.neg f32.sub))",
+  )
+  let f32_sub_neg_root = @ir.hot_root_get(f32_sub_neg, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f32_sub_neg, f32_sub_neg_root),
+    Some(@lib.Instruction::f32_add()),
+  )
+  let f32_sub_neg_rhs = @ir.hot_node_get(
+    f32_sub_neg,
+    @ir.hot_child_get(f32_sub_neg, f32_sub_neg_root, 1),
+  )
+  match f32_sub_neg_rhs.op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected the original rhs local after removing f32.neg")
+  }
+  @debug.assert_eq(f32_sub_neg_rhs.imm0, 1)
+
+  let f64_add_neg = optimize_instructions_test_run_hot(
+    "(module (func (param f64 f64) (result f64) local.get 0 local.get 1 f64.neg f64.add))",
+  )
+  let f64_add_neg_root = @ir.hot_root_get(f64_add_neg, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f64_add_neg, f64_add_neg_root),
     Some(@lib.Instruction::f64_sub()),
   )
 }
@@ -54842,6 +54886,59 @@ test "optimize-instructions folds impossible ref.test and ref.cast on local i31 
   assert_true(test_struct.contains("I32(0)"), msg=test_struct)
   assert_true(cast_struct.contains("unreachable"), msg=cast_struct)
   assert_false(cast_struct.contains("ref.cast"), msg=cast_struct)
+}
+
+///|
+test "optimize-instructions folds ref.test against abstract bottom targets" {
+  let sources = [
+    @lib.ValType::anyref(),
+    @lib.ValType::externref(),
+    @lib.ValType::funcref(),
+    @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::exn())),
+    @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::cont())),
+  ]
+  let targets = [
+    @lib.HeapType::abs(@lib.AbsHeapType::none()),
+    @lib.HeapType::abs(@lib.AbsHeapType::no_extern()),
+    @lib.HeapType::abs(@lib.AbsHeapType::no_func()),
+    @lib.HeapType::abs(@lib.AbsHeapType::no_exn()),
+    @lib.HeapType::abs(@lib.AbsHeapType::no_cont()),
+  ]
+  let types : Array[@lib.RecType] = []
+  let func_types : Array[@lib.TypeIdx] = []
+  let funcs : Array[@lib.Func] = []
+  for idx = 0; idx < sources.length(); idx = idx + 1 {
+    types.push(
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([sources[idx]], [@lib.ValType::i32()]),
+        ),
+      ),
+    )
+    func_types.push(@lib.TypeIdx::new(idx.reinterpret_as_uint()))
+    funcs.push(
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::ref_test(false, targets[idx]),
+        ]),
+      ),
+    )
+  }
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new(types))
+    .with_func_sec(@lib.FuncSec::new(func_types))
+    .with_code_sec(@lib.CodeSec::new(funcs)),
+  )
+  for idx = 0; idx < sources.length(); idx = idx + 1 {
+    let pretty = optimized.pretty_print_func(
+      @lib.FuncIdx::new(idx.reinterpret_as_uint()),
+    )
+    assert_false(pretty.contains("ref.test"), msg=pretty)
+    assert_true(pretty.contains("I32(0)"), msg=pretty)
+  }
 }
 
 ///|

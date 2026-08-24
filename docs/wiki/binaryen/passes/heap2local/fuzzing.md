@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-08-21
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -11,6 +11,21 @@ sources:
 ---
 
 # `heap2local` Fuzzing Profile
+
+## 2026-08-21 packed local-read correctness repair
+
+Native SHA-256 `de2470509283618793ca6103b0e64ce33a5c14c3e67c4fae1436fb3a56b19a67` repairs mutable packed arrays scalarized into i32 locals. The local-owner path previously replaced `array.get`, `array.get_s`, and `array.get_u` uniformly with `local.get`. Because array writes keep the raw i32 producer in the scalar local, signed and unsigned packed reads still require Wasm storage conversion: i8/i16 signed reads now append `i32.extend8_s` / `i32.extend16_s`, while unsigned reads append `& 0xff` / `& 0xffff`. Unpacked value arrays retain the direct local read.
+
+This was a true semantic failure in the final8 WAGO artifacts. The i8 fixture returned 128 and 255 instead of -128 and -1; the i16 fixture returned 32768 and 65535 instead of -32768 and -1. Rebuilding from retained pre-fold artifacts now produces byte-identical Binaryen outputs at 90 and 95 bytes, and every exported result matches pinned Binaryen. Focused Heap2Local coverage is 22/22. Precompute's immutable packed-array path and the final fresh-array fold already handled signedness correctly; focused regressions now lock positive sign-bit patterns in all three owners.
+
+Explicit pinned-v131 repair smoke uses `.tmp/binaryen-version-131-bin/bin/wasm-opt`:
+
+- regular `.tmp/pass-fuzz-heap2local-final9-packed-sign-v131-regular-1000`: 1,000/1,000 normalized, zero failures or mismatches;
+- dedicated `.tmp/pass-fuzz-heap2local-final9-packed-sign-v131-dedicated-1000`: 244 normalized plus 756 established smaller Starshine local/default/drop-debris residuals, zero validation/property/generator/command failures; all 756 are smaller, no scanned H2L operation has presence drift, and no residual contains `array.get_s` or `array.get_u`;
+- wasm-smith `.tmp/pass-fuzz-heap2local-final9-packed-sign-v131-wasm-smith-1000`: 997/1,000 normalized, three Binaryen command failures, zero mismatches or Starshine failures;
+- bounded random-all `.tmp/pass-fuzz-heap2local-final9-packed-sign-v131-random-all-100`: 85 normalized plus 15 smaller residuals, zero validation/property/generator/command failures, and no packed get residual. Two constructor-presence differences belong to `memory-packing-boundaries` and `ssa-nomerge-smoke`, not Heap2Local leaves.
+
+These are repair smoke lanes, not a replacement for the existing full four-lane closeout matrix below.
 
 Regular direct lane:
 

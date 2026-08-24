@@ -2010,6 +2010,7 @@ fn OiHeapRelationMatchFact::proves_module_heap_match(
 priv enum OiHeapRelationMissKind {
   HeapRelationNoKnownMiss
   HeapRelationI31CannotMatchTarget
+  HeapRelationBottomTargetCannotMatchSource
   HeapRelationAbsStructArrayDisjoint
   HeapRelationConcreteSourceNoTargetOverlap
 }
@@ -2017,6 +2018,20 @@ priv enum OiHeapRelationMissKind {
 ///|
 priv struct OiHeapRelationMissFact {
   kind : OiHeapRelationMissKind
+}
+
+///|
+fn optimize_instructions_heap_is_bottom(heap : @lib.HeapType) -> Bool {
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::none()) ||
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::no_extern()) ||
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::no_func()) ||
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::no_exn()) ||
+  heap == @lib.HeapType::abs(@lib.AbsHeapType::no_cont()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::none()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::no_extern()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::no_func()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::no_exn()) ||
+  heap == @lib.HeapType::shared_abs(@lib.AbsHeapType::no_cont())
 }
 
 ///|
@@ -2031,6 +2046,8 @@ fn OiHeapRelationMissFact::from_heaps(
   let kind = if source == @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
     OiI31HeapTargetFact::from_target(target).proves_miss_target() {
     HeapRelationI31CannotMatchTarget
+  } else if source != target && optimize_instructions_heap_is_bottom(target) {
+    HeapRelationBottomTargetCannotMatchSource
   } else if OiAbsStructArrayHeapRelationFact::from_heaps(source, target).proves_disjoint_target() {
     HeapRelationAbsStructArrayDisjoint
   } else if OiConcreteSourceTargetOverlapFact::from_heaps(
@@ -2052,6 +2069,7 @@ fn OiHeapRelationMissFact::proves_known_miss_target(
   match self.kind {
     HeapRelationNoKnownMiss => false
     HeapRelationI31CannotMatchTarget
+    | HeapRelationBottomTargetCannotMatchSource
     | HeapRelationAbsStructArrayDisjoint
     | HeapRelationConcreteSourceNoTargetOverlap => true
   }
@@ -2065,6 +2083,7 @@ fn OiHeapRelationMissFact::proves_abs_struct_array_disjoint(
     HeapRelationAbsStructArrayDisjoint => true
     HeapRelationNoKnownMiss
     | HeapRelationI31CannotMatchTarget
+    | HeapRelationBottomTargetCannotMatchSource
     | HeapRelationConcreteSourceNoTargetOverlap => false
   }
 }
@@ -31721,6 +31740,39 @@ fn optimize_instructions_try_rewrite_float_binary(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
+  // Binaryen v131 canonicalizes a negated right floating operand before the
+  // constant-specific rules below: `x + (-y)` becomes `x - y`, and
+  // `x - (-y)` becomes `x + y`. Unary float negation is exact bit-sign
+  // inversion, so removing it while flipping the binary opcode preserves NaN
+  // payload freedom, signed zero, evaluation order, and all operand effects.
+  if OiLiveNodeFact::proves_node_live(func, dead, rhs_id) &&
+    @ir.hot_child_count(func, rhs_id) == 1 {
+    let replacement_instr = match
+      (instr, @ir.hot_node_exact_instr(func, rhs_id)) {
+      (@lib.Instruction::F32Add, Some(@lib.Instruction::F32Neg)) =>
+        Some(@lib.Instruction::f32_sub())
+      (@lib.Instruction::F32Sub, Some(@lib.Instruction::F32Neg)) =>
+        Some(@lib.Instruction::f32_add())
+      (@lib.Instruction::F64Add, Some(@lib.Instruction::F64Neg)) =>
+        Some(@lib.Instruction::f64_sub())
+      (@lib.Instruction::F64Sub, Some(@lib.Instruction::F64Neg)) =>
+        Some(@lib.Instruction::f64_add())
+      _ => None
+    }
+    match replacement_instr {
+      Some(replacement_instr) => {
+        optimize_instructions_rewrite_exact_with_children(
+          ctx,
+          func,
+          node_id,
+          replacement_instr,
+          [lhs_id, @ir.hot_child_get(func, rhs_id, 0)],
+        )
+        return true
+      }
+      None => ()
+    }
+  }
   match (instr, optimize_instructions_f32_const(func, dead, rhs_id)) {
     (@lib.Instruction::F32Sub, Some(@lib.F32(raw))) => {
       let replacement_rhs = @ir.hot_build_const_f32(func, @lib.F32(-raw))
@@ -32241,6 +32293,18 @@ fn optimize_instructions_try_rewrite_add_sub(
       )
       return true
     }
+    (@lib.Instruction::I32Add, Some(@lib.I32(raw))) if raw > 0 &&
+      optimize_instructions_prefer_negative_leb_i32(raw) => {
+      let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(-raw))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_sub(),
+        [lhs_id, replacement_rhs],
+      )
+      return true
+    }
     _ => ()
   }
   match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
@@ -32251,6 +32315,18 @@ fn optimize_instructions_try_rewrite_add_sub(
     }
     (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if raw < 0L &&
       !optimize_instructions_prefer_negative_leb_i64(-raw) => {
+      let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_sub(),
+        [lhs_id, replacement_rhs],
+      )
+      true
+    }
+    (@lib.Instruction::I64Add, Some(@lib.I64(raw))) if raw > 0L &&
+      optimize_instructions_prefer_negative_leb_i64(raw) => {
       let replacement_rhs = @ir.hot_build_const_i64(func, @lib.I64(-raw))
       optimize_instructions_rewrite_exact_with_children(
         ctx,

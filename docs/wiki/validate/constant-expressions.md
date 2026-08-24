@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-22
 sources:
   - https://webassembly.github.io/spec/core/valid/instructions.html#constant-expressions
   - https://webassembly.github.io/spec/core/valid/modules.html
@@ -38,7 +38,7 @@ A WebAssembly **constant expression** is a small expression that is evaluated du
 - active element-segment offsets;
 - function-reference and GC/reference element expressions.
 
-Current official Core validation rules and checked-in validator tests supersede the pre-2026-06-07 claim that Starshine rejected Core GC array constructors in initializer contexts; the older raw captures remain historical provenance. The current official WebAssembly 3.0 validation docs define a bounded constant-instruction predicate and warn that the accepted list can grow in future versions. Starshine currently accepts a broader local set in `validate_const_instr(...)` and, since 2026-06-07, accepts the Core `array.new`, `array.new_default`, and `array.new_fixed` subset when the type index resolves to an array and ordinary constant-expression typechecking succeeds. Keep the local/spec split visible when writing portable fixtures, pass contracts, or generator claims.
+Current official Core validation rules and checked-in validator tests supersede both the pre-2026-06-07 claim that Starshine rejected Core GC array constructors and the later claim that Starshine intentionally accepted a broad numeric extension. As of 2026-08-22, every constant-expression context uses one default-deny allowlist in `validate_const_instr(...)`: constants, context-valid immutable `global.get`, the permitted reference/GC constructors and conversions, and only integer `i32`/`i64` `add`, `sub`, and `mul` from the WebAssembly 3.0 numeric extension. Division/remainder, bitwise operations, shifts/rotates, comparisons, floating arithmetic, bit counts, sign extensions, reinterpretations, and unsupported conversions are rejected.
 
 ## Beginner Model
 
@@ -82,19 +82,20 @@ The helper is used by global validation, table initializer validation, active da
 
 For binary/data layout details, pair this page with [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). For fixture-facing WAST text, use [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md), and [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md).
 
-## Official List Versus Starshine Local List
+## Unified Core Allowlist And Local Proposal Additions
 
 The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. Its context-sensitive `global.get` rule is easy to misread: global initializers can refer to imported or previous globals, while table initializers may refer only to imported globals. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). Keep the official array-constructor allowance separate from Starshine's ordinary body support for `array.*` instructions; the local gate and focused tests below establish the current boundary.
 
-Starshine's local [`validate_const_instr(...)`](../../../src/validate/validate.mbt) is **not identical** to that official list:
+Starshine's [`validate_const_instr(...)`](../../../src/validate/validate.mbt) now mirrors the bounded Core numeric rule instead of maintaining numeric denylists per context. The shared allowlist contains:
 
-- it is broader for many scalar integer and floating comparison, unary, binary, conversion, reinterpret, sign-extension, and saturating-truncation instructions;
-- it is broader for local reference/string forms such as `RefIsNull`, `RefEq`, `RefAsNonNull`, `StringConst`, `StructNewDesc`, and `StructNewDefaultDesc`;
-- it includes `AnyConvertExtern`, `ExternConvertAny`, `RefI31`, `I31GetS`, and `I31GetU`;
-- it includes `StructNew` / `StructNewDefault` when the type resolves as a struct; and
-- it includes the official GC-array constructor subset `ArrayNew`, `ArrayNewDefault`, and `ArrayNewFixed` when the type index resolves as an array, including table initializer and element payload contexts.
+- `i32.const`, `i64.const`, `f32.const`, `f64.const`, and `v128.const`;
+- immutable, context-visible `global.get`;
+- `i32.add/sub/mul` and `i64.add/sub/mul` only;
+- `ref.null`, `ref.func`, `ref.i31`, `any.convert_extern`, and `extern.convert_any`;
+- `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, and `array.new_fixed` after type resolution; and
+- Starshine's separately proposal-gated/local `string.const` and descriptor-bearing struct constructor forms.
 
-This is a **local Starshine validation policy**, not a blanket portability statement. When a page or test needs strict official WebAssembly behavior, cite the official source and avoid relying on Starshine-only constant forms. Conversely, do not assume every official constant-expression form is locally accepted until `validate_const_instr(...)` and focused tests say so. When a pass creates or rewrites module-level initializers, it may use Starshine's local validator as the immediate safety gate, but it should still document whether the result is intended to be portable to external engines.
+Everything else is rejected by default. In particular, `div`/`rem`, integer bitwise and shift/rotate families, integer and float comparisons, floating arithmetic, `clz`/`ctz`/`popcnt`, `i31.get_*`, `ref.is_null`, `ref.eq`, `ref.as_non_null`, numeric reinterpret/sign-extension/saturating/conversion instructions, calls, memory/table operations, control flow, and stack operators are not constant instructions. The same gate is used for globals, optional table initializers, active data offsets, active element offsets, and element payload expressions; there is no offset-only numeric denylist.
 
 ### Core array constructors: accepted core fixtures, not WAST text
 
@@ -154,7 +155,7 @@ Starshine rejects this before ordinary type mismatch questions because `drop` is
 - **Do not move arbitrary function-body code into initializers.** A body-valid expression can still be invalid in a constant-expression context because it uses locals, labels, memory, calls, drops, table ops, mutable globals, multiple results, or unreachable stack polymorphism.
 - **Preserve declaration order and validation phase context.** Reordering globals can invalidate `global.get` initializers unless references are rewritten and the new order still exposes only immutable imports or earlier globals. Do not use a local-defined global in an optional core table initializer today: Starshine validates tables before globals, and the current official table rule is imported-only.
 - **Keep active offsets distinct from memory/table immediates.** Memory/table lowering passes must repair active segment offsets separately from load/store `MemArg` fields and runtime table instructions.
-- **Treat trapping local extensions with care.** Some locally accepted Starshine constant-instruction forms, such as integer division or reference non-null checks, can have runtime failure modes. Moving them across startup/runtime boundaries needs an explicit semantic proof. GC array construction now has local allow-list and focused validator evidence, but passes should still preserve operand constness and array type-index validity before emitting `array.new*` in an initializer.
+- **Do not recreate the removed broad numeric policy.** Integer division/remainder, bitwise operations, shifts/rotates, comparisons, float arithmetic, bit counts, sign extensions, reinterpretations, and unsupported conversions are ordinary body instructions, not WebAssembly 3.0 constant instructions. GC array construction remains allowlisted, but passes must preserve operand constness and array type-index validity before emitting `array.new*` in an initializer.
 - **Use the generator ledger vocabulary.** `[FZG]008` records `ConstExprVariants` coverage in [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md). It proves Starshine can deliberately emit and measure widened valid constant-expression families; it does not prove every WAST text spelling or every official-portability claim. Use `gen_valid_const_expr_observed_op_matrix(...)` when a fuzzer report needs the finer context/op-family attribution for global initializers, active offsets, element payloads, or table initializers.
 - **Add invalid strategies for user-visible failures.** New constant-expression rejections should have stable invalid-AST strategies when they are durable validator behavior. Existing examples include mutable global reads and non-constant active offsets.
 
@@ -180,6 +181,7 @@ When changing constant-expression behavior:
 3. If WAST text syntax is involved, update the relevant authoring page and `src/wast` parser/lowerer/printer tests.
 4. If generator coverage changes, update `[FZG]008` rows in [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 5. Re-run the ordinary validation gate from [`../tooling/validation-gates.md`](../tooling/validation-gates.md); pass-specific rewrites still need Binaryen oracle comparison when an upstream pass owns equivalent behavior.
+6. Preserve the table-driven rejection matrix across global initializers, table initializers, active data/element offsets, and element payloads for division/remainder, bitwise, shift/rotate, comparison, float arithmetic, bit-count, and unsupported-conversion families.
 
 ## Sources
 

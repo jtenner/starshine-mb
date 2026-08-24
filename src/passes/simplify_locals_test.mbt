@@ -2651,6 +2651,93 @@ test "simplify-locals stack-carries alternating integer recurrence locals" {
 }
 
 ///|
+test "simplify-locals stack-carries repeated three-local additive loop recurrences" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    loop
+    #|      local.get 0
+    #|      if
+    #|        local.get 0 local.get 2 i32.add local.tee 1
+    #|        local.get 3 i32.add local.tee 2
+    #|        local.get 1 i32.add local.set 3
+    #|        local.get 0 local.get 2 i32.add local.tee 1
+    #|        local.get 3 i32.add local.tee 2
+    #|        local.get 1 i32.add local.set 3
+    #|        local.get 0 local.get 2 i32.add local.tee 1
+    #|        local.get 3 i32.add local.tee 2
+    #|        local.get 1 i32.add local.set 3
+    #|        local.get 0 i32.const 1 i32.sub local.set 0
+    #|        br 1
+    #|      end
+    #|    end
+    #|    local.get 3 local.get 2 i32.add local.get 1 i32.add))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected three-local recurrence forwarding, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    simplify_locals_test_count_substring(pretty, "local.get (Local 3)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    simplify_locals_test_count_substring(pretty, "local.tee (Local 3)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals stack-carries alternating v128 bitselect loop assignments" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local v128 v128)
+    #|    loop
+    #|      local.get 0
+    #|      if
+    #|        local.get 1 local.get 2
+    #|        v128.const i32x4 1 2 3 4
+    #|        v128.bitselect local.set 1
+    #|        local.get 2 local.get 1
+    #|        v128.const i32x4 1 2 3 4
+    #|        v128.bitselect local.set 2
+    #|        local.get 1 local.get 2
+    #|        v128.const i32x4 1 2 3 4
+    #|        v128.bitselect local.set 1
+    #|        local.get 2 local.get 1
+    #|        v128.const i32x4 1 2 3 4
+    #|        v128.bitselect local.set 2
+    #|        local.get 0 i32.const 1 i32.sub local.set 0
+    #|        br 1
+    #|      end
+    #|    end
+    #|    local.get 1 local.get 2 v128.xor i32x4.extract_lane 0))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected alternating bitselect forwarding, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.tee (Local 2)"), msg=pretty)
+  @debug.assert_eq(
+    simplify_locals_test_count_substring(pretty, "local.set (Local 1)"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    simplify_locals_test_count_substring(pretty, "local.set (Local 2)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "simplify-locals forwards SIMD carriers before generic loop-carrier fallback" {
   let source =
     #|(module
@@ -3813,6 +3900,37 @@ test "simplify-locals stackifies safe nested pair under structured tee guard" {
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "simplify-locals resultifies a tail local beside return call" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $recur (param i64 i64) (result i64) (local i64)
+        #|    local.get 0
+        #|    i64.eqz
+        #|    if
+        #|      local.get 1
+        #|      local.set 2
+        #|    else
+        #|      local.get 0
+        #|      local.get 1
+        #|      return_call $recur
+        #|    end
+        #|    local.get 2))
+        #|,
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected return-call tail resultification, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
 }
 
 ///|

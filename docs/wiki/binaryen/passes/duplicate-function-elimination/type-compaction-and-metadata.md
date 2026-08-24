@@ -259,6 +259,23 @@ So the practical parity rule is:
 - first compare the core upstream DFE contract
 - only then compare the extra local normalization layers
 
+## 2026-08-21 transitive kept-type remap repair
+
+The final16 WAGO replay exposed a correctness bug in the Starshine-local type-compaction layer, not in upstream DFE proper. When duplicate leaf function types collapsed, `dfe_canonicalize_duplicate_simple_type_indices(...)` rewrote module-wide uses through the old-to-new map but then reinstalled the original, unrewritten retained type definitions. A kept function type that referred to a removed duplicate therefore preserved a stale index.
+
+On `typed-function-references/type-equivalence.5`, direct DFE merged the equivalent leaf functions and then failed final validation because `call_indirect` and `ref.func` no longer agreed. Later O4z cleanup masked the invalid intermediate shape by replacing the returning body with `unreachable`, changing runtime behavior. Final16 recursively applies the same type remap to each retained definition that actually mentions a remapped index before installing the compacted type section.
+
+Red-first coverage in `src/passes/duplicate_function_elimination_test.mbt` constructs duplicate leaf signatures plus transitive function-reference signatures and asserts the nested retained parameter points at the canonical type. Command coverage in `src/cmd/cmd_wbtest.mbt` runs the returning indirect-call family through `-O4z` and rejects the old `unreachable` body.
+
+Fresh final16 results:
+
+- `type-equivalence.5`: 34 → 33 bytes, byte-identical to Binaryen; 100 fresh source, Binaryen, and Starshine instances return normally.
+- `type-equivalence.8`: 66 → 59 bytes, byte-identical to Binaryen.
+- Direct DFE output for the first family independently validates.
+- No other stable-cohort artifact changes.
+
+The performance guard remains bounded: retained definitions are recursively rebuilt only when `dfe_rec_type_uses_remap(...)` proves that the definition references a remapped index. A 500-pair pass-local comparison measures 134.5 µs before versus 133.0 µs after.
+
 ## Practical rule for future docs and code reviews
 
 When future work touches local DFE behavior, classify it honestly.

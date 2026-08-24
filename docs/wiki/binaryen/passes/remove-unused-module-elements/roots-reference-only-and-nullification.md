@@ -114,8 +114,10 @@ In closed-world mode Starshine now preserves that distinction:
 - a plain `ref.func` can keep a declaration while allowing an uncalled definition body to become `unreachable`
 - a compatible `call_ref` upgrades matching referenced targets to callable/strongly used
 - an unknown or runtime-modified indirect-call table can conservatively upgrade the relevant referenced target set
+- a runtime-used composite elem expression recursively contributes every nested `ref.func`, so a later compatible `call_ref` can upgrade the embedded target to callable
+- when one `ref.func` keeps an indivisible composite declaration expression, sibling `ref.func`s in that same expression remain reference-only instead of being remapped through deleted function indices
 
-So `call_ref` can keep a function body live even when there is no direct named `call`; plain declaration reachability need not.
+So `call_ref` can keep a function body live even when there is no direct named `call`; plain declaration reachability need not. Composite GC constructors do not weaken that rule merely because the `ref.func` is not the expression's sole instruction.
 
 ## Why GC field types matter here
 

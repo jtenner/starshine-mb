@@ -2209,6 +2209,57 @@ fn h2l_try_fold_direct_array_ref_test(
 }
 
 ///|
+fn h2l_build_array_local_read(
+  func : @ir.HotFunc,
+  element : @lib.FieldType,
+  local_idx : Int,
+  access : @lib.Instruction?,
+) -> Int? {
+  let local_get = @ir.hot_build_local_get(func, local_idx)
+  match (element.get_storage_type(), access) {
+    (@lib.ValTypeStorageType(_), Some(@lib.ArrayGet(_))) => Some(local_get)
+    (@lib.PackTypeStorageType(@lib.I8PackType), Some(@lib.ArrayGetS(_))) => {
+      let extended = @ir.hot_build_unary(func, @lib.ValType::i32(), local_get)
+      @ir.hot_node_exact_instr_set(
+        func,
+        extended,
+        @lib.Instruction::i32_extend8s(),
+      )
+      Some(extended)
+    }
+    (@lib.PackTypeStorageType(@lib.I16PackType), Some(@lib.ArrayGetS(_))) => {
+      let extended = @ir.hot_build_unary(func, @lib.ValType::i32(), local_get)
+      @ir.hot_node_exact_instr_set(
+        func,
+        extended,
+        @lib.Instruction::i32_extend16s(),
+      )
+      Some(extended)
+    }
+    (@lib.PackTypeStorageType(pack_type), Some(@lib.ArrayGetU(_))) => {
+      let mask = @ir.hot_build_const_i32(
+        func,
+        @lib.I32(
+          match pack_type {
+            @lib.I8PackType => 0xff
+            @lib.I16PackType => 0xffff
+          },
+        ),
+      )
+      let masked = @ir.hot_build_binary(
+        func,
+        @lib.ValType::i32(),
+        local_get,
+        mask,
+      )
+      @ir.hot_node_exact_instr_set(func, masked, @lib.Instruction::i32_and())
+      Some(masked)
+    }
+    _ => None
+  }
+}
+
+///|
 fn h2l_apply_array_candidate(
   func : @ir.HotFunc,
   candidate : H2LArrayCandidate,
@@ -2251,13 +2302,12 @@ fn h2l_apply_array_candidate(
         ),
       )
     } else {
-      match @ir.hot_node_exact_instr(func, use_site.user_node_id) {
-        Some(@lib.Instruction::ArrayGet(_))
-        | Some(@lib.Instruction::ArrayGetS(_))
-        | Some(@lib.Instruction::ArrayGetU(_)) =>
-          Some(@ir.hot_build_local_get(func, element_locals[use_site.index]))
-        _ => None
-      }
+      h2l_build_array_local_read(
+        func,
+        candidate.element,
+        element_locals[use_site.index],
+        @ir.hot_node_exact_instr(func, use_site.user_node_id),
+      )
     }
     match replacement {
       Some(replacement_id) => {

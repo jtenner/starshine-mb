@@ -870,6 +870,17 @@ pub fn inlining_nested_function_pipeline_passes(
 }
 
 ///|
+fn hot_pipeline_o4z_late_convergence_passes() -> Array[String] {
+  [
+    "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals", "vacuum",
+    "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals", "vacuum",
+    "ssa-nomerge", "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals",
+    "vacuum", "ssa-nomerge", "simplify-locals-nostructure", "coalesce-locals-cfg",
+    "reorder-locals", "vacuum",
+  ]
+}
+
+///|
 fn hot_pipeline_full_preset_passes_with_features(
   options : HotPipelineOptions,
   features : HotPipelineFeatureFacts,
@@ -940,13 +951,7 @@ fn hot_pipeline_full_preset_passes_with_features(
   // convergence extension after stripping stale local-name metadata. Two
   // bounded SSA-normalization waves then expose the measured residual copy
   // families and immediately clean the introduced locals.
-  passes.append([
-    "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals", "vacuum",
-    "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals", "vacuum",
-    "ssa-nomerge", "simplify-locals-nostructure", "coalesce-locals-cfg", "reorder-locals",
-    "vacuum", "ssa-nomerge", "simplify-locals-nostructure", "coalesce-locals-cfg",
-    "reorder-locals", "vacuum",
-  ])
+  passes.append(hot_pipeline_o4z_late_convergence_passes())
   passes
 }
 
@@ -1126,6 +1131,23 @@ fn run_hot_pipeline_entry_can_stack(entry : HotPassRegistryEntry) -> Bool {
 }
 
 ///|
+fn run_hot_pipeline_entries_match_names(
+  entries : Array[HotPassRegistryEntry],
+  start : Int,
+  names : Array[String],
+) -> Bool {
+  if start < 0 || start + names.length() > entries.length() {
+    return false
+  }
+  for idx = 0; idx < names.length(); idx = idx + 1 {
+    if entries[start + idx].name != names[idx] {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_format_final_validate_error(
   before_mod : @lib.Module,
   mod_ : @lib.Module,
@@ -1164,6 +1186,7 @@ pub fn run_hot_pipeline(
     options.shrink_level >= 4 &&
     requested_passes.any(fn(name) { name == "optimize" || name == "shrink" })
   let mut ssa_wave = 0
+  let mut skip_o4z_late_convergence_entries = 0
   let pending_hot_passes : Array[HotPassRegistryEntry] = []
   let flush_hot_passes = fn() -> Result[Unit, String] {
     if pending_hot_passes.length() == 0 {
@@ -1192,7 +1215,14 @@ pub fn run_hot_pipeline(
     pending_hot_passes.clear()
     Ok(())
   }
-  for entry in entries {
+  for entry_idx, entry in entries {
+    if skip_o4z_late_convergence_entries > 0 {
+      (options.trace)(
+        "pass[\{entry.name}]:skip reason=artifact-scale-late-convergence",
+      )
+      skip_o4z_late_convergence_entries -= 1
+      continue
+    }
     if entry.name == "remove-unused-brs" && artifact_scale_o4z_preset {
       let defined_func_count = dae_defined_func_count(current)
       if !run_hot_pipeline_o4z_remove_unused_brs_selected(defined_func_count) {
@@ -1262,6 +1292,21 @@ pub fn run_hot_pipeline(
         }
       }
       _ => ()
+    }
+    if artifact_scale_o4z_preset && entry.name == "strip-debug" {
+      let late_convergence = hot_pipeline_o4z_late_convergence_passes()
+      let defined_func_count = dae_defined_func_count(current)
+      if run_hot_pipeline_entries_match_names(
+          entries,
+          entry_idx + 1,
+          late_convergence,
+        ) &&
+        !run_hot_pipeline_o4z_late_convergence_selected(defined_func_count) {
+        skip_o4z_late_convergence_entries = late_convergence.length()
+        (options.trace)(
+          "pipeline:o4z-late-convergence:skip reason=artifact-scale-defined-functions count=\{defined_func_count} passes=\{skip_o4z_late_convergence_entries}",
+        )
+      }
     }
   }
   match flush_hot_passes() {

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-20
 sources:
   - ./index.md
 related:
@@ -55,7 +55,7 @@ Why this happens:
 - it is more specific than broad `funcref`
 - the global is private and safe to rewrite
 
-## Positive family 2: init-only `ref.func` exact function type
+## Positive family 2: init-only `ref.func` indexed function type
 
 Before:
 
@@ -68,15 +68,16 @@ Before:
 After, conceptually:
 
 ```wat
-(global $g (mut (ref (exact $foo_t))) (ref.func $foo))
+(global $g (mut (ref $foo_t)) (ref.func $foo))
 ```
 
 Why this matters:
 
-- Binaryen is willing to infer an exact internal function-ref type for a private global
+- pinned Binaryen v131 infers a non-null indexed function-ref type for a private global
+- `ref.func` is not an exact reference; exactness remains reserved for allocation constructors and other proven exact producers
 - this is a declaration refinement, not a constant-folding rewrite
 
-## Positive family 3: exact function ref plus later null write
+## Positive family 3: indexed function ref plus later null write
 
 Before:
 
@@ -90,16 +91,16 @@ Before:
 After, conceptually:
 
 ```wat
-(global $g (mut (ref null (exact $foo_t))) (ref.func $foo))
+(global $g (mut (ref null $foo_t)) (ref.func $foo))
 ```
 
 Why this happens:
 
-- one observed value is the exact function ref
+- one observed value is the indexed function ref
 - another observed value is null
-- the LUB becomes nullable exact, not broad `funcref`
+- the LUB becomes nullable indexed, not broad `funcref`
 
-## Positive family 4: all observed values are non-null exact function refs
+## Positive family 4: all observed values are non-null indexed function refs
 
 Before:
 
@@ -114,7 +115,7 @@ Before:
 After, conceptually:
 
 ```wat
-(global $g (mut (ref (exact $foo_t))) (ref.func $foo))
+(global $g (mut (ref $foo_t)) (ref.func $foo))
 ```
 
 Why this matters:
@@ -187,7 +188,7 @@ Before:
 After, conceptually:
 
 ```wat
-(global $a (ref (exact $sub)) (ref.func $func))
+(global $a (ref $sub) (ref.func $func))
 (global $b (ref $super) (global.get $a))
 ```
 

@@ -133,6 +133,41 @@ test "SGO touched rollback snapshot deep copies nested instruction bodies" {
 }
 
 ///|
+test "optimize-instructions reuses one module validation environment" {
+  let trace : Array[String] = []
+  let trace_fn = fn(line) { trace.push(line) }
+  let perf = HotPerfSession::new(
+    trace=trace_fn,
+    dump_options=HotPerfDumpOptions::new(),
+  )
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) local.get 0 i32.const 0 i32.add) (func (param i32) (result i32) local.get 0 i32.const 0 i32.add))",
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(trace_fn), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected shared validation environment success, got \{err}")
+  }
+  for func_idx in [0U, 1U] {
+    let pretty = optimized.pretty_print_defined_func(func_idx)
+    assert_false(pretty.contains("i32.add"), msg=pretty)
+  }
+  assert_eq(
+    trace
+    .filter(fn(line) {
+      line.contains(
+        "perf:timer name=analysis:optimize-instructions-validation-module-env",
+      )
+    })
+    .length(),
+    1,
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "optimize-instructions reports raw admission and HOT setup phase timings" {
   let trace : Array[String] = []
   let perf = HotPerfSession::new(
@@ -414,6 +449,70 @@ test "optimize-instructions raw function index classifies bridge candidates once
 }
 
 ///|
+test "optimize-instructions raw function index owns early admission guards" {
+  let target_local = @lib.LocalIdx::new(2U)
+  let guarded = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 4UL)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_ne(),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_shl(),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::i32_const(@lib.I32(20)),
+    @lib.Instruction::i32_sub(),
+    @lib.Instruction::local_set(target_local),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::local_tee(target_local),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(3U))]),
+    ),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 8UL)),
+    @lib.Instruction::try_table(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [],
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+    ),
+  ])
+  assert_true(guarded.admission_guards.has_call_value_store_offset)
+  assert_true(guarded.admission_guards.has_call_comparison_add)
+  assert_true(guarded.admission_guards.has_stack_carried_call_zero_shift)
+  assert_true(guarded.admission_guards.has_subtracted_local_multi_use)
+  assert_true(guarded.admission_guards.has_global_call_tee_control())
+  assert_true(
+    guarded.admission_guards.has_dynamic_store_offset_value_arithmetic,
+  )
+  assert_true(guarded.admission_guards.has_result_try_table)
+  assert_false(guarded.admission_guards.has_const_fold_candidate)
+
+  let const_fold = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_eqz(),
+  ])
+  assert_true(const_fold.admission_guards.has_const_fold_candidate)
+
+  let alias_index = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::local_tee(target_local),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  ])
+  assert_true(alias_index.has_stack_carried_tee_parameter_alias(1))
+  assert_false(alias_index.has_stack_carried_tee_parameter_alias(0))
+}
+
+///|
 test "optimize-instructions raw function index records reusable top-level roots" {
   let callee = @lib.FuncIdx::new(4U)
   let type_idx = @lib.TypeIdx::new(2U)
@@ -642,6 +741,50 @@ test "optimize-instructions bulk lowering consumes indexed region roots" {
     }
     None => fail("expected indexed bulk lowering rewrite")
   }
+}
+
+///|
+test "optimize-instructions raw index gates effectful sibling rewrites" {
+  let module_ctx = @ir.hot_module_context_from_module(@lib.Module::new())
+  let empty = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+  assert_false(empty.has_effectful_sibling_rewrite_candidate(module_ctx))
+  let selected = RawOiFunctionRevisionFactIndex::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::select(),
+  ])
+  assert_true(selected.has_effectful_sibling_rewrite_candidate(module_ctx))
+}
+
+///|
+test "optimize-instructions effectful preflight dispatches from terminal roots" {
+  let module_ctx = @ir.hot_module_context_from_module(@lib.Module::new())
+  let irrelevant = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::drop(),
+  ])
+  assert_false(irrelevant.has_effectful_sibling_rewrite_candidate(module_ctx))
+  let selected = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::select(),
+  ])
+  assert_true(selected.has_effectful_sibling_rewrite_candidate(module_ctx))
+  let identical_if = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [@lib.Instruction::i32_const(@lib.I32(9))],
+      Some([@lib.Instruction::i32_const(@lib.I32(9))]),
+    ),
+  ])
+  assert_true(identical_if.has_effectful_sibling_rewrite_candidate(module_ctx))
 }
 
 ///|
@@ -24694,6 +24837,8 @@ test "O4z coalesce admits medium modules while bounding production-scale artifac
   assert_true(run_hot_pipeline_o4z_coalesce_local_count_selected(2000, 50001))
   assert_true(run_hot_pipeline_o4z_coalesce_local_count_selected(100, 512))
   assert_false(run_hot_pipeline_o4z_coalesce_local_count_selected(100, 513))
+  assert_true(run_hot_pipeline_o4z_late_convergence_selected(1999))
+  assert_false(run_hot_pipeline_o4z_late_convergence_selected(2000))
   assert_true(run_hot_pipeline_o4z_cfg_coalesce_module_selected(1999))
   assert_false(run_hot_pipeline_o4z_cfg_coalesce_module_selected(2000))
   assert_true(run_hot_pipeline_o4z_remove_unused_brs_selected(1999))

@@ -322,6 +322,10 @@ test "simplify-globals-optimizing perf trace breaks down core phases" {
     msg=text,
   )
   assert_true(
+    text.contains("perf:timer name=detail:sgo:nested:validate-final"),
+    msg=text,
+  )
+  assert_true(
     text.contains("perf:timer name=detail:sgo:nested:optimize-instructions"),
     msg=text,
   )
@@ -675,6 +679,48 @@ test "simplify-globals-optimizing simplifies locals in the final cleanup suffix"
     }),
     msg=trace.to_string(),
   )
+}
+
+///|
+test "simplify-globals-optimizing defers broad final cleanup for O4z stateful Emscripten" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (global $g i32 (i32.const 7))
+      #|  (func (export "_main") (result i32) global.get $g)
+      #|  (func (export "runPostSets"))
+      #|  (func (export "stackAlloc") (param i32) (result i32) local.get 0)
+      #|  (func (export "stackSave") (result i32) i32.const 0)
+      #|  (func (export "stackRestore") (param i32))
+      #|  (func (export "run") (result i32) (local i32)
+      #|    i32.const 9
+      #|    local.set 0
+      #|    local.get 0
+      #|    return)
+      #|,
+    ),
+  )
+  for _idx = 0; _idx < 38; _idx = _idx + 1 {
+    source.write_string("  (func)\n")
+  }
+  source.write_string(")")
+  let (optimized, trace) = sgo_test_run_with_trace_at_levels(
+    source.to_string(),
+    4,
+    2,
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-globals-optimizing]:final-cleanup-suffix skipped=true reason=o4z-stateful-emscripten-later-schedule",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  let pretty = optimized.pretty_print_defined_func(5U)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
 }
 
 ///|

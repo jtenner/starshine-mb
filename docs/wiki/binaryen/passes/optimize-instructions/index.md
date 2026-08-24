@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-08-22
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
@@ -39,6 +39,18 @@ related:
 The representable Binaryen v131 surface is closed at parity or measured Starshine wins. Starshine now covers one- or two-evaluation equal-input `ref.eq`, trap-sensitive cast peeling, identical-arm `select` localization and directional barriers, non-concrete arm bailouts, idempotent-call parent/child effect ordering, raw double-`eqz` completion, and the precomputed late-O4z select shape. The explicit-v131 four-lane closeout has no validation/property failures, no size-losing canonical residual, and no unclassified comparable family.
 
 One upstream fixture remains a **representation blocker, not an optimizer deferral**: `optimize-instructions-global-effects-idempotent.wast` uses ordered memory atomics (`acqrel`) and shared GC types that Starshine's current text/binary instruction model cannot faithfully decode. The ordinary mutable-global idempotent ordering contract is regression-covered; the acquire/release-specific deep-effect pair must reopen when ordered memory-atomic representation lands.
+
+## August 22 production performance repair
+
+The 4,977,401-byte production artifact exposed a module-scale implementation problem rather than expensive visitor logic. Before this repair, every function that reached stack-transfer admission called `@validate.Env::new().with_module(mod_)`. On a module with roughly 12,000 functions, this repeatedly recollected the complete module type and declaration environment. OptimizeInstructions also owned seven standalone recursive guard scans and ran recursive sparse-table, constant-fold, and effectful-sibling mutation walkers before proving that a candidate existed.
+
+The hot-pass module state now caches one module validation environment. Each function still receives its own locals and return-type overlay, while the shared module declarations remain immutable. The existing `RawOiFunctionRevisionFactIndex` now owns the former call/store-offset, call/comparison/add, call/zero-shift, global/call/tee/control, subtracted-local, dynamic-store, result-`try_table`, sparse-table, constant-fold, and parameter-alias guards. The sparse-table and constant-fold walkers run only for indexed candidates or after a preceding rewrite changes the revision. The effectful-sibling walker receives an exact preflight over the already-indexed regions, including its flat rewrite facts and identical/local/global `if`-arm rewrites. That preflight now dispatches from distinctive terminal roots (`ref.cast_desc`, bulk memory, `if`, `select`, loads/stores, and scalar numeric terminals) instead of attempting every fact parser at every operand position. The superseded recursive scanners were deleted.
+
+On the canonical production input, direct no-trace wall time falls from a 6.717-second median to a final rebuilt 1.898-second median, a 3.54x speedup and 71.7% reduction. Representative traced pipeline time falls from 6.103 to 0.983 seconds, a 6.21x speedup and 83.9% reduction. Final native SHA-256 `1e35f458bc37b44ffa58dcbb657a9e14d77028bb0def77ab9746030a4d33dc15` emits byte-identical 4,974,092-byte output SHA-256 `2b2bb372f6dd4cea254b1bb47205852df158de7cbedc4100d674f22a5113c9b4`, which validates externally. Verified Binaryen v131's direct whole-command median is 0.507 seconds: the traced Starshine pipeline is now about 1.94x Binaryen's complete command, satisfying both the sub-one-second pass-local and sub-two-second whole-command targets.
+
+Full no-trace O4z samples after the repair span 116.390–119.283 seconds versus the 127.316-second DAEO checkpoint. The exact final terminal-dispatch binary measured 119.283 seconds while preserving the exact 4,637,852-byte output and SHA-256 `c8d21481c2f1cd0c7a1b62c0284b44bfedf185a9268aa93c4024558d1669823a`; aggregate host variance is larger than the isolated 90-millisecond direct-pass gain. Remaining final traced OptimizeInstructions owners are lowering 0.219 seconds, HOT pass work 0.129, revision indexing 0.099, visitor roots 0.096, batch writeback validation 0.064, raw descriptor/preflight work 0.053, and lifting 0.036.
+
+The final aggregate `pass-oi-all` signoff requested and compared 10,000 cases at seed `0x5eed`: 8,920 normalized matches, the established 1,080 strictly smaller tuple-wrapper residuals, and zero validation, property, generator, or command failures. Every residual selects `pass-oi-tuple`; canonical deltas are -41..-5 bytes with a -9,952-byte aggregate and zero nonnegative cases. The Node runtime subsystem checked 8,657 cases with 1,343 unsupported and no execution failures; its comparable summary contains 3,107 equal results, 256 equal traps, and zero semantic mismatches. The final replay uses native SHA-256 `1e35f458bc37b44ffa58dcbb657a9e14d77028bb0def77ab9746030a4d33dc15` and records Binaryen cache 8,943 hits / 1,057 misses. This current aggregate lane revalidates the routing change against the maintained v131 profile; the historical complete four-lane closeout remains the broader parity record.
 
 ## Role
 

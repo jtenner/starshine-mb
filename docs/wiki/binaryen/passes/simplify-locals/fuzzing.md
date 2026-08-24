@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-08-20
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -13,6 +13,24 @@ sources:
 ---
 
 # SimplifyLocals family fuzzing profiles
+
+## Tail-call nonfallthrough resultification — 2026-08-20
+
+Native SHA-256 `b536e6105356d6b51dc10c7954047c933159dd46809b7c47566f979198a91093` extends the existing structured tail-local resultification proof to `return_call`, `return_call_indirect`, and `return_call_ref`. These operations cannot fall through, so when the sibling arm ends in the only live local assignment and the next use reads that local, SimplifyLocals can make the `if` result-typed and remove the carrier. Existing type, use-count, typed-control, and branch-owner guards remain unchanged.
+
+Focused SimplifyLocals behavior is 95/95. The typed-function-reference `return_call_ref.0` retained artifact falls 472 → 460 bytes, two bytes smaller than Binaryen, while fresh-instance probes preserve all constant exports, the null `unreachable` trap, factorial accumulator results, count recursion, and even/odd results.
+
+All smoke uses explicit pinned `.tmp/binaryen-version-131-bin/bin/wasm-opt`. Regular `.tmp/pass-fuzz-simplify-locals-final8-regular-1000` compares 1,000/1,000 with 1,000 normalized matches. Dedicated `.tmp/pass-fuzz-simplify-locals-final8-dedicated-1000` compares 1,000/1,000 and reproduces only established stronger Starshine families: every output is 4..56 bytes smaller, aggregate -25,294, with zero failures. Explicit wasm-smith `.tmp/pass-fuzz-simplify-locals-final8-wasm-smith-1000` compares 997/1,000 with 997 normalized matches and three Binaryen command failures. Bounded random-all `.tmp/pass-fuzz-simplify-locals-final8-random-all-100` completes 100/100 with 55 normalized matches and 45 existing cross-pass residuals; zero validation/property/generator/command failures occur, and no residual is attributed to the tail-call classifier.
+
+## Exact loop recurrence carriers — 2026-08-20
+
+Native SHA-256 `316f270a1cb94441c97400931fde91370caa924c9ec1aa8d5f40949230fdf996` adds two exact repeated-loop transforms before the broad unconditional-backedge lifetime bailout. The three-local i32 form carries the third value across at least two identical `local.get seed; local.get second; i32.add; local.tee first; local.get third; i32.add; local.tee second; local.get first; i32.add; local.set third` rounds. The alternating SIMD form carries the old right value across at least two exact shared-constant `v128.bitselect` assignment pairs. Both require distinct locals, preserve every assignment point with tees, preserve operand and effect order, and stop at the first nonmatching round.
+
+Focused behavior is 94/94. `isa_var` falls 507 → 451 bytes with 12/12 runtime checks; `isa_simd_v128` falls 2,188 → 2,126, exact Binaryen size, with 36/36 runtime checks. The full ISA lane remains 1,394/1,394.
+
+All authoritative smoke runs use explicit pinned `.tmp/binaryen-version-131-bin/bin/wasm-opt`; earlier same-day attempts that defaulted to system v116 are discarded. Regular GenValid `.tmp/pass-fuzz-simplify-locals-pass8-recurrences-v131-regular-1000` compared 1,000/1,000 with 1,000 normalized matches and zero failures. Dedicated aggregate `.tmp/pass-fuzz-simplify-locals-pass8-recurrences-v131-profile-1000` compared 1,000/1,000 and reproduced only established stronger Starshine cleanup families: every residual is smaller, ranging 4..56 bytes and totaling -25,294 bytes, with zero command, validation, property, or generator failures. Selected counts were effect-order 126, flat-parent 125, local-traffic 187, structure-result 189, family-coverage 311, and stress 62.
+
+Explicit wasm-smith `.tmp/pass-fuzz-simplify-locals-pass8-recurrences-v131-wasm-smith-1000` compared 997/1,000 with 997 normalized matches, three cached Binaryen command failures, and no mismatches or validation/property/generator failures. Random-all `.tmp/pass-fuzz-simplify-locals-pass8-recurrences-v131-random-all-1000` hit the command timeout after 911 records: 556 normalized matches, 355 existing cross-pass residuals, zero validation/property/generator/command failures, and no residual attributable to either new recurrence family. This partial random lane is development smoke, not closeout evidence.
 
 ## Bounded stack-carried local-get refresh — 2026-08-14
 

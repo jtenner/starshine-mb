@@ -129,13 +129,25 @@ pub fn no_partial_inline_summary() -> String
 
 pub fn o4z_canonicalize_final_size_candidate(@lib.Module) -> @lib.Module
 
+pub fn o4z_canonicalize_final_size_candidate_with_changed(@lib.Module) -> (@lib.Module, Bool)
+
+pub fn o4z_canonicalize_final_size_ifs_stateful_candidate(@lib.Module) -> @lib.Module
+
+pub fn o4z_canonicalize_final_size_store_carries(@lib.Module) -> @lib.Module
+
 pub fn o4z_outline_similar_size_functions(@lib.Module) -> @lib.Module
+
+pub fn o4z_prune_final_size_unreferenced_globals(@lib.Module) -> @lib.Module
+
+pub fn o4z_restore_optimized_primes_variadic_pack_funcs(@lib.Module, @lib.Module) -> @lib.Module
 
 pub fn o4z_size_candidate_has_observable_assemblyscript_memory(@lib.Module) -> Bool
 
 pub fn o4z_size_candidate_has_observable_assemblyscript_run(@lib.Module) -> Bool
 
 pub fn o4z_size_candidate_has_observable_assemblyscript_startup(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(@lib.Module) -> Bool
 
 pub fn o4z_size_candidate_has_root_default_local_copy(@lib.Module) -> Bool
 
@@ -144,6 +156,10 @@ pub fn o4z_size_candidate_has_small_dense_i64_mul(@lib.Module) -> Bool
 pub fn o4z_size_candidate_has_stack_carried_simd_trunc_global_write(@lib.Module) -> Bool
 
 pub fn o4z_size_candidate_has_stateful_emscripten_main_runtime(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_unobservable_atomic_fence(@lib.Module) -> Bool
+
+pub fn o4z_size_candidate_has_unreferenced_defined_global(@lib.Module) -> Bool
 
 pub fn o4z_size_candidate_has_unsafe_emscripten_main_runtime(@lib.Module) -> Bool
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-25
+last_reviewed: 2026-08-22
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_argument_elimination.mbt
@@ -37,7 +37,8 @@ related:
 - The current repo no-DWARF default optimize path uses the related later pass `dae-optimizing`, not this plain variant.
 - The two passes share the same core engine in upstream `version_131`; `dae-optimizing` is the plain DAE algorithm plus one extra nested cleanup rerun. The `version_130...version_131` source comparison leaves `DeadArgumentElimination.cpp` and its helper owners unchanged; v131 updates the expected unreachable local write from `local.tee` to `local.set` in `dae-gc.wast` and `dae2.wast`.
 - [`source-case-map.md`](./source-case-map.md) maps every represented Binaryen-v131 source fixture to current focused coverage, including TNH behavior. [`completion-matrix.md`](./completion-matrix.md) remains the detailed release ledger, and [`de-artifacting-inventory.md`](./de-artifacting-inventory.md) records removed gates plus the current generated size evidence.
-- The 2026-07-21 artifact closeout fixes a real mixed-type local-projection bug: a removed slot that the exact body still reads must have constant replacement evidence or a typed local projection. Plain DAE now validates and is byte-idempotent at `2,991,169` bytes, SHA-256 `f7bbacf174d6b1edacddc3f60abef4a107b385b14f86fc5373d7c3e6ac025c72`, with `85.329s` productive and `64.277s` idempotent medians; canonical Starshine is `9,670` bytes smaller than Binaryen v131.
+- The 2026-07-21 artifact closeout fixes a real mixed-type local-projection bug: a removed slot that the exact body still reads must have constant replacement evidence or a typed local projection. That historical artifact validates and is byte-idempotent at `2,991,169` bytes, SHA-256 `f7bbacf174d6b1edacddc3f60abef4a107b385b14f86fc5373d7c3e6ac025c72`, with `85.329s` productive and `64.277s` idempotent medians; canonical Starshine is `9,670` bytes smaller than Binaryen v131.
+- The August 22 production typed-loop lane no longer enters the unrestricted shared core. Direct `--dae` on the 4,977,401-byte canonical production input had exceeded 150 seconds; a final pre-repair 45-second trace reached only two core commits. Large typed-loop plain DAE now uses the same bounded safe parameter/result batch as guarded DAEO: unread and uniform-literal parameters require parameterized-loop-disjoint callees and direct callers, dropped results converge atomically, and non-typed modules retain the unrestricted core. The current native SHA-256 `6c8d732b2d840fc06c021bd36d0b2e7860b72b2b08bdff022973e72c0c65171d` preserves the established 2.848-second whole-command / 1.814-second pass-local evidence and emits the unchanged 4,974,439-byte output, SHA-256 `75897ed1f6ecc8d8590145b2119023bba3682c01ee422e9bc7d4c8adcf15dc12`. The August 23 touched-only `i32.const; drop` cleanup and high-local reorder are optimizing-only and do not run for plain DAE. The output validates externally and the repository Node/WASI runner starts successfully. `.tmp/daeo-audit-20260822/fuzz-plain-dae-bounded-final-300` compares 300/300 cases: 263 equal runtime results, 37 unsupported cases, zero runtime failures or semantic mismatches, and zero validation, generator, property, or command failures.
 
 ## Why it matters
 
