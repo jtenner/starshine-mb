@@ -3271,9 +3271,10 @@ fn simplify_locals_scan_region(
     if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
     }
-    for dependency_id in simplify_locals_preceding_future_call_dependencies(
-      func, region_ref, idx, node_id,
-    ) {
+    for
+      dependency_id in simplify_locals_preceding_future_call_dependencies(
+        func, region_ref, idx, node_id,
+      ) {
       if simplify_locals_scan_node(
           func,
           dependency_id,

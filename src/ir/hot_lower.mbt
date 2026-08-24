@@ -667,6 +667,86 @@ fn hot_lower_impl_collect_preceding_dependency(
 }
 
 ///|
+fn hot_lower_impl_mark_local_writes(
+  func : HotFunc,
+  node_id : NodeId,
+  writes : Array[Bool],
+  seen : Array[Bool],
+) -> Unit {
+  if node_id < 0 ||
+    node_id >= seen.length() ||
+    seen[node_id] ||
+    !hot_node_is_live(func, node_id) {
+    return
+  }
+  seen[node_id] = true
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::LocalSet | HotOp::LocalTee =>
+      if node.imm0 >= 0 && node.imm0 < writes.length() {
+        writes[node.imm0] = true
+      }
+    _ => ()
+  }
+  for input_id in hot_lower_impl_input_info(func, node_id).nodes {
+    hot_lower_impl_mark_local_writes(func, input_id, writes, seen)
+  }
+}
+
+///|
+fn hot_lower_impl_reads_written_local(
+  func : HotFunc,
+  node_id : NodeId,
+  writes : Array[Bool],
+  seen : Array[Bool],
+) -> Bool {
+  if node_id < 0 ||
+    node_id >= seen.length() ||
+    seen[node_id] ||
+    !hot_node_is_live(func, node_id) {
+    return false
+  }
+  seen[node_id] = true
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::LocalGet if node.imm0 >= 0 &&
+      node.imm0 < writes.length() &&
+      writes[node.imm0] => return true
+    _ => ()
+  }
+  for input_id in hot_lower_impl_input_info(func, node_id).nodes {
+    if hot_lower_impl_reads_written_local(func, input_id, writes, seen) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_lower_impl_carried_local_write_conflicts(
+  func : HotFunc,
+  carried_id : NodeId,
+  current_root : NodeId,
+) -> Bool {
+  let writes = Array::make(hot_local_count(func), false)
+  hot_lower_impl_mark_local_writes(
+    func,
+    carried_id,
+    writes,
+    Array::make(hot_node_count(func), false),
+  )
+  if !writes.any(fn(written) { written }) {
+    return false
+  }
+  hot_lower_impl_reads_written_local(
+    func,
+    current_root,
+    writes,
+    Array::make(hot_node_count(func), false),
+  )
+}
+
+///|
 fn hot_lower_impl_emit_preceding_future_dependencies(
   func : HotFunc,
   current_root : NodeId,
@@ -680,26 +760,31 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   extra_locals : Array[ValType],
   options : HotLowerOptions,
 ) -> Unit {
-  match hot_query_op(func, current_root) {
-    HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => ()
-    _ => return
-  }
-  if hot_node_result_arity(func, current_root) != 0 {
-    return
-  }
+  let call_order_required = hot_node_result_arity(func, current_root) == 0 &&
+    (match hot_query_op(func, current_root) {
+      HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => true
+      _ => false
+    })
   let seen = Array::make(hot_node_count(func), false)
   let carried : Array[NodeId] = []
   for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
-    let inputs = hot_lower_impl_input_info(func, future_roots[idx])
-    for input_id in inputs.nodes {
-      hot_lower_impl_collect_preceding_dependency(
-        func, input_id, current_root, seen, carried,
-      )
-    }
+    hot_lower_impl_collect_preceding_dependency(
+      func,
+      future_roots[idx],
+      current_root,
+      seen,
+      carried,
+    )
   }
   carried.sort_by(fn(left, right) { left.compare(right) })
   for node_id in carried {
-    if !hot_lower_impl_stack_has_node(stack, node_id) {
+    if (
+        call_order_required ||
+        hot_lower_impl_carried_local_write_conflicts(
+          func, node_id, current_root,
+        )
+      ) &&
+      !hot_lower_impl_stack_has_node(stack, node_id) {
       hot_lower_impl_emit_value(
         func, node_id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
         options,

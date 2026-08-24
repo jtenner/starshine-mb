@@ -2857,6 +2857,34 @@ test "hot lower preserves stack-carried call before intervening effect" {
 }
 
 ///|
+test "hot lower preserves stack-carried local tee before later local read" {
+  let module_ = match
+    @wast.wast_to_binary_module(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param i32) (result i32) (local i32)
+        #|    local.get 0
+        #|    local.tee 1
+        #|    i32.load
+        #|    local.get 1
+        #|    i32.load
+        #|    drop))
+        #|,
+      ),
+    ) {
+    Ok(module_) => module_
+    Err(err) => fail("expected module to parse, got \{err}")
+  }
+  let original = match module_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[0]
+    None => fail("expected code section")
+  }
+  let lowered = hot_lower_func(hot_lift_func(module_, @lib.FuncIdx::new(0U)))
+  @debug.assert_eq(lowered, original)
+}
+
+///|
 test "hot lower preserves result blocks consumed by local.set" {
   let body = @lib.Expr::new([
     @lib.Instruction::block(
