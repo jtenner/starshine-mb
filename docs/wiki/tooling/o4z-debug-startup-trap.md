@@ -53,9 +53,26 @@ The historical host-visible symptom was `RuntimeError: unreachable`; the August 
 - The current explicit 69-pass main artifact validates and passes runtime replay. Function-body hybridization across 676 precompute-changed functions isolated function 7851; the direct Hot lift/lower and pass-level precompute regressions preserve the producer call before the intervening effect.
 - With that fix, exact main plus `precompute` and `vacuum` passes runtime. Canonicalized-body hybridization then isolated function 29; the focused regression is `O4z final canonicalizer preserves nested tees read by the continuation`.
 - Function 8102 is covered by `simplify-locals-nostructure keeps initialization before stack-carried call read`; function 8889 is covered by the result-if unsafe-write invariant; function 8788 is covered by `hot lower preserves stack-carried local tee before later local read`.
-- The full 69-pass main sequence and selected `optimized-scalar-final-cleanup` artifact are runtime-safe. `bun validate self-opt-smoke` passes, including `tests/spec/address.wast`, and the native-versus-self-hosted optimizer preflight is byte-identical.
-- Current native SHA-256: `85030cc82e3276936808ddf389cfbae4b065dc5bc136aaa4bbb03b7312549912`. Current self-optimized size: `4,834,323` bytes; SHA-256: `3f73d1233539418fd30506243728cdd3e711aeeadf0f3a463e7c88ebf8bc233d`.
-- Generated replay and bisection artifacts remain under `.tmp/self-opt-current-prefix-bisect/`, `.tmp/self-opt-address-prefix-bisect/`, `.tmp/self-opt-main-after-coalesce/`, `.tmp/isolate-final-precompute.py`, and `.tmp/isolate-final-canonical.py`.
+- A stronger direct-use replay then exposed two additional failures on `o4z-debug-startup-map-init-repro.wasm`. Native O4z first diverged at prefix 24 `simplify-locals`, function 3: multi-use sets crossed stack-carried values and intervening local writes. The focused regression `simplify-locals preserves stack-clearing set below a later local result` now keeps both the reduced result tuple and the complete native O4z runtime equal to the original.
+- The rebuilt self-optimized CLI still trapped while optimizing that 192,813-byte input. Artifact-prefix bisection placed the first failure at main prefix 39 `dae-optimizing`; staged replay proved the typed-loop DAE batch and nested SimplifyLocals were safe, while nested `coalesce-locals` failed. Hybridization across 346 changed bodies isolated absolute function 7769: a copied allocation pointer remained live through local 21, but straight-line coloring reused its slot for local 45 before the late read. Linear interference construction now makes source-write/destination-read hazards authoritative while retaining the explicit-zero/implicit-default exception.
+- The rebuilt 4,837,174-byte self-optimized CLI validates and passes `bun validate self-opt-smoke`. It directly optimizes the startup repro without trapping, emits byte-identical native/self-hosted output of 188,035 bytes with SHA-256 `af12261f248dd97693365a7ea82f03a7c21d6b6c536b90edd9f1502a78758829`, and the original, native output, and self-hosted output all exit zero under `--help`. Artifact SHA-256: `7b0593904275ad51cfe9de9e024fc708fb3bae77168fbd0653a0a61309812ea2`.
+- Generated replay and bisection artifacts remain under `.tmp/self-opt-current-prefix-bisect/`, `.tmp/self-opt-address-prefix-bisect/`, `.tmp/self-opt-main-after-coalesce/`, `.tmp/self-optimized-cli-smoke-bisect/`, and `.tmp/direct-binary-smoke/self-optimized-after-coalesce-lifetime/`.
+
+## August 24 WAGO functional closeout
+
+The WAGO execution-manifest lane now covers 48 executable modules and 323 specified calls, including repeated invocations and exported memory/global/table snapshots. Native and rebuilt self-hosted O4z optimize all 48 inputs, all 96 outputs validate independently, native/self-hosted outputs are byte-identical for every module, and all 323 native plus all 323 self-hosted observations match the originals.
+
+The audit exposed and repaired these additional unsafe families:
+
+- `remove-unused-brs` moved effectful conditions and local initializers while flattening result-if ladders. Condition-local write/read ordering is now guarded; the focused condition-operand regression remains in `remove_unused_brs_test.mbt`.
+- `optimize-instructions` raw memory-offset folding mistook a shift constant inside a stack-carried store value for the store address. The raw three-instruction fold now requires a self-contained scalar value leaf.
+- commutative OptimizeInstructions canonicalization swapped local operands across a preceding sibling write. Root-use analysis now rejects swaps when a source-older local read crosses that write.
+- `merge-blocks` flattened a block whose later result consumed a source-older local read across an earlier sibling write. Root flattening now preserves that dependency.
+- `merge-locals` retargeted source-older reads and, even after rejecting the rewrite, allowed temporary instrumentation to force unsafe lowering. Source-order admission and a pre-instrumentation stack-carried-copy boundary now preserve the accumulator.
+- `ssa-nomerge` exposed several independent artifact-scale families: stacked call results, tee/call loop carriers, default-materialization across tee/load and load/set lifetimes, typed-loop load/set debris, and numeric i64 encoder helpers. The raw planner now fails closed or rolls back only on the corresponding semantic evidence; focused SSA and white-box regressions cover each boundary.
+- the post-canonical O4z `remove-unused-brs` cleanup reordered the Fibonacci accumulator copy. The raw six-instruction accumulator proof now keeps that candidate unchanged.
+
+Final evidence is under `.tmp/wago-o4z-functional-20260824/` and `.tmp/self-optimized-cli-smoke-bisect/`. The rebuilt self-optimized artifact is 4,849,752 bytes with SHA-256 `03a541df56b597e074e95bac8095494c832c114521c141b9ce2731f443655d6c`.
 
 ## Current TDD guard
 

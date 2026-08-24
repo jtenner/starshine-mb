@@ -154,6 +154,50 @@ test "merge-locals accepts the O4z copy-balancing pass spelling" {
 }
 
 ///|
+test "merge-locals preserves source reads evaluated before a later copy" {
+  let input =
+    #|(module
+    #|  (func (export "fib") (param i32) (result i64) (local i64 i64)
+    #|    i64.const 0
+    #|    local.set 1
+    #|    i64.const 1
+    #|    local.set 2
+    #|    loop
+    #|      block
+    #|        block
+    #|          local.get 0
+    #|          i32.eqz
+    #|          br_if 1
+    #|          local.get 1
+    #|          local.get 2
+    #|          i64.add
+    #|          local.get 2
+    #|          local.set 1
+    #|          local.set 2
+    #|          local.get 0
+    #|          i32.const 1
+    #|          i32.sub
+    #|          local.set 0
+    #|          br 2
+    #|        end
+    #|        unreachable
+    #|      end
+    #|    end
+    #|    local.get 1))
+  let optimized = match pass_test_run_pipeline(input, ["merge-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-carried copy preservation, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 1))(local.get (Local 2))i64.add(local.get (Local 2))(local.set (Local 1))(local.set (Local 2))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "merge-locals retargets same-typed source gets after copy" {
   let optimized = match
     pass_test_run_pipeline(

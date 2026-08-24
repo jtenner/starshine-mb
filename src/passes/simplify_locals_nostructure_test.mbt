@@ -4600,3 +4600,31 @@ test "simplify-locals bulk adjacent tee skips scalar signed division" {
     msg=trace.to_string(),
   )
 }
+
+///|
+test "simplify-locals-nostructure scans deeply nested AssemblyScript dispatchers once per structured edge" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (param i32)")
+  for _ in 0..<60 {
+    input.write_string(" block")
+  }
+  input.write_string(" local.get 0 br_table")
+  for label = 0; label < 60; label = label + 1 {
+    input.write_string(" ")
+    input.write_string(label.to_string())
+  }
+  input.write_string(" 59")
+  for _ in 0..<60 {
+    input.write_string(" end")
+  }
+  input.write_string("))")
+  match
+    pass_test_run_pipeline(
+      input.to_string(),
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected bounded nested-dispatch scan, got \{err}")
+  }
+}

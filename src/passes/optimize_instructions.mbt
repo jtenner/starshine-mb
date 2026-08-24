@@ -16698,6 +16698,186 @@ fn OiCommutativeOperandSwapFact::proves_should_swap(
 }
 
 ///|
+fn optimize_instructions_root_use_region_ref(
+  func : @ir.HotFunc,
+  node_id : Int,
+  holder_id : Int,
+  slot : Int,
+) -> @ir.HotRegionRef? {
+  let holder = @ir.hot_node_get(func, holder_id)
+  for info in @ir.hot_control_region_slot_info(holder.op) {
+    let region_ref = match info.role {
+      @ir.HotControlRegionRole::BodyRegion =>
+        Some(@ir.hot_region_body_ref(func, holder_id))
+      @ir.HotControlRegionRole::ThenRegion =>
+        Some(@ir.hot_region_then_ref(func, holder_id))
+      @ir.HotControlRegionRole::ElseRegion =>
+        @ir.hot_region_else_ref(func, holder_id)
+      @ir.HotControlRegionRole::CatchRegion =>
+        @ir.hot_region_catch_ref(func, holder_id)
+      @ir.HotControlRegionRole::CatchListRegion =>
+        Some(@ir.hot_region_catch_list_ref(func, holder_id))
+    }
+    match region_ref {
+      Some(region_ref) =>
+        if slot < @ir.hot_region_root_count(func, region_ref) &&
+          @ir.hot_region_get(func, region_ref, slot) == node_id {
+          return Some(region_ref)
+        }
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn optimize_instructions_subtree_writes_local_after_read(
+  func : @ir.HotFunc,
+  node_id : Int,
+  local_a : Int,
+  read_a : Int,
+  local_b : Int,
+  read_b : Int,
+  seen : @bitset.BitSet,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if node_id >= seen.length() {
+    seen.grow(node_id + 1)
+  }
+  if seen[node_id] {
+    return false
+  }
+  seen[node_id] = true
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      if (node.imm0 == local_a && node_id > read_a) ||
+        (node.imm0 == local_b && node_id > read_b) {
+        return true
+      }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if optimize_instructions_subtree_writes_local_after_read(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        local_a,
+        read_a,
+        local_b,
+        read_b,
+        seen,
+      ) {
+      return true
+    }
+  }
+  for info in @ir.hot_control_region_slot_info(node.op) {
+    let region_ref = match info.role {
+      @ir.HotControlRegionRole::BodyRegion =>
+        Some(@ir.hot_region_body_ref(func, node_id))
+      @ir.HotControlRegionRole::ThenRegion =>
+        Some(@ir.hot_region_then_ref(func, node_id))
+      @ir.HotControlRegionRole::ElseRegion =>
+        @ir.hot_region_else_ref(func, node_id)
+      @ir.HotControlRegionRole::CatchRegion =>
+        @ir.hot_region_catch_ref(func, node_id)
+      @ir.HotControlRegionRole::CatchListRegion =>
+        Some(@ir.hot_region_catch_list_ref(func, node_id))
+    }
+    match region_ref {
+      Some(region_ref) =>
+        for idx = 0
+            idx < @ir.hot_region_root_count(func, region_ref)
+            idx = idx + 1 {
+          if optimize_instructions_subtree_writes_local_after_read(
+              func,
+              @ir.hot_region_get(func, region_ref, idx),
+              local_a,
+              read_a,
+              local_b,
+              read_b,
+              seen,
+            ) {
+            return true
+          }
+        }
+      None => ()
+    }
+  }
+  false
+}
+
+///|
+fn optimize_instructions_local_swap_crosses_preceding_write(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let lhs = @ir.hot_node_get(func, lhs_id)
+  let rhs = @ir.hot_node_get(func, rhs_id)
+  match (lhs.op, rhs.op) {
+    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => ()
+    _ => return false
+  }
+  let use_def = pass_require_use_def(ctx, func)
+  let mut current = node_id
+  for hops = 0; hops < 64; hops = hops + 1 {
+    ignore(hops)
+    if @ir.node_use_count(use_def, current) != 1 {
+      return false
+    }
+    let sites = @ir.node_use_sites_borrowed(use_def, current)
+    if sites.length() != 1 {
+      return false
+    }
+    let site = sites[0]
+    match site.kind {
+      @ir.HotUseSlotKind::ChildUseSlot => {
+        if site.user < 0 {
+          return false
+        }
+        current = site.user
+      }
+      @ir.HotUseSlotKind::RootUseSlot => {
+        let region_ref = if site.user == -1 {
+          @ir.HotRegionRef::root()
+        } else {
+          match
+            optimize_instructions_root_use_region_ref(
+              func,
+              current,
+              site.user,
+              site.slot,
+            ) {
+            Some(region_ref) => region_ref
+            None => return false
+          }
+        }
+        let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
+        for idx = 0; idx < site.slot; idx = idx + 1 {
+          if optimize_instructions_subtree_writes_local_after_read(
+              func,
+              @ir.hot_region_get(func, region_ref, idx),
+              lhs.imm0,
+              lhs_id,
+              rhs.imm0,
+              rhs_id,
+              seen,
+            ) {
+            return true
+          }
+        }
+        return false
+      }
+    }
+  }
+  false
+}
+
+///|
 fn optimize_instructions_try_canonicalize_commutative(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -16716,7 +16896,10 @@ fn optimize_instructions_try_canonicalize_commutative(
   if !OiCommutativeOperandSwapFact::from_operands(func, dead, lhs_id, rhs_id).proves_should_swap() {
     return false
   }
-  if !OiLeadingOperandSwapFact::from_operands(ctx, func, lhs_id, rhs_id).proves_swappable() {
+  if optimize_instructions_local_swap_crosses_preceding_write(
+      ctx, func, node_id, lhs_id, rhs_id,
+    ) ||
+    !OiLeadingOperandSwapFact::from_operands(ctx, func, lhs_id, rhs_id).proves_swappable() {
     return false
   }
   optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [

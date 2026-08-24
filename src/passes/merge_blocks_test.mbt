@@ -152,6 +152,74 @@ test "merge-blocks defers large structured SIMD local carriers" {
 }
 
 ///|
+test "merge-blocks scans deeply nested AssemblyScript dispatchers once per structured edge" {
+  let input = StringBuilder::new()
+  input.write_string("(module (func (param i32)")
+  for _ in 0..<60 {
+    input.write_string(" block")
+  }
+  input.write_string(" local.get 0 br_table")
+  for label = 0; label < 60; label = label + 1 {
+    input.write_string(" ")
+    input.write_string(label.to_string())
+  }
+  input.write_string(" 59")
+  for _ in 0..<60 {
+    input.write_string(" end")
+  }
+  input.write_string("))")
+  match pass_test_run_pipeline(input.to_string(), ["merge-blocks"]) {
+    Ok(_) => ()
+    Err(err) => fail("expected bounded nested-dispatch cleanup, got \{err}")
+  }
+}
+
+///|
+test "merge-blocks preserves stack-carried accumulator read before sibling local write" {
+  let input =
+    #|(module
+    #|  (func (export "fib") (param i32) (result i64) (local i64 i64)
+    #|    i64.const 0
+    #|    local.set 1
+    #|    i64.const 1
+    #|    local.set 2
+    #|    loop
+    #|      block
+    #|        block
+    #|          local.get 0
+    #|          i32.eqz
+    #|          br_if 1
+    #|          local.get 1
+    #|          local.get 2
+    #|          i64.add
+    #|          local.get 2
+    #|          local.set 1
+    #|          local.set 2
+    #|          local.get 0
+    #|          i32.const 1
+    #|          i32.sub
+    #|          local.set 0
+    #|          br 2
+    #|        end
+    #|        unreachable
+    #|      end
+    #|    end
+    #|    local.get 1))
+  let optimized = match pass_test_run_pipeline(input, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried accumulator preservation, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 1))(local.get (Local 2))i64.add(local.get (Local 2))(local.set (Local 1))(local.set (Local 2))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "merge-blocks preserves stack-carried locals overwritten before a later call" {
   let input =
     #|(module

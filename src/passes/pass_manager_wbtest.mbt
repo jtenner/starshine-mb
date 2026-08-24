@@ -931,6 +931,73 @@ test "optimize-instructions memory offset folds consume indexed region roots" {
 }
 
 ///|
+test "optimize-instructions raw memory offset fold rejects stack-carried store values" {
+  let memarg = @lib.MemArg::new(0U, None, 6UL)
+  let unsafe_region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::i32_shr_u(),
+    @lib.Instruction::i32_store8(memarg),
+  ])
+  assert_true(
+    RawOiMemoryOffsetFoldRewriteFact::from_region(unsafe_region, 2).is_none(),
+  )
+  let safe_region = RawOiInstructionRegionFact::from_instrs([
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_store8(memarg),
+  ])
+  assert_true(
+    RawOiMemoryOffsetFoldRewriteFact::from_region(safe_region, 0).is_some(),
+  )
+}
+
+///|
+test "ssa-nomerge detects tee-load and load-set later-read lifetimes" {
+  let memarg = @lib.MemArg::new(0U, None, 0UL)
+  assert_true(
+    run_hot_pipeline_raw_ssa_nomerge_has_tee_load_later_read([
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::i32_load(memarg),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    ]),
+  )
+  assert_true(
+    run_hot_pipeline_raw_ssa_nomerge_has_load_set_later_read([
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_load(memarg),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(8U)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(8U)),
+    ]),
+  )
+}
+
+///|
+test "ssa-nomerge rolls back written reads redirected to unwritten locals" {
+  let original = [
+    @lib.Instruction::i64_const(@lib.I64(1L)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+  ]
+  let rewritten = [
+    @lib.Instruction::i64_const(@lib.I64(1L)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(12U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+  ]
+  assert_true(
+    run_hot_pipeline_raw_ssa_nomerge_replaced_written_get_with_default(
+      original,
+      rewritten,
+      Array::make(16, -1),
+    ),
+  )
+}
+
+///|
 test "optimize-instructions module revision facts reuse indexed direct-call roots" {
   let index = RawOiFunctionRevisionFactIndex::from_instrs([
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),

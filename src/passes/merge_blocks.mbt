@@ -302,6 +302,205 @@ fn merge_blocks_visit_control_node(
 }
 
 ///|
+fn merge_blocks_collect_local_write_sites(
+  func : @ir.HotFunc,
+  node_id : Int,
+  write_nodes : Array[Int],
+  write_locals : Array[Int],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+      write_nodes.push(node_id)
+      write_locals.push(node.imm0)
+    }
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        merge_blocks_collect_local_write_sites(
+          func,
+          @ir.hot_region_get(func, body_ref, idx),
+          write_nodes,
+          write_locals,
+        )
+      }
+      return
+    }
+    @ir.HotOp::If => {
+      merge_blocks_collect_local_write_sites(
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+        write_nodes,
+        write_locals,
+      )
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        merge_blocks_collect_local_write_sites(
+          func,
+          @ir.hot_region_get(func, then_ref, idx),
+          write_nodes,
+          write_locals,
+        )
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            merge_blocks_collect_local_write_sites(
+              func,
+              @ir.hot_region_get(func, else_ref, idx),
+              write_nodes,
+              write_locals,
+            )
+          }
+        None => ()
+      }
+      return
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    merge_blocks_collect_local_write_sites(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      write_nodes,
+      write_locals,
+    )
+  }
+}
+
+///|
+fn merge_blocks_collect_min_local_get_node_ids(
+  func : @ir.HotFunc,
+  node_id : Int,
+  min_get_node_ids : Array[Int],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet if node.imm0 >= 0 &&
+      node.imm0 < min_get_node_ids.length() => {
+      let previous = min_get_node_ids[node.imm0]
+      if previous < 0 || node_id < previous {
+        min_get_node_ids[node.imm0] = node_id
+      }
+    }
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        merge_blocks_collect_min_local_get_node_ids(
+          func,
+          @ir.hot_region_get(func, body_ref, idx),
+          min_get_node_ids,
+        )
+      }
+      return
+    }
+    @ir.HotOp::If => {
+      merge_blocks_collect_min_local_get_node_ids(
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+        min_get_node_ids,
+      )
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        merge_blocks_collect_min_local_get_node_ids(
+          func,
+          @ir.hot_region_get(func, then_ref, idx),
+          min_get_node_ids,
+        )
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            merge_blocks_collect_min_local_get_node_ids(
+              func,
+              @ir.hot_region_get(func, else_ref, idx),
+              min_get_node_ids,
+            )
+          }
+        None => ()
+      }
+      return
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    merge_blocks_collect_min_local_get_node_ids(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      min_get_node_ids,
+    )
+  }
+}
+
+///|
+fn merge_blocks_roots_have_stack_carried_local_dependency(
+  func : @ir.HotFunc,
+  roots : Array[Int],
+) -> Bool {
+  let min_later_get_node_ids = Array::make(@ir.hot_local_count(func), -1)
+  let write_nodes : Array[Int] = []
+  let write_locals : Array[Int] = []
+  let mut idx = roots.length() - 1
+  while idx >= 0 {
+    write_nodes.clear()
+    write_locals.clear()
+    merge_blocks_collect_local_write_sites(
+      func,
+      roots[idx],
+      write_nodes,
+      write_locals,
+    )
+    for write_idx = 0
+        write_idx < write_nodes.length()
+        write_idx = write_idx + 1 {
+      let local_id = write_locals[write_idx]
+      if local_id >= 0 && local_id < min_later_get_node_ids.length() {
+        let min_get_node_id = min_later_get_node_ids[local_id]
+        if min_get_node_id >= 0 && min_get_node_id < write_nodes[write_idx] {
+          return true
+        }
+      }
+    }
+    merge_blocks_collect_min_local_get_node_ids(
+      func,
+      roots[idx],
+      min_later_get_node_ids,
+    )
+    idx = idx - 1
+  }
+  false
+}
+
+///|
+fn merge_blocks_prefix_writes_tail_read(
+  func : @ir.HotFunc,
+  prefix : Array[Int],
+  tail_id : Int,
+) -> Bool {
+  let roots = prefix.copy()
+  roots.push(tail_id)
+  merge_blocks_roots_have_stack_carried_local_dependency(func, roots)
+}
+
+///|
 fn merge_blocks_can_lift_block_child(
   func : @ir.HotFunc,
   block_id : Int,
@@ -397,6 +596,7 @@ fn merge_blocks_lift_expression_block_children(
         }
       }
       if !prefix_has_branch &&
+        !merge_blocks_prefix_writes_tail_read(func, prefix, tail_id) &&
         pass_effect_masks_can_reorder(previous_effects, prefix_effects) {
         for prefix_id in prefix {
           lifted_prefixes.push(prefix_id)
@@ -609,7 +809,10 @@ fn merge_blocks_flatten_region_root_block(
     return false
   }
   merge_blocks_collect_region_roots(func, body_ref, flattened_roots)
-  if !merge_blocks_rewrite_dead_unreachable_suffix_roots(func, flattened_roots) {
+  if merge_blocks_roots_have_stack_carried_local_dependency(
+      func, flattened_roots,
+    ) ||
+    !merge_blocks_rewrite_dead_unreachable_suffix_roots(func, flattened_roots) {
     return false
   }
   ignore(@ir.hot_region_splice(func, region_ref, idx, 1, flattened_roots))

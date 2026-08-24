@@ -301,6 +301,54 @@ test "optimize-instructions preserves subtracted locals with multiple later read
 }
 
 ///|
+test "optimize-instructions preserves stack-carried accumulator reads across sibling writes" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (export "fib") (param i32) (result i64) (local i64 i64)
+        #|    i64.const 1
+        #|    local.set 1
+        #|    loop
+        #|      block
+        #|        block
+        #|          local.get 0
+        #|          i32.eqz
+        #|          br_if 1
+        #|          local.get 2
+        #|          local.get 1
+        #|          i64.add
+        #|          local.get 1
+        #|          local.set 2
+        #|          local.set 1
+        #|          local.get 0
+        #|          i32.const 1
+        #|          i32.sub
+        #|          local.set 0
+        #|          br 2
+        #|        end
+        #|        unreachable
+        #|      end
+        #|    end
+        #|    local.get 2))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried accumulator preservation, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 2))(local.get (Local 1))i64.add(local.get (Local 1))(local.set (Local 2))(local.set (Local 1))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-instructions preserves stack-carried store addresses across tee values" {
   let optimized = match
     pass_test_run_pipeline(

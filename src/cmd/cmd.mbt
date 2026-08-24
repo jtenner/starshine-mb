@@ -4243,6 +4243,32 @@ fn cmd_choose_smallest_encoded_candidate(
 }
 
 ///|
+fn cmd_choose_smallest_valid_encoded_candidate(
+  candidates : Array[(String, Bytes)],
+) -> (String, Bytes) {
+  let mut selected : (String, Bytes)? = None
+  for candidate in candidates {
+    let valid = match decode_module(candidate.1) {
+      Ok(mod_) => validate_module(mod_) is Ok(_)
+      Err(_) => false
+    }
+    if !valid {
+      continue
+    }
+    match selected {
+      Some((_, selected_bytes)) if candidate.1.length() >=
+        selected_bytes.length() => ()
+      _ => selected = Some(candidate)
+    }
+  }
+  match selected {
+    Some(candidate) => candidate
+    None =>
+      abort("size portfolio requires at least one valid encoded candidate")
+  }
+}
+
+///|
 fn cmd_o4z_size_portfolio_enabled(
   format : CliInputFormat,
   optimize_level : Int,
@@ -6164,7 +6190,7 @@ pub fn run_cmd_with_adapter(
       !root_default_local_copy &&
       optimized_defined_func_count < 2000 &&
       cmd_o4z_post_selection_local_cleanup_enabled(optimized) {
-      let (_, provisional_bytes) = cmd_choose_smallest_encoded_candidate(
+      let (_, provisional_bytes) = cmd_choose_smallest_valid_encoded_candidate(
         portfolio_candidates,
       )
       match decode_module_for_pipeline(input_path, provisional_bytes) {
@@ -6195,7 +6221,7 @@ pub fn run_cmd_with_adapter(
         Err(_) => ()
       }
       if cmd_o4z_post_selection_control_cleanup_enabled(optimized) {
-        let (_, control_input_bytes) = cmd_choose_smallest_encoded_candidate(
+        let (_, control_input_bytes) = cmd_choose_smallest_valid_encoded_candidate(
           portfolio_candidates,
         )
         match decode_module_for_pipeline(input_path, control_input_bytes) {
@@ -6226,7 +6252,7 @@ pub fn run_cmd_with_adapter(
           Err(_) => ()
         }
       }
-      let (_, urem_input_bytes) = cmd_choose_smallest_encoded_candidate(
+      let (_, urem_input_bytes) = cmd_choose_smallest_valid_encoded_candidate(
         portfolio_candidates,
       )
       match decode_module_for_pipeline(input_path, urem_input_bytes) {
@@ -6256,9 +6282,11 @@ pub fn run_cmd_with_adapter(
         "input \{input_path}:candidate label=\{candidate.0} bytes=\{candidate.1.length()}",
       )
     }
-    let (selected_candidate, out_bytes) = cmd_choose_smallest_encoded_candidate(
-      portfolio_candidates,
-    )
+    let (selected_candidate, out_bytes) = if size_portfolio_enabled {
+      cmd_choose_smallest_valid_encoded_candidate(portfolio_candidates)
+    } else {
+      cmd_choose_smallest_encoded_candidate(portfolio_candidates)
+    }
     let selected_pre_encode_mod = match decode_module(out_bytes) {
       Ok(mod_) => mod_
       Err(_) => optimized

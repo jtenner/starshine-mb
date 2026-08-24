@@ -1732,6 +1732,32 @@ fn remove_unused_brs_splice_tail_roots(
   if @ir.hot_region_get(func, region_ref, tail_idx) != tail_id {
     return false
   }
+  let replacement_writes = @bitset.BitSet::new(0)
+  for replacement_id in replacement {
+    remove_unused_brs_mark_local_writes_in_value_expr(
+      func, replacement_id, replacement_writes,
+    )
+  }
+  if replacement_writes.length() > 0 {
+    let prefix_reads = @bitset.BitSet::new(0)
+    for idx = 0; idx < tail_idx; idx = idx + 1 {
+      remove_unused_brs_mark_local_reads_in_value_expr(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        prefix_reads,
+      )
+    }
+    let overlap = if replacement_writes.length() < prefix_reads.length() {
+      replacement_writes.length()
+    } else {
+      prefix_reads.length()
+    }
+    for local_id = 0; local_id < overlap; local_id = local_id + 1 {
+      if replacement_writes[local_id] && prefix_reads[local_id] {
+        return false
+      }
+    }
+  }
   let removed = pass_splice_region(
     ctx, func, region_ref, tail_idx, 1, replacement,
   )
@@ -2180,6 +2206,66 @@ fn remove_unused_brs_mark_local_reads_in_value_expr(
           reads,
         )
       }
+  }
+}
+
+///|
+fn remove_unused_brs_mark_local_writes_in_value_expr(
+  func : @ir.HotFunc,
+  node_id : Int,
+  writes : @bitset.BitSet,
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+      let local_id = node.imm0
+      if local_id >= 0 {
+        remove_unused_brs_local_read_mask_resize(writes, local_id)
+        writes[local_id] = true
+      }
+    }
+    @ir.HotOp::If => {
+      remove_unused_brs_mark_local_writes_in_value_expr(
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+        writes,
+      )
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        remove_unused_brs_mark_local_writes_in_value_expr(
+          func,
+          @ir.hot_region_get(func, then_ref, idx),
+          writes,
+        )
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            remove_unused_brs_mark_local_writes_in_value_expr(
+              func,
+              @ir.hot_region_get(func, else_ref, idx),
+              writes,
+            )
+          }
+        None => ()
+      }
+      return
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    remove_unused_brs_mark_local_writes_in_value_expr(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      writes,
+    )
   }
 }
 
@@ -5804,6 +5890,54 @@ fn remove_unused_brs_try_rewrite_br_table_continuation_wrappers(
 }
 
 ///|
+fn remove_unused_brs_condition_writes_feed_preceding_roots(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  if_id : Int,
+  condition : Int,
+) -> Bool {
+  let writes = @bitset.BitSet::new(0)
+  remove_unused_brs_mark_local_writes_in_value_expr(func, condition, writes)
+  if writes.length() == 0 {
+    return false
+  }
+  let use_def = pass_require_use_def(ctx, func)
+  for site in @ir.node_use_sites_borrowed(use_def, if_id) {
+    match site.kind {
+      @ir.HotUseSlotKind::RootUseSlot => ()
+      _ => continue
+    }
+    if site.user < 0 {
+      continue
+    }
+    let region_ref = match
+      remove_unused_brs_root_use_region_ref(func, if_id, site.user, site.slot) {
+      Some(region_ref) => region_ref
+      None => continue
+    }
+    let reads = @bitset.BitSet::new(0)
+    for idx = 0; idx < site.slot; idx = idx + 1 {
+      remove_unused_brs_mark_local_reads_in_value_expr(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        reads,
+      )
+    }
+    let overlap = if writes.length() < reads.length() {
+      writes.length()
+    } else {
+      reads.length()
+    }
+    for local_id = 0; local_id < overlap; local_id = local_id + 1 {
+      if writes[local_id] && reads[local_id] {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
 fn remove_unused_brs_match_value_if_to_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5826,6 +5960,11 @@ fn remove_unused_brs_match_value_if_to_select(
     None => return None
   }
   let condition = @ir.hot_child_get(func, node_id, 0)
+  if remove_unused_brs_condition_writes_feed_preceding_roots(
+      ctx, func, node_id, condition,
+    ) {
+    return None
+  }
   let result_type = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))[0]
   let then_root = match
     remove_unused_brs_build_region_value_expr(

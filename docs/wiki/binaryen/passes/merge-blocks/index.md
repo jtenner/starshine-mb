@@ -142,6 +142,18 @@ A bounded experiment inserted `merge-blocks` after SGO's final `precompute-propa
 
 With that narrow ownership guard, the SGO-owned placement is retained. Native SHA-256 `15804fd785eada79e95fcfc783cc026c5bab86f71fa80e24d1c176a923e7c86e` reduces the signed corpus from `20,278,432` to `20,276,497` bytes (`-1,935`): 75 artifacts shrink, 30 are unchanged, none grow, and optimize/external validation plus exact no-cache WIPC are both `105/105`. The direct pass remains behavior-closed on its generated v131 matrix, but the reduced stack-carried shape is intentionally fail-closed in Starshine until HOT stack/local reconstruction can model it directly.
 
+## 2026-08-24 AssemblyScript dispatcher performance repair
+
+The current WAGO correctness repair added a source-order dependency check for stack-carried local reads across sibling writes. The first implementation recursively visited a structured block through both its region body and its generic child edges. Deep AssemblyScript dispatchers therefore revisited the same nested subtree exponentially; the pinned `json-as` `naive/bool.spec.wasm` stopped in the second cumulative `merge-blocks` slot at absolute function 186, whose body is a roughly 60-level nested `br_table` dispatcher.
+
+The collectors now return after traversing `block` and `loop` region bodies, and the sibling dependency query scans roots in reverse while retaining one minimum source-node id per local. This preserves the exact unsafe relation—an earlier sibling write crossing a source-older read in a later sibling—without rescanning every later root for every write. The focused 60-level dispatcher regression and all 76 MergeBlocks tests pass; the isolated function-186 replay completes immediately and validates.
+
+A current-native targeted AssemblyScript matrix then ran `merge-blocks -> merge-locals -> optimize-instructions -> remove-unused-brs -> ssa-nomerge -> simplify-locals -> coalesce-locals` over all 105 pinned naive/SWAR/SIMD modules. Optimization and independent `wasm-tools validate --features all` are `105/105`, and the exact four-worker no-cache `as-test` report-protocol replay is `105/105` with zero failures or timeouts. Evidence is under `.tmp/json-as-smoke-20260824/`.
+
+The apparent late `inlining-optimizing` stall was superseded by pass-boundary profiling. Inlining completed; the first real owner was the no-structure SimplifyLocals control-embedded-tee probe, which double-traversed structured region children. After that repair, `coalesce-locals-cfg` exposed independent quadratic copied-destination and impossible-pair scans. Those owners are documented in the SimplifyLocals and CoalesceLocals dossiers.
+
+Current native SHA-256 `eeec65559f823541a313b139a621ecaefee96729fe062f07153337cf7fa8a8da` completes production O4z on all 105 pinned artifacts and independently validates `105/105`, with zero optimizer failures or timeouts. The size portfolio now excludes decodable but structurally invalid encoded candidates before size selection. Exact no-cache `as-test` remains a separate open semantic gate: `9/105` pass and `96/105` fail, with representative `naive/bool` trapping on an out-of-bounds memory access. Do not infer semantic signoff from the green structural matrix.
+
 ## Sources
 
 - Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>; registration: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>; fixture: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast>

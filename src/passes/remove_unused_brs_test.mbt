@@ -2074,6 +2074,58 @@ test "remove-unused-brs flattens block-local if-else break chains into br_if" {
 }
 
 ///|
+test "remove-unused-brs preserves stack-carried condition operand local order" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $pair (param i32 i32) (result i32) local.get 0)
+    #|  (func $release (param i32))
+    #|  (func (param i32 i32) (result i32) (local i32 i32 i32 i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $pair
+    #|    local.tee 2
+    #|    i32.eqz
+    #|    if (result i32)
+    #|      local.get 2
+    #|      if
+    #|        local.get 2
+    #|        call $release
+    #|      end
+    #|      i32.const 0
+    #|    else
+    #|      local.get 2
+    #|      local.tee 3
+    #|      local.tee 4
+    #|      i32.load
+    #|      local.get 4
+    #|      call $release
+    #|      local.tee 5
+    #|      i32.eqz
+    #|      if (result i32)
+    #|        i32.const 1
+    #|      else
+    #|        i32.const 0
+    #|      end
+    #|    end))
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected condition operand ordering success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(
+    pretty.contains("(if I32") || pretty.contains("(if (I32)"),
+    msg=pretty,
+  )
+  assert_false(pretty.contains("select"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites pure value if into select" {
   let optimized = match
     pass_test_run_pipeline(

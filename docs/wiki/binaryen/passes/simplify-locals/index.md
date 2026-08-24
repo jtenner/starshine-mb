@@ -202,6 +202,12 @@ So the current durable rule is:
 - Keep the variant matrix, late equivalent-copy phase, and split validation-repair story explicit whenever future docs or code changes touch this pass.
 - Keep the older Starshine-port pages, but do not let them silently replace the official Binaryen `version_131` contract on the landing page.
 
+## 2026-08-24 AssemblyScript structured-scan repair
+
+The current `json-as` O4z smoke found that `simplify_locals_has_control_embedded_local_tee(...)` visited structured region children twice: once through generic child slots and again through the explicit block/loop/if/try region cases. A roughly 60-level AssemblyScript dispatcher therefore expanded exponentially before the no-structure pass even entered its main cycle. Generic traversal now skips region child slots and leaves each structured body to its explicit region traversal. The focused 60-level regression passes, and direct `simplify-locals-nostructure` on retained `naive/bool.spec.wasm` falls from beyond 600 seconds to `0.114s`.
+
+This repair is traversal-only: it changes neither tee classification nor rewrite admission. The final current-native production O4z structural matrix optimizes and independently validates all `105/105` pinned naive/SWAR/SIMD artifacts with no timeout.
+
 ## Sources
 
 - research note 0148

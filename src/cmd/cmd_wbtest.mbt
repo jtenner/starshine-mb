@@ -1897,9 +1897,9 @@ test "O4z canonicalizer reports real final-candidate mutations" {
 
 ///|
 test "O4z size portfolio selects the shortest encoded candidate stably" {
-  let first = bytes_from_ints([0, 1, 2])
-  let second = bytes_from_ints([3, 4])
-  let tied = bytes_from_ints([5, 6])
+  let first = bytes_from_ints([0, 97, 115, 109, 1, 0, 0, 0, 0, 1, 0])
+  let second = bytes_from_ints([0, 97, 115, 109, 1, 0, 0, 0])
+  let tied = bytes_from_ints([0, 97, 115, 109, 1, 0, 0, 0])
   let (label, selected) = cmd_choose_smallest_encoded_candidate([
     ("first", first),
     ("second", second),
@@ -1907,6 +1907,25 @@ test "O4z size portfolio selects the shortest encoded candidate stably" {
   ])
   @debug.assert_eq(label, "second")
   @debug.assert_eq(selected, second)
+}
+
+///|
+test "O4z size portfolio rejects a smaller decodable stack-invalid candidate" {
+  let invalid = bytes_from_ints([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 6, 1, 4, 0, 65,
+    0, 11,
+  ])
+  let valid = bytes_from_ints([
+    0, 97, 115, 109, 1, 0, 0, 0, 0, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0,
+  ])
+  assert_true(invalid.length() < valid.length())
+  let (label, selected) = cmd_choose_smallest_valid_encoded_candidate([
+    ("invalid", invalid),
+    ("valid", valid),
+  ])
+  @debug.assert_eq(label, "valid")
+  @debug.assert_eq(selected, valid)
 }
 
 ///|
@@ -4197,6 +4216,114 @@ test "O4z size portfolio guards post-canonical cleanup for dense i64 multiply" {
   assert_false(cmd_o4z_post_selection_local_cleanup_enabled(dense))
   assert_false(cmd_o4z_post_selection_local_cleanup_enabled(sieve))
   assert_true(cmd_o4z_post_selection_local_cleanup_enabled(ordinary))
+}
+
+///|
+test "O4z post-canonical cleanup preserves stack-carried Fibonacci accumulators" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (export "fib") (param i32) (result i64) (local i64 i64)
+      #|    i64.const 0
+      #|    drop
+      #|    i64.const 1
+      #|    local.set 1
+      #|    loop
+      #|      block
+      #|        block
+      #|          local.get 0
+      #|          i32.eqz
+      #|          br_if 1
+      #|          local.get 2
+      #|          local.get 1
+      #|          i64.add
+      #|          local.get 1
+      #|          local.set 2
+      #|          local.set 1
+      #|          local.get 0
+      #|          i32.const 1
+      #|          i32.sub
+      #|          local.set 0
+      #|          br 2
+      #|        end
+      #|        unreachable
+      #|      end
+      #|    end
+      #|    local.get 2))
+      #|,
+    ),
+  )
+  let late_cleaned = match
+    optimize_module_with_pass_flags(
+      input,
+      cmd_o4z_size_cleanup_passes(),
+      OptimizeOptions::new(),
+      validate_final_module=false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected late cleanup success, got \{err}")
+  }
+  let bad_order = "(local.get (Local 1)) (local.set (Local 2)) (local.get (Local 2)) (local.get (Local 1)) i64.add"
+  let late_pretty = late_cleaned.pretty_print_defined_func(0U)
+  assert_false(late_pretty.contains(bad_order), msg="late:\n" + late_pretty)
+  let canonical = @passes.o4z_canonicalize_final_size_candidate(late_cleaned)
+  let canonical_pretty = canonical.pretty_print_defined_func(0U)
+  assert_false(
+    canonical_pretty.contains(bad_order),
+    msg="canonical:\n" + canonical_pretty,
+  )
+  let after_ssa = match
+    optimize_module_with_pass_flags(
+      canonical,
+      ["ssa-nomerge"],
+      OptimizeOptions::new(),
+      validate_final_module=false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected post-canonical SSA success, got \{err}")
+  }
+  let after_ssa_pretty = after_ssa.pretty_print_defined_func(0U)
+  assert_false(
+    after_ssa_pretty.contains(bad_order),
+    msg="ssa:\n" + after_ssa_pretty,
+  )
+  let after_rub = match
+    optimize_module_with_pass_flags(
+      canonical,
+      ["ssa-nomerge", "remove-unused-brs"],
+      OptimizeOptions::new(),
+      validate_final_module=false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected post-canonical RUB success, got \{err}")
+  }
+  let after_rub_pretty = after_rub.pretty_print_defined_func(0U)
+  assert_false(
+    after_rub_pretty.contains(bad_order),
+    msg="rub:\n" + after_rub_pretty,
+  )
+  let cleaned = match
+    optimize_module_with_pass_flags(
+      canonical,
+      cmd_o4z_post_canonical_cleanup_passes(),
+      OptimizeOptions::new(),
+      validate_final_module=false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected post-canonical cleanup success, got \{err}")
+  }
+  let pretty = cleaned.pretty_print_defined_func(0U)
+  @debug.assert_eq(
+    count_substring(pretty, "local.get (Local 1)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    count_substring(pretty, "local.get (Local 2)"),
+    2,
+    msg=pretty,
+  )
+  assert_false(pretty.contains(bad_order), msg=pretty)
 }
 
 ///|

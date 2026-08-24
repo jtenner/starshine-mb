@@ -110,6 +110,18 @@ That is narrower than “merge any locals that look unused.”
 - Broad `random-all-profiles` is closed for the current direct CL surface: the first full 10k run timed out, the first 1k diagnostic exposed `ssa-nomerge-smoke=125` and `heap2local-struct=38`, concrete-ref direct-`struct.get` packing plus preferred-first GC-ref ordering closed the sampled `heap2local-struct` subfamily, and later immediate tee/drop, nested block-escape, label-aware branch-liveness, tail-param-reuse, and structured-scalar slot-order fixes normalized the sampled `ssa-nomerge-smoke` family. Replay `.tmp/pass-fuzz-coalesce-locals-random-all-replay-all-structured-scalar-order-final-20260704` normalized the previous `125/125` failures, and the required `.tmp/pass-fuzz-coalesce-locals-random-all-profiles-10000-structured-scalar-order-final-20260704` lane compared/normalized `10000/10000` with zero failures.
 - New `coalesce-locals` findings should update the Binaryen strategy page, the implementation/test map, the interference/order page, the Starshine strategy page, and the port-readiness matrix together so the algorithm explanation, example catalog, source map, local status story, and future validation ladder stay aligned.
 
+## 2026-08-24 sparse copied-destination analysis
+
+The repaired SimplifyLocals traversal exposed the next AssemblyScript wall-time owner: `coalesce-locals-cfg` consumed `147.916s` of a `152.273s` SIMD `arbitrary.spec.wasm` main pipeline. The dominant 1,489-local structured function had 4,821 local actions. Copied-destination lifetime protection rescanned that complete action tree once for every same-typed source/destination pair, while path-disjoint and consume-forward checks also admitted pairs that could not satisfy their own contracts.
+
+CoalesceLocals now:
+
+- scans memory-size snapshots across later parameter writes in one reverse pass rather than one suffix scan per snapshot;
+- precomputes syntactic readers/writers and effective writers so consume-forward, path-disjoint, and copied-destination analysis reject impossible pairs before tree work;
+- computes every copied-destination hazard for one source in a single branch-aware traversal, preserving effective-write handling, copy exceptions, branch joins, loop/try barriers, and branch/return state resets.
+
+The direct white-box regressions cover the 4,096-snapshot false case, active-local indexes, and all-destination relation shape. CoalesceLocals behavior tests pass `88/88`. The representative main preset falls from `147.127s` to `20.324s`; its full O4z portfolio completes in about `53s` instead of timing out beyond 300 seconds. The final 105-artifact production structural lane is `105/105` optimize success and `105/105` independent validation, with zero timeouts.
+
 ## Sources
 
 - research note 0473

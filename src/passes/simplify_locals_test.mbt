@@ -2847,6 +2847,69 @@ test "simplify-locals keeps noncommutative SIMD carrier operand order" {
 }
 
 ///|
+test "simplify-locals preserves stack-clearing set below a later local result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32 i32 i32) (local i32 i32)
+        #|    i32.const 31
+        #|    i32.const 1073741820
+        #|    local.get 0
+        #|    i32.const 1
+        #|    i32.add
+        #|    local.tee 2
+        #|    i32.clz
+        #|    i32.sub
+        #|    local.set 1
+        #|    local.get 2
+        #|    local.get 1
+        #|    i32.const 4
+        #|    i32.sub
+        #|    i32.shr_u
+        #|    i32.const 16
+        #|    i32.xor
+        #|    local.get 1
+        #|    i32.const 7
+        #|    i32.sub
+        #|    local.set 2
+        #|    local.set 1
+        #|    local.get 2
+        #|    local.get 1))
+        #|,
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-clearing set preservation, got \{err}")
+  }
+  let body = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[0]
+      body
+    }
+    None => fail("expected code section")
+  }
+  let mut local_one_tees = 0
+  let mut local_one_sets = 0
+  let mut local_two_tees = 0
+  let mut local_two_sets = 0
+  for instr in body {
+    match instr {
+      @lib.LocalTee(@lib.LocalIdx(1U)) => local_one_tees = local_one_tees + 1
+      @lib.LocalSet(@lib.LocalIdx(1U)) => local_one_sets = local_one_sets + 1
+      @lib.LocalTee(@lib.LocalIdx(2U)) => local_two_tees = local_two_tees + 1
+      @lib.LocalSet(@lib.LocalIdx(2U)) => local_two_sets = local_two_sets + 1
+      _ => ()
+    }
+  }
+  @debug.assert_eq(local_one_tees, 0, msg=@debug.to_string(body))
+  @debug.assert_eq(local_one_sets, 2, msg=@debug.to_string(body))
+  @debug.assert_eq(local_two_tees, 1, msg=@debug.to_string(body))
+  @debug.assert_eq(local_two_sets, 1, msg=@debug.to_string(body))
+}
+
+///|
 test "simplify-locals keeps split SIMD temporaries when a later read remains" {
   let optimized = match
     pass_test_run_pipeline(

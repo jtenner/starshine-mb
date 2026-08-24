@@ -5785,6 +5785,53 @@ test "ssa-nomerge validates non-one dropped increment boundary" {
 }
 
 ///|
+test "ssa-nomerge preserves older call result below a later call result" {
+  let source =
+    #|(module
+    #|  (func $older (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 10
+    #|    i32.add)
+    #|  (func $newer (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.add)
+    #|  (func (export "run") (param i32) (result i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    local.tee 1
+    #|    drop
+    #|    block
+    #|      loop
+    #|        local.get 3
+    #|        i32.eqz
+    #|        if
+    #|          local.get 1
+    #|          call $older
+    #|          local.get 1
+    #|          call $newer
+    #|          local.tee 2
+    #|          i32.sub
+    #|          local.set 3
+    #|          br 2
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 3))
+  let baseline = match pass_test_run_pipeline(source, []) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected baseline success, got \{err}")
+  }
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stacked-call SSA success, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+    baseline.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+}
+
+///|
 test "ssa-nomerge preserves call argument after stack spill store" {
   // Reduced from json-as `String.__concat`: spilling a call's following stack
   // arguments must not redirect the first argument read to the scratch local

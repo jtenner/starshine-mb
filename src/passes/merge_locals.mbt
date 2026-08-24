@@ -110,6 +110,22 @@ fn merge_locals_gets_are_single_source(
 }
 
 ///|
+fn merge_locals_gets_follow_copy(
+  gets : Array[@ir.NodeId],
+  copy_id : @ir.NodeId,
+) -> Bool {
+  for get_id in gets {
+    if get_id <= copy_id {
+      // A source-older get can remain stack-carried until after this write.
+      // Retargeting it from the graph's region order would change the value
+      // already evaluated before the copy.
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn merge_locals_retarget_get(
   func : @ir.HotFunc,
   get_id : @ir.NodeId,
@@ -184,6 +200,7 @@ fn merge_locals_optimize_copies(
       copy.trivial_id,
     )
     let can_optimize_to_copy = trivial_influences.length() > 0 &&
+      merge_locals_gets_follow_copy(trivial_influences, copy.copy_id) &&
       merge_locals_gets_are_single_source(
         graph,
         trivial_influences,
@@ -212,6 +229,7 @@ fn merge_locals_optimize_copies(
       copy.copy_id,
     )
     let can_optimize_to_trivial = copy_influences.length() > 0 &&
+      merge_locals_gets_follow_copy(copy_influences, copy.copy_id) &&
       merge_locals_gets_are_single_source(graph, copy_influences, copy.copy_id) &&
       merge_locals_gets_match_target_type(
         func,
@@ -715,7 +733,98 @@ fn merge_locals_run_raw_legacy_func(
 }
 
 ///|
+fn merge_locals_subtree_has_older_local_read(
+  func : @ir.HotFunc,
+  node_id : Int,
+  local_id : Int,
+  before_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet if node.imm0 == local_id && node_id < before_id =>
+      return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if merge_locals_subtree_has_older_local_read(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        local_id,
+        before_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn merge_locals_region_has_stack_carried_copy(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let count = @ir.hot_region_root_count(func, region_ref)
+  for idx = 0; idx < count; idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    let root = @ir.hot_node_get(func, root_id)
+    match root.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if root.child_count == 1 => {
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        let value = @ir.hot_node_get(func, value_id)
+        match value.op {
+          @ir.HotOp::LocalGet if value.imm0 != root.imm0 =>
+            for later = idx + 1; later < count; later = later + 1 {
+              if merge_locals_subtree_has_older_local_read(
+                  func,
+                  @ir.hot_region_get(func, region_ref, later),
+                  value.imm0,
+                  root_id,
+                ) {
+                return true
+              }
+            }
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+    match root.op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        if merge_locals_region_has_stack_carried_copy(
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+          ) {
+          return true
+        }
+      @ir.HotOp::If => {
+        if merge_locals_region_has_stack_carried_copy(
+            func,
+            @ir.hot_region_then_ref(func, root_id),
+          ) {
+          return true
+        }
+        match @ir.hot_region_else_ref(func, root_id) {
+          Some(else_ref) =>
+            if merge_locals_region_has_stack_carried_copy(func, else_ref) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn merge_locals_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  if merge_locals_region_has_stack_carried_copy(func, @ir.HotRegionRef::root()) {
+    return HotPassResult::unchanged()
+  }
   let copies = merge_locals_instrument_copies(func)
   if copies.is_empty() {
     return HotPassResult::unchanged()
