@@ -3142,6 +3142,110 @@ fn simplify_locals_record_local_set(
 }
 
 ///|
+fn simplify_locals_source_order_inputs(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Array[Int] {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable
+    | @ir.HotOp::Nop
+    | @ir.HotOp::Unreachable
+    | @ir.HotOp::Const
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::LocalGet
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::MemorySize
+    | @ir.HotOp::TableSize
+    | @ir.HotOp::DataDrop
+    | @ir.HotOp::ElemDrop
+    | @ir.HotOp::RefFunc => []
+    @ir.HotOp::Loop => {
+      let out : Array[Int] = []
+      let input_count = @ir.hot_label_branch_arity(
+        func,
+        @ir.hot_control_node_label(func, node_id),
+      )
+      for idx = 0; idx < input_count; idx = idx + 1 {
+        out.push(@ir.hot_child_get(func, node_id, idx))
+      }
+      out
+    }
+    @ir.HotOp::If => [@ir.hot_child_get(func, node_id, 0)]
+    _ => {
+      let out : Array[Int] = []
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        let child_id = @ir.hot_child_get(func, node_id, slot)
+        if child_id >= 0 {
+          out.push(child_id)
+        }
+      }
+      out
+    }
+  }
+}
+
+///|
+fn simplify_locals_collect_preceding_call_dependency(
+  func : @ir.HotFunc,
+  node_id : Int,
+  before_node_id : Int,
+  seen : Array[Bool],
+  out : Array[Int],
+) -> Unit {
+  if node_id < 0 ||
+    node_id >= seen.length() ||
+    seen[node_id] ||
+    !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  seen[node_id] = true
+  if node_id < before_node_id &&
+    @ir.hot_node_result_arity(func, node_id) > 0 &&
+    !@ir.effects_is_pure(@ir.effects_for_node(func, node_id)) {
+    out.push(node_id)
+    return
+  }
+  for input_id in simplify_locals_source_order_inputs(func, node_id) {
+    simplify_locals_collect_preceding_call_dependency(
+      func, input_id, before_node_id, seen, out,
+    )
+  }
+}
+
+///|
+fn simplify_locals_preceding_future_call_dependencies(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  root_idx : Int,
+  current_root : Int,
+) -> Array[Int] {
+  match @ir.hot_node_get(func, current_root).op {
+    @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef => ()
+    _ => return []
+  }
+  if @ir.hot_node_result_arity(func, current_root) != 0 {
+    return []
+  }
+  let seen = Array::make(@ir.hot_node_count(func), false)
+  let out : Array[Int] = []
+  for idx = root_idx + 1
+      idx < @ir.hot_region_root_count(func, region_ref)
+      idx = idx + 1 {
+    let future_root = @ir.hot_region_get(func, region_ref, idx)
+    for input_id in simplify_locals_source_order_inputs(func, future_root) {
+      simplify_locals_collect_preceding_call_dependency(
+        func, input_id, current_root, seen, out,
+      )
+    }
+  }
+  out.sort_by(fn(left, right) { left.compare(right) })
+  out
+}
+
+///|
 fn simplify_locals_scan_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -3166,6 +3270,27 @@ fn simplify_locals_scan_region(
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
+    }
+    for dependency_id in simplify_locals_preceding_future_call_dependencies(
+      func, region_ref, idx, node_id,
+    ) {
+      if simplify_locals_scan_node(
+          func,
+          dependency_id,
+          sinkables,
+          first_cycle,
+          get_counts,
+          detached,
+          policy,
+          None,
+          -1,
+          protect_control_embedded_local_tee,
+          inside_control,
+          false,
+          deferred_sets,
+        ) {
+        changed = true
+      }
     }
     let flat_parent_is_local_set = if idx + 1 <
       @ir.hot_region_root_count(func, region_ref) {

@@ -4094,6 +4094,66 @@ test "simplify-locals-notee-nostructure defers call and bulk-memory effect meshe
 }
 
 ///|
+test "simplify-locals-nostructure keeps initialization before stack-carried call read" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $use (param i32 i32 i32) (result i32 i32) local.get 0 local.get 1)
+        #|  (func $release (param i32))
+        #|  (func (param i32) (result i32 i32) (local i32 i32 i32 i32 i32 i32)
+        #|    i32.const 67744
+        #|    local.set 1
+        #|    local.get 0
+        #|    local.get 1
+        #|    i32.const 223936
+        #|    call $use
+        #|    local.get 1
+        #|    call $release
+        #|    local.set 6
+        #|    if (result i32)
+        #|      local.get 6
+        #|    else
+        #|      i32.const 0
+        #|      local.get 6
+        #|      return
+        #|    end
+        #|    call $release
+        #|    i32.const 1
+        #|    i32.const 0))
+        #|,
+      ),
+      ["simplify-locals-nostructure"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-carried call lifetime success, got \{err}")
+  }
+  let body = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[2]
+      body
+    }
+    None => fail("expected code section")
+  }
+  let mut init_idx = -1
+  let mut use_call_idx = -1
+  for idx = 0; idx < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.LocalSet(@lib.LocalIdx(1U)) | @lib.LocalTee(@lib.LocalIdx(1U)) =>
+        if init_idx < 0 {
+          init_idx = idx
+        }
+      @lib.Call(@lib.FuncIdx(0U)) => if use_call_idx < 0 { use_call_idx = idx }
+      _ => ()
+    }
+  }
+  assert_true(
+    init_idx >= 0 && init_idx < use_call_idx,
+    msg=@debug.to_string(body),
+  )
+}
+
+///|
 test "simplify-locals-notee-nostructure preserves stack-carried tee lifetimes" {
   let input =
     #|(module

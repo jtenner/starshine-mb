@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-23
+last_reviewed: 2026-08-24
 sources:
   - ../binaryen/passes/late-pipeline-dispatch.md
   - ../../../scripts/lib/build-self-optimized.mjs
@@ -34,7 +34,7 @@ The historical host-visible symptom was `RuntimeError: unreachable`; the August 
 - Dense-tee interval marking incorrectly treated a block as never falling through when its textual tail returned, even though an earlier nested branch targeted that block's continuation. The marker stopped scanning, classified continuation locals as unused, and merged simultaneously live values into one slot. Structured escape classification now checks for branches to the instruction's own continuation before declaring its tail terminal.
 - The unmodified 69-pass main O4z sequence is runtime-safe. The apparent final-`precompute` failure was reduced to function 7851: deleting a valid dead constant forced Hot-IR lowering, which emitted a later void call before an earlier stack-carried call result consumed by control. Lowering now schedules only effectful value producers that predate and cross a void call-like root, preserving call order without changing Hot-IR root structure.
 - The subsequent final-candidate canonicalization trap was isolated across 4,548 changed bodies to allocator function 29. Nested dead-tee cleanup inspected only an `if` arm suffix and removed local writes read after the `if`. Dead-tee recursion now carries enclosing continuations through blocks, loops, if arms, and try tables; the rebuilt artifact passes startup/help.
-- The current smallest candidate is `optimized-scalar-final-cleanup`. It passes structural validation and startup/help but still traps while running the bounded spec fixture, so scalar cleanup is the next active owner.
+- The scalar-selected follow-up first exposed another main-pipeline ordering defect at prefix 17, `simplify-locals-nostructure`. Hybridization across 702 changed bodies isolated function 8102: root traversal visited a later void release call before an earlier stack-carried multivalue call dependency, so a pending initialization was sunk to the later read. SimplifyLocals now pre-scans earlier effectful call dependencies of future roots before intervening void calls.
 - `scripts/lib/build-self-optimized.mjs` describes the build/copy flow that produces the debug artifact used by later self-optimize runs.
 - `scripts/lib/self-optimized-artifacts.mjs` names the debug artifact path that the build pipeline copies into the node-dist layout.
 - The runtime-trap semantics remain source-backed in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md); use that guide to remember that `RuntimeError: unreachable` is a wasm trap surface, not a Node-specific exception class.
@@ -50,7 +50,7 @@ The historical host-visible symptom was `RuntimeError: unreachable`; the August 
 - The focused coalescer regression is `coalesce-locals dense-tee intervals keep branch-reachable continuation locals distinct`; the repaired artifact-scale DAE replay passes `tests/spec/address.wast`.
 - The current explicit 69-pass main artifact validates and passes runtime replay. Function-body hybridization across 676 precompute-changed functions isolated function 7851; the direct Hot lift/lower and pass-level precompute regressions preserve the producer call before the intervening effect.
 - With that fix, exact main plus `precompute` and `vacuum` passes runtime. Canonicalized-body hybridization then isolated function 29; the focused regression is `O4z final canonicalizer preserves nested tees read by the continuation`.
-- The rebuilt scalar-selected artifact passes `--help` but traps in the self-opt spec smoke with a stack through functions 43, 8057, 7958, 7957, 7956, 7850, 7849, 7848, 7847, and 183. Structural validation remains green.
+- The rebuilt scalar-selected investigation then placed the next main-pipeline boundary at prefix 35, `precompute-propagate`; function 8102 itself is covered by `simplify-locals-nostructure keeps initialization before stack-carried call read` and prefix 17 now passes runtime.
 - Generated replay and bisection artifacts remain under `.tmp/self-opt-current-prefix-bisect/`, `.tmp/self-opt-address-prefix-bisect/`, `.tmp/self-opt-main-after-coalesce/`, `.tmp/isolate-final-precompute.py`, and `.tmp/isolate-final-canonical.py`.
 
 ## Current TDD guard
