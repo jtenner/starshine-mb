@@ -10730,12 +10730,25 @@ fn precompute_propagate_mark_result_if_arm_writes(
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
-      if inside_result_if_arm &&
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+      let value_id = if @ir.hot_child_count(func, node_id) == 1 {
+        @ir.hot_child_get(func, node_id, 0)
+      } else {
+        -1
+      }
+      let result_if_write = value_id >= 0 &&
+        @ir.hot_node_is_live(func, value_id) &&
+        @ir.hot_node_result_arity(func, value_id) > 0 &&
+        (match @ir.hot_node_get(func, value_id).op {
+          @ir.HotOp::If => true
+          _ => false
+        })
+      if (inside_result_if_arm || result_if_write) &&
         node.imm0 >= 0 &&
         node.imm0 < unsafe_locals.length() {
         unsafe_locals[node.imm0] = true
       }
+    }
     _ => ()
   }
   match node.op {

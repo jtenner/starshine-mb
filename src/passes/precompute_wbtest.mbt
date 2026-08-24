@@ -54,6 +54,37 @@ test "precompute HOT classifies ref.i31 of a constant as discardable" {
 }
 
 ///|
+test "precompute propagate marks result-if tee writes unsafe" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32)
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 7
+      #|    else
+      #|      i32.const 9
+      #|    end
+      #|    local.tee 1
+      #|    drop
+      #|    local.get 1))
+      #|,
+    ),
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let unsafe_locals = Array::make(@ir.hot_local_count(func), false)
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    precompute_propagate_mark_result_if_arm_writes(
+      func,
+      @ir.hot_root_get(func, root_idx),
+      false,
+      unsafe_locals,
+    )
+  }
+  assert_true(unsafe_locals[1])
+}
+
+///|
 test "precompute raw tlsf prologue repair produces valid lowered function" {
   let source =
     #|(module

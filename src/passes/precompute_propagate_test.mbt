@@ -1232,6 +1232,34 @@ test "precompute-propagate defers call-result locals beside memory copy" {
 }
 
 ///|
+test "precompute-propagate preserves locals written from result-if values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32) (local i32)
+        #|    local.get 0
+        #|    if (result i32)
+        #|      i32.const 7
+        #|    else
+        #|      i32.const 9
+        #|    end
+        #|    local.tee 1
+        #|    drop
+        #|    local.get 1))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected result-if local propagation success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
 test "precompute-propagate preserves stack-carried overwritten local pairs" {
   let input =
     #|(module
