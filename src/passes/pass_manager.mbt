@@ -44661,6 +44661,64 @@ fn run_hot_pipeline_raw_precompute_additive_local_update_count(
 }
 
 ///|
+fn run_hot_pipeline_raw_precompute_has_tee_backed_dynamic_global_write(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for set_pos = 1; set_pos < instrs.length(); set_pos = set_pos + 1 {
+    let (carrier, target) = match (instrs[set_pos - 1], instrs[set_pos]) {
+      (@lib.LocalGet(carrier), @lib.GlobalSet(target)) => (carrier, target)
+      _ => continue
+    }
+    let mut saw_tee = false
+    for pos = 0; pos < set_pos - 1; pos = pos + 1 {
+      match instrs[pos] {
+        @lib.LocalTee(written) if written == carrier => saw_tee = true
+        _ => ()
+      }
+    }
+    if !saw_tee {
+      continue
+    }
+    for pos = set_pos + 1; pos < instrs.length(); pos = pos + 1 {
+      match instrs[pos] {
+        @lib.GlobalGet(read) if read == target => return true
+        _ => ()
+      }
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_precompute_has_tee_backed_dynamic_global_write(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_precompute_has_tee_backed_dynamic_global_write(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_precompute_has_tee_backed_dynamic_global_write(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_precompute(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -44679,6 +44737,15 @@ fn run_hot_pipeline_raw_precompute(
   if run_hot_pipeline_raw_has_root_global_snapshot_write_prefix(body) {
     return Some({
       reason: "root-global-snapshot-write-prefix-\{descriptor.name}-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if propagating &&
+    run_hot_pipeline_raw_precompute_has_tee_backed_dynamic_global_write(body) {
+    return Some({
+      reason: "tee-backed-dynamic-global-write-precompute-propagate-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,

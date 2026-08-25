@@ -220,6 +220,31 @@ test "precompute intentionally fails closed for root global snapshot write prefi
 }
 
 ///|
+test "precompute-propagate preserves tee-backed dynamic global writes" {
+  let source =
+    #|(module
+    #|  (global $g (mut f64) (f64.const 0))
+    #|  (func (export "f") (param f32 i32) (result f64)
+    #|    (local f64)
+    #|    local.get 1
+    #|    f64.convert_i32_u
+    #|    local.tee 2
+    #|    i32.trunc_f64_u
+    #|    f64.convert_i32_s
+    #|    local.get 2
+    #|    global.set $g
+    #|    drop
+    #|    global.get $g))
+  let input = pass_test_module_from_wat(source)
+  let optimized = match
+    pass_test_run_pipeline(source, ["precompute-propagate"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected precompute-propagate success, got \{err}")
+  }
+  @debug.assert_eq(optimized, input)
+}
+
+///|
 test "precompute runs narrow raw scalar folds under O4z gate" {
   let trace : Array[String] = []
   let optimized = match

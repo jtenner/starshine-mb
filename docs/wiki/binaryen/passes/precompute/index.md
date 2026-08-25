@@ -219,7 +219,13 @@ The production `json-as` exact-runtime audit reduced the first broad corruption 
 
 The fold itself was ordinary immutable-global/scalar work, but any HOT mutation forced lowering of an existing stack-carried scratch lifetime: a local value remained on the operand stack, the same local was overwritten from another local, and both old and new values were later consumed by a call. Lowering emitted the old read after the overwrite and also erased a `local.tee` write observed by the continuation. The package already had a focused `run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local` proof for `precompute-propagate`, SimplifyLocals, and MergeBlocks. Plain `precompute` now uses the same semantic boundary and returns the unchanged function with reason `stack-carried-overwritten-local-precompute-noop`.
 
-The focused regression is `precompute preserves folded tee writes observed after stack-carried values`. With the companion CoalesceLocals repair, current native SHA-256 `6c6da9cc5334ba824e073e18013388670e9eca0ae6bd02cf70b5cc75a3bbe852` optimizes and independently validates all 105 pinned `json-as` artifacts, and exact four-worker no-cache execution passes `105/105` with zero failures or timeouts.
+The focused regression is `precompute preserves folded tee writes observed after stack-carried values`. With the companion CoalesceLocals repair, current native SHA-256 `797cb22884706dd376ed142eb7620813481e01e9cf5f85c464e5db2210b96e91` optimizes and independently validates all 105 pinned `json-as` artifacts, and exact four-worker no-cache execution passes `105/105` with zero failures or timeouts.
+
+## 2026-08-25 tee-backed dynamic global writes
+
+The process-isolated WAGO lane found `runtime/core/issue4840`: original and Binaryen v131 return the parameter-derived global value, while Starshine returned the initializer zero after O4z. The exact feature-gated main roster passed through slot 13 `pick-load-signs` and first failed at slot 14 `precompute-propagate`. Earlier canonicalization had introduced `local.tee carrier`; propagation replaced the later `local.get carrier; global.set G ... global.get G` with `f64.const 0; global.set G`, losing the dynamic write.
+
+The raw propagating dispatcher now fails closed on that exact tee-backed dynamic-global relation, recursively through structured regions. Plain Precompute remains unchanged because direct replay was safe. The direct regression is `precompute-propagate preserves tee-backed dynamic global writes`; full O4z restores results `[1, 4294967289, 31]` for the representative vectors.
 
 ## Current maintenance rule
 
