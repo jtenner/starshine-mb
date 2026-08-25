@@ -123,6 +123,10 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine strategy with the exact MoonBit registry, dispatch, helper, validation-guard, trace, perf, and CLI replay code map, plus the major Binaryen behaviors the repo still does not model.
 
+## 2026-08-25 oversized array trap repair
+
+`wasmtime-core3/core/gc/big-array-overflow` proved that dropped GC allocation is not always removable: `i32.const -21; array.new_default; drop` must trap with an oversized-array error. Vacuum now rejects negative constant lengths in both raw peepholes and HOT constructor cleanup while retaining established dynamic/effectful and nonnegative-constant allocation cleanup. `tests/repros/vacuum-big-array-overflow.wasm` is the direct regression. Full O4z preserves the trap, and the direct 10,000-case Vacuum lane matches 10,000/10,000 with zero failures.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `vacuum` parity and scheduler research.

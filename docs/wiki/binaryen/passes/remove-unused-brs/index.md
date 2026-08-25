@@ -196,6 +196,10 @@ Two validating-but-wrong generated families now fail closed before HOT rewriting
 
 Exact self-optimized spec execution exposed additional validating call/ownership reorderings in the first and later RUB slots. Red structural fixtures now preserve structured same-local distinct calls, condition-child call-tee lifetimes, loads before same-local releases, consumers before two or one argument releases, and call results before local reloads. The named guards are intentionally ordered behind older performance/shape owners where needed, so large `br_table` return ladders still reach their HOT skip and typed encoder ladders retain their established raw reason. Function isolation covered defined functions `7902`, `8264`, `8905`, `10449`, and `10819`; the focused suite is now `257/257`, full Moon is `10,306/10,306`, and exact direct self-opt full spec is `284/284` without failures (`64` passed, `220` intentionally skipped).
 
+## 2026-08-25 Winch multivalue function-exit repair
+
+`runtime/core/winch/issue-10613` returns `[7, 8]` through a multivalue `br_table` targeting the function label. Direct RemoveUnusedBrs collapsed the 79-byte validating module to `unreachable`; the HOT branch-table target represented the function label outside `func.labels`, so dead-suffix and switch cleanup could not query it safely. The original-body pipeline now fails closed for multivalue function-exit `br_table` functions, and the HOT pass retains a defensive out-of-range target guard. `tests/repros/remove-unused-brs-winch-issue-10613-multivalue.wasm` owns the regression. The direct 10,000-case lane is green with 10,000 cleanup-normalized matches and zero failures.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future RUB scheduler, shape, parity, and performance notes.

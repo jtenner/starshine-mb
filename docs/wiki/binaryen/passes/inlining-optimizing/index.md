@@ -120,6 +120,10 @@ A 2026-08-13 runtime review found a separate direct-inliner wrong-code family: w
 
 This repair does not justify widening the 286-definition production guard. A fresh broad `fast-path-deserialize` probe validated structurally but grew `460,488 -> 475,735` bytes and aborted during exact WIPC execution. A touched-function-only `remove-unused-brs` suffix was also rejected: it changed none of the 105 corpus outputs and increased representative pass-local cost. The fallback thresholds remain unchanged; the later bounded post-fallback coalescing wave is independent cleanup and does not reopen broad optimizing inlining.
 
+## 2026-08-25 runtime residual boundaries
+
+InliningOptimizing was the final Winch owner after direct HOT guards: it inlined the two multivalue helpers in a function-exit `br_table` caller. It also moved a stack-carried local value across imported `wasmtime.gc` while inlining the bump-pointer equality helper, reducing 50 successful GC calls to one call plus `unreachable`. Caller-local admission now rejects multivalue function-exit `br_table`, caught `try_table`, and the exact `local.get; imported call; const/add/tee/get; defined call` carrier relation. Regressions are `remove-unused-brs-winch-issue-10613-multivalue.wasm` and `inlining-bump-ptr-stack-carried-call.wasm`. The current 10,000-case optimizing-inlining lane matches 10,000/10,000 with zero failures.
+
 ## Boundaries that do not reopen this pass
 
 - legacy `try_delegate` representation;

@@ -169,6 +169,10 @@ The function contains repeated flat `local.get base; load offset; local.get base
 
 Current native SHA-256 `797cb22884706dd376ed142eb7620813481e01e9cf5f85c464e5db2210b96e91` retains the production `json-as` result at 105/105 optimization, external validation, and exact no-cache execution. Current self-optimized SHA-256 `1b624ca31e5dcc3f5b9f4ab48be6db89c94f5ae674ec3c63c87c333446c082f7` is 4,857,390 bytes and passes direct `--help`, `--version`, spec, optimize, byte-identity, validation, and optimize-and-run checks on pinned `naive/bool`.
 
+## 2026-08-25 function-exit and EH boundaries
+
+OptimizeInstructions shared the Winch multivalue function-exit `br_table` failure and later corrupted caught `try_table` prefix shapes in spectest throw and the EH-local family. Original-body guards now retain multivalue function-exit branch tables and caught `try_table` functions before HOT exceptional-edge stack rewriting. Regressions use the 79-byte Winch fixture plus `optimize-instructions-spectest-throw-prefix15.wasm` and `optimize-instructions-eh-locals-prefix15.wasm`. The current 10,000-case direct lane is 10,000 cleanup-normalized matches with zero mismatches or failures.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `optimize-instructions` parity and scheduler research.

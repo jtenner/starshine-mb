@@ -102,6 +102,10 @@ That is narrower than “merge any locals that look unused.”
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness and validation matrix for the active direct pass: current registry/dispatcher/preset/backlog state, reusable Starshine local-index and cleanup substrates, focused tests, and parity signoff ladder.
 
+## 2026-08-25 CFG coalescing EH boundary
+
+The Starshine-only late-convergence suffix exposed the same catch-observed local-write relation in `coalesce-locals-cfg`: coalescing converted both assignments to drops while the catch continuation still read the local. The CFG module pass now skips modules containing a caught `try_table` body write. The direct regression is `coalesce-locals-cfg preserves catch-observed local writes`; `coalesce-locals-cfg` is not currently exposed by the pass-fuzz compare harness, so signoff uses focused tests, full Moon, targeted runtime replay, and the complete WAGO audit.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `coalesce-locals` research, direct-pass validation, and ordered-pipeline follow-up.

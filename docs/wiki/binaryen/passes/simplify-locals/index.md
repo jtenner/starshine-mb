@@ -194,6 +194,10 @@ So the current durable rule is:
 - use the `version_131` source links in this page's Sources section when a future thread needs the exact release/source/test provenance again
 - mention current-main drift only when it is more than container cleanup
 
+## 2026-08-25 catch-observed write boundary
+
+Four EH-local regressions returned `1` instead of `0` after no-tee/no-structure local propagation removed `local.set 0` inside a caught `try_table`; the catch path observes that write when the following call throws. SimplifyLocals now fails closed only when a caught `try_table` body contains a local write, preserving supported sinking for values defined outside the try. `tests/repros/simplify-locals-eh-catch-observed-write.wasm` owns the direct regression. The current 10,000-case no-tee/no-structure lane matches 10,000/10,000 with zero failures.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `simplify-locals` parity and scheduler research.
