@@ -69,6 +69,12 @@ The official source refresh used Binaryen `version_131`:
 
 The final direct matrix is documented in [`fuzzing.md`](./fuzzing.md): regular `100000/100000`, dedicated `10000/10000`, random-all `10000/10000`, and wasm-smith exact for `9955` of `9956` comparable cases plus one cleanup-normalized, pass-independent unreachable-debris case. There are zero true semantic, Starshine validation, generator, or property failures.
 
+## 2026-08-25 exact-feature preservation
+
+The broad WAGO semantic lane found modules that compiled in ordinary V8 before optimization but failed afterward because LocalSubtyping changed an inexact declared local such as `(ref $array)` to `(ref (exact $array))`. Binaryen v131 reproduces that narrowing under `--all-features`, but it expands the module's runtime feature requirement and breaks engines without custom descriptors.
+
+Starshine now keeps constructor/ref-function exactness as an internal producer fact while emitting an exact body-local declaration only when the declared local was already exact. Heap and nullability narrowing remain active, explicitly exact input locals remain exact, and direct/white-box expectations cover the distinction. The representative `gc_array_init_elem_generic.wasm` output validates, compiles in ordinary V8, and returns `1` after O4z.
+
 ## Remaining boundaries
 
 - Decoded legacy `try` remains a deliberate pre-mutation fail-closed boundary because the raw algorithm models `try_table`, not legacy handler flow.

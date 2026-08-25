@@ -593,7 +593,7 @@ fn ls_candidate_local_type(
       declared_ref.is_nullable() || best_ref.is_nullable()
     },
     best_ref.get_heap_type(),
-    exact=best_ref.is_exact(),
+    exact=declared_ref.is_exact() && best_ref.is_exact(),
   )
   if !ls_ref_is_subtype(module_ctx, candidate, declared_ref) {
     return None

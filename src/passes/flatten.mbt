@@ -11144,6 +11144,211 @@ fn FlattenCallMemoryEffectMixFact::requires_fail_closed_skip(
 }
 
 ///|
+priv struct FlattenStackCarriedLocalReadAcrossWriteFact {
+  has_hazard : Bool
+}
+
+///|
+fn flatten_subtree_has_source_older_local_read(
+  func : @ir.HotFunc,
+  root_id : Int,
+  local_id : Int,
+  barrier_id : Int,
+) -> Bool {
+  let pending = [root_id]
+  while !pending.is_empty() {
+    let node_id = pending.pop().unwrap()
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalGet if node.imm0 == local_id && node_id < barrier_id =>
+        return true
+      _ => ()
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      pending.push(@ir.hot_child_get(func, node_id, slot))
+    }
+  }
+  false
+}
+
+///|
+fn flatten_region_has_stack_carried_local_read_across_write(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  for earlier_idx = 0; earlier_idx < root_count; earlier_idx = earlier_idx + 1 {
+    let earlier_root = @ir.hot_region_get(func, region_ref, earlier_idx)
+    let earlier = @ir.hot_node_get(func, earlier_root)
+    let written_local = match earlier.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => earlier.imm0
+      _ => -1
+    }
+    if written_local < 0 {
+      continue
+    }
+    for later_idx = earlier_idx + 1
+        later_idx < root_count
+        later_idx = later_idx + 1 {
+      if flatten_subtree_has_source_older_local_read(
+          func,
+          @ir.hot_region_get(func, region_ref, later_idx),
+          written_local,
+          earlier_root,
+        ) {
+        return true
+      }
+    }
+  }
+  for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, root_idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        if flatten_region_has_stack_carried_local_read_across_write(
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+          ) {
+          return true
+        }
+      @ir.HotOp::If => {
+        if flatten_region_has_stack_carried_local_read_across_write(
+            func,
+            @ir.hot_region_then_ref(func, root_id),
+          ) {
+          return true
+        }
+        match @ir.hot_region_else_ref(func, root_id) {
+          Some(else_ref) =>
+            if flatten_region_has_stack_carried_local_read_across_write(
+                func, else_ref,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        if flatten_region_has_stack_carried_local_read_across_write(
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+          ) {
+          return true
+        }
+        match @ir.hot_region_catch_ref(func, root_id) {
+          Some(catch_ref) =>
+            if flatten_region_has_stack_carried_local_read_across_write(
+                func, catch_ref,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable =>
+        if flatten_region_has_stack_carried_local_read_across_write(
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+          ) ||
+          flatten_region_has_stack_carried_local_read_across_write(
+            func,
+            @ir.hot_region_catch_list_ref(func, root_id),
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn FlattenStackCarriedLocalReadAcrossWriteFact::from_func(
+  func : @ir.HotFunc,
+) -> FlattenStackCarriedLocalReadAcrossWriteFact {
+  {
+    has_hazard: flatten_region_has_stack_carried_local_read_across_write(
+      func,
+      @ir.HotRegionRef::root(),
+    ),
+  }
+}
+
+///|
+fn FlattenStackCarriedLocalReadAcrossWriteFact::requires_fail_closed_skip(
+  self : FlattenStackCarriedLocalReadAcrossWriteFact,
+) -> Bool {
+  self.has_hazard
+}
+
+///|
+priv struct FlattenCarriedScalarAcrossGlobalWriteFact {
+  has_hazard : Bool
+}
+
+///|
+fn flatten_subtree_has_source_older_rich_scalar(
+  func : @ir.HotFunc,
+  root_id : Int,
+  barrier_id : Int,
+) -> Bool {
+  let pending = [root_id]
+  while !pending.is_empty() {
+    let node_id = pending.pop().unwrap()
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    if node_id < barrier_id &&
+      @ir.hot_node_result_arity(func, node_id) == 1 &&
+      !flatten_node_is_simple_operand(func, node_id) &&
+      !@ir.hot_node_kind_is_control(func, node_id) {
+      return true
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      pending.push(@ir.hot_child_get(func, node_id, slot))
+    }
+  }
+  false
+}
+
+///|
+fn FlattenCarriedScalarAcrossGlobalWriteFact::from_func(
+  func : @ir.HotFunc,
+) -> FlattenCarriedScalarAcrossGlobalWriteFact {
+  let root_ref = @ir.HotRegionRef::root()
+  let root_count = @ir.hot_region_root_count(func, root_ref)
+  for later_idx = 1; later_idx < root_count; later_idx = later_idx + 1 {
+    let later_root = @ir.hot_region_get(func, root_ref, later_idx)
+    match @ir.hot_node_get(func, later_root).op {
+      @ir.HotOp::GlobalSet => ()
+      _ => continue
+    }
+    for earlier_idx = 0; earlier_idx < later_idx; earlier_idx = earlier_idx + 1 {
+      let earlier_root = @ir.hot_region_get(func, root_ref, earlier_idx)
+      match @ir.hot_node_get(func, earlier_root).op {
+        @ir.HotOp::GlobalSet =>
+          if flatten_subtree_has_source_older_rich_scalar(
+              func, later_root, earlier_root,
+            ) {
+            return { has_hazard: true }
+          }
+        _ => ()
+      }
+    }
+  }
+  { has_hazard: false }
+}
+
+///|
+fn FlattenCarriedScalarAcrossGlobalWriteFact::requires_fail_closed_skip(
+  self : FlattenCarriedScalarAcrossGlobalWriteFact,
+) -> Bool {
+  self.has_hazard
+}
+
+///|
 priv struct FlattenCallGlobalValueIfFact {
   has_call : Bool
   has_global_set : Bool
@@ -11184,6 +11389,12 @@ fn FlattenCallGlobalValueIfFact::requires_fail_closed_skip(
 
 ///|
 pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  if FlattenStackCarriedLocalReadAcrossWriteFact::from_func(func).requires_fail_closed_skip() {
+    return HotPassResult::unchanged()
+  }
+  if FlattenCarriedScalarAcrossGlobalWriteFact::from_func(func).requires_fail_closed_skip() {
+    return HotPassResult::unchanged()
+  }
   if FlattenCallMemoryEffectMixFact::from_func(func).requires_fail_closed_skip() {
     return HotPassResult::unchanged()
   }

@@ -609,6 +609,12 @@ Red-first whitebox moved `219/220 -> 220/220` and `220/221 -> 221/221`. Final va
 
 The prior one-typed-rethrow ceiling and flat/single-root-block no-work grammar are superseded only for these exact populations. Broader typed/nonzero/wrapped/value/control exceptional composition, executable or otherwise non-strict delegate opposites, richer mixed/shared/nested control and EH, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
 
+## 2026-08-25 WAGO semantic corruption repairs
+
+The process-isolated broad WAGO runtime lane found two validating Flatten wrong-code families that ordinary validation could not detect. `tests/regressions/fuzzcases/1793a.wasm` carried a nested SIMD-derived `i64` producer beneath an earlier `global.set`; Flatten's early spill insertion emitted a `local.get` before the producer's `local.set`, deleting an exported-global transition. `tests/fixtures/wasm/fib.wasm` evaluated the new accumulator before a following `local.set` consumed the old accumulator; flattened root order wrote first, so the sum read the overwritten local and produced powers of two.
+
+Flatten now fails closed on two exact pre-mutation relations: a later global write containing a source-older rich scalar subtree carried across an earlier global write, and a later region root containing a source-older read of a local written by an earlier root. The recursive local relation covers structured child regions without thresholding. Direct regressions own both families. Full O4z now preserves `1793a`'s exported global sequence `0 -> 1 -> 0` and Fibonacci results `fib(7)=13`, `fib(31)=1346269`, and `fib(1024)=722393659`.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

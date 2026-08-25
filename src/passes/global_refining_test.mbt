@@ -425,7 +425,7 @@ test "global-refining refines any.convert_extern initializers to non-null any" {
 }
 
 ///|
-test "global-refining refines private struct default initializers" {
+test "global-refining refines private struct initializers without introducing exactness" {
   let input =
     #| (module
     #|   (type $s (sub (struct)))
@@ -440,11 +440,7 @@ test "global-refining refines private struct default initializers" {
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-          exact=true,
-        ),
+        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
       ),
       true,
     ),
@@ -452,7 +448,7 @@ test "global-refining refines private struct default initializers" {
 }
 
 ///|
-test "global-refining refines exported immutable exact private initializers when custom descriptors are enabled locally" {
+test "global-refining refines exported immutable private initializers without introducing exactness" {
   let input =
     #| (module
     #|   (type $s (sub (struct)))
@@ -467,11 +463,7 @@ test "global-refining refines exported immutable exact private initializers when
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-          exact=true,
-        ),
+        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
       ),
       false,
     ),
@@ -533,7 +525,7 @@ test "global-refining preserves exported globals in closed world" {
 }
 
 ///|
-test "global-refining keeps dependent global initializers valid after source global refinement" {
+test "global-refining keeps dependent global initializers valid after inexact source refinement" {
   let input =
     #| (module
     #|   (type $box (sub (struct)))
@@ -548,11 +540,7 @@ test "global-refining keeps dependent global initializers valid after source glo
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-          exact=true,
-        ),
+        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
       ),
       false,
     ),
@@ -576,7 +564,7 @@ test "global-refining keeps dependent global initializers valid after source glo
 }
 
 ///|
-test "global-refining exposes refined global.get result types to downstream typechecking" {
+test "global-refining exposes inexact refined global.get types downstream" {
   let input =
     #| (module
     #|   (type $box (sub (struct)))
@@ -599,11 +587,7 @@ test "global-refining exposes refined global.get result types to downstream type
   }
   @debug.assert_eq(state.stack, [
     @lib.ValType::ref_type(
-      @lib.RefType::new(
-        false,
-        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-        exact=true,
-      ),
+      @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
     ),
   ])
 }

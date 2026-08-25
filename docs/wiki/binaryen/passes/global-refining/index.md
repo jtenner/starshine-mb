@@ -159,6 +159,12 @@ The active 2026-06-18 audit uses Binaryen `version_130` sources and the dedicate
   - upstream `global-refining` is a declaration-tightening plus retagging pass, not a broad control-flow-sensitive global optimizer
 - Keep the exported immutable open-world case, the closed-world exported-global conservatism, the local public-type filter, the Starshine-local representation differences, and the `global.get` retagging contract explicit whenever future docs or code changes touch this pass.
 
+## 2026-08-25 exact-feature preservation
+
+The WAGO runtime-compatibility lane isolated a second feature-expansion family to top-level `global-refining`: ordinary GC modules with inexact globals acquired `(ref (exact ...))` declarations and stopped compiling in V8 unless custom descriptors were enabled. The first representative passed through `global-refining` at O4z slot 5; LocalSubtyping was not the owner for these global declarations.
+
+GlobalRefining now preserves inferred exactness only when the existing global declaration is already exact. Concrete heap and nullability refinement still propagate through dependent `global.get` types, while ordinary constructor initializers remain inexact and retain their original engine feature floor. Explicit exact input declarations remain supported. Focused GlobalRefining tests are `22/22` and white-box tests `1/1`.
+
 ## Sources
 
 - research note 0139

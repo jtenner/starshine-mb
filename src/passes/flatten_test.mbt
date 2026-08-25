@@ -11741,6 +11741,42 @@ test "flatten intentionally defers value if results consumed by calls across glo
 }
 
 ///|
+test "flatten defers nested scalar producers carried across global writes" {
+  // WAGO fuzzcase 1793a carries the nested i64 producer beneath the first
+  // global.set. Flatten's early spill insertion placed local.get before the
+  // producer's local.set, preserving validation but deleting the b update.
+  let func = pass_test_lift_first_func(
+    "(module (global (mut i32) (i32.const 0)) (global (mut i64) (i64.const 0)) (func (local f32) i32.const 1549556771 i16x8.splat i64x2.all_true i64.extend_i32_u f32.const 1 f32.nearest local.tee 0 f32.const nan local.get 0 local.get 0 f32.eq select i32.reinterpret_f32 global.get 0 i32.xor global.set 0 global.get 1 i64.xor global.set 1))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+}
+
+///|
+test "flatten defers stack-carried accumulator reads before local writes" {
+  // WAGO tests/fixtures/wasm/fib computes the new accumulator before the
+  // following local.set consumes the old accumulator. Flatten reordered the
+  // roots and made the sum read the overwritten local, producing powers of two.
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32) (local i32 i32 i32 i32) i32.const 1 local.set 1 loop local.get 0 local.get 4 i32.gt_s if local.get 1 local.get 2 i32.add local.get 1 local.set 2 local.set 1 local.get 4 i32.const 1 i32.add local.set 4 br 1 end end local.get 2))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+}
+
+///|
 test "flatten leaves unsupported nondefaultable root controls unmaterialized" {
   let func = pass_test_lift_first_func(
     "(module (type $box (struct)) (func (result (ref $box)) (if (result (ref $box)) (i32.const 1) (then (br 0 (struct.new_default $box))) (else (struct.new_default $box)))))",

@@ -1154,9 +1154,19 @@ pub fn global_refining_run_module_pass(
       Some(ref_type) => ref_type
       None => continue
     }
-    let refined_ref_type = match noted[slot] {
+    let inferred_ref_type = match noted[slot] {
       Some(ref_type) => ref_type
       None => continue
+    }
+    let refined_ref_type = if inferred_ref_type.is_exact() &&
+      !old_ref_type.is_exact() {
+      @lib.RefType::new(
+        inferred_ref_type.is_nullable(),
+        inferred_ref_type.get_heap_type(),
+        exact=false,
+      )
+    } else {
+      inferred_ref_type
     }
     if refined_ref_type == old_ref_type ||
       !@validate.Match::matches(refined_ref_type, old_ref_type, env) {

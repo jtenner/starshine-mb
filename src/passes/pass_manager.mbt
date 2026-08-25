@@ -87610,10 +87610,75 @@ fn run_hot_pipeline_apply_sgo_final_cleanup_suffix(
 }
 
 ///|
+fn run_hot_pipeline_sgo_instrs_have_gc_allocation_set(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for pos = 0; pos < instrs.length(); pos = pos + 1 {
+    let instr = instrs[pos]
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_sgo_instrs_have_gc_allocation_set(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_sgo_instrs_have_gc_allocation_set(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_sgo_instrs_have_gc_allocation_set(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.GlobalSet(_) if pos > 0 =>
+        match instrs[pos - 1] {
+          @lib.ArrayNew(_)
+          | @lib.ArrayNewDefault(_)
+          | @lib.ArrayNewFixed(_, _)
+          | @lib.ArrayNewData(_, _)
+          | @lib.ArrayNewElem(_, _)
+          | @lib.StructNew(_)
+          | @lib.StructNewDefault(_)
+          | @lib.StructNewDesc(_)
+          | @lib.StructNewDefaultDesc(_) => return true
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_sgo_has_gc_allocation_set(mod_ : @lib.Module) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      funcs.any(fn(func) {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        run_hot_pipeline_sgo_instrs_have_gc_allocation_set(body)
+      })
+    None => false
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_sgo_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
+  if run_hot_pipeline_sgo_has_gc_allocation_set(mod_) {
+    pipeline_trace_hook(
+      options.trace,
+      "simplify-globals-optimizing",
+      "fallback-noop",
+      payload="reason=trapping-gc-allocation-global-set",
+    )
+    return Ok(mod_)
+  }
   if run_hot_pipeline_module_has_typeidx_loop(mod_) {
     pipeline_trace_hook(
       options.trace,

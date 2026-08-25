@@ -80,7 +80,7 @@ After the liveness and encoded-candidate validation repairs, current-source prod
 
 That repair raised exact runtime from 9/105 to 87/105. The remaining failures were exactly `array`, `date`, `fast-path-deserialize`, `map`, `struct`, and `whitespace` in naive, SWAR, and SIMD modes. `naive/array` stayed correct through the scalar cleanup and failed in post-selection `coalesce-locals`; hybridization across 670 changed bodies isolated absolute function 1244. Coalescing a body scratch into parameter 1's slot destroyed a still-live parameter entry value while an older scratch value remained stack-carried into the same later call. Ordinary CoalesceLocals now fails closed on the established stack-carried-overwritten-local/call family.
 
-Final native SHA-256 `4948a7ca00a5b2495f9e0d1710c70f06d1f984cf53f1d06e1a3c39e642eb916b` produces `105/105` successful O4z outputs, `105/105` independent `wasm-tools validate --features all` results, and `105/105` exact four-worker no-cache `as-test` executions with zero failures or timeouts. Aggregate output is `26,228,860` bytes from `29,604,717` input bytes. Evidence and function-level hybrids remain under `.tmp/json-as-smoke-20260824/corruption-bisect/`, with final summaries in `native-o4z-results.json` and `native-o4z-exact-results.json`.
+Final native SHA-256 `6c6da9cc5334ba824e073e18013388670e9eca0ae6bd02cf70b5cc75a3bbe852` produces `105/105` successful O4z outputs, `105/105` independent `wasm-tools validate --features all` results, and `105/105` exact four-worker no-cache `as-test` executions with zero failures or timeouts. Aggregate output is `26,228,860` bytes from `29,604,717` input bytes. Evidence and function-level hybrids remain under `.tmp/json-as-smoke-20260824/corruption-bisect/`, with final summaries in `native-o4z-results.json` and `native-o4z-exact-results.json`.
 
 ## August 25 self-optimized OptimizeInstructions closeout
 
@@ -88,7 +88,7 @@ The first current-source self-optimized artifact built after the `json-as` seman
 
 Function 6695 carried several loaded values across same-base release calls and later consumed them after intervening control/effects. The raw indexed effect fact did not recognize the flat `local.get base; load; local.get base; call` relation, so a separate valid OI mutation forced HOT lowering. Lowering moved the loads after those effectful calls and also moved five release calls before a call that still consumed the released values. The original-body `run_hot_pipeline_raw_has_load_before_same_local_call` proof now short-circuits OptimizeInstructions before descriptor bridges and HOT lift, retaining the established `stack-carried-effect-optimize-instructions-noop` reason.
 
-Rebuilt debug/release/self-optimized artifacts are `14,544,998`, `5,362,893`, and `4,854,334` bytes. The final self artifact SHA-256 is `26888dccfced3f805f2067e0f261ffa7672bf4f187e159b17fc122ecf7c6ea38`; it validates, exits zero for `--help`, `--version`, and `spec tests/spec/address.wast`, optimizes pinned `naive/bool`, emits bytes identical to native O4z, and the emitted module passes exact WASI startup. Bisection and direct-binary evidence is under `.tmp/self-optimized-cli-bool-bisect-20260825/` and `.tmp/direct-binary-smoke/current-self-oi-fixed/`.
+Rebuilt debug/release/self-optimized artifacts are `14,552,009`, `5,365,191`, and `4,856,486` bytes. The final self artifact SHA-256 is `09e3fd0ef3a09ef232ccf45ad6e68b7d643a558fbb6bb4668a2a514bc973ab76`; it validates, exits zero for `--help`, `--version`, and `spec tests/spec/address.wast`, optimizes pinned `naive/bool`, emits bytes identical to native O4z, and the emitted module passes exact WASI startup. Bisection and direct-binary evidence is under `.tmp/self-optimized-cli-bool-bisect-20260825/` and `.tmp/direct-binary-smoke/current-self-oi-fixed/`.
 
 ## Current TDD guard
 
@@ -96,6 +96,14 @@ Rebuilt debug/release/self-optimized artifacts are `14,544,998`, `5,362,893`, an
 - [`../../../tests/repros/o4z-debug-startup-map-init-repro.wasm`](../../../tests/repros/o4z-debug-startup-map-init-repro.wasm) is the current reproduction.
 - The first assertion prints the WAT and rejects the stale allocator-root shape if `malloc` ever reintroduces `i32.const 0` immediately before `global.get 0` at the `removeBlock` call site.
 - The second assertion replays the fixture through `runWasmStart(..., args: ["--help"])` and expects a zero exit code.
+
+## August 25 broad WAGO semantic audit method
+
+Validation is now paired with a process-isolated semantic lane over the same 842 externally valid WAGO inputs. For every successful output the audit records independent `wasm-tools validate --features all`, import/export API shape, native/self hashes, and byte identity. For every module V8 can compile, a fresh child process compares original/native/self instantiation and every exported function under five bounded typed argument vectors. Each variant receives deterministic type-compatible imports; each probe records repeated result-or-trap outcomes, import-call traces, exported memory hashes, globals, and table state. Child process groups enforce hard liveness bounds. Baseline timeouts, candidate-only timeouts, unsupported JS signatures, runtime-feature blocks, trap-detail drift, API drift, and core observable mismatches remain separate classes.
+
+The first full native run covered all 842 valid inputs: 810 optimized and independently validated under the 30-second bound, with 2,275 semantic probes and 10,290 invocation vectors. It exposed validating wrong code in Flatten (`1793a`, fixture Fibonacci), feature-floor expansion in LocalSubtyping and GlobalRefining, and trap deletion in SimplifyGlobalsOptimizing (`issue-13034`). Those families now have direct regressions and targeted replay. Final native SHA-256 `6c6da9cc5334ba824e073e18013388670e9eca0ae6bd02cf70b5cc75a3bbe852` retains the `json-as` gate at 105/105 optimization, validation, and exact runtime. Rebuilt self SHA-256 `09e3fd0ef3a09ef232ccf45ad6e68b7d643a558fbb6bb4668a2a514bc973ab76` passes the exact 48-module/323-call WAGO manifest lane with 48/48 byte identity. A final full 842-input rerun on these hashes remains pending; self-hosted optimization of fuzzcases `1793b` and `1793d` still exceeds a killable 120-second bound.
+
+Evidence is preserved under `.tmp/wago-o4z-native-semantic-20260825/`, `.tmp/wago-o4z-native-semantic-core-replay4-20260825/`, `.tmp/wago-o4z-corruption-audit-20260825/`, and `.tmp/wago-o4z-functional-20260825-corruption-repairs/`.
 
 ## How to use this page
 

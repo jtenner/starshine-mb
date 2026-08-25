@@ -30,6 +30,49 @@ fn ls_test_module(
 }
 
 ///|
+test "local-subtyping does not introduce exact locals from constructors" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let declared = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(array_type)),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([declared]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), declared)
+}
+
+///|
 fn ls_test_first_body_local(mod_ : @lib.Module) -> @lib.ValType {
   match mod_.code_sec {
     Some(@lib.CodeSec([@lib.Func(locals, _), ..])) => locals[0]
@@ -515,11 +558,7 @@ test "local-subtyping narrows body locals from local.tee assignments" {
 test "local-subtyping iterates after local.get assignment refinalization" {
   let funcref_nullable = @lib.ValType::funcref()
   let callee_nonnull = @lib.ValType::ref_type(
-    @lib.RefType::new(
-      false,
-      @lib.HeapType::new(@lib.TypeIdx::new(3U)),
-      exact=true,
-    ),
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(3U))),
   )
   let mod_ = ls_test_module_with_child_param_callee_locals_and_tail_refs(
     [funcref_nullable, funcref_nullable],
@@ -553,18 +592,10 @@ test "local-subtyping iterates after local.get assignment refinalization" {
 test "local-subtyping iterates after select LUB refinalization" {
   let funcref_nullable = @lib.ValType::funcref()
   let i32_func_nonnull = @lib.ValType::ref_type(
-    @lib.RefType::new(
-      false,
-      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-      exact=true,
-    ),
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
   )
   let i64_func_nonnull = @lib.ValType::ref_type(
-    @lib.RefType::new(
-      false,
-      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
-    ),
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
   )
   let func_nonnull = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
@@ -612,11 +643,7 @@ test "local-subtyping iterates after call_ref result refinalization" {
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
   )
   let ret_i31_nonnull = @lib.ValType::ref_type(
-    @lib.RefType::new(
-      false,
-      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
-    ),
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
   )
   let mod_ = ls_test_module_with_ret_any_and_i31_call_ref(
     [ret_any_nullable, @lib.ValType::anyref()],
@@ -701,7 +728,6 @@ test "local-subtyping retag representation validates tee parent after narrowing"
   let callee_ref = @lib.RefType::new(
     false,
     @lib.HeapType::new(@lib.TypeIdx::new(3U)),
-    exact=true,
   )
   let callee_nonnull = @lib.ValType::ref_type(callee_ref)
   let mod_ = ls_test_module_with_child_param_and_tail_refs(funcref_nullable, [
@@ -735,11 +761,7 @@ test "local-subtyping retag representation validates tee parent after narrowing"
 test "local-subtyping keeps nullable for unreachable-before-write tee boundary" {
   let funcref_nullable = @lib.ValType::funcref()
   let callee_nullable = @lib.ValType::ref_type(
-    @lib.RefType::new(
-      true,
-      @lib.HeapType::new(@lib.TypeIdx::new(3U)),
-      exact=true,
-    ),
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(3U))),
   )
   let mod_ = ls_test_module_with_child_param_and_tail_refs(funcref_nullable, [
     @lib.Instruction::unreachable_(),
@@ -807,7 +829,7 @@ test "local-subtyping keeps exact nullable for raw unreachable tee boundary" {
 }
 
 ///|
-test "local-subtyping keeps WAT exact nullable for raw unreachable tee boundary" {
+test "local-subtyping keeps WAT nullable without introducing exactness" {
   let source =
     #|(module
     #|  (type $base (sub (struct)))
@@ -829,11 +851,7 @@ test "local-subtyping keeps WAT exact nullable for raw unreachable tee boundary"
     Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
   }
   let expected = @lib.ValType::ref_type(
-    @lib.RefType::new(
-      true,
-      @lib.HeapType::new(@lib.TypeIdx::new(3U)),
-      exact=true,
-    ),
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(3U))),
   )
   @debug.assert_eq(ls_test_first_body_local(optimized), expected)
   match @validate.validate_module(optimized) {
@@ -2202,16 +2220,12 @@ test "local-subtyping accepts try_table return_call_ref before unreachable tail 
 }
 
 ///|
-test "local-subtyping narrows catch_ref skipped block write to nullable exact" {
+test "local-subtyping narrows catch_ref skipped block write without exactness" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
   )
   let child_exact_nullable = @lib.ValType::ref_type(
-    @lib.RefType::new(
-      true,
-      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
-    ),
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
   )
   let exn_ref = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
@@ -2254,16 +2268,12 @@ test "local-subtyping narrows catch_ref skipped block write to nullable exact" {
 }
 
 ///|
-test "local-subtyping narrows catch_all_ref skipped block write to nullable exact" {
+test "local-subtyping narrows catch_all_ref skipped block write without exactness" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
   )
   let child_exact_nullable = @lib.ValType::ref_type(
-    @lib.RefType::new(
-      true,
-      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
-    ),
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
   )
   let exn_ref = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
@@ -3219,11 +3229,7 @@ test "local-subtyping keeps incompatible unreachable writes in the LUB" {
   @debug.assert_eq(
     ls_test_first_body_local(optimized),
     @lib.ValType::ref_type(
-      @lib.RefType::new(
-        true,
-        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-        exact=true,
-      ),
+      @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
     ),
   )
 }

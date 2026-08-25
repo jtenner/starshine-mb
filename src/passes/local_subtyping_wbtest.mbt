@@ -126,11 +126,7 @@ test "local-subtyping raw assignment scan keeps unreachable null bottoms" {
     ),
     Some(
       @lib.ValType::ref_type(
-        @lib.RefType::new(
-          true,
-          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-          exact=true,
-        ),
+        @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
       ),
     ),
   )

@@ -499,6 +499,63 @@ test "simplify-globals-optimizing cleans generated safe trunc prefix batch befor
 }
 
 ///|
+test "simplify-globals-optimizing preserves trapping GC allocation sets" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let array_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(array_type)),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(array_ref, true),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(@lib.HeapType::new(array_type)),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1073741817)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "simplify-globals-optimizing",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-globals-optimizing success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("array.new_default"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps potentially trapping trunc prefix before unreachable tail" {
   let optimized = sgo_test_run(
     sgo_test_make_large_safe_trunc_prefix_before_unreachable_fixture(
