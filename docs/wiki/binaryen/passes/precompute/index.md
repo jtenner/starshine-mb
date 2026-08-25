@@ -227,6 +227,16 @@ The process-isolated WAGO lane found `runtime/core/issue4840`: original and Bina
 
 The raw propagating dispatcher now fails closed on that exact tee-backed dynamic-global relation, recursively through structured regions. Plain Precompute remains unchanged because direct replay was safe. The direct regression is `precompute-propagate preserves tee-backed dynamic global writes`; full O4z restores results `[1, 4294967289, 31]` for the representative vectors.
 
+## 2026-08-25 rust_fannkuch loop-carried default repair
+
+The process-isolated WAGO audit found a Starshine-specific core numeric mismatch in `tests/regressions/runtime/core/rust_fannkuch/commands.0.wasm`: `run_fannkuch(7)` returned `228` in the source and under Binaryen v131 but `528` after Starshine O4z, with a correspondingly different exported-memory hash. All three modules validated independently and had no imports.
+
+Bisection over Binaryen v131's exact 56-slot O4z roster plus Starshine `strip-debug` first failed at one-based slot 19, `precompute-propagate`. Prefix 18 returned `228`; prefix 19 returned `528`. Two function bodies changed, and one-body hybridization isolated defined function 5, the exported `run_fannkuch`. Its outer loop read a default-initialized local to compute `local.get 13; local.get 21; i32.mul; local.set 7`, then a nested control path wrote local 13 and branched back to the outer loop. Propagation trusted an entry-default SSA origin for the loop-head read and replaced it with `i32.const 0`, ignoring later dynamic iterations.
+
+`precompute_propagate_prefix_fold_local_gets(...)` now performs one visited-set-bounded structured scan that records local reads evaluated inside loops and locals written anywhere under a loop. An `EntryDefaultInitDef` is not propagated when the same local participates in both sets; the dynamic read remains until SSA supplies a real loop phi. This is narrower than disabling propagation for the function or pass and preserves ordinary non-loop entry-default folding.
+
+The checked-in reduced fixture is `tests/repros/precompute-propagate-rust-fannkuch-loop-carried-default.wasm`. `precompute-propagate preserves rust fannkuch loop-carried default local` directly guards the owning pass, while `HOT roundtrip preserves rust fannkuch loop-carried multiplication` proves plain lift/lower is not the owner. Rebuilt native SHA-256 `c5c700e6d35ed958c53c3ea2efc032f31006bf4320b16bcf97a238d02a268575` emits a 3,007-byte valid O4z output; source, Starshine, and Binaryen v131 now all return `228` twice for argument `7` with exported-memory SHA-256 `2bf32be5b46937ca6ae5a3fd3957c9ae53eb4a41336344c02505f20baad59645`. Fresh dedicated `precompute-propagate-local-facts` GenValid compares `10000/10000` with `10000` cleanup-normalized matches, zero mismatches, and zero validation, generator, property, or command failures. Fresh `json-as` optimization/validation and exact runtime remain `105/105`; the rebuilt self artifact and exact WAGO manifest remain green.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.
