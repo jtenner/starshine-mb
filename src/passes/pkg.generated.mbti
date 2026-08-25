@@ -211,9 +211,13 @@ pub fn pass_registry_all() -> Array[HotPassRegistryEntry]
 
 pub fn pass_registry_category(String) -> HotPassRegistryCategory?
 
+pub fn pass_registry_fixed_point_cleanup_sequence() -> Array[String]
+
 pub fn pass_registry_help_entries() -> Array[HotPassRegistryEntry]
 
 pub fn pass_registry_lookup(String) -> HotPassRegistryEntry?
+
+pub fn pass_registry_random_executable_sequence(String, UInt64) -> Array[String]
 
 pub fn pass_replace_node(HotPassContext, @ir.HotFunc, Int, @ir.HotNode) -> Unit
 
@@ -520,6 +524,7 @@ pub fn HotPipelineVerifyPolicy::final_module_only() -> Self
 
 pub enum HotPipelineVerifyTarget {
   HotFuncTarget(@ir.HotFunc)
+  HotFuncWithCacheTarget(@ir.HotFunc, @ir.HotAnalysisCache)
   ModuleTarget(@lib.Module)
 }
 

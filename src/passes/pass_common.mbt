@@ -794,7 +794,10 @@ pub fn pass_require_ssa(
 
 ///|
 pub fn pass_mark_mutated(ctx : HotPassContext, func : @ir.HotFunc) -> Unit {
-  @ir.cache_invalidate_all(ctx.cache)
+  @ir.cache_invalidate_analyses(
+    ctx.cache,
+    @ir.hot_pass_invalidates(ctx.descriptor),
+  )
   if ctx.descriptor.name != "vacuum" {
     pipeline_trace_hook(
       ctx.trace,
@@ -884,7 +887,7 @@ pub fn pass_verify_before_after(
       ctx.perf,
       ctx.verify_policy,
       "verify before \{ctx.descriptor.name}",
-      HotPipelineVerifyTarget::HotFuncTarget(func),
+      HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, ctx.cache),
       "verify:before:\{ctx.descriptor.name}",
     ) {
     Ok(_) =>
@@ -892,7 +895,7 @@ pub fn pass_verify_before_after(
         ctx.perf,
         ctx.verify_policy,
         "verify after \{ctx.descriptor.name}",
-        HotPipelineVerifyTarget::HotFuncTarget(func),
+        HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, ctx.cache),
         "verify:after:\{ctx.descriptor.name}",
       )
     Err(err) => Err(err)

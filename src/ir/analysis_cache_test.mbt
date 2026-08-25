@@ -99,6 +99,23 @@ test "analysis cache rebuilds stale ssa through its dependencies" {
 }
 
 ///|
+test "analysis cache invalidates declared analyses with dependency closure" {
+  let func = analysis_cache_ssa_fixture()
+  let cache = HotAnalysisCache::new()
+  ignore(cache_get_or_build_ssa(cache, func))
+  ignore(cache_get_or_build_effects(cache, func))
+
+  cache_invalidate_analyses(cache, [HotAnalysis::use_def()])
+
+  assert_true(cache.cfg is Some(_))
+  assert_true(cache.dom is Some(_))
+  @debug.assert_eq(cache.use_def, None)
+  @debug.assert_eq(cache.liveness, None)
+  @debug.assert_eq(cache.ssa, None)
+  assert_true(cache.effects is Some(_))
+}
+
+///|
 test "analysis cache invalidate_all drops cached overlays" {
   let func = analysis_cache_ssa_fixture()
   let cache = HotAnalysisCache::new()

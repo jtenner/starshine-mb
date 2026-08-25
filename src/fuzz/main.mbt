@@ -527,6 +527,26 @@ pub fn fuzz_standard_recipe_text_by_name(name : String) -> String? {
         schema_line +
         "name=nightly\nsuite=validate-valid-metamorphic\nprofile=stress\nseed=0x1eed\nseed-count=32\nshard-count=8\noutput=jsonl\n",
       )
+    "optimizer-ci" =>
+      Some(
+        schema_line +
+        "name=optimizer-ci\nsuite=cmd-harness\nprofile=ci+gen-valid=pass-fuzz-stress+passes=random-short+determinism+codec-idempotence\nseed=0x5eed\nseed-count=8\nshard-count=4\noutput=jsonl\n",
+      )
+    "optimizer-idempotence-ci" =>
+      Some(
+        schema_line +
+        "name=optimizer-idempotence-ci\nsuite=cmd-harness\nprofile=ci+gen-valid=pass-fuzz-stress+passes=fixed-point-cleanup+opt-idempotence+codec-idempotence\nseed=0x5eed\nseed-count=8\nshard-count=4\noutput=jsonl\n",
+      )
+    "optimizer-stress" =>
+      Some(
+        schema_line +
+        "name=optimizer-stress\nsuite=cmd-harness\nprofile=stress+gen-valid=random-all-profiles+passes=random-mixed+determinism+codec-idempotence\nseed=0x5eed\nseed-count=64\nshard-count=8\noutput=jsonl\n",
+      )
+    "optimizer-idempotence-stress" =>
+      Some(
+        schema_line +
+        "name=optimizer-idempotence-stress\nsuite=cmd-harness\nprofile=stress+gen-valid=random-all-profiles+passes=fixed-point-cleanup+opt-idempotence+codec-idempotence\nseed=0x5eed\nseed-count=64\nshard-count=8\noutput=jsonl\n",
+      )
     "pass-signoff" =>
       Some(
         schema_line +
@@ -559,7 +579,8 @@ pub fn fuzz_standard_recipe_text_by_name(name : String) -> String? {
 ///|
 pub fn fuzz_standard_recipe_names() -> Array[String] {
   [
-    "smoke", "default-smoke", "ci", "default-ci", "nightly", "pass-signoff", "validator-stress",
+    "smoke", "default-smoke", "ci", "default-ci", "nightly", "optimizer-ci", "optimizer-idempotence-ci",
+    "optimizer-stress", "optimizer-idempotence-stress", "pass-signoff", "validator-stress",
     "parser-stress", "binaryen-oracle", "text-differential-smoke",
   ]
 }
@@ -646,6 +667,7 @@ pub enum FuzzCliCommand {
   EmitGenValidBatch(EmitGenValidBatchArgs)
   EmitInvalidRepro(EmitInvalidReproArgs)
   ReplayCorpus(String)
+  ResolveRandomPassProfile(String, UInt64)
   GoldenSeedSmoke
 } derive(Eq, Debug)
 
@@ -828,7 +850,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --list-recipes | --golden-seed-smoke | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>] | --replay-corpus <replay-manifest.json>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}\nopt-in recipes: text-differential-smoke"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --list-recipes | --golden-seed-smoke | --resolve-random-pass-profile <profile> --seed <uint64> | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>] | --replay-corpus <replay-manifest.json>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}\nopt-in recipes: text-differential-smoke"
 }
 
 ///|
@@ -2380,6 +2402,17 @@ pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
         fuzz_parse_emit_invalid_repro_args(args),
       )
     }
+    if command == "--resolve-random-pass-profile" {
+      if args.length() != 4 || args[2] != "--seed" {
+        abort(
+          "usage: --resolve-random-pass-profile <random-short|random-medium|random-long|random-mixed> --seed <uint64>",
+        )
+      }
+      return FuzzCliCommand::ResolveRandomPassProfile(
+        args[1],
+        fuzz_parse_uint64_or_abort(args[3]),
+      )
+    }
     if command == "--replay-corpus" {
       if args.length() != 2 {
         abort("usage: --replay-corpus <replay-manifest.json>")
@@ -2924,6 +2957,10 @@ fn run_single_suite(
   suite : String,
   profile : String,
   seed_i64 : Int64,
+  cmd_harness_on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[
+    Unit,
+    String,
+  ])? = None,
 ) -> Result[FuzzSuiteResult, String] {
   let seed = seed_i64.reinterpret_as_uint64()
   let start_ms = trace_now_ms()
@@ -3030,7 +3067,12 @@ fn run_single_suite(
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "cmd-harness" =>
-      match run_fuzz_cmd_harness_profile(profile, seed) {
+      match
+        run_fuzz_cmd_harness_profile(
+          profile,
+          seed,
+          on_failure=cmd_harness_on_failure,
+        ) {
         Ok(attempts) => (attempts, None)
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
@@ -6141,6 +6183,10 @@ pub fn run_fuzz_suite_sweep(
   seed_count : Int,
   shard_index : Int,
   shard_count : Int,
+  cmd_harness_on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[
+    Unit,
+    String,
+  ])? = None,
 ) -> Result[Array[FuzzSuiteResult], String] {
   if seed_count <= 0 {
     return Err("seed-count must be greater than zero")
@@ -6161,7 +6207,13 @@ pub fn run_fuzz_suite_sweep(
       if suite_name == "all" {
         let suites = fuzz_active_suite_names()
         for name in suites {
-          match run_single_suite(name, profile_name, run_seed) {
+          match
+            run_single_suite(
+              name,
+              profile_name,
+              run_seed,
+              cmd_harness_on_failure~,
+            ) {
             Ok(result) =>
               out.push(
                 fuzz_suite_result_with_sweep_metadata(
@@ -6172,7 +6224,13 @@ pub fn run_fuzz_suite_sweep(
           }
         }
       } else {
-        match run_single_suite(suite_name, profile_name, run_seed) {
+        match
+          run_single_suite(
+            suite_name,
+            profile_name,
+            run_seed,
+            cmd_harness_on_failure~,
+          ) {
           Ok(result) =>
             out.push(
               fuzz_suite_result_with_sweep_metadata(
@@ -6696,6 +6754,15 @@ fn main {
           )
         Err(e) => abort(e)
       }
+    FuzzCliCommand::ResolveRandomPassProfile(profile, seed) => {
+      println("pass_profile=\{profile}")
+      for
+        pass_name in @passes.pass_registry_random_executable_sequence(
+          profile, seed,
+        ) {
+        println(pass_name)
+      }
+    }
     FuzzCliCommand::ReplayCorpus(path) => {
       let manifest = match read_file_sync(path) {
         Ok(text) => text
@@ -6716,6 +6783,32 @@ fn main {
       }
     FuzzCliCommand::Run(parsed) => {
       let output_mode = parsed.output_mode
+      let cmd_harness_on_failure = match parsed.out_dir {
+        Some(root) =>
+          Some(fn(report : FuzzCmdHarnessFailureReport) {
+            match create_dir(root) {
+              Ok(_) => ()
+              Err(msg) =>
+                return Err("failed to create fuzz output dir \{root}: \{msg}")
+            }
+            let failures_dir = fuzz_join_path(root, "failures")
+            match create_dir(failures_dir) {
+              Ok(_) => ()
+              Err(msg) =>
+                return Err(
+                  "failed to create fuzz failure dir \{failures_dir}: \{msg}",
+                )
+            }
+            let failure_name = "seed-\{report.seed}-attempt-\{fuzz_zero_pad_decimal(report.attempt, 6)}-\{report.stage}"
+            let failure_dir = fuzz_join_path(failures_dir, failure_name)
+            let io = FuzzRunOutputIO::new(
+              ensure_dir=create_dir,
+              write_file=write_file_bytes,
+            )
+            persist_fuzz_cmd_harness_failure(report, failure_dir, io)
+          })
+        None => None
+      }
       match
         run_fuzz_suite_sweep(
           parsed.suite,
@@ -6724,6 +6817,7 @@ fn main {
           parsed.seed_count,
           parsed.shard_index,
           parsed.shard_count,
+          cmd_harness_on_failure~,
         ) {
         Ok(results) => {
           for result in results {

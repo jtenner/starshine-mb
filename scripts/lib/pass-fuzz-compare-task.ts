@@ -17,6 +17,15 @@ import { type FuzzSummaryReport, formatFuzzSummaryReport, normalizeFuzzSummaryRe
 import { type EffectTrapFacts, scanEffectTrapFactsFromWasmBytes } from "./effect-trap-scanner";
 import { formatReductionReportLog, reduceBinaryByByteSlicesWithReport, type ReductionStep } from "./fuzz-reducers";
 import { normalizeSsaLocalAllocationDebris } from "./pass-fuzz-ssa-local-allocation-debris";
+import {
+  classifyOptimizerDeterminism,
+  reducePassSequencePreservingFailureClassAsync,
+  runNodeSelfSemanticOracle,
+  type PassSequenceReductionReport,
+  type SemanticComparisonPolicy,
+  type SelfSemanticOracleReport,
+} from "./optimizer-correctness";
+import { replayOptimizerFailure } from "./optimizer-replay";
 
 type GeneratorMode = "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
@@ -57,6 +66,12 @@ type RuntimeExportInvocationMatrixPersistence = {
   semanticMismatchSamples: RuntimeExportInvocationReport[];
 };
 type PropertyMode = "none" | "idempotence" | "composition";
+type PropertyFailureClass =
+  | "semantic-self"
+  | "optimizer-nondeterminism"
+  | "optimizer-idempotence"
+  | "codec-idempotence"
+  | "composition";
 type OptimizerModeFlag = "--traps-never-happen" | "--ignore-implicit-traps" | "--zero-filled-memory";
 type CommandFailureClass =
   | "starshine-command-failed"
@@ -87,6 +102,11 @@ type PassFuzzCompareOptions = {
   externalValidators: ExternalValidatorKind[];
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
+  selfSemantic: boolean;
+  semanticPolicy: SemanticComparisonPolicy;
+  determinism: boolean;
+  codecIdempotence: boolean;
+  serialPasses: boolean;
   generator: GeneratorMode;
   genValidProfile: string | null;
   genValidRequiredFeatures: string[];
@@ -130,6 +150,7 @@ type CaseRecord = {
   status: CaseStatus;
   detail: string;
   failureClass?: CommandFailureClass;
+  propertyFailureClass?: PropertyFailureClass;
   transformId?: string;
   genValidSelectedProfile?: string;
   genValidProfileCaseLabel?: string;
@@ -181,6 +202,22 @@ export type PassFuzzCompareSummary = {
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
   propertyFailureCount: number;
+  propertyFailureClasses: Partial<Record<PropertyFailureClass, number>>;
+  selfSemantic: boolean;
+  semanticPolicy: SemanticComparisonPolicy;
+  semanticSelfCheckedCount: number;
+  semanticSelfMatchCount: number;
+  semanticSelfBlockedCount: number;
+  semanticSelfMismatchCount: number;
+  determinism: boolean;
+  determinismCheckedCount: number;
+  determinismByteStableCount: number;
+  determinismCanonicalStableOnlyCount: number;
+  determinismFailureCount: number;
+  codecIdempotence: boolean;
+  codecIdempotenceCheckedCount: number;
+  codecIdempotenceMatchCount: number;
+  serialPasses: boolean;
   reduceMismatches: boolean;
   idempotenceCheckedCount: number;
   idempotenceMatchCount: number;
@@ -228,6 +265,7 @@ const RESERVED_OPTIONS = new Set([
   "--external-validator",
   "--runtime-execution",
   "--property",
+  "--semantic-policy",
   "--generator",
   "--wasm-smith",
   "--gen-valid-profile",
@@ -331,8 +369,15 @@ const HELP_TEXT = [
   "  --external-validator <id>",
   "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
   "  --runtime-execution <mode>",
-  "                       Optional runtime smoke execution adapter: off | node. Default: off",
-  "  --property <mode>    Optional property checks: idempotence | composition. May be repeated later; default: none",
+  "                       Optional Starshine-vs-Binaryen runtime smoke adapter: off | node. Default: off",
+  "  --self-semantic      Execute the original input and Starshine output with one replayable deterministic plan",
+  "  --semantic-policy <mode>",
+  "                       Self-semantic comparison: strict | canonical-nan | trap-aware. Default: trap-aware",
+  "  --determinism        Optimize two fresh decodes of the same input and require deterministic output",
+  "  --codec-idempotence  Decode/encode the optimized output twice and require stable Starshine bytes",
+  "  --debug-serial-passes",
+  "                       Run Starshine with validation after each pass boundary instead of stacked scheduling",
+  "  --property <mode>    Existing optional property check: idempotence | composition. Default: none",
   "  --binaryen-validate-bin <path>",
   "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
   "  --wabt-validate-bin <path>",
@@ -553,6 +598,17 @@ function normalizePropertyMode(raw: string): PropertyMode {
   }
 }
 
+function normalizeSemanticPolicy(raw: string): SemanticComparisonPolicy {
+  switch (raw.trim()) {
+    case "strict":
+    case "canonical-nan":
+    case "trap-aware":
+      return raw.trim();
+    default:
+      fail(`unsupported semantic comparison policy for pass-fuzz-compare: ${raw}`);
+  }
+}
+
 function normalizeFailureStatus(raw: string): CaseStatus {
   switch (raw.trim()) {
     case "mismatch":
@@ -585,6 +641,13 @@ function normalizeCommandFailureClass(raw: string): CommandFailureClass {
     default:
       fail(`unsupported failure class for pass-fuzz-compare: ${raw}`);
   }
+}
+
+function starshineExecutionFlags(options: PassFuzzCompareOptions): string[] {
+  return [
+    ...(options.serialPasses ? ["--debug-serial-passes"] : []),
+    ...options.optimizerFlags,
+  ];
 }
 
 function resolveStarshineInvocation(
@@ -1076,6 +1139,14 @@ function noteCommandFailureClass(
 ): void {
   summary.commandFailureClasses[failureClass] =
     (summary.commandFailureClasses[failureClass] ?? 0) + 1;
+}
+
+function notePropertyFailureClass(
+  summary: PassFuzzCompareSummary,
+  failureClass: PropertyFailureClass,
+): void {
+  summary.propertyFailureClasses[failureClass] =
+    (summary.propertyFailureClasses[failureClass] ?? 0) + 1;
 }
 
 async function normalizePrintWat(
@@ -1907,17 +1978,30 @@ function normalizeDroppedIfResultValueDebrisExpression(exprLines: string[]): str
   ];
 }
 
-function normalizeDroppedLocalTeeExpression(exprLines: string[]): string[] | null {
+function normalizeDroppedLocalTeeExpression(
+  exprLines: string[],
+  localRefCount: Map<string, number>,
+): string[] | null {
   if (exprLines.length < 5 || !/^\s*\(drop\s*$/.test(exprLines[0])) return null;
   const teeMatch = exprLines[1].match(/^(\s*)\(local\.tee\s+(\$[A-Za-z0-9_.$-]+)\s*$/);
   if (teeMatch === null) return null;
   if (exprLines[exprLines.length - 2].trim() !== ")" || exprLines[exprLines.length - 1].trim() !== ")") return null;
   const dropIndent = exprLines[0].match(/^\s*/)?.[0] ?? "";
   const valueLines = exprLines.slice(2, -2).map((line) => line.startsWith(" ") ? line.slice(1) : line);
+  if (
+    localRefCount.get(teeMatch[2]) === 1 &&
+    /^\s*\(local\.get\s+\$[A-Za-z0-9_.$-]+\s*\)\s*$/.test(valueLines.join("\n"))
+  ) {
+    return [`${dropIndent}(drop`, ...valueLines, `${dropIndent})`];
+  }
   return [`${dropIndent}(local.set ${teeMatch[2]}`, ...valueLines, `${dropIndent})`];
 }
 
 function normalizeDroppedLocalValueDebris(wat: string): string {
+  const localRefCount = new Map<string, number>();
+  for (const match of wat.matchAll(/\blocal\.(?:get|set|tee)\s+(\$[A-Za-z0-9_.$-]+)\b/g)) {
+    localRefCount.set(match[1], (localRefCount.get(match[1]) ?? 0) + 1);
+  }
   const lines = wat.split("\n");
   const output: string[] = [];
   for (let index = 0; index < lines.length; index += 1) {
@@ -1932,7 +2016,7 @@ function normalizeDroppedLocalValueDebris(wat: string): string {
       continue;
     }
     const normalized = normalizeDroppedIfResultValueDebrisExpression(parsed.exprLines)
-      ?? normalizeDroppedLocalTeeExpression(parsed.exprLines);
+      ?? normalizeDroppedLocalTeeExpression(parsed.exprLines, localRefCount);
     if (normalized === null) {
       output.push(...parsed.exprLines);
     } else {
@@ -2044,10 +2128,11 @@ function normalizeUnusedLocalDeclarations(wat: string): string {
 }
 
 function normalizeLocalCleanupDebris(wat: string): string {
+  const first = normalizeUnusedLocalDeclarations(
+    normalizeEmptyConstIfDebris(normalizeDroppedLocalValueDebris(wat)),
+  );
   return normalizeStandaloneNops(
-    normalizeUnusedLocalDeclarations(
-      normalizeEmptyConstIfDebris(normalizeDroppedLocalValueDebris(wat)),
-    ),
+    normalizeUnusedLocalDeclarations(normalizeDroppedLocalValueDebris(first)),
   );
 }
 
@@ -2459,6 +2544,14 @@ export function passFuzzSummaryCoverageReport(summary: PassFuzzCompareSummary): 
   for (const [profileCaseLabel, count] of Object.entries(summary.genValidProfileCaseCounts ?? {})) {
     addCounter(strategies, `optional_gen_valid_profile_case_${sanitizeCounterKey(profileCaseLabel)}`, count);
   }
+  addCounter(strategies, "optional_semantic_self_checked", summary.semanticSelfCheckedCount);
+  addCounter(strategies, "optional_semantic_self_matched", summary.semanticSelfMatchCount);
+  addCounter(strategies, "optional_semantic_self_blocked", summary.semanticSelfBlockedCount);
+  addCounter(strategies, "optional_determinism_checked", summary.determinismCheckedCount);
+  addCounter(strategies, "optional_determinism_byte_stable", summary.determinismByteStableCount);
+  addCounter(strategies, "optional_determinism_canonical_stable_only", summary.determinismCanonicalStableOnlyCount);
+  addCounter(strategies, "optional_codec_idempotence_checked", summary.codecIdempotenceCheckedCount);
+  addCounter(strategies, "optional_codec_idempotence_matched", summary.codecIdempotenceMatchCount);
   addCounter(strategies, "optional_property_idempotence_checked", summary.idempotenceCheckedCount);
   addCounter(strategies, "optional_property_idempotence_matched", summary.idempotenceMatchCount);
   addCounter(strategies, "optional_property_composition_checked", summary.compositionCheckedCount);
@@ -2482,6 +2575,11 @@ export function passFuzzSummaryCoverageReport(summary: PassFuzzCompareSummary): 
   addCounter(failures, "generator", summary.generatorFailureCount);
   addCounter(failures, "command", summary.commandFailureCount);
   addCounter(failures, "property", summary.propertyFailureCount);
+  addCounter(failures, "semantic.self", summary.semanticSelfMismatchCount);
+  addCounter(failures, "optimizer.nondeterminism", summary.determinismFailureCount);
+  for (const [failureClass, count] of Object.entries(summary.propertyFailureClasses ?? {})) {
+    addCounter(failures, `property-class.${failureClass}`, count ?? 0);
+  }
   for (const [failureClass, count] of Object.entries(summary.commandFailureClasses)) {
     addCounter(failures, `command-class.${failureClass}`, count ?? 0);
   }
@@ -2539,6 +2637,8 @@ function persistFailureArtifacts(
   inputEffectTrapFacts: EffectTrapFacts | null = null,
   runtimeInvocationReports: RuntimeExportInvocationReport[] | null = null,
   reductionArtifact: MismatchReductionArtifact | null = null,
+  propertyFailureClass: PropertyFailureClass | null = null,
+  propertyEvidence: unknown | null = null,
 ): string {
   const transformId = genValidManifestTransformId(genValidManifestEntry);
   const failureDir = path.join(
@@ -2592,6 +2692,8 @@ function persistFailureArtifacts(
           runtimeInvocationReports === null
             ? null
             : runtimeExportInvocationMatrixPersistence(runtimeInvocationReports),
+        propertyFailureClass,
+        propertyEvidence,
         reduction:
           reductionArtifact === null
             ? null
@@ -2677,7 +2779,7 @@ function candidateStillHasPassFuzzMismatch(
     }
     const starshineArgs = [
       ...starshineInvocation.argsPrefix,
-      ...options.optimizerFlags,
+      ...starshineExecutionFlags(options),
       ...options.passFlags,
       "--out",
       starshineRawPath,
@@ -2750,6 +2852,48 @@ function reduceGenValidMismatchInput(
     predicateEvaluations: reduction.predicateEvaluations,
     steps: reduction.steps,
   };
+}
+
+async function reduceOptimizerPropertyPasses(
+  inputPath: string,
+  failureClass: PropertyFailureClass,
+  options: PassFuzzCompareOptions,
+  repoTmpDir: string,
+): Promise<PassSequenceReductionReport> {
+  const reductionDir = fs.mkdtempSync(path.join(repoTmpDir, "starshine-property-pass-reduce-"));
+  try {
+    return await reducePassSequencePreservingFailureClassAsync(
+      options.passFlags,
+      failureClass,
+      async (candidate) => {
+        fs.writeFileSync(
+          path.join(reductionDir, "failure-metadata.json"),
+          JSON.stringify({
+            status: "property-failure",
+            propertyFailureClass: failureClass,
+            replay: { input: "input.wasm", passFlags: candidate },
+            propertyEvidence: {
+              semanticPolicy: options.semanticPolicy,
+              serialPasses: options.serialPasses,
+            },
+            genValidManifestEntry: { seed: seedHex(options.seed) },
+          }, null, 2) + "\n",
+        );
+        const replay = await replayOptimizerFailure({
+          source: reductionDir,
+          inputOverride: inputPath,
+          starshineBin: options.starshineBin ?? undefined,
+          moonBin: options.moonBin,
+          wasmToolsBin: options.wasmToolsBin,
+        });
+        return replay.reproduced && replay.failureClass === failureClass
+          ? failureClass
+          : null;
+      },
+    );
+  } finally {
+    fs.rmSync(reductionDir, { recursive: true, force: true });
+  }
 }
 
 function loadReplayCases(
@@ -2877,6 +3021,9 @@ function applyResumedCaseRecord(
     }
     case "property-failure":
       summary.propertyFailureCount += 1;
+      if (record.propertyFailureClass !== undefined) {
+        notePropertyFailureClass(summary, record.propertyFailureClass);
+      }
       break;
   }
 
@@ -2901,6 +3048,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   const externalValidators: ExternalValidatorKind[] = [];
   let runtimeExecution: RuntimeExecutionMode = "off";
   let propertyMode: PropertyMode = "none";
+  let selfSemantic = false;
+  let semanticPolicy: SemanticComparisonPolicy = "trap-aware";
+  let determinism = false;
+  let codecIdempotence = false;
+  let serialPasses = false;
   let generator: GeneratorMode = "gen-valid";
   let genValidProfile: string | null = null;
   const genValidRequiredFeatures: string[] = [];
@@ -2995,6 +3147,26 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       case "--property":
         propertyMode = normalizePropertyMode(argv[i + 1] ?? fail("missing value for --property"));
         i += 2;
+        break;
+      case "--self-semantic":
+        selfSemantic = true;
+        i += 1;
+        break;
+      case "--semantic-policy":
+        semanticPolicy = normalizeSemanticPolicy(argv[i + 1] ?? fail("missing value for --semantic-policy"));
+        i += 2;
+        break;
+      case "--determinism":
+        determinism = true;
+        i += 1;
+        break;
+      case "--codec-idempotence":
+        codecIdempotence = true;
+        i += 1;
+        break;
+      case "--debug-serial-passes":
+        serialPasses = true;
+        i += 1;
         break;
       case "--wasm-smith":
         generator = "wasm-smith";
@@ -3115,6 +3287,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           i += 1;
           break;
         }
+        if (token.startsWith("--semantic-policy=")) {
+          semanticPolicy = normalizeSemanticPolicy(token.substring("--semantic-policy=".length));
+          i += 1;
+          break;
+        }
         if (token.startsWith("--binaryen-validate-bin=")) {
           binaryenValidateBin = token.substring("--binaryen-validate-bin=".length);
           i += 1;
@@ -3222,6 +3399,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       externalValidators,
       runtimeExecution,
       propertyMode,
+      selfSemantic,
+      semanticPolicy,
+      determinism,
+      codecIdempotence,
+      serialPasses,
       generator,
       genValidProfile,
       genValidRequiredFeatures,
@@ -3406,6 +3588,22 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     runtimeExecution: options.runtimeExecution,
     propertyMode: options.propertyMode,
     propertyFailureCount: 0,
+    propertyFailureClasses: {},
+    selfSemantic: options.selfSemantic,
+    semanticPolicy: options.semanticPolicy,
+    semanticSelfCheckedCount: 0,
+    semanticSelfMatchCount: 0,
+    semanticSelfBlockedCount: 0,
+    semanticSelfMismatchCount: 0,
+    determinism: options.determinism,
+    determinismCheckedCount: 0,
+    determinismByteStableCount: 0,
+    determinismCanonicalStableOnlyCount: 0,
+    determinismFailureCount: 0,
+    codecIdempotence: options.codecIdempotence,
+    codecIdempotenceCheckedCount: 0,
+    codecIdempotenceMatchCount: 0,
+    serialPasses: options.serialPasses,
     reduceMismatches: options.reduceMismatches,
     idempotenceCheckedCount: 0,
     idempotenceMatchCount: 0,
@@ -3495,6 +3693,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const binaryenPath = path.join(workDir, "binaryen.wasm");
     const starshineWatPath = path.join(workDir, "starshine.wat");
     const binaryenWatPath = path.join(workDir, "binaryen.wat");
+    const determinismRawPath = path.join(workDir, "starshine.determinism.raw.wasm");
+    const determinismLeftCanonicalPath = path.join(workDir, "starshine.determinism.left.wasm");
+    const determinismRightCanonicalPath = path.join(workDir, "starshine.determinism.right.wasm");
+    const codecOncePath = path.join(workDir, "starshine.codec.once.wasm");
+    const codecTwicePath = path.join(workDir, "starshine.codec.twice.wasm");
     const idempotenceRawPath = path.join(workDir, "starshine.idempotence.raw.wasm");
     const idempotencePath = path.join(workDir, "starshine.idempotence.wasm");
     const idempotenceWatPath = path.join(workDir, "starshine.idempotence.wat");
@@ -3505,6 +3708,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     let transformId: string | null = null;
     let inputEffectTrapFacts: EffectTrapFacts | null = null;
     let runtimeInvocationReports: RuntimeExportInvocationReport[] | null = null;
+    let selfSemanticReport: SelfSemanticOracleReport | null = null;
 
     try {
       if (replayCase !== null) {
@@ -3622,7 +3826,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
 
       const starshineArgs = [
         ...starshineInvocation.argsPrefix,
-        ...options.optimizerFlags,
+        ...starshineExecutionFlags(options),
         ...options.passFlags,
         "--out",
         starshineRawPath,
@@ -3709,11 +3913,227 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         return;
       }
 
+      const propertyFailures: { class: PropertyFailureClass; detail: string }[] = [];
+
+      if (options.selfSemantic) {
+        summary.semanticSelfCheckedCount += 1;
+        try {
+          selfSemanticReport = await runNodeSelfSemanticOracle(inputPath, starshineRawPath, {
+            seed: options.seed + BigInt(caseNumber),
+            policy: options.semanticPolicy,
+            planOptions: { maxExports: 8, maxCallsPerExport: 4 },
+          });
+          fs.writeFileSync(
+            path.join(workDir, "semantic-self.json"),
+            JSON.stringify(
+              selfSemanticReport,
+              (_key, value) => typeof value === "bigint" ? `bigint:${value.toString()}` : value,
+              2,
+            ) + "\n",
+          );
+          switch (selfSemanticReport.classification) {
+            case "equal-result":
+            case "equal-trap":
+              summary.semanticSelfMatchCount += 1;
+              break;
+            case "unsupported-runtime":
+            case "unsupported-feature":
+            case "non-comparable":
+            case "runtime-tool-failure":
+              summary.semanticSelfBlockedCount += 1;
+              break;
+            case "semantic-mismatch":
+            case "trap-mismatch": {
+              summary.semanticSelfMismatchCount += 1;
+              summary.propertyFailureCount += 1;
+              notePropertyFailureClass(summary, "semantic-self");
+              propertyFailures.push({
+                class: "semantic-self",
+                detail: `semantic:self ${selfSemanticReport.classification} at ${selfSemanticReport.firstDifference?.path ?? "unknown"}`,
+              });
+              break;
+            }
+          }
+        } catch (error) {
+          summary.semanticSelfBlockedCount += 1;
+          fs.writeFileSync(
+            path.join(workDir, "semantic-self.json"),
+            JSON.stringify({
+              schema: "starshine.semantic-self-report.v1",
+              classification: "runtime-tool-failure",
+              detail: commandFailureDetail(error),
+            }, null, 2) + "\n",
+          );
+        }
+      }
+
+      if (options.determinism) {
+        summary.determinismCheckedCount += 1;
+        try {
+          const determinismArgs = [
+            ...starshineInvocation.argsPrefix,
+            ...starshineExecutionFlags(options),
+            ...options.passFlags,
+            "--out",
+            determinismRawPath,
+            inputPath,
+          ];
+          await runStarshineWithRetry(
+            starshineInvocation,
+            determinismArgs,
+            determinismRawPath,
+            repoRoot,
+            repoTmpEnv,
+          );
+          let classification = classifyOptimizerDeterminism(
+            fs.readFileSync(starshineRawPath),
+            fs.readFileSync(determinismRawPath),
+          );
+          if (classification === "optimizer-nondeterminism") {
+            await canonicalizeWasm(options.wasmOptBin, starshineRawPath, determinismLeftCanonicalPath, repoRoot);
+            await canonicalizeWasm(options.wasmOptBin, determinismRawPath, determinismRightCanonicalPath, repoRoot);
+            classification = classifyOptimizerDeterminism(
+              fs.readFileSync(starshineRawPath),
+              fs.readFileSync(determinismRawPath),
+              {
+                canonicalLeft: fs.readFileSync(determinismLeftCanonicalPath),
+                canonicalRight: fs.readFileSync(determinismRightCanonicalPath),
+              },
+            );
+          }
+          if (classification === "byte-stable") {
+            summary.determinismByteStableCount += 1;
+          } else if (classification === "canonical-stable-only") {
+            summary.determinismCanonicalStableOnlyCount += 1;
+          } else {
+            summary.determinismFailureCount += 1;
+            summary.propertyFailureCount += 1;
+            notePropertyFailureClass(summary, "optimizer-nondeterminism");
+            propertyFailures.push({
+              class: "optimizer-nondeterminism",
+              detail: "optimizer-nondeterminism: two fresh executions produced different canonical outputs",
+            });
+          }
+        } catch (error) {
+          summary.determinismFailureCount += 1;
+          summary.propertyFailureCount += 1;
+          notePropertyFailureClass(summary, "optimizer-nondeterminism");
+          propertyFailures.push({
+            class: "optimizer-nondeterminism",
+            detail: `optimizer determinism command failed: ${commandFailureDetail(error)}`,
+          });
+        }
+      }
+
+      if (options.codecIdempotence) {
+        summary.codecIdempotenceCheckedCount += 1;
+        try {
+          await runStarshineWithRetry(
+            starshineInvocation,
+            [...starshineInvocation.argsPrefix, "--out", codecOncePath, starshineRawPath],
+            codecOncePath,
+            repoRoot,
+            repoTmpEnv,
+          );
+          await runStarshineWithRetry(
+            starshineInvocation,
+            [...starshineInvocation.argsPrefix, "--out", codecTwicePath, codecOncePath],
+            codecTwicePath,
+            repoRoot,
+            repoTmpEnv,
+          );
+          const codecValidation = await runValidateAsync(options.wasmToolsBin, codecTwicePath, repoRoot);
+          if (!codecValidation.ok) {
+            throw new Error(`codec output failed external validation: ${codecValidation.stderr || "unknown error"}`);
+          }
+          if (fs.readFileSync(codecOncePath).equals(fs.readFileSync(codecTwicePath))) {
+            summary.codecIdempotenceMatchCount += 1;
+          } else {
+            summary.propertyFailureCount += 1;
+            notePropertyFailureClass(summary, "codec-idempotence");
+            propertyFailures.push({
+              class: "codec-idempotence",
+              detail: "codec-idempotence: decode/encode/re-decode/re-encode changed bytes",
+            });
+          }
+        } catch (error) {
+          summary.propertyFailureCount += 1;
+          notePropertyFailureClass(summary, "codec-idempotence");
+          propertyFailures.push({
+            class: "codec-idempotence",
+            detail: `codec idempotence command failed: ${commandFailureDetail(error)}`,
+          });
+        }
+      }
+
+      if (propertyFailures.length > 0) {
+        failures += 1;
+        const primary = propertyFailures[0];
+        const detail = propertyFailures.map((failure) => `${failure.class}: ${failure.detail}`).join("\n");
+        let passReduction: PassSequenceReductionReport | null = null;
+        try {
+          passReduction = await reduceOptimizerPropertyPasses(
+            inputPath,
+            primary.class,
+            options,
+            repoTmpDir,
+          );
+          fs.writeFileSync(
+            path.join(workDir, "pass-reduction.json"),
+            JSON.stringify(passReduction, null, 2) + "\n",
+          );
+        } catch (error) {
+          fs.writeFileSync(
+            path.join(workDir, "pass-reduction.json"),
+            JSON.stringify({
+              failureClass: primary.class,
+              originalPasses: options.passFlags,
+              status: "failed",
+              detail: commandFailureDetail(error),
+            }, null, 2) + "\n",
+          );
+        }
+        summary.failureDirs.push(
+          persistFailureArtifacts(
+            outDir,
+            caseNumber,
+            generator,
+            "property-failure",
+            detail,
+            workDir,
+            options.wasmToolsBin,
+            repoRoot,
+            options.passFlags,
+            genValidManifestEntry,
+            inputEffectTrapFacts,
+            null,
+            null,
+            primary.class,
+            {
+              semanticPolicy: options.semanticPolicy,
+              serialPasses: options.serialPasses,
+              propertyFailures,
+              selfSemantic: selfSemanticReport,
+              passReduction,
+            },
+          ),
+        );
+        recordCase({
+          caseIndex: caseNumber,
+          generator,
+          status: "property-failure",
+          detail,
+          propertyFailureClass: primary.class,
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+        });
+        return;
+      }
+
       if (options.propertyMode === "idempotence") {
         summary.idempotenceCheckedCount += 1;
         const idempotenceArgs = [
           ...starshineInvocation.argsPrefix,
-          ...options.optimizerFlags,
+          ...starshineExecutionFlags(options),
           ...options.passFlags,
           "--out",
           idempotenceRawPath,
@@ -3821,7 +4241,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             finalCompositionRawPath = `${compositionRawPrefix}.${String(passIndex + 1).padStart(2, "0")}.raw.wasm`;
             const compositionArgs = [
               ...starshineInvocation.argsPrefix,
-              ...options.optimizerFlags,
+              ...starshineExecutionFlags(options),
               options.passFlags[passIndex],
               "--out",
               finalCompositionRawPath,

@@ -1,0 +1,12 @@
+{
+  "schema": "starshine.optimizer-seed-corpus.v1",
+  "seeds": [
+    { "id": "branch-heavy", "file": "branch-heavy.wat", "surfaces": ["branch-heavy-control", "typed-block"] },
+    { "id": "stateful-memory-global", "file": "stateful-memory-global.wat", "surfaces": ["stateful-sequence", "memory", "mutable-global"] },
+    { "id": "multivalue-locals", "file": "multivalue-locals.wat", "surfaces": ["multiple-results", "locals", "local-tee"] },
+    { "id": "table-indirect", "file": "table-indirect.wat", "surfaces": ["table", "reference-types", "indirect-call"] },
+    { "id": "simd-bits", "file": "simd-bits.wat", "surfaces": ["simd", "lane-boundary"] },
+    { "id": "call-tail", "file": "call-tail.wat", "surfaces": ["call-heavy", "tail-call"] },
+    { "id": "gc-struct-array", "file": "gc-struct-array.wat", "surfaces": ["gc-struct", "gc-array-type", "mutable-field"] }
+  ]
+}

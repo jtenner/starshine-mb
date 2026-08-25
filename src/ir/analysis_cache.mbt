@@ -100,6 +100,45 @@ pub fn cache_invalidate_all(cache : HotAnalysisCache) -> Unit {
 }
 
 ///|
+pub fn cache_invalidate_analyses(
+  cache : HotAnalysisCache,
+  analyses : Array[HotAnalysis],
+) -> Unit {
+  for analysis in analyses {
+    match analysis {
+      HotAnalysis::Cfg => {
+        cache.cfg = None
+        cache.orders = None
+        cache.dom = None
+        cache.postdom = None
+        cache.loop_info = None
+        cache.use_def = None
+        cache.liveness = None
+        cache.effects = None
+        cache.ssa = None
+      }
+      HotAnalysis::Dominance => {
+        cache.dom = None
+        cache.loop_info = None
+        cache.ssa = None
+      }
+      HotAnalysis::Liveness => {
+        cache.liveness = None
+        cache.ssa = None
+      }
+      HotAnalysis::UseDef => {
+        cache.use_def = None
+        cache.liveness = None
+        cache.ssa = None
+      }
+      HotAnalysis::Effects => cache.effects = None
+      HotAnalysis::LoopInfo => cache.loop_info = None
+      HotAnalysis::Ssa => cache.ssa = None
+    }
+  }
+}
+
+///|
 pub fn cache_get_or_build_cfg(
   cache : HotAnalysisCache,
   func : HotFunc,

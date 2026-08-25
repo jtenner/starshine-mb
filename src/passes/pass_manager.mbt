@@ -325,6 +325,10 @@ fn pipeline_verify_checkpoint_with_perf(
     (
       HotPipelineVerifyPolicy::FinalModuleOnly,
       HotPipelineVerifyTarget::HotFuncTarget(_),
+    )
+    | (
+      HotPipelineVerifyPolicy::FinalModuleOnly,
+      HotPipelineVerifyTarget::HotFuncWithCacheTarget(_, _),
     ) => Ok(())
     _ => {
       let start_us = perf_start_timer_opt(perf, timer_name)
@@ -444,6 +448,7 @@ fn pass_manager_debug_dump_root_prefix(
 ///|
 pub enum HotPipelineVerifyTarget {
   HotFuncTarget(@ir.HotFunc)
+  HotFuncWithCacheTarget(@ir.HotFunc, @ir.HotAnalysisCache)
   ModuleTarget(@lib.Module)
 }
 
@@ -461,7 +466,8 @@ pub fn pipeline_verify_checkpoint(
             Ok(_) => Ok(())
             Err(err) => Err("\{label}: \{err}")
           }
-        HotPipelineVerifyTarget::HotFuncTarget(_) => Ok(())
+        HotPipelineVerifyTarget::HotFuncTarget(_)
+        | HotPipelineVerifyTarget::HotFuncWithCacheTarget(_, _) => Ok(())
       }
     HotPipelineVerifyPolicy::AfterEachPass =>
       match target {
@@ -471,6 +477,16 @@ pub fn pipeline_verify_checkpoint(
             Err(err) => return Err("\{label}: \{err}")
           }
           match @ir.hot_verify_control(func) {
+            Ok(_) => Ok(())
+            Err(err) => Err("\{label}: \{err}")
+          }
+        }
+        HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, cache) => {
+          match @ir.hot_verify_control(func) {
+            Ok(_) => ()
+            Err(err) => return Err("\{label}: \{err}")
+          }
+          match @ir.hot_verify_cached_analyses(func, cache) {
             Ok(_) => Ok(())
             Err(err) => Err("\{label}: \{err}")
           }
@@ -89054,7 +89070,10 @@ fn hot_pass_run_with_aggregate_perf_timer(
   }
   perf_dump_hot_func_opt(ctx.perf, func, "after-pass:\{descriptor.name}")
   if @ir.hot_revision_current(func) != before_revision {
-    @ir.cache_invalidate_all(ctx.cache)
+    @ir.cache_invalidate_analyses(
+      ctx.cache,
+      @ir.hot_pass_invalidates(descriptor),
+    )
   }
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()

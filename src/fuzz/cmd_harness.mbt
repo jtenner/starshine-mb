@@ -1,4 +1,265 @@
 ///|
+pub struct FuzzCmdHarnessFailureReport {
+  seed : UInt64
+  attempt : Int
+  generated_valid : Int
+  stage : String
+  message : String
+  generator_profile : String
+  pass_profile : String
+  optimize_passes : Array[String]
+  minimized_passes : Array[String]
+  original_wasm : Bytes
+  first_output : Bytes
+  second_output : Bytes
+} derive(Eq, Debug)
+
+///|
+pub fn FuzzCmdHarnessFailureReport::new(
+  seed : UInt64,
+  attempt : Int,
+  generated_valid : Int,
+  stage : String,
+  message : String,
+  generator_profile : String,
+  pass_profile : String,
+  optimize_passes : Array[String],
+  original_wasm : Bytes,
+  first_output : Bytes,
+  second_output : Bytes,
+  minimized_passes? : Array[String] = optimize_passes,
+) -> FuzzCmdHarnessFailureReport {
+  {
+    seed,
+    attempt,
+    generated_valid,
+    stage,
+    message,
+    generator_profile,
+    pass_profile,
+    optimize_passes,
+    minimized_passes,
+    original_wasm,
+    first_output,
+    second_output,
+  }
+}
+
+///|
+fn fuzz_cmd_harness_failure_message(
+  on_failure : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])?,
+  report : FuzzCmdHarnessFailureReport,
+) -> String {
+  match on_failure {
+    Some(callback) =>
+      match callback(report) {
+        Ok(_) => report.message
+        Err(msg) => "\{report.message}; failure callback error: \{msg}"
+      }
+    None => report.message
+  }
+}
+
+///|
+fn fuzz_cmd_harness_without_pass_range(
+  passes : Array[String],
+  start : Int,
+  len : Int,
+) -> Array[String] {
+  let out : Array[String] = []
+  let end = start + len
+  let mut idx = 0
+  while idx < passes.length() {
+    if idx < start || idx >= end {
+      out.push(passes[idx])
+    }
+    idx += 1
+  }
+  out
+}
+
+///|
+fn fuzz_cmd_harness_minimize_passes(
+  passes : Array[String],
+  reproduces : (Array[String]) -> Bool,
+) -> Array[String] {
+  let mut current = passes.copy()
+  let mut chunk = if current.length() <= 1 {
+    1
+  } else {
+    (current.length() + 1) / 2
+  }
+  while chunk >= 1 && current.length() > 0 {
+    let mut reduced = false
+    let mut start = 0
+    while start < current.length() {
+      let len = if start + chunk > current.length() {
+        current.length() - start
+      } else {
+        chunk
+      }
+      let candidate = fuzz_cmd_harness_without_pass_range(current, start, len)
+      if reproduces(candidate) {
+        current = candidate
+        reduced = true
+        break
+      }
+      start += chunk
+    }
+    if !reduced {
+      if chunk == 1 {
+        break
+      }
+      chunk = (chunk + 1) / 2
+    }
+  }
+  current
+}
+
+///|
+fn fuzz_cmd_harness_optimizer_outputs(
+  original_wasm : Bytes,
+  passes : Array[String],
+) -> (Bytes, Bytes)? {
+  let first_input = match decode_module(original_wasm) {
+    Ok(mod_) => mod_
+    Err(_) => return None
+  }
+  let first_mod = match
+    @passes.run_hot_pipeline(
+      first_input,
+      @passes.HotPipelineOptions::new(stack_function_passes=true),
+      passes,
+    ) {
+    Ok(mod_) => mod_
+    Err(_) => return None
+  }
+  let first = match encode_module(first_mod) {
+    Ok(bytes) => bytes
+    Err(_) => return None
+  }
+  let second_input = match decode_module(first) {
+    Ok(mod_) => mod_
+    Err(_) => return None
+  }
+  let second_mod = match
+    @passes.run_hot_pipeline(
+      second_input,
+      @passes.HotPipelineOptions::new(stack_function_passes=true),
+      passes,
+    ) {
+    Ok(mod_) => mod_
+    Err(_) => return None
+  }
+  let second = match encode_module(second_mod) {
+    Ok(bytes) => bytes
+    Err(_) => return None
+  }
+  Some((first, second))
+}
+
+///|
+fn fuzz_cmd_harness_minimize_optimizer_idempotence(
+  original_wasm : Bytes,
+  passes : Array[String],
+) -> Array[String] {
+  fuzz_cmd_harness_minimize_passes(passes, fn(candidate) {
+    match fuzz_cmd_harness_optimizer_outputs(original_wasm, candidate) {
+      Some((first, second)) => !fuzz_cmd_harness_bytes_equal(first, second)
+      None => false
+    }
+  })
+}
+
+///|
+fn fuzz_cmd_harness_minimize_optimizer_nondeterminism(
+  original_wasm : Bytes,
+  passes : Array[String],
+) -> Array[String] {
+  fuzz_cmd_harness_minimize_passes(passes, fn(candidate) {
+    let left_input = match decode_module(original_wasm) {
+      Ok(mod_) => mod_
+      Err(_) => return false
+    }
+    let right_input = match decode_module(original_wasm) {
+      Ok(mod_) => mod_
+      Err(_) => return false
+    }
+    let left = match
+      @passes.run_hot_pipeline(
+        left_input,
+        @passes.HotPipelineOptions::new(stack_function_passes=true),
+        candidate,
+      ) {
+      Ok(mod_) => mod_
+      Err(_) => return false
+    }
+    let right = match
+      @passes.run_hot_pipeline(
+        right_input,
+        @passes.HotPipelineOptions::new(stack_function_passes=true),
+        candidate,
+      ) {
+      Ok(mod_) => mod_
+      Err(_) => return false
+    }
+    match (encode_module(left), encode_module(right)) {
+      (Ok(left_bytes), Ok(right_bytes)) =>
+        !fuzz_cmd_harness_bytes_equal(left_bytes, right_bytes)
+      _ => false
+    }
+  })
+}
+
+///|
+fn fuzz_cmd_harness_pass_flags_json(passes : Array[String]) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < passes.length() {
+    if i > 0 {
+      out.write_string(",")
+    }
+    out.write_string("\"--\{fuzz_json_escape(passes[i])}\"")
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+pub fn persist_fuzz_cmd_harness_failure(
+  report : FuzzCmdHarnessFailureReport,
+  out_dir : String,
+  io : FuzzRunOutputIO,
+) -> Result[Unit, String] {
+  let dir = out_dir.trim().to_owned()
+  if dir.length() == 0 {
+    return Err("cmd-harness failure output dir must not be empty")
+  }
+  match (io.ensure_dir)(dir) {
+    Ok(_) => ()
+    Err(msg) =>
+      return Err("failed to create cmd-harness failure dir \{dir}: \{msg}")
+  }
+  let replay_passes = report.minimized_passes
+  let metadata = "{\"schema\":\"starshine.optimizer-failure.v1\",\"status\":\"property-failure\",\"propertyFailureClass\":\"\{fuzz_json_escape(report.stage)}\",\"seed\":\{report.seed},\"attempt\":\{report.attempt},\"generatedValid\":\{report.generated_valid},\"message\":\"\{fuzz_json_escape(report.message)}\",\"generatorProfile\":\"\{fuzz_json_escape(report.generator_profile)}\",\"passProfile\":\"\{fuzz_json_escape(report.pass_profile)}\",\"originalPassFlags\":[\{fuzz_cmd_harness_pass_flags_json(report.optimize_passes)}],\"minimizedPassFlags\":[\{fuzz_cmd_harness_pass_flags_json(report.minimized_passes)}],\"replay\":{\"input\":\"input.wasm\",\"passFlags\":[\{fuzz_cmd_harness_pass_flags_json(replay_passes)}]},\"propertyEvidence\":{\"firstOutput\":\"optimized-once.wasm\",\"secondOutput\":\"optimized-twice.wasm\",\"serialPasses\":false}}"
+  let writes = [
+    ("failure-metadata.json", fuzz_string_to_bytes(metadata)),
+    ("input.wasm", report.original_wasm),
+    ("optimized-once.wasm", report.first_output),
+    ("optimized-twice.wasm", report.second_output),
+  ]
+  for write in writes {
+    let path = fuzz_join_path(dir, write.0)
+    match (io.write_file)(path, write.1) {
+      Ok(_) => ()
+      Err(msg) =>
+        return Err("failed to write cmd-harness failure \{path}: \{msg}")
+    }
+  }
+  Ok(())
+}
+
+///|
 fn fuzz_cmd_harness_ascii_lower(input : String) -> String {
   let out = StringBuilder::new()
   for c in input {
@@ -34,6 +295,10 @@ fn run_fuzz_cmd_harness(
   generator_config? : GenValidConfig = GenValidConfig::natural_default(),
   check_optimize_idempotence? : Bool = false,
   check_encode_decode_idempotence? : Bool = false,
+  check_optimizer_determinism? : Bool = false,
+  generator_profile? : String = "natural-wide",
+  pass_profile? : String = "custom",
+  on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])? = None,
 ) -> Result[Int, String] {
   if valid_target < 0 {
     return Err("valid_target must be non-negative")
@@ -116,7 +381,7 @@ fn run_fuzz_cmd_harness(
     let optimized = match
       @passes.run_hot_pipeline(
         decoded,
-        @passes.HotPipelineOptions::new(),
+        @passes.HotPipelineOptions::new(stack_function_passes=true),
         optimize_passes,
       ) {
       Ok(v) => v
@@ -127,6 +392,56 @@ fn run_fuzz_cmd_harness(
       Err(e) =>
         return Err("post-opt encode failed at attempt #\{attempts}: \{e}")
     }
+    if check_optimizer_determinism {
+      let second_input = match decode_module(encoded) {
+        Ok(decoded_mod) => decoded_mod
+        Err(e) =>
+          return Err(
+            "optimizer determinism second decode failed at attempt #\{attempts}: \{e}",
+          )
+      }
+      let second_optimized = match
+        @passes.run_hot_pipeline(
+          second_input,
+          @passes.HotPipelineOptions::new(stack_function_passes=true),
+          optimize_passes,
+        ) {
+        Ok(v) => v
+        Err(e) =>
+          return Err(
+            "optimizer determinism second run failed at attempt #\{attempts}: \{e}",
+          )
+      }
+      let second_bytes = match encode_module(second_optimized) {
+        Ok(bytes) => bytes
+        Err(e) =>
+          return Err(
+            "optimizer determinism second encode failed at attempt #\{attempts}: \{e}",
+          )
+      }
+      if !fuzz_cmd_harness_bytes_equal(roundtrip_bytes, second_bytes) {
+        let message = "optimizer-nondeterminism at attempt #\{attempts}: fresh executions changed bytes"
+        let original_passes = optimize_passes.copy()
+        let minimized_passes = fuzz_cmd_harness_minimize_optimizer_nondeterminism(
+          encoded, original_passes,
+        )
+        let report = FuzzCmdHarnessFailureReport::new(
+          seed,
+          attempts,
+          generated_valid,
+          "optimizer-nondeterminism",
+          message,
+          generator_profile,
+          pass_profile,
+          original_passes,
+          encoded,
+          roundtrip_bytes,
+          second_bytes,
+          minimized_passes~,
+        )
+        return Err(fuzz_cmd_harness_failure_message(on_failure, report))
+      }
+    }
     let roundtrip_mod = match decode_module(roundtrip_bytes) {
       Ok(decoded_mod) => decoded_mod
       Err(e) =>
@@ -136,7 +451,7 @@ fn run_fuzz_cmd_harness(
       let optimized_again = match
         @passes.run_hot_pipeline(
           roundtrip_mod,
-          @passes.HotPipelineOptions::new(),
+          @passes.HotPipelineOptions::new(stack_function_passes=true),
           optimize_passes,
         ) {
         Ok(v) => v
@@ -153,7 +468,26 @@ fn run_fuzz_cmd_harness(
           )
       }
       if !fuzz_cmd_harness_bytes_equal(roundtrip_bytes, optimized_again_bytes) {
-        return Err("optimize idempotence changed bytes at attempt #\{attempts}")
+        let message = "optimize idempotence changed bytes at attempt #\{attempts}"
+        let original_passes = optimize_passes.copy()
+        let minimized_passes = fuzz_cmd_harness_minimize_optimizer_idempotence(
+          encoded, original_passes,
+        )
+        let report = FuzzCmdHarnessFailureReport::new(
+          seed,
+          attempts,
+          generated_valid,
+          "optimizer-idempotence",
+          message,
+          generator_profile,
+          pass_profile,
+          original_passes,
+          encoded,
+          roundtrip_bytes,
+          optimized_again_bytes,
+          minimized_passes~,
+        )
+        return Err(fuzz_cmd_harness_failure_message(on_failure, report))
       }
     }
     let roundtrip_validate_mod = match decode_module(roundtrip_bytes) {
@@ -231,10 +565,12 @@ fn fuzz_cmd_harness_pass_profile(
     "each-pass" => Ok(fuzz_cmd_harness_each_pass_profile())
     "common-cluster" | "common-clusters" =>
       Ok(fuzz_cmd_harness_common_cluster_profile())
+    "fixed-point-cleanup" =>
+      Ok(@passes.pass_registry_fixed_point_cleanup_sequence())
     "default-pipeline" => fuzz_cmd_harness_default_pipeline_profile()
     _ =>
       Err(
-        "unknown cmd-harness pass profile '\{profile}'; expected none|cleanup|optimize-core|each-pass|common-clusters|default-pipeline",
+        "unknown cmd-harness pass profile '\{profile}'; expected none|cleanup|optimize-core|each-pass|common-clusters|fixed-point-cleanup|default-pipeline",
       )
   }
 }
@@ -243,6 +579,7 @@ fn fuzz_cmd_harness_pass_profile(
 fn run_fuzz_cmd_harness_profile(
   profile : String,
   seed : UInt64,
+  on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])? = None,
 ) -> Result[Int, String] {
   let parts : Array[String] = []
   for part in profile.trim().to_owned().split("+") {
@@ -267,6 +604,7 @@ fn run_fuzz_cmd_harness_profile(
   let mut pass_profile = "none"
   let mut check_optimize_idempotence = false
   let mut check_encode_decode_idempotence = false
+  let mut check_optimizer_determinism = false
   let mut i = 1
   while i < parts.length() {
     let part = fuzz_cmd_harness_ascii_lower(parts[i].trim().to_owned())
@@ -274,6 +612,8 @@ fn run_fuzz_cmd_harness_profile(
       ()
     } else if fuzz_cmd_harness_has_prefix(part, "gen=") {
       generator_profile = part.sub(start=4).to_owned()
+    } else if fuzz_cmd_harness_has_prefix(part, "gen-valid=") {
+      generator_profile = part.sub(start=10).to_owned()
     } else if fuzz_cmd_harness_has_prefix(part, "generator=") {
       generator_profile = part.sub(start=10).to_owned()
     } else if fuzz_cmd_harness_has_prefix(part, "passes=") {
@@ -282,6 +622,8 @@ fn run_fuzz_cmd_harness_profile(
       check_optimize_idempotence = true
     } else if part == "codec-idempotence" || part == "encode-decode-idempotence" {
       check_encode_decode_idempotence = true
+    } else if part == "determinism" || part == "optimizer-determinism" {
+      check_optimizer_determinism = true
     } else {
       return Err(
         "unknown cmd-harness profile modifier '\{parts[i]}' in '\{profile}'",
@@ -297,9 +639,19 @@ fn run_fuzz_cmd_harness_profile(
     "common-cluster" => "common-clusters"
     _ => pass_profile
   }
-  let optimize_passes = match fuzz_cmd_harness_pass_profile(pass_profile) {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
+  let optimize_passes = if fuzz_cmd_harness_has_prefix(pass_profile, "random-") {
+    let resolved = @passes.pass_registry_random_executable_sequence(
+      pass_profile, seed,
+    )
+    if resolved.length() == 0 {
+      return Err("unknown cmd-harness random pass profile '\{pass_profile}'")
+    }
+    resolved
+  } else {
+    match fuzz_cmd_harness_pass_profile(pass_profile) {
+      Ok(v) => v
+      Err(msg) => return Err(msg)
+    }
   }
   run_fuzz_cmd_harness(
     valid_target,
@@ -308,5 +660,9 @@ fn run_fuzz_cmd_harness_profile(
     generator_config~,
     check_optimize_idempotence~,
     check_encode_decode_idempotence~,
+    check_optimizer_determinism~,
+    generator_profile~,
+    pass_profile~,
+    on_failure~,
   )
 }

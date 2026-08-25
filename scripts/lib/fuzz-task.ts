@@ -1,8 +1,14 @@
+import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
 
 import { assertTarget, fail, resolveMoonBin, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 import { runPassFuzzCompare } from "./pass-fuzz-compare-task";
 import { runFuzzCoverageDelta } from "./fuzz-coverage-delta-task";
+import { promoteOptimizerFailure } from "./optimizer-corpus";
+import { replayOptimizerFailure } from "./optimizer-replay";
+import { parseOptimizerSeedRunArgs, runOptimizerSeedCorpus } from "./optimizer-seeds";
+import { runOptionalWasmReduce } from "./optimizer-correctness";
 
 export type FuzzOptions = {
   profile: string;
@@ -468,13 +474,10 @@ export function runFuzz(
   if (options.recipeName !== null) {
     args.push("--recipe", options.recipeName);
     if (options.suiteExplicit) {
-      args.push(options.suite);
+      args.push("--suite", options.suite);
     }
     if (options.profileExplicit) {
-      if (!options.suiteExplicit) {
-        args.push(options.suite);
-      }
-      args.push(options.profile);
+      args.push("--profile", options.profile);
     }
   } else {
     args.push(options.suite, options.profile);
@@ -503,7 +506,229 @@ export function runFuzz(
   runner(options.moonBin, args, { cwd: repoRoot });
 }
 
-// `bun fuzz run` entrypoint with a strict single subcommand and no fallback parser.
+export type OptimizerReplayTaskOptions = {
+  source: string;
+  starshineBin: string | undefined;
+  moonBin: string;
+  wasmToolsBin: string;
+  inputOverride?: string;
+  predicate?: boolean;
+};
+
+export type OptimizerReductionTaskOptions = {
+  source: string;
+  outputPath: string;
+  wasmReduceBin: string;
+  starshineBin: string | undefined;
+  moonBin: string;
+  wasmToolsBin: string;
+};
+
+export type OptimizerPromotionTaskOptions = {
+  failureDir: string;
+  corpusRoot: string;
+  starshineBin: string | undefined;
+  moonBin: string;
+  wasmToolsBin: string;
+};
+
+function parseOptimizerToolArgs(
+  argv: string[],
+  kind: "replay" | "promotion",
+): OptimizerReplayTaskOptions | OptimizerPromotionTaskOptions {
+  const positional: string[] = [];
+  let starshineBin: string | undefined;
+  let moonBin = "moon";
+  let wasmToolsBin = "wasm-tools";
+  let corpusRoot = "tests/optimizer/regressions";
+  let inputOverride: string | undefined;
+  let predicate = false;
+  for (let index = 0; index < argv.length; ) {
+    const token = argv[index];
+    if (!token.startsWith("--")) {
+      positional.push(token);
+      index += 1;
+      continue;
+    }
+    switch (token) {
+      case "--starshine-bin":
+        starshineBin = argv[index + 1] ?? fail("missing value for --starshine-bin");
+        index += 2;
+        break;
+      case "--moon":
+        moonBin = argv[index + 1] ?? fail("missing value for --moon");
+        index += 2;
+        break;
+      case "--wasm-tools-bin":
+        wasmToolsBin = argv[index + 1] ?? fail("missing value for --wasm-tools-bin");
+        index += 2;
+        break;
+      case "--corpus-root":
+        if (kind !== "promotion") fail("--corpus-root is only valid for promote-optimizer");
+        corpusRoot = argv[index + 1] ?? fail("missing value for --corpus-root");
+        index += 2;
+        break;
+      case "--input":
+        if (kind !== "replay") fail("--input is only valid for replay-optimizer");
+        inputOverride = argv[index + 1] ?? fail("missing value for --input");
+        index += 2;
+        break;
+      case "--predicate":
+        if (kind !== "replay") fail("--predicate is only valid for replay-optimizer");
+        predicate = true;
+        index += 1;
+        break;
+      default:
+        fail(`unknown optimizer ${kind} option: ${token}`);
+    }
+  }
+  if (positional.length !== 1) {
+    fail(`optimizer ${kind} requires exactly one failure directory or manifest`);
+  }
+  if (kind === "replay") {
+    return {
+      source: positional[0],
+      starshineBin,
+      moonBin,
+      wasmToolsBin,
+      ...(inputOverride === undefined ? {} : { inputOverride }),
+      ...(predicate ? { predicate: true } : {}),
+    };
+  }
+  return { failureDir: positional[0], corpusRoot, starshineBin, moonBin, wasmToolsBin };
+}
+
+export function parseOptimizerReplayArgs(argv: string[]): OptimizerReplayTaskOptions {
+  return parseOptimizerToolArgs(argv, "replay") as OptimizerReplayTaskOptions;
+}
+
+export function parseOptimizerPromotionArgs(argv: string[]): OptimizerPromotionTaskOptions {
+  return parseOptimizerToolArgs(argv, "promotion") as OptimizerPromotionTaskOptions;
+}
+
+export function parseOptimizerReductionArgs(argv: string[]): OptimizerReductionTaskOptions {
+  const positional: string[] = [];
+  let outputPath: string | null = null;
+  let wasmReduceBin = process.env.WASM_REDUCE_BIN || "wasm-reduce";
+  let starshineBin: string | undefined;
+  let moonBin = "moon";
+  let wasmToolsBin = "wasm-tools";
+  for (let index = 0; index < argv.length; ) {
+    const token = argv[index];
+    if (!token.startsWith("--")) {
+      positional.push(token);
+      index += 1;
+      continue;
+    }
+    switch (token) {
+      case "--out":
+        outputPath = argv[index + 1] ?? fail("missing value for --out");
+        index += 2;
+        break;
+      case "--wasm-reduce-bin":
+        wasmReduceBin = argv[index + 1] ?? fail("missing value for --wasm-reduce-bin");
+        index += 2;
+        break;
+      case "--starshine-bin":
+        starshineBin = argv[index + 1] ?? fail("missing value for --starshine-bin");
+        index += 2;
+        break;
+      case "--moon":
+        moonBin = argv[index + 1] ?? fail("missing value for --moon");
+        index += 2;
+        break;
+      case "--wasm-tools-bin":
+        wasmToolsBin = argv[index + 1] ?? fail("missing value for --wasm-tools-bin");
+        index += 2;
+        break;
+      default:
+        fail(`unknown reduce-optimizer option: ${token}`);
+    }
+  }
+  if (positional.length !== 1) fail("reduce-optimizer requires exactly one failure directory or manifest");
+  if (outputPath === null) fail("reduce-optimizer requires --out <path>");
+  return { source: positional[0], outputPath, wasmReduceBin, starshineBin, moonBin, wasmToolsBin };
+}
+
+function optimizerReductionInputPath(source: string): string {
+  const resolved = path.resolve(source);
+  const directory = fs.statSync(resolved).isDirectory() ? resolved : path.dirname(resolved);
+  const failureMetadata = path.join(directory, "failure-metadata.json");
+  if (fs.existsSync(failureMetadata)) {
+    const metadata = JSON.parse(fs.readFileSync(failureMetadata, "utf8")) as { replay?: { input?: string } };
+    return path.resolve(directory, metadata.replay?.input ?? "input.wasm");
+  }
+  const manifestPath = fs.statSync(resolved).isFile() ? resolved : path.join(directory, "manifest.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as { input?: { path?: string } };
+  return path.resolve(directory, manifest.input?.path ?? "input.wasm");
+}
+
+async function runOptimizerReplayTask(options: OptimizerReplayTaskOptions): Promise<void> {
+  const result = await replayOptimizerFailure({
+    source: options.source,
+    inputOverride: options.inputOverride,
+    starshineBin: options.starshineBin,
+    moonBin: options.moonBin,
+    wasmToolsBin: options.wasmToolsBin,
+  });
+  process.stdout.write(
+    options.predicate
+      ? `${result.reproduced ? result.failureClass ?? "reproduced" : "not-reproduced"}\n`
+      : `${JSON.stringify(result)}\n`,
+  );
+  if (!result.reproduced) process.exitCode = 1;
+}
+
+async function runOptimizerReductionTask(options: OptimizerReductionTaskOptions): Promise<void> {
+  const outputPath = path.resolve(options.outputPath);
+  const testPath = `${outputPath}.test.wasm`;
+  const predicateCommand = [
+    process.execPath,
+    path.resolve("scripts/fuzz.ts"),
+    "replay-optimizer",
+    path.resolve(options.source),
+    "--input",
+    testPath,
+    "--predicate",
+    "--moon",
+    options.moonBin,
+    "--wasm-tools-bin",
+    options.wasmToolsBin,
+    ...(options.starshineBin === undefined ? [] : ["--starshine-bin", path.resolve(options.starshineBin)]),
+  ];
+  const result = runOptionalWasmReduce({
+    wasmReduceBin: options.wasmReduceBin,
+    inputPath: optimizerReductionInputPath(options.source),
+    outputPath,
+    predicateCommand,
+  });
+  fs.writeFileSync(`${outputPath}.reduction.log`, result.status === "unavailable" ? `${result.detail}\n` : result.log);
+  process.stdout.write(`${JSON.stringify(result)}\n`);
+  if (result.status === "failed") process.exitCode = 1;
+}
+
+async function runOptimizerSeedTask(argv: string[]): Promise<void> {
+  const report = await runOptimizerSeedCorpus(parseOptimizerSeedRunArgs(argv));
+  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  if (report.failed > 0) process.exitCode = 1;
+}
+
+async function runOptimizerPromotionTask(options: OptimizerPromotionTaskOptions): Promise<void> {
+  const result = await promoteOptimizerFailure({
+    failureDir: options.failureDir,
+    corpusRoot: options.corpusRoot,
+    verifyFailure: (context) => replayOptimizerFailure({
+      source: options.failureDir,
+      inputOverride: context.inputPath,
+      starshineBin: options.starshineBin,
+      moonBin: options.moonBin,
+      wasmToolsBin: options.wasmToolsBin,
+    }),
+  });
+  process.stdout.write(`${result.casePath}\n`);
+}
+
+// `bun fuzz run` entrypoint with strict sibling subcommands and no fallback parser.
 export function main(argv: string[]): void {
   const [subcommand, ...rest] = argv;
   if (subcommand === "compare-pass") {
@@ -514,9 +739,25 @@ export function main(argv: string[]): void {
     runFuzzCoverageDelta(rest);
     return;
   }
+  if (subcommand === "replay-optimizer") {
+    void runOptimizerReplayTask(parseOptimizerReplayArgs(rest));
+    return;
+  }
+  if (subcommand === "promote-optimizer") {
+    void runOptimizerPromotionTask(parseOptimizerPromotionArgs(rest));
+    return;
+  }
+  if (subcommand === "optimizer-seeds") {
+    void runOptimizerSeedTask(rest);
+    return;
+  }
+  if (subcommand === "reduce-optimizer") {
+    void runOptimizerReductionTask(parseOptimizerReductionArgs(rest));
+    return;
+  }
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--recipe <name>|--recipe=<name>] [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--out-dir <dir>|--out-dir=<dir>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]\n   or: bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>",
+      "usage: bun fuzz run [--recipe <name>|--recipe=<name>] [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--out-dir <dir>|--out-dir=<dir>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]\n   or: bun fuzz replay-optimizer <failure-dir|manifest.json> [--starshine-bin <path>]\n   or: bun fuzz promote-optimizer <failure-dir> [--corpus-root tests/optimizer/regressions] [--starshine-bin <path>]\n   or: bun fuzz optimizer-seeds [--pass <name> ...] [--self-semantic] [--debug-serial-passes]\n   or: bun fuzz reduce-optimizer <failure-dir|manifest.json> --out <reduced.wasm> [--wasm-reduce-bin <path>]\n   or: bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));

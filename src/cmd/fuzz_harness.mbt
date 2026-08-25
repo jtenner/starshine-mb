@@ -1347,6 +1347,7 @@ pub struct CmdFuzzStats {
   differential_checked : Int
   optimize_idempotence_checked : Int
   encode_decode_idempotence_checked : Int
+  optimizer_determinism_checked : Int
   generator_profile : String
   pass_profile : String
 } derive(Eq, Debug)
@@ -1367,6 +1368,7 @@ pub fn CmdFuzzStats::new(
   differential_checked? : Int = 0,
   optimize_idempotence_checked? : Int = 0,
   encode_decode_idempotence_checked? : Int = 0,
+  optimizer_determinism_checked? : Int = 0,
   generator_profile? : String = "natural-wide",
   pass_profile? : String = "custom",
 ) -> CmdFuzzStats {
@@ -1380,6 +1382,7 @@ pub fn CmdFuzzStats::new(
     differential_checked,
     optimize_idempotence_checked,
     encode_decode_idempotence_checked,
+    optimizer_determinism_checked,
     generator_profile,
     pass_profile,
   }
@@ -1873,6 +1876,7 @@ pub struct CmdFuzzHarnessProfileConfig {
   optimize_passes : Array[String]
   check_optimize_idempotence : Bool
   check_encode_decode_idempotence : Bool
+  check_optimizer_determinism : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -1897,6 +1901,14 @@ fn cmd_fuzz_each_pass_profile() -> Array[String] {
 }
 
 ///|
+pub fn cmd_fuzz_random_pass_sequence(
+  profile : String,
+  seed : UInt64,
+) -> Array[String] {
+  @passes.pass_registry_random_executable_sequence(profile, seed)
+}
+
+///|
 fn cmd_fuzz_default_pipeline_profile() -> Result[Array[String], String] {
   match @passes.pass_registry_lookup("optimize") {
     Some(entry) => Ok(entry.expanded_passes)
@@ -1914,7 +1926,10 @@ fn cmd_fuzz_common_cluster_profile() -> Array[String] {
 }
 
 ///|
-fn cmd_fuzz_pass_profile(profile : String) -> Result[Array[String], String] {
+fn cmd_fuzz_pass_profile(
+  profile : String,
+  seed : UInt64,
+) -> Result[Array[String], String] {
   match profile {
     "none" => Ok([])
     "cleanup" => Ok(["vacuum", "remove-unused-brs"])
@@ -1922,10 +1937,14 @@ fn cmd_fuzz_pass_profile(profile : String) -> Result[Array[String], String] {
     "each-pass" => Ok(cmd_fuzz_each_pass_profile())
     "common-cluster" | "common-clusters" =>
       Ok(cmd_fuzz_common_cluster_profile())
+    "fixed-point-cleanup" =>
+      Ok(@passes.pass_registry_fixed_point_cleanup_sequence())
     "default-pipeline" => cmd_fuzz_default_pipeline_profile()
+    "random-short" | "random-medium" | "random-long" | "random-mixed" =>
+      Ok(cmd_fuzz_random_pass_sequence(profile, seed))
     _ =>
       Err(
-        "unknown cmd-harness pass profile '\{profile}'; expected none|cleanup|optimize-core|each-pass|common-clusters|default-pipeline",
+        "unknown cmd-harness pass profile '\{profile}'; expected none|cleanup|optimize-core|each-pass|common-clusters|fixed-point-cleanup|default-pipeline|random-short|random-medium|random-long|random-mixed",
       )
   }
 }
@@ -1933,6 +1952,14 @@ fn cmd_fuzz_pass_profile(profile : String) -> Result[Array[String], String] {
 ///|
 pub fn cmd_fuzz_harness_profile_config(
   profile : String,
+) -> Result[CmdFuzzHarnessProfileConfig, String] {
+  cmd_fuzz_harness_profile_config_with_seed(profile, 0UL)
+}
+
+///|
+pub fn cmd_fuzz_harness_profile_config_with_seed(
+  profile : String,
+  seed : UInt64,
 ) -> Result[CmdFuzzHarnessProfileConfig, String] {
   let raw = profile.trim().to_owned()
   let parts : Array[String] = []
@@ -1957,6 +1984,7 @@ pub fn cmd_fuzz_harness_profile_config(
   let mut pass_profile = "none"
   let mut check_optimize_idempotence = false
   let mut check_encode_decode_idempotence = false
+  let mut check_optimizer_determinism = false
   let mut i = 1
   while i < parts.length() {
     let part = fuzz_profile_ascii_lower(parts[i].trim().to_owned())
@@ -1968,10 +1996,14 @@ pub fn cmd_fuzz_harness_profile_config(
       generator_profile = part.sub(start=10).to_owned()
     } else if fuzz_has_prefix(part, "passes=") {
       pass_profile = part.sub(start=7).to_owned()
-    } else if part == "idempotence" || part == "opt-idempotence" {
+    } else if part == "idempotence" ||
+      part == "opt-idempotence" ||
+      part == "check-idempotence" {
       check_optimize_idempotence = true
     } else if part == "codec-idempotence" || part == "encode-decode-idempotence" {
       check_encode_decode_idempotence = true
+    } else if part == "determinism" || part == "optimizer-determinism" {
+      check_optimizer_determinism = true
     } else {
       return Err(
         "unknown cmd-harness profile modifier '\{parts[i]}' in '\{profile}'",
@@ -1987,7 +2019,7 @@ pub fn cmd_fuzz_harness_profile_config(
     "common-cluster" => "common-clusters"
     _ => pass_profile
   }
-  let optimize_passes = match cmd_fuzz_pass_profile(pass_profile) {
+  let optimize_passes = match cmd_fuzz_pass_profile(pass_profile, seed) {
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
@@ -1999,6 +2031,7 @@ pub fn cmd_fuzz_harness_profile_config(
     optimize_passes,
     check_optimize_idempotence,
     check_encode_decode_idempotence,
+    check_optimizer_determinism,
   })
 }
 
@@ -2355,6 +2388,86 @@ fn fuzz_minimize_optimize_failure(
 }
 
 ///|
+fn fuzz_minimize_optimizer_idempotence(
+  bytes : Bytes,
+  passes : Array[String],
+) -> Array[String] {
+  minimize_fuzz_passes(passes, fn(candidate) {
+    let first_input = match decode_module(bytes) {
+      Ok(mod) => mod
+      Err(_) => return false
+    }
+    let first_optimized = match
+      optimize_module_with_pass_flags(
+        first_input,
+        candidate,
+        OptimizeOptions::new(),
+      ) {
+      Ok(mod) => mod
+      Err(_) => return false
+    }
+    let first_bytes = match encode_module(first_optimized) {
+      Ok(encoded) => encoded
+      Err(_) => return false
+    }
+    let second_input = match decode_module(first_bytes) {
+      Ok(mod) => mod
+      Err(_) => return false
+    }
+    let second_optimized = match
+      optimize_module_with_pass_flags(
+        second_input,
+        candidate,
+        OptimizeOptions::new(),
+      ) {
+      Ok(mod) => mod
+      Err(_) => return false
+    }
+    let second_bytes = match encode_module(second_optimized) {
+      Ok(encoded) => encoded
+      Err(_) => return false
+    }
+    !fuzz_bytes_equal(first_bytes, second_bytes)
+  })
+}
+
+///|
+fn fuzz_minimize_optimizer_nondeterminism(
+  bytes : Bytes,
+  passes : Array[String],
+) -> Array[String] {
+  minimize_fuzz_passes(passes, fn(candidate) {
+    let left = match decode_module(bytes) {
+      Ok(mod) => mod
+      Err(_) => return false
+    }
+    let right = match decode_module(bytes) {
+      Ok(mod) => mod
+      Err(_) => return false
+    }
+    let left_optimized = match
+      optimize_module_with_pass_flags(left, candidate, OptimizeOptions::new()) {
+      Ok(mod) => mod
+      Err(_) => return false
+    }
+    let right_optimized = match
+      optimize_module_with_pass_flags(right, candidate, OptimizeOptions::new()) {
+      Ok(mod) => mod
+      Err(_) => return false
+    }
+    let left_bytes = match encode_module(left_optimized) {
+      Ok(bytes) => bytes
+      Err(_) => return false
+    }
+    let right_bytes = match encode_module(right_optimized) {
+      Ok(bytes) => bytes
+      Err(_) => return false
+    }
+    !fuzz_bytes_equal(left_bytes, right_bytes)
+  })
+}
+
+///|
 fn differential_adapter_ascii_lower(input : String) -> String {
   let out = StringBuilder::new()
   for c in input {
@@ -2439,6 +2552,7 @@ pub fn run_cmd_fuzz_harness(
   pass_profile? : String = "custom",
   check_optimize_idempotence? : Bool = false,
   check_encode_decode_idempotence? : Bool = false,
+  check_optimizer_determinism? : Bool = false,
   differential_adapters? : DifferentialAdapters? = None,
   differential_every? : Int = 0,
   on_failure? : ((FuzzFailureReport) -> Result[Unit, String])? = None,
@@ -2481,6 +2595,7 @@ pub fn run_cmd_fuzz_harness(
   let mut differential_checked = 0
   let mut optimize_idempotence_checked = 0
   let mut encode_decode_idempotence_checked = 0
+  let mut optimizer_determinism_checked = 0
   let max_attempts = if valid_target <= 0 { 0 } else { valid_target * 25 }
 
   while generated_valid < valid_target {
@@ -2710,6 +2825,103 @@ pub fn run_cmd_fuzz_harness(
         return Err(fuzz_finalize_failure(on_failure, report, msg))
       }
     }
+    if check_optimizer_determinism {
+      let second_input = match decode_module(encoded) {
+        Ok(mod) => mod
+        Err(e) => {
+          let msg = "optimizer determinism second decode failed at attempt #\{attempts}: \{e}"
+          let report = FuzzFailureReport::new(
+            seed,
+            attempts,
+            generated_valid,
+            "optimizer-nondeterminism",
+            "\{e}",
+            optimize_passes=pass_names,
+            minimized_passes=pass_names,
+            generator_profile=gen_profile_label,
+            pass_profile~,
+            generator_config_label=generated_config_label,
+            generated_attempts~,
+            feature_facts~,
+            wasm=Some(encoded),
+          )
+          return Err(fuzz_finalize_failure(on_failure, report, msg))
+        }
+      }
+      let second_optimized = match
+        optimize_module_with_pass_flags(
+          second_input,
+          optimize_passes,
+          OptimizeOptions::new(),
+        ) {
+        Ok(mod) => mod
+        Err(e) => {
+          let msg = "optimizer determinism second optimize failed at attempt #\{attempts}: \{e}"
+          let report = FuzzFailureReport::new(
+            seed,
+            attempts,
+            generated_valid,
+            "optimizer-nondeterminism",
+            "\{e}",
+            optimize_passes=pass_names,
+            minimized_passes=pass_names,
+            generator_profile=gen_profile_label,
+            pass_profile~,
+            generator_config_label=generated_config_label,
+            generated_attempts~,
+            feature_facts~,
+            wasm=Some(encoded),
+          )
+          return Err(fuzz_finalize_failure(on_failure, report, msg))
+        }
+      }
+      let second_bytes = match encode_module(second_optimized) {
+        Ok(bytes) => bytes
+        Err(e) => {
+          let msg = "optimizer determinism second encode failed at attempt #\{attempts}: \{e}"
+          let report = FuzzFailureReport::new(
+            seed,
+            attempts,
+            generated_valid,
+            "optimizer-nondeterminism",
+            "\{e}",
+            optimize_passes=pass_names,
+            minimized_passes=pass_names,
+            generator_profile=gen_profile_label,
+            pass_profile~,
+            generator_config_label=generated_config_label,
+            generated_attempts~,
+            feature_facts~,
+            wasm=Some(encoded),
+          )
+          return Err(fuzz_finalize_failure(on_failure, report, msg))
+        }
+      }
+      if !fuzz_bytes_equal(roundtrip_bytes, second_bytes) {
+        let msg = "optimizer-nondeterminism at attempt #\{attempts}: fresh executions changed bytes"
+        let minimized = fuzz_minimize_optimizer_nondeterminism(
+          encoded, pass_names,
+        )
+        let report = FuzzFailureReport::new(
+          seed,
+          attempts,
+          generated_valid,
+          "optimizer-nondeterminism",
+          msg,
+          optimize_passes=pass_names,
+          minimized_passes=minimized,
+          generator_profile=gen_profile_label,
+          pass_profile~,
+          generator_config_label=generated_config_label,
+          generated_attempts~,
+          feature_facts~,
+          wasm=Some(encoded),
+          reduced_wasm=Some(second_bytes),
+        )
+        return Err(fuzz_finalize_failure(on_failure, report, msg))
+      }
+      optimizer_determinism_checked += 1
+    }
     let roundtrip_mod = match decode_module(roundtrip_bytes) {
       Ok(decoded_mod) => decoded_mod
       Err(e) => {
@@ -2784,6 +2996,7 @@ pub fn run_cmd_fuzz_harness(
       }
       if !fuzz_bytes_equal(roundtrip_bytes, optimized_again_bytes) {
         let msg = "optimize idempotence changed bytes at attempt #\{attempts}"
+        let minimized = fuzz_minimize_optimizer_idempotence(encoded, pass_names)
         let report = FuzzFailureReport::new(
           seed,
           attempts,
@@ -2791,13 +3004,14 @@ pub fn run_cmd_fuzz_harness(
           "optimize-idempotence",
           msg,
           optimize_passes=pass_names,
-          minimized_passes=pass_names,
+          minimized_passes=minimized,
           generator_profile=gen_profile_label,
           pass_profile~,
           generator_config_label=generated_config_label,
           generated_attempts~,
           feature_facts~,
-          wasm=Some(optimized_again_bytes),
+          wasm=Some(encoded),
+          reduced_wasm=Some(optimized_again_bytes),
         )
         return Err(fuzz_finalize_failure(on_failure, report, msg))
       }
@@ -2890,6 +3104,7 @@ pub fn run_cmd_fuzz_harness(
       differential_checked~,
       optimize_idempotence_checked~,
       encode_decode_idempotence_checked~,
+      optimizer_determinism_checked~,
       generator_profile=gen_profile_label,
       pass_profile~,
     ),
@@ -2914,7 +3129,7 @@ pub fn run_cmd_fuzz_harness_profile(
   profile : String,
   seed : UInt64,
 ) -> Result[CmdFuzzStats, String] {
-  let config = match cmd_fuzz_harness_profile_config(profile) {
+  let config = match cmd_fuzz_harness_profile_config_with_seed(profile, seed) {
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
@@ -2927,6 +3142,7 @@ pub fn run_cmd_fuzz_harness_profile(
     pass_profile=config.pass_profile,
     check_optimize_idempotence=config.check_optimize_idempotence,
     check_encode_decode_idempotence=config.check_encode_decode_idempotence,
+    check_optimizer_determinism=config.check_optimizer_determinism,
   )
 }
 

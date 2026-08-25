@@ -954,6 +954,122 @@ test "cmd harness profile config accepts GenValid and pass profile modifiers" {
 }
 
 ///|
+test "cmd harness random pass profiles are deterministic diverse and executable" {
+  let first = cmd_fuzz_random_pass_sequence("random-medium", 0x5eedUL)
+  let repeated = cmd_fuzz_random_pass_sequence("random-medium", 0x5eedUL)
+  let different = cmd_fuzz_random_pass_sequence("random-medium", 0x5eeeUL)
+  @debug.assert_eq(first, repeated)
+  assert_true(first.length() >= 2)
+  assert_true(first != different)
+  for pass_name in first {
+    let entry = match @passes.pass_registry_lookup(pass_name) {
+      Some(entry) => entry
+      None => fail("random profile emitted unknown pass \{pass_name}")
+    }
+    match entry.category {
+      @passes.HotPassRegistryCategory::HotPass
+      | @passes.HotPassRegistryCategory::ModulePass => ()
+      _ => fail("random profile emitted non-executable pass \{pass_name}")
+    }
+    assert_false(pass_name == "no-inline")
+    assert_false(pass_name == "no-full-inline")
+    assert_false(pass_name == "no-partial-inline")
+  }
+}
+
+///|
+test "cmd harness profile config expands seeded random pass profiles" {
+  let first = match
+    cmd_fuzz_harness_profile_config_with_seed(
+      "smoke+passes=random-short+determinism", 0x5eedUL,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let repeated = match
+    cmd_fuzz_harness_profile_config_with_seed(
+      "smoke+passes=random-short+determinism", 0x5eedUL,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(first.optimize_passes, repeated.optimize_passes)
+  @debug.assert_eq(first.pass_profile, "random-short")
+  assert_true(first.check_optimizer_determinism)
+}
+
+///|
+test "cmd harness randomized optimizer properties pass a bounded profile" {
+  match
+    run_cmd_fuzz_harness_profile(
+      "smoke+gen=natural-small+passes=random-short+determinism+codec-idempotence",
+      0x5eedUL,
+    ) {
+    Ok(stats) => {
+      @debug.assert_eq(stats.generated_valid, 128)
+      @debug.assert_eq(stats.optimizer_determinism_checked, 128)
+      @debug.assert_eq(stats.optimize_idempotence_checked, 0)
+      @debug.assert_eq(stats.encode_decode_idempotence_checked, 128)
+    }
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "cmd harness idempotence failure preserves original input and reduced passes" {
+  let reports : Array[FuzzFailureReport] = []
+  let passes = cmd_fuzz_random_pass_sequence("random-short", 0x5eedUL)
+  let generator_config = match GenValidConfig::profile("natural-small") {
+    Ok(config) => config
+    Err(msg) => fail(msg)
+  }
+  match
+    run_cmd_fuzz_harness(
+      128,
+      seed=0x5eedUL,
+      optimize_passes=passes,
+      generator_profile="natural-small",
+      generator_config=Some(generator_config),
+      pass_profile="random-short",
+      check_optimize_idempotence=true,
+      on_failure=Some(fn(report) {
+        reports.push(report)
+        Ok(())
+      }),
+    ) {
+    Ok(_) => fail("expected the known non-fixed-point randomized sequence")
+    Err(msg) => assert_true(msg.contains("optimize idempotence changed bytes"))
+  }
+  @debug.assert_eq(reports.length(), 1)
+  @debug.assert_eq(reports[0].stage, "optimize-idempotence")
+  @debug.assert_eq(reports[0].minimized_passes, ["remove-unused-brs"])
+  match reports[0].wasm {
+    Some(bytes) => assert_true(bytes.length() > 0)
+    None => fail("expected original idempotence input bytes")
+  }
+  match reports[0].reduced_wasm {
+    Some(bytes) => assert_true(bytes.length() > 0)
+    None => fail("expected second optimized output bytes")
+  }
+}
+
+///|
+test "cmd harness optimizer idempotence uses an intended fixed-point profile" {
+  match
+    run_cmd_fuzz_harness_profile(
+      "smoke+gen=natural-small+passes=fixed-point-cleanup+opt-idempotence+codec-idempotence",
+      0x5eedUL,
+    ) {
+    Ok(stats) => {
+      @debug.assert_eq(stats.generated_valid, 128)
+      @debug.assert_eq(stats.optimize_idempotence_checked, 128)
+      @debug.assert_eq(stats.encode_decode_idempotence_checked, 128)
+    }
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "cmd harness profile config expands broad executable pass profiles" {
   let each = match cmd_fuzz_harness_profile_config("smoke+passes=each-pass") {
     Ok(v) => v
@@ -1003,6 +1119,7 @@ test "run_cmd_fuzz_harness can exercise selected GenValid profile and idempotenc
       optimize_passes=["vacuum"],
       check_optimize_idempotence=true,
       check_encode_decode_idempotence=true,
+      check_optimizer_determinism=true,
     ) {
     Ok(v) => v
     Err(e) => fail("expected profiled harness success, got \{e}")
@@ -1012,6 +1129,7 @@ test "run_cmd_fuzz_harness can exercise selected GenValid profile and idempotenc
   @debug.assert_eq(stats.pass_profile, "custom")
   @debug.assert_eq(stats.optimize_idempotence_checked, 1)
   @debug.assert_eq(stats.encode_decode_idempotence_checked, 1)
+  @debug.assert_eq(stats.optimizer_determinism_checked, 1)
 }
 
 ///|

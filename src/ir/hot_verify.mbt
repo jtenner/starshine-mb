@@ -45,6 +45,8 @@ pub enum HotVerifyError {
   InvalidSsaType(SsaValueId, ValType, ValType)
   InvalidSsaUse(SsaValueId, HotSsaUseOrigin)
   InvalidSsaDominance(SsaValueId, BlockId, BlockId)
+  InvalidAnalysisRevision(HotAnalysis, Int, Int)
+  InvalidAnalysisDependency(HotAnalysis, HotAnalysis)
 } derive(Eq, Debug)
 
 ///|
@@ -1419,6 +1421,13 @@ pub fn hot_verify_ssa(
       HotOp::LocalGet => {
         let value_id = ssa.local_get_values[node_id]
         if !hot_verify_ssa_value_is_valid(ssa, value_id) {
+          if value_id == -1 {
+            match hot_verify_cfg_block_for_node_tree(func, cfg, node_id) {
+              Some(block_id) if !hot_verify_dom_reachable(dom, block_id) =>
+                continue
+              _ => ()
+            }
+          }
           return Err(HotVerifyError::InvalidSsaValue(value_id))
         }
         let expected = match hot_verify_ssa_type_for_local(func, node.imm0) {
@@ -1466,6 +1475,13 @@ pub fn hot_verify_ssa(
       HotOp::LocalSet | HotOp::LocalTee => {
         let value_id = ssa.local_write_defs[node_id]
         if !hot_verify_ssa_value_is_valid(ssa, value_id) {
+          if value_id == -1 {
+            match hot_verify_cfg_block_for_node_tree(func, cfg, node_id) {
+              Some(block_id) if !hot_verify_dom_reachable(dom, block_id) =>
+                continue
+              _ => ()
+            }
+          }
           return Err(HotVerifyError::InvalidSsaValue(value_id))
         }
       }
@@ -1499,6 +1515,157 @@ pub fn hot_verify_ssa(
         }
       }
     }
+  }
+  Ok(())
+}
+
+///|
+pub fn hot_verify_cached_analyses(
+  func : HotFunc,
+  cache : HotAnalysisCache,
+) -> Result[Unit, HotVerifyError] {
+  let revision = hot_revision_current(func)
+  match cache.cfg {
+    Some(entry) => {
+      if entry.built_at_revision != revision {
+        return Err(
+          HotVerifyError::InvalidAnalysisRevision(
+            HotAnalysis::Cfg,
+            entry.built_at_revision,
+            revision,
+          ),
+        )
+      }
+      match hot_verify_cfg(func, entry.value) {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+    }
+    None => ()
+  }
+  match cache.orders {
+    Some(entry) if entry.built_at_revision != revision =>
+      return Err(
+        HotVerifyError::InvalidAnalysisRevision(
+          HotAnalysis::Cfg,
+          entry.built_at_revision,
+          revision,
+        ),
+      )
+    _ => ()
+  }
+  match cache.dom {
+    Some(entry) => {
+      if entry.built_at_revision != revision {
+        return Err(
+          HotVerifyError::InvalidAnalysisRevision(
+            HotAnalysis::Dominance,
+            entry.built_at_revision,
+            revision,
+          ),
+        )
+      }
+      let cfg = match cache.cfg {
+        Some(cfg_entry) if cfg_entry.built_at_revision == revision =>
+          cfg_entry.value
+        _ =>
+          return Err(
+            HotVerifyError::InvalidAnalysisDependency(
+              HotAnalysis::Dominance,
+              HotAnalysis::Cfg,
+            ),
+          )
+      }
+      match hot_verify_dominators(cfg, entry.value) {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+    }
+    None => ()
+  }
+  match cache.postdom {
+    Some(entry) if entry.built_at_revision != revision =>
+      return Err(
+        HotVerifyError::InvalidAnalysisRevision(
+          HotAnalysis::Dominance,
+          entry.built_at_revision,
+          revision,
+        ),
+      )
+    _ => ()
+  }
+  match cache.loop_info {
+    Some(entry) if entry.built_at_revision != revision =>
+      return Err(
+        HotVerifyError::InvalidAnalysisRevision(
+          HotAnalysis::LoopInfo,
+          entry.built_at_revision,
+          revision,
+        ),
+      )
+    _ => ()
+  }
+  match cache.use_def {
+    Some(entry) if entry.built_at_revision != revision =>
+      return Err(
+        HotVerifyError::InvalidAnalysisRevision(
+          HotAnalysis::UseDef,
+          entry.built_at_revision,
+          revision,
+        ),
+      )
+    _ => ()
+  }
+  match cache.liveness {
+    Some(entry) if entry.built_at_revision != revision =>
+      return Err(
+        HotVerifyError::InvalidAnalysisRevision(
+          HotAnalysis::Liveness,
+          entry.built_at_revision,
+          revision,
+        ),
+      )
+    _ => ()
+  }
+  match cache.effects {
+    Some(entry) if entry.built_at_revision != revision =>
+      return Err(
+        HotVerifyError::InvalidAnalysisRevision(
+          HotAnalysis::Effects,
+          entry.built_at_revision,
+          revision,
+        ),
+      )
+    _ => ()
+  }
+  match cache.ssa {
+    Some(entry) => {
+      if entry.built_at_revision != revision {
+        return Err(
+          HotVerifyError::InvalidAnalysisRevision(
+            HotAnalysis::Ssa,
+            entry.built_at_revision,
+            revision,
+          ),
+        )
+      }
+      let cfg = match cache.cfg {
+        Some(cfg_entry) if cfg_entry.built_at_revision == revision =>
+          cfg_entry.value
+        _ =>
+          return Err(
+            HotVerifyError::InvalidAnalysisDependency(
+              HotAnalysis::Ssa,
+              HotAnalysis::Cfg,
+            ),
+          )
+      }
+      match hot_verify_ssa(func, cfg, entry.value) {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+    }
+    None => ()
   }
   Ok(())
 }
