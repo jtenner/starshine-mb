@@ -1253,6 +1253,9 @@ pub fn run_hot_pipeline(
   (options.trace)("pipeline:start requested=\{requested_passes.length()}")
   let pipeline_start_us = perf_start_timer_opt(options.perf, "pipeline")
   let mut current = mod_
+  let original_has_caught_try_table = run_hot_pipeline_module_has_caught_try_table(
+    mod_,
+  )
   let artifact_scale_o4z_preset = options.optimize_level >= 4 &&
     options.shrink_level >= 4 &&
     requested_passes.any(fn(name) { name == "optimize" || name == "shrink" })
@@ -1367,15 +1370,24 @@ pub fn run_hot_pipeline(
     if artifact_scale_o4z_preset && entry.name == "strip-debug" {
       let late_convergence = hot_pipeline_o4z_late_convergence_passes()
       let defined_func_count = dae_defined_func_count(current)
+      let has_caught_try_table = original_has_caught_try_table
       if run_hot_pipeline_entries_match_names(
           entries,
           entry_idx + 1,
           late_convergence,
         ) &&
-        !run_hot_pipeline_o4z_late_convergence_selected(defined_func_count) {
+        (
+          has_caught_try_table ||
+          !run_hot_pipeline_o4z_late_convergence_selected(defined_func_count)
+        ) {
         skip_o4z_late_convergence_entries = late_convergence.length()
+        let reason = if has_caught_try_table {
+          "caught-try-table"
+        } else {
+          "artifact-scale-defined-functions count=\{defined_func_count}"
+        }
         (options.trace)(
-          "pipeline:o4z-late-convergence:skip reason=artifact-scale-defined-functions count=\{defined_func_count} passes=\{skip_o4z_late_convergence_entries}",
+          "pipeline:o4z-late-convergence:skip reason=\{reason} passes=\{skip_o4z_late_convergence_entries}",
         )
       }
     }
@@ -1383,6 +1395,10 @@ pub fn run_hot_pipeline(
   match flush_hot_passes() {
     Ok(_) => ()
     Err(err) => return Err(err)
+  }
+  if artifact_scale_o4z_preset && original_has_caught_try_table {
+    (options.trace)("pipeline:o4z-transaction:rollback reason=caught-try-table")
+    current = mod_
   }
   if options.validate_final_module {
     let validate_start_us = perf_start_timer_opt(

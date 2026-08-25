@@ -5575,6 +5575,45 @@ test "remove-unused-brs forwards same-target br_table multivalue payload through
 }
 
 ///|
+test "remove-unused-brs preserves outer-target multivalue br_table payload" {
+  let fixture = "tests/repros/remove-unused-brs-winch-issue-10613-multivalue.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected issue-10613 fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected issue-10613 fixture decode success, got \{err}")
+  }
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected issue-10613 fixture validation success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs outer-target multivalue preservation success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected issue-10613 optimized validation success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br_table"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs forwards same-target br_table v128 payload through dead shell" {
   let source =
     #|(module

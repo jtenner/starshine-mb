@@ -85852,3 +85852,104 @@ test "optimize-instructions folds integer adds of zero-sub negations" {
     )
   }
 }
+
+///|
+test "optimize-instructions preserves function-exit multivalue br_table payload" {
+  let fixture = "tests/repros/remove-unused-brs-winch-issue-10613-multivalue.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected issue-10613 fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected issue-10613 fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected optimize-instructions function-exit multivalue preservation, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected issue-10613 optimized validation success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br_table"), msg=pretty)
+}
+
+///|
+test "optimize-instructions preserves caught multivalue throw payload" {
+  let fixture = "tests/repros/optimize-instructions-spectest-throw.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected spectest throw fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected spectest throw fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected spectest throw optimization success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[7]
+      match body {
+        [@lib.Block(_, _), ..] => ()
+        other => fail("expected caught throw result block, got \{other}")
+      }
+    }
+    None => fail("expected spectest throw code section")
+  }
+}
+
+///|
+test "optimize-instructions preserves try-table prefix witnesses" {
+  let fixtures = [
+    "tests/repros/optimize-instructions-spectest-throw-prefix15.wasm", "tests/repros/optimize-instructions-eh-locals-prefix15.wasm",
+  ]
+  let targets = [7U, 1U]
+  for fixture_idx = 0
+      fixture_idx < fixtures.length()
+      fixture_idx = fixture_idx + 1 {
+    let fixture = fixtures[fixture_idx]
+    let bytes = match @sfs.read_file_bytes(fixture) {
+      Ok(bytes) => bytes
+      Err(err) => fail("expected try-table fixture read success, got \{err}")
+    }
+    let input = match @binary.decode_module(bytes) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected try-table fixture decode success, got \{err}")
+    }
+    let optimized = match
+      run_hot_pipeline(
+        input,
+        HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+        ["optimize-instructions"],
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected try-table optimization success, got \{err}")
+    }
+    let target = @lib.FuncIdx::new(targets[fixture_idx])
+    @debug.assert_eq(
+      optimized.pretty_print_func(target),
+      input.pretty_print_func(target),
+    )
+  }
+}

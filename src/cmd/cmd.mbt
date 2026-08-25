@@ -4269,6 +4269,52 @@ fn cmd_choose_smallest_valid_encoded_candidate(
 }
 
 ///|
+fn cmd_instrs_have_caught_try_table(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, catches, @lib.Expr(body)) => {
+        if !catches.is_empty() {
+          return true
+        }
+        if cmd_instrs_have_caught_try_table(body) {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if cmd_instrs_have_caught_try_table(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cmd_instrs_have_caught_try_table(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if cmd_instrs_have_caught_try_table(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cmd_module_has_caught_try_table(mod_ : @lib.Module) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      funcs.any(fn(func) {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        cmd_instrs_have_caught_try_table(body)
+      })
+    None => false
+  }
+}
+
+///|
 fn cmd_o4z_size_portfolio_enabled(
   format : CliInputFormat,
   optimize_level : Int,
@@ -5411,6 +5457,10 @@ pub fn run_cmd_with_adapter(
     } else {
       None
     }
+    let caught_try_table_boundary = match original_for_portfolio {
+      Some(original) => cmd_module_has_caught_try_table(original)
+      None => false
+    }
     let unsafe_emscripten_main_runtime = match original_for_portfolio {
       Some(original) =>
         @passes.o4z_size_candidate_has_unsafe_emscripten_main_runtime(original)
@@ -6282,7 +6332,14 @@ pub fn run_cmd_with_adapter(
         "input \{input_path}:candidate label=\{candidate.0} bytes=\{candidate.1.length()}",
       )
     }
-    let (selected_candidate, out_bytes) = if size_portfolio_enabled {
+    let (selected_candidate, out_bytes) = if caught_try_table_boundary {
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:candidate force=input reason=caught-try-table",
+      )
+      ("input", wasm_bytes)
+    } else if size_portfolio_enabled {
       cmd_choose_smallest_valid_encoded_candidate(portfolio_candidates)
     } else {
       cmd_choose_smallest_encoded_candidate(portfolio_candidates)

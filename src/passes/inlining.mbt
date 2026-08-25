@@ -3590,6 +3590,140 @@ fn inl_make_inline_replacement(
 }
 
 ///|
+fn inl_instrs_have_try_table(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, catches, @lib.Expr(body)) => {
+        if !catches.is_empty() {
+          return true
+        }
+        if inl_instrs_have_try_table(body) {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if inl_instrs_have_try_table(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if inl_instrs_have_try_table(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if inl_instrs_have_try_table(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn inl_instrs_have_stack_carried_local_across_import_call(
+  instrs : Array[@lib.Instruction],
+  imports : Int,
+) -> Bool {
+  for idx = 0; idx + 6 < instrs.length(); idx = idx + 1 {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+        instrs[idx + 5],
+        instrs[idx + 6],
+      ) {
+      (
+        @lib.LocalGet(_),
+        @lib.Call(first_call),
+        @lib.I32Const(_),
+        @lib.I32Add,
+        @lib.LocalTee(carrier),
+        @lib.LocalGet(read),
+        @lib.Call(second_call),
+      ) if carrier == read &&
+        inl_func_idx_slot(first_call) < imports &&
+        inl_func_idx_slot(second_call) >= imports => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if inl_instrs_have_stack_carried_local_across_import_call(body, imports) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if inl_instrs_have_stack_carried_local_across_import_call(
+            then_body, imports,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if inl_instrs_have_stack_carried_local_across_import_call(
+                body, imports,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn inl_instrs_have_function_exit_br_table(
+  instrs : Array[@lib.Instruction],
+  control_depth : UInt,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.BrTable(labels, fallback) => {
+        let @lib.LabelIdx(fallback_depth) = fallback
+        if fallback_depth == control_depth {
+          return true
+        }
+        for label in labels {
+          let @lib.LabelIdx(label_depth) = label
+          if label_depth == control_depth {
+            return true
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if inl_instrs_have_function_exit_br_table(body, control_depth + 1U) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if inl_instrs_have_function_exit_br_table(then_body, control_depth + 1U) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if inl_instrs_have_function_exit_br_table(body, control_depth + 1U) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn inl_rewrite_func_body(
   mod_ : @lib.Module,
   infos : Array[InlFunctionInfo],
@@ -3617,6 +3751,16 @@ fn inl_rewrite_func_body(
   if caller_abs >= 0 &&
     caller_abs < inlined_from.length() &&
     inlined_from[caller_abs] {
+    return func
+  }
+  if caller_abs >= 0 &&
+    caller_abs < infos.length() &&
+    infos[caller_abs].results.length() > 1 &&
+    inl_instrs_have_function_exit_br_table(body, 0U) {
+    return func
+  }
+  if inl_instrs_have_try_table(body) ||
+    inl_instrs_have_stack_carried_local_across_import_call(body, imports) {
     return func
   }
   let next_body = inl_inline_call_instrs(

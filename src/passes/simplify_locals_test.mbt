@@ -4087,3 +4087,28 @@ test "simplify-locals keeps scalar pointer update before loop backedge" {
     "local.get (Local 0)", "I32(1)", "i32.add", "local.set (Local 0)", "br",
   ])
 }
+
+///|
+test "simplify-locals-notee-nostructure preserves catch-observed local write" {
+  let fixture = "tests/repros/simplify-locals-eh-catch-observed-write.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected EH local fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected EH local fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["simplify-locals-notee-nostructure"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected EH local simplify success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+}

@@ -611,16 +611,30 @@ fn vacuum_simd_is_nontrapping(instr : @lib.Instruction?) -> Bool {
 }
 
 ///|
-fn vacuum_heap_is_removable_if_unused(instr : @lib.Instruction?) -> Bool {
-  match instr {
+fn vacuum_heap_is_removable_if_unused(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  let length_is_not_negative_const = fn(slot : Int) {
+    if slot < 0 || slot >= @ir.hot_child_count(func, node_id) {
+      return true
+    }
+    match
+      @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, node_id, slot)) {
+      Some(@lib.I32Const(@lib.I32(value))) => value >= 0
+      _ => true
+    }
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
     Some(
       @lib.Instruction::StructNew(_)
       | @lib.Instruction::StructNewDefault(_)
-      | @lib.Instruction::ArrayNew(_)
-      | @lib.Instruction::ArrayNewDefault(_)
       | @lib.Instruction::ArrayNewFixed(_, _)
       | @lib.Instruction::RefEq
     ) => true
+    Some(@lib.Instruction::ArrayNew(_)) => length_is_not_negative_const(1)
+    Some(@lib.Instruction::ArrayNewDefault(_)) =>
+      length_is_not_negative_const(0)
     _ => false
   }
 }
@@ -738,10 +752,7 @@ fn vacuum_can_remove_dropped_node(
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     @ir.HotOp::Simd =>
       vacuum_simd_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
-    @ir.HotOp::Heap =>
-      vacuum_heap_is_removable_if_unused(
-        @ir.hot_node_exact_instr(func, node_id),
-      )
+    @ir.HotOp::Heap => vacuum_heap_is_removable_if_unused(func, node_id)
     _ => false
   }
   if !is_removable_shape {
@@ -772,6 +783,9 @@ fn vacuum_dropped_heap_constructor_replacement(
       | @lib.Instruction::ArrayNewFixed(_, _)
     ) => ()
     _ => return None
+  }
+  if !vacuum_heap_is_removable_if_unused(func, node_id) {
+    return None
   }
   let replacement : Array[@ir.NodeId] = []
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
@@ -879,10 +893,7 @@ fn hot_pass_vacuum_can_remove_local_only_node_memoized(
     @ir.HotOp::Binary => vacuum_binary_is_nontrapping(func, node_id)
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
-    @ir.HotOp::Heap =>
-      vacuum_heap_is_removable_if_unused(
-        @ir.hot_node_exact_instr(func, node_id),
-      )
+    @ir.HotOp::Heap => vacuum_heap_is_removable_if_unused(func, node_id)
     _ => false
   }
   if !self_is_removable {
@@ -2244,6 +2255,102 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(
     }
   }
   false
+}
+
+///|
+fn run_hot_pipeline_raw_try_table_catch_body_has_local_write(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, catches, @lib.Expr(body)) => {
+        if !catches.is_empty() &&
+          run_hot_pipeline_raw_vacuum_instrs_have_local_write(body) {
+          return true
+        }
+        if run_hot_pipeline_raw_try_table_catch_body_has_local_write(body) {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_try_table_catch_body_has_local_write(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_try_table_catch_body_has_local_write(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_try_table_catch_body_has_local_write(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_has_caught_try_table(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, catches, @lib.Expr(body)) =>
+        if !catches.is_empty() ||
+          run_hot_pipeline_raw_has_caught_try_table(body) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_caught_try_table(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_caught_try_table(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_has_caught_try_table(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_module_has_caught_try_table(mod_ : @lib.Module) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      funcs.any(fn(func) {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        run_hot_pipeline_raw_has_caught_try_table(body)
+      })
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_module_has_try_table_catch_body_local_write(
+  mod_ : @lib.Module,
+) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      funcs.any(fn(func) {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        run_hot_pipeline_raw_try_table_catch_body_has_local_write(body)
+      })
+    None => false
+  }
 }
 
 ///|
@@ -11528,6 +11635,14 @@ fn run_hot_pipeline_raw_simplify_locals(
   let allows_tee = descriptor.name != "simplify-locals-notee" &&
     descriptor.name != "simplify-locals-no-tee" &&
     descriptor.name != "simplify-locals-notee-nostructure"
+  if run_hot_pipeline_raw_try_table_catch_body_has_local_write(instrs) {
+    return Some({
+      reason: "try-table-local-write-simplify-locals-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if run_hot_pipeline_raw_has_root_global_snapshot_return_hazard(instrs) {
     return Some({
       reason: "root-global-snapshot-return-simplify-locals-noop",
@@ -42911,6 +43026,14 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
+  if run_hot_pipeline_dce_raw_has_try_table(body) {
+    return Some({
+      reason: "try-table-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   let oi_index = match oi_index {
     Some(index) => index
     None => {
@@ -60889,22 +61012,31 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
       changed = true
       break
     }
-    if idx + 3 < instrs.length() &&
-      instrs[idx] is @lib.I32Const(_) &&
-      instrs[idx + 1] is @lib.I32Const(_) &&
-      instrs[idx + 2] is @lib.ArrayNew(_) &&
-      instrs[idx + 3] is @lib.Drop {
-      idx += 4
-      changed = true
-      continue
+    if idx + 3 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+        (
+          @lib.I32Const(_),
+          @lib.I32Const(@lib.I32(length)),
+          @lib.ArrayNew(_),
+          @lib.Drop,
+        ) if length >= 0 => {
+          idx += 4
+          changed = true
+          continue
+        }
+        _ => ()
+      }
     }
-    if idx + 2 < instrs.length() &&
-      instrs[idx] is @lib.I32Const(_) &&
-      instrs[idx + 1] is @lib.ArrayNewDefault(_) &&
-      instrs[idx + 2] is @lib.Drop {
-      idx += 3
-      changed = true
-      continue
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.I32Const(@lib.I32(length)), @lib.ArrayNewDefault(_), @lib.Drop) if length >=
+          0 => {
+          idx += 3
+          changed = true
+          continue
+        }
+        _ => ()
+      }
     }
     match
       run_hot_pipeline_raw_vacuum_dropped_simple_struct_length_at(
@@ -68015,6 +68147,54 @@ fn run_hot_pipeline_raw_vacuum_finalize_precleaned_func(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.I32Const(@lib.I32(length)), @lib.ArrayNewDefault(_), @lib.Drop) if length <
+          0 => return true
+        _ => ()
+      }
+    }
+    if idx + 3 < instrs.length() {
+      match (instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+        (@lib.I32Const(@lib.I32(length)), @lib.ArrayNew(_), @lib.Drop) if length <
+          0 => return true
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -68027,6 +68207,14 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  if run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(instrs) {
+    return Some({
+      reason: "negative-array-allocation-vacuum-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if run_hot_pipeline_raw_has_root_global_snapshot_return_hazard(instrs) {
     return Some({
       reason: "root-global-snapshot-return-vacuum-noop",
@@ -75705,6 +75893,23 @@ fn run_hot_pipeline_func(
 ) -> Result[HotPipelineFuncResult, String] {
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(_, @lib.Expr(original_instrs)) = original
+  if (
+      descriptor.name == "precompute" ||
+      descriptor.name == "precompute-propagate"
+    ) &&
+    (
+      run_hot_pipeline_raw_try_table_catch_body_has_local_write(original_instrs) ||
+      run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(
+        original_instrs,
+      )
+    ) {
+    return Ok({
+      reason: "try-table-precompute-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   let oi_index = if descriptor.name == "optimize-instructions" {
     let raw_index_start_us = perf_start_timer_opt(
       options.perf,
@@ -75793,9 +75998,7 @@ fn run_hot_pipeline_func(
       )
       match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
         Some(@lib.FuncType(_, results)) =>
-          if results.length() == 2 &&
-            results[0] == @lib.ValType::f64() &&
-            results[1] == @lib.ValType::f64() {
+          if results.length() > 1 {
             return Ok({
               reason: "multivalue-function-exit-br-table-hot-lift-noop",
               func: original,
@@ -88919,6 +89122,13 @@ fn run_hot_pipeline_apply_module_pass(
         run_hot_pipeline_module_has_assemblyscript_startup_exported_memory(mod_) {
         (options.trace)(
           "pass[coalesce-locals-cfg]:skip reason=assemblyscript-exported-memory-cfg-coalesce-noop",
+        )
+        mod_
+      } else if run_hot_pipeline_module_has_try_table_catch_body_local_write(
+          mod_,
+        ) {
+        (options.trace)(
+          "pass[coalesce-locals-cfg]:skip reason=try-table-local-write-cfg-coalesce-noop",
         )
         mod_
       } else if options.optimize_level >= 4 &&

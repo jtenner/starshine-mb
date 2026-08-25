@@ -4376,3 +4376,64 @@ test "inlining-optimizing nested prefix propagates default locals only in touche
   assert_true(run.contains("i32.const I32(1)"), msg=run)
   assert_false(run.contains("local.get"), msg=run)
 }
+
+///|
+test "inlining-optimizing preserves function-exit multivalue br_table payload" {
+  let fixture = "tests/repros/remove-unused-brs-winch-issue-10613-multivalue.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected issue-10613 fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected issue-10613 fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["inlining-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected inlining-optimizing function-exit multivalue preservation, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected issue-10613 optimized validation success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br_table"), msg=pretty)
+}
+
+///|
+test "inlining-optimizing preserves stack-carried value across imported call" {
+  let fixture = "tests/repros/inlining-bump-ptr-stack-carried-call.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected bump-pointer fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected bump-pointer fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["inlining-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected bump-pointer inlining success, got \{err}")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected bump-pointer function section")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+}

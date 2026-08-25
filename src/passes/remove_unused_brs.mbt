@@ -11103,10 +11103,49 @@ fn remove_unused_brs_only_literal_multivalue_consumers(
 }
 
 ///|
+fn remove_unused_brs_has_function_label_br_table_target(
+  func : @ir.HotFunc,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::BrTable => {
+        let default_target = @ir.hot_branch_table_default_target(
+          func,
+          node.imm0,
+        )
+        if default_target < 0 || default_target >= func.labels.length() {
+          return true
+        }
+        for target in @ir.hot_branch_table_targets(func, node.imm0) {
+          if target < 0 || target >= func.labels.length() {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn remove_unused_brs_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  if remove_unused_brs_has_function_label_br_table_target(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=function-label-br-table-target-noop",
+    )
+    return HotPassResult::unchanged()
+  }
   let skip_summary = remove_unused_brs_collect_hot_void_return_ladder_summary(
     func,
   )

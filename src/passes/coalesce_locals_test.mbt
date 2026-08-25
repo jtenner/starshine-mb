@@ -3936,3 +3936,29 @@ test "coalesce-locals-cfg fails closed for AssemblyScript startup memory" {
     msg=trace.to_string(),
   )
 }
+
+///|
+test "coalesce-locals-cfg preserves catch-observed local writes" {
+  let fixture = "tests/repros/simplify-locals-eh-catch-observed-write.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected EH local fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected EH local fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["coalesce-locals-cfg"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected EH CFG coalesce success, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U)),
+    input.pretty_print_func(@lib.FuncIdx::new(1U)),
+  )
+}

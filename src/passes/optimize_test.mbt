@@ -1156,6 +1156,107 @@ test "vacuum removes unread default struct allocations" {
 }
 
 ///|
+test "vacuum preserves trapping oversized array allocation" {
+  let fixture = "tests/repros/vacuum-big-array-overflow.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail("expected oversized-array fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected oversized-array fixture decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected oversized-array vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected oversized-array vacuum output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("array.new_default"), msg=pretty)
+}
+
+///|
+test "O4z skips late convergence for catch-observed local writes" {
+  let fixture = "tests/repros/simplify-locals-eh-catch-observed-write.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected EH local fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected EH local fixture decode success, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["optimize"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected EH local O4z success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pipeline:o4z-transaction:rollback reason=caught-try-table")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "O4z rolls back caught try-table throw modules" {
+  let fixture = "tests/repros/optimize-instructions-spectest-throw.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected spectest throw fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected spectest throw fixture decode success, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["optimize"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected spectest throw O4z success, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(7U)),
+    input.pretty_print_func(@lib.FuncIdx::new(7U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pipeline:o4z-transaction:rollback reason=caught-try-table")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "vacuum removes dropped pure GC allocations" {
   let input = match
     @binary.decode_module(
