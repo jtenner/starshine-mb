@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-02
+last_reviewed: 2026-08-25
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen
@@ -34,7 +34,9 @@ related:
 
 ## Overview
 
-`bun fuzz compare-pass` is Starshine's pass-local Binaryen oracle lane. Use it when an optimizer pass changes semantics, scheduler placement, supported syntax, or pass registry wiring. It is deliberately separate from `bun fuzz run`: ordinary fuzz suites prove Starshine's generators and validators keep working, while compare-pass asks whether one or more Starshine pass flags produce the same normalized output as the corresponding Binaryen `wasm-opt` flags on the same input modules.
+`bun fuzz compare-pass` is Starshine's pass-local optimizer correctness and Binaryen oracle lane. Use it when an optimizer pass changes semantics, scheduler placement, supported syntax, or pass registry wiring. It is deliberately separate from `bun fuzz run`: ordinary fuzz suites prove Starshine's generators and validators keep working, while compare-pass can now prove independent Starshine properties before asking whether one or more Starshine pass flags produce the same normalized output as Binaryen.
+
+The oracle ladder is explicit and non-interchangeable: input validation; optional `semantic:self` execution of original input versus Starshine output; Starshine internal/external output validity; codec stability; fresh-run optimizer determinism; optimizer idempotence when requested; then `semantic:binaryen` runtime smoke and normalized Binaryen comparison. A green self-semantic result does not excuse unexplained Binaryen drift, and a normalized Binaryen match does not replace before/after execution.
 
 This workflow is grounded in the Binaryen and `wasm-tools` projects, the WebAssembly validation specification, and the local script/test sources listed below. `wasm-smith` generated inputs remain independently validated before comparison. The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) adds a concrete tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while the current public `version_131` baseline is after the fix. On 2026-07-18 bare `wasm-opt` resolved to TinyGo's Binaryen v116, so v131 evidence must pass an explicit verified official binary with `--wasm-opt-bin`. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
 
@@ -69,6 +71,8 @@ bun fuzz compare-pass \
   [--gen-valid-metamorphic-transform <id>] \
   [--external-validator wasm-tools|binaryen|wabt] \
   [--runtime-execution off|node] \
+  [--self-semantic] [--semantic-policy strict|canonical-nan|trap-aware] \
+  [--determinism] [--codec-idempotence] [--debug-serial-passes] \
   [--property none|idempotence|composition] \
   [--cache-dir .tmp/pass-fuzz-cache|--no-cache] \
   [--resume] \
@@ -163,9 +167,12 @@ For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compar
 4. **Binaryen oracle run or cache lookup:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces the oracle output on a cache miss. On a cache hit, the harness restores cached Binaryen raw/canonical/text artifacts keyed by input bytes, Binaryen identity, and pass flags.
 5. **Canonicalization:** both raw outputs are passed through `wasm-opt --all-features --strip-debug -o <canonical.wasm>` on cache miss; cached Binaryen canonical output is reused on Binaryen cache hit. Starshine canonicalization always reruns.
 6. **Text normalization:** both canonical outputs are printed with `wasm-opt --all-features --strip-debug -S -o <wat>` on cache miss; cached Binaryen WAT is reused on Binaryen cache hit. Starshine text printing always reruns.
-7. **Optional runtime execution:** `--runtime-execution node` tries a Node WebAssembly adapter with deterministic basic import stubs against both raw Starshine and Binaryen outputs, pairs same-named function exports, and invokes up to eight exported functions with a deterministic simple argument vector: each observed parameter slot receives numeric zero, capped at eight arguments. Equal results and equal traps count as checked runtime evidence; unsupported imports/instantiation are skipped evidence; observed result/trap disagreement increments the runtime failed count. Equal traps are not whole-program equivalence proof: use [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md) for the trap-vocabulary and trap-order caveats. Runtime execution remains opt-in; `result.json` always carries a `runtimeExecutionMatrix` block, with `outcome: "not-run"` when runtime execution is disabled, and runtime-enabled mismatch repro manifests also carry the per-case matrix summary, outcome, and semantic-mismatch samples.
-8. **Optional property checks:** `--property idempotence` reruns Starshine on `starshine.raw.wasm`, validates that second output, canonicalizes both Starshine outputs, and compares normalized WAT for `pass(pass(m)) == pass(m)`. `--property composition` requires at least two pass flags, runs those same flags one at a time through sequential Starshine invocations starting from the original input, validates each step, canonicalizes the final sequential output, and compares it with the combined Starshine invocation. Property failures increment `propertyFailureCount` and persist as `property-failure` cases, separate from Binaryen `mismatch` cases.
-9. **Compare:** matching WAT increments `normalizedMatchCount`; if one or more explicit compare normalizers are enabled and only the cleaned outputs match, the harness increments `cleanupNormalizedMatchCount` and records a `cleanup-normalized-match` case; otherwise drift records a `mismatch` case.
+7. **Primary self-semantic execution:** `--self-semantic` builds one persisted `starshine.invocation-plan.v1` plan from the original module and seed, executes that plan on fresh original and Starshine instances, and compares `starshine.runtime-observation.v1` records. Scalar parameters use boundary-oriented values rather than only zero. Calls are stateful within each fresh instance, while the two sides receive identical sequences. Results use exact integer and float bits; `+0` and `-0` differ; `canonical-nan` permits NaN payload variation; normalized trap classes, exported mutable globals, bounded memory digests/ranges, bounded table state, import traces, and start/instantiation outcomes are observed where Node exposes them. Unsupported reference/SIMD crossings and unavailable runtime surfaces are blocked evidence, never passes. Runtime workers are bounded and killable.
+8. **Fresh-run determinism and codec stability:** `--determinism` optimizes two independent decodes of the same original bytes. Raw byte equality is the primary result; raw drift with equal canonical output is reported separately as canonical-only stability; canonical drift is `optimizer-nondeterminism`. `--codec-idempotence` performs two Starshine decode/encode cycles on the optimized output, independently validates the result, and requires stable bytes. Starshine outputs are never cached.
+9. **Existing optimizer properties:** `--property idempotence` reruns the pipeline on its own output; `--property composition` compares combined scheduling with sequential single-pass invocations. These remain distinct from determinism. New property failures carry stable classes, and their pass lists are minimized only when candidate replay preserves the same class; an invalid candidate cannot reduce a semantic mismatch.
+10. **Diagnostic serial scheduling:** `--debug-serial-passes` forwards Starshine's existing serial after-each-pass mode while Binaryen still receives only its own optimizer flags. Run both normal stacking and serial mode because scheduler interaction bugs can be mode-specific.
+11. **Secondary Binaryen runtime execution:** `--runtime-execution node` retains the Starshine-vs-Binaryen export matrix as `semantic:binaryen` smoke evidence. It remains separate from `semantic:self`.
+12. **Compare:** matching WAT increments `normalizedMatchCount`; explicit cleanup normalizers increment `cleanupNormalizedMatchCount`; remaining drift records `mismatch` and still requires maintainer classification.
 
 That order matters. A pass can be locally safe but still differ in raw binary layout, custom-section order, name stripping, or textual representation. The harness intentionally removes those surfaces before comparing.
 

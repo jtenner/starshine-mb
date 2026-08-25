@@ -1,7 +1,7 @@
 ---
 kind: policy
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-25
 sources:
   - ./fuzz-runner.md
   - ./pass-fuzz-compare.md
@@ -86,6 +86,22 @@ Use relative paths rooted at the repository when possible. Do not store absolute
 `[FUZ]1042C` adds replay-command metadata helpers for a single promoted or quarantined case. `build_fuzz_corpus_replay_command_metadata(...)` derives a deterministic `starshine.fuzz-replay-command.v1` entry from corpus metadata when `generator` includes `suite=...`, `profile=...`, `seed=...`, and optional `seed_index=...` / `strategy=...` tokens. If no strategy token is present, the helper records the first artifact path, or the input path when no artifact is listed. `format_fuzz_corpus_replay_command_metadata_json(...)` and `parse_fuzz_corpus_replay_command_metadata_json(...)` roundtrip the case id, suite, profile, seed, seed index, strategy-or-artifact, expected outcome, classification, and exact replay command.
 
 `[FUZ]1042D` adds the first replay-all manifest planner. `plan_fuzz_corpus_replay_manifest(...)` reads a compact `starshine.fuzz-corpus-replay-all-manifest.v1` JSON manifest with an `entries` array of `starshine.fuzz-corpus-entry.v1` objects, derives replay-command metadata for every plannable entry, and reports `planned_count`, `skipped_count`, and `malformed_count` without executing any replay. Parse-invalid entries are counted as malformed; parseable entries that cannot build a replay command, such as metadata missing required `suite` / `profile` / `seed` generator tokens, are counted as skipped.
+
+## Optimizer Regression Corpus
+
+Optimizer regressions now live under `tests/optimizer/regressions/<case-id>/` with deterministic `starshine.optimizer-case.v1` manifests and a sorted `starshine.optimizer-corpus-index.v1` index. This is a focused extension of the general corpus policy rather than a competing bulk-corpus system. Each case records the selected input hash, original hash, original and reduced pass sequences, normal/serial mode, generator profile/seed/attempt/facts, stable property/failure class, predicate hash, reduction evidence, and semantic invocation/observation records when present. Persistent manifests use relative paths and never embed machine-local absolute paths.
+
+Use the existing Bun fuzz task family:
+
+```text
+bun fuzz replay-optimizer <failure-dir|manifest.json> [--starshine-bin <path>]
+bun fuzz promote-optimizer <failure-dir> [--corpus-root tests/optimizer/regressions]
+bun fuzz reduce-optimizer <failure-dir|manifest.json> --out <reduced.wasm>
+```
+
+Promotion first replays the intended failure class. A semantic case that merely becomes invalid is rejected as the wrong predicate. A present reduced module is preferred only when replay preserves the intended class; otherwise promotion falls back to the original. Duplicate identity combines the selected artifact hash with the predicate hash, so the same bytes may legitimately appear under a different property while exact duplicate promotion returns the existing path. Promotion never commits automatically.
+
+The curated non-failure seed corpus lives separately at `tests/optimizer/seeds/`; `bun fuzz optimizer-seeds --pass <name> [--self-semantic]` validates and replays those small structural shapes directly.
 
 ## Promotion Rules
 

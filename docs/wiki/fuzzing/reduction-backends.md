@@ -1,7 +1,7 @@
 ---
 kind: tooling-note
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-08-25
 sources:
   - https://www.st.cs.uni-saarland.de/papers/tse2002/
   - https://github.com/csmith-project/creduce
@@ -67,9 +67,10 @@ The final artifact is only useful because the predicate was useful. A bad predic
 | Byte-slice deletion | [`reduceBinaryByByteSlicesWithReport(...)`](../../../scripts/lib/fuzz-reducers.ts), [`reduce_fuzz_bytes_by_slice_deletion(...)`](../../../src/cmd/fuzz_harness.mbt) | Contiguous byte ranges | Fresh `gen-valid` compare-pass mismatch reductions; command/invalid repro bytes | Opaque wasm or binary blobs where structural parsing is not required | Can produce invalid wasm; caller must decide whether invalid candidates are acceptable for that predicate. |
 | Text-token deletion | [`reduceTextByTokenDeletionWithReport(...)`](../../../scripts/lib/fuzz-reducers.ts), [`reduce_fuzz_text_tokens_by_deletion(...)`](../../../src/cmd/fuzz_harness.mbt) | Non-whitespace WAT/WAST-like tokens | Invalid-fuzz inline/spec-seed fallback after module-field reduction | Text artifacts where line boundaries are too coarse | Rejoins with single spaces and may destroy layout-sensitive diagnostics. |
 | Text-line deletion | [`reduceTextByLineDeletionWithReport(...)`](../../../scripts/lib/fuzz-reducers.ts) | Contiguous lines | Script-side log, manifest, and text-artifact reducers | Logs/manifests or large script-like artifacts | Too coarse for dense WAT where the interesting part is within one line. |
-| Pass-list deletion | [`minimize_fuzz_passes(...)`](../../../src/cmd/fuzz_harness.mbt) | Pass-name ranges | Command-harness pass-profile minimization | Finding a smaller ordered pass list that still reproduces | Does not prove individual pass blame; it only preserves the pass-list predicate. |
+| Pass-list deletion | [`minimize_fuzz_passes(...)`](../../../src/cmd/fuzz_harness.mbt), `reducePassSequencePreservingFailureClass(...)`, and its async sibling in [`optimizer-correctness.ts`](../../../scripts/lib/optimizer-correctness.ts) | Pass-name ranges | Command-harness failures and replay-backed optimizer semantic/determinism/codec failures | Finding a smaller ordered pass list that still reproduces the exact stable failure class | Does not prove individual pass blame; semantic reduction rejects candidates that merely become invalid or change to another failure class. |
+| Binaryen structural reduction | `runOptionalWasmReduce(...)` plus `bun fuzz reduce-optimizer` | Binaryen `wasm-reduce` structural transforms | Valid optimizer failures with a persisted replay predicate | Strong second-stage reduction after local deletion reducers | Optional tool. Missing `wasm-reduce` is `unavailable`, not a harness failure; the original artifact stays authoritative. |
 
-All backends are greedy chunk-deletion reducers. They are intentionally not a full Binaryen `wasm-reduce` replacement: Starshine does not yet interleave reducer passes, rewrite wasm instructions structurally, or guarantee every intermediate candidate remains valid wasm.
+The local backends are greedy chunk-deletion reducers. Starshine now also has an optional Binaryen `wasm-reduce` adapter for stronger valid-Wasm structural reduction. `bun fuzz reduce-optimizer <failure-dir|manifest.json> --out <reduced.wasm>` generates its predicate from `bun fuzz replay-optimizer ... --input <candidate> --predicate`, uses Binaryen's separate `--test` and `--working` files, and writes a sidecar reduction log. The replay command reconstructs pass flags, semantic policy, normal/serial mode, and the recorded property. Optional tool absence leaves the local reduction and original input usable.
 
 ## Artifact And Log Contract
 
@@ -119,9 +120,11 @@ The compare-pass workflow page explains the surrounding oracle ladder and replay
 
 The diagnostics and invalid-repro page owns the surrounding stable-id and diagnostic-family contract: [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md).
 
-### Command-harness reductions
+### Command-harness and optimizer-property reductions
 
-[`src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt) exposes the shared Moon deletion loop and metadata structs so command-level fuzz reports can minimize pass lists, byte artifacts, text tokens, and parsed module fields without duplicating reducer logic. This is the path that lets pass-list minimization and future command-harness artifact reducers share deletion-step accounting.
+[`src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt) exposes the shared Moon deletion loop and metadata structs so command-level fuzz reports can minimize pass lists, byte artifacts, text tokens, and parsed module fields without duplicating reducer logic. Optimizer command failures and fresh-run nondeterminism use that pass minimizer directly.
+
+The Bun optimizer-property path uses the same chunk-removal order with an async replay predicate. A `semantic-self` candidate is retained only when execution still disagrees; validation rejection is a different class and is rejected. Determinism, optimizer-idempotence, codec-idempotence, and composition use the same class-preservation rule. Failure directories record `pass-reduction.json` with original/reduced passes, predicate evaluations, and deletion steps; corpus promotion prefers the verified reduced pass list while retaining the original list.
 
 ## Correctness Constraints
 
