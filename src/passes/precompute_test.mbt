@@ -3800,3 +3800,119 @@ test "precompute folds default and packed fresh struct reads" {
   assert_true(packed.contains("I32(-1)"), msg=packed)
   assert_false(packed.contains("struct.get_s"), msg=packed)
 }
+
+///|
+fn precompute_test_has_rust_fannkuch_loop_carried_mul(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let iteration = @lib.LocalIdx::new(13U)
+  let factor = @lib.LocalIdx::new(21U)
+  let product = @lib.LocalIdx::new(7U)
+  for idx = 0; idx + 3 < instrs.length(); idx = idx + 1 {
+    if instrs[idx] == @lib.Instruction::local_get(iteration) &&
+      instrs[idx + 1] == @lib.Instruction::local_get(factor) &&
+      instrs[idx + 2] == @lib.Instruction::i32_mul() &&
+      instrs[idx + 3] == @lib.Instruction::local_set(product) {
+      return true
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if precompute_test_has_rust_fannkuch_loop_carried_mul(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if precompute_test_has_rust_fannkuch_loop_carried_mul(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if precompute_test_has_rust_fannkuch_loop_carried_mul(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+test "precompute-propagate preserves rust fannkuch loop-carried default local" {
+  let fixture = "tests/repros/precompute-propagate-rust-fannkuch-loop-carried-default.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected rust fannkuch fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rust fannkuch fixture decode success, got \{err}")
+  }
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected rust fannkuch fixture validation success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rust fannkuch precompute propagation success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected rust fannkuch optimized validation success, got \{err}")
+  }
+  let body = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[2]
+      body
+    }
+    None => fail("expected rust fannkuch code section")
+  }
+  assert_true(
+    precompute_test_has_rust_fannkuch_loop_carried_mul(body),
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+}
+
+///|
+test "HOT roundtrip preserves rust fannkuch loop-carried multiplication" {
+  let fixture = "tests/repros/precompute-propagate-rust-fannkuch-loop-carried-default.wasm"
+  let bytes = match @sfs.read_file_bytes(fixture) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected rust fannkuch fixture read success, got \{err}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rust fannkuch fixture decode success, got \{err}")
+  }
+  let module_ctx = @ir.hot_module_context_from_module(input)
+  let func = match
+    @ir.hot_lift_func_with_context_result(
+      input,
+      @lib.FuncIdx::new(2U),
+      module_ctx,
+    ) {
+    Ok(func) => func
+    Err(err) => fail("expected rust fannkuch HOT lift, got \{err}")
+  }
+  @ir.hot_verify_all_or_abort(func)
+  let @lib.Func(_, @lib.Expr(body)) = @ir.hot_lower_func(func)
+  assert_true(
+    precompute_test_has_rust_fannkuch_loop_carried_mul(body),
+    msg=@debug.to_string(body),
+  )
+}

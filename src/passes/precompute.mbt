@@ -11625,6 +11625,86 @@ fn precompute_propagate_allocation_for_value(
 }
 
 ///|
+fn precompute_propagate_mark_loop_carried_default_relations(
+  func : @ir.HotFunc,
+  node_id : Int,
+  inside_loop : Bool,
+  loop_written : Array[Bool],
+  get_inside_loop : Array[Bool],
+  visited_outside_loop : Array[Bool],
+  visited_inside_loop : Array[Bool],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let visited = if inside_loop {
+    visited_inside_loop
+  } else {
+    visited_outside_loop
+  }
+  if visited[node_id] {
+    return
+  }
+  visited[node_id] = true
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      if inside_loop && node_id < get_inside_loop.length() {
+        get_inside_loop[node_id] = true
+      }
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      if inside_loop && node.imm0 >= 0 && node.imm0 < loop_written.length() {
+        loop_written[node.imm0] = true
+      }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    precompute_propagate_mark_loop_carried_default_relations(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      inside_loop,
+      loop_written,
+      get_inside_loop,
+      visited_outside_loop,
+      visited_inside_loop,
+    )
+  }
+  let visit_region = fn(region_ref, nested_inside_loop) {
+    for idx = 0
+        idx < @ir.hot_region_root_count(func, region_ref)
+        idx = idx + 1 {
+      precompute_propagate_mark_loop_carried_default_relations(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        nested_inside_loop,
+        loop_written,
+        get_inside_loop,
+        visited_outside_loop,
+        visited_inside_loop,
+      )
+    }
+  }
+  match node.op {
+    @ir.HotOp::Loop =>
+      visit_region(@ir.hot_region_body_ref(func, node_id), true)
+    @ir.HotOp::Block =>
+      visit_region(@ir.hot_region_body_ref(func, node_id), inside_loop)
+    @ir.HotOp::If => {
+      visit_region(@ir.hot_region_then_ref(func, node_id), inside_loop)
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) => visit_region(region_ref, inside_loop)
+        None => ()
+      }
+    }
+    @ir.HotOp::Try | @ir.HotOp::TryTable => {
+      visit_region(@ir.hot_region_body_ref(func, node_id), inside_loop)
+      visit_region(@ir.hot_region_catch_list_ref(func, node_id), inside_loop)
+    }
+    _ => ()
+  }
+}
+
+///|
 fn precompute_propagate_prefix_fold_local_gets(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -11646,7 +11726,20 @@ fn precompute_propagate_prefix_fold_local_gets(
     @ir.hot_node_count(func),
     None,
   )
+  let loop_written = Array::make(@ir.hot_local_count(func), false)
+  let get_inside_loop = Array::make(@ir.hot_node_count(func), false)
+  let visited_outside_loop = Array::make(@ir.hot_node_count(func), false)
+  let visited_inside_loop = Array::make(@ir.hot_node_count(func), false)
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    precompute_propagate_mark_loop_carried_default_relations(
+      func,
+      @ir.hot_root_get(func, root_idx),
+      false,
+      loop_written,
+      get_inside_loop,
+      visited_outside_loop,
+      visited_inside_loop,
+    )
     precompute_propagate_mark_result_if_direct_const_gets(
       ctx,
       func,
@@ -11795,6 +11888,20 @@ fn precompute_propagate_prefix_fold_local_gets(
         }
         let value_id = ssa.local_get_values[node_id]
         if value_id < 0 {
+          continue
+        }
+        if local_id >= 0 &&
+          local_id < loop_written.length() &&
+          loop_written[local_id] &&
+          get_inside_loop[node_id] &&
+          (match @ir.ssa_value_origin(ssa, value_id) {
+            @ir.HotSsaValueOrigin::EntryDefaultInitDef(origin_local) =>
+              origin_local == local_id
+            _ => false
+          }) {
+          // The same lexical local can be default-valued on the first trip and
+          // loop-carried from a nested write on later trips. Until every such
+          // backedge receives a real SSA phi, retain the dynamic read.
           continue
         }
         if local_id >= 0 &&
