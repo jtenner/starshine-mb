@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-08-25
 sources:
   - https://webassembly.github.io/spec/core/exec/runtime.html#syntax-trap
   - https://webassembly.github.io/spec/core/exec/instructions.html
@@ -114,11 +114,21 @@ Default Starshine semantics should therefore be described as **traps may happen 
 
 ## Compare-Pass And Runtime Smoke Guidance
 
-`bun fuzz compare-pass --runtime-execution node` adds optional runtime smoke evidence by instantiating Starshine and Binaryen outputs with deterministic basic import stubs and invoking a bounded set of same-named exports. That lane is intentionally narrow:
+`bun fuzz compare-pass --self-semantic` is the primary before/after optimizer execution property. It creates one deterministic plan from the original module and replays it on fresh original and Starshine instances. `--runtime-execution node` remains the secondary Starshine-vs-Binaryen smoke lane.
+
+The self-semantic comparison policy is explicit:
+
+- `strict`: exact integer bits, exact float bits (including `+0` versus `-0`), and exact normalized trap class;
+- `canonical-nan`: the strict policy except that two NaN results of the same float width compare equal regardless of payload;
+- `trap-aware`: exact deterministic results plus normalized trap-class equality, intended for ordinary optimizer fuzzing.
+
+A return/trap difference or different normalized trap class is a trap mismatch. Unsupported JS boundary types, unsupported imports/features, non-comparable proposal behavior, and runtime worker timeouts are blocked evidence rather than passes. Relaxed SIMD and other surfaces without a sound current Node comparison fail closed as unsupported/non-comparable.
+
+The secondary Binaryen runtime lane is intentionally narrow:
 
 1. Equal returned values are useful evidence for the specific invoked exports and argument vector.
-2. Equal traps are useful evidence that both versions failed under that invocation.
-3. Equal traps are **not** sufficient to call a transform semantically safe if the programs could trap at different times, after different effects, or for different reasons.
+2. Equal normalized traps are useful evidence that both versions failed under that invocation.
+3. Equal traps are **not** sufficient to call a transform semantically safe if the programs could trap at different times, after different effects, or for different reasons. The self-semantic observation record therefore also compares final exported global, memory, table, and deterministic import-trace evidence where available.
 4. A trap/value difference is a semantic mismatch unless the pass contract explicitly permits changing trap behavior under a named assumption such as `traps-never-happen`.
 5. `inputEffectTrapFacts` from [`scripts/lib/effect-trap-scanner.ts`](../../../scripts/lib/effect-trap-scanner.ts) are triage metadata. They do not replace reduced replay or pass-specific semantic reasoning.
 

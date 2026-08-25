@@ -28,6 +28,46 @@ test "pass_require helpers build and reuse derived analyses" {
 }
 
 ///|
+test "pass_mark_mutated invalidates only declared analysis dependencies" {
+  let func = pass_test_lift_first_func(pass_common_fixture_wat())
+  let ctx = HotPassContext::new(
+    @ir.HotPassDescriptor::new("test", invalidates=[@ir.HotAnalysis::effects()]),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  ignore(pass_require_cfg(ctx, func))
+  ignore(pass_require_effects(ctx, func))
+
+  pass_mark_mutated(ctx, func)
+
+  assert_true(ctx.cache.cfg is Some(_))
+  @debug.assert_eq(ctx.cache.effects, None)
+}
+
+///|
+test "diagnostic pass verification rejects stale analysis after unmarked mutation" {
+  let func = pass_test_lift_first_func(pass_common_fixture_wat())
+  let ctx = HotPassContext::new(
+    @ir.HotPassDescriptor::new("test", requires=[@ir.HotAnalysis::cfg()], invalidates=[
+      @ir.HotAnalysis::cfg(),
+    ]),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  ignore(pass_require_cfg(ctx, func))
+  @ir.hot_root_append(func, @ir.hot_build_nop(func))
+
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => fail("expected stale analysis diagnostic")
+    Err(err) => assert_true(err.contains("InvalidAnalysisRevision"), msg=err)
+  }
+}
+
+///|
 test "pass_splice_region and pass_delete_detached_nodes mark mutation" {
   let func = pass_test_lift_first_func("(module (func nop i32.const 4 drop))")
   let ctx = HotPassContext::new(

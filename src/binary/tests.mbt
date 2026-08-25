@@ -2805,6 +2805,18 @@ test "Ref Types" {
 }
 
 ///|
+test "encode nullable abstract reference types uses canonical shorthand" {
+  let rt = RefType::new(true, HeapType::abs(AbsHeapType::array()))
+  let buf = @buffer.new()
+  match Encode::encode(rt, buf) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected canonical nullable arrayref encoding, got \{err}")
+  }
+  @debug.assert_eq(buf.to_bytes(), b"\x6a")
+}
+
+///|
 test "encode ref.null uses heap-type immediate for abstract refs" {
   let instr = Instruction::ref_null(HeapType::abs(AbsHeapType::extern_()))
   let buf = @buffer.new()

@@ -167,7 +167,7 @@ describe("oi parity sweep", () => {
     const report = runOiParitySweep({ ...options, execute: false });
     const text = formatOiParitySweepReport(report);
 
-    expect(text).toContain("OI parity sweep (optimize-instructions, version_130)");
+    expect(text).toContain("OI parity sweep (optimize-instructions, version_131)");
     expect(text).toContain("- OI-D: 1 row(s), 0 skipped");
     expect(text).toContain("scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-instructions");
   });

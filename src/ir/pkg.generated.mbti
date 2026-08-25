@@ -95,6 +95,8 @@ pub fn cache_get_or_build_use_def(HotAnalysisCache, HotFunc) -> HotUseDef
 
 pub fn cache_invalidate_all(HotAnalysisCache) -> Unit
 
+pub fn cache_invalidate_analyses(HotAnalysisCache, Array[HotAnalysis]) -> Unit
+
 pub fn cfg_block_boundary_reasons(HotFunc, Int) -> Array[CfgBlockBoundaryReason]
 
 pub fn cfg_block_count(HotCfg) -> Int
@@ -714,6 +716,8 @@ pub fn hot_type_void(HotFunc) -> Int
 pub fn[C] hot_verify_all(HotFunc, cache? : C?) -> Result[Unit, HotVerifyError]
 
 pub fn hot_verify_all_or_abort(HotFunc) -> Unit
+
+pub fn hot_verify_cached_analyses(HotFunc, HotAnalysisCache) -> Result[Unit, HotVerifyError]
 
 pub fn hot_verify_cfg(HotFunc, HotCfg) -> Result[Unit, HotVerifyError]
 
@@ -1595,6 +1599,8 @@ pub enum HotVerifyError {
   InvalidSsaType(Int, @lib.ValType, @lib.ValType)
   InvalidSsaUse(Int, HotSsaUseOrigin)
   InvalidSsaDominance(Int, Int, Int)
+  InvalidAnalysisRevision(HotAnalysis, Int, Int)
+  InvalidAnalysisDependency(HotAnalysis, HotAnalysis)
 } derive(Eq, @debug.Debug)
 pub impl Show for HotVerifyError
 

@@ -158,6 +158,12 @@ pub impl Encode for AbsHeapType with fn encode(val, buf) {
 ///|
 pub impl Encode for RefType with fn encode(val, buf) {
   match val {
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(StringAbsHeapType)) => {
+      buf.write_byte(0x63)
+      Encode::encode(AbsHeapType::string_(), buf)
+    }
+    HeapTypeRefType(true, false, AbsHeapTypeHeapType(abs)) =>
+      Encode::encode(abs, buf)
     HeapTypeRefType(true, exact, ht) => {
       buf.write_byte(0x63)
       if exact {

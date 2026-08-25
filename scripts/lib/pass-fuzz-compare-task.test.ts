@@ -67,6 +67,28 @@ describe("pass-fuzz persistent cache options", () => {
     }
   });
 
+  test("accepts independent optimizer correctness properties together", () => {
+    const parsed = parsePassFuzzCompareArgs([
+      "--pass",
+      "optimize-instructions",
+      "--self-semantic",
+      "--determinism",
+      "--codec-idempotence",
+      "--semantic-policy",
+      "canonical-nan",
+      "--debug-serial-passes",
+    ]);
+
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.selfSemantic).toBe(true);
+      expect(parsed.options.determinism).toBe(true);
+      expect(parsed.options.codecIdempotence).toBe(true);
+      expect(parsed.options.semanticPolicy).toBe("canonical-nan");
+      expect(parsed.options.serialPasses).toBe(true);
+    }
+  });
+
   test("rejects the retired mixed generator mode", () => {
     expect(() => parsePassFuzzCompareArgs(["--pass", "remove-unused-brs", "--generator", "both"])).toThrow(
       "invalid generator: both",

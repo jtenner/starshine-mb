@@ -187,6 +187,8 @@ pub fn parse_gen_valid_batch_manifest_stream_derivations(String) -> Result[Array
 
 pub fn parse_invalid_fuzz_failure_report(String, (String) -> Result[Bytes, String]) -> Result[InvalidFuzzFailureReport, String]
 
+pub fn persist_fuzz_cmd_harness_failure(FuzzCmdHarnessFailureReport, String, FuzzRunOutputIO) -> Result[Unit, String]
+
 pub fn persist_fuzz_run_output(String, String, String, Int64, Int, Int, Int, Array[FuzzSuiteResult], FuzzRunOutputIO) -> Result[Unit, String]
 
 pub fn persist_invalid_fuzz_failure_report(InvalidFuzzFailureReport, InvalidFuzzPersistIO, corpus_dir? : String) -> Result[(String, Array[String]), String]
@@ -201,7 +203,7 @@ pub fn run_fuzz_replay_manifest(String) -> Result[Array[FuzzSuiteResult], String
 
 pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], String]
 
-pub fn run_fuzz_suite_sweep(String, String, Int64, Int, Int, Int) -> Result[Array[FuzzSuiteResult], String]
+pub fn run_fuzz_suite_sweep(String, String, Int64, Int, Int, Int, cmd_harness_on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])?) -> Result[Array[FuzzSuiteResult], String]
 
 pub fn run_gen_valid_wat_validate_roundtrip_fuzz(String, UInt64) -> Result[GenValidWatValidateRoundtripFuzzStats, String]
 
@@ -323,8 +325,25 @@ pub enum FuzzCliCommand {
   EmitGenValidBatch(EmitGenValidBatchArgs)
   EmitInvalidRepro(EmitInvalidReproArgs)
   ReplayCorpus(String)
+  ResolveRandomPassProfile(String, UInt64)
   GoldenSeedSmoke
 } derive(Eq, @debug.Debug)
+
+pub struct FuzzCmdHarnessFailureReport {
+  seed : UInt64
+  attempt : Int
+  generated_valid : Int
+  stage : String
+  message : String
+  generator_profile : String
+  pass_profile : String
+  optimize_passes : Array[String]
+  minimized_passes : Array[String]
+  original_wasm : Bytes
+  first_output : Bytes
+  second_output : Bytes
+} derive(Eq, @debug.Debug)
+pub fn FuzzCmdHarnessFailureReport::new(UInt64, Int, Int, String, String, String, String, Array[String], Bytes, Bytes, Bytes, minimized_passes? : Array[String]) -> Self
 
 pub struct FuzzCorpusCaseIndex {
   entries : Array[FuzzCorpusCaseIndexEntry]

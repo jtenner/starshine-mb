@@ -451,6 +451,77 @@ pub fn pass_registry_all() -> Array[HotPassRegistryEntry] {
 }
 
 ///|
+fn pass_registry_splitmix_word(seed : UInt64, ordinal : UInt64) -> UInt64 {
+  let mut value = seed + 0x9e3779b97f4a7c15UL * (ordinal + 1UL)
+  value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9UL
+  value = (value ^ (value >> 27)) * 0x94d049bb133111ebUL
+  value ^ (value >> 31)
+}
+
+///|
+pub fn pass_registry_fixed_point_cleanup_sequence() -> Array[String] {
+  let compatible_names = ["merge-blocks"]
+  let passes : Array[String] = []
+  for name in compatible_names {
+    match pass_registry_lookup(name) {
+      Some(entry) if entry.category == HotPassRegistryCategory::HotPass =>
+        passes.push(entry.name)
+      _ => ()
+    }
+  }
+  passes
+}
+
+///|
+pub fn pass_registry_random_executable_sequence(
+  profile : String,
+  seed : UInt64,
+) -> Array[String] {
+  let compatible_names = [
+    "remove-unused-names", "remove-unused-brs", "vacuum", "merge-blocks",
+  ]
+  let eligible : Array[String] = []
+  for name in compatible_names {
+    match pass_registry_lookup(name) {
+      Some(entry) if entry.category == HotPassRegistryCategory::HotPass =>
+        eligible.push(entry.name)
+      _ => ()
+    }
+  }
+  if eligible.length() == 0 {
+    return []
+  }
+  let mut ordinal = 0UL
+  let next = fn() {
+    let value = pass_registry_splitmix_word(seed, ordinal)
+    ordinal += 1UL
+    value
+  }
+  let length = match profile {
+    "random-short" => 1 + (next() % 5UL).to_int()
+    "random-medium" => 2 + (next() % 11UL).to_int()
+    "random-long" => 12 + (next() % 21UL).to_int()
+    "random-mixed" => {
+      let bucket = next() % 100UL
+      if bucket < 55UL {
+        1 + (next() % 5UL).to_int()
+      } else if bucket < 90UL {
+        6 + (next() % 7UL).to_int()
+      } else {
+        16 + (next() % 17UL).to_int()
+      }
+    }
+    _ => 0
+  }
+  let passes : Array[String] = []
+  for _ in 0..<length {
+    let idx = (next() % eligible.length().to_uint64()).to_int()
+    passes.push(eligible[idx])
+  }
+  passes
+}
+
+///|
 pub fn pass_registry_lookup(name : String) -> HotPassRegistryEntry? {
   match pass_registry_lookup_cached(name) {
     Some(entry) => Some(pass_registry_clone_entry(entry))

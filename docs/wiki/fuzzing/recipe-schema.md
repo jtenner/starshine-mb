@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-08-25
 sources:
   - text-differential-adapters.md
   - ../../../src/fuzz/main.mbt
@@ -114,6 +114,10 @@ The checked-in catalog is intentionally small and discoverable through `moon run
 | `ci` | `cmd-harness` | `ci+gen-valid=natural-small+passes=common-clusters` | `0x5eed` | `4 / 1` | `jsonl` | Affordable command-harness CI path with natural-small inputs and common pass clusters. |
 | `default-ci` | `all` | `ci` | `0x5eed` | `4 / 1` | `jsonl` | All-suite CI sweep. |
 | `nightly` | `validate-valid-metamorphic` | `stress` | `0x1eed` | `32 / 8` | `jsonl` | Broader metamorphic validator stress lane, designed for shard queues. |
+| `optimizer-ci` | `cmd-harness` | `ci+gen-valid=pass-fuzz-stress+passes=random-short+determinism+codec-idempotence` | `0x5eed` | `8 / 4` | `jsonl` | Bounded PR/CI optimizer lane using deterministic randomized short pass sequences plus validity, fresh-run determinism, and codec idempotence. Arbitrary compositions are not presumed to be fixed points. |
+| `optimizer-idempotence-ci` | `cmd-harness` | `ci+gen-valid=pass-fuzz-stress+passes=fixed-point-cleanup+opt-idempotence+codec-idempotence` | `0x5eed` | `8 / 4` | `jsonl` | Bounded idempotence lane for the registry-owned `merge-blocks` fixed-point configuration. |
+| `optimizer-stress` | `cmd-harness` | `stress+gen-valid=random-all-profiles+passes=random-mixed+determinism+codec-idempotence` | `0x5eed` | `64 / 8` | `jsonl` | Shardable stress/nightly optimizer lane with mixed short/medium/rare-long pass sequences. Run self-semantic execution separately through compare-pass because the Moon command harness does not host Node. |
+| `optimizer-idempotence-stress` | `cmd-harness` | `stress+gen-valid=random-all-profiles+passes=fixed-point-cleanup+opt-idempotence+codec-idempotence` | `0x5eed` | `64 / 8` | `jsonl` | Shardable fixed-point idempotence stress lane, kept independent from randomized composition. |
 | `pass-signoff` | `cmd-harness` | `ci+gen-valid=binaryen-oracle-portable+passes=each-pass+check-idempotence` | `0x5eed` | `8 / 4` | `jsonl` | Pass-oriented command-harness smoke with portable Binaryen-oracle input and idempotence checking. This complements, but does not replace, pass-specific compare-pass signoff. |
 | `validator-stress` | `validate-valid` | `stress` | `0x10d69` | `16 / 4` | `jsonl` | Validator stress recipe using the suite's stress generator configuration. |
 | `parser-stress` | `wast-roundtrip` | `stress+parser-stress+scripts` | `0x5eed` | `16 / 4` | `jsonl` | WAST parser/script stress lane. |
@@ -162,7 +166,7 @@ Docs-only recipe-page updates need link/source review and `git diff`; no Moon co
 
 - **Treating recipes as immutable commands.** They are defaults; explicit CLI values intentionally win.
 - **Forgetting `=` inside profiles.** The parser must preserve suite-specific profile modifiers such as `gen-valid=...` and `passes=...`.
-- **Using `pass-signoff` as full pass parity evidence.** It is a command-harness recipe. Mutating pass signoff still needs focused pass tests and the Binaryen compare-pass lane described in [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md).
+- **Using `pass-signoff` or `optimizer-ci` as full pass parity evidence.** They are command-harness recipes. Mutating pass signoff still needs focused pass tests, `semantic:self` execution where runtime-compatible, and the Binaryen compare-pass lane described in [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md).
 - **Adding bulk or one-off bug seeds as recipes.** One-off failures belong in focused tests, raw/research notes, reduced artifacts, or corpus metadata; recipes should stay small, named, and workflow-oriented.
 - **Letting wrapper defaults erase recipe defaults.** The wrapper tracks whether suite/profile were explicit so recipe defaults remain meaningful.
 - **Changing recipe ids without index/log updates.** Recipe names are discoverable workflow vocabulary and should not drift silently.

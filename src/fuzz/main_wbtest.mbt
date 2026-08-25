@@ -1977,6 +1977,10 @@ test "standard fuzz recipe catalog includes required checked-in recipes" {
   assert_true(names.contains("binaryen-oracle"))
   assert_true(names.contains("default-smoke"))
   assert_true(names.contains("default-ci"))
+  assert_true(names.contains("optimizer-ci"))
+  assert_true(names.contains("optimizer-idempotence-ci"))
+  assert_true(names.contains("optimizer-stress"))
+  assert_true(names.contains("optimizer-idempotence-stress"))
   let smoke_recipe = match fuzz_standard_recipe_by_name("default-smoke") {
     Some(v) => v
     None => fail("expected default-smoke recipe")
@@ -2002,6 +2006,42 @@ test "standard fuzz recipe catalog includes required checked-in recipes" {
   @debug.assert_eq(recipe.seed_i64, 0x5eedL)
   @debug.assert_eq(recipe.seed_count, 8)
   @debug.assert_eq(recipe.shard_count, 4)
+  let optimizer_ci = match fuzz_standard_recipe_by_name("optimizer-ci") {
+    Some(v) => v
+    None => fail("expected optimizer-ci recipe")
+  }
+  @debug.assert_eq(optimizer_ci.suite, "cmd-harness")
+  assert_true(optimizer_ci.profile.contains("passes=random-short"))
+  assert_true(optimizer_ci.profile.contains("determinism"))
+  assert_false(optimizer_ci.profile.contains("opt-idempotence"))
+  assert_true(optimizer_ci.profile.contains("codec-idempotence"))
+  let optimizer_idempotence_ci = match
+    fuzz_standard_recipe_by_name("optimizer-idempotence-ci") {
+    Some(v) => v
+    None => fail("expected optimizer-idempotence-ci recipe")
+  }
+  assert_true(
+    optimizer_idempotence_ci.profile.contains("passes=fixed-point-cleanup"),
+  )
+  assert_true(optimizer_idempotence_ci.profile.contains("opt-idempotence"))
+  assert_false(optimizer_idempotence_ci.profile.contains("determinism"))
+  let optimizer_stress = match
+    fuzz_standard_recipe_by_name("optimizer-stress") {
+    Some(v) => v
+    None => fail("expected optimizer-stress recipe")
+  }
+  assert_true(optimizer_stress.profile.contains("passes=random-mixed"))
+  assert_false(optimizer_stress.profile.contains("opt-idempotence"))
+  assert_true(optimizer_stress.seed_count > optimizer_ci.seed_count)
+  let optimizer_idempotence_stress = match
+    fuzz_standard_recipe_by_name("optimizer-idempotence-stress") {
+    Some(v) => v
+    None => fail("expected optimizer-idempotence-stress recipe")
+  }
+  assert_true(
+    optimizer_idempotence_stress.profile.contains("passes=fixed-point-cleanup"),
+  )
+  assert_true(optimizer_idempotence_stress.profile.contains("opt-idempotence"))
   let validator_recipe = match
     fuzz_standard_recipe_by_name("validator-stress") {
     Some(v) => v
@@ -2068,6 +2108,16 @@ test "golden seed smoke runner asserts stable high-level counters" {
   @debug.assert_eq(catalog_case.expected_counter_count, 2)
   assert_true(catalog_case.details_json_contains("\"validated\":128"))
   assert_true(catalog_case.details_json_contains("\"v128\":"))
+}
+
+///|
+test "fuzz CLI resolves seeded random pass profiles" {
+  @debug.assert_eq(
+    parse_fuzz_cli_command([
+      "--resolve-random-pass-profile", "random-short", "--seed", "0x5eed",
+    ]),
+    FuzzCliCommand::ResolveRandomPassProfile("random-short", 0x5eedUL),
+  )
 }
 
 ///|
@@ -3715,7 +3765,7 @@ test "cmd-harness suite accepts broad executable pass profiles" {
 test "cmd-harness suite accepts GenValid and pass profile modifiers" {
   let result = match
     run_fuzz_suite(
-      "cmd-harness", "smoke+gen=natural-small+passes=cleanup+codec-idempotence",
+      "cmd-harness", "smoke+gen-valid=natural-small+passes=cleanup+codec-idempotence",
       -42L,
     ) {
     Ok([single]) => single
@@ -3725,9 +3775,97 @@ test "cmd-harness suite accepts GenValid and pass profile modifiers" {
   @debug.assert_eq(result.suite, "cmd-harness")
   @debug.assert_eq(
     result.profile,
-    "smoke+gen=natural-small+passes=cleanup+codec-idempotence",
+    "smoke+gen-valid=natural-small+passes=cleanup+codec-idempotence",
   )
   assert_true(result.attempts >= 1)
+}
+
+///|
+test "cmd-harness optimizer property failures retain replay evidence" {
+  let reports : Array[FuzzCmdHarnessFailureReport] = []
+  match
+    run_fuzz_cmd_harness_profile(
+      "smoke+gen=natural-small+passes=random-short+opt-idempotence",
+      0x5eedUL,
+      on_failure=Some(fn(report) {
+        reports.push(report)
+        Ok(())
+      }),
+    ) {
+    Ok(_) => fail("expected the known non-fixed-point randomized sequence")
+    Err(msg) => assert_true(msg.contains("optimize idempotence changed bytes"))
+  }
+  @debug.assert_eq(reports.length(), 1)
+  let report = reports[0]
+  @debug.assert_eq(report.stage, "optimizer-idempotence")
+  assert_true(report.original_wasm.length() > 0)
+  assert_true(report.first_output.length() > 0)
+  assert_true(report.second_output.length() > 0)
+  assert_true(report.optimize_passes.length() > 0)
+  @debug.assert_eq(report.minimized_passes, ["remove-unused-brs"])
+}
+
+///|
+test "persist cmd-harness property failure writes metadata and replay inputs" {
+  let writes : Array[(String, Bytes)] = []
+  let io = FuzzRunOutputIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes.push((path, bytes))
+    Ok(())
+  })
+  let report = FuzzCmdHarnessFailureReport::new(
+    0x5eedUL,
+    8,
+    7,
+    "optimizer-idempotence",
+    "bytes changed",
+    "natural-small",
+    "random-short",
+    ["remove-unused-brs", "merge-blocks"],
+    fuzz_string_to_bytes("original"),
+    fuzz_string_to_bytes("once"),
+    fuzz_string_to_bytes("twice"),
+  )
+  match persist_fuzz_cmd_harness_failure(report, "tmp/failures", io) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(writes.length(), 4)
+  assert_true(writes[0].0.contains("failure-metadata.json"))
+  assert_true(bytes_to_ascii(writes[0].1).contains("optimizer-idempotence"))
+  assert_true(writes[1].0.contains("input.wasm"))
+  assert_true(writes[2].0.contains("optimized-once.wasm"))
+  assert_true(writes[3].0.contains("optimized-twice.wasm"))
+}
+
+///|
+test "cmd-harness suite accepts randomized determinism profiles" {
+  let result = match
+    run_fuzz_suite(
+      "cmd-harness", "smoke+gen=natural-small+passes=random-short+determinism+codec-idempotence",
+      0x5eedL,
+    ) {
+    Ok([single]) => single
+    Ok(_) => fail("expected exactly one suite result")
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(result.attempts, 128)
+}
+
+///|
+test "cmd-harness suite checks idempotence only on intended fixed-point profiles" {
+  let result = match
+    run_fuzz_suite(
+      "cmd-harness", "smoke+gen=natural-small+passes=fixed-point-cleanup+opt-idempotence+codec-idempotence",
+      0x5eedL,
+    ) {
+    Ok([single]) => single
+    Ok(_) => fail("expected exactly one suite result")
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(result.attempts, 128)
 }
 
 ///|

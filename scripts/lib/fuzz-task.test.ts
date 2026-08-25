@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseFuzzRunArgs, runFuzz } from "./fuzz-task";
+import {
+  parseFuzzRunArgs,
+  parseOptimizerPromotionArgs,
+  parseOptimizerReductionArgs,
+  parseOptimizerReplayArgs,
+  runFuzz,
+} from "./fuzz-task";
 
 describe("fuzz task recipes", () => {
   test("parses recipe flags without collapsing to wrapper defaults", () => {
@@ -9,6 +15,31 @@ describe("fuzz task recipes", () => {
     expect(parsed.recipeName).toBe("default-ci");
     expect(parsed.suiteExplicit).toBe(false);
     expect(parsed.profileExplicit).toBe(false);
+  });
+
+  test("profile-only recipe overrides stay named and preserve the recipe suite", () => {
+    const parsed = parseFuzzRunArgs([
+      "--recipe=optimizer-stress",
+      "--profile=smoke+passes=random-mixed+determinism",
+      "--moon=moon-test",
+    ]);
+    const calls: Array<{ bin: string; args: string[] }> = [];
+
+    runFuzz(parsed, ".", (bin, args) => {
+      calls.push({ bin, args });
+    });
+
+    expect(calls[0].args).toEqual([
+      "run",
+      "--target",
+      "wasm-gc",
+      "src/fuzz",
+      "--",
+      "--recipe",
+      "optimizer-stress",
+      "--profile",
+      "smoke+passes=random-mixed+determinism",
+    ]);
   });
 
   test("passes checked-in recipes through to the Moon fuzz runner", () => {
@@ -36,5 +67,55 @@ describe("fuzz task recipes", () => {
       "--seed-count",
       "2",
     ]);
+  });
+});
+
+describe("optimizer replay and promotion task arguments", () => {
+  test("parses replay source and Starshine binary", () => {
+    expect(
+      parseOptimizerReplayArgs([".tmp/failure", "--starshine-bin", "_build/native/release/build/cmd/cmd.exe"]),
+    ).toEqual({
+      source: ".tmp/failure",
+      starshineBin: "_build/native/release/build/cmd/cmd.exe",
+      moonBin: "moon",
+      wasmToolsBin: "wasm-tools",
+    });
+  });
+
+  test("parses promotion corpus root and replay tools", () => {
+    expect(
+      parseOptimizerPromotionArgs([
+        ".tmp/failure",
+        "--corpus-root",
+        "tests/optimizer/regressions",
+        "--starshine-bin",
+        "starshine",
+      ]),
+    ).toEqual({
+      failureDir: ".tmp/failure",
+      corpusRoot: "tests/optimizer/regressions",
+      starshineBin: "starshine",
+      moonBin: "moon",
+      wasmToolsBin: "wasm-tools",
+    });
+  });
+
+  test("parses optional structural reducer options", () => {
+    expect(
+      parseOptimizerReductionArgs([
+        ".tmp/failure",
+        "--out",
+        ".tmp/reduced.wasm",
+        "--wasm-reduce-bin",
+        "wasm-reduce-custom",
+      ]),
+    ).toEqual({
+      source: ".tmp/failure",
+      outputPath: ".tmp/reduced.wasm",
+      wasmReduceBin: "wasm-reduce-custom",
+      starshineBin: undefined,
+      moonBin: "moon",
+      wasmToolsBin: "wasm-tools",
+    });
   });
 });

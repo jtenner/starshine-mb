@@ -85,6 +85,28 @@ fn hot_verify_wb_simple_ssa_fixture() -> (
 }
 
 ///|
+test "hot verify cached analyses rejects stale revisions" {
+  let (func, _, _, _) = hot_verify_wb_simple_ssa_fixture()
+  let cache = HotAnalysisCache::new()
+  ignore(cache_get_or_build_cfg(cache, func))
+  hot_root_append(func, hot_build_nop(func))
+
+  match hot_verify_cached_analyses(func, cache) {
+    Err(
+      HotVerifyError::InvalidAnalysisRevision(
+        HotAnalysis::Cfg,
+        actual,
+        expected
+      )
+    ) => {
+      assert_true(actual < expected)
+      @debug.assert_eq(expected, hot_revision_current(func))
+    }
+    other => fail("expected stale cfg cache error, got \{other}")
+  }
+}
+
+///|
 test "hot verify cfg rejects stale node to block ownership" {
   let (func, cfg, _, _) = hot_verify_wb_simple_ssa_fixture()
   let set = hot_root_get(func, 0)
