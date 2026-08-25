@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-25
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
@@ -160,6 +160,14 @@ Current durable answer:
 The 2026-07-19 v131 refresh supersedes the v130 status bar. On the 300-function directional-select workload, the early `remove-unused-brs -> optimize-instructions -> heap-store-optimization` neighborhood keeps Starshine's `3928`-byte output versus Binaryen's `5428` bytes; the final single replay is effectively wall-time neutral (`4.547ms` versus `4.520ms`), while the repeated isolated direct-pass workload favors Starshine whole-process. The late `merge-blocks -> precompute-propagate -> optimize-instructions -> heap-store-optimization -> rse -> vacuum` neighborhood converges to canonical-equal `3028`-byte output. Its isolated post-precompute OI slot now uses `v131-precomputed-identical-select`, producing `3028` bytes versus Binaryen's `4228` while completing whole-process faster; the full late neighborhood remains slower because the neighboring merge/precompute pipeline dominates, not because OI still enters HOT for the repeated select shape.
 
 The older 2026-07-12 v130 closeout remains historical evidence. Current explicit-v131 lane counts and residual classifications are maintained in [`./fuzzing.md`](./fuzzing.md).
+
+## 2026-08-25 self-optimized stack-carried load repair
+
+The current-source self-optimized CLI validated and passed its non-optimizer command paths but trapped while optimizing pinned `naive/bool`. Release-WASI remained byte-identical to native, and native self-artifact prefix bisection isolated the first capability failure to prefix 36 `optimize-instructions` after safe prefix 35. Hybridization across 464 changed bodies isolated absolute function 6695.
+
+The function contains repeated flat `local.get base; load offset; local.get base; call` sequences where the load result remains stack-carried across the call and later control/effects. The indexed stack-effect fact did not recognize that flat relation in the production revision, so an unrelated valid OI mutation forced HOT lowering; lowering moved the loads after release calls and moved five releases before a later consumer call. OptimizeInstructions now applies the existing original-body `run_hot_pipeline_raw_has_load_before_same_local_call` proof before building descriptor bridges or lifting to HOT, returning unchanged with the established `stack-carried-effect-optimize-instructions-noop` reason. The existing public regression `optimize-instructions skips stack-carried values across effect barriers` owns the reduced semantic relation; the artifact-level function 6695 hybrid owns self-hosted capability evidence.
+
+Final native SHA-256 `4948a7ca00a5b2495f9e0d1710c70f06d1f984cf53f1d06e1a3c39e642eb916b` retains the production `json-as` result at 105/105 optimization, external validation, and exact no-cache execution. Rebuilt self-optimized SHA-256 `26888dccfced3f805f2067e0f261ffa7672bf4f187e159b17fc122ecf7c6ea38` is 4,854,334 bytes and passes direct `--help`, `--version`, spec, optimize, byte-identity, validation, and optimize-and-run checks on pinned `naive/bool`.
 
 ## Current maintenance rule
 

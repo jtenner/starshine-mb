@@ -42887,6 +42887,14 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(body)) = original
+  if run_hot_pipeline_raw_has_load_before_same_local_call(body) {
+    return Some({
+      reason: "stack-carried-effect-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   let oi_index = match oi_index {
     Some(index) => index
     None => {
