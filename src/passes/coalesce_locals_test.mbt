@@ -446,6 +446,41 @@ test "coalesce-locals merges non-overlapping same-typed body locals" {
 }
 
 ///|
+test "coalesce-locals intentionally fails closed for stack-carried scratch overwrite calls" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $address i32 (i32.const 0))
+    #|  (func $consume (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.sub)
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    local.set 2
+    #|    global.get $address
+    #|    local.get 2
+    #|    i32.store
+    #|    local.get 2
+    #|    local.get 1
+    #|    local.set 2
+    #|    global.get $address
+    #|    local.get 2
+    #|    i32.store offset=4
+    #|    local.get 2
+    #|    call $consume))
+    #|
+  let input = pass_test_module_from_wat(source)
+  let optimized = match pass_test_run_pipeline(source, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried scratch coalescing success, got \{err}")
+  }
+  @debug.assert_eq(optimized, input)
+}
+
+///|
 test "coalesce-locals preserves tee values consumed after an early-return branch" {
   let input =
     #|(module

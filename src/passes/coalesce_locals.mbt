@@ -6196,7 +6196,10 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           rewritten_funcs.push(funcs[code_idx])
           continue
         }
-        if cl_instrs_have_stack_carried_tee_parameter_alias(
+        if run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
+            instrs,
+          ) ||
+          cl_instrs_have_stack_carried_tee_parameter_alias(
             instrs,
             params.length(),
           ) ||

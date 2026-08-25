@@ -213,6 +213,14 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 
 The renewed explicit-v131 audit closes the post-repair evidence item in `[AUDIT-CORRECTNESS]001`. The rebuilt native CLI and explicit Binaryen-v131 oracle complete both public four-lane matrices with zero validation, generator, property, Starshine command, or true semantic failures. Plain and propagating regular `100000` plus dedicated `10000` lanes have zero residual mismatches. Random-all residuals are either source-inspected smaller dead-value/control cleanup or the existing reachable-`atomic.fence` correctness boundary. wasm-smith retains only case `6523` for the fence boundary and, for propagation, case `3694` as a seven-byte smaller exact scratch-local shape. Fresh `500/500` idempotence and runtime samples are green for both public names. Exact directories and counts live in [`./fuzzing.md`](./fuzzing.md), and the repair/evidence narrative is in [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md).
 
+## 2026-08-25 artifact-scale stack-carried overwrite repair
+
+The production `json-as` exact-runtime audit reduced the first broad corruption from 96 failing artifacts to one representative `naive/bool` owner. The selected O4z candidate chain remained correct through `simplify-locals-nostructure -> vacuum -> simplify-locals-nostructure -> remove-unused-brs -> merge-blocks -> remove-unused-brs`; plain `precompute` then produced a validating out-of-bounds trap. Hybridization across 119 changed bodies isolated absolute function 513.
+
+The fold itself was ordinary immutable-global/scalar work, but any HOT mutation forced lowering of an existing stack-carried scratch lifetime: a local value remained on the operand stack, the same local was overwritten from another local, and both old and new values were later consumed by a call. Lowering emitted the old read after the overwrite and also erased a `local.tee` write observed by the continuation. The package already had a focused `run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local` proof for `precompute-propagate`, SimplifyLocals, and MergeBlocks. Plain `precompute` now uses the same semantic boundary and returns the unchanged function with reason `stack-carried-overwritten-local-precompute-noop`.
+
+The focused regression is `precompute preserves folded tee writes observed after stack-carried values`. With the companion CoalesceLocals repair, native SHA-256 `23e15eb8f81e871ac1361fbba1957b8123aae9f79c542bb5c69a4421028c7638` optimizes and independently validates all 105 pinned `json-as` artifacts, and exact four-worker no-cache execution passes `105/105` with zero failures or timeouts.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.

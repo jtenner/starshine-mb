@@ -74,6 +74,14 @@ The audit exposed and repaired these additional unsafe families:
 
 Final evidence is under `.tmp/wago-o4z-functional-20260824/` and `.tmp/self-optimized-cli-smoke-bisect/`. The rebuilt self-optimized artifact is 4,849,752 bytes with SHA-256 `03a541df56b597e074e95bac8095494c832c114521c141b9ce2731f443655d6c`.
 
+## August 25 json-as production semantic closeout
+
+After the liveness and encoded-candidate validation repairs, current-source production O4z optimized and independently validated all 105 pinned `json-as` artifacts but exact no-cache execution initially passed only 9. The first shared out-of-bounds family was reduced on `naive/bool`: the 57-slot main pipeline and original SimplifyLocals fixed point were runtime-safe, while the scalar cleanup's plain `precompute` step failed. Hybridization across 119 changed bodies isolated absolute function 513. An immutable selector fold forced HOT lowering across a stack-carried scratch overwrite/call lifetime, moving an old local read after its overwrite and dropping a continuation-observed tee write. The existing stack-carried-overwritten-local proof now guards plain `precompute` as well as propagating Precompute.
+
+That repair raised exact runtime from 9/105 to 87/105. The remaining failures were exactly `array`, `date`, `fast-path-deserialize`, `map`, `struct`, and `whitespace` in naive, SWAR, and SIMD modes. `naive/array` stayed correct through the scalar cleanup and failed in post-selection `coalesce-locals`; hybridization across 670 changed bodies isolated absolute function 1244. Coalescing a body scratch into parameter 1's slot destroyed a still-live parameter entry value while an older scratch value remained stack-carried into the same later call. Ordinary CoalesceLocals now fails closed on the established stack-carried-overwritten-local/call family.
+
+Final native SHA-256 `23e15eb8f81e871ac1361fbba1957b8123aae9f79c542bb5c69a4421028c7638` produces `105/105` successful O4z outputs, `105/105` independent `wasm-tools validate --features all` results, and `105/105` exact four-worker no-cache `as-test` executions with zero failures or timeouts. Aggregate output is `26,228,860` bytes from `29,604,717` input bytes. Evidence and function-level hybrids remain under `.tmp/json-as-smoke-20260824/corruption-bisect/`, with final summaries in `native-o4z-results.json` and `native-o4z-exact-results.json`.
+
 ## Current TDD guard
 
 - [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts) is the permanent reduced-fixture guard.

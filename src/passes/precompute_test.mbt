@@ -73,6 +73,114 @@ test "precompute keeps stack-carried call producers before intervening effects" 
 }
 
 ///|
+test "precompute preserves folded tee writes observed after stack-carried values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (global $selector i32 (i32.const 1))
+        #|  (global $stack (mut i32) (i32.const 64))
+        #|  (func $noop)
+        #|  (func $consume (param i32 i32) (result i32) local.get 1)
+        #|  (func $target (param i32 i32) (result i32)
+        #|    (local i32)
+        #|    global.get $stack
+        #|    i32.const 12
+        #|    i32.sub
+        #|    global.set $stack
+        #|    call $noop
+        #|    global.get $stack
+        #|    i64.const 0
+        #|    i64.store
+        #|    global.get $stack
+        #|    i32.const 0
+        #|    i32.store offset=8
+        #|    block
+        #|      block
+        #|        block
+        #|          global.get $selector
+        #|          i32.const 1
+        #|          i32.sub
+        #|          br_table 1 2 0
+        #|        end
+        #|        unreachable
+        #|      end
+        #|      global.get $stack
+        #|      block (result i32)
+        #|        i32.const 0
+        #|        br 0
+        #|      end
+        #|      local.tee 1
+        #|      i32.store
+        #|    end
+        #|    local.get 0
+        #|    local.set 2
+        #|    global.get $stack
+        #|    local.get 2
+        #|    i32.store offset=4
+        #|    local.get 2
+        #|    local.get 1
+        #|    local.set 2
+        #|    global.get $stack
+        #|    local.get 2
+        #|    i32.store offset=8
+        #|    local.get 2
+        #|    call $consume
+        #|    local.set 2
+        #|    global.get $stack
+        #|    i32.const 12
+        #|    i32.add
+        #|    global.set $stack
+        #|    local.get 2))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected folded tee preservation, got \{err}")
+  }
+  let body = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[2]
+      body
+    }
+    None => fail("expected code section")
+  }
+  let written = @lib.LocalIdx::new(1U)
+  fn count_writes(
+    instrs : Array[@lib.Instruction],
+    written : @lib.LocalIdx,
+    write_count : Array[Int],
+  ) -> Unit {
+    for instr in instrs {
+      match instr {
+        @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) if local_idx ==
+          written => write_count[0] = write_count[0] + 1
+        @lib.Block(_, @lib.Expr(body))
+        | @lib.Loop(_, @lib.Expr(body))
+        | @lib.TryTable(_, _, @lib.Expr(body)) =>
+          count_writes(body, written, write_count)
+        @lib.If(_, then_body, else_body) => {
+          count_writes(then_body, written, write_count)
+          match else_body {
+            Some(body) => count_writes(body, written, write_count)
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  let write_count = [0]
+  count_writes(body, written, write_count)
+  assert_true(
+    write_count[0] >= 1,
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+}
+
+///|
 test "precompute intentionally fails closed for root global snapshot write prefixes" {
   let source =
     #|(module

@@ -44676,6 +44676,14 @@ fn run_hot_pipeline_raw_precompute(
       trace_skip_raw: true,
     })
   }
+  if run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(body) {
+    return Some({
+      reason: "stack-carried-overwritten-local-\{descriptor.name}-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if propagating &&
     run_hot_pipeline_raw_precompute_has_multi_read_arithmetic_local(body) {
     return Some({
@@ -44716,15 +44724,6 @@ fn run_hot_pipeline_raw_precompute(
     run_hot_pipeline_raw_precompute_has_call_result_local_reload(body) {
     return Some({
       reason: "call-result-memory-copy-precompute-propagate-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
-  if propagating &&
-    run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(body) {
-    return Some({
-      reason: "stack-carried-overwritten-local-precompute-propagate-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
