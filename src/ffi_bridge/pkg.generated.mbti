@@ -3,6 +3,7 @@ package "jtenner/starshine/ffi_bridge"
 
 import {
   "jtenner/starshine/lib",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -16,17 +17,51 @@ pub fn funcs_new() -> Array[@lib.Func]
 
 pub fn funcs_push(Array[@lib.Func], @lib.Func) -> Unit
 
+pub fn funcs_push_runtime(Array[@lib.Func], RuntimeFunctionBuilder) -> Bool
+
+pub fn function_reference_builder_new() -> FunctionReferenceBuilder
+
+pub fn global_builder_new() -> GlobalBuilder
+
+pub fn import_builder_new(Int) -> ImportBuilder
+
+pub fn imports_new() -> Array[@lib.Import]
+
+pub fn imports_push_builder(Array[@lib.Import], ImportBuilder) -> Unit
+
 pub fn instruction_if(@lib.BlockType, Array[@lib.Instruction], Array[@lib.Instruction]) -> @lib.Instruction
+
+pub fn instruction_memory_builtin(Int) -> @lib.Instruction
+
+pub fn instruction_ref_cast_nominal(Int) -> @lib.Instruction
+
+pub fn instruction_ref_test_nominal(Int) -> @lib.Instruction
 
 pub fn instructions_new() -> Array[@lib.Instruction]
 
 pub fn instructions_push(Array[@lib.Instruction], @lib.Instruction) -> Unit
 
+pub fn instructions_push_array_iter_next(Array[@lib.Instruction], Int, Int, Int) -> Unit
+
+pub fn instructions_push_array_push(Array[@lib.Instruction], Int, Int, Int) -> Unit
+
 pub fn module_new() -> @lib.Module
+
+pub fn module_with_declarative_functions(@lib.Module, FunctionReferenceBuilder) -> @lib.Module
+
+pub fn module_with_default_memory(@lib.Module) -> @lib.Module
+
+pub fn module_with_globals(@lib.Module, GlobalBuilder) -> @lib.Module
+
+pub fn module_with_start_function(@lib.Module, Int) -> @lib.Module
+
+pub fn nominal_ref_type(Int, Bool) -> @lib.ValType
 
 pub fn rec_types_new() -> Array[@lib.RecType]
 
 pub fn rec_types_push(Array[@lib.RecType], @lib.RecType) -> Unit
+
+pub fn runtime_function_builder_new(Int, Int, Int, Int, Int, Int, Int, Int) -> RuntimeFunctionBuilder
 
 pub fn type_indices_new() -> Array[@lib.TypeIdx]
 
@@ -38,6 +73,12 @@ pub fn val_types_push(Array[@lib.ValType], @lib.ValType) -> Unit
 
 pub fn validate_module(@lib.Module) -> Bool
 
+pub fn validate_wasi_preview1_schema(WasiPreview1Schema) -> Result[Unit, String]
+
+pub fn wasi_preview1_fd_read_schema() -> WasiPreview1Schema
+
+pub fn wasi_preview1_fd_write_schema() -> WasiPreview1Schema
+
 // Errors
 
 // Types and methods
@@ -47,6 +88,53 @@ pub struct EncodedModule {
 pub fn EncodedModule::byte_at(Self, UInt) -> Byte
 pub fn EncodedModule::byte_length(Self) -> UInt
 pub fn EncodedModule::is_ok(Self) -> Bool
+
+pub(all) struct FunctionReferenceBuilder {
+  functions : Array[@lib.FuncIdx]
+}
+pub fn FunctionReferenceBuilder::push(Self, Int) -> Unit
+
+pub(all) struct GlobalBuilder {
+  globals : Array[@lib.Global]
+}
+pub fn GlobalBuilder::push(Self, Int) -> Unit
+
+pub struct ImportBuilder {
+  module_name : Array[Byte]
+  field_name : Array[Byte]
+  type_index : Int
+}
+pub fn ImportBuilder::push_field_byte(Self, Byte) -> Unit
+pub fn ImportBuilder::push_module_byte(Self, Byte) -> Unit
+
+pub struct RuntimeFunctionBuilder {
+  name : Array[Byte]
+  base : Int
+  utf8_validator_function_index : Int
+  wasi_fd_write_function_index : Int
+  wasi_fd_read_function_index : Int
+  carrier : Int
+  second_carrier : Int
+  option_none_type : Int
+  option_some_type : Int
+}
+pub fn RuntimeFunctionBuilder::push_name_byte(Self, Byte) -> Unit
+
+pub(all) enum WasiMarshalNode {
+  WasiI32
+  WasiInputBytes(Int)
+  WasiOutputBytes(Int)
+  WasiPointer(Array[WasiMarshalNode])
+  WasiList(WasiMarshalNode, Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct WasiPreview1Schema {
+  module_name : String
+  field : String
+  parameters : Array[WasiMarshalNode]
+  maximum_depth : Int
+  maximum_nodes : Int
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

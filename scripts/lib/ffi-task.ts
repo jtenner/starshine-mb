@@ -79,7 +79,11 @@ export function runFfi(command: FfiCommand, repoRoot = resolveWorkspaceRoot()): 
     fs.rmSync(path.join(outputRoot, "exports.generated.mbt"), { force: true });
     fs.rmSync(path.join(outputRoot, "moon.pkg"), { force: true });
   }
-  runOrThrow(resolveMoonBin(), ["info"], { cwd: repoRoot });
+  runOrThrow(
+    resolveMoonBin(),
+    ["info", "--target", "wasm-gc", "--package", "jtenner/starshine"],
+    { cwd: repoRoot },
+  );
   const generated = generateFfiPackage([
     ...collectFfiInterfaces(repoRoot),
     ...standardTraitInterfaces(),
