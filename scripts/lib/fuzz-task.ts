@@ -403,11 +403,26 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
   return options;
 }
 
+type FuzzRunRuntime = {
+  seedFactory: () => string;
+  log: (message : string) => void;
+};
+
+function defaultFuzzRunSeed() : string {
+  const value = ((BigInt(Date.now()) << 16n) ^ BigInt(process.pid)) &
+    0x7fff_ffff_ffff_ffffn;
+  return `0x${value.toString(16)}`;
+}
+
 // Build `moon run src/fuzz` command from parsed options and run in the repo root.
 export function runFuzz(
   options: FuzzOptions,
   repoRoot = resolveWorkspaceRoot(),
   runner: typeof runOrThrow = runOrThrow,
+  runtime: FuzzRunRuntime = {
+    seedFactory: defaultFuzzRunSeed,
+    log: (message) => process.stderr.write(`${message}\n`),
+  },
 ): void {
   if (options.emitGenValidBatch) {
     const args = [
@@ -470,6 +485,8 @@ export function runFuzz(
     return;
   }
 
+  const resolvedSeed = options.seed ?? runtime.seedFactory();
+  runtime.log(`fuzz resolved_seed=${resolvedSeed}`);
   const args = ["run", "--target", options.target, "src/fuzz", "--"];
   if (options.recipeName !== null) {
     args.push("--recipe", options.recipeName);
@@ -482,9 +499,7 @@ export function runFuzz(
   } else {
     args.push(options.suite, options.profile);
   }
-  if (options.seed !== null) {
-    args.push("--seed", options.seed);
-  }
+  args.push("--seed", resolvedSeed);
   if (options.output === "jsonl") {
     args.push("--output", "jsonl");
   }

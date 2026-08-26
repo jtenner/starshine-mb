@@ -24,9 +24,13 @@ describe("fuzz task recipes", () => {
       "--moon=moon-test",
     ]);
     const calls: Array<{ bin: string; args: string[] }> = [];
+    const logs: string[] = [];
 
     runFuzz(parsed, ".", (bin, args) => {
       calls.push({ bin, args });
+    }, {
+      seedFactory: () => "0x1234",
+      log: (message) => logs.push(message),
     });
 
     expect(calls[0].args).toEqual([
@@ -39,7 +43,10 @@ describe("fuzz task recipes", () => {
       "optimizer-stress",
       "--profile",
       "smoke+passes=random-mixed+determinism",
+      "--seed",
+      "0x1234",
     ]);
+    expect(logs).toEqual(["fuzz resolved_seed=0x1234"]);
   });
 
   test("passes checked-in recipes through to the Moon fuzz runner", () => {
@@ -49,9 +56,13 @@ describe("fuzz task recipes", () => {
       "--moon=moon-test",
     ]);
     const calls: Array<{ bin: string; args: string[] }> = [];
+    const logs: string[] = [];
 
     runFuzz(parsed, ".", (bin, args) => {
       calls.push({ bin, args });
+    }, {
+      seedFactory: () => "0x5678",
+      log: (message) => logs.push(message),
     });
 
     expect(calls).toHaveLength(1);
@@ -64,9 +75,12 @@ describe("fuzz task recipes", () => {
       "--",
       "--recipe",
       "default-smoke",
+      "--seed",
+      "0x5678",
       "--seed-count",
       "2",
     ]);
+    expect(logs).toEqual(["fuzz resolved_seed=0x5678"]);
   });
 });
 

@@ -113,6 +113,8 @@ type PassFuzzCompareOptions = {
   genValidExcludedFeatures: string[];
   genValidMetamorphicTransforms: string[];
   maxFailures: number;
+  maxMismatchArtifacts: number;
+  maxSubprocesses: number;
   keepGoingAfterCommandFailures: boolean;
   reduceMismatches: boolean;
   jobs: number | null;
@@ -144,6 +146,10 @@ type GenValidTransformCounts = Record<string, number>;
 type GenValidSelectedProfileCounts = Record<string, number>;
 type GenValidProfileCaseCounts = Record<string, number>;
 
+type SemanticSelfOutcome = SelfSemanticOracleReport["classification"];
+type DeterminismOutcome = "byte-stable" | "canonical-stable-only" | "failure";
+type CodecIdempotenceOutcome = "stable" | "failure";
+
 type CaseRecord = {
   caseIndex: number;
   generator: GeneratorKind;
@@ -156,6 +162,13 @@ type CaseRecord = {
   genValidProfileCaseLabel?: string;
   genValidFeatureFacts?: unknown;
   inputEffectTrapFacts?: EffectTrapFacts;
+  semanticSelfOutcome?: SemanticSelfOutcome;
+  determinismOutcome?: DeterminismOutcome;
+  codecIdempotenceOutcome?: CodecIdempotenceOutcome;
+  starshineRawBytes?: number;
+  binaryenRawBytes?: number;
+  starshineCanonicalBytes?: number;
+  binaryenCanonicalBytes?: number;
 };
 
 type ReplayCase = {
@@ -180,12 +193,26 @@ export type PassFuzzCompareSummary = {
   normalizedMatchCount: number;
   cleanupNormalizedMatchCount: number;
   mismatchCount: number;
+  starshineRawBytes: number;
+  binaryenRawBytes: number;
+  starshineRawSmallerCount: number;
+  starshineRawEqualCount: number;
+  starshineRawLargerCount: number;
+  starshineCanonicalBytes: number;
+  binaryenCanonicalBytes: number;
+  starshineCanonicalSmallerCount: number;
+  starshineCanonicalEqualCount: number;
+  starshineCanonicalLargerCount: number;
   validationFailureCount: number;
   generatorFailureCount: number;
   commandFailureCount: number;
   commandFailureClasses: Partial<Record<CommandFailureClass, number>>;
   commandFailuresCountTowardMaxFailures: boolean;
   maxFailuresHit: boolean;
+  maxMismatchArtifacts: number;
+  mismatchArtifactsPersistedCount: number;
+  mismatchArtifactsSuppressedCount: number;
+  maxSubprocesses: number;
   reduceMismatches: boolean;
   jobs: number;
   seed: string;
@@ -273,6 +300,8 @@ const RESERVED_OPTIONS = new Set([
   "--exclude-feature",
   "--gen-valid-metamorphic-transform",
   "--max-failures",
+  "--max-mismatch-artifacts",
+  "--max-subprocesses",
   "--keep-going-after-command-failures",
   "--normalize",
   "--jobs",
@@ -393,6 +422,10 @@ const HELP_TEXT = [
   "  --gen-valid-metamorphic-transform <id>",
   "                       Request transformed GenValid variants and preserve transform ids in reports; may repeat",
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
+  "  --max-mismatch-artifacts <n>",
+  "                       Persist at most this many ordinary mismatch bundles. Default: 20",
+  "  --max-subprocesses <n>",
+  "                       Cap concurrent case workers that launch child tools. Default: 8",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
   "  --no-reduce-mismatches",
@@ -440,6 +473,14 @@ function parseNonNegativeInt(label: string, raw: string): number {
     fail(`invalid ${label}: ${raw}`);
   }
   return Number.parseInt(raw, 10);
+}
+
+function parsePositiveInt(label: string, raw: string): number {
+  const parsed = parseNonNegativeInt(label, raw);
+  if (parsed === 0) {
+    fail(`invalid ${label}: ${raw}`);
+  }
+  return parsed;
 }
 
 type PassFuzzResumePlan = {
@@ -2984,6 +3025,29 @@ function applyResumedCaseRecord(
   if (record.inputEffectTrapFacts !== undefined) {
     noteInputEffectTrapFacts(summary, record.inputEffectTrapFacts);
   }
+  const correctness = passFuzzResumedCorrectnessCountersForTest([record]);
+  summary.semanticSelfCheckedCount += correctness.semanticSelfCheckedCount;
+  summary.semanticSelfMatchCount += correctness.semanticSelfMatchCount;
+  summary.semanticSelfBlockedCount += correctness.semanticSelfBlockedCount;
+  summary.semanticSelfMismatchCount += correctness.semanticSelfMismatchCount;
+  summary.determinismCheckedCount += correctness.determinismCheckedCount;
+  summary.determinismByteStableCount += correctness.determinismByteStableCount;
+  summary.determinismCanonicalStableOnlyCount +=
+    correctness.determinismCanonicalStableOnlyCount;
+  summary.determinismFailureCount += correctness.determinismFailureCount;
+  summary.codecIdempotenceCheckedCount += correctness.codecIdempotenceCheckedCount;
+  summary.codecIdempotenceMatchCount += correctness.codecIdempotenceMatchCount;
+  const sizes = passFuzzSizeCountersForTest([record]);
+  summary.starshineRawBytes += sizes.starshineRawBytes;
+  summary.binaryenRawBytes += sizes.binaryenRawBytes;
+  summary.starshineRawSmallerCount += sizes.starshineRawSmallerCount;
+  summary.starshineRawEqualCount += sizes.starshineRawEqualCount;
+  summary.starshineRawLargerCount += sizes.starshineRawLargerCount;
+  summary.starshineCanonicalBytes += sizes.starshineCanonicalBytes;
+  summary.binaryenCanonicalBytes += sizes.binaryenCanonicalBytes;
+  summary.starshineCanonicalSmallerCount += sizes.starshineCanonicalSmallerCount;
+  summary.starshineCanonicalEqualCount += sizes.starshineCanonicalEqualCount;
+  summary.starshineCanonicalLargerCount += sizes.starshineCanonicalLargerCount;
 
   const compared = record.status === "match" || record.status === "mismatch";
   if (compared) {
@@ -3030,8 +3094,118 @@ function applyResumedCaseRecord(
   const failureDir = resumedFailureDir(outDir, record);
   if (fs.existsSync(failureDir)) {
     summary.failureDirs.push(failureDir);
+    if (record.status === "mismatch") {
+      summary.mismatchArtifactsPersistedCount += 1;
+    }
+  } else if (record.status === "mismatch") {
+    summary.mismatchArtifactsSuppressedCount += 1;
   }
   return record.status === "command-failure" && !summary.commandFailuresCountTowardMaxFailures ? 0 : 1;
+}
+
+export function passFuzzSizeCountersForTest(
+  records : Array<{
+    starshineRawBytes? : number
+    binaryenRawBytes? : number
+    starshineCanonicalBytes? : number
+    binaryenCanonicalBytes? : number
+  }>,
+) {
+  const counters = {
+    starshineRawBytes: 0,
+    binaryenRawBytes: 0,
+    starshineRawSmallerCount: 0,
+    starshineRawEqualCount: 0,
+    starshineRawLargerCount: 0,
+    starshineCanonicalBytes: 0,
+    binaryenCanonicalBytes: 0,
+    starshineCanonicalSmallerCount: 0,
+    starshineCanonicalEqualCount: 0,
+    starshineCanonicalLargerCount: 0,
+  };
+  for (const record of records) {
+    if (
+      record.starshineRawBytes !== undefined &&
+      record.binaryenRawBytes !== undefined
+    ) {
+      counters.starshineRawBytes += record.starshineRawBytes;
+      counters.binaryenRawBytes += record.binaryenRawBytes;
+      if (record.starshineRawBytes < record.binaryenRawBytes) {
+        counters.starshineRawSmallerCount += 1;
+      } else if (record.starshineRawBytes === record.binaryenRawBytes) {
+        counters.starshineRawEqualCount += 1;
+      } else {
+        counters.starshineRawLargerCount += 1;
+      }
+    }
+    if (
+      record.starshineCanonicalBytes !== undefined &&
+      record.binaryenCanonicalBytes !== undefined
+    ) {
+      counters.starshineCanonicalBytes += record.starshineCanonicalBytes;
+      counters.binaryenCanonicalBytes += record.binaryenCanonicalBytes;
+      if (record.starshineCanonicalBytes < record.binaryenCanonicalBytes) {
+        counters.starshineCanonicalSmallerCount += 1;
+      } else if (record.starshineCanonicalBytes === record.binaryenCanonicalBytes) {
+        counters.starshineCanonicalEqualCount += 1;
+      } else {
+        counters.starshineCanonicalLargerCount += 1;
+      }
+    }
+  }
+  return counters;
+}
+
+export function passFuzzResumedCorrectnessCountersForTest(
+  records : CaseRecord[],
+) {
+  const counters = {
+    semanticSelfCheckedCount: 0,
+    semanticSelfMatchCount: 0,
+    semanticSelfBlockedCount: 0,
+    semanticSelfMismatchCount: 0,
+    determinismCheckedCount: 0,
+    determinismByteStableCount: 0,
+    determinismCanonicalStableOnlyCount: 0,
+    determinismFailureCount: 0,
+    codecIdempotenceCheckedCount: 0,
+    codecIdempotenceMatchCount: 0,
+  };
+  for (const record of records) {
+    if (record.semanticSelfOutcome !== undefined) {
+      counters.semanticSelfCheckedCount += 1;
+      switch (record.semanticSelfOutcome) {
+        case "equal-result":
+        case "equal-trap":
+          counters.semanticSelfMatchCount += 1;
+          break;
+        case "semantic-mismatch":
+        case "trap-mismatch":
+          counters.semanticSelfMismatchCount += 1;
+          break;
+        default:
+          counters.semanticSelfBlockedCount += 1;
+          break;
+      }
+    }
+    if (record.determinismOutcome !== undefined) {
+      counters.determinismCheckedCount += 1;
+      if (record.determinismOutcome === "byte-stable") {
+        counters.determinismByteStableCount += 1;
+      } else if (record.determinismOutcome === "canonical-stable-only") {
+        counters.determinismCanonicalStableOnlyCount += 1;
+      } else {
+        counters.determinismFailureCount += 1;
+      }
+    }
+    if (record.codecIdempotenceOutcome !== undefined) {
+      counters.codecIdempotenceCheckedCount += 1;
+      if (record.codecIdempotenceOutcome === "stable") {
+        counters.codecIdempotenceMatchCount += 1;
+      }
+    }
+  }
+  return counters;
 }
 
 export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
@@ -3059,6 +3233,8 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   const genValidExcludedFeatures: string[] = [];
   const genValidMetamorphicTransforms: string[] = [];
   let maxFailures = 20;
+  let maxMismatchArtifacts = 20;
+  let maxSubprocesses = 8;
   let keepGoingAfterCommandFailures = false;
   let reduceMismatches = true;
   let jobs: number | null = null;
@@ -3203,6 +3379,20 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         maxFailures = parseNonNegativeInt(
           "max-failures",
           argv[i + 1] ?? fail("missing value for --max-failures"),
+        );
+        i += 2;
+        break;
+      case "--max-mismatch-artifacts":
+        maxMismatchArtifacts = parseNonNegativeInt(
+          "max-mismatch-artifacts",
+          argv[i + 1] ?? fail("missing value for --max-mismatch-artifacts"),
+        );
+        i += 2;
+        break;
+      case "--max-subprocesses":
+        maxSubprocesses = parsePositiveInt(
+          "max-subprocesses",
+          argv[i + 1] ?? fail("missing value for --max-subprocesses"),
         );
         i += 2;
         break;
@@ -3410,6 +3600,8 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       genValidExcludedFeatures,
       genValidMetamorphicTransforms,
       maxFailures,
+      maxMismatchArtifacts,
+      maxSubprocesses,
       keepGoingAfterCommandFailures,
       reduceMismatches,
       jobs,
@@ -3480,6 +3672,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const defaultJobs = options.starshineBin === null ? 1 : availableParallelism();
   const effectiveJobs = Math.min(
     options.jobs ?? defaultJobs,
+    options.maxSubprocesses,
+    Math.max(options.maxFailures, 1),
     Math.max(scheduledReplayIndexes.length, 1),
   );
   if (effectiveJobs > 1 && options.starshineBin === null) {
@@ -3563,12 +3757,26 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     normalizedMatchCount: 0,
     cleanupNormalizedMatchCount: 0,
     mismatchCount: 0,
+    starshineRawBytes: 0,
+    binaryenRawBytes: 0,
+    starshineRawSmallerCount: 0,
+    starshineRawEqualCount: 0,
+    starshineRawLargerCount: 0,
+    starshineCanonicalBytes: 0,
+    binaryenCanonicalBytes: 0,
+    starshineCanonicalSmallerCount: 0,
+    starshineCanonicalEqualCount: 0,
+    starshineCanonicalLargerCount: 0,
     validationFailureCount: 0,
     generatorFailureCount: 0,
     commandFailureCount: 0,
     commandFailureClasses: {},
     commandFailuresCountTowardMaxFailures: !options.keepGoingAfterCommandFailures,
     maxFailuresHit: false,
+    maxMismatchArtifacts: options.maxMismatchArtifacts,
+    mismatchArtifactsPersistedCount: 0,
+    mismatchArtifactsSuppressedCount: 0,
+    maxSubprocesses: options.maxSubprocesses,
     reduceMismatches: options.reduceMismatches,
     jobs: effectiveJobs,
     seed: seedHex(options.seed),
@@ -3651,12 +3859,31 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const caseGenValidSelectedProfiles = new Map<number, string>();
   const caseGenValidProfileCaseLabels = new Map<number, string>();
   const caseGenValidFeatureFacts = new Map<number, unknown>();
+  const caseCorrectnessOutcomes = new Map<
+    number,
+    Pick<
+      CaseRecord,
+      "semanticSelfOutcome" | "determinismOutcome" | "codecIdempotenceOutcome"
+    >
+  >();
+  const caseSizeComparisons = new Map<
+    number,
+    Pick<
+      CaseRecord,
+      | "starshineRawBytes"
+      | "binaryenRawBytes"
+      | "starshineCanonicalBytes"
+      | "binaryenCanonicalBytes"
+    >
+  >();
 
   function recordCase(record: CaseRecord): void {
     const transformId = caseTransformIds.get(record.caseIndex);
     const genValidSelectedProfile = caseGenValidSelectedProfiles.get(record.caseIndex);
     const genValidProfileCaseLabel = caseGenValidProfileCaseLabels.get(record.caseIndex);
     const genValidFeatureFacts = caseGenValidFeatureFacts.get(record.caseIndex);
+    const correctnessOutcomes = caseCorrectnessOutcomes.get(record.caseIndex);
+    const sizeComparison = caseSizeComparisons.get(record.caseIndex);
     const enrichedRecord = {
       ...record,
       ...(record.transformId === undefined && transformId !== undefined ? { transformId } : {}),
@@ -3668,6 +3895,34 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         : {}),
       ...(record.genValidFeatureFacts === undefined && genValidFeatureFacts !== undefined
         ? { genValidFeatureFacts }
+        : {}),
+      ...(record.semanticSelfOutcome === undefined &&
+      correctnessOutcomes?.semanticSelfOutcome !== undefined
+        ? { semanticSelfOutcome: correctnessOutcomes.semanticSelfOutcome }
+        : {}),
+      ...(record.determinismOutcome === undefined &&
+      correctnessOutcomes?.determinismOutcome !== undefined
+        ? { determinismOutcome: correctnessOutcomes.determinismOutcome }
+        : {}),
+      ...(record.codecIdempotenceOutcome === undefined &&
+      correctnessOutcomes?.codecIdempotenceOutcome !== undefined
+        ? { codecIdempotenceOutcome: correctnessOutcomes.codecIdempotenceOutcome }
+        : {}),
+      ...(record.starshineRawBytes === undefined &&
+      sizeComparison?.starshineRawBytes !== undefined
+        ? { starshineRawBytes: sizeComparison.starshineRawBytes }
+        : {}),
+      ...(record.binaryenRawBytes === undefined &&
+      sizeComparison?.binaryenRawBytes !== undefined
+        ? { binaryenRawBytes: sizeComparison.binaryenRawBytes }
+        : {}),
+      ...(record.starshineCanonicalBytes === undefined &&
+      sizeComparison?.starshineCanonicalBytes !== undefined
+        ? { starshineCanonicalBytes: sizeComparison.starshineCanonicalBytes }
+        : {}),
+      ...(record.binaryenCanonicalBytes === undefined &&
+      sizeComparison?.binaryenCanonicalBytes !== undefined
+        ? { binaryenCanonicalBytes: sizeComparison.binaryenCanonicalBytes }
         : {}),
     };
     caseRecords.push(enrichedRecord);
@@ -3709,6 +3964,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     let inputEffectTrapFacts: EffectTrapFacts | null = null;
     let runtimeInvocationReports: RuntimeExportInvocationReport[] | null = null;
     let selfSemanticReport: SelfSemanticOracleReport | null = null;
+    let semanticSelfOutcome: SemanticSelfOutcome | undefined;
+    let determinismOutcome: DeterminismOutcome | undefined;
+    let codecIdempotenceOutcome: CodecIdempotenceOutcome | undefined;
 
     try {
       if (replayCase !== null) {
@@ -3931,6 +4189,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
               2,
             ) + "\n",
           );
+          semanticSelfOutcome = selfSemanticReport.classification;
           switch (selfSemanticReport.classification) {
             case "equal-result":
             case "equal-trap":
@@ -3955,6 +4214,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             }
           }
         } catch (error) {
+          semanticSelfOutcome = "runtime-tool-failure";
           summary.semanticSelfBlockedCount += 1;
           fs.writeFileSync(
             path.join(workDir, "semantic-self.json"),
@@ -4002,10 +4262,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             );
           }
           if (classification === "byte-stable") {
+            determinismOutcome = "byte-stable";
             summary.determinismByteStableCount += 1;
           } else if (classification === "canonical-stable-only") {
+            determinismOutcome = "canonical-stable-only";
             summary.determinismCanonicalStableOnlyCount += 1;
           } else {
+            determinismOutcome = "failure";
             summary.determinismFailureCount += 1;
             summary.propertyFailureCount += 1;
             notePropertyFailureClass(summary, "optimizer-nondeterminism");
@@ -4015,6 +4278,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             });
           }
         } catch (error) {
+          determinismOutcome = "failure";
           summary.determinismFailureCount += 1;
           summary.propertyFailureCount += 1;
           notePropertyFailureClass(summary, "optimizer-nondeterminism");
@@ -4047,8 +4311,10 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             throw new Error(`codec output failed external validation: ${codecValidation.stderr || "unknown error"}`);
           }
           if (fs.readFileSync(codecOncePath).equals(fs.readFileSync(codecTwicePath))) {
+            codecIdempotenceOutcome = "stable";
             summary.codecIdempotenceMatchCount += 1;
           } else {
+            codecIdempotenceOutcome = "failure";
             summary.propertyFailureCount += 1;
             notePropertyFailureClass(summary, "codec-idempotence");
             propertyFailures.push({
@@ -4057,6 +4323,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             });
           }
         } catch (error) {
+          codecIdempotenceOutcome = "failure";
           summary.propertyFailureCount += 1;
           notePropertyFailureClass(summary, "codec-idempotence");
           propertyFailures.push({
@@ -4065,6 +4332,12 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           });
         }
       }
+
+      caseCorrectnessOutcomes.set(caseNumber, {
+        semanticSelfOutcome,
+        determinismOutcome,
+        codecIdempotenceOutcome,
+      });
 
       if (propertyFailures.length > 0) {
         failures += 1;
@@ -4454,6 +4727,36 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       }
 
       summary.comparedCount += 1;
+      const starshineRawBytes = fs.statSync(starshineRawPath).size;
+      const binaryenRawBytes = fs.statSync(binaryenRawPath).size;
+      const starshineCanonicalBytes = fs.statSync(starshinePath).size;
+      const binaryenCanonicalBytes = fs.statSync(binaryenPath).size;
+      const sizeCounters = passFuzzSizeCountersForTest([
+        {
+          starshineRawBytes,
+          binaryenRawBytes,
+          starshineCanonicalBytes,
+          binaryenCanonicalBytes,
+        },
+      ]);
+      summary.starshineRawBytes += sizeCounters.starshineRawBytes;
+      summary.binaryenRawBytes += sizeCounters.binaryenRawBytes;
+      summary.starshineRawSmallerCount += sizeCounters.starshineRawSmallerCount;
+      summary.starshineRawEqualCount += sizeCounters.starshineRawEqualCount;
+      summary.starshineRawLargerCount += sizeCounters.starshineRawLargerCount;
+      summary.starshineCanonicalBytes += sizeCounters.starshineCanonicalBytes;
+      summary.binaryenCanonicalBytes += sizeCounters.binaryenCanonicalBytes;
+      summary.starshineCanonicalSmallerCount +=
+        sizeCounters.starshineCanonicalSmallerCount;
+      summary.starshineCanonicalEqualCount += sizeCounters.starshineCanonicalEqualCount;
+      summary.starshineCanonicalLargerCount +=
+        sizeCounters.starshineCanonicalLargerCount;
+      caseSizeComparisons.set(caseNumber, {
+        starshineRawBytes,
+        binaryenRawBytes,
+        starshineCanonicalBytes,
+        binaryenCanonicalBytes,
+      });
       if (generator === "gen-valid") {
         summary.generatorCounts.genValid += 1;
         noteGenValidTransformCount(summary, transformId);
@@ -4496,23 +4799,31 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
               repoTmpEnv,
             )
           : null;
-        summary.failureDirs.push(
-          persistFailureArtifacts(
-            outDir,
-            caseNumber,
-            generator,
-            "mismatch",
-            detail,
-            workDir,
-            options.wasmToolsBin,
-            repoRoot,
-            options.passFlags,
-            genValidManifestEntry,
-            inputEffectTrapFacts,
-            runtimeInvocationReports,
-            reductionArtifact,
-          ),
-        );
+        if (
+          summary.mismatchArtifactsPersistedCount <
+          options.maxMismatchArtifacts
+        ) {
+          summary.failureDirs.push(
+            persistFailureArtifacts(
+              outDir,
+              caseNumber,
+              generator,
+              "mismatch",
+              detail,
+              workDir,
+              options.wasmToolsBin,
+              repoRoot,
+              options.passFlags,
+              genValidManifestEntry,
+              inputEffectTrapFacts,
+              runtimeInvocationReports,
+              reductionArtifact,
+            ),
+          );
+          summary.mismatchArtifactsPersistedCount += 1;
+        } else {
+          summary.mismatchArtifactsSuppressedCount += 1;
+        }
         recordCase({
           caseIndex: caseNumber,
           generator,
@@ -4526,20 +4837,59 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     }
   }
 
-  async function runWorker(): Promise<void> {
+  let potentialFailureReservations = 0;
+  const failureBudgetWaiters: Array<() => void> = [];
+
+  function wakeFailureBudgetWaiters(): void {
+    while (failureBudgetWaiters.length > 0) {
+      failureBudgetWaiters.shift()?.();
+    }
+  }
+
+  async function reservePotentialFailure(): Promise<boolean> {
     while (true) {
       if (failures >= options.maxFailures) {
+        return false;
+      }
+      if (
+        failures + potentialFailureReservations <
+        options.maxFailures
+      ) {
+        potentialFailureReservations += 1;
+        return true;
+      }
+      await new Promise<void>((resolve) => failureBudgetWaiters.push(resolve));
+    }
+  }
+
+  function releasePotentialFailure(): void {
+    potentialFailureReservations -= 1;
+    wakeFailureBudgetWaiters();
+  }
+
+  async function runWorker(): Promise<void> {
+    while (true) {
+      const scheduledIndex = nextScheduledIndex;
+      if (scheduledIndex >= scheduledReplayIndexes.length) {
+        return;
+      }
+      if (!(await reservePotentialFailure())) {
         if (nextScheduledIndex < scheduledReplayIndexes.length) {
           summary.maxFailuresHit = true;
         }
         return;
       }
-      const scheduledIndex = nextScheduledIndex;
-      if (scheduledIndex >= scheduledReplayIndexes.length) {
+      const claimedIndex = nextScheduledIndex;
+      if (claimedIndex >= scheduledReplayIndexes.length) {
+        releasePotentialFailure();
         return;
       }
       nextScheduledIndex += 1;
-      await runCase(scheduledReplayIndexes[scheduledIndex]);
+      try {
+        await runCase(scheduledReplayIndexes[claimedIndex]);
+      } finally {
+        releasePotentialFailure();
+      }
     }
   }
 
@@ -4573,6 +4923,15 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Generator failures: ${summary.generatorFailureCount}\n`);
   process.stdout.write(`Command failures: ${summary.commandFailureCount}\n`);
   process.stdout.write(`Mismatches: ${summary.mismatchCount}\n`);
+  process.stdout.write(
+    `Raw sizes: Starshine ${summary.starshineRawBytes} bytes; Binaryen ${summary.binaryenRawBytes} bytes; smaller/equal/larger ${summary.starshineRawSmallerCount}/${summary.starshineRawEqualCount}/${summary.starshineRawLargerCount}\n`,
+  );
+  process.stdout.write(
+    `Canonical sizes: Starshine ${summary.starshineCanonicalBytes} bytes; Binaryen ${summary.binaryenCanonicalBytes} bytes; smaller/equal/larger ${summary.starshineCanonicalSmallerCount}/${summary.starshineCanonicalEqualCount}/${summary.starshineCanonicalLargerCount}\n`,
+  );
+  process.stdout.write(
+    `Mismatch artifacts: persisted ${summary.mismatchArtifactsPersistedCount}; suppressed ${summary.mismatchArtifactsSuppressedCount}; cap ${summary.maxMismatchArtifacts}\n`,
+  );
 }
 
 export async function main(argv: string[]): Promise<void> {

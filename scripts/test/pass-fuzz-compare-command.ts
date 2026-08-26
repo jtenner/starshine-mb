@@ -89,6 +89,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 if (outIndex === -1) process.exit(1);
@@ -299,165 +300,58 @@ export function runPassFuzzCompareDropConstsNormalizerCommandTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-drop-consts-"));
   const outDir = path.join(tmpdir, "out");
-
-export function runPassFuzzCompareIdempotencePropertyTest(): void {
-  const repoRoot = path.resolve(import.meta.dir, "..", "..");
-  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-idempotence-"));
-  const outDir = path.join(tmpdir, "out");
-  const starshineLog = path.join(tmpdir, "starshine.log");
-
-  const fakeMoon = makeExecutable(path.join(tmpdir, "fake-moon"), `process.exit(0);`);
-  const fakeStarshine = makeExecutable(
-    path.join(tmpdir, "fake-starshine"),
-    `
-const fs = require("node:fs");
-const path = require("node:path");
-const args = process.argv.slice(2);
-const outIndex = args.indexOf("--out");
-if (outIndex === -1) process.exit(1);
-fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
-fs.writeFileSync(args[outIndex + 1], "starshine");
-process.exit(0);
-`,
-  );
-
-fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
-const outIndex = args.indexOf("--out");
-if (outIndex === -1) process.exit(1);
-const input = fs.readFileSync(args[args.length - 1], "utf8");
-fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
-fs.writeFileSync(args[outIndex + 1], input.startsWith("starshine:") ? input : "starshine:" + input);
-process.exit(0);
-`,
-  );
-  const fakeWasmOpt = makeExecutable(
-    path.join(tmpdir, "fake-wasm-opt"),
-    `
-const fs = require("node:fs");
-const path = require("node:path");
-const args = process.argv.slice(2);
-const outIndex = args.indexOf("-o");
-if (outIndex === -1) process.exit(1);
-fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
-const output = args[outIndex + 1];
+  const binaryenWat = JSON.stringify(`(module
+ (func $0
+  (drop
+   (i32.const 7)
+  )
+  (unreachable)
+ )
+)
+`);
+  const starshineWat = JSON.stringify(`(module
+ (func $0
+  (unreachable)
+ )
+)
+`);
+  const fakeStarshine = makeExecutable(path.join(tmpdir, "fake-starshine"), `
+const fs = require("node:fs"); const path = require("node:path");
+const args = process.argv.slice(2); const out = args[args.indexOf("--out") + 1];
+fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, "starshine");
+`);
+  const fakeWasmOpt = makeExecutable(path.join(tmpdir, "fake-wasm-opt"), `
+const fs = require("node:fs"); const path = require("node:path");
+const args = process.argv.slice(2); if (args.includes("--version")) { console.log("wasm-opt version 131"); process.exit(0); } const out = args[args.indexOf("-o") + 1];
+fs.mkdirSync(path.dirname(out), { recursive: true });
 if (args.includes("-S")) {
-  if (args[0].endsWith("binaryen.wasm")) {
-    fs.writeFileSync(output, '(module\\n (func $0\\n  (drop\\n   (i32.eq\\n    (i32.const 11)\\n    (i32.const 3)\\n   )\\n  )\\n  (unreachable)\\n )\\n)\\n');
-  } else {
-    fs.writeFileSync(output, '(module\\n (func $0\\n  (unreachable)\\n )\\n)\\n');
-  }
-} else {
-  fs.writeFileSync(output, "wasm:" + path.basename(args[0]));
-if (args.includes("-S")) {
-  fs.writeFileSync(args[outIndex + 1], fs.readFileSync(args[0], "utf8") + "\\n");
-} else {
-  fs.copyFileSync(args[0], args[outIndex + 1]);
-}
-process.exit(0);
-`,
-  );
-
-  const fakeWasmTools = makeExecutable(
-    path.join(tmpdir, "fake-wasm-tools"),
-    `
-const fs = require("node:fs");
-const path = require("node:path");
-const args = process.argv.slice(2);
-if (args[0] === "smith") {
-  const outIndex = args.indexOf("-o");
-  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
-  fs.writeFileSync(args[outIndex + 1], "smith");
-}
-process.exit(0);
-`,
-  );
-
-  const result = spawnSync(
-    "bun",
-    [
-      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
-      "--count",
-      "1",
-      "--seed",
-      "0x5eed",
-      "--out-dir",
-      outDir,
-      "2",
-      "--generator",
-      "wasm-smith",
-      "--property",
-      "idempotence",
-      "--out-dir",
-      outDir,
-      "--moon",
-      fakeMoon,
-      "--starshine-bin",
-      fakeStarshine,
-      "--wasm-opt-bin",
-      fakeWasmOpt,
-      "--wasm-tools-bin",
-      fakeWasmTools,
-      "--generator",
-      "wasm-smith",
-      "--normalize",
-      "drop-consts",
-      "--pass",
-      "dae-optimizing",
-    ],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
+  fs.writeFileSync(out, args[0].endsWith("binaryen.wasm")
+    ? ${binaryenWat}
+    : ${starshineWat});
+} else fs.writeFileSync(out, "wasm");
+`);
+  const fakeWasmTools = makeExecutable(path.join(tmpdir, "fake-wasm-tools"), `
+const fs = require("node:fs"); const path = require("node:path");
+const args = process.argv.slice(2); if (args[0] === "smith") { const out = args[args.indexOf("-o") + 1]; fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, "smith"); }
+`);
+  const result = spawnSync("bun", [
+    path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"), "--count", "1", "--wasm-smith",
+    "--out-dir", outDir, "--starshine-bin", fakeStarshine, "--wasm-opt-bin", fakeWasmOpt,
+    "--wasm-tools-bin", fakeWasmTools, "--no-cache", "--normalize", "drop-consts", "--pass", "dae-optimizing",
+  ], { cwd: repoRoot, encoding: "utf8" });
   if (result.error) throw result.error;
-  if (result.status !== 0) {
-    fail(`pass-fuzz-compare drop-consts normalizer failed:\n${result.stderr}`);
-  }
-
-  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
-    normalizedMatchCount: number;
-    cleanupNormalizedMatchCount: number;
-    mismatchCount: number;
-    normalizers: string[];
-  };
-  assert(summary.normalizedMatchCount === 0, `expected no exact matches, got ${summary.normalizedMatchCount}`);
-  assert(
-    summary.cleanupNormalizedMatchCount === 1,
-    `expected one drop-consts compare-normalized match, got ${summary.cleanupNormalizedMatchCount}`,
-  );
-  assert(summary.mismatchCount === 0, `expected no mismatches, got ${summary.mismatchCount}`);
-  assert(JSON.stringify(summary.normalizers) === JSON.stringify(["drop-consts"]), `unexpected normalizers ${JSON.stringify(summary.normalizers)}`);
+  if (result.status !== 0) fail(`pass-fuzz drop-consts command failed:\n${result.stderr}`);
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8"));
+  assert(summary.normalizedMatchCount === 0, "expected no exact match");
+  assert(summary.cleanupNormalizedMatchCount === 1, "expected one cleanup-normalized match");
+  assert(summary.mismatchCount === 0, "expected no residual mismatch");
 }
 
 export function runPassFuzzCompareUnreachableControlDebrisNormalizerCommandTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
-  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-unreachable-control-debris-"));
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-unreachable-"));
   const outDir = path.join(tmpdir, "out");
-
-  const fakeStarshine = makeExecutable(
-    path.join(tmpdir, "fake-starshine"),
-    `
-const fs = require("node:fs");
-const path = require("node:path");
-const args = process.argv.slice(2);
-const outIndex = args.indexOf("--out");
-if (outIndex === -1) process.exit(1);
-fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
-fs.writeFileSync(args[outIndex + 1], "starshine");
-process.exit(0);
-`,
-  );
-
-  const fakeWasmOpt = makeExecutable(
-    path.join(tmpdir, "fake-wasm-opt"),
-    `
-const fs = require("node:fs");
-const path = require("node:path");
-const args = process.argv.slice(2);
-const outIndex = args.indexOf("-o");
-if (outIndex === -1) process.exit(1);
-fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
-const output = args[outIndex + 1];
-if (args.includes("-S")) {
-  if (args[0].endsWith("binaryen.wasm")) {
-    fs.writeFileSync(output, \`(module
+  const binaryenWat = JSON.stringify(`(module
  (func $0
   (block $block
    (br_table $block $block
@@ -467,99 +361,76 @@ if (args.includes("-S")) {
   (unreachable)
  )
 )
-\`);
-  } else {
-    fs.writeFileSync(output, \`(module
+`);
+  const starshineWat = JSON.stringify(`(module
  (func $0
   (unreachable)
  )
 )
-\`);
-  }
-} else {
-  fs.writeFileSync(output, "wasm:" + path.basename(args[0]));
-}
-process.exit(0);
-`,
-  );
-
-  const fakeWasmTools = makeExecutable(
-    path.join(tmpdir, "fake-wasm-tools"),
-    `
-const fs = require("node:fs");
-const path = require("node:path");
-const args = process.argv.slice(2);
-if (args[0] === "smith") {
-  const outIndex = args.indexOf("-o");
-  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
-  fs.writeFileSync(args[outIndex + 1], "smith");
-}
-process.exit(0);
-`,
-  );
-
-  const result = spawnSync(
-    "bun",
-    [
-      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
-      "--count",
-      "1",
-      "--seed",
-      "0x5eed",
-      "--out-dir",
-      outDir,
-      "--starshine-bin",
-      fakeStarshine,
-      "--wasm-opt-bin",
-      fakeWasmOpt,
-      "--wasm-tools-bin",
-      fakeWasmTools,
-      "--generator",
-      "wasm-smith",
-      "--normalize",
-      "unreachable-control-debris",
-      "--pass",
-      "dae-optimizing",
-    ],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
+`);
+  const fakeStarshine = makeExecutable(path.join(tmpdir, "fake-starshine"), `
+const fs = require("node:fs"); const path = require("node:path");
+const args = process.argv.slice(2); const out = args[args.indexOf("--out") + 1];
+fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, "starshine");
+`);
+  const fakeWasmOpt = makeExecutable(path.join(tmpdir, "fake-wasm-opt"), `
+const fs = require("node:fs"); const path = require("node:path");
+const args = process.argv.slice(2); if (args.includes("--version")) { console.log("wasm-opt version 131"); process.exit(0); } const out = args[args.indexOf("-o") + 1];
+fs.mkdirSync(path.dirname(out), { recursive: true });
+if (args.includes("-S")) {
+  fs.writeFileSync(out, args[0].endsWith("binaryen.wasm")
+    ? ${binaryenWat}
+    : ${starshineWat});
+} else fs.writeFileSync(out, "wasm");
+`);
+  const fakeWasmTools = makeExecutable(path.join(tmpdir, "fake-wasm-tools"), `
+const fs = require("node:fs"); const path = require("node:path");
+const args = process.argv.slice(2); if (args[0] === "smith") { const out = args[args.indexOf("-o") + 1]; fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, "smith"); }
+`);
+  const result = spawnSync("bun", [
+    path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"), "--count", "1", "--wasm-smith",
+    "--out-dir", outDir, "--starshine-bin", fakeStarshine, "--wasm-opt-bin", fakeWasmOpt,
+    "--wasm-tools-bin", fakeWasmTools, "--no-cache", "--normalize", "unreachable-control-debris",
+    "--pass", "remove-unused-brs",
+  ], { cwd: repoRoot, encoding: "utf8" });
   if (result.error) throw result.error;
-  if (result.status !== 0) {
-    fail(`pass-fuzz-compare unreachable-control-debris normalizer failed:\n${result.stderr}`);
-  }
+  if (result.status !== 0) fail(`pass-fuzz unreachable normalizer command failed:\n${result.stderr}`);
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8"));
+  assert(summary.cleanupNormalizedMatchCount === 1, "expected one unreachable cleanup match");
+  assert(summary.mismatchCount === 0, "expected no residual mismatch");
+}
 
-  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
-    normalizedMatchCount: number;
-    cleanupNormalizedMatchCount: number;
-    mismatchCount: number;
-    normalizers: string[];
-  };
-  assert(summary.normalizedMatchCount === 0, `expected no exact matches, got ${summary.normalizedMatchCount}`);
-  assert(
-    summary.cleanupNormalizedMatchCount === 1,
-    `expected one unreachable-control-debris compare-normalized match, got ${summary.cleanupNormalizedMatchCount}`,
-  );
-  assert(summary.mismatchCount === 0, `expected no mismatches, got ${summary.mismatchCount}`);
-  assert(JSON.stringify(summary.normalizers) === JSON.stringify(["unreachable-control-debris"]), `unexpected normalizers ${JSON.stringify(summary.normalizers)}`);
-      "--remove-unused-brs",
-    ],
-    { cwd: repoRoot, env: { ...process.env, FAKE_STARSHINE_LOG: starshineLog }, encoding: "utf8" },
-  );
+export function runPassFuzzCompareIdempotencePropertyTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-idempotence-"));
+  const outDir = path.join(tmpdir, "out");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+  const fakeStarshine = makeExecutable(path.join(tmpdir, "fake-starshine"), `
+const fs = require("node:fs"); const path = require("node:path");
+const args = process.argv.slice(2); fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const out = args[args.indexOf("--out") + 1]; fs.mkdirSync(path.dirname(out), { recursive: true });
+fs.copyFileSync(args[args.length - 1], out);
+`);
+  const fakeWasmOpt = makeExecutable(path.join(tmpdir, "fake-wasm-opt"), `
+const fs = require("node:fs"); const path = require("node:path");
+const args = process.argv.slice(2); if (args.includes("--version")) { console.log("wasm-opt version 131"); process.exit(0); } const out = args[args.indexOf("-o") + 1]; fs.mkdirSync(path.dirname(out), { recursive: true });
+if (args.includes("-S")) fs.writeFileSync(out, "(module)\\n"); else fs.copyFileSync(args[0], out);
+`);
+  const fakeWasmTools = makeExecutable(path.join(tmpdir, "fake-wasm-tools"), `
+const fs = require("node:fs"); const path = require("node:path");
+const args = process.argv.slice(2); if (args[0] === "smith") { const out = args[args.indexOf("-o") + 1]; fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, "smith"); }
+`);
+  const result = spawnSync("bun", [
+    path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"), "--count", "2", "--wasm-smith",
+    "--property", "idempotence", "--out-dir", outDir, "--starshine-bin", fakeStarshine,
+    "--wasm-opt-bin", fakeWasmOpt, "--wasm-tools-bin", fakeWasmTools, "--pass", "remove-unused-brs",
+  ], { cwd: repoRoot, env: { ...process.env, FAKE_STARSHINE_LOG: starshineLog }, encoding: "utf8" });
   if (result.error) throw result.error;
-  if (result.status !== 0) fail(`pass-fuzz-compare idempotence failed:\n${result.stderr}`);
-
-  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
-    propertyMode: string;
-    propertyFailureCount: number;
-    idempotenceCheckedCount: number;
-    idempotenceMatchCount: number;
-  };
-  assert(summary.propertyMode === "idempotence", `unexpected property mode ${summary.propertyMode}`);
-  assert(summary.propertyFailureCount === 0, `unexpected property failures ${summary.propertyFailureCount}`);
-  assert(summary.idempotenceCheckedCount === 2, `unexpected idempotence checks ${summary.idempotenceCheckedCount}`);
-  assert(summary.idempotenceMatchCount === 2, `unexpected idempotence matches ${summary.idempotenceMatchCount}`);
-  const starshineLogs = fs.readFileSync(starshineLog, "utf8").trim().split("\n").filter(Boolean);
-  assert(starshineLogs.length === 4, `expected first and second Starshine runs for 2 cases, got ${starshineLogs.length}`);
+  if (result.status !== 0) fail(`pass-fuzz idempotence command failed:\n${result.stderr}`);
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8"));
+  assert(summary.idempotenceCheckedCount === 2, "expected two idempotence checks");
+  assert(summary.idempotenceMatchCount === 2, "expected two idempotence matches");
+  assert(summary.propertyFailureCount === 0, "expected no property failures");
 }
 
 export function runPassFuzzCompareCompositionPropertyTest(): void {
@@ -590,6 +461,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 const outIndex = args.indexOf("-o");
 if (outIndex === -1) process.exit(1);
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -726,6 +598,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
 if (args.includes("-S")) {
@@ -878,6 +751,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -996,6 +870,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -1113,6 +988,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -1748,6 +1624,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -1992,6 +1869,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -2236,6 +2114,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -2480,6 +2359,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -2741,6 +2621,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -3007,6 +2888,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
 const input = fs.readFileSync(args[0], "utf8");
@@ -3132,6 +3014,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
 fs.writeFileSync(args[outIndex + 1], args.includes("-S") ? "(module ;; replay matched)\\n" : "binary");
@@ -3361,6 +3244,7 @@ process.exit(1);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -3495,6 +3379,7 @@ process.exit(1);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -3611,6 +3496,7 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { process.stdout.write("wasm-opt version 131\\n"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });

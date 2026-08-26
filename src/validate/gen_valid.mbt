@@ -2438,6 +2438,7 @@ pub fn gen_valid_profile_by_name(
     "optimize-casts-closeout" => Ok(OptimizeCastsAllProfile)
     "optimize-casts-all-profiles" => Ok(OptimizeCastsAllProfile)
     "inlining-optimizing" => Ok(InliningOptimizingAllProfile)
+    "runtime-callable" => Ok(InliningOptimizingAllProfile)
     "inlining-optimizing-closeout" => Ok(InliningOptimizingAllProfile)
     "inlining-optimizing-all-profiles" => Ok(InliningOptimizingAllProfile)
     "io" => Ok(InliningOptimizingAllProfile)

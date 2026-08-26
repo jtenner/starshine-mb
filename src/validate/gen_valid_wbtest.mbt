@@ -2207,6 +2207,13 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
     },
     InliningOptimizingAllProfile,
   )
+  @debug.assert_eq(
+    match gen_valid_profile_by_name("runtime-callable") {
+      Ok(profile) => profile
+      Err(msg) => fail(msg)
+    },
+    InliningOptimizingAllProfile,
+  )
 
   let memory = GenValidConfig::for_profile(PassMemoryProfile)
   assert_true(memory.features.allow_mems)

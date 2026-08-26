@@ -17,6 +17,8 @@ import {
   applyCompareNormalizersForTest,
   parsePassFuzzCompareArgs,
   passFuzzResumePlanForTest,
+  passFuzzResumedCorrectnessCountersForTest,
+  passFuzzSizeCountersForTest,
 } from "./pass-fuzz-compare-task";
 
 describe("pass-fuzz persistent cache options", () => {
@@ -114,6 +116,41 @@ describe("pass-fuzz persistent cache options", () => {
     }
   });
 
+  test("caps persisted mismatch artifacts independently from mismatch counting", () => {
+    const defaults = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs"]);
+    const disabled = parsePassFuzzCompareArgs([
+      "--pass",
+      "remove-unused-brs",
+      "--max-mismatch-artifacts",
+      "0",
+    ]);
+
+    expect(defaults.kind).toBe("run");
+    if (defaults.kind === "run") {
+      expect(defaults.options.maxMismatchArtifacts).toBe(20);
+    }
+    expect(disabled.kind).toBe("run");
+    if (disabled.kind === "run") {
+      expect(disabled.options.maxMismatchArtifacts).toBe(0);
+    }
+  });
+
+  test("caps auto case workers with an explicit subprocess budget", () => {
+    const parsed = parsePassFuzzCompareArgs([
+      "--pass",
+      "remove-unused-brs",
+      "--jobs",
+      "auto",
+      "--max-subprocesses",
+      "4",
+    ]);
+
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.maxSubprocesses).toBe(4);
+    }
+  });
+
   test("can disable GenValid mismatch reduction for broad triage lanes", () => {
     const defaultParsed = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs"]);
     const disabledParsed = parsePassFuzzCompareArgs([
@@ -164,6 +201,61 @@ describe("pass-fuzz persistent cache options", () => {
 
     expect(plan.completedCaseIndices).toEqual([1, 3, 5]);
     expect(plan.pendingReplayIndexes).toEqual([1, 3, 5]);
+  });
+
+  test("resume reconstructs self-semantic determinism and codec counters", () => {
+    const counters = passFuzzResumedCorrectnessCountersForTest([
+      {
+        caseIndex: 1,
+        generator: "gen-valid",
+        status: "match",
+        detail: "normalized outputs matched",
+        semanticSelfOutcome: "equal-result",
+        determinismOutcome: "byte-stable",
+        codecIdempotenceOutcome: "stable",
+      },
+      {
+        caseIndex: 2,
+        generator: "gen-valid",
+        status: "mismatch",
+        detail: "normalized outputs differed",
+        semanticSelfOutcome: "unsupported-feature",
+        determinismOutcome: "canonical-stable-only",
+        codecIdempotenceOutcome: "stable",
+      },
+    ]);
+
+    expect(counters).toEqual({
+      semanticSelfCheckedCount: 2,
+      semanticSelfMatchCount: 1,
+      semanticSelfBlockedCount: 1,
+      semanticSelfMismatchCount: 0,
+      determinismCheckedCount: 2,
+      determinismByteStableCount: 1,
+      determinismCanonicalStableOnlyCount: 1,
+      determinismFailureCount: 0,
+      codecIdempotenceCheckedCount: 2,
+      codecIdempotenceMatchCount: 2,
+    });
+  });
+
+  test("aggregates pass-local raw size wins and regressions", () => {
+    expect(passFuzzSizeCountersForTest([
+      { starshineRawBytes: 80, binaryenRawBytes: 100, starshineCanonicalBytes: 70, binaryenCanonicalBytes: 90 },
+      { starshineRawBytes: 50, binaryenRawBytes: 50, starshineCanonicalBytes: 40, binaryenCanonicalBytes: 40 },
+      { starshineRawBytes: 75, binaryenRawBytes: 60, starshineCanonicalBytes: 65, binaryenCanonicalBytes: 55 },
+    ])).toEqual({
+      starshineRawBytes: 205,
+      binaryenRawBytes: 210,
+      starshineRawSmallerCount: 1,
+      starshineRawEqualCount: 1,
+      starshineRawLargerCount: 1,
+      starshineCanonicalBytes: 175,
+      binaryenCanonicalBytes: 185,
+      starshineCanonicalSmallerCount: 1,
+      starshineCanonicalEqualCount: 1,
+      starshineCanonicalLargerCount: 1,
+    });
   });
 
   test("resume plans reject duplicate completed cases", () => {
