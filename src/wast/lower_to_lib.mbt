@@ -482,18 +482,7 @@ fn wt_find_matching_func_type_index(
           }
           _ => flat += 1
         }
-      GroupRecType(sts) =>
-        for st in sts {
-          match st.get_comptype() {
-            FuncCompType(ps, rs) => {
-              if ps == params && rs == results {
-                return Some(flat)
-              }
-              flat += 1
-            }
-            _ => flat += 1
-          }
-        }
+      GroupRecType(sts) => flat += sts.length().reinterpret_as_uint()
     }
   }
   None

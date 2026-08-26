@@ -2034,7 +2034,7 @@ fn validate_rectype_and_extend(env : Env, rt : RecType) -> Result[Env, String] {
     rt,
     env.global_types.length(),
   )
-  Ok(env.append_rectype_types(normalized))
+  Ok(env.append_rectype_types_with_scope(normalized, rt))
 }
 
 ///|
@@ -9704,6 +9704,50 @@ test "validate_module accepts ref.func body when function is exported" {
       fail(
         "expected exported function to count as declared for ref.func: \{validation_error_message(err)}",
       )
+  }
+}
+
+///|
+test "validate_const_expr rejects ref.func singleton type as rec-group member" {
+  let grouped = RecType::group([
+    SubType::comp_type(CompType::func([], [])),
+    SubType::comp_type(CompType::func([], [])),
+  ])
+  let singleton = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let type_sec = TypeSec::new([grouped, singleton])
+  let env = match validate_typesec(Some(type_sec), Env::new()) {
+    Ok(env) => env
+    Err(e) => fail("expected type section to validate: \{e}")
+  }
+  let env = match
+    validate_funcsec(Some(FuncSec::new([TypeIdx::new(2U)])), env) {
+    Ok(env) => env
+    Err(e) => fail("expected function section to validate: \{e}")
+  }
+  let want = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U))),
+  )
+  let expr = Expr::new([Instruction::ref_func(FuncIdx::new(0U))])
+  let state = TcState::{
+    env,
+    stack: [],
+    reachable: true,
+    escape: NoTcEscape,
+    reachable_escape_depths: [],
+    initialized_locals: [],
+  }
+  let typed = match Typecheck::typecheck(expr, state) {
+    Ok(state) => state
+    Err(e) => fail("expected ref.func typecheck success: \{e}")
+  }
+  @debug.assert_eq(typed.stack, [
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(2U)), exact=true),
+    ),
+  ])
+  match validate_const_expr(env, expr, want) {
+    Ok(_) => fail("expected recursive-group member mismatch")
+    Err(e) => assert_true(e.contains("type mismatch"))
   }
 }
 

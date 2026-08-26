@@ -279,15 +279,29 @@ pub fn Env::with_rectype(env : Env, rt : RecType) -> Env {
 
 ///|
 pub fn Env::append_rectype_types(env : Env, rt : RecType) -> Env {
+  env.append_rectype_types_with_scope(rt, rt)
+}
+
+///|
+fn Env::append_rectype_types_with_scope(
+  env : Env,
+  normalized : RecType,
+  scope : RecType,
+) -> Env {
   let gts = env.global_types.copy()
-  match rt {
+  let rec_stack = env.rec_stack.copy()
+  match scope {
+    SingleRecType(st) => rec_stack.push([st])
+    GroupRecType(sts) => rec_stack.push(sts)
+  }
+  match normalized {
     SingleRecType(st) => gts.push(st)
     GroupRecType(sts) =>
       for st in sts {
         gts.push(st)
       }
   }
-  Env::{ ..env, global_types: gts }
+  Env::{ ..env, rec_stack, global_types: gts }
 }
 
 ///|

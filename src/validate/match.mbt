@@ -173,6 +173,214 @@ fn exact_heaptype_matches_fuel(
 }
 
 ///|
+fn exact_group_canonical_type_idx(
+  idx : TypeIdx,
+  group_start : Int,
+  group_length : Int,
+) -> TypeIdx {
+  match idx {
+    TypeIdx(i) => {
+      let flat = i.reinterpret_as_int()
+      if flat >= group_start && flat < group_start + group_length {
+        TypeIdx::rec((flat - group_start).reinterpret_as_uint())
+      } else {
+        idx
+      }
+    }
+    RecIdx(_) => idx
+  }
+}
+
+///|
+fn exact_group_canonical_heap_type(
+  heap_type : HeapType,
+  group_start : Int,
+  group_length : Int,
+) -> HeapType {
+  match heap_type {
+    AbsHeapTypeHeapType(_) | SharedAbsHeapTypeHeapType(_) => heap_type
+    HeapType(idx) =>
+      HeapType::new(
+        exact_group_canonical_type_idx(idx, group_start, group_length),
+      )
+    DefTypeHeapType(DefType(rec_type, idx)) =>
+      HeapType::def_type(
+        DefType::new(
+          exact_group_canonical_rec_type(rec_type, group_start, group_length),
+          idx,
+        ),
+      )
+  }
+}
+
+///|
+fn exact_group_canonical_ref_type(
+  ref_type : RefType,
+  group_start : Int,
+  group_length : Int,
+) -> RefType {
+  match ref_type {
+    HeapTypeRefType(nullable, exact, heap_type) =>
+      RefType::new(
+        nullable,
+        exact_group_canonical_heap_type(heap_type, group_start, group_length),
+        exact~,
+      )
+    AbsHeapTypeRefType(_) => ref_type
+  }
+}
+
+///|
+fn exact_group_canonical_val_type(
+  value_type : ValType,
+  group_start : Int,
+  group_length : Int,
+) -> ValType {
+  match value_type {
+    RefTypeValType(ref_type) =>
+      ValType::ref_type(
+        exact_group_canonical_ref_type(ref_type, group_start, group_length),
+      )
+    _ => value_type
+  }
+}
+
+///|
+fn exact_group_canonical_field_type(
+  field : FieldType,
+  group_start : Int,
+  group_length : Int,
+) -> FieldType {
+  let FieldType(storage, mutability) = field
+  let storage = match storage {
+    ValTypeStorageType(value_type) =>
+      StorageType::val_type(
+        exact_group_canonical_val_type(value_type, group_start, group_length),
+      )
+    PackTypeStorageType(_) => storage
+  }
+  FieldType::new(storage, mutability)
+}
+
+///|
+fn exact_group_canonical_metadata(
+  metadata : TypeMetadata,
+  group_start : Int,
+  group_length : Int,
+) -> TypeMetadata {
+  TypeMetadata::new(
+    describes=metadata.describes.map(fn(idx) {
+      exact_group_canonical_type_idx(idx, group_start, group_length)
+    }),
+    descriptor=metadata.descriptor.map(fn(idx) {
+      exact_group_canonical_type_idx(idx, group_start, group_length)
+    }),
+    shared=metadata.shared,
+  )
+}
+
+///|
+fn exact_group_canonical_comp_type(
+  comp_type : CompType,
+  group_start : Int,
+  group_length : Int,
+) -> CompType {
+  match comp_type {
+    FuncCompType(params, results) =>
+      CompType::func(
+        params.map(fn(value_type) {
+          exact_group_canonical_val_type(value_type, group_start, group_length)
+        }),
+        results.map(fn(value_type) {
+          exact_group_canonical_val_type(value_type, group_start, group_length)
+        }),
+      )
+    StructCompType(fields) =>
+      CompType::struct_(
+        fields.map(fn(field) {
+          exact_group_canonical_field_type(field, group_start, group_length)
+        }),
+      )
+    ArrayCompType(field) =>
+      CompType::array(
+        exact_group_canonical_field_type(field, group_start, group_length),
+      )
+    ContCompType(idx) =>
+      CompType::cont(
+        exact_group_canonical_type_idx(idx, group_start, group_length),
+      )
+  }
+}
+
+///|
+fn exact_group_canonical_sub_type(
+  sub_type : SubType,
+  group_start : Int,
+  group_length : Int,
+) -> SubType {
+  match sub_type {
+    SubType(final_, supers, metadata, comp_type) =>
+      SubType::new(
+        final_,
+        supers.map(fn(idx) {
+          exact_group_canonical_type_idx(idx, group_start, group_length)
+        }),
+        exact_group_canonical_comp_type(comp_type, group_start, group_length),
+        metadata=exact_group_canonical_metadata(
+          metadata, group_start, group_length,
+        ),
+      )
+    CompTypeSubType(metadata, comp_type) =>
+      SubType::comp_type(
+        exact_group_canonical_comp_type(comp_type, group_start, group_length),
+        metadata=exact_group_canonical_metadata(
+          metadata, group_start, group_length,
+        ),
+      )
+  }
+}
+
+///|
+fn exact_group_canonical_rec_type(
+  rec_type : RecType,
+  group_start : Int,
+  group_length : Int,
+) -> RecType {
+  match rec_type {
+    SingleRecType(sub_type) =>
+      RecType::new(
+        exact_group_canonical_sub_type(sub_type, group_start, group_length),
+      )
+    GroupRecType(group) =>
+      RecType::group(
+        group.map(fn(sub_type) {
+          exact_group_canonical_sub_type(sub_type, group_start, group_length)
+        }),
+      )
+  }
+}
+
+///|
+fn exact_global_type_rec_group_position(
+  idx : TypeIdx,
+  env : Env,
+) -> (Array[SubType], Int, Int, Int)? {
+  let flat_index = match idx {
+    TypeIdx(i) => i.reinterpret_as_int()
+    RecIdx(_) => return None
+  }
+  let mut start = 0
+  for group in env.rec_stack {
+    let length = group.length()
+    if flat_index >= start && flat_index < start + length {
+      return Some((group, start, length, flat_index - start))
+    }
+    start += length
+  }
+  None
+}
+
+///|
 fn exact_typeidx_matches_fuel(
   t0 : TypeIdx,
   t1 : TypeIdx,
@@ -185,6 +393,32 @@ fn exact_typeidx_matches_fuel(
   }
   if fuel <= 0 {
     return false
+  }
+  match
+    (
+      exact_global_type_rec_group_position(t0, env),
+      exact_global_type_rec_group_position(t1, env),
+    ) {
+    (
+      Some((group0, start0, length0, offset0)),
+      Some((group1, start1, length1, offset1)),
+    ) => {
+      if length0 != length1 || offset0 != offset1 {
+        return false
+      }
+      if length0 > 1 && start0 != start1 {
+        let canonical0 = group0.map(fn(sub_type) {
+          exact_group_canonical_sub_type(sub_type, start0, length0)
+        })
+        let canonical1 = group1.map(fn(sub_type) {
+          exact_group_canonical_sub_type(sub_type, start1, length1)
+        })
+        if canonical0 != canonical1 {
+          return false
+        }
+      }
+    }
+    _ => ()
   }
   for pair in visited {
     let (seen0, seen1) = pair

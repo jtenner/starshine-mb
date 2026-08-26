@@ -310,7 +310,7 @@ fn spec_is_known_specsuite_mismatch(
       ) ||
       (
         path == "tests/spec/type-rec.wast" &&
-        (command_number == 6 || command_number == 26 || command_number == 27)
+        (command_number == 26 || command_number == 27)
       ) ||
       (path == "tests/spec/i32.wast" && command_number == 121) ||
       (path == "tests/spec/load.wast" && command_number == 130) ||
@@ -637,7 +637,7 @@ test "wast spec harness intentionally skips known control validator mismatches" 
   assert_true(
     spec_is_known_specsuite_mismatch("tests/spec/ref.wast", Some(10), message),
   )
-  assert_true(
+  assert_false(
     spec_is_known_specsuite_mismatch(
       "tests/spec/type-rec.wast",
       Some(5),
@@ -838,9 +838,6 @@ test "wast spec harness known mismatch allowlist requires exact assertion identi
       "tests/spec/ref.wast", 11, "assert_invalid expected validation failure, but module validated",
     ),
     (
-      "tests/spec/type-rec.wast", 6, "assert_invalid expected validation failure, but module validated",
-    ),
-    (
       "tests/spec/type-rec.wast", 26, "assert_invalid expected validation failure, but module validated",
     ),
     (
@@ -877,6 +874,21 @@ test "wast spec harness known mismatch allowlist requires exact assertion identi
       "tests/spec/legacy/try_catch.wast", 3, "validation failed: legacy try requires a catch or delegate",
     ),
   ]
+  let repaired_type_rec_message = "assert_invalid expected validation failure, but module validated"
+  assert_false(
+    spec_is_known_specsuite_mismatch(
+      "tests/spec/type-rec.wast",
+      Some(5),
+      repaired_type_rec_message,
+    ),
+  )
+  assert_false(
+    spec_is_known_specsuite_mismatch(
+      "tests/spec/type-rec.wast",
+      Some(6),
+      repaired_type_rec_message,
+    ),
+  )
   for case in cases {
     let (path, one_based_command, message) = case
     assert_true(
