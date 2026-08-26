@@ -74876,6 +74876,115 @@ fn run_hot_pipeline_merge_blocks_flatten_lowered_spill_blocks(
 }
 
 ///|
+fn run_hot_pipeline_precompute_has_void_self_branch_block(
+  func : @ir.HotFunc,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block if @ir.hot_node_result_arity(func, node_id) == 0 => ()
+      _ => continue
+    }
+    let body_ref = @ir.hot_region_body_ref(func, node_id)
+    if @ir.hot_region_root_count(func, body_ref) != 1 {
+      continue
+    }
+    let branch_id = @ir.hot_region_get(func, body_ref, 0)
+    let branch = @ir.hot_node_get(func, branch_id)
+    match branch.op {
+      @ir.HotOp::Br if branch.child_count == 0 &&
+        branch.imm0 == @ir.hot_control_node_label(func, node_id) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_precompute_drop_void_self_branch_blocks_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr([@lib.Br(@lib.LabelIdx(0U))])) =>
+        ()
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_precompute_drop_void_self_branch_blocks_instrs(
+                body,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_precompute_drop_void_self_branch_blocks_instrs(
+                body,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_precompute_drop_void_self_branch_blocks_instrs(
+              then_body,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  run_hot_pipeline_precompute_drop_void_self_branch_blocks_instrs(
+                    body,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              run_hot_pipeline_precompute_drop_void_self_branch_blocks_instrs(
+                body,
+              ),
+            ),
+          ),
+        )
+      _ => out.push(instr)
+    }
+  }
+  out
+}
+
+///|
+fn run_hot_pipeline_precompute_drop_void_self_branch_blocks(
+  func : @lib.Func,
+) -> @lib.Func {
+  match func {
+    @lib.Func(locals, @lib.Expr(body)) =>
+      @lib.Func::new(
+        locals,
+        @lib.Expr::new(
+          run_hot_pipeline_precompute_drop_void_self_branch_blocks_instrs(body),
+        ),
+      )
+  }
+}
+
+///|
 fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   func : @lib.Func,
   descriptor_name : String,
@@ -74922,6 +75031,11 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   let cleaned = run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
     cleaned, descriptor_name, mod_,
   )
+  let cleaned = if descriptor_name == "precompute-propagate" {
+    run_hot_pipeline_precompute_drop_void_self_branch_blocks(cleaned)
+  } else {
+    cleaned
+  }
   if descriptor_name != "vacuum" &&
     descriptor_name != "precompute" &&
     descriptor_name != "precompute-propagate" {
@@ -89375,7 +89489,15 @@ fn hot_pass_run_with_aggregate_perf_timer(
     "optimize-casts" => optimize_casts_run(ctx, func)
     "pick-load-signs" => pick_load_signs_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
-    "precompute-propagate" => precompute_propagate_run(ctx, func)
+    "precompute-propagate" => {
+      let propagated = precompute_propagate_run(ctx, func)
+      if !propagated.changed &&
+        run_hot_pipeline_precompute_has_void_self_branch_block(func) {
+        HotPassResult::changed()
+      } else {
+        propagated
+      }
+    }
     "code-pushing" => code_pushing_run(ctx, func)
     "code-folding" => code_folding_run(ctx, func)
     "tuple-optimization" => tuple_optimization_run(ctx, func)

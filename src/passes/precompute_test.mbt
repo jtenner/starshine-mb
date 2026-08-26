@@ -1247,6 +1247,24 @@ test "precompute removes direct self-targeting branch blocks" {
 }
 
 ///|
+test "precompute-propagate removes direct self-targeting branch blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (export \"main\") (result i64) (block (br 0)) (i64.const 965)))",
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected propagate self-target branch cleanup success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, [@lib.Instruction::i64_const(@lib.I64(965L))])
+    _ => fail("expected one optimized function body")
+  }
+}
+
+///|
 test "precompute removes selector-only self-targeting br_table blocks" {
   let optimized = match
     pass_test_run_pipeline(
