@@ -570,6 +570,23 @@ pub fn ffi_ffi_bridge_encode_module(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_field_types_new")
+pub fn ffi_ffi_bridge_field_types_new() -> Array[@lib.FieldType] {
+  @ffi_bridge.field_types_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_field_types_push")
+pub fn ffi_ffi_bridge_field_types_push(
+  value0 : Array[@lib.FieldType],
+  value1 : @lib.FieldType,
+) -> Unit {
+  @ffi_bridge.field_types_push(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_funcs_new")
 pub fn ffi_ffi_bridge_funcs_new() -> Array[@lib.Func] {
   @ffi_bridge.funcs_new()
@@ -583,6 +600,94 @@ pub fn ffi_ffi_bridge_funcs_push(
   value1 : @lib.Func,
 ) -> Unit {
   @ffi_bridge.funcs_push(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_funcs_push_runtime")
+pub fn ffi_ffi_bridge_funcs_push_runtime(
+  value0 : Array[@lib.Func],
+  value1 : @ffi_bridge.RuntimeFunctionBuilder,
+) -> Bool {
+  @ffi_bridge.funcs_push_runtime(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_function_reference_builder_new")
+pub fn ffi_ffi_bridge_function_reference_builder_new() -> @ffi_bridge.FunctionReferenceBuilder {
+  @ffi_bridge.function_reference_builder_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_global_builder_new")
+pub fn ffi_ffi_bridge_global_builder_new() -> @ffi_bridge.GlobalBuilder {
+  @ffi_bridge.global_builder_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_import_builder_new")
+pub fn ffi_ffi_bridge_import_builder_new(
+  value0 : Int,
+) -> @ffi_bridge.ImportBuilder {
+  @ffi_bridge.import_builder_new(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_imports_new")
+pub fn ffi_ffi_bridge_imports_new() -> Array[@lib.Import] {
+  @ffi_bridge.imports_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_imports_push_builder")
+pub fn ffi_ffi_bridge_imports_push_builder(
+  value0 : Array[@lib.Import],
+  value1 : @ffi_bridge.ImportBuilder,
+) -> Unit {
+  @ffi_bridge.imports_push_builder(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_instruction_if")
+pub fn ffi_ffi_bridge_instruction_if(
+  value0 : @lib.BlockType,
+  value1 : Array[@lib.Instruction],
+  value2 : Array[@lib.Instruction],
+) -> @lib.Instruction {
+  @ffi_bridge.instruction_if(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_instruction_memory_builtin")
+pub fn ffi_ffi_bridge_instruction_memory_builtin(
+  value0 : Int,
+) -> @lib.Instruction {
+  @ffi_bridge.instruction_memory_builtin(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_instruction_ref_cast_nominal")
+pub fn ffi_ffi_bridge_instruction_ref_cast_nominal(
+  value0 : Int,
+) -> @lib.Instruction {
+  @ffi_bridge.instruction_ref_cast_nominal(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_instruction_ref_test_nominal")
+pub fn ffi_ffi_bridge_instruction_ref_test_nominal(
+  value0 : Int,
+) -> @lib.Instruction {
+  @ffi_bridge.instruction_ref_test_nominal(value0)
 }
 
 ///|
@@ -604,9 +709,82 @@ pub fn ffi_ffi_bridge_instructions_push(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_instructions_push_array_iter_next")
+pub fn ffi_ffi_bridge_instructions_push_array_iter_next(
+  value0 : Array[@lib.Instruction],
+  value1 : Int,
+  value2 : Int,
+  value3 : Int,
+) -> Unit {
+  @ffi_bridge.instructions_push_array_iter_next(value0, value1, value2, value3)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_instructions_push_array_push")
+pub fn ffi_ffi_bridge_instructions_push_array_push(
+  value0 : Array[@lib.Instruction],
+  value1 : Int,
+  value2 : Int,
+  value3 : Int,
+) -> Unit {
+  @ffi_bridge.instructions_push_array_push(value0, value1, value2, value3)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_module_new")
 pub fn ffi_ffi_bridge_module_new() -> @lib.Module {
   @ffi_bridge.module_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_module_with_declarative_functions")
+pub fn ffi_ffi_bridge_module_with_declarative_functions(
+  value0 : @lib.Module,
+  value1 : @ffi_bridge.FunctionReferenceBuilder,
+) -> @lib.Module {
+  @ffi_bridge.module_with_declarative_functions(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_module_with_default_memory")
+pub fn ffi_ffi_bridge_module_with_default_memory(
+  value0 : @lib.Module,
+) -> @lib.Module {
+  @ffi_bridge.module_with_default_memory(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_module_with_globals")
+pub fn ffi_ffi_bridge_module_with_globals(
+  value0 : @lib.Module,
+  value1 : @ffi_bridge.GlobalBuilder,
+) -> @lib.Module {
+  @ffi_bridge.module_with_globals(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_module_with_start_function")
+pub fn ffi_ffi_bridge_module_with_start_function(
+  value0 : @lib.Module,
+  value1 : Int,
+) -> @lib.Module {
+  @ffi_bridge.module_with_start_function(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_nominal_ref_type")
+pub fn ffi_ffi_bridge_nominal_ref_type(
+  value0 : Int,
+  value1 : Bool,
+) -> @lib.ValType {
+  @ffi_bridge.nominal_ref_type(value0, value1)
 }
 
 ///|
@@ -624,6 +802,24 @@ pub fn ffi_ffi_bridge_rec_types_push(
   value1 : @lib.RecType,
 ) -> Unit {
   @ffi_bridge.rec_types_push(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_runtime_function_builder_new")
+pub fn ffi_ffi_bridge_runtime_function_builder_new(
+  value0 : Int,
+  value1 : Int,
+  value2 : Int,
+  value3 : Int,
+  value4 : Int,
+  value5 : Int,
+  value6 : Int,
+  value7 : Int,
+) -> @ffi_bridge.RuntimeFunctionBuilder {
+  @ffi_bridge.runtime_function_builder_new(
+    value0, value1, value2, value3, value4, value5, value6, value7,
+  )
 }
 
 ///|
@@ -669,6 +865,29 @@ pub fn ffi_ffi_bridge_validate_module(value0 : @lib.Module) -> Bool {
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_validate_wasi_preview1_schema")
+pub fn ffi_ffi_bridge_validate_wasi_preview1_schema(
+  value0 : @ffi_bridge.WasiPreview1Schema,
+) -> Result[Unit, String] {
+  @ffi_bridge.validate_wasi_preview1_schema(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_wasi_preview1_fd_read_schema")
+pub fn ffi_ffi_bridge_wasi_preview1_fd_read_schema() -> @ffi_bridge.WasiPreview1Schema {
+  @ffi_bridge.wasi_preview1_fd_read_schema()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_wasi_preview1_fd_write_schema")
+pub fn ffi_ffi_bridge_wasi_preview1_fd_write_schema() -> @ffi_bridge.WasiPreview1Schema {
+  @ffi_bridge.wasi_preview1_fd_write_schema()
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_EncodedModule_byte_at")
 pub fn ffi_ffi_bridge_EncodedModule_byte_at(
   receiver : @ffi_bridge.EncodedModule,
@@ -693,6 +912,56 @@ pub fn ffi_ffi_bridge_EncodedModule_is_ok(
   receiver : @ffi_bridge.EncodedModule,
 ) -> Bool {
   @ffi_bridge.EncodedModule::is_ok(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_FunctionReferenceBuilder_push")
+pub fn ffi_ffi_bridge_FunctionReferenceBuilder_push(
+  receiver : @ffi_bridge.FunctionReferenceBuilder,
+  value1 : Int,
+) -> Unit {
+  @ffi_bridge.FunctionReferenceBuilder::push(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_GlobalBuilder_push")
+pub fn ffi_ffi_bridge_GlobalBuilder_push(
+  receiver : @ffi_bridge.GlobalBuilder,
+  value1 : Int,
+) -> Unit {
+  @ffi_bridge.GlobalBuilder::push(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_ImportBuilder_push_field_byte")
+pub fn ffi_ffi_bridge_ImportBuilder_push_field_byte(
+  receiver : @ffi_bridge.ImportBuilder,
+  value1 : Byte,
+) -> Unit {
+  @ffi_bridge.ImportBuilder::push_field_byte(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_ImportBuilder_push_module_byte")
+pub fn ffi_ffi_bridge_ImportBuilder_push_module_byte(
+  receiver : @ffi_bridge.ImportBuilder,
+  value1 : Byte,
+) -> Unit {
+  @ffi_bridge.ImportBuilder::push_module_byte(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_RuntimeFunctionBuilder_push_name_byte")
+pub fn ffi_ffi_bridge_RuntimeFunctionBuilder_push_name_byte(
+  receiver : @ffi_bridge.RuntimeFunctionBuilder,
+  value1 : Byte,
+) -> Unit {
+  @ffi_bridge.RuntimeFunctionBuilder::push_name_byte(receiver, value1)
 }
 
 ///|
@@ -15724,11 +15993,57 @@ pub fn ffi_passes_o4z_canonicalize_final_size_candidate(
 
 ///|
 #doc(hidden)
+#export_name("ffi_passes_o4z_canonicalize_final_size_candidate_with_changed")
+pub fn ffi_passes_o4z_canonicalize_final_size_candidate_with_changed(
+  value0 : @lib.Module,
+) -> (@lib.Module, Bool) {
+  @passes.o4z_canonicalize_final_size_candidate_with_changed(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_o4z_canonicalize_final_size_ifs_stateful_candidate")
+pub fn ffi_passes_o4z_canonicalize_final_size_ifs_stateful_candidate(
+  value0 : @lib.Module,
+) -> @lib.Module {
+  @passes.o4z_canonicalize_final_size_ifs_stateful_candidate(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_o4z_canonicalize_final_size_store_carries")
+pub fn ffi_passes_o4z_canonicalize_final_size_store_carries(
+  value0 : @lib.Module,
+) -> @lib.Module {
+  @passes.o4z_canonicalize_final_size_store_carries(value0)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_passes_o4z_outline_similar_size_functions")
 pub fn ffi_passes_o4z_outline_similar_size_functions(
   value0 : @lib.Module,
 ) -> @lib.Module {
   @passes.o4z_outline_similar_size_functions(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_o4z_prune_final_size_unreferenced_globals")
+pub fn ffi_passes_o4z_prune_final_size_unreferenced_globals(
+  value0 : @lib.Module,
+) -> @lib.Module {
+  @passes.o4z_prune_final_size_unreferenced_globals(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_o4z_restore_optimized_primes_variadic_pack_funcs")
+pub fn ffi_passes_o4z_restore_optimized_primes_variadic_pack_funcs(
+  value0 : @lib.Module,
+  value1 : @lib.Module,
+) -> @lib.Module {
+  @passes.o4z_restore_optimized_primes_variadic_pack_funcs(value0, value1)
 }
 
 ///|
@@ -15756,6 +16071,15 @@ pub fn ffi_passes_o4z_size_candidate_has_observable_assemblyscript_startup(
   value0 : @lib.Module,
 ) -> Bool {
   @passes.o4z_size_candidate_has_observable_assemblyscript_startup(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_o4z_size_candidate_has_optimized_primes_variadic_pack_runtime")
+pub fn ffi_passes_o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
+  value0 : @lib.Module,
+) -> Bool {
+  @passes.o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(value0)
 }
 
 ///|
@@ -15792,6 +16116,24 @@ pub fn ffi_passes_o4z_size_candidate_has_stateful_emscripten_main_runtime(
   value0 : @lib.Module,
 ) -> Bool {
   @passes.o4z_size_candidate_has_stateful_emscripten_main_runtime(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_o4z_size_candidate_has_unobservable_atomic_fence")
+pub fn ffi_passes_o4z_size_candidate_has_unobservable_atomic_fence(
+  value0 : @lib.Module,
+) -> Bool {
+  @passes.o4z_size_candidate_has_unobservable_atomic_fence(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_o4z_size_candidate_has_unreferenced_defined_global")
+pub fn ffi_passes_o4z_size_candidate_has_unreferenced_defined_global(
+  value0 : @lib.Module,
+) -> Bool {
+  @passes.o4z_size_candidate_has_unreferenced_defined_global(value0)
 }
 
 ///|
@@ -17044,6 +17386,81 @@ pub fn ffi_passes_HotPipelineVerifyPolicy_final_module_only() -> @passes.HotPipe
 #export_name("ffi_passes_perf_long_passes_perf_long_import_usage")
 pub fn ffi_passes_perf_long_passes_perf_long_import_usage() -> Unit {
   @passes_perf_long.passes_perf_long_import_usage()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_rume_rume_extract_functions")
+pub fn ffi_rume_rume_extract_functions(
+  value0 : @lib.Module,
+  value1 : Array[@lib.FuncIdx],
+) -> Result[@lib.Module, String] {
+  @rume.rume_extract_functions(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_rume_rume_imported_global_count")
+pub fn ffi_rume_rume_imported_global_count(value0 : @lib.Module) -> Int {
+  @rume.rume_imported_global_count(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_rume_rume_nonfunction_summary")
+pub fn ffi_rume_rume_nonfunction_summary() -> String {
+  @rume.rume_nonfunction_summary()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_rume_rume_rewrite_instruction")
+pub fn ffi_rume_rume_rewrite_instruction(
+  value0 : @lib.Instruction,
+  value1 : Array[Int],
+  value2 : Array[Int],
+  value3 : Array[Int],
+  value4 : Array[Int],
+  value5 : Array[Int],
+  value6 : Array[Int],
+  value7 : Array[Int],
+) -> @lib.Instruction {
+  @rume.rume_rewrite_instruction(
+    value0, value1, value2, value3, value4, value5, value6, value7,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_rume_rume_run_module_pass")
+pub fn ffi_rume_rume_run_module_pass(
+  value0 : @lib.Module,
+  traps_never_happen : Bool?,
+  closed_world : Bool?,
+) -> @lib.Module {
+  @rume.rume_run_module_pass(value0, traps_never_happen?, closed_world?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_rume_rume_run_nonfunction_module_pass")
+pub fn ffi_rume_rume_run_nonfunction_module_pass(
+  value0 : @lib.Module,
+  traps_never_happen : Bool?,
+  closed_world : Bool?,
+) -> @lib.Module {
+  @rume.rume_run_nonfunction_module_pass(
+    value0,
+    traps_never_happen?,
+    closed_world?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_rume_rume_summary")
+pub fn ffi_rume_rume_summary() -> String {
+  @rume.rume_summary()
 }
 
 ///|
@@ -28369,11 +28786,31 @@ pub fn ffi_binary_Decode_lib_CompType_option_decode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Decode_Array_FieldType_decode")
+pub fn ffi_binary_Decode_Array_FieldType_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[@lib.FieldType], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Decode_Array_Func_decode")
 pub fn ffi_binary_Decode_Array_Func_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(Array[@lib.Func], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Decode_Array_Import_decode")
+pub fn ffi_binary_Decode_Array_Import_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[@lib.Import], Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -28414,16 +28851,6 @@ pub fn ffi_binary_Decode_Array_ValType_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(Array[@lib.ValType], Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Array_FieldType_decode")
-pub fn ffi_binary_Decode_Array_FieldType_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.FieldType], Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -28494,16 +28921,6 @@ pub fn ffi_binary_Decode_Array_Global_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(Array[@lib.Global], Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Array_Import_decode")
-pub fn ffi_binary_Decode_Array_Import_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.Import], Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -29029,9 +29446,29 @@ pub fn ffi_binary_Encode_lib_CompType_option_encode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Encode_Array_FieldType_encode")
+pub fn ffi_binary_Encode_Array_FieldType_encode(
+  receiver : Array[@lib.FieldType],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Encode_Array_Func_encode")
 pub fn ffi_binary_Encode_Array_Func_encode(
   receiver : Array[@lib.Func],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Encode_Array_Import_encode")
+pub fn ffi_binary_Encode_Array_Import_encode(
+  receiver : Array[@lib.Import],
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)
@@ -29072,16 +29509,6 @@ pub fn ffi_binary_Encode_Array_TypeIdx_encode(
 #export_name("ffi_binary_Encode_Array_ValType_encode")
 pub fn ffi_binary_Encode_Array_ValType_encode(
   receiver : Array[@lib.ValType],
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_Array_FieldType_encode")
-pub fn ffi_binary_Encode_Array_FieldType_encode(
-  receiver : Array[@lib.FieldType],
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)
@@ -29152,16 +29579,6 @@ pub fn ffi_binary_Encode_Array_Export_encode(
 #export_name("ffi_binary_Encode_Array_Global_encode")
 pub fn ffi_binary_Encode_Array_Global_encode(
   receiver : Array[@lib.Global],
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_Array_Import_encode")
-pub fn ffi_binary_Encode_Array_Import_encode(
-  receiver : Array[@lib.Import],
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)
@@ -29309,10 +29726,10 @@ pub fn ffi_binary_Encode_Array_TableType_encode(
 
 ///|
 #doc(hidden)
-#export_name("ffi_validate_Match_Array_ValType_matches")
-pub fn ffi_validate_Match_Array_ValType_matches(
-  receiver : Array[@lib.ValType],
-  value1 : Array[@lib.ValType],
+#export_name("ffi_validate_Match_Array_FieldType_matches")
+pub fn ffi_validate_Match_Array_FieldType_matches(
+  receiver : Array[@lib.FieldType],
+  value1 : Array[@lib.FieldType],
   value2 : @validate.Env,
 ) -> Bool {
   @validate.Match::matches(receiver, value1, value2)
@@ -29320,10 +29737,10 @@ pub fn ffi_validate_Match_Array_ValType_matches(
 
 ///|
 #doc(hidden)
-#export_name("ffi_validate_Match_Array_FieldType_matches")
-pub fn ffi_validate_Match_Array_FieldType_matches(
-  receiver : Array[@lib.FieldType],
-  value1 : Array[@lib.FieldType],
+#export_name("ffi_validate_Match_Array_ValType_matches")
+pub fn ffi_validate_Match_Array_ValType_matches(
+  receiver : Array[@lib.ValType],
+  value1 : Array[@lib.ValType],
   value2 : @validate.Env,
 ) -> Bool {
   @validate.Match::matches(receiver, value1, value2)
@@ -29386,6 +29803,26 @@ pub fn ffi_validate_Match_Array_TableType_matches(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_Validate_Array_FieldType_validate")
+pub fn ffi_validate_Validate_Array_FieldType_validate(
+  receiver : Array[@lib.FieldType],
+  value1 : @validate.Env,
+) -> Result[Unit, String] {
+  @validate.Validate::validate(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_Validate_Array_Import_validate")
+pub fn ffi_validate_Validate_Array_Import_validate(
+  receiver : Array[@lib.Import],
+  value1 : @validate.Env,
+) -> Result[Unit, String] {
+  @validate.Validate::validate(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_Validate_Array_RecType_validate")
 pub fn ffi_validate_Validate_Array_RecType_validate(
   receiver : Array[@lib.RecType],
@@ -29409,16 +29846,6 @@ pub fn ffi_validate_Validate_Array_TypeIdx_validate(
 #export_name("ffi_validate_Validate_Array_ValType_validate")
 pub fn ffi_validate_Validate_Array_ValType_validate(
   receiver : Array[@lib.ValType],
-  value1 : @validate.Env,
-) -> Result[Unit, String] {
-  @validate.Validate::validate(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_validate_Validate_Array_FieldType_validate")
-pub fn ffi_validate_Validate_Array_FieldType_validate(
-  receiver : Array[@lib.FieldType],
   value1 : @validate.Env,
 ) -> Result[Unit, String] {
   @validate.Validate::validate(receiver, value1)
@@ -29469,16 +29896,6 @@ pub fn ffi_validate_Validate_Array_Elem_validate(
 #export_name("ffi_validate_Validate_Array_Export_validate")
 pub fn ffi_validate_Validate_Array_Export_validate(
   receiver : Array[@lib.Export],
-  value1 : @validate.Env,
-) -> Result[Unit, String] {
-  @validate.Validate::validate(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_validate_Validate_Array_Import_validate")
-pub fn ffi_validate_Validate_Array_Import_validate(
-  receiver : Array[@lib.Import],
   value1 : @validate.Env,
 ) -> Result[Unit, String] {
   @validate.Validate::validate(receiver, value1)

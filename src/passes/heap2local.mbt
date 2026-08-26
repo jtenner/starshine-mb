@@ -17,7 +17,7 @@ pub fn heap2local_descriptor() -> @ir.HotPassDescriptor {
 
 ///|
 pub fn heap2local_summary() -> String {
-  "Replace non-escaping struct locals with scalar field locals and fold direct fresh-struct null comparisons."
+  "Replace non-escaping struct locals and branch-selected variant flows with scalar field locals, including repeated loop-state writes."
 }
 
 ///|
@@ -65,6 +65,53 @@ priv struct H2LDropOnlyStructOwnerCandidate {
   init_node_id : Int
   read_node_ids : Array[Int]
   drop_node_ids : Array[Int]
+}
+
+///|
+priv struct H2LVariantField {
+  index : Int
+  type_ : @lib.ValType
+}
+
+///|
+priv struct H2LVariantUse {
+  user_node_id : Int
+  field_index : Int
+  source_path : Array[Int]
+}
+
+///|
+priv struct H2LVariantCandidate {
+  producer_user_node_id : Int
+  producer_field_index : Int
+  producer_source_path : Array[Int]
+  owner_local : Int
+  if_node_id : Int
+  then_block_node_id : Int
+  else_block_node_id : Int
+  then_alloc_node_id : Int
+  else_alloc_node_id : Int
+  fields : Array[H2LVariantField]
+  uses : Array[H2LVariantUse]
+}
+
+///|
+priv struct H2LVariantLocalProducer {
+  write_node_id : Int
+  source_path : Array[Int]
+  if_node_id : Int
+  then_block_node_id : Int
+  else_block_node_id : Int
+  then_alloc_node_id : Int
+  else_alloc_node_id : Int
+}
+
+///|
+priv struct H2LVariantLocalCandidate {
+  owner_local : Int
+  producers : Array[H2LVariantLocalProducer]
+  fields : Array[H2LVariantField]
+  uses : Array[H2LVariantUse]
 }
 
 ///|
@@ -1276,6 +1323,82 @@ fn h2l_write_is_next_array_alloc_boundary(
 }
 
 ///|
+/// HOT IR preserves local effects as region order rather than data edges. If
+/// one scratch local carries more than one array allocation, rewriting another
+/// allocation in the same function can let reconstruction move a later scratch
+/// write before an earlier wrapper consumes it. This is unsafe even when both
+/// arrays use the same eqref carrier because their logical element types can
+/// differ. Keep the function unchanged until these local effects are represented
+/// by explicit dependencies.
+fn h2l_array_allocation_write_type(
+  func : @ir.HotFunc,
+  write_node_id : Int,
+  local_id : Int,
+) -> @lib.TypeIdx? {
+  let write = @ir.hot_node_get(func, write_node_id)
+  match write.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      if write.imm0 != local_id || write.child_count != 1 {
+        return None
+      }
+    _ => return None
+  }
+  let source = h2l_allocation_source_node(
+    func,
+    @ir.hot_child_get(func, write_node_id, 0),
+  )
+  match @ir.hot_node_exact_instr(func, source) {
+    Some(@lib.Instruction::ArrayNew(type_idx))
+    | Some(@lib.Instruction::ArrayNewDefault(type_idx))
+    | Some(@lib.Instruction::ArrayNewFixed(type_idx, _)) => Some(type_idx)
+    _ => None
+  }
+}
+
+///|
+fn h2l_has_repeated_array_allocation_writes(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+) -> Bool {
+  for local_id = 0
+      local_id < @ir.hot_local_count(func)
+      local_id = local_id + 1 {
+    let allocation_slots : Array[Int] = []
+    for write_node_id in use_def.local_writes[local_id] {
+      match h2l_array_allocation_write_type(func, write_node_id, local_id) {
+        Some(_) =>
+          match h2l_root_slot_containing_node(func, write_node_id) {
+            Some(slot) => allocation_slots.push(slot)
+            None => return true
+          }
+        None => ()
+      }
+    }
+    if allocation_slots.length() <= 1 {
+      continue
+    }
+    allocation_slots.sort()
+    for index = 0; index + 1 < allocation_slots.length(); index = index + 1 {
+      let write_slot = allocation_slots[index]
+      let next_write_slot = allocation_slots[index + 1]
+      let mut first_read_slot = 0x7fffffff
+      for read_node_id in use_def.local_reads[local_id] {
+        match h2l_root_slot_containing_node(func, read_node_id) {
+          Some(read_slot) if read_slot >= write_slot &&
+            read_slot < first_read_slot => first_read_slot = read_slot
+          Some(_) => ()
+          None => return true
+        }
+      }
+      if first_read_slot >= next_write_slot {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
 fn h2l_collect_sequential_array_source_use(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
@@ -2355,6 +2478,630 @@ fn h2l_apply_candidate(
 }
 
 ///|
+fn h2l_variant_struct_get_field(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+) -> H2LVariantField? {
+  let (type_idx, field_index) = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructGet(type_idx, @lib.U32(raw_index))) =>
+      (type_idx, raw_index.reinterpret_as_int())
+    _ => return None
+  }
+  let fields = match
+    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+    Some(fields) => fields
+    None => return None
+  }
+  if field_index < 0 || field_index >= fields.length() {
+    return None
+  }
+  let @lib.FieldType(storage, _) = fields[field_index]
+  match storage {
+    @lib.ValTypeStorageType(type_) => Some({ index: field_index, type_ })
+    @lib.PackTypeStorageType(_) => None
+  }
+}
+
+///|
+fn h2l_variant_backward_to_tee(
+  func : @ir.HotFunc,
+  user_node_id : Int,
+) -> (Int, Array[Int])? {
+  if @ir.hot_child_count(func, user_node_id) != 1 {
+    return None
+  }
+  let path : Array[Int] = []
+  let mut current = @ir.hot_child_get(func, user_node_id, 0)
+  while true {
+    path.push(current)
+    match @ir.hot_node_get(func, current).op {
+      @ir.HotOp::LocalTee => return Some((current, path))
+      _ =>
+        match h2l_passthrough_child_node(func, current) {
+          Some(child) => current = child
+          None => return None
+        }
+    }
+  }
+  None
+}
+
+///|
+fn h2l_variant_forward_to_struct_get(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  source_node_id : Int,
+) -> (Int, Array[Int])? {
+  let path : Array[Int] = [source_node_id]
+  let mut current = source_node_id
+  while true {
+    let sites = use_def.node_uses[current]
+    if sites.length() != 1 {
+      return None
+    }
+    let site = sites[0]
+    match site.kind {
+      @ir.HotUseSlotKind::ChildUseSlot if site.slot == 0 => ()
+      _ => return None
+    }
+    let user = site.user
+    match @ir.hot_node_exact_instr(func, user) {
+      Some(@lib.Instruction::StructGet(_, _)) => return Some((user, path))
+      Some(@lib.Instruction::RefCast(_, _, _))
+      | Some(@lib.Instruction::RefAsNonNull) => {
+        path.push(user)
+        current = user
+      }
+      _ => return None
+    }
+  }
+  None
+}
+
+///|
+fn h2l_variant_single_branch_alloc(
+  func : @ir.HotFunc,
+  block_node_id : Int,
+) -> Int? {
+  match @ir.hot_node_get(func, block_node_id).op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count == 0 {
+    return None
+  }
+  let node_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructNew(_))
+    | Some(@lib.Instruction::StructNewDefault(_)) => Some(node_id)
+    _ => None
+  }
+}
+
+///|
+fn h2l_variant_add_field(
+  fields : Array[H2LVariantField],
+  field : H2LVariantField,
+) -> Bool {
+  for current in fields {
+    if current.index == field.index {
+      return current.type_ == field.type_
+    }
+  }
+  fields.push(field)
+  true
+}
+
+///|
+fn h2l_variant_alloc_supports_fields(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  alloc_node_id : Int,
+  fields : Array[H2LVariantField],
+) -> Bool {
+  let (_, alloc_fields, _) = match
+    h2l_supported_struct_new_fields(func, module_ctx, alloc_node_id) {
+    Some(info) => info
+    None => return false
+  }
+  for field in fields {
+    if field.index < alloc_fields.length() &&
+      alloc_fields[field.index].unpack() != field.type_ {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn h2l_find_variant_candidate(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  use_def : @ir.HotUseDef,
+  producer_user_node_id : Int,
+) -> H2LVariantCandidate? {
+  let producer_field = match
+    h2l_variant_struct_get_field(func, module_ctx, producer_user_node_id) {
+    Some(field) => field
+    None => return None
+  }
+  let (tee_node_id, producer_source_path) = match
+    h2l_variant_backward_to_tee(func, producer_user_node_id) {
+    Some(value) => value
+    None => return None
+  }
+  let tee = @ir.hot_node_get(func, tee_node_id)
+  if tee.child_count != 1 {
+    return None
+  }
+  let owner_local = tee.imm0
+  if owner_local < @ir.hot_param_count(func) ||
+    use_def.local_writes[owner_local].length() != 1 ||
+    use_def.local_writes[owner_local][0] != tee_node_id {
+    return None
+  }
+  let mut init_node_id = @ir.hot_child_get(func, tee_node_id, 0)
+  while true {
+    match h2l_passthrough_child_node(func, init_node_id) {
+      Some(child) => {
+        producer_source_path.push(init_node_id)
+        init_node_id = child
+      }
+      None => break
+    }
+  }
+  let if_node = @ir.hot_node_get(func, init_node_id)
+  match if_node.op {
+    @ir.HotOp::If => ()
+    _ => return None
+  }
+  if if_node.child_count != 3 {
+    return None
+  }
+  let then_block_node_id = @ir.hot_child_get(func, init_node_id, 1)
+  let else_block_node_id = @ir.hot_child_get(func, init_node_id, 2)
+  if else_block_node_id < 0 {
+    return None
+  }
+  let then_alloc_node_id = match
+    h2l_variant_single_branch_alloc(func, then_block_node_id) {
+    Some(node_id) => node_id
+    None => return None
+  }
+  let else_alloc_node_id = match
+    h2l_variant_single_branch_alloc(func, else_block_node_id) {
+    Some(node_id) => node_id
+    None => return None
+  }
+  let fields : Array[H2LVariantField] = []
+  if !h2l_variant_add_field(fields, producer_field) {
+    return None
+  }
+  let uses : Array[H2LVariantUse] = []
+  for read_node_id in use_def.local_reads[owner_local] {
+    let (user_node_id, source_path) = match
+      h2l_variant_forward_to_struct_get(func, use_def, read_node_id) {
+      Some(value) => value
+      None => return None
+    }
+    let field = match
+      h2l_variant_struct_get_field(func, module_ctx, user_node_id) {
+      Some(field) => field
+      None => return None
+    }
+    if !h2l_variant_add_field(fields, field) {
+      return None
+    }
+    uses.push({ user_node_id, field_index: field.index, source_path })
+  }
+  if !h2l_variant_alloc_supports_fields(
+      func, module_ctx, then_alloc_node_id, fields,
+    ) ||
+    !h2l_variant_alloc_supports_fields(
+      func, module_ctx, else_alloc_node_id, fields,
+    ) {
+    return None
+  }
+  Some({
+    producer_user_node_id,
+    producer_field_index: producer_field.index,
+    producer_source_path,
+    owner_local,
+    if_node_id: init_node_id,
+    then_block_node_id,
+    else_block_node_id,
+    then_alloc_node_id,
+    else_alloc_node_id,
+    fields,
+    uses,
+  })
+}
+
+///|
+fn h2l_variant_local_producer(
+  func : @ir.HotFunc,
+  write_node_id : Int,
+  owner_local : Int,
+) -> H2LVariantLocalProducer? {
+  let write = @ir.hot_node_get(func, write_node_id)
+  match write.op {
+    @ir.HotOp::LocalSet if write.imm0 == owner_local && write.child_count == 1 =>
+      ()
+    _ => return None
+  }
+  let source_path : Array[Int] = []
+  let mut current = @ir.hot_child_get(func, write_node_id, 0)
+  while true {
+    match h2l_passthrough_child_node(func, current) {
+      Some(child) => {
+        source_path.push(current)
+        current = child
+      }
+      None => break
+    }
+  }
+  let if_node = @ir.hot_node_get(func, current)
+  match if_node.op {
+    @ir.HotOp::If => ()
+    _ => return None
+  }
+  if if_node.child_count != 3 {
+    return None
+  }
+  let then_block_node_id = @ir.hot_child_get(func, current, 1)
+  let else_block_node_id = @ir.hot_child_get(func, current, 2)
+  if else_block_node_id < 0 {
+    return None
+  }
+  let then_alloc_node_id = match
+    h2l_variant_single_branch_alloc(func, then_block_node_id) {
+    Some(node_id) => node_id
+    None => return None
+  }
+  let else_alloc_node_id = match
+    h2l_variant_single_branch_alloc(func, else_block_node_id) {
+    Some(node_id) => node_id
+    None => return None
+  }
+  Some({
+    write_node_id,
+    source_path,
+    if_node_id: current,
+    then_block_node_id,
+    else_block_node_id,
+    then_alloc_node_id,
+    else_alloc_node_id,
+  })
+}
+
+///|
+fn h2l_find_variant_local_candidate(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  use_def : @ir.HotUseDef,
+  owner_local : Int,
+) -> H2LVariantLocalCandidate? {
+  if owner_local < @ir.hot_param_count(func) {
+    return None
+  }
+  let writes = use_def.local_writes[owner_local]
+  if writes.is_empty() {
+    return None
+  }
+  let producers : Array[H2LVariantLocalProducer] = []
+  for write_node_id in writes {
+    match h2l_variant_local_producer(func, write_node_id, owner_local) {
+      Some(producer) => producers.push(producer)
+      None => return None
+    }
+  }
+  let fields : Array[H2LVariantField] = []
+  let uses : Array[H2LVariantUse] = []
+  for read_node_id in use_def.local_reads[owner_local] {
+    let (user_node_id, source_path) = match
+      h2l_variant_forward_to_struct_get(func, use_def, read_node_id) {
+      Some(value) => value
+      None => return None
+    }
+    let field = match
+      h2l_variant_struct_get_field(func, module_ctx, user_node_id) {
+      Some(field) => field
+      None => return None
+    }
+    if !h2l_variant_add_field(fields, field) {
+      return None
+    }
+    uses.push({ user_node_id, field_index: field.index, source_path })
+  }
+  if uses.is_empty() {
+    return None
+  }
+  for producer in producers {
+    if !h2l_variant_alloc_supports_fields(
+        func,
+        module_ctx,
+        producer.then_alloc_node_id,
+        fields,
+      ) ||
+      !h2l_variant_alloc_supports_fields(
+        func,
+        module_ctx,
+        producer.else_alloc_node_id,
+        fields,
+      ) {
+      return None
+    }
+  }
+  Some({ owner_local, producers, fields, uses })
+}
+
+///|
+fn h2l_variant_field_local(
+  fields : Array[H2LVariantField],
+  field_locals : Array[Int],
+  field_index : Int,
+) -> Int? {
+  for idx = 0; idx < fields.length(); idx = idx + 1 {
+    if fields[idx].index == field_index {
+      return Some(field_locals[idx])
+    }
+  }
+  None
+}
+
+///|
+fn h2l_variant_branch_roots(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  block_node_id : Int,
+  alloc_node_id : Int,
+  fields : Array[H2LVariantField],
+  field_locals : Array[Int],
+) -> Array[Int]? {
+  let (_, alloc_fields, _) = match
+    h2l_supported_struct_new_fields(func, module_ctx, alloc_node_id) {
+    Some(info) => info
+    None => return None
+  }
+  let roots : Array[Int] = []
+  let body_ref = @ir.hot_region_body_ref(func, block_node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  for root_index = 0; root_index < root_count - 1; root_index = root_index + 1 {
+    roots.push(@ir.hot_region_get(func, body_ref, root_index))
+  }
+  match @ir.hot_node_exact_instr(func, alloc_node_id) {
+    Some(@lib.Instruction::StructNew(_)) => {
+      if @ir.hot_child_count(func, alloc_node_id) != alloc_fields.length() {
+        return None
+      }
+      for field_index = 0
+          field_index < alloc_fields.length()
+          field_index = field_index + 1 {
+        let child = @ir.hot_child_get(func, alloc_node_id, field_index)
+        match h2l_variant_field_local(fields, field_locals, field_index) {
+          Some(local_id) =>
+            roots.push(@ir.hot_build_local_set(func, local_id, child))
+          None => roots.push(@ir.hot_build_drop(func, child))
+        }
+      }
+    }
+    Some(@lib.Instruction::StructNewDefault(_)) =>
+      for field_index = 0
+          field_index < alloc_fields.length()
+          field_index = field_index + 1 {
+        match h2l_variant_field_local(fields, field_locals, field_index) {
+          Some(local_id) => {
+            let value = match
+              h2l_build_default_value(func, alloc_fields[field_index].unpack()) {
+              Some(value) => value
+              None => return None
+            }
+            roots.push(@ir.hot_build_local_set(func, local_id, value))
+          }
+          None => ()
+        }
+      }
+    _ => return None
+  }
+  Some(roots)
+}
+
+///|
+fn h2l_apply_variant_candidate(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  candidate : H2LVariantCandidate,
+  detached_nodes : Array[Int],
+) -> Bool {
+  let field_locals : Array[Int] = []
+  for field in candidate.fields {
+    let local_id = @ir.hot_local_count(func)
+    func.locals.locals.push(field.type_)
+    field_locals.push(local_id)
+  }
+  let then_roots = match
+    h2l_variant_branch_roots(
+      func,
+      module_ctx,
+      candidate.then_block_node_id,
+      candidate.then_alloc_node_id,
+      candidate.fields,
+      field_locals,
+    ) {
+    Some(roots) => roots
+    None => return false
+  }
+  let else_roots = match
+    h2l_variant_branch_roots(
+      func,
+      module_ctx,
+      candidate.else_block_node_id,
+      candidate.else_alloc_node_id,
+      candidate.fields,
+      field_locals,
+    ) {
+    Some(roots) => roots
+    None => return false
+  }
+  let condition = @ir.hot_child_get(func, candidate.if_node_id, 0)
+  let scalar_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    condition,
+    then_roots,
+    else_body=Some(else_roots),
+  )
+  let producer_local = match
+    h2l_variant_field_local(
+      candidate.fields,
+      field_locals,
+      candidate.producer_field_index,
+    ) {
+    Some(local_id) => local_id
+    None => return false
+  }
+  let mut producer_type : @lib.ValType? = None
+  for field in candidate.fields {
+    if field.index == candidate.producer_field_index {
+      producer_type = Some(field.type_)
+      break
+    }
+  }
+  let producer_type = match producer_type {
+    Some(type_) => type_
+    None => return false
+  }
+  let producer_replacement = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(producer_type),
+    [scalar_if, @ir.hot_build_local_get(func, producer_local)],
+  )
+  @ir.hot_replace_node(
+    func,
+    candidate.producer_user_node_id,
+    @ir.hot_node_get(func, producer_replacement),
+  )
+  for field_use in candidate.uses {
+    let local_id = match
+      h2l_variant_field_local(
+        candidate.fields,
+        field_locals,
+        field_use.field_index,
+      ) {
+      Some(local_id) => local_id
+      None => return false
+    }
+    let replacement = @ir.hot_build_local_get(func, local_id)
+    @ir.hot_replace_node(
+      func,
+      field_use.user_node_id,
+      @ir.hot_node_get(func, replacement),
+    )
+    for idx = field_use.source_path.length() - 1; idx >= 0; idx = idx - 1 {
+      detached_nodes.push(field_use.source_path[idx])
+    }
+  }
+  for node_id in candidate.producer_source_path {
+    detached_nodes.push(node_id)
+  }
+  detached_nodes.append([
+    candidate.if_node_id,
+    candidate.then_block_node_id,
+    candidate.else_block_node_id,
+    candidate.then_alloc_node_id,
+    candidate.else_alloc_node_id,
+  ])
+  true
+}
+
+///|
+fn h2l_apply_variant_local_candidate(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  candidate : H2LVariantLocalCandidate,
+  detached_nodes : Array[Int],
+) -> Bool {
+  let field_locals : Array[Int] = []
+  for field in candidate.fields {
+    let local_id = @ir.hot_local_count(func)
+    func.locals.locals.push(field.type_)
+    field_locals.push(local_id)
+  }
+  for producer in candidate.producers {
+    let then_roots = match
+      h2l_variant_branch_roots(
+        func,
+        module_ctx,
+        producer.then_block_node_id,
+        producer.then_alloc_node_id,
+        candidate.fields,
+        field_locals,
+      ) {
+      Some(roots) => roots
+      None => return false
+    }
+    let else_roots = match
+      h2l_variant_branch_roots(
+        func,
+        module_ctx,
+        producer.else_block_node_id,
+        producer.else_alloc_node_id,
+        candidate.fields,
+        field_locals,
+      ) {
+      Some(roots) => roots
+      None => return false
+    }
+    let scalar_if = @ir.hot_build_if(
+      func,
+      @lib.BlockType::void_(),
+      @ir.hot_child_get(func, producer.if_node_id, 0),
+      then_roots,
+      else_body=Some(else_roots),
+    )
+    @ir.hot_replace_node(
+      func,
+      producer.write_node_id,
+      @ir.hot_node_get(func, scalar_if),
+    )
+    for node_id in producer.source_path {
+      detached_nodes.push(node_id)
+    }
+    detached_nodes.append([
+      producer.if_node_id,
+      producer.then_block_node_id,
+      producer.else_block_node_id,
+      producer.then_alloc_node_id,
+      producer.else_alloc_node_id,
+    ])
+  }
+  for field_use in candidate.uses {
+    let local_id = match
+      h2l_variant_field_local(
+        candidate.fields,
+        field_locals,
+        field_use.field_index,
+      ) {
+      Some(local_id) => local_id
+      None => return false
+    }
+    let replacement = @ir.hot_build_local_get(func, local_id)
+    @ir.hot_replace_node(
+      func,
+      field_use.user_node_id,
+      @ir.hot_node_get(func, replacement),
+    )
+    for idx = field_use.source_path.length() - 1; idx >= 0; idx = idx - 1 {
+      detached_nodes.push(field_use.source_path[idx])
+    }
+  }
+  true
+}
+
+///|
 fn h2l_delete_detached_live_nodes(
   func : @ir.HotFunc,
   detached_nodes : Array[Int],
@@ -2381,12 +3128,44 @@ pub fn heap2local_run(
     None => return HotPassResult::unchanged()
   }
   let use_def = pass_require_use_def(ctx, func)
+  if h2l_has_repeated_array_allocation_writes(func, use_def) {
+    return HotPassResult::unchanged()
+  }
+  let variant_candidates : Array[H2LVariantCandidate] = []
+  let variant_local_candidates : Array[H2LVariantLocalCandidate] = []
+  let variant_owner_locals : Array[Int] = []
+  for local_id = 0
+      local_id < @ir.hot_local_count(func)
+      local_id = local_id + 1 {
+    match
+      h2l_find_variant_local_candidate(func, module_ctx, use_def, local_id) {
+      Some(candidate) => {
+        variant_local_candidates.push(candidate)
+        variant_owner_locals.push(candidate.owner_local)
+      }
+      None => ()
+    }
+  }
+  let original_node_count = @ir.hot_node_count(func)
+  for node_id = 0; node_id < original_node_count; node_id = node_id + 1 {
+    match h2l_find_variant_candidate(func, module_ctx, use_def, node_id) {
+      Some(candidate) if !variant_owner_locals.contains(candidate.owner_local) => {
+        variant_candidates.push(candidate)
+        variant_owner_locals.push(candidate.owner_local)
+      }
+      Some(_) => ()
+      None => ()
+    }
+  }
   let candidates : Array[H2LCandidate] = []
   let array_candidates : Array[H2LArrayCandidate] = []
   let drop_only_struct_candidates : Array[H2LDropOnlyStructOwnerCandidate] = []
   for local_id = 0
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
+    if variant_owner_locals.contains(local_id) {
+      continue
+    }
     match h2l_find_candidate_for_local(func, module_ctx, use_def, local_id) {
       Some(candidate) => candidates.push(candidate)
       None => ()
@@ -2418,6 +3197,18 @@ pub fn heap2local_run(
   }
   let detached_nodes : Array[Int] = []
   let mut changed = false
+  for candidate in variant_local_candidates {
+    if h2l_apply_variant_local_candidate(
+        func, module_ctx, candidate, detached_nodes,
+      ) {
+      changed = true
+    }
+  }
+  for candidate in variant_candidates {
+    if h2l_apply_variant_candidate(func, module_ctx, candidate, detached_nodes) {
+      changed = true
+    }
+  }
   for candidate in candidates {
     if h2l_apply_candidate(func, candidate, detached_nodes) {
       changed = true

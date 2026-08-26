@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/rume"
+
+import {
+  "jtenner/starshine/lib",
+}
+
+// Values
+pub fn rume_extract_functions(@lib.Module, Array[@lib.FuncIdx]) -> Result[@lib.Module, String]
+
+pub fn rume_imported_global_count(@lib.Module) -> Int
+
+pub fn rume_nonfunction_summary() -> String
+
+pub fn rume_rewrite_instruction(@lib.Instruction, Array[Int], Array[Int], Array[Int], Array[Int], Array[Int], Array[Int], Array[Int]) -> @lib.Instruction
+
+pub fn rume_run_module_pass(@lib.Module, traps_never_happen? : Bool, closed_world? : Bool) -> @lib.Module
+
+pub fn rume_run_nonfunction_module_pass(@lib.Module, traps_never_happen? : Bool, closed_world? : Bool) -> @lib.Module
+
+pub fn rume_summary() -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

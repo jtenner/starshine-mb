@@ -12,6 +12,7 @@ import {
   "jtenner/starshine/passes",
   "jtenner/starshine/passes_perf_long",
   "moonbitlang/core/quickcheck",
+  "jtenner/starshine/rume",
   "moonbitlang/core/quickcheck/splitmix",
   "jtenner/starshine/validate",
   "jtenner/starshine/validate_proof",
