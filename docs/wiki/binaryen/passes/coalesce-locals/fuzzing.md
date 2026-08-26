@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-26
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -11,6 +11,12 @@ sources:
 ---
 
 # `coalesce-locals` Fuzzing Profile
+
+## 2026-08-26 bounded safety renewal
+
+Native SHA-256 `d7921ee49c6781c10f3388e7f594dd67445587d767ef4db3d37107045e93886b` and official Binaryen v131 compared `10000/10000` regular GenValid cases with `--normalize local-cleanup-debris`: `634` direct plus `9366` cleanup-normalized matches, zero residual mismatches, and zero validation/property/generator/command failures. Canonical size is never worse: `9366` smaller, `634` equal, `0` larger; totals are `42,100,996` Starshine versus `42,129,462` Binaryen bytes. The apparent drift is exactly the reviewed unused-local/nop/empty-control cleanup family.
+
+The lane used `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`. Evidence: `.tmp/optimizer-fixes-20260826/post-rebase/coalesce-locals/`.
 
 ## 2026-08-21 optimized-primes variadic-packer boundary
 

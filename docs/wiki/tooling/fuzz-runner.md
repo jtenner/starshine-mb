@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 sources:
   - ../fuzzing/text-differential-adapters.md
   - ../wast/static-assertion-harness.md
@@ -86,7 +86,7 @@ The `[FUZ]1045A7` text differential runner is intentionally opt-in and is not pa
 
 The `[FUZ]1044*` binary differential helpers are intentionally opt-in command-harness support rather than ordinary suite success criteria. They classify Starshine decode/validate plus optional `wasm-tools`, WABT, and Binaryen validators into agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable buckets; route exact adapter command lines and skip semantics through [`external-validator-adapters.md`](external-validator-adapters.md).
 
-The `[FUZ]1052B` export-invocation matrix helpers remain available for Starshine-vs-Binaryen smoke evidence, but the first-class optimizer semantic property is now the separate original-input-vs-Starshine lane. `bun fuzz compare-pass --self-semantic --semantic-policy strict|canonical-nan|trap-aware` builds one deterministic boundary-oriented invocation plan from the original module, runs the same multi-call sequence on fresh original and optimized instances, and persists exact result bits, normalized traps, exported globals, bounded memory digests/ranges, bounded table observations, deterministic import traces, and instantiation behavior. Runtime work runs in killable workers; nontermination becomes explicit `runtime-tool-failure`/blocked evidence rather than hanging a fuzz worker. `--runtime-execution node` still compares Starshine against Binaryen as a secondary oracle. Equal traps remain path-local evidence; route wording through [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md).
+The `[FUZ]1052B` export-invocation matrix helpers remain available for Starshine-vs-Binaryen smoke evidence, but the first-class optimizer semantic property is now the separate original-input-vs-Starshine lane. `bun fuzz compare-pass --self-semantic --semantic-policy strict|canonical-nan|trap-aware` builds one deterministic boundary-oriented invocation plan from the original module, runs the same multi-call sequence on fresh original and optimized instances, and persists exact result bits, normalized traps, exported globals, bounded memory digests/ranges, bounded table observations, deterministic import traces, and instantiation behavior. Use `--gen-valid-profile runtime-callable` for efficient random runtime evidence: it aliases the import-free four-leaf `inlining-optimizing-all` aggregate, whose modules export a scalar `run` entrypoint; a 100-case seed-`0x5eed` check completed 100/100 equal results with zero blocked or mismatching cases. Runtime work runs in killable workers; nontermination becomes explicit `runtime-tool-failure`/blocked evidence rather than hanging a fuzz worker. `--runtime-execution node` still compares Starshine against Binaryen as a secondary oracle. Equal traps remain path-local evidence; route wording through [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md).
 
 The Bun fuzz task also exposes focused optimizer artifact commands:
 
@@ -113,7 +113,7 @@ bun fuzz run --suite <name> --profile <name> --seed <int64> --jsonl --out-dir .t
 Important invariants:
 
 - Missing suite/profile defaults to `all smoke`.
-- Missing seed uses a time-derived signed `Int64` seed; logged output always includes the resolved signed seed.
+- Direct `moon run src/fuzz` without a seed uses the Moon runner's time-derived signed `Int64` seed. `bun fuzz run` resolves an explicit positive 64-bit hex seed in the wrapper, prints `fuzz resolved_seed=<seed>` before launching Moon, and forwards `--seed <seed>`, so even an early abort is replayable.
 - Seeds accept decimal or `0x...` forms; `--seed` and positional seed are mutually exclusive.
 - `--recipe <name>` / `--recipe=<name>` loads a checked-in `starshine.fuzz.recipe.v1` default bundle before explicit suite/profile/seed/output overrides are applied; use [`../fuzzing/recipe-schema.md`](../fuzzing/recipe-schema.md) for the standard recipe catalog and precedence ladder.
 - `--seed-count <n>` performs a deterministic seed sweep from the resolved base seed through `base + n - 1` using wrapping `UInt64` arithmetic mapped back to signed `Int64` output.

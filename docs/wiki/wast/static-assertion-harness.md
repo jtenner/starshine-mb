@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-14
+last_reviewed: 2026-08-26
 sources:
   - https://github.com/WebAssembly/spec/tree/main/interpreter
   - ../../../src/wast/spec_harness.mbt
@@ -129,6 +129,8 @@ The spec runner reports file-level `Passed`, `Skipped(reason)`, or `Failed(msg)`
 - unexpected local validation success at exact commands in `block.wast`, `br.wast`, `if.wast`, `loop.wast`, `ref.wast`, `type-rec.wast`, `i32.wast`, `load.wast`, `store.wast`, `labels.wast`, `return.wast`, and `local_set.wast`;
 - duplicate-export-name divergence in `names.wast`;
 - the exact legacy-try validation mismatch in `legacy/try_catch.wast`.
+
+The 2026-08-26 recursive-group repair retired the two implicit-function-type failures formerly reported as `type-rec.wast` commands 6 and 7. WAST lowering no longer reuses a structurally matching function member from an explicit multi-type `rec` group for an implicit function type; it appends a standalone singleton type. Validation now preserves normalized recursive-group boundaries and requires group arity/member-position compatibility during exact defined-type matching. The command-6 allowance was removed, command 7 was never allowlisted, and focused lowering plus private const-expression regressions keep both orderings strict. The remaining `type-rec.wast` entries in the allowlist are independent commands 8, 9, 26, and 27.
 
 Do **not** cite skipped or blocked commands as green conformance. When reporting `starshine spec` or native `spec_runner` output, include `total`, `passed`, `skipped`, and `failed` file counts, and inspect command reports when a known mismatch or blocked prerequisite matters. If a new known-mismatch skip is unavoidable, record the exact path, zero-based command index, message family, and retiring condition; update this page, [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) if fuzz/spec-seed semantics are affected, and a current raw refresh.
 

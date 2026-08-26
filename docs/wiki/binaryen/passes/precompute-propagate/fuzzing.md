@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-26
+last_reviewed: 2026-08-26
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
@@ -19,6 +19,12 @@ related:
 ---
 
 # `precompute-propagate` fuzzing
+
+## 2026-08-26 redundant self-branch cleanup renewal
+
+A regular 10,000-case safety run initially found `1025` canonical size losses, all side-effect-free `hasUnreachable`/`mayTrap` inputs retaining exact void `(block (br 0))` shells after propagation. A red-first public regression now forces unchanged HOT functions with that exact shell through ordinary lowering and a descriptor-specific canonicalizer; propagation still runs normally, and only exact void self-branch blocks are removed recursively.
+
+Native SHA-256 `d7921ee49c6781c10f3388e7f594dd67445587d767ef4db3d37107045e93886b` and official Binaryen v131 then compared `10000/10000` regular GenValid cases with the three reviewed normalizers: `504` direct plus `9496` cleanup-normalized matches, zero residual mismatches, and zero validation/property/generator/command failures. Canonical sizes are `717,790` Starshine versus `3,235,768` Binaryen bytes, split `9496` smaller, `504` equal, `0` larger. Evidence: `.tmp/optimizer-fixes-20260826/post-rebase/precompute-propagate/`.
 
 ## Current state
 

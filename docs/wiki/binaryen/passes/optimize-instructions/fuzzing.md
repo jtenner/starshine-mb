@@ -1,3 +1,9 @@
+## 2026-08-26 bounded safety renewal
+
+Native SHA-256 `d7921ee49c6781c10f3388e7f594dd67445587d767ef4db3d37107045e93886b` and official Binaryen v131 compared `10000/10000` regular GenValid cases with `--normalize drop-consts --normalize local-cleanup-debris`: all `10000` are cleanup-normalized matches with zero residual mismatches and zero validation/property/generator/command failures. Every canonical Starshine output is smaller: `10000` smaller, `0` equal, `0` larger; totals are `41,617,676` Starshine versus `41,677,638` Binaryen bytes. The raw family is the reviewed stronger pure dropped-constant fold plus nop/local cleanup, not an open semantic gap.
+
+The lane used `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`. Evidence: `.tmp/optimizer-fixes-20260826/post-rebase/optimize-instructions/`.
+
 ## Absorbed developer notes
 
 Four research conclusions are maintained here instead of as agent-only raw notes:

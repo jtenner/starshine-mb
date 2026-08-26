@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-26
 sources:
   - ../binaryen/passes/late-pipeline-dispatch.md
   - ../../../scripts/lib/build-self-optimized.mjs
@@ -107,11 +107,11 @@ The next owner repair isolated `runtime/core/rust_fannkuch` to one-based O4z slo
 
 The remaining confirmed wrong-code set is now repaired. Winch issue-10613 uses a function-label multivalue `br_table`; RemoveUnusedBrs, OptimizeInstructions, and inlining now retain that unsupported HOT relation. Vacuum preserves negative-length array allocation traps. Inlining retains the bump-pointer value carried across imported `wasmtime.gc`. SimplifyLocals, OptimizeInstructions, Precompute, inlining, CFG coalescing, the Starshine-only late suffix, the O4z transaction, and CLI portfolio all fail closed at the caught-`try_table` boundary, restoring spectest throw and all four EH-local fixtures. Typed-reference `join-funcnull` was a JavaScript function-number observation artifact, `as-call_indirect-last` is trap-detail-only, `array-gc-refs` is exact-reference feature expansion reproduced by Binaryen v131, and SIMD bnot remains Binaryen/NaN-payload parity.
 
-Final native SHA-256 `e9e620b5bba11d2ab36065709c03b65f1bac5bef09cce9916b44ce8b24cc9053` completes the full 842-input audit with 842 valid inputs, 813 successful independently valid outputs, 2,406 probes, 2,143 completed probes, 206 unsupported signatures, 14 baseline timeouts, zero candidate or combined timeouts, zero probe errors, 10,930 vectors, and 10,716 exact vector matches. The 43 raw mismatch probes are exactly the prior 52 minus the nine repaired probes, with no new mismatches; all remaining cases belong to the already classified trap-detail/import-inventory, runtime-feature, typed-reference observation, or Binaryen-parity families. The final targeted lane is 12/12 optimization/validation and leaves only the four classified non-corruption probes.
+Final August 26 native SHA-256 `d7921ee49c6781c10f3388e7f594dd67445587d767ef4db3d37107045e93886b` completes the refreshed full 842-input audit with 842 valid inputs, 813 successful independently valid outputs, 2,406 probes, 2,144 completed probes, 206 unsupported signatures, 13 baseline timeouts, zero candidate or combined timeouts, zero probe errors, 10,935 vectors, and 10,721 exact vector matches. The same 43 raw mismatch probes remain, with no additions; all belong to the already classified trap-detail/import-inventory, runtime-feature, typed-reference observation, or Binaryen-parity families. The one additional completed probe and five additional vectors come from a baseline timeout resolving, not from a candidate behavior change.
 
-The rebuilt self artifact is 4,884,454 bytes with SHA-256 `b2fb8d80181a3dc76800b31abbc49ecbfc71f8b8e32aaff09f11e705b0342bcc`. `json-as` optimization/validation and exact runtime are `105/105`; `self-opt-smoke` passes; the exact WAGO manifest is `48/48` native optimization, `48/48` self optimization, `48/48` validation per variant, `48/48` byte identity, and `323/323` matching calls per variant.
+The rebuilt self artifact is 4,912,326 bytes with SHA-256 `93163197f0caa2fe90154f684f306fd8d1c76bdb8d3dfb8ca499bd4c6b11f84c`. `json-as` optimization/validation and exact runtime are `105/105`; `self-opt-smoke` and full self spec pass (`284` total / `87` passed / `197` known skips / `0` failed); the exact WAGO manifest is `48/48` native optimization, `48/48` self optimization, `48/48` validation per variant, `48/48` byte identity, and `323/323` matching calls per variant.
 
-Evidence is preserved under `.tmp/wago-next-20260825/`, `.tmp/json-as-smoke-wago-residual-ultimate-20260825/`, and `.tmp/wago-o4z-functional-20260825-ultimate/`, alongside the earlier audit directories.
+Evidence is preserved under `.tmp/wago-next-20260826/post-rebase-native/`, `.tmp/json-as-post-rebase-20260826/`, and `.tmp/wago-o4z-functional-20260826-post-rebase/`, alongside the earlier audit directories.
 
 ## How to use this page
 

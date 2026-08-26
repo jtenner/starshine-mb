@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-26
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -13,6 +13,12 @@ sources:
 ---
 
 # `remove-unused-brs` Fuzzing Profile
+
+## 2026-08-26 bounded safety renewal
+
+Native SHA-256 `d7921ee49c6781c10f3388e7f594dd67445587d767ef4db3d37107045e93886b` and official Binaryen v131 compared `10000/10000` regular GenValid cases with `--normalize local-cleanup-debris --normalize unreachable-control-debris`: `278` direct plus `9722` cleanup-normalized matches, zero residual mismatches, and zero validation/property/generator/command failures. Canonical size is a Starshine win in every non-exact case: `9722` smaller, `278` equal, `0` larger; totals are `41,528,182` Starshine versus `41,662,491` Binaryen bytes. This confirms the apparent raw drift was exactly the already reviewed empty-control/local-debris family rather than an open parity gap.
+
+The lane used `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`; no mismatch bundles were needed because all cases matched directly or through the documented normalizers. Evidence: `.tmp/optimizer-fixes-20260826/post-rebase/remove-unused-brs/`.
 
 ## 2026-07-31 condition-preservation review reclose
 
