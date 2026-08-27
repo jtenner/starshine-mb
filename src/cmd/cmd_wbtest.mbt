@@ -8442,6 +8442,7 @@ test "run_cmd_with_adapter exits on parsed help before STARSHINE_INPUT probing" 
 ///|
 test "run_cmd_with_adapter skips irrelevant env overlay probes when cli already fixes startup mode" {
   let env_lookups : Array[String] = []
+  let stderr_writes : Array[Bytes] = []
   let wasm = encode_module_bytes(fixture_i32_const_module(20))
   let io = CmdIO::new(
     get_env=fn(name) {
@@ -8457,6 +8458,10 @@ test "run_cmd_with_adapter skips irrelevant env overlay probes when cli already 
       }
     },
     write_file=fn(_, _) { Ok(()) },
+    write_stderr=fn(bytes) {
+      stderr_writes.push(bytes)
+      Ok(())
+    },
   )
   let summary = match
     run_cmd_with_adapter(
@@ -8477,6 +8482,19 @@ test "run_cmd_with_adapter skips irrelevant env overlay probes when cli already 
   @debug.assert_eq(env_lookups, [
     "STARSHINE_INPUT", "STARSHINE_OPTIMIZE_MAX_PASSES",
   ])
+  let trace = concat_ascii_bytes(stderr_writes)
+  for
+    timer in [
+      "cmd:input-total", "cmd:read-input", "cmd:text-lowering", "cmd:decode", "cmd:pipeline-setup",
+      "cmd:main-pipeline", "cmd:validate:final-module", "cmd:reuse-input-check",
+      "cmd:encode", "cmd:size-portfolio", "cmd:candidate-selection", "cmd:post-encode-validate",
+      "cmd:write-output",
+    ] {
+    assert_true(
+      trace.contains("perf:timer name=\{timer} elapsed_us="),
+      msg="missing wall-time attribution timer \{timer}:\n\{trace}",
+    )
+  }
 }
 
 ///|

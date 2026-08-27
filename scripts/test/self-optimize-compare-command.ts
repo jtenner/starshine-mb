@@ -57,8 +57,29 @@ const path = require("node:path");
 const args = process.argv.slice(2);
 const start = Date.now();
 while (Date.now() - start < 40) {}
-process.stderr.write("[trace] input fixture:opt perf:timer name=pass:duplicate-function-elimination elapsed_us=40000 total_us=40000\\n");
-fs.writeFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args, null, 2));
+process.stderr.write([
+  "[trace] perf:timer name=cmd:input-total elapsed_us=50000 total_us=50000",
+  "[trace] perf:timer name=cmd:read-input elapsed_us=1000 total_us=1000",
+  "[trace] perf:timer name=cmd:text-lowering elapsed_us=0 total_us=0",
+  "[trace] perf:timer name=cmd:decode elapsed_us=2000 total_us=2000",
+  "[trace] perf:timer name=cmd:pipeline-setup elapsed_us=1000 total_us=1000",
+  "[trace] perf:timer name=cmd:main-pipeline elapsed_us=40000 total_us=40000",
+  "[trace] perf:timer name=cmd:validate:final-module elapsed_us=2000 total_us=2000",
+  "[trace] perf:timer name=cmd:reuse-input-check elapsed_us=100 total_us=100",
+  "[trace] perf:timer name=cmd:encode elapsed_us=1000 total_us=1000",
+  "[trace] perf:timer name=cmd:size-portfolio elapsed_us=2000 total_us=2000",
+  "[trace] perf:timer name=cmd:candidate-selection elapsed_us=500 total_us=500",
+  "[trace] perf:timer name=cmd:post-encode-validate elapsed_us=200 total_us=200",
+  "[trace] perf:timer name=cmd:write-output elapsed_us=200 total_us=200",
+  "[trace] input fixture:opt perf:timer name=pipeline elapsed_us=40000 total_us=40000",
+  "[trace] input fixture:opt perf:timer name=stage:hot-pass:code-section elapsed_us=40000 total_us=40000",
+  "[trace] input fixture:opt perf:timer name=stage:hot-pass:function-total elapsed_us=40000 total_us=40000",
+  "[trace] input fixture:opt perf:timer name=stage:hot-pass:pre-pass elapsed_us=0 total_us=0",
+  "[trace] input fixture:opt perf:timer name=stage:hot-pass:post-pass elapsed_us=0 total_us=0",
+  "[trace] input fixture:opt perf:timer name=stage:hot-pass:module-rebuild elapsed_us=0 total_us=0",
+  "[trace] input fixture:opt perf:timer name=pass:duplicate-function-elimination elapsed_us=40000 total_us=40000",
+].join("\\n") + "\\n");
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
 fs.appendFileSync(process.env.FAKE_ORDER_LOG, "starshine\\n");
 const outIndex = args.indexOf("--out");
 if (outIndex === -1 || outIndex + 1 >= args.length) {
@@ -130,6 +151,7 @@ process.exit(0);
       fakeWasmOpt,
       "--wasm-tools-bin",
       fakeWasmTools,
+      "--wall-attribution",
       "--duplicate-function-elimination",
       "--dead-code-elimination",
     ],
@@ -154,7 +176,8 @@ process.exit(0);
   }
 
   const moonArgs = JSON.parse(fs.readFileSync(moonLog, "utf8")) as string[];
-  const starshineArgs = JSON.parse(fs.readFileSync(starshineLog, "utf8")) as string[];
+  const starshineRuns = fs.readFileSync(starshineLog, "utf8").trim().split("\n").map((line) => JSON.parse(line) as string[]);
+  const starshineArgs = starshineRuns[0];
   const wasmToolsArgs = JSON.parse(fs.readFileSync(wasmToolsLog, "utf8")) as string[];
   const order = fs.readFileSync(orderLog, "utf8").trim().split("\n").filter(Boolean);
   assert(
@@ -169,7 +192,7 @@ process.exit(0);
     `unexpected moon compile args:\n${JSON.stringify(moonArgs, null, 2)}`,
   );
   assert(order[0] === "moon", `expected compile to run first, got order ${JSON.stringify(order)}`);
-  assert(order.includes("starshine"), `expected Starshine invocation in order log ${JSON.stringify(order)}`);
+  assert(order.filter((entry) => entry === "starshine").length === 2, `expected traced and no-trace Starshine invocations in order log ${JSON.stringify(order)}`);
   assert(
     JSON.stringify(wasmToolsArgs) === JSON.stringify(["validate", inputPath]),
     `unexpected wasm-tools args:\n${JSON.stringify(wasmToolsArgs, null, 2)}`,
@@ -182,7 +205,17 @@ process.exit(0);
       path.join(outDir, "starshine.raw.wasm"),
       inputPath,
     ]),
-    `unexpected Starshine args:\n${JSON.stringify(starshineArgs, null, 2)}`,
+    `unexpected traced Starshine args:\n${JSON.stringify(starshineArgs, null, 2)}`,
+  );
+  assert(
+    JSON.stringify(starshineRuns[1]) === JSON.stringify([
+      "--duplicate-function-elimination",
+      "--dead-code-elimination",
+      "--out",
+      path.join(outDir, "starshine.no-trace.wasm"),
+      inputPath,
+    ]),
+    `unexpected no-trace Starshine args:\n${JSON.stringify(starshineRuns[1], null, 2)}`,
   );
 
   const binaryenLogs = fs
@@ -229,6 +262,29 @@ process.exit(0);
     binaryenElapsedMs: number;
     starshineAtLeastAsFast: boolean;
     starshinePassElapsedMs: number;
+    starshineCommandInputElapsedMs: number;
+    starshineCommandKnownElapsedMs: number;
+    starshineCommandUnattributedElapsedMs: number;
+    starshineCommandPhasesMs: {
+      readInput: number;
+      mainPipeline: number;
+      sizePortfolio: number;
+    };
+    starshineOptimizerPipelineElapsedMs: number;
+    starshineOptimizerHotCodeSectionElapsedMs: number;
+    starshineOptimizerHotFunctionElapsedMs: number;
+    starshineOptimizerHotFunctionOverheadMs: number;
+    starshineOptimizerHotPrePassElapsedMs: number;
+    starshineOptimizerHotPostPassElapsedMs: number;
+    starshineOptimizerHotFunctionUnattributedElapsedMs: number;
+    starshineOptimizerHotOuterLoopOverheadMs: number;
+    starshineOptimizerHotCodeSectionOverheadMs: number;
+    starshineOptimizerPipelineUnattributedElapsedMs: number;
+    starshineOptimizerNonPassElapsedMs: number;
+    starshineOutsideInputElapsedMs: number;
+    starshineNoTraceElapsedMs: number;
+    starshineTraceOverheadMs: number;
+    starshineNoTraceOutputEqual: boolean;
     starshinePassSkippedRaw: boolean;
     binaryenPassElapsedMs: number;
     starshinePassAtLeastAsFast: boolean;
@@ -257,6 +313,27 @@ process.exit(0);
   assert(summary.binaryenElapsedMs >= 5, `expected measured Binaryen runtime, got ${summary.binaryenElapsedMs}`);
   assert(summary.starshineAtLeastAsFast === false, "expected Starshine runtime parity flag to report slower");
   assert(summary.starshinePassElapsedMs === 40, `expected parsed Starshine pass runtime, got ${summary.starshinePassElapsedMs}`);
+  assert(summary.starshineCommandInputElapsedMs === 50, `expected input attribution total, got ${summary.starshineCommandInputElapsedMs}`);
+  assert(summary.starshineCommandKnownElapsedMs === 50, `expected known command attribution total, got ${summary.starshineCommandKnownElapsedMs}`);
+  assert(summary.starshineCommandUnattributedElapsedMs === 0, `expected no unattributed input time, got ${summary.starshineCommandUnattributedElapsedMs}`);
+  assert(summary.starshineCommandPhasesMs.readInput === 1, "expected read-input attribution");
+  assert(summary.starshineCommandPhasesMs.mainPipeline === 40, "expected main-pipeline attribution");
+  assert(summary.starshineCommandPhasesMs.sizePortfolio === 2, "expected portfolio attribution");
+  assert(summary.starshineOptimizerPipelineElapsedMs === 40, "expected optimizer pipeline attribution");
+  assert(summary.starshineOptimizerHotCodeSectionElapsedMs === 40, "expected hot code-section attribution");
+  assert(summary.starshineOptimizerHotFunctionElapsedMs === 40, "expected hot function attribution");
+  assert(summary.starshineOptimizerHotFunctionOverheadMs === 0, "expected zero hot function overhead");
+  assert(summary.starshineOptimizerHotPrePassElapsedMs === 0, "expected zero hot pre-pass time");
+  assert(summary.starshineOptimizerHotPostPassElapsedMs === 0, "expected zero hot post-pass time");
+  assert(summary.starshineOptimizerHotFunctionUnattributedElapsedMs === 0, "expected zero unclassified function time");
+  assert(summary.starshineOptimizerHotOuterLoopOverheadMs === 0, "expected zero hot outer-loop overhead");
+  assert(summary.starshineOptimizerHotCodeSectionOverheadMs === 0, "expected zero hot code-section overhead");
+  assert(summary.starshineOptimizerPipelineUnattributedElapsedMs === 0, "expected zero pipeline remainder");
+  assert(summary.starshineOptimizerNonPassElapsedMs === 0, "expected zero optimizer non-pass remainder");
+  assert(summary.starshineOutsideInputElapsedMs >= 0, "expected non-negative process-outside-input time");
+  assert(summary.starshineNoTraceElapsedMs >= 30, "expected measured no-trace runtime");
+  assert(Number.isFinite(summary.starshineTraceOverheadMs), "expected finite trace overhead");
+  assert(summary.starshineNoTraceOutputEqual === true, "expected traced and no-trace outputs to match");
   assert(summary.starshinePassSkippedRaw === false, "expected traced pass run not to report raw skip");
   assert(summary.binaryenPassElapsedMs === 10, `expected parsed Binaryen pass runtime, got ${summary.binaryenPassElapsedMs}`);
   assert(summary.starshinePassAtLeastAsFast === false, "expected Starshine pass parity flag to report slower");
@@ -293,6 +370,22 @@ process.exit(0);
     `expected runtime parity verdict in stdout:\n${result.stdout}`,
   );
   assert(result.stdout.includes("Starshine pass runtime (ms): 40.000"), `expected Starshine pass runtime in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine command input total (ms): 50.000"), `expected command input attribution in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine command main pipeline (ms): 40.000"), `expected main-pipeline attribution in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine command size portfolio (ms): 2.000"), `expected portfolio attribution in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer hot code section (ms): 40.000"), `expected hot code-section attribution in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer hot function total (ms): 40.000"), `expected hot function attribution in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer hot function overhead (ms): 0.000"), `expected hot function overhead in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer hot pre-pass (ms): 0.000"), `expected hot pre-pass attribution in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer hot post-pass (ms): 0.000"), `expected hot post-pass attribution in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer hot function unattributed (ms): 0.000"), `expected unclassified function attribution in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer hot outer-loop overhead (ms): 0.000"), `expected hot outer-loop overhead in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer hot code-section overhead (ms): 0.000"), `expected hot code-section overhead in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer pipeline unattributed (ms): 0.000"), `expected pipeline remainder in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine optimizer non-pass runtime (ms): 0.000"), `expected optimizer remainder in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine no-trace runtime (ms):"), `expected no-trace runtime in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine tracing overhead (ms):"), `expected tracing overhead in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine traced/no-trace output equal: yes"), `expected no-trace output equality in stdout:\n${result.stdout}`);
   assert(result.stdout.includes("Starshine pass skipped raw: no"), `expected raw-skip status in stdout:\n${result.stdout}`);
   assert(result.stdout.includes("Binaryen pass runtime (ms): 10.000"), `expected Binaryen pass runtime in stdout:\n${result.stdout}`);
   assert(

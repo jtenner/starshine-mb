@@ -3625,12 +3625,38 @@ test "run hot pipeline emits perf timing and checkpoint lines while dumps stay o
   assert_true(text.contains("perf:timer name=lift"))
   assert_true(text.contains("perf:timer name=pass:vacuum"))
   assert_true(text.contains("perf:timer name=lower"))
+  assert_true(text.contains("perf:timer name=stage:hot-pass:code-section"))
+  assert_true(text.contains("perf:timer name=stage:hot-pass:function-total"))
+  assert_true(text.contains("perf:timer name=stage:hot-pass:pre-pass"))
+  assert_true(text.contains("perf:timer name=stage:hot-pass:post-pass"))
+  assert_true(text.contains("perf:timer name=stage:hot-pass:module-rebuild"))
   assert_true(text.contains("perf:timer name=guard:vacuum-writeback-batch"))
   assert_false(text.contains("perf:timer name=guard:vacuum-writeback:func"))
   assert_true(text.contains("perf:timer name=validate:final-module"))
   assert_true(text.contains("perf:checkpoint name=verify after lift"))
   assert_true(text.contains("perf:counters label=pipeline:done"))
   assert_false(text.contains("perf:dump"))
+}
+
+///|
+test "run module pipeline emits module-pass stage timing" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 9))",
+      ["strip-debug"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected module-pass perf pipeline success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=pass:strip-debug"))
+  assert_true(text.contains("perf:timer name=stage:module-pass"))
 }
 
 ///|

@@ -17,9 +17,25 @@ import {
   runSelfOptArtifactOptimizerCompare,
   runSelfOptCheck,
 } from "./self-opt-task";
-import { extractPipelinePrintEntryPretties, parseStarshinePerfTimingSummary } from "./self-optimize-compare-task";
+import {
+  extractPipelinePrintEntryPretties,
+  parseSelfOptimizeCompareArgs,
+  parseStarshinePerfTimingSummary,
+} from "./self-optimize-compare-task";
 
 describe("self-optimize compare timing parsing", () => {
+  test("parses opt-in paired traced and no-trace wall attribution", () => {
+    expect(parseSelfOptimizeCompareArgs([
+      "fixture.wasm",
+      "--wall-attribution",
+      "--dead-code-elimination",
+    ])).toMatchObject({ wallAttribution: true });
+    expect(parseSelfOptimizeCompareArgs([
+      "fixture.wasm",
+      "--dead-code-elimination",
+    ])).toMatchObject({ wallAttribution: false });
+  });
+
   test("splits batched pipeline print logs into per-entry pretty text", () => {
     const entries = extractPipelinePrintEntryPretties([
       "Log: module.wasm",
@@ -54,6 +70,71 @@ describe("self-optimize compare timing parsing", () => {
     expect(summary.rawElapsedMs).toBe(61000);
     expect(summary.otherTimedElapsedMs).toBeCloseTo(5.4);
     expect(summary.passSkippedRaw).toBe(true);
+  });
+
+  test("attributes command wall time without double-counting nested optimizer timers", () => {
+    const summary = parseStarshinePerfTimingSummary([
+      "perf:timer name=cmd:input-total elapsed_us=100000 total_us=100000",
+      "perf:timer name=cmd:read-input elapsed_us=1000 total_us=1000",
+      "perf:timer name=cmd:text-lowering elapsed_us=500 total_us=500",
+      "perf:timer name=cmd:decode elapsed_us=10000 total_us=10000",
+      "perf:timer name=cmd:pipeline-setup elapsed_us=100 total_us=100",
+      "perf:timer name=cmd:main-pipeline elapsed_us=50000 total_us=50000",
+      "perf:timer name=cmd:validate:final-module elapsed_us=5000 total_us=5000",
+      "perf:timer name=cmd:reuse-input-check elapsed_us=200 total_us=200",
+      "perf:timer name=cmd:encode elapsed_us=10000 total_us=10000",
+      "perf:timer name=cmd:size-portfolio elapsed_us=15000 total_us=15000",
+      "perf:timer name=cmd:candidate-selection elapsed_us=3000 total_us=3000",
+      "perf:timer name=cmd:write-output elapsed_us=500 total_us=500",
+      "perf:timer name=pipeline elapsed_us=48000 total_us=48000",
+      "perf:timer name=stage:hot-pass:code-section elapsed_us=47000 total_us=47000",
+      "perf:timer name=stage:hot-pass:function-total elapsed_us=45000 total_us=45000",
+      "perf:timer name=stage:hot-pass:pre-pass elapsed_us=0 total_us=1200",
+      "perf:timer name=stage:hot-pass:post-pass elapsed_us=0 total_us=300",
+      "perf:timer name=stage:hot-pass:module-rebuild elapsed_us=500 total_us=500",
+      "perf:timer name=guard:vacuum-writeback-batch elapsed_us=500 total_us=500",
+      "perf:timer name=raw:vacuum-preclean elapsed_us=5000 total_us=5000",
+      "perf:timer name=lift elapsed_us=10000 total_us=10000",
+      "perf:timer name=pass:vacuum elapsed_us=20000 total_us=20000",
+      "perf:timer name=lower elapsed_us=8000 total_us=8000",
+      "perf:timer name=validate:final-module elapsed_us=5000 total_us=5000",
+    ].join("\n"));
+
+    expect(summary.commandInputElapsedMs).toBe(100);
+    expect(summary.commandKnownElapsedMs).toBeCloseTo(95.3);
+    expect(summary.commandUnattributedElapsedMs).toBeCloseTo(4.7);
+    expect(summary.commandPhasesMs).toMatchObject({
+      readInput: 1,
+      textLowering: 0.5,
+      decode: 10,
+      pipelineSetup: 0.1,
+      mainPipeline: 50,
+      finalValidate: 5,
+      reuseInputCheck: 0.2,
+      encode: 10,
+      sizePortfolio: 15,
+      candidateSelection: 3,
+      postEncodeValidate: 0,
+      writeOutput: 0.5,
+    });
+    expect(summary.optimizerPipelineElapsedMs).toBe(48);
+    expect(summary.optimizerPassElapsedMs).toBe(20);
+    expect(summary.optimizerRawElapsedMs).toBe(5);
+    expect(summary.optimizerLiftElapsedMs).toBe(10);
+    expect(summary.optimizerLowerElapsedMs).toBe(8);
+    expect(summary.optimizerHotCodeSectionElapsedMs).toBe(47);
+    expect(summary.optimizerHotFunctionElapsedMs).toBe(45);
+    expect(summary.optimizerHotFunctionOverheadMs).toBe(2);
+    expect(summary.optimizerHotPrePassElapsedMs).toBe(1.2);
+    expect(summary.optimizerHotPostPassElapsedMs).toBe(0.3);
+    expect(summary.optimizerHotFunctionUnattributedElapsedMs).toBe(0.5);
+    expect(summary.optimizerHotOuterLoopOverheadMs).toBe(2);
+    expect(summary.optimizerHotModuleRebuildElapsedMs).toBe(0.5);
+    expect(summary.optimizerWritebackElapsedMs).toBe(0.5);
+    expect(summary.optimizerHotCodeSectionOverheadMs).toBe(4);
+    expect(summary.optimizerPipelineUnattributedElapsedMs).toBe(0);
+    expect(summary.optimizerNonPassElapsedMs).toBe(28);
+    expect(summary.totalTimedElapsedMs).toBe(100);
   });
 });
 

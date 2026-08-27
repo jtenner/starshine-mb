@@ -77898,6 +77898,10 @@ fn run_hot_pipeline_apply_hot_pass(
     descriptor.name == "optimize-instructions"
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let code_section_start_us = perf_start_timer_opt(
+    options.perf,
+    "stage:hot-pass:code-section",
+  )
   let next_code_sec = match mod_.code_sec {
     Some(@lib.CodeSec(defs)) => {
       let mut lowered : Array[@lib.Func]? = None
@@ -77911,6 +77915,7 @@ fn run_hot_pipeline_apply_hot_pass(
       let mut vacuum_mutated_func_trace_count = 0
       let mut rse_raw_changed_count = 0
       let mut rse_raw_no_candidate_count = 0
+      let mut hot_function_total_us = 0UL
       let pass_options = if descriptor.name == "vacuum" {
         {
           verify_policy: options.verify_policy,
@@ -77993,6 +77998,10 @@ fn run_hot_pipeline_apply_hot_pass(
         } else {
           0UL
         }
+        let hot_function_start_us = perf_start_timer_opt(
+          options.perf,
+          "stage:hot-pass:function-total",
+        )
         let result = match
           run_hot_pipeline_func(
             current_mod, func_idx, descriptor, module_state, lower_state, pass_options,
@@ -78000,6 +78009,8 @@ fn run_hot_pipeline_apply_hot_pass(
           Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
         }
+        hot_function_total_us = hot_function_total_us +
+          perf_elapsed_since_start_opt(options.perf, hot_function_start_us)
         if descriptor.name == "redundant-set-elimination" {
           perf_stop_timer_accumulate_opt(
             options.perf,
@@ -78150,6 +78161,13 @@ fn run_hot_pipeline_apply_hot_pass(
           )
         }
       }
+      perf_record_timer_elapsed_opt(
+        options.perf,
+        "stage:hot-pass:function-total",
+        hot_function_total_us,
+      )
+      perf_emit_timer_total_opt(options.perf, "stage:hot-pass:pre-pass")
+      perf_emit_timer_total_opt(options.perf, "stage:hot-pass:post-pass")
       if descriptor.name == "redundant-set-elimination" {
         perf_emit_timer_total_opt(options.perf, "detail:rse:setup")
         perf_emit_timer_total_opt(options.perf, "detail:rse:raw-func")
@@ -78253,6 +78271,15 @@ fn run_hot_pipeline_apply_hot_pass(
     }
     None => None
   }
+  perf_stop_timer_opt(
+    options.perf,
+    "stage:hot-pass:code-section",
+    code_section_start_us,
+  )
+  let module_rebuild_start_us = perf_start_timer_opt(
+    options.perf,
+    "stage:hot-pass:module-rebuild",
+  )
   let rse_module_copy_start_us = if descriptor.name ==
     "redundant-set-elimination" {
     perf_start_timer_opt(options.perf, "detail:rse:module-copy")
@@ -78285,6 +78312,11 @@ fn run_hot_pipeline_apply_hot_pass(
       rse_module_copy_start_us,
     )
   }
+  perf_stop_timer_opt(
+    options.perf,
+    "stage:hot-pass:module-rebuild",
+    module_rebuild_start_us,
+  )
   if defer_this_optimize_instructions_writeback_guard &&
     next_code_sec is Some(_) {
     let batch_guard_start_us = perf_start_timer_opt(
@@ -89167,6 +89199,10 @@ fn run_hot_pipeline_apply_module_pass(
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
   pipeline_trace_hook(options.trace, entry.name, "start")
+  let module_pass_stage_start_us = perf_start_timer_opt(
+    options.perf,
+    "stage:module-pass",
+  )
   let pass_timer_start = perf_start_timer_opt(
     options.perf,
     "pass:\{entry.name}",
@@ -89414,6 +89450,11 @@ fn run_hot_pipeline_apply_module_pass(
       }
     HotPipelineVerifyPolicy::FinalModuleOnly => ()
   }
+  perf_stop_timer_opt(
+    options.perf,
+    "stage:module-pass",
+    module_pass_stage_start_us,
+  )
   pipeline_trace_hook(options.trace, entry.name, "done")
   Ok(next)
 }
@@ -89433,6 +89474,10 @@ fn hot_pass_run_with_aggregate_perf_timer(
   aggregate_perf_timer : ((String, UInt64) -> Unit)?,
 ) -> Result[HotPassResult, String] {
   let descriptor = ctx.descriptor
+  let pre_pass_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "stage:hot-pass:pre-pass",
+  )
   pass_prepare_requirements(ctx, func)
   if descriptor.name != "vacuum" {
     pipeline_trace_hook(ctx.trace, descriptor.name, "start")
@@ -89440,6 +89485,11 @@ fn hot_pass_run_with_aggregate_perf_timer(
   perf_dump_hot_func_opt(ctx.perf, func, "before-pass:\{descriptor.name}")
   let before_snapshot = perf_snapshot_hot_func(func)
   let before_revision = @ir.hot_revision_current(func)
+  perf_stop_timer_accumulate_opt(
+    ctx.perf,
+    "stage:hot-pass:pre-pass",
+    pre_pass_start_us,
+  )
   let pass_timer_start = perf_start_timer_opt(
     ctx.perf,
     "pass:\{descriptor.name}",
@@ -89523,6 +89573,10 @@ fn hot_pass_run_with_aggregate_perf_timer(
     None =>
       perf_stop_timer_opt(ctx.perf, "pass:\{descriptor.name}", pass_timer_start)
   }
+  let post_pass_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "stage:hot-pass:post-pass",
+  )
   match ctx.perf {
     Some(perf) =>
       perf_count_hot_alloc_delta(
@@ -89560,5 +89614,10 @@ fn hot_pass_run_with_aggregate_perf_timer(
       payload="changed=\{result.changed}",
     )
   }
+  perf_stop_timer_accumulate_opt(
+    ctx.perf,
+    "stage:hot-pass:post-pass",
+    post_pass_start_us,
+  )
   Ok(result)
 }

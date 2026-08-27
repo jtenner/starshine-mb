@@ -23,6 +23,7 @@ type SelfOptimizeCompareOptions = {
   requireBinaryenNopConverged: boolean;
   canonicalizeBinaryenOutput: boolean;
   timingOnly: boolean;
+  wallAttribution: boolean;
   passFlags: string[];
 };
 
@@ -51,6 +52,34 @@ type ComparisonSummary = {
   starshineRawElapsedMs: number;
   starshineOtherTimedElapsedMs: number;
   starshineUntimedElapsedMs: number;
+  starshineCommandInputElapsedMs: number;
+  starshineCommandKnownElapsedMs: number;
+  starshineCommandUnattributedElapsedMs: number;
+  starshineCommandPhasesMs: StarshineCommandPhases;
+  starshineOptimizerPipelineElapsedMs: number;
+  starshineOptimizerRawElapsedMs: number;
+  starshineOptimizerLiftElapsedMs: number;
+  starshineOptimizerLowerElapsedMs: number;
+  starshineOptimizerHotCodeSectionElapsedMs: number;
+  starshineOptimizerHotFunctionElapsedMs: number;
+  starshineOptimizerHotFunctionOverheadMs: number;
+  starshineOptimizerHotPrePassElapsedMs: number;
+  starshineOptimizerHotPostPassElapsedMs: number;
+  starshineOptimizerHotFunctionUnattributedElapsedMs: number;
+  starshineOptimizerHotOuterLoopOverheadMs: number;
+  starshineOptimizerHotModuleRebuildElapsedMs: number;
+  starshineOptimizerModulePassElapsedMs: number;
+  starshineOptimizerWritebackElapsedMs: number;
+  starshineOptimizerFinalValidateElapsedMs: number;
+  starshineOptimizerHotCodeSectionOverheadMs: number;
+  starshineOptimizerPipelineUnattributedElapsedMs: number;
+  starshineOptimizerNonPassElapsedMs: number;
+  starshineOutsideInputElapsedMs: number;
+  starshineNoTraceElapsedMs: number | null;
+  starshineTraceOverheadMs: number | null;
+  starshineTraceOverheadRatio: number | null;
+  starshineNoTraceOutputEqual: boolean | null;
+  starshineNoTraceAtLeastAsFast: boolean | null;
   starshinePassSkippedRaw: boolean;
   binaryenPassElapsedMs: number;
   starshinePassAtLeastAsFast: boolean;
@@ -1923,12 +1952,50 @@ function runTimedOrThrow(
   return { ...result, elapsedMs };
 }
 
+export type StarshineCommandPhases = {
+  readInput: number;
+  textLowering: number;
+  decode: number;
+  pipelineSetup: number;
+  mainPipeline: number;
+  finalValidate: number;
+  reuseInputCheck: number;
+  encode: number;
+  sizePortfolio: number;
+  candidateSelection: number;
+  postEncodeValidate: number;
+  writeOutput: number;
+};
+
 export type StarshinePerfTimingSummary = {
   passElapsedMs: number;
   rawElapsedMs: number;
   otherTimedElapsedMs: number;
   totalTimedElapsedMs: number;
   passSkippedRaw: boolean;
+  commandInputElapsedMs: number;
+  commandKnownElapsedMs: number;
+  commandUnattributedElapsedMs: number;
+  commandPhasesMs: StarshineCommandPhases;
+  optimizerPipelineElapsedMs: number;
+  optimizerPassElapsedMs: number;
+  optimizerRawElapsedMs: number;
+  optimizerLiftElapsedMs: number;
+  optimizerLowerElapsedMs: number;
+  optimizerHotCodeSectionElapsedMs: number;
+  optimizerHotFunctionElapsedMs: number;
+  optimizerHotFunctionOverheadMs: number;
+  optimizerHotPrePassElapsedMs: number;
+  optimizerHotPostPassElapsedMs: number;
+  optimizerHotFunctionUnattributedElapsedMs: number;
+  optimizerHotOuterLoopOverheadMs: number;
+  optimizerHotModuleRebuildElapsedMs: number;
+  optimizerModulePassElapsedMs: number;
+  optimizerWritebackElapsedMs: number;
+  optimizerFinalValidateElapsedMs: number;
+  optimizerHotCodeSectionOverheadMs: number;
+  optimizerPipelineUnattributedElapsedMs: number;
+  optimizerNonPassElapsedMs: number;
 };
 
 function sumStarshinePerfTimersMs(stderr: string, predicate: (name: string) => boolean): number {
@@ -1939,6 +2006,18 @@ function sumStarshinePerfTimersMs(stderr: string, predicate: (name: string) => b
     }
   }
   return elapsedUs / 1000;
+}
+
+function latestStarshinePerfTimerTotalMs(stderr: string, timerName: string): number {
+  let totalUs = 0;
+  for (const match of stderr.matchAll(
+    /perf:timer name=([^\s]+) elapsed_us=(\d+) total_us=(\d+)/g,
+  )) {
+    if (match[1] === timerName) {
+      totalUs = Number(match[3]);
+    }
+  }
+  return totalUs / 1000;
 }
 
 export function parseStarshinePassElapsedMs(stderr: string): number {
@@ -1959,14 +2038,158 @@ export function starshinePassSkippedRaw(stderr: string): boolean {
 export function parseStarshinePerfTimingSummary(stderr: string): StarshinePerfTimingSummary {
   const passElapsedMs = parseStarshinePassElapsedMs(stderr);
   const rawElapsedMs = sumStarshinePerfTimersMs(stderr, (name) => name.startsWith("raw:"));
-  const totalTimedElapsedMs = sumStarshinePerfTimersMs(stderr, (name) => name !== "pipeline");
-  const otherTimedElapsedMs = Math.max(0, totalTimedElapsedMs - passElapsedMs - rawElapsedMs);
+  const otherTimedElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) =>
+      name !== "pipeline" &&
+      !name.startsWith("pass:") &&
+      !name.startsWith("raw:") &&
+      !name.startsWith("cmd:") &&
+      !name.startsWith("stage:"),
+  );
+  const commandPhasesMs: StarshineCommandPhases = {
+    readInput: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:read-input"),
+    textLowering: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:text-lowering"),
+    decode: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:decode"),
+    pipelineSetup: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:pipeline-setup"),
+    mainPipeline: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:main-pipeline"),
+    finalValidate: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:validate:final-module"),
+    reuseInputCheck: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:reuse-input-check"),
+    encode: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:encode"),
+    sizePortfolio: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:size-portfolio"),
+    candidateSelection: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:candidate-selection"),
+    postEncodeValidate: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:post-encode-validate"),
+    writeOutput: sumStarshinePerfTimersMs(stderr, (name) => name === "cmd:write-output"),
+  };
+  const commandInputElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name === "cmd:input-total",
+  );
+  const commandKnownElapsedMs = Math.round(
+    Object.values(commandPhasesMs).reduce(
+      (total, elapsedMs) => total + elapsedMs,
+      0,
+    ) * 1_000_000,
+  ) / 1_000_000;
+  const commandUnattributedElapsedMs = Math.round(
+    Math.max(0, commandInputElapsedMs - commandKnownElapsedMs) * 1_000_000,
+  ) / 1_000_000;
+  const optimizerPipelineElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name === "pipeline",
+  );
+  const optimizerLiftElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name === "lift",
+  );
+  const optimizerLowerElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name === "lower",
+  );
+  const optimizerHotCodeSectionElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name === "stage:hot-pass:code-section",
+  );
+  const optimizerHotFunctionElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name === "stage:hot-pass:function-total",
+  );
+  const optimizerHotFunctionOverheadMs = Math.max(
+    0,
+    optimizerHotFunctionElapsedMs -
+      passElapsedMs -
+      rawElapsedMs -
+      optimizerLiftElapsedMs -
+      optimizerLowerElapsedMs,
+  );
+  const optimizerHotPrePassElapsedMs = latestStarshinePerfTimerTotalMs(
+    stderr,
+    "stage:hot-pass:pre-pass",
+  );
+  const optimizerHotPostPassElapsedMs = latestStarshinePerfTimerTotalMs(
+    stderr,
+    "stage:hot-pass:post-pass",
+  );
+  const optimizerHotFunctionUnattributedElapsedMs = Math.max(
+    0,
+    optimizerHotFunctionOverheadMs -
+      optimizerHotPrePassElapsedMs -
+      optimizerHotPostPassElapsedMs,
+  );
+  const optimizerHotOuterLoopOverheadMs = Math.max(
+    0,
+    optimizerHotCodeSectionElapsedMs - optimizerHotFunctionElapsedMs,
+  );
+  const optimizerHotModuleRebuildElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name === "stage:hot-pass:module-rebuild",
+  );
+  const optimizerModulePassElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name === "stage:module-pass",
+  );
+  const optimizerWritebackElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name.startsWith("guard:") && name.endsWith("-writeback-batch"),
+  );
+  const optimizerFinalValidateElapsedMs = sumStarshinePerfTimersMs(
+    stderr,
+    (name) => name === "validate:final-module",
+  );
+  const optimizerHotCodeSectionOverheadMs = Math.max(
+    0,
+    optimizerHotCodeSectionElapsedMs -
+      passElapsedMs -
+      rawElapsedMs -
+      optimizerLiftElapsedMs -
+      optimizerLowerElapsedMs,
+  );
+  const optimizerPipelineUnattributedElapsedMs = Math.max(
+    0,
+    optimizerPipelineElapsedMs -
+      optimizerHotCodeSectionElapsedMs -
+      optimizerHotModuleRebuildElapsedMs -
+      optimizerModulePassElapsedMs -
+      optimizerWritebackElapsedMs -
+      optimizerFinalValidateElapsedMs,
+  );
+  const optimizerNonPassElapsedMs = Math.max(
+    0,
+    optimizerPipelineElapsedMs - passElapsedMs,
+  );
+  const hasCommandInputTimer = /perf:timer name=cmd:input-total elapsed_us=\d+\b/.test(stderr);
+  const totalTimedElapsedMs = hasCommandInputTimer
+    ? commandInputElapsedMs
+    : passElapsedMs + rawElapsedMs + otherTimedElapsedMs;
   return {
     passElapsedMs,
     rawElapsedMs,
     otherTimedElapsedMs,
     totalTimedElapsedMs,
     passSkippedRaw: starshinePassSkippedRaw(stderr),
+    commandInputElapsedMs,
+    commandKnownElapsedMs,
+    commandUnattributedElapsedMs,
+    commandPhasesMs,
+    optimizerPipelineElapsedMs,
+    optimizerPassElapsedMs: passElapsedMs,
+    optimizerRawElapsedMs: rawElapsedMs,
+    optimizerLiftElapsedMs,
+    optimizerLowerElapsedMs,
+    optimizerHotCodeSectionElapsedMs,
+    optimizerHotFunctionElapsedMs,
+    optimizerHotFunctionOverheadMs,
+    optimizerHotPrePassElapsedMs,
+    optimizerHotPostPassElapsedMs,
+    optimizerHotFunctionUnattributedElapsedMs,
+    optimizerHotOuterLoopOverheadMs,
+    optimizerHotModuleRebuildElapsedMs,
+    optimizerModulePassElapsedMs,
+    optimizerWritebackElapsedMs,
+    optimizerFinalValidateElapsedMs,
+    optimizerHotCodeSectionOverheadMs,
+    optimizerPipelineUnattributedElapsedMs,
+    optimizerNonPassElapsedMs,
   };
 }
 
@@ -2132,6 +2355,7 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
   let requireBinaryenNopConverged = false;
   let canonicalizeBinaryenOutput = false;
   let timingOnly = false;
+  let wallAttribution = false;
   const passFlags: string[] = [];
 
   for (let i = 0; i < argv.length; ) {
@@ -2177,6 +2401,10 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
         timingOnly = true;
         i += 1;
         break;
+      case "--wall-attribution":
+        wallAttribution = true;
+        i += 1;
+        break;
       default:
         if (RESERVED_OPTIONS.has(token)) {
           fail(`missing value for ${token}`);
@@ -2220,6 +2448,7 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
     requireBinaryenNopConverged,
     canonicalizeBinaryenOutput,
     timingOnly,
+    wallAttribution,
     passFlags,
   };
 }
@@ -2232,6 +2461,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   const inputPath = resolveRepoPath(repoRoot, options.inputPath);
   const outDir = resolveRepoPath(repoRoot, options.outDir);
   const starshineRawOutputPath = path.join(outDir, "starshine.raw.wasm");
+  const starshineNoTraceOutputPath = path.join(outDir, "starshine.no-trace.wasm");
   const binaryenRawOutputPath = path.join(outDir, "binaryen.raw.wasm");
   const starshineOutputPath = path.join(outDir, "starshine.wasm");
   const binaryenOutputPath = path.join(outDir, "binaryen.wasm");
@@ -2316,6 +2546,45 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   });
   fs.writeFileSync(path.join(outDir, "starshine.stdout.txt"), starshineRun.stdout);
   fs.writeFileSync(path.join(outDir, "starshine.stderr.txt"), starshineRun.stderr);
+  ensureStarshineRawOutputExists(
+    starshineRawOutputPath,
+    [starshineInvocation.command, ...starshineArgs],
+    starshineRun.stderr,
+  );
+  const starshineNoTraceArgs = [
+    ...starshineInvocation.argsPrefix,
+    ...starshinePassFlags,
+    "--out",
+    starshineNoTraceOutputPath,
+    effectiveInputPath,
+  ];
+  let starshineNoTraceRun: ReturnType<typeof runTimedOrThrow> | null = null;
+  if (options.wallAttribution) {
+    const noTraceEnv = { ...process.env };
+    delete noTraceEnv.STARSHINE_TRACING;
+    starshineNoTraceRun = runTimedOrThrow(
+      starshineInvocation.command,
+      starshineNoTraceArgs,
+      {
+        cwd: repoRoot,
+        env: noTraceEnv,
+        stdio: "pipe",
+      },
+    );
+    fs.writeFileSync(
+      path.join(outDir, "starshine.no-trace.stdout.txt"),
+      starshineNoTraceRun.stdout,
+    );
+    fs.writeFileSync(
+      path.join(outDir, "starshine.no-trace.stderr.txt"),
+      starshineNoTraceRun.stderr,
+    );
+    ensureStarshineRawOutputExists(
+      starshineNoTraceOutputPath,
+      [starshineInvocation.command, ...starshineNoTraceArgs],
+      starshineNoTraceRun.stderr,
+    );
+  }
   const binaryenRun = runTimedOrThrow(options.wasmOptBin, binaryenArgs, {
     cwd: repoRoot,
     stdio: "pipe",
@@ -2325,6 +2594,10 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   const starshineTiming = parseStarshinePerfTimingSummary(starshineRun.stderr);
   const starshinePassElapsedMs = starshineTiming.passElapsedMs;
   const starshinePassSkipped = starshineTiming.passSkippedRaw;
+  const starshineOutsideInputElapsedMs = Math.max(
+    0,
+    starshineRun.elapsedMs - starshineTiming.commandInputElapsedMs,
+  );
   const starshineUntimedElapsedMs = Math.max(
     0,
     starshineRun.elapsedMs - starshineTiming.totalTimedElapsedMs,
@@ -2333,12 +2606,23 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenRun.stdout,
     binaryenRun.stderr,
   );
+  const starshineNoTraceElapsedMs = starshineNoTraceRun?.elapsedMs ?? null;
+  const starshineTraceOverheadMs = starshineNoTraceRun === null
+    ? null
+    : starshineRun.elapsedMs - starshineNoTraceRun.elapsedMs;
+  const starshineTraceOverheadRatio = starshineNoTraceRun === null ||
+      starshineNoTraceRun.elapsedMs === 0
+    ? null
+    : starshineRun.elapsedMs / starshineNoTraceRun.elapsedMs;
+  const starshineNoTraceOutputEqual = starshineNoTraceRun === null
+    ? null
+    : fs.readFileSync(starshineRawOutputPath).equals(
+        fs.readFileSync(starshineNoTraceOutputPath),
+      );
+  const starshineNoTraceAtLeastAsFast = starshineNoTraceRun === null
+    ? null
+    : starshineNoTraceRun.elapsedMs <= binaryenRun.elapsedMs;
 
-  ensureStarshineRawOutputExists(
-    starshineRawOutputPath,
-    [starshineInvocation.command, ...starshineArgs],
-    starshineRun.stderr,
-  );
   canonicalizeWasm(options.wasmOptBin, starshineRawOutputPath, starshineOutputPath, repoRoot);
   if (options.canonicalizeBinaryenOutput) {
     canonicalizeWasm(options.wasmOptBin, binaryenRawOutputPath, binaryenOutputPath, repoRoot);
@@ -2428,6 +2712,50 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     starshineRawElapsedMs: starshineTiming.rawElapsedMs,
     starshineOtherTimedElapsedMs: starshineTiming.otherTimedElapsedMs,
     starshineUntimedElapsedMs,
+    starshineCommandInputElapsedMs: starshineTiming.commandInputElapsedMs,
+    starshineCommandKnownElapsedMs: starshineTiming.commandKnownElapsedMs,
+    starshineCommandUnattributedElapsedMs:
+      starshineTiming.commandUnattributedElapsedMs,
+    starshineCommandPhasesMs: starshineTiming.commandPhasesMs,
+    starshineOptimizerPipelineElapsedMs:
+      starshineTiming.optimizerPipelineElapsedMs,
+    starshineOptimizerRawElapsedMs: starshineTiming.optimizerRawElapsedMs,
+    starshineOptimizerLiftElapsedMs: starshineTiming.optimizerLiftElapsedMs,
+    starshineOptimizerLowerElapsedMs: starshineTiming.optimizerLowerElapsedMs,
+    starshineOptimizerHotCodeSectionElapsedMs:
+      starshineTiming.optimizerHotCodeSectionElapsedMs,
+    starshineOptimizerHotFunctionElapsedMs:
+      starshineTiming.optimizerHotFunctionElapsedMs,
+    starshineOptimizerHotFunctionOverheadMs:
+      starshineTiming.optimizerHotFunctionOverheadMs,
+    starshineOptimizerHotPrePassElapsedMs:
+      starshineTiming.optimizerHotPrePassElapsedMs,
+    starshineOptimizerHotPostPassElapsedMs:
+      starshineTiming.optimizerHotPostPassElapsedMs,
+    starshineOptimizerHotFunctionUnattributedElapsedMs:
+      starshineTiming.optimizerHotFunctionUnattributedElapsedMs,
+    starshineOptimizerHotOuterLoopOverheadMs:
+      starshineTiming.optimizerHotOuterLoopOverheadMs,
+    starshineOptimizerHotModuleRebuildElapsedMs:
+      starshineTiming.optimizerHotModuleRebuildElapsedMs,
+    starshineOptimizerModulePassElapsedMs:
+      starshineTiming.optimizerModulePassElapsedMs,
+    starshineOptimizerWritebackElapsedMs:
+      starshineTiming.optimizerWritebackElapsedMs,
+    starshineOptimizerFinalValidateElapsedMs:
+      starshineTiming.optimizerFinalValidateElapsedMs,
+    starshineOptimizerHotCodeSectionOverheadMs:
+      starshineTiming.optimizerHotCodeSectionOverheadMs,
+    starshineOptimizerPipelineUnattributedElapsedMs:
+      starshineTiming.optimizerPipelineUnattributedElapsedMs,
+    starshineOptimizerNonPassElapsedMs:
+      starshineTiming.optimizerNonPassElapsedMs,
+    starshineOutsideInputElapsedMs,
+    starshineNoTraceElapsedMs,
+    starshineTraceOverheadMs,
+    starshineTraceOverheadRatio,
+    starshineNoTraceOutputEqual,
+    starshineNoTraceAtLeastAsFast,
     starshinePassSkippedRaw: starshinePassSkipped,
     binaryenPassElapsedMs,
     starshinePassAtLeastAsFast: starshinePassElapsedMs <= binaryenPassElapsedMs,
@@ -2443,6 +2771,9 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     [
       ...binaryenNopCommands.map((command, index) => `binaryen-nop-${index + 1}: ${command.join(" ")}`),
       `starshine: ${summary.starshineCommand.join(" ")}`,
+      ...(options.wallAttribution
+        ? [`starshine-no-trace: ${[starshineInvocation.command, ...starshineNoTraceArgs].join(" ")}`]
+        : []),
       `binaryen: ${summary.binaryenCommand.join(" ")}`,
     ].join("\n") + "\n",
   );
@@ -2479,6 +2810,47 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Starshine pass runtime (ms): ${summary.starshinePassElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine raw runtime (ms): ${summary.starshineRawElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine other traced runtime (ms): ${summary.starshineOtherTimedElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command input total (ms): ${summary.starshineCommandInputElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command known phases (ms): ${summary.starshineCommandKnownElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command unattributed inside input (ms): ${summary.starshineCommandUnattributedElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command read input (ms): ${summary.starshineCommandPhasesMs.readInput.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command text lowering (ms): ${summary.starshineCommandPhasesMs.textLowering.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command decode (ms): ${summary.starshineCommandPhasesMs.decode.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command pipeline setup (ms): ${summary.starshineCommandPhasesMs.pipelineSetup.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command main pipeline (ms): ${summary.starshineCommandPhasesMs.mainPipeline.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command final validation (ms): ${summary.starshineCommandPhasesMs.finalValidate.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command reuse check (ms): ${summary.starshineCommandPhasesMs.reuseInputCheck.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command encode (ms): ${summary.starshineCommandPhasesMs.encode.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command size portfolio (ms): ${summary.starshineCommandPhasesMs.sizePortfolio.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command candidate selection (ms): ${summary.starshineCommandPhasesMs.candidateSelection.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command post-encode validation (ms): ${summary.starshineCommandPhasesMs.postEncodeValidate.toFixed(3)}\n`);
+  process.stdout.write(`Starshine command write output (ms): ${summary.starshineCommandPhasesMs.writeOutput.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer pipeline runtime (ms): ${summary.starshineOptimizerPipelineElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer raw runtime (ms): ${summary.starshineOptimizerRawElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer lift runtime (ms): ${summary.starshineOptimizerLiftElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer lower runtime (ms): ${summary.starshineOptimizerLowerElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer hot code section (ms): ${summary.starshineOptimizerHotCodeSectionElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer hot function total (ms): ${summary.starshineOptimizerHotFunctionElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer hot function overhead (ms): ${summary.starshineOptimizerHotFunctionOverheadMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer hot pre-pass (ms): ${summary.starshineOptimizerHotPrePassElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer hot post-pass (ms): ${summary.starshineOptimizerHotPostPassElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer hot function unattributed (ms): ${summary.starshineOptimizerHotFunctionUnattributedElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer hot outer-loop overhead (ms): ${summary.starshineOptimizerHotOuterLoopOverheadMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer hot module rebuild (ms): ${summary.starshineOptimizerHotModuleRebuildElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer module pass stage (ms): ${summary.starshineOptimizerModulePassElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer writeback stage (ms): ${summary.starshineOptimizerWritebackElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer final validation (ms): ${summary.starshineOptimizerFinalValidateElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer hot code-section overhead (ms): ${summary.starshineOptimizerHotCodeSectionOverheadMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer pipeline unattributed (ms): ${summary.starshineOptimizerPipelineUnattributedElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine optimizer non-pass runtime (ms): ${summary.starshineOptimizerNonPassElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine process outside input (ms): ${summary.starshineOutsideInputElapsedMs.toFixed(3)}\n`);
+  if (summary.starshineNoTraceElapsedMs !== null) {
+    process.stdout.write(`Starshine no-trace runtime (ms): ${summary.starshineNoTraceElapsedMs.toFixed(3)}\n`);
+    process.stdout.write(`Starshine tracing overhead (ms): ${summary.starshineTraceOverheadMs!.toFixed(3)}\n`);
+    process.stdout.write(`Starshine tracing overhead ratio: ${summary.starshineTraceOverheadRatio!.toFixed(4)}\n`);
+    process.stdout.write(`Starshine traced/no-trace output equal: ${summary.starshineNoTraceOutputEqual ? "yes" : "no"}\n`);
+    process.stdout.write(`Starshine no-trace at least as fast: ${summary.starshineNoTraceAtLeastAsFast ? "yes" : "no"}\n`);
+  }
   process.stdout.write(`Starshine untraced/runtime overhead (ms): ${summary.starshineUntimedElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine pass skipped raw: ${summary.starshinePassSkippedRaw ? "yes" : "no"}\n`);
   process.stdout.write(`Binaryen pass runtime (ms): ${summary.binaryenPassElapsedMs.toFixed(3)}\n`);

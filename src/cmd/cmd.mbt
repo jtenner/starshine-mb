@@ -5184,6 +5184,7 @@ pub fn run_cmd_with_adapter(
   let output_files : Array[String] = []
 
   for input_path in input_files {
+    let input_total_start_us = cmd_trace_timer_start(trace_optimize)
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:start")
     let format = match merged.input_format {
       Some(format) => format
@@ -5206,6 +5207,7 @@ pub fn run_cmd_with_adapter(
       "input \{input_path}:read bytes=\{raw_bytes.length()}",
     )
 
+    let text_lowering_start_us = cmd_trace_timer_start(trace_optimize)
     let wasm_bytes = match format {
       Wasm => raw_bytes
       Wat | Wast =>
@@ -5215,6 +5217,9 @@ pub fn run_cmd_with_adapter(
           Err(e) => return Err(e)
         }
     }
+    cmd_trace_timer_stop(
+      io, trace_optimize, "text-lowering", text_lowering_start_us,
+    )
     cmd_trace_emit(
       io,
       trace_optimize,
@@ -5242,6 +5247,9 @@ pub fn run_cmd_with_adapter(
         Err(err) => return Err(err)
       }
       cmd_trace_emit(io, trace_optimize, "input \{input_path}:copy-noop:done")
+      cmd_trace_timer_stop(
+        io, trace_optimize, "input-total", input_total_start_us,
+      )
       continue
     }
 
@@ -5253,11 +5261,15 @@ pub fn run_cmd_with_adapter(
     cmd_trace_timer_stop(io, trace_optimize, "decode", decode_start_us)
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
 
+    let pipeline_setup_start_us = cmd_trace_timer_start(trace_optimize)
     let pipeline_steps = match cmd_resolve_pipeline_steps(resolved_passes) {
       Ok(steps) => steps
       Err(err) => return Err(err)
     }
     let effective_pass_count = cmd_pipeline_step_optimize_count(pipeline_steps)
+    cmd_trace_timer_stop(
+      io, trace_optimize, "pipeline-setup", pipeline_setup_start_us,
+    )
     match max_passes {
       Some(limit) =>
         cmd_trace_emit(
@@ -5273,6 +5285,7 @@ pub fn run_cmd_with_adapter(
       "input \{input_path}:pass_count=\{effective_pass_count} optimize:start",
     )
 
+    let main_pipeline_start_us = cmd_trace_timer_start(trace_optimize)
     let pending_passes : Array[String] = []
     let mut optimized = mod
     let mut print_log_entries = 0
@@ -5402,6 +5415,9 @@ pub fn run_cmd_with_adapter(
       Ok(out) => out
       Err(err) => return Err(err)
     }
+    cmd_trace_timer_stop(
+      io, trace_optimize, "main-pipeline", main_pipeline_start_us,
+    )
     cmd_trace_emit(
       io,
       trace_optimize,
@@ -5446,6 +5462,7 @@ pub fn run_cmd_with_adapter(
       cmd_trace_timer_stop(io, trace_optimize, "encode", encode_start_us)
       encoded
     }
+    let size_portfolio_start_us = cmd_trace_timer_start(trace_optimize)
     let size_portfolio_enabled = cmd_o4z_size_portfolio_enabled(
       format, optimize_level, shrink_level, resolved_passes,
     )
@@ -6325,6 +6342,10 @@ pub fn run_cmd_with_adapter(
         _ => ()
       }
     }
+    cmd_trace_timer_stop(
+      io, trace_optimize, "size-portfolio", size_portfolio_start_us,
+    )
+    let candidate_selection_start_us = cmd_trace_timer_start(trace_optimize)
     for candidate in portfolio_candidates {
       cmd_trace_emit(
         io,
@@ -6348,11 +6369,15 @@ pub fn run_cmd_with_adapter(
       Ok(mod_) => mod_
       Err(_) => optimized
     }
+    cmd_trace_timer_stop(
+      io, trace_optimize, "candidate-selection", candidate_selection_start_us,
+    )
     cmd_trace_emit(
       io,
       trace_optimize,
       "input \{input_path}:encode bytes=\{out_bytes.length()} candidate=\{selected_candidate}",
     )
+    let post_encode_validate_start_us = cmd_trace_timer_start(trace_optimize)
     if should_validate_encoded_module_after_encode(merged.debug_serial_passes) {
       cmd_trace_emit(
         io,
@@ -6382,6 +6407,9 @@ pub fn run_cmd_with_adapter(
         "input \{input_path}:post-encode-validate:done",
       )
     }
+    cmd_trace_timer_stop(
+      io, trace_optimize, "post-encode-validate", post_encode_validate_start_us,
+    )
 
     let write_start_us = cmd_trace_timer_start(trace_optimize)
     match
@@ -6398,6 +6426,9 @@ pub fn run_cmd_with_adapter(
       Err(err) => return Err(err)
     }
     cmd_trace_timer_stop(io, trace_optimize, "write-output", write_start_us)
+    cmd_trace_timer_stop(
+      io, trace_optimize, "input-total", input_total_start_us,
+    )
   }
 
   Ok(
