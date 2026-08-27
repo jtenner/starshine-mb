@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-27
 sources:
   - ../../../src/cmd/cmd.mbt
   - ../../../src/passes/perf.mbt
@@ -9,6 +9,7 @@ sources:
   - ../../../src/validate/validate.mbt
   - ../../../src/lib/util.mbt
   - ../../../scripts/lib/validate-task.ts
+  - ../../../scripts/lib/self-optimize-compare-task.ts
 related:
   - ./cli-command-and-dispatcher.md
   - ./validation-gates.md
@@ -74,6 +75,31 @@ perf:dump cfg label=<label> entry=<id> exit=<id> exceptional=<id-or-> blocks=<n>
 ```
 
 Timer lines are the pass-local timing source parsed by self-opt and compare tooling. Counter and dump lines are investigation aids; do not turn them into broad CI failure criteria without a focused contract.
+
+### Paired wall-time attribution
+
+Use the direct comparison tool's opt-in paired mode for `[WALL]001` work:
+
+```text
+bun scripts/self-optimize-compare.ts <input.wasm> \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt \
+  --timing-only --wall-attribution --<pass>
+```
+
+The tool runs one traced Starshine process, one no-trace Starshine control, and Binaryen `--debug`; it records process wall time, verifies that traced and no-trace Starshine outputs are byte-identical, and reports signed tracing overhead instead of charging trace emission to optimizer work. Use one warmup plus three serial measured pairs for durable medians.
+
+The attribution hierarchy is nested. **Do not sum parents and children together.** The useful boundaries are:
+
+- process wall time contains process startup plus all input work;
+- `cmd:input-total` contains exclusive command phases: read, text lowering, decode, pipeline setup, main pipeline, final validation, reuse check, encode, size portfolio, candidate selection, optional post-encode validation, and write;
+- `cmd:main-pipeline` contains optimizer `pipeline` plus only a small command-dispatch remainder;
+- optimizer `pipeline` contains hot code sections, module-pass stages, module rebuild, batch writeback, optional optimizer-owned final validation, and a residual scheduler bucket;
+- `stage:hot-pass:code-section` contains `stage:hot-pass:function-total` plus outer-loop scheduling/result handling;
+- `stage:hot-pass:function-total` contains raw admission, lift, `pass:<name>`, lower, pre-pass setup, post-pass bookkeeping, and the remaining unclassified function envelope;
+- `stage:module-pass` owns successful module-pass execution including its pass-local timer and post-pass verification.
+
+Aggregate `stage:hot-pass:pre-pass` and `stage:hot-pass:post-pass` lines use cumulative `total_us`; the parser consumes the latest total rather than summing repeated cumulative lines. Disabled tracing still avoids clock reads because command and optimizer timer starts remain behind existing trace/perf gates.
 
 ## Validator Trace Benchmark Surface
 
