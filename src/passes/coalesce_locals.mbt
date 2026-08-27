@@ -1610,7 +1610,7 @@ fn cl_rewrite_func_structured_conservative(
   // branch-aware effective-write facts when rewriting structured cleanup so one
   // arm's live side-carrier write is not dropped by a sibling arm's later write
   // in flattened action order.
-  let rewrite_liveness = cl_compute_structured_liveness(
+  let (rewrite_liveness, structured_write_hazards, _) = cl_compute_structured_liveness_with_write_hazards(
     original_instrs, actions, total_locals,
   )
   let interferences = cl_compute_interferences(
@@ -1640,10 +1640,8 @@ fn cl_rewrite_func_structured_conservative(
     interferences,
     weights,
   )
-  cl_add_source_write_dest_read_interferences(
-    original_instrs,
-    actions,
-    rewrite_liveness.effective,
+  cl_add_structured_write_live_interferences(
+    structured_write_hazards,
     types,
     params.length(),
     interferences,
@@ -1924,6 +1922,8 @@ fn cl_mark_structured_liveness_backward(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   effective : Array[Bool],
+  write_live_hazards : Array[Array[Bool]],
+  visited_actions : Array[Int],
   live_after : Array[Bool],
   label_lives : Array[Array[Bool]],
   action_cursor : Array[Int],
@@ -1942,6 +1942,8 @@ fn cl_mark_structured_liveness_backward(
           body,
           actions,
           effective,
+          write_live_hazards,
+          visited_actions,
           live,
           cl_push_label_live(live, label_lives),
           action_cursor,
@@ -1957,6 +1959,8 @@ fn cl_mark_structured_liveness_backward(
               body,
               actions,
               effective,
+              write_live_hazards,
+              visited_actions,
               live_after_if.copy(),
               child_label_lives,
               action_cursor,
@@ -1964,7 +1968,8 @@ fn cl_mark_structured_liveness_backward(
           None => live_after_if.copy()
         }
         let then_live = cl_mark_structured_liveness_backward(
-          then_body, actions, effective, live_after_if, child_label_lives, action_cursor,
+          then_body, actions, effective, write_live_hazards, visited_actions, live_after_if,
+          child_label_lives, action_cursor,
         )
         let merged_live = cl_union_live(then_live, else_live)
         cl_replace_live(live, merged_live)
@@ -1974,6 +1979,8 @@ fn cl_mark_structured_liveness_backward(
           body,
           actions,
           effective,
+          write_live_hazards,
+          visited_actions,
           live,
           cl_push_label_live(live, label_lives),
           action_cursor,
@@ -1985,6 +1992,8 @@ fn cl_mark_structured_liveness_backward(
           body,
           actions,
           effective,
+          write_live_hazards,
+          visited_actions,
           live,
           cl_push_label_live(live, label_lives),
           action_cursor,
@@ -1994,12 +2003,25 @@ fn cl_mark_structured_liveness_backward(
       @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.LocalTee(_) => {
         let action_idx = action_cursor[0]
         if action_idx >= 0 && action_idx < actions.length() {
+          visited_actions[0] += 1
           let action = actions[action_idx]
           match action.kind {
             CLActionKind::Get => live[action.local_idx] = true
             CLActionKind::Set | CLActionKind::Tee => {
               if live[action.local_idx] {
                 effective[action_idx] = true
+                let copied_dest = match action.source {
+                  CLValueSource::Local(local_idx) => local_idx
+                  _ => -1
+                }
+                for other = 0; other < live.length(); other = other + 1 {
+                  if other != action.local_idx &&
+                    other != copied_dest &&
+                    live[other] {
+                    write_live_hazards[action.local_idx][other] = true
+                    write_live_hazards[other][action.local_idx] = true
+                  }
+                }
               }
               live[action.local_idx] = false
             }
@@ -2035,22 +2057,29 @@ fn cl_mark_structured_liveness_backward(
 }
 
 ///|
-fn cl_compute_structured_liveness(
+fn cl_compute_structured_liveness_with_write_hazards(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   total_locals : Int,
-) -> CLLiveness {
+) -> (CLLiveness, Array[Array[Bool]], Int) {
   let effective = Array::make(actions.length(), false)
+  let write_live_hazards : Array[Array[Bool]] = []
+  for _ in 0..<total_locals {
+    write_live_hazards.push(Array::make(total_locals, false))
+  }
   let live_after = Array::make(total_locals, false)
+  let visited_actions = [0]
   let live_at_entry = cl_mark_structured_liveness_backward(
     instrs,
     actions,
     effective,
+    write_live_hazards,
+    visited_actions,
     live_after,
     [],
     [actions.length() - 1],
   )
-  { effective, live_at_entry }
+  ({ effective, live_at_entry }, write_live_hazards, visited_actions[0])
 }
 
 ///|
@@ -2229,6 +2258,58 @@ fn cl_copy_forward_pair_safe(
 }
 
 ///|
+fn cl_copy_weight_adjacency(weights : Array[Array[Int]]) -> Array[Array[Int]] {
+  let adjacency : Array[Array[Int]] = []
+  for _ in 0..<weights.length() {
+    adjacency.push([])
+  }
+  for lhs = 0; lhs < weights.length(); lhs = lhs + 1 {
+    for rhs = lhs + 1; rhs < weights.length(); rhs = rhs + 1 {
+      if weights[lhs][rhs] > 0 {
+        adjacency[lhs].push(rhs)
+        adjacency[rhs].push(lhs)
+      }
+    }
+  }
+  adjacency
+}
+
+///|
+fn cl_copy_weight_reachable_destinations_from_adjacency(
+  adjacency : Array[Array[Int]],
+  source : Int,
+  depth : Int,
+) -> (Array[Bool], Int) {
+  let reachable = Array::make(adjacency.length(), false)
+  if source < 0 || source >= adjacency.length() || depth <= 0 {
+    return (reachable, 0)
+  }
+  let pending_locals : Array[Int] = [source]
+  let pending_depths : Array[Int] = [0]
+  reachable[source] = true
+  let mut cursor = 0
+  let mut visited_edges = 0
+  while cursor < pending_locals.length() {
+    let current = pending_locals[cursor]
+    let current_depth = pending_depths[cursor]
+    cursor += 1
+    if current_depth >= depth {
+      continue
+    }
+    for next in adjacency[current] {
+      visited_edges += 1
+      if !reachable[next] {
+        reachable[next] = true
+        pending_locals.push(next)
+        pending_depths.push(current_depth + 1)
+      }
+    }
+  }
+  reachable[source] = false
+  (reachable, visited_edges)
+}
+
+///|
 fn cl_copy_weight_reaches(
   weights : Array[Array[Int]],
   source : Int,
@@ -2376,17 +2457,54 @@ fn cl_remove_safe_copy_forward_interferences(
   interferences : Array[Array[Bool]],
   weights : Array[Array[Int]],
 ) -> Unit {
+  let adjacency = cl_copy_weight_adjacency(weights)
   for source = param_count; source < types.length(); source = source + 1 {
+    if adjacency[source].length() == 0 {
+      continue
+    }
+    let (reachable, _) = cl_copy_weight_reachable_destinations_from_adjacency(
+      adjacency, source, 4,
+    )
     for dest = 0; dest < types.length(); dest = dest + 1 {
-      if source != dest &&
+      if reachable[dest] &&
         types[source] == types[dest] &&
-        cl_copy_weight_reaches(weights, source, dest, 4) &&
         cl_copy_forward_pair_safe(instrs, source, dest) {
         interferences[source][dest] = false
         interferences[dest][source] = false
       }
     }
   }
+}
+
+///|
+fn cl_pair_forward_scans_have_global_barrier(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) | @lib.Return =>
+        return true
+      @lib.Loop(_, _) | @lib.TryTable(_, _, _) => return true
+      @lib.Block(_, @lib.Expr(body)) =>
+        if cl_pair_forward_scans_have_global_barrier(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_pair_forward_scans_have_global_barrier(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if cl_pair_forward_scans_have_global_barrier(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -2602,6 +2720,7 @@ fn cl_mark_source_write_dest_read_hazards(
   instrs : Array[@lib.Instruction],
   effective : Array[Bool],
   source : Int,
+  candidate_dests : Array[Int],
   may_clobber : Array[Bool],
   hazards : Array[Bool],
   action_cursor : Array[Int],
@@ -2630,8 +2749,8 @@ fn cl_mark_source_write_dest_read_hazards(
             } else {
               -1
             }
-            for dest = 0; dest < may_clobber.length(); dest = dest + 1 {
-              may_clobber[dest] = dest != source && dest != copied_dest
+            for dest in candidate_dests {
+              may_clobber[dest] = dest != copied_dest
             }
           } else if local_id >= 0 && local_id < may_clobber.length() {
             may_clobber[local_id] = false
@@ -2640,29 +2759,29 @@ fn cl_mark_source_write_dest_read_hazards(
       }
       @lib.Block(_, @lib.Expr(body)) =>
         cl_mark_source_write_dest_read_hazards(
-          body, effective, source, may_clobber, hazards, action_cursor,
+          body, effective, source, candidate_dests, may_clobber, hazards, action_cursor,
         )
       @lib.If(_, then_body, else_body) => {
         let incoming = may_clobber.copy()
         let then_state = incoming.copy()
         cl_mark_source_write_dest_read_hazards(
-          then_body, effective, source, then_state, hazards, action_cursor,
+          then_body, effective, source, candidate_dests, then_state, hazards, action_cursor,
         )
         let else_state = incoming
         match else_body {
           Some(body) =>
             cl_mark_source_write_dest_read_hazards(
-              body, effective, source, else_state, hazards, action_cursor,
+              body, effective, source, candidate_dests, else_state, hazards, action_cursor,
             )
           None => ()
         }
-        for dest = 0; dest < may_clobber.length(); dest = dest + 1 {
+        for dest in candidate_dests {
           may_clobber[dest] = then_state[dest] || else_state[dest]
         }
       }
       @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) => {
         cl_skip_source_write_dest_read_actions(body, effective, action_cursor)
-        for dest = 0; dest < may_clobber.length(); dest = dest + 1 {
+        for dest in candidate_dests {
           if may_clobber[dest] {
             hazards[dest] = true
             may_clobber[dest] = false
@@ -2670,14 +2789,14 @@ fn cl_mark_source_write_dest_read_hazards(
         }
       }
       @lib.BrIf(_) | @lib.BrTable(_, _) =>
-        for dest = 0; dest < may_clobber.length(); dest = dest + 1 {
+        for dest in candidate_dests {
           if may_clobber[dest] {
             hazards[dest] = true
             may_clobber[dest] = false
           }
         }
       @lib.Br(_) | @lib.Return =>
-        for dest = 0; dest < may_clobber.length(); dest = dest + 1 {
+        for dest in candidate_dests {
           may_clobber[dest] = false
         }
       _ => ()
@@ -2690,6 +2809,7 @@ fn cl_source_write_dest_read_hazards(
   instrs : Array[@lib.Instruction],
   effective : Array[Bool],
   source : Int,
+  candidate_dests : Array[Int],
   total_locals : Int,
 ) -> Array[Bool] {
   let hazards = Array::make(total_locals, false)
@@ -2697,11 +2817,32 @@ fn cl_source_write_dest_read_hazards(
     instrs,
     effective,
     source,
+    candidate_dests,
     Array::make(total_locals, false),
     hazards,
     [0],
   )
   hazards
+}
+
+///|
+fn cl_add_structured_write_live_interferences(
+  write_live_hazards : Array[Array[Bool]],
+  types : Array[@lib.ValType],
+  param_count : Int,
+  interferences : Array[Array[Bool]],
+) -> Unit {
+  for source = param_count; source < types.length(); source = source + 1 {
+    for dest = 0; dest < types.length(); dest = dest + 1 {
+      if source != dest &&
+        source < write_live_hazards.length() &&
+        dest < write_live_hazards[source].length() &&
+        write_live_hazards[source][dest] &&
+        types[source] == types[dest] {
+        cl_add_interference(interferences, source, dest)
+      }
+    }
+  }
 }
 
 ///|
@@ -2771,6 +2912,37 @@ fn cl_source_write_dest_read_active_flags(
 }
 
 ///|
+fn cl_source_write_dest_read_candidate_dests(
+  source : Int,
+  readers : Array[Bool],
+  types : Array[@lib.ValType],
+  interferences : Array[Array[Bool]],
+  first_effective_write : Array[Int],
+  latest_get : Array[Int],
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  if source < 0 || source >= types.length() || source >= interferences.length() {
+    return candidates
+  }
+  if source >= first_effective_write.length() ||
+    first_effective_write[source] < 0 {
+    return candidates
+  }
+  for dest = 0; dest < types.length(); dest = dest + 1 {
+    if source != dest &&
+      dest < readers.length() &&
+      dest < latest_get.length() &&
+      readers[dest] &&
+      latest_get[dest] > first_effective_write[source] &&
+      types[source] == types[dest] &&
+      !interferences[source][dest] {
+      candidates.push(dest)
+    }
+  }
+  candidates
+}
+
+///|
 fn cl_add_source_write_dest_read_interferences(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
@@ -2784,21 +2956,38 @@ fn cl_add_source_write_dest_read_interferences(
     effective,
     types.length(),
   )
+  let first_effective_write = Array::make(types.length(), -1)
+  let latest_get = Array::make(types.length(), -1)
+  for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
+    let action = actions[action_idx]
+    match action.kind {
+      CLActionKind::Get => latest_get[action.local_idx] = action_idx
+      CLActionKind::Set | CLActionKind::Tee =>
+        if cl_action_is_effective(effective, action_idx) &&
+          first_effective_write[action.local_idx] < 0 {
+          first_effective_write[action.local_idx] = action_idx
+        }
+    }
+  }
   for source = param_count; source < types.length(); source = source + 1 {
     if !writers[source] {
+      continue
+    }
+    let candidate_dests = cl_source_write_dest_read_candidate_dests(
+      source, readers, types, interferences, first_effective_write, latest_get,
+    )
+    if candidate_dests.length() == 0 {
       continue
     }
     let hazards = cl_source_write_dest_read_hazards(
       instrs,
       effective,
       source,
+      candidate_dests,
       types.length(),
     )
-    for dest = 0; dest < types.length(); dest = dest + 1 {
-      if source != dest &&
-        readers[dest] &&
-        types[source] == types[dest] &&
-        hazards[dest] {
+    for dest in candidate_dests {
+      if hazards[dest] {
         cl_add_interference(interferences, source, dest)
       }
     }
@@ -2839,65 +3028,85 @@ fn cl_collect_action_depths(
 }
 
 ///|
-fn cl_tail_reuse_pair_safe(
+priv struct CLTailReuseFacts {
+  last_get : Array[Int]
+  first_effective_write : Array[Int]
+  source_safe : Array[Bool]
+  source_read_after_write : Array[Bool]
+}
+
+///|
+fn cl_tail_reuse_facts_with_visits(
   actions : Array[CLAction],
   effective : Array[Bool],
   depths : Array[Int],
+  total_locals : Int,
+) -> (CLTailReuseFacts, Int) {
+  let last_get = Array::make(total_locals, -1)
+  let first_effective_write = Array::make(total_locals, -1)
+  let source_safe = Array::make(total_locals, true)
+  let source_read_after_write = Array::make(total_locals, false)
+  let mut visited_actions = 0
+  for idx = 0; idx < actions.length(); idx = idx + 1 {
+    visited_actions += 1
+    let action = actions[idx]
+    if action.local_idx < 0 || action.local_idx >= total_locals {
+      continue
+    }
+    match action.kind {
+      CLActionKind::Get => last_get[action.local_idx] = idx
+      CLActionKind::Set | CLActionKind::Tee =>
+        if cl_action_is_effective(effective, idx) &&
+          first_effective_write[action.local_idx] < 0 {
+          first_effective_write[action.local_idx] = idx
+        }
+    }
+  }
+  for idx = 0; idx < actions.length(); idx = idx + 1 {
+    visited_actions += 1
+    let action = actions[idx]
+    let local_idx = action.local_idx
+    if local_idx < 0 || local_idx >= total_locals {
+      continue
+    }
+    let first_write = first_effective_write[local_idx]
+    match action.kind {
+      CLActionKind::Get =>
+        if first_write < 0 || idx < first_write {
+          source_safe[local_idx] = false
+        } else if idx > first_write {
+          source_read_after_write[local_idx] = true
+          if idx >= depths.length() || depths[idx] != 0 {
+            source_safe[local_idx] = false
+          }
+        }
+      CLActionKind::Set | CLActionKind::Tee =>
+        if cl_action_is_effective(effective, idx) &&
+          (idx >= depths.length() || depths[idx] != 0) {
+          source_safe[local_idx] = false
+        }
+    }
+  }
+  (
+    { last_get, first_effective_write, source_safe, source_read_after_write },
+    visited_actions,
+  )
+}
+
+///|
+fn cl_tail_reuse_pair_safe_from_facts(
+  facts : CLTailReuseFacts,
   source : Int,
   dest : Int,
 ) -> Bool {
-  let mut last_dest_get = -1
-  let mut first_effective_source_write = -1
-  for idx = 0; idx < actions.length(); idx = idx + 1 {
-    let action = actions[idx]
-    if action.local_idx == dest {
-      match action.kind {
-        CLActionKind::Get => last_dest_get = idx
-        _ => ()
-      }
-    }
-    if action.local_idx == source && cl_action_is_effective(effective, idx) {
-      match action.kind {
-        CLActionKind::Set | CLActionKind::Tee =>
-          if first_effective_source_write < 0 {
-            first_effective_source_write = idx
-          }
-        _ => ()
-      }
-    }
-  }
-  if last_dest_get < 0 || first_effective_source_write <= last_dest_get {
-    return false
-  }
-  let mut saw_source_read_after_write = false
-  for idx = 0; idx < actions.length(); idx = idx + 1 {
-    let action = actions[idx]
-    if action.local_idx == source {
-      match action.kind {
-        CLActionKind::Get => {
-          if idx < first_effective_source_write {
-            return false
-          }
-          if idx > first_effective_source_write {
-            saw_source_read_after_write = true
-            if idx >= depths.length() || depths[idx] != 0 {
-              return false
-            }
-          }
-        }
-        CLActionKind::Set | CLActionKind::Tee =>
-          if cl_action_is_effective(effective, idx) {
-            if idx < first_effective_source_write {
-              return false
-            }
-            if idx >= depths.length() || depths[idx] != 0 {
-              return false
-            }
-          }
-      }
-    }
-  }
-  saw_source_read_after_write
+  source >= 0 &&
+  source < facts.first_effective_write.length() &&
+  dest >= 0 &&
+  dest < facts.last_get.length() &&
+  facts.last_get[dest] >= 0 &&
+  facts.first_effective_write[source] > facts.last_get[dest] &&
+  facts.source_safe[source] &&
+  facts.source_read_after_write[source]
 }
 
 ///|
@@ -2911,11 +3120,17 @@ fn cl_remove_tail_reuse_interferences(
 ) -> Unit {
   let depths : Array[Int] = []
   cl_collect_action_depths(instrs, depths, 0)
+  let (facts, _) = cl_tail_reuse_facts_with_visits(
+    actions,
+    effective,
+    depths,
+    types.length(),
+  )
   for source = param_count; source < types.length(); source = source + 1 {
     for dest = 0; dest < param_count; dest = dest + 1 {
       if source != dest &&
         types[source] == types[dest] &&
-        cl_tail_reuse_pair_safe(actions, effective, depths, source, dest) {
+        cl_tail_reuse_pair_safe_from_facts(facts, source, dest) {
         interferences[source][dest] = false
         interferences[dest][source] = false
       }
@@ -3086,6 +3301,31 @@ fn cl_path_disjoint_branch_result_pair_safe(
 }
 
 ///|
+fn cl_path_disjoint_candidate_dests(
+  source : Int,
+  writes : Array[Bool],
+  types : Array[@lib.ValType],
+  interferences : Array[Array[Bool]],
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  if source < 0 ||
+    source >= writes.length() ||
+    source >= types.length() ||
+    source >= interferences.length() ||
+    !writes[source] {
+    return candidates
+  }
+  for dest = 0; dest < types.length(); dest = dest + 1 {
+    if source != dest &&
+      types[source] == types[dest] &&
+      interferences[source][dest] {
+      candidates.push(dest)
+    }
+  }
+  candidates
+}
+
+///|
 fn cl_remove_path_disjoint_branch_result_interferences(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
@@ -3093,20 +3333,129 @@ fn cl_remove_path_disjoint_branch_result_interferences(
   param_count : Int,
   interferences : Array[Array[Bool]],
 ) -> Unit {
+  if cl_pair_forward_scans_have_global_barrier(instrs) {
+    return
+  }
   let (_, writes) = cl_local_read_write_flags(actions, types.length())
   for source = param_count; source < types.length(); source = source + 1 {
-    if !writes[source] {
-      continue
-    }
-    for dest = 0; dest < types.length(); dest = dest + 1 {
-      if source != dest &&
-        types[source] == types[dest] &&
-        cl_path_disjoint_branch_result_pair_safe(instrs, source, dest) {
+    for
+      dest in cl_path_disjoint_candidate_dests(
+        source, writes, types, interferences,
+      ) {
+      if cl_path_disjoint_branch_result_pair_safe(instrs, source, dest) {
         interferences[source][dest] = false
         interferences[dest][source] = false
       }
     }
   }
+}
+
+///|
+fn cl_mark_consume_forward_syntactic_candidates(
+  instrs : Array[@lib.Instruction],
+  candidates : Array[@bitset.BitSet],
+  total_locals : Int,
+) -> Unit {
+  let seen = Array::make(total_locals, false)
+  let seen_members : Array[Int] = []
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(local_idx) => {
+        let source = cl_local_idx_raw(local_idx)
+        if source >= 0 && source < total_locals && !seen[source] {
+          seen[source] = true
+          seen_members.push(source)
+        }
+      }
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) => {
+        let dest = cl_local_idx_raw(local_idx)
+        if dest >= 0 && dest < total_locals {
+          for source in seen_members {
+            if source != dest {
+              candidates[source][dest] = true
+            }
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        cl_mark_consume_forward_syntactic_candidates(
+          body, candidates, total_locals,
+        )
+        for source in seen_members {
+          seen[source] = false
+        }
+        seen_members.clear()
+      }
+      @lib.If(_, then_body, else_body) => {
+        cl_mark_consume_forward_syntactic_candidates(
+          then_body, candidates, total_locals,
+        )
+        match else_body {
+          Some(body) =>
+            cl_mark_consume_forward_syntactic_candidates(
+              body, candidates, total_locals,
+            )
+          None => ()
+        }
+        for source in seen_members {
+          seen[source] = false
+        }
+        seen_members.clear()
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn cl_consume_forward_syntactic_candidates(
+  instrs : Array[@lib.Instruction],
+  total_locals : Int,
+) -> Array[@bitset.BitSet] {
+  let candidates : Array[@bitset.BitSet] = []
+  for _ in 0..<total_locals {
+    candidates.push(@bitset.BitSet::new(total_locals))
+  }
+  cl_mark_consume_forward_syntactic_candidates(instrs, candidates, total_locals)
+  candidates
+}
+
+///|
+fn cl_consume_forward_candidate_dests(
+  source : Int,
+  reads : Array[Bool],
+  writes : Array[Bool],
+  types : Array[@lib.ValType],
+  interferences : Array[Array[Bool]],
+  first_initialized_get : Array[Int],
+  latest_write : Array[Int],
+  syntactic_candidates : Array[@bitset.BitSet],
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  ignore(interferences)
+  if source < 0 ||
+    source >= reads.length() ||
+    source >= types.length() ||
+    source >= first_initialized_get.length() ||
+    !reads[source] ||
+    first_initialized_get[source] < 0 {
+    return candidates
+  }
+  for dest = 0; dest < types.length(); dest = dest + 1 {
+    if source != dest &&
+      dest < writes.length() &&
+      dest < latest_write.length() &&
+      writes[dest] &&
+      source < syntactic_candidates.length() &&
+      syntactic_candidates[source][dest] &&
+      latest_write[dest] > first_initialized_get[source] &&
+      types[source] == types[dest] {
+      candidates.push(dest)
+    }
+  }
+  candidates
 }
 
 ///|
@@ -3118,18 +3467,38 @@ fn cl_remove_safe_consume_forward_interferences(
   interferences : Array[Array[Bool]],
   weights : Array[Array[Int]],
 ) -> Unit {
+  if cl_pair_forward_scans_have_global_barrier(instrs) {
+    return
+  }
   let (reads, writes) = cl_local_read_write_flags(actions, types.length())
-  for source = param_count; source < types.length(); source = source + 1 {
-    if !reads[source] {
-      continue
-    }
-    for dest = 0; dest < types.length(); dest = dest + 1 {
-      if !writes[dest] {
-        continue
+  let syntactic_candidates = cl_consume_forward_syntactic_candidates(
+    instrs,
+    types.length(),
+  )
+  let initialized = Array::make(types.length(), false)
+  let first_initialized_get = Array::make(types.length(), -1)
+  let latest_write = Array::make(types.length(), -1)
+  for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
+    let action = actions[action_idx]
+    match action.kind {
+      CLActionKind::Get =>
+        if initialized[action.local_idx] &&
+          first_initialized_get[action.local_idx] < 0 {
+          first_initialized_get[action.local_idx] = action_idx
+        }
+      CLActionKind::Set | CLActionKind::Tee => {
+        initialized[action.local_idx] = true
+        latest_write[action.local_idx] = action_idx
       }
-      if source != dest &&
-        types[source] == types[dest] &&
-        cl_consume_forward_pair_safe(instrs, source, dest) {
+    }
+  }
+  for source = param_count; source < types.length(); source = source + 1 {
+    for
+      dest in cl_consume_forward_candidate_dests(
+        source, reads, writes, types, interferences, first_initialized_get, latest_write,
+        syntactic_candidates,
+      ) {
+      if cl_consume_forward_pair_safe(instrs, source, dest) {
         interferences[source][dest] = false
         interferences[dest][source] = false
         for target = 0; target < types.length(); target = target + 1 {
@@ -3818,51 +4187,58 @@ fn cl_local_write_counts(
 // pass requires exact local types. Prefer either destination's lower index on
 // otherwise equal colorings, matching Binaryen's deterministic orientation;
 // cl_color_with_order still owns the exact-type coalescing check.
-fn cl_retained_copy_destination_flags(
+fn cl_retained_copy_destination_flags_with_visits(
   actions : Array[CLAction],
   types : Array[@lib.ValType],
   param_count : Int,
-) -> Array[Bool] {
+) -> (Array[Bool], Int) {
   let preferred = Array::make(types.length(), false)
-  for idx = 0; idx < actions.length(); idx = idx + 1 {
+  let next_write = Array::make(types.length(), -1)
+  let latest_get = Array::make(types.length(), -1)
+  let mut visited_actions = 0
+  let mut idx = actions.length() - 1
+  while idx >= 0 {
+    visited_actions += 1
     let action = actions[idx]
     match (action.kind, action.source) {
       (CLActionKind::Set | CLActionKind::Tee, CLValueSource::Local(source)) => {
         let destination = action.local_idx
-        if source < param_count ||
-          destination < param_count ||
-          source >= types.length() ||
-          destination >= types.length() {
-          continue
-        }
-        if types[source] != types[destination] {
-          preferred[destination] = true
-          continue
-        }
-        let mut source_overwritten = false
-        for later = idx + 1; later < actions.length(); later = later + 1 {
-          let later_action = actions[later]
-          if later_action.local_idx == source {
-            match later_action.kind {
-              CLActionKind::Set | CLActionKind::Tee => source_overwritten = true
-              _ => ()
-            }
-          }
-          if source_overwritten && later_action.local_idx == destination {
-            match later_action.kind {
-              CLActionKind::Get => {
-                preferred[destination] = true
-                break
-              }
-              _ => ()
-            }
+        if source >= param_count &&
+          destination >= param_count &&
+          source < types.length() &&
+          destination < types.length() {
+          if types[source] != types[destination] {
+            preferred[destination] = true
+          } else if next_write[source] >= 0 &&
+            latest_get[destination] > next_write[source] {
+            preferred[destination] = true
           }
         }
       }
       _ => ()
     }
+    if action.local_idx >= 0 && action.local_idx < types.length() {
+      match action.kind {
+        CLActionKind::Get =>
+          if latest_get[action.local_idx] < 0 {
+            latest_get[action.local_idx] = idx
+          }
+        CLActionKind::Set | CLActionKind::Tee =>
+          next_write[action.local_idx] = idx
+      }
+    }
+    idx -= 1
   }
-  preferred
+  (preferred, visited_actions)
+}
+
+///|
+fn cl_retained_copy_destination_flags(
+  actions : Array[CLAction],
+  types : Array[@lib.ValType],
+  param_count : Int,
+) -> Array[Bool] {
+  cl_retained_copy_destination_flags_with_visits(actions, types, param_count).0
 }
 
 ///|
@@ -5423,20 +5799,400 @@ fn cl_cfg_collect_block_actions(
 }
 
 ///|
-fn cl_cfg_add_live_set_interferences(
-  live : Array[Bool],
-  interferences : Array[Array[Bool]],
+priv struct CLCfgSparseInterferences {
+  rows : Array[@bitset.BitSet]
+}
+
+///|
+fn CLCfgSparseInterferences::new(
+  total_locals : Int,
+) -> CLCfgSparseInterferences {
+  let rows : Array[@bitset.BitSet] = []
+  for _ in 0..<total_locals {
+    rows.push(@bitset.BitSet::new(total_locals))
+  }
+  { rows, }
+}
+
+///|
+fn cl_cfg_sparse_add_interference(
+  interferences : CLCfgSparseInterferences,
+  lhs : Int,
+  rhs : Int,
 ) -> Unit {
-  for lhs = 0; lhs < live.length(); lhs = lhs + 1 {
-    if !live[lhs] {
+  if lhs == rhs ||
+    lhs < 0 ||
+    rhs < 0 ||
+    lhs >= interferences.rows.length() ||
+    rhs >= interferences.rows.length() {
+    return
+  }
+  interferences.rows[lhs][rhs] = true
+  interferences.rows[rhs][lhs] = true
+}
+
+///|
+fn cl_cfg_sparse_interferes(
+  interferences : CLCfgSparseInterferences,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  lhs >= 0 &&
+  rhs >= 0 &&
+  lhs < interferences.rows.length() &&
+  rhs < interferences.rows.length() &&
+  interferences.rows[lhs][rhs]
+}
+
+///|
+fn cl_cfg_sparse_add_live_member_interferences(
+  interferences : CLCfgSparseInterferences,
+  live_members : Array[Int],
+) -> Int {
+  let mut pair_checks = 0
+  for lhs_idx = 0; lhs_idx < live_members.length(); lhs_idx = lhs_idx + 1 {
+    for rhs_idx = lhs_idx + 1
+        rhs_idx < live_members.length()
+        rhs_idx = rhs_idx + 1 {
+      pair_checks += 1
+      cl_cfg_sparse_add_interference(
+        interferences,
+        live_members[lhs_idx],
+        live_members[rhs_idx],
+      )
+    }
+  }
+  pair_checks
+}
+
+///|
+priv struct CLCfgLiveSet {
+  live : Array[Bool]
+  members : Array[Int]
+  positions : Array[Int]
+}
+
+///|
+fn CLCfgLiveSet::new(total_locals : Int) -> CLCfgLiveSet {
+  {
+    live: Array::make(total_locals, false),
+    members: [],
+    positions: Array::make(total_locals, -1),
+  }
+}
+
+///|
+fn cl_cfg_live_set_add(live : CLCfgLiveSet, local_idx : Int) -> Unit {
+  if local_idx < 0 || local_idx >= live.live.length() || live.live[local_idx] {
+    return
+  }
+  live.live[local_idx] = true
+  live.positions[local_idx] = live.members.length()
+  live.members.push(local_idx)
+}
+
+///|
+fn cl_cfg_live_set_remove(live : CLCfgLiveSet, local_idx : Int) -> Unit {
+  if local_idx < 0 || local_idx >= live.live.length() || !live.live[local_idx] {
+    return
+  }
+  let position = live.positions[local_idx]
+  let last = live.members.pop().unwrap()
+  if position < live.members.length() {
+    live.members[position] = last
+    live.positions[last] = position
+  }
+  live.positions[local_idx] = -1
+  live.live[local_idx] = false
+}
+
+///|
+fn cl_cfg_live_set_from_liveness(
+  liveness : @ir.HotLiveness,
+  block_id : @ir.BlockId,
+  total_locals : Int,
+  live_in : Bool,
+) -> CLCfgLiveSet {
+  let live = CLCfgLiveSet::new(total_locals)
+  for local_idx = 0; local_idx < total_locals; local_idx = local_idx + 1 {
+    let is_live = if live_in {
+      @ir.local_live_in(liveness, block_id, local_idx)
+    } else {
+      @ir.local_live_out(liveness, block_id, local_idx)
+    }
+    if is_live {
+      cl_cfg_live_set_add(live, local_idx)
+    }
+  }
+  live
+}
+
+///|
+priv struct CLCfgSparseWeights {
+  rows : Array[Array[(Int, Int)]]
+}
+
+///|
+fn CLCfgSparseWeights::new(total_locals : Int) -> CLCfgSparseWeights {
+  let rows : Array[Array[(Int, Int)]] = []
+  for _ in 0..<total_locals {
+    rows.push([])
+  }
+  { rows, }
+}
+
+///|
+fn cl_cfg_sparse_weight_add_one(
+  weights : CLCfgSparseWeights,
+  lhs : Int,
+  rhs : Int,
+) -> Unit {
+  let row = weights.rows[lhs]
+  for idx = 0; idx < row.length(); idx = idx + 1 {
+    let (other, weight) = row[idx]
+    if other == rhs {
+      row[idx] = (other, weight + 1)
+      return
+    }
+  }
+  row.push((rhs, 1))
+}
+
+///|
+fn cl_cfg_sparse_weight_add(
+  weights : CLCfgSparseWeights,
+  lhs : Int,
+  rhs : Int,
+) -> Unit {
+  if lhs == rhs ||
+    lhs < 0 ||
+    rhs < 0 ||
+    lhs >= weights.rows.length() ||
+    rhs >= weights.rows.length() {
+    return
+  }
+  cl_cfg_sparse_weight_add_one(weights, lhs, rhs)
+  cl_cfg_sparse_weight_add_one(weights, rhs, lhs)
+}
+
+///|
+fn cl_cfg_sparse_weight(
+  weights : CLCfgSparseWeights,
+  lhs : Int,
+  rhs : Int,
+) -> Int {
+  if lhs < 0 || lhs >= weights.rows.length() {
+    return 0
+  }
+  for edge in weights.rows[lhs] {
+    let (other, weight) = edge
+    if other == rhs {
+      return weight
+    }
+  }
+  0
+}
+
+///|
+fn cl_cfg_sparse_copy_weights(
+  actions : Array[CLAction],
+  effective : Array[Bool],
+  total_locals : Int,
+) -> CLCfgSparseWeights {
+  let weights = CLCfgSparseWeights::new(total_locals)
+  for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
+    if !effective[action_idx] {
       continue
     }
-    for rhs = lhs + 1; rhs < live.length(); rhs = rhs + 1 {
-      if live[rhs] {
-        cl_add_interference(interferences, lhs, rhs)
+    let action = actions[action_idx]
+    match action.source {
+      CLValueSource::Local(source) =>
+        cl_cfg_sparse_weight_add(weights, action.local_idx, source)
+      _ => ()
+    }
+  }
+  weights
+}
+
+///|
+fn cl_cfg_sparse_slot_interferes(
+  members : Array[Int],
+  local_idx : Int,
+  interferences : CLCfgSparseInterferences,
+) -> Bool {
+  for slot_member in members {
+    if cl_cfg_sparse_interferes(interferences, local_idx, slot_member) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cl_cfg_sparse_slot_copy_score(
+  members : Array[Int],
+  local_idx : Int,
+  weights : CLCfgSparseWeights,
+) -> Int {
+  let mut score = 0
+  for slot_member in members {
+    score += cl_cfg_sparse_weight(weights, local_idx, slot_member)
+  }
+  score
+}
+
+///|
+fn cl_cfg_sparse_color_with_order(
+  order : Array[Int],
+  types : Array[@lib.ValType],
+  param_count : Int,
+  interferences : CLCfgSparseInterferences,
+  weights : CLCfgSparseWeights,
+) -> CLColoring {
+  let old_to_new = Array::make(types.length(), -1)
+  let slot_types : Array[@lib.ValType] = []
+  let slot_members : Array[Array[Int]] = []
+  for idx = 0; idx < param_count; idx = idx + 1 {
+    old_to_new[idx] = idx
+    slot_types.push(types[idx])
+    slot_members.push([idx])
+  }
+  for local_idx in order {
+    let mut best_slot = -1
+    let mut best_score = -1
+    for slot = 0; slot < slot_types.length(); slot = slot + 1 {
+      if slot_types[slot] == types[local_idx] &&
+        !cl_cfg_sparse_slot_interferes(
+          slot_members[slot],
+          local_idx,
+          interferences,
+        ) {
+        let score = cl_cfg_sparse_slot_copy_score(
+          slot_members[slot],
+          local_idx,
+          weights,
+        )
+        if score > best_score {
+          best_score = score
+          best_slot = slot
+        }
+      }
+    }
+    if best_slot < 0 {
+      best_slot = slot_types.length()
+      slot_types.push(types[local_idx])
+      slot_members.push([])
+    }
+    old_to_new[local_idx] = best_slot
+    slot_members[best_slot].push(local_idx)
+  }
+  let body_slot_types : Array[@lib.ValType] = []
+  for slot = param_count; slot < slot_types.length(); slot = slot + 1 {
+    body_slot_types.push(slot_types[slot])
+  }
+  let mut removed_copies = 0
+  for lhs = 0; lhs < weights.rows.length(); lhs = lhs + 1 {
+    for edge in weights.rows[lhs] {
+      let (rhs, weight) = edge
+      if rhs > lhs && old_to_new[lhs] == old_to_new[rhs] {
+        removed_copies += weight
       }
     }
   }
+  { old_to_new, slot_types: body_slot_types, removed_copies }
+}
+
+///|
+fn cl_cfg_sparse_copy_degree(
+  weights : CLCfgSparseWeights,
+  local_idx : Int,
+) -> Int {
+  let mut degree = 0
+  for edge in weights.rows[local_idx] {
+    let (_, weight) = edge
+    degree += weight
+  }
+  degree
+}
+
+///|
+fn cl_cfg_sparse_push_copy_order_segment(
+  out : Array[Int],
+  weights : CLCfgSparseWeights,
+  param_count : Int,
+  copy_connected : Bool,
+  reverse : Bool,
+) -> Unit {
+  if reverse {
+    let mut idx = weights.rows.length() - 1
+    while idx >= param_count {
+      if (cl_cfg_sparse_copy_degree(weights, idx) > 0) == copy_connected {
+        out.push(idx)
+      }
+      idx -= 1
+    }
+  } else {
+    for idx = param_count; idx < weights.rows.length(); idx = idx + 1 {
+      if (cl_cfg_sparse_copy_degree(weights, idx) > 0) == copy_connected {
+        out.push(idx)
+      }
+    }
+  }
+}
+
+///|
+fn cl_cfg_sparse_copy_order(
+  weights : CLCfgSparseWeights,
+  param_count : Int,
+  reverse : Bool,
+) -> Array[Int] {
+  let out : Array[Int] = []
+  cl_cfg_sparse_push_copy_order_segment(
+    out, weights, param_count, true, reverse,
+  )
+  cl_cfg_sparse_push_copy_order_segment(
+    out, weights, param_count, false, reverse,
+  )
+  out
+}
+
+///|
+fn cl_cfg_sparse_pick_coloring(
+  types : Array[@lib.ValType],
+  param_count : Int,
+  interferences : CLCfgSparseInterferences,
+  weights : CLCfgSparseWeights,
+) -> CLColoring {
+  let natural : Array[Int] = []
+  for idx = param_count; idx < types.length(); idx = idx + 1 {
+    natural.push(idx)
+  }
+  let reverse : Array[Int] = []
+  let mut idx = types.length() - 1
+  while idx >= param_count {
+    reverse.push(idx)
+    idx -= 1
+  }
+  let none_preferred = Array::make(types.length(), false)
+  let mut best = cl_cfg_sparse_color_with_order(
+    natural, types, param_count, interferences, weights,
+  )
+  for
+    order in [
+      reverse,
+      cl_cfg_sparse_copy_order(weights, param_count, false),
+      cl_cfg_sparse_copy_order(weights, param_count, true),
+    ] {
+    let candidate = cl_cfg_sparse_color_with_order(
+      order, types, param_count, interferences, weights,
+    )
+    if cl_coloring_is_better(
+        candidate, best, none_preferred, none_preferred, none_preferred, types, param_count,
+      ) {
+      best = candidate
+    }
+  }
+  best
 }
 
 ///|
@@ -5446,14 +6202,11 @@ fn cl_cfg_compute_interferences(
   block_actions : Array[CLCfgBlockActions],
   total_locals : Int,
   param_count : Int,
-) -> (Array[Array[Bool]], Array[@ir.NodeId], Array[@ir.NodeId]) {
-  let interferences : Array[Array[Bool]] = []
-  for _ in 0..<total_locals {
-    interferences.push(Array::make(total_locals, false))
-  }
+) -> (CLCfgSparseInterferences, Array[@ir.NodeId], Array[@ir.NodeId]) {
+  let interferences = CLCfgSparseInterferences::new(total_locals)
   for lhs = 0; lhs < param_count; lhs = lhs + 1 {
     for rhs = lhs + 1; rhs < param_count; rhs = rhs + 1 {
-      cl_add_interference(interferences, lhs, rhs)
+      cl_cfg_sparse_add_interference(interferences, lhs, rhs)
     }
   }
   let ineffective_sets : Array[@ir.NodeId] = []
@@ -5463,25 +6216,24 @@ fn cl_cfg_compute_interferences(
     let actions = block.actions
     let ends_live_range = Array::make(actions.length(), false)
     let effective = Array::make(actions.length(), false)
-    let live_after = Array::make(total_locals, false)
-    for local_idx = 0; local_idx < total_locals; local_idx = local_idx + 1 {
-      live_after[local_idx] = @ir.local_live_out(liveness, block_id, local_idx)
-    }
+    let live_after = cl_cfg_live_set_from_liveness(
+      liveness, block_id, total_locals, false,
+    )
     let mut action_idx = actions.length() - 1
     while action_idx >= 0 {
       let action = actions[action_idx]
       match action.kind {
         CLActionKind::Get => {
-          if !live_after[action.local_idx] {
+          if !live_after.live[action.local_idx] {
             ends_live_range[action_idx] = true
           }
-          live_after[action.local_idx] = true
+          cl_cfg_live_set_add(live_after, action.local_idx)
         }
         CLActionKind::Set | CLActionKind::Tee => {
-          if live_after[action.local_idx] {
+          if live_after.live[action.local_idx] {
             effective[action_idx] = true
           }
-          live_after[action.local_idx] = false
+          cl_cfg_live_set_remove(live_after, action.local_idx)
         }
       }
       action_idx -= 1
@@ -5499,28 +6251,35 @@ fn cl_cfg_compute_interferences(
         _ => ()
       }
     }
-    let live = Array::make(total_locals, false)
-    for local_idx = 0; local_idx < total_locals; local_idx = local_idx + 1 {
-      live[local_idx] = @ir.local_live_in(liveness, block_id, local_idx)
-    }
-    cl_cfg_add_live_set_interferences(live, interferences)
+    let live = cl_cfg_live_set_from_liveness(
+      liveness, block_id, total_locals, true,
+    )
+    ignore(
+      cl_cfg_sparse_add_live_member_interferences(interferences, live.members),
+    )
     for idx = 0; idx < actions.length(); idx = idx + 1 {
       let action = actions[idx]
       match action.kind {
         CLActionKind::Get =>
           if ends_live_range[idx] {
-            live[action.local_idx] = false
+            cl_cfg_live_set_remove(live, action.local_idx)
           }
         CLActionKind::Set | CLActionKind::Tee => {
           // Even an ineffective write still executes. Keep its destination
           // away from every currently live local so coloring cannot turn a
           // dead write into a clobber of a value observed later in the block.
-          for other = 0; other < total_locals; other = other + 1 {
-            if live[other] {
-              cl_add_interference(interferences, action.local_idx, other)
-            }
+          for other in live.members {
+            cl_cfg_sparse_add_interference(
+              interferences,
+              action.local_idx,
+              other,
+            )
           }
-          live[action.local_idx] = effective[idx]
+          if effective[idx] {
+            cl_cfg_live_set_add(live, action.local_idx)
+          } else {
+            cl_cfg_live_set_remove(live, action.local_idx)
+          }
         }
       }
     }
@@ -5588,16 +6347,16 @@ fn cl_rewrite_loop_func_cfg(
     total_locals,
     params.length(),
   )
-  let none_preferred = Array::make(total_locals, false)
   let raw_liveness = cl_compute_liveness(raw_actions, total_locals)
-  let coloring = cl_pick_coloring(
+  let coloring = cl_cfg_sparse_pick_coloring(
     types,
     params.length(),
     interferences,
-    cl_copy_weights(raw_actions, raw_liveness.effective, total_locals),
-    none_preferred,
-    none_preferred,
-    none_preferred,
+    cl_cfg_sparse_copy_weights(
+      raw_actions,
+      raw_liveness.effective,
+      total_locals,
+    ),
   )
   let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
   if ineffective_sets.length() > 0 || ineffective_tees.length() > 0 {
@@ -5629,6 +6388,203 @@ fn cl_rewrite_loop_func_cfg(
 }
 
 ///|
+priv struct CLSingleLocalParamScanFacts {
+  mut ok : Bool
+  mut target_writes : Int
+  mut target_gets : Int
+  mut target_copy_source : Int
+  mut target_region_reads_param : Bool
+  mut visited_instrs : Int
+}
+
+///|
+fn cl_scan_single_body_local_param_reuse(
+  instrs : Array[@lib.Instruction],
+  param_idx : Int,
+  target_idx : Int,
+  may_reuse_param : Bool,
+  must_reuse_param : Bool,
+  facts : CLSingleLocalParamScanFacts,
+) -> (Bool, Bool) {
+  let mut may_reuse = may_reuse_param
+  let mut must_reuse = must_reuse_param
+  let mut region_reads_param = false
+  let mut region_param_crosses_call = false
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    facts.visited_instrs += 1
+    match instrs[idx] {
+      @lib.LocalGet(local_idx) => {
+        let local_id = cl_local_idx_raw(local_idx)
+        if local_id == target_idx {
+          facts.target_gets += 1
+          if !must_reuse {
+            facts.ok = false
+            return (false, false)
+          }
+        }
+        if local_id == param_idx {
+          if may_reuse {
+            facts.ok = false
+            return (false, false)
+          }
+          region_reads_param = true
+        }
+      }
+      @lib.LocalTee(local_idx) if cl_local_idx_raw(local_idx) == target_idx => {
+        facts.target_writes += 1
+        facts.target_region_reads_param = region_param_crosses_call
+        if idx > 0 {
+          match instrs[idx - 1] {
+            @lib.LocalGet(source_idx) => {
+              let source = cl_local_idx_raw(source_idx)
+              if source >= 0 && source < target_idx {
+                facts.target_copy_source = source
+              }
+            }
+            _ => ()
+          }
+        }
+        if facts.target_writes != 1 ||
+          (idx + 1 < instrs.length() && instrs[idx + 1] is @lib.Drop) {
+          facts.ok = false
+          return (false, false)
+        }
+        may_reuse = true
+        must_reuse = true
+      }
+      @lib.LocalSet(local_idx) if cl_local_idx_raw(local_idx) == target_idx => {
+        facts.ok = false
+        return (false, false)
+      }
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) if cl_local_idx_raw(
+          local_idx,
+        ) ==
+        param_idx => {
+        facts.ok = false
+        return (false, false)
+      }
+      @lib.Block(_, @lib.Expr(body)) => {
+        let (next_may_reuse, next_must_reuse) = cl_scan_single_body_local_param_reuse(
+          body, param_idx, target_idx, may_reuse, must_reuse, facts,
+        )
+        if !facts.ok {
+          return (false, false)
+        }
+        may_reuse = next_may_reuse
+        must_reuse = next_must_reuse
+      }
+      @lib.If(_, then_body, else_body) => {
+        let (then_may_reuse, then_must_reuse) = cl_scan_single_body_local_param_reuse(
+          then_body, param_idx, target_idx, may_reuse, must_reuse, facts,
+        )
+        if !facts.ok {
+          return (false, false)
+        }
+        let (else_may_reuse, else_must_reuse) = match else_body {
+          Some(body) =>
+            cl_scan_single_body_local_param_reuse(
+              body, param_idx, target_idx, may_reuse, must_reuse, facts,
+            )
+          None => (may_reuse, must_reuse)
+        }
+        if !facts.ok {
+          return (false, false)
+        }
+        may_reuse = then_may_reuse || else_may_reuse
+        must_reuse = then_must_reuse && else_must_reuse
+      }
+      @lib.Call(_) => if region_reads_param { region_param_crosses_call = true }
+      @lib.Br(_) | @lib.BrTable(_, _) | @lib.Return => {
+        if !must_reuse {
+          facts.ok = false
+        }
+        return (may_reuse, must_reuse)
+      }
+      @lib.BrIf(_) =>
+        if !must_reuse {
+          facts.ok = false
+          return (false, false)
+        }
+      @lib.Loop(_, _) | @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => {
+        facts.ok = false
+        return (false, false)
+      }
+      _ => ()
+    }
+  }
+  (may_reuse, must_reuse)
+}
+
+///|
+fn cl_rewrite_single_body_local_param_fast(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> (CLFuncRewrite?, Int) {
+  let @lib.Func(body_locals, @lib.Expr(instrs)) = func
+  if body_locals.length() != 1 || params.length() == 0 {
+    return (None, 0)
+  }
+  let body_types = cl_flatten_locals(body_locals, 1)
+  let target_idx = params.length()
+  let mut compatible_params = 0
+  for param_type in params {
+    if param_type == body_types[0] {
+      compatible_params += 1
+    }
+  }
+  let mut param_idx = 0
+  while param_idx < params.length() {
+    if params[param_idx] != body_types[0] {
+      param_idx += 1
+      continue
+    }
+    let facts : CLSingleLocalParamScanFacts = {
+      ok: true,
+      target_writes: 0,
+      target_gets: 0,
+      target_copy_source: -1,
+      target_region_reads_param: false,
+      visited_instrs: 0,
+    }
+    ignore(
+      cl_scan_single_body_local_param_reuse(
+        instrs, param_idx, target_idx, false, false, facts,
+      ),
+    )
+    if facts.ok &&
+      facts.target_writes == 1 &&
+      facts.target_gets > 0 &&
+      (facts.target_copy_source < 0 || facts.target_copy_source == param_idx) &&
+      (
+        facts.target_copy_source >= 0 ||
+        !facts.target_region_reads_param ||
+        compatible_params == 1
+      ) {
+      let old_to_new : Array[Int] = []
+      for idx = 0; idx < params.length(); idx = idx + 1 {
+        old_to_new.push(idx)
+      }
+      old_to_new.push(param_idx)
+      let rewritten_instrs = cl_deep_copy_instrs(instrs)
+      cl_rewrite_all_local_idxs_in_place(rewritten_instrs, old_to_new)
+      ignore(cl_remove_redundant_copy_pairs(rewritten_instrs))
+      return (
+        Some({
+          func: @lib.Func::new(
+            @lib.Locals::empty(),
+            @lib.Expr::new(rewritten_instrs),
+          ),
+          changed: true,
+        }),
+        facts.visited_instrs,
+      )
+    }
+    param_idx += 1
+  }
+  (None, 0)
+}
+
+///|
 fn cl_rewrite_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -5639,6 +6595,10 @@ fn cl_rewrite_func(
     return { func, changed: false }
   }
   let @lib.Expr(original_instrs) = body
+  match cl_rewrite_single_body_local_param_fast(func, params).0 {
+    Some(rewrite) => return rewrite
+    None => ()
+  }
   // Exact linear copy chains are common after lowering and can be rewritten
   // without the general all-unused scan or dense interference machinery.
   match cl_rewrite_linear_copy_chain_fast(func, params) {
@@ -6196,24 +7156,26 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           rewritten_funcs.push(funcs[code_idx])
           continue
         }
-        if run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
-            instrs,
-          ) ||
-          cl_instrs_have_stack_carried_tee_parameter_alias(
+        let has_stack_carried_overwrite = run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
+          instrs,
+        )
+        let has_stack_carried_tee_alias = cl_instrs_have_stack_carried_tee_parameter_alias(
+          instrs,
+          params.length(),
+        )
+        let has_snapshot_parameter_write = cl_instrs_have_local_snapshot_across_parameter_write(
+          instrs,
+          params.length(),
+        )
+        let has_observable_memory_mesh = observable_assemblyscript_memory &&
+          cl_instrs_have_memory_size_tee_parameter_write(
             instrs,
             params.length(),
-          ) ||
-          cl_instrs_have_local_snapshot_across_parameter_write(
-            instrs,
-            params.length(),
-          ) ||
-          (
-            observable_assemblyscript_memory &&
-            cl_instrs_have_memory_size_tee_parameter_write(
-              instrs,
-              params.length(),
-            )
-          ) {
+          )
+        if has_stack_carried_overwrite ||
+          has_stack_carried_tee_alias ||
+          has_snapshot_parameter_write ||
+          has_observable_memory_mesh {
           rewritten_funcs.push(funcs[code_idx])
           continue
         }
