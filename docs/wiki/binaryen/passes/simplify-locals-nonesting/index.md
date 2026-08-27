@@ -48,6 +48,16 @@ Closed on 2026-07-27. The refreshed aggregate completed `10000/10000`: `7684` ex
 - The current dedicated aggregate compares `10000/10000` with `7684` exact and `2316` strictly smaller Starshine outputs; the separate idempotence lane is `1000/1000`.
 - It is not part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
+## 2026-08-27 P0 performance repair
+
+The canonical 4,977,401-byte production artifact exposed a quadratic preflight in `simplify_locals_should_skip_root_local_set_stack_hazard(...)`: every effectful root local write rescanned all later roots and recursively searched each effectful subtree for the same local. Direct `simplify-locals-nonesting` therefore exceeded 900 seconds while Binaryen's pass took about 0.773 seconds.
+
+The repaired preflight performs one forward scan with a pending-effectful-writer bit per local and stamped per-root node visitation. It preserves the established read-before-overwrite rule, including an effectful read/write root satisfying the older writer before replacing it, while a pure overwrite clears the pending writer. White-box tests lock both semantic cases and bound a dense 128-writer/128-effect-root fixture to at most 512 visited read-scan nodes.
+
+Final formatted native SHA-256 `360389c2467e43535b06842d027f4582bba659b5a352a2180e66f5701bc2dc97` measures Starshine pass-local median `551.868ms` versus Binaryen `763.111ms` (`0.72x`) over one warmup plus three serial paired samples, down from the prior `>900s` failure. The pre-repair full command did not complete and therefore produced no comparable full output; every final traced/no-trace pair is byte-identical, the output is stable across the final formatting rebuild, and regular GenValid is `10000/10000` normalized against Binaryen. The absolute no-trace command remains `3.659s` versus Binaryen `1.261s` because HOT lift still owns `1.618s`; `[P0-WALL-SLNONESTING]` therefore remains open until the complete direct command is `<=2x` Binaryen without size or parity loss.
+
+Fresh regular GenValid is `10000/10000` normalized with zero failures. The dedicated aggregate compares all 7,235 Binaryen-parseable cases as `5,026` normalized plus `2,209` strictly smaller canonical Starshine outputs, with zero canonical size losses and zero Starshine validation/property/generator failures; the remaining 2,765 `simplify-locals-family-coverage` inputs are classified Binaryen-v131 parser/tool failures (`bad node code 31`), not optimizer failures.
+
 ## Why this pass matters
 
 The main no-DWARF queue, the saved `-O4z` queue, and the first widened upstream-only wave are already dossier-covered.

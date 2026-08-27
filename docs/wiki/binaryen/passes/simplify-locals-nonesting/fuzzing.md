@@ -34,6 +34,7 @@ The direct compare lane is runnable and the Binaryen-v131 renewal is complete.
 - refreshed aggregate: `10000/10000`, `7684` exact plus `2316` strictly smaller Starshine outputs (`-6..-2` bytes), zero failures
 - refreshed idempotence: `1000/1000`, zero property failures
 - final v131 closeout: complete on 2026-07-27
+- 2026-08-27 linear root-hazard performance repair: regular GenValid `10000/10000` normalized with zero failures; dedicated comparable cases `7235/10000` = `5026` normalized + `2209` strictly smaller canonical Starshine outputs, zero canonical size losses and zero Starshine failures; `2765` family-coverage cases are Binaryen-v131 `bad node code 31` parser/tool failures
 
 ## Initial smoke
 
@@ -90,6 +91,15 @@ bun fuzz compare-pass --pass simplify-locals-nonesting --count 10000 --seed 0x5e
 ```
 
 Final evidence: regular GenValid `100000/100000` raw matches; wasm-smith `6719/6719` comparable matches with shared Binaryen parser failures; dedicated `7684` matches plus `2316` strictly smaller effect/stress cleanups; random-all `8018` matches plus `965` strictly smaller SSA-smoke cleanups. The final `1000`-case idempotence lane had zero property failures, and the Node runtime lane had zero semantic mismatches.
+
+## 2026-08-27 performance-repair replay
+
+The output-preserving root-hazard scan rewrite was followed by two fresh bounded lanes using native SHA-256 recorded in the WALL evidence directory:
+
+- regular GenValid: `10000/10000` normalized matches, zero mismatches, validation, property, generator, or command failures, and `10000/10000` canonical size equality;
+- dedicated `simplify-locals-nonesting`: `7235` Binaryen-parseable comparisons, `5026` normalized matches, `2209` canonical-smaller Starshine outputs, zero canonical-larger outputs, and zero Starshine validation/property/generator failures. All `2765` command failures are selected `simplify-locals-family-coverage` inputs rejected by Binaryen v131 with `bad node code 31`; they are tool/parser failures and do not count as semantic evidence either way.
+
+Artifacts are `.tmp/pass-fuzz-simplify-locals-nonesting-linear-hazard-final-regular-10000` and `.tmp/pass-fuzz-simplify-locals-nonesting-linear-hazard-complete-10000`. The final formatted timing evidence is `.tmp/slnonesting-perf-fix-20260827/final-formatted-timing/median.json`.
 
 ## Classification rule
 
