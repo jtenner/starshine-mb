@@ -31,6 +31,139 @@ priv struct CLLiveness {
 }
 
 ///|
+priv struct CLBitMatrix {
+  size : Int
+  bits : @bitset.BitSet
+  row_offsets : Array[Int]
+}
+
+///|
+fn CLBitMatrix::new(size : Int) -> CLBitMatrix {
+  let row_offsets = Array::make(size, 0)
+  let mut bit_count = 0
+  for row = 0; row < size; row = row + 1 {
+    row_offsets[row] = bit_count
+    bit_count += size - row - 1
+  }
+  { size, bits: @bitset.BitSet::new(bit_count), row_offsets }
+}
+
+///|
+fn CLBitMatrix::length(self : CLBitMatrix) -> Int {
+  self.size
+}
+
+///|
+fn cl_bit_matrix_index(matrix : CLBitMatrix, row : Int, column : Int) -> Int {
+  if row == column {
+    return -1
+  }
+  let (lower, upper) = if row < column { (row, column) } else { (column, row) }
+  matrix.row_offsets[lower] + upper - lower - 1
+}
+
+///|
+fn cl_bit_matrix_get(matrix : CLBitMatrix, row : Int, column : Int) -> Bool {
+  let index = cl_bit_matrix_index(matrix, row, column)
+  index >= 0 && matrix.bits[index]
+}
+
+///|
+fn cl_bit_matrix_set(
+  matrix : CLBitMatrix,
+  row : Int,
+  column : Int,
+  value : Bool,
+) -> Unit {
+  let index = cl_bit_matrix_index(matrix, row, column)
+  if index >= 0 {
+    matrix.bits[index] = value
+  }
+}
+
+///|
+fn cl_bit_matrix_set_symmetric(
+  matrix : CLBitMatrix,
+  lhs : Int,
+  rhs : Int,
+  value : Bool,
+) -> Unit {
+  cl_bit_matrix_set(matrix, lhs, rhs, value)
+}
+
+///|
+priv struct CLCopyWeights {
+  rows : Array[Array[(Int, Int)]]
+}
+
+///|
+fn CLCopyWeights::new(size : Int) -> CLCopyWeights {
+  let rows : Array[Array[(Int, Int)]] = Array::new(capacity=size)
+  for _ in 0..<size {
+    rows.push([])
+  }
+  { rows, }
+}
+
+///|
+fn CLCopyWeights::length(self : CLCopyWeights) -> Int {
+  self.rows.length()
+}
+
+///|
+fn cl_copy_weight_add_one(
+  weights : CLCopyWeights,
+  lhs : Int,
+  rhs : Int,
+  amount : Int,
+) -> Unit {
+  let row = weights.rows[lhs]
+  for edge_idx = 0; edge_idx < row.length(); edge_idx = edge_idx + 1 {
+    let (other, weight) = row[edge_idx]
+    if other == rhs {
+      row[edge_idx] = (other, weight + amount)
+      return
+    }
+  }
+  row.push((rhs, amount))
+}
+
+///|
+fn cl_copy_weight_add(
+  weights : CLCopyWeights,
+  lhs : Int,
+  rhs : Int,
+  amount : Int,
+) -> Unit {
+  if lhs == rhs || amount == 0 {
+    return
+  }
+  cl_copy_weight_add_one(weights, lhs, rhs, amount)
+  cl_copy_weight_add_one(weights, rhs, lhs, amount)
+}
+
+///|
+fn cl_copy_weight_get(weights : CLCopyWeights, lhs : Int, rhs : Int) -> Int {
+  for edge in weights.rows[lhs] {
+    let (other, weight) = edge
+    if other == rhs {
+      return weight
+    }
+  }
+  0
+}
+
+///|
+fn cl_copy_weight_degree(weights : CLCopyWeights, local_idx : Int) -> Int {
+  let mut degree = 0
+  for edge in weights.rows[local_idx] {
+    let (_, weight) = edge
+    degree += weight
+  }
+  degree
+}
+
+///|
 priv struct CLValueInterner {
   keys : Array[String]
   mut next_value : Int
@@ -1393,6 +1526,338 @@ fn cl_deep_copy_instrs(
 }
 
 ///|
+priv struct CLControlSummary {
+  branch_depths : Array[Int]
+  max_escape_boundary : Int
+  never_falls_through : Bool
+}
+
+///|
+fn cl_control_add_branch_depth(depths : Array[Int], depth : Int) -> Unit {
+  if depth >= 0 && !depths.contains(depth) {
+    depths.push(depth)
+  }
+}
+
+///|
+fn cl_control_merge_branch_depths(
+  depths : Array[Int],
+  source : Array[Int],
+  shift_outward : Bool,
+) -> Unit {
+  for depth in source {
+    let next = if shift_outward { depth - 1 } else { depth }
+    cl_control_add_branch_depth(depths, next)
+  }
+}
+
+///|
+fn cl_control_shift_escape(max_escape_boundary : Int) -> Int {
+  if max_escape_boundary == 0x7fffffff {
+    return max_escape_boundary
+  }
+  if max_escape_boundary >= 1 {
+    return max_escape_boundary - 1
+  }
+  -1
+}
+
+///|
+fn cl_mark_structured_interval_instruction(
+  instr : @lib.Instruction,
+  first : Array[Int],
+  last : Array[Int],
+  first_is_write : Array[Bool],
+  first_write_dominates : Array[Bool],
+  dominates_suffix : Bool,
+  cursor : Array[Int],
+  record_intervals : Bool,
+  visited_instrs : Array[Int],
+) -> CLControlSummary {
+  let branch_depths : Array[Int] = []
+  match instr {
+    @lib.LocalGet(local_idx) if record_intervals => {
+      let raw = cl_local_idx_raw(local_idx)
+      if raw >= 0 && raw < first.length() {
+        if first[raw] < 0 {
+          first[raw] = cursor[0]
+        }
+        last[raw] = cursor[0]
+        cursor[0] += 1
+      }
+    }
+    @lib.LocalSet(local_idx) if record_intervals => {
+      let raw = cl_local_idx_raw(local_idx)
+      if raw >= 0 && raw < first.length() {
+        if first[raw] < 0 {
+          first[raw] = cursor[0]
+          first_is_write[raw] = true
+          first_write_dominates[raw] = dominates_suffix
+        }
+        last[raw] = cursor[0]
+        cursor[0] += 1
+      }
+    }
+    @lib.LocalTee(local_idx) if record_intervals => {
+      let raw = cl_local_idx_raw(local_idx)
+      if raw >= 0 && raw < first.length() {
+        if first[raw] < 0 {
+          first[raw] = cursor[0]
+          first_is_write[raw] = true
+          first_write_dominates[raw] = dominates_suffix
+        }
+        last[raw] = cursor[0]
+        cursor[0] += 1
+      }
+    }
+    _ => ()
+  }
+  if cl_instr_is_terminal(instr) {
+    return {
+      branch_depths,
+      max_escape_boundary: 0x7fffffff,
+      never_falls_through: true,
+    }
+  }
+  match instr {
+    @lib.Br(label_idx) => {
+      let depth = cl_label_idx_raw(label_idx)
+      cl_control_add_branch_depth(branch_depths, depth)
+      {
+        branch_depths,
+        max_escape_boundary: depth - 1,
+        never_falls_through: true,
+      }
+    }
+    @lib.BrTable(labels, default_label) => {
+      let mut min_depth = cl_label_idx_raw(default_label)
+      cl_control_add_branch_depth(branch_depths, min_depth)
+      for label in labels {
+        let depth = cl_label_idx_raw(label)
+        cl_control_add_branch_depth(branch_depths, depth)
+        if depth < min_depth {
+          min_depth = depth
+        }
+      }
+      {
+        branch_depths,
+        max_escape_boundary: min_depth - 1,
+        never_falls_through: true,
+      }
+    }
+    @lib.BrIf(label_idx)
+    | @lib.BrOnNull(label_idx)
+    | @lib.BrOnNonNull(label_idx) => {
+      cl_control_add_branch_depth(branch_depths, cl_label_idx_raw(label_idx))
+      { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+    }
+    @lib.BrOnCast(label_idx, _, _, _)
+    | @lib.BrOnCastFail(label_idx, _, _, _)
+    | @lib.BrOnCastDescEq(label_idx, _, _)
+    | @lib.BrOnCastDescEqFail(label_idx, _, _) => {
+      cl_control_add_branch_depth(branch_depths, cl_label_idx_raw(label_idx))
+      { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+    }
+    @lib.Block(_, @lib.Expr(body)) => {
+      let summary = cl_mark_structured_local_interval_summary(
+        body, first, last, first_is_write, first_write_dominates, dominates_suffix,
+        cursor, record_intervals, visited_instrs,
+      )
+      cl_control_merge_branch_depths(branch_depths, summary.branch_depths, true)
+      let has_current_branch = summary.branch_depths.contains(0)
+      let max_escape_boundary = if has_current_branch {
+        -1
+      } else {
+        cl_control_shift_escape(summary.max_escape_boundary)
+      }
+      {
+        branch_depths,
+        max_escape_boundary,
+        never_falls_through: !has_current_branch &&
+        summary.max_escape_boundary >= 0,
+      }
+    }
+    @lib.Loop(_, @lib.Expr(body)) => {
+      let summary = cl_mark_structured_local_interval_summary(
+        body, first, last, first_is_write, first_write_dominates, false, cursor,
+        record_intervals, visited_instrs,
+      )
+      cl_control_merge_branch_depths(branch_depths, summary.branch_depths, true)
+      { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+    }
+    @lib.If(_, then_body, else_body) => {
+      let then_summary = cl_mark_structured_local_interval_summary(
+        then_body, first, last, first_is_write, first_write_dominates, false, cursor,
+        record_intervals, visited_instrs,
+      )
+      cl_control_merge_branch_depths(
+        branch_depths,
+        then_summary.branch_depths,
+        true,
+      )
+      let mut never_falls_through = false
+      let max_escape_boundary = match else_body {
+        Some(body) => {
+          let else_summary = cl_mark_structured_local_interval_summary(
+            body, first, last, first_is_write, first_write_dominates, false, cursor,
+            record_intervals, visited_instrs,
+          )
+          cl_control_merge_branch_depths(
+            branch_depths,
+            else_summary.branch_depths,
+            true,
+          )
+          let has_current_branch = then_summary.branch_depths.contains(0) ||
+            else_summary.branch_depths.contains(0)
+          never_falls_through = !has_current_branch &&
+            then_summary.max_escape_boundary >= 0 &&
+            else_summary.max_escape_boundary >= 0
+          if has_current_branch {
+            -1
+          } else {
+            cl_control_shift_escape(
+              Int::min(
+                then_summary.max_escape_boundary,
+                else_summary.max_escape_boundary,
+              ),
+            )
+          }
+        }
+        None => -1
+      }
+      { branch_depths, max_escape_boundary, never_falls_through }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) => {
+      let summary = cl_mark_structured_local_interval_summary(
+        body, first, last, first_is_write, first_write_dominates, false, cursor,
+        record_intervals, visited_instrs,
+      )
+      cl_control_merge_branch_depths(branch_depths, summary.branch_depths, true)
+      let has_current_branch = summary.branch_depths.contains(0)
+      let max_escape_boundary = if has_current_branch {
+        -1
+      } else {
+        cl_control_shift_escape(summary.max_escape_boundary)
+      }
+      {
+        branch_depths,
+        max_escape_boundary,
+        never_falls_through: !has_current_branch &&
+        summary.max_escape_boundary >= 0,
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      let summary = cl_mark_structured_local_interval_summary(
+        body, first, last, first_is_write, first_write_dominates, false, cursor,
+        record_intervals, visited_instrs,
+      )
+      cl_control_merge_branch_depths(branch_depths, summary.branch_depths, true)
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+        }
+        let catch_summary = cl_mark_structured_local_interval_summary(
+          catch_body, first, last, first_is_write, first_write_dominates, false,
+          cursor, record_intervals, visited_instrs,
+        )
+        cl_control_merge_branch_depths(
+          branch_depths,
+          catch_summary.branch_depths,
+          true,
+        )
+      }
+      { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+    }
+    _ => { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+  }
+}
+
+///|
+fn cl_mark_structured_local_interval_summary(
+  instrs : Array[@lib.Instruction],
+  first : Array[Int],
+  last : Array[Int],
+  first_is_write : Array[Bool],
+  first_write_dominates : Array[Bool],
+  dominates_suffix : Bool,
+  cursor : Array[Int],
+  record_intervals : Bool,
+  visited_instrs : Array[Int],
+) -> CLControlSummary {
+  let branch_depths : Array[Int] = []
+  let mut current_dominates_suffix = dominates_suffix
+  let mut intervals_reachable = record_intervals
+  let mut last_summary : CLControlSummary = {
+    branch_depths: [],
+    max_escape_boundary: -1,
+    never_falls_through: false,
+  }
+  let mut previous_summary = last_summary
+  let mut last_is_unreachable = false
+  let mut has_previous = false
+  for instr in instrs {
+    visited_instrs[0] += 1
+    previous_summary = last_summary
+    let summary = cl_mark_structured_interval_instruction(
+      instr, first, last, first_is_write, first_write_dominates, current_dominates_suffix,
+      cursor, intervals_reachable, visited_instrs,
+    )
+    cl_control_merge_branch_depths(branch_depths, summary.branch_depths, false)
+    last_summary = summary
+    last_is_unreachable = instr == @lib.Instruction::unreachable_()
+    if intervals_reachable {
+      match instr {
+        @lib.BrIf(_)
+        | @lib.BrOnNull(_)
+        | @lib.BrOnNonNull(_)
+        | @lib.BrOnCast(_, _, _, _)
+        | @lib.BrOnCastFail(_, _, _, _)
+        | @lib.BrOnCastDescEq(_, _, _)
+        | @lib.BrOnCastDescEqFail(_, _, _) => current_dominates_suffix = false
+        _ => ()
+      }
+      if summary.never_falls_through {
+        intervals_reachable = false
+      }
+    }
+    has_previous = true
+  }
+  let max_escape_boundary = if last_is_unreachable &&
+    has_previous &&
+    previous_summary.never_falls_through {
+    previous_summary.max_escape_boundary
+  } else {
+    last_summary.max_escape_boundary
+  }
+  {
+    branch_depths,
+    max_escape_boundary,
+    never_falls_through: max_escape_boundary >= 0,
+  }
+}
+
+///|
+fn cl_mark_structured_local_intervals_with_visits(
+  instrs : Array[@lib.Instruction],
+  first : Array[Int],
+  last : Array[Int],
+  first_is_write : Array[Bool],
+  first_write_dominates : Array[Bool],
+  dominates_suffix : Bool,
+  cursor : Array[Int],
+) -> Int {
+  let visited_instrs = [0]
+  ignore(
+    cl_mark_structured_local_interval_summary(
+      instrs, first, last, first_is_write, first_write_dominates, dominates_suffix,
+      cursor, true, visited_instrs,
+    ),
+  )
+  visited_instrs[0]
+}
+
+///|
 fn cl_mark_structured_local_intervals(
   instrs : Array[@lib.Instruction],
   first : Array[Int],
@@ -1402,83 +1867,12 @@ fn cl_mark_structured_local_intervals(
   dominates_suffix : Bool,
   cursor : Array[Int],
 ) -> Unit {
-  let mut current_dominates_suffix = dominates_suffix
-  for instr in instrs {
-    match instr {
-      @lib.LocalGet(local_idx) => {
-        let raw = cl_local_idx_raw(local_idx)
-        if raw >= 0 && raw < first.length() {
-          if first[raw] < 0 {
-            first[raw] = cursor[0]
-          }
-          last[raw] = cursor[0]
-          cursor[0] += 1
-        }
-      }
-      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) => {
-        let raw = cl_local_idx_raw(local_idx)
-        if raw >= 0 && raw < first.length() {
-          if first[raw] < 0 {
-            first[raw] = cursor[0]
-            first_is_write[raw] = true
-            first_write_dominates[raw] = current_dominates_suffix
-          }
-          last[raw] = cursor[0]
-          cursor[0] += 1
-        }
-      }
-      @lib.Block(_, @lib.Expr(body)) =>
-        cl_mark_structured_local_intervals(
-          body, first, last, first_is_write, first_write_dominates, current_dominates_suffix,
-          cursor,
-        )
-      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        cl_mark_structured_local_intervals(
-          body, first, last, first_is_write, first_write_dominates, false, cursor,
-        )
-      @lib.If(_, then_body, else_body) => {
-        cl_mark_structured_local_intervals(
-          then_body, first, last, first_is_write, first_write_dominates, false, cursor,
-        )
-        match else_body {
-          Some(body) =>
-            cl_mark_structured_local_intervals(
-              body, first, last, first_is_write, first_write_dominates, false, cursor,
-            )
-          None => ()
-        }
-      }
-      @lib.Try(_, @lib.Expr(body), catches, _) => {
-        cl_mark_structured_local_intervals(
-          body, first, last, first_is_write, first_write_dominates, false, cursor,
-        )
-        for catch_ in catches {
-          match catch_ {
-            @lib.LegacyCatch(_, @lib.Expr(catch_body))
-            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
-              cl_mark_structured_local_intervals(
-                catch_body, first, last, first_is_write, first_write_dominates, false,
-                cursor,
-              )
-          }
-        }
-      }
-      _ => ()
-    }
-    match instr {
-      @lib.BrIf(_)
-      | @lib.BrOnNull(_)
-      | @lib.BrOnNonNull(_)
-      | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _)
-      | @lib.BrOnCastDescEq(_, _, _)
-      | @lib.BrOnCastDescEqFail(_, _, _) => current_dominates_suffix = false
-      _ => ()
-    }
-    if cl_instr_makes_rest_unreachable(instr) {
-      return
-    }
-  }
+  ignore(
+    cl_mark_structured_local_intervals_with_visits(
+      instrs, first, last, first_is_write, first_write_dominates, dominates_suffix,
+      cursor,
+    ),
+  )
 }
 
 ///|
@@ -1922,7 +2316,7 @@ fn cl_mark_structured_liveness_backward(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   effective : Array[Bool],
-  write_live_hazards : Array[Array[Bool]],
+  write_live_hazards : CLBitMatrix,
   visited_actions : Array[Int],
   live_after : Array[Bool],
   label_lives : Array[Array[Bool]],
@@ -2018,8 +2412,12 @@ fn cl_mark_structured_liveness_backward(
                   if other != action.local_idx &&
                     other != copied_dest &&
                     live[other] {
-                    write_live_hazards[action.local_idx][other] = true
-                    write_live_hazards[other][action.local_idx] = true
+                    cl_bit_matrix_set_symmetric(
+                      write_live_hazards,
+                      action.local_idx,
+                      other,
+                      true,
+                    )
                   }
                 }
               }
@@ -2061,12 +2459,9 @@ fn cl_compute_structured_liveness_with_write_hazards(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   total_locals : Int,
-) -> (CLLiveness, Array[Array[Bool]], Int) {
+) -> (CLLiveness, CLBitMatrix, Int) {
   let effective = Array::make(actions.length(), false)
-  let write_live_hazards : Array[Array[Bool]] = []
-  for _ in 0..<total_locals {
-    write_live_hazards.push(Array::make(total_locals, false))
-  }
+  let write_live_hazards = CLBitMatrix::new(total_locals)
   let live_after = Array::make(total_locals, false)
   let visited_actions = [0]
   let live_at_entry = cl_mark_structured_liveness_backward(
@@ -2084,15 +2479,14 @@ fn cl_compute_structured_liveness_with_write_hazards(
 
 ///|
 fn cl_add_interference(
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
   lhs : Int,
   rhs : Int,
 ) -> Unit {
   if lhs == rhs {
     return
   }
-  interferences[lhs][rhs] = true
-  interferences[rhs][lhs] = true
+  cl_bit_matrix_set_symmetric(interferences, lhs, rhs, true)
 }
 
 ///|
@@ -2258,30 +2652,13 @@ fn cl_copy_forward_pair_safe(
 }
 
 ///|
-fn cl_copy_weight_adjacency(weights : Array[Array[Int]]) -> Array[Array[Int]] {
-  let adjacency : Array[Array[Int]] = []
-  for _ in 0..<weights.length() {
-    adjacency.push([])
-  }
-  for lhs = 0; lhs < weights.length(); lhs = lhs + 1 {
-    for rhs = lhs + 1; rhs < weights.length(); rhs = rhs + 1 {
-      if weights[lhs][rhs] > 0 {
-        adjacency[lhs].push(rhs)
-        adjacency[rhs].push(lhs)
-      }
-    }
-  }
-  adjacency
-}
-
-///|
-fn cl_copy_weight_reachable_destinations_from_adjacency(
-  adjacency : Array[Array[Int]],
+fn cl_copy_weight_reachable_destinations(
+  weights : CLCopyWeights,
   source : Int,
   depth : Int,
 ) -> (Array[Bool], Int) {
-  let reachable = Array::make(adjacency.length(), false)
-  if source < 0 || source >= adjacency.length() || depth <= 0 {
+  let reachable = Array::make(weights.length(), false)
+  if source < 0 || source >= weights.length() || depth <= 0 {
     return (reachable, 0)
   }
   let pending_locals : Array[Int] = [source]
@@ -2296,7 +2673,8 @@ fn cl_copy_weight_reachable_destinations_from_adjacency(
     if current_depth >= depth {
       continue
     }
-    for next in adjacency[current] {
+    for edge in weights.rows[current] {
+      let (next, _) = edge
       visited_edges += 1
       if !reachable[next] {
         reachable[next] = true
@@ -2311,22 +2689,20 @@ fn cl_copy_weight_reachable_destinations_from_adjacency(
 
 ///|
 fn cl_copy_weight_reaches(
-  weights : Array[Array[Int]],
+  weights : CLCopyWeights,
   source : Int,
   dest : Int,
   depth : Int,
 ) -> Bool {
-  if weights[source][dest] > 0 {
+  if cl_copy_weight_get(weights, source, dest) > 0 {
     return true
   }
   if depth <= 0 {
     return false
   }
-  for mid = 0; mid < weights.length(); mid = mid + 1 {
-    if mid != source &&
-      mid != dest &&
-      weights[source][mid] > 0 &&
-      cl_copy_weight_reaches(weights, mid, dest, depth - 1) {
+  for edge in weights.rows[source] {
+    let (mid, _) = edge
+    if mid != dest && cl_copy_weight_reaches(weights, mid, dest, depth - 1) {
       return true
     }
   }
@@ -2394,7 +2770,7 @@ fn cl_remove_same_source_fanout_interferences(
   instrs : Array[@lib.Instruction],
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Unit {
   let gets = Array::make(types.length(), 0)
   let sets = Array::make(types.length(), 0)
@@ -2435,15 +2811,13 @@ fn cl_remove_same_source_fanout_interferences(
       continue
     }
     for dest in destinations {
-      interferences[source][dest] = false
-      interferences[dest][source] = false
+      cl_bit_matrix_set_symmetric(interferences, source, dest, false)
     }
     for lhs = 0; lhs < destinations.length(); lhs = lhs + 1 {
       for rhs = lhs + 1; rhs < destinations.length(); rhs = rhs + 1 {
         let left = destinations[lhs]
         let right = destinations[rhs]
-        interferences[left][right] = false
-        interferences[right][left] = false
+        cl_bit_matrix_set_symmetric(interferences, left, right, false)
       }
     }
   }
@@ -2454,23 +2828,21 @@ fn cl_remove_safe_copy_forward_interferences(
   instrs : Array[@lib.Instruction],
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
-  weights : Array[Array[Int]],
+  interferences : CLBitMatrix,
+  weights : CLCopyWeights,
 ) -> Unit {
-  let adjacency = cl_copy_weight_adjacency(weights)
   for source = param_count; source < types.length(); source = source + 1 {
-    if adjacency[source].length() == 0 {
+    if weights.rows[source].length() == 0 {
       continue
     }
-    let (reachable, _) = cl_copy_weight_reachable_destinations_from_adjacency(
-      adjacency, source, 4,
+    let (reachable, _) = cl_copy_weight_reachable_destinations(
+      weights, source, 4,
     )
     for dest = 0; dest < types.length(); dest = dest + 1 {
       if reachable[dest] &&
         types[source] == types[dest] &&
         cl_copy_forward_pair_safe(instrs, source, dest) {
-        interferences[source][dest] = false
-        interferences[dest][source] = false
+        cl_bit_matrix_set_symmetric(interferences, source, dest, false)
       }
     }
   }
@@ -2827,17 +3199,17 @@ fn cl_source_write_dest_read_hazards(
 
 ///|
 fn cl_add_structured_write_live_interferences(
-  write_live_hazards : Array[Array[Bool]],
+  write_live_hazards : CLBitMatrix,
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Unit {
   for source = param_count; source < types.length(); source = source + 1 {
     for dest = 0; dest < types.length(); dest = dest + 1 {
       if source != dest &&
         source < write_live_hazards.length() &&
-        dest < write_live_hazards[source].length() &&
-        write_live_hazards[source][dest] &&
+        dest < write_live_hazards.length() &&
+        cl_bit_matrix_get(write_live_hazards, source, dest) &&
         types[source] == types[dest] {
         cl_add_interference(interferences, source, dest)
       }
@@ -2852,7 +3224,7 @@ fn cl_compute_linear_interferences(
   liveness : CLLiveness,
   types : Array[@lib.ValType],
   param_count : Int,
-) -> Array[Array[Bool]] {
+) -> CLBitMatrix {
   let interferences = cl_compute_interferences(
     actions, liveness, types, param_count,
   )
@@ -2916,7 +3288,7 @@ fn cl_source_write_dest_read_candidate_dests(
   source : Int,
   readers : Array[Bool],
   types : Array[@lib.ValType],
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
   first_effective_write : Array[Int],
   latest_get : Array[Int],
 ) -> Array[Int] {
@@ -2935,7 +3307,7 @@ fn cl_source_write_dest_read_candidate_dests(
       readers[dest] &&
       latest_get[dest] > first_effective_write[source] &&
       types[source] == types[dest] &&
-      !interferences[source][dest] {
+      !cl_bit_matrix_get(interferences, source, dest) {
       candidates.push(dest)
     }
   }
@@ -2949,7 +3321,7 @@ fn cl_add_source_write_dest_read_interferences(
   effective : Array[Bool],
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Unit {
   let (writers, readers) = cl_source_write_dest_read_active_flags(
     actions,
@@ -3116,7 +3488,7 @@ fn cl_remove_tail_reuse_interferences(
   effective : Array[Bool],
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Unit {
   let depths : Array[Int] = []
   cl_collect_action_depths(instrs, depths, 0)
@@ -3131,8 +3503,7 @@ fn cl_remove_tail_reuse_interferences(
       if source != dest &&
         types[source] == types[dest] &&
         cl_tail_reuse_pair_safe_from_facts(facts, source, dest) {
-        interferences[source][dest] = false
-        interferences[dest][source] = false
+        cl_bit_matrix_set_symmetric(interferences, source, dest, false)
       }
     }
   }
@@ -3305,7 +3676,7 @@ fn cl_path_disjoint_candidate_dests(
   source : Int,
   writes : Array[Bool],
   types : Array[@lib.ValType],
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Array[Int] {
   let candidates : Array[Int] = []
   if source < 0 ||
@@ -3318,7 +3689,7 @@ fn cl_path_disjoint_candidate_dests(
   for dest = 0; dest < types.length(); dest = dest + 1 {
     if source != dest &&
       types[source] == types[dest] &&
-      interferences[source][dest] {
+      cl_bit_matrix_get(interferences, source, dest) {
       candidates.push(dest)
     }
   }
@@ -3331,7 +3702,7 @@ fn cl_remove_path_disjoint_branch_result_interferences(
   actions : Array[CLAction],
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Unit {
   if cl_pair_forward_scans_have_global_barrier(instrs) {
     return
@@ -3343,8 +3714,7 @@ fn cl_remove_path_disjoint_branch_result_interferences(
         source, writes, types, interferences,
       ) {
       if cl_path_disjoint_branch_result_pair_safe(instrs, source, dest) {
-        interferences[source][dest] = false
-        interferences[dest][source] = false
+        cl_bit_matrix_set_symmetric(interferences, source, dest, false)
       }
     }
   }
@@ -3428,7 +3798,7 @@ fn cl_consume_forward_candidate_dests(
   reads : Array[Bool],
   writes : Array[Bool],
   types : Array[@lib.ValType],
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
   first_initialized_get : Array[Int],
   latest_write : Array[Int],
   syntactic_candidates : Array[@bitset.BitSet],
@@ -3464,8 +3834,8 @@ fn cl_remove_safe_consume_forward_interferences(
   actions : Array[CLAction],
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
-  weights : Array[Array[Int]],
+  interferences : CLBitMatrix,
+  weights : CLCopyWeights,
 ) -> Unit {
   if cl_pair_forward_scans_have_global_barrier(instrs) {
     return
@@ -3499,14 +3869,12 @@ fn cl_remove_safe_consume_forward_interferences(
         syntactic_candidates,
       ) {
       if cl_consume_forward_pair_safe(instrs, source, dest) {
-        interferences[source][dest] = false
-        interferences[dest][source] = false
+        cl_bit_matrix_set_symmetric(interferences, source, dest, false)
         for target = 0; target < types.length(); target = target + 1 {
           if source != target &&
             types[source] == types[target] &&
             cl_copy_weight_reaches(weights, dest, target, 4) {
-            interferences[source][target] = false
-            interferences[target][source] = false
+            cl_bit_matrix_set_symmetric(interferences, source, target, false)
           }
         }
       }
@@ -3576,12 +3944,9 @@ fn cl_compute_interferences(
   liveness : CLLiveness,
   types : Array[@lib.ValType],
   param_count : Int,
-) -> Array[Array[Bool]] {
+) -> CLBitMatrix {
   let total_locals = types.length()
-  let interferences : Array[Array[Bool]] = Array::new(capacity=total_locals)
-  for _idx = 0; _idx < total_locals; _idx = _idx + 1 {
-    interferences.push(Array::make(total_locals, false))
-  }
+  let interferences = CLBitMatrix::new(total_locals)
   let interner = CLValueInterner::new()
   let current_values = Array::make(total_locals, -1)
   for idx = 0; idx < total_locals; idx = idx + 1 {
@@ -3694,7 +4059,7 @@ fn cl_remove_read_only_default_interferences(
   actions : Array[CLAction],
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Unit {
   let gets = Array::make(types.length(), 0)
   let writes = Array::make(types.length(), 0)
@@ -3719,8 +4084,7 @@ fn cl_remove_read_only_default_interferences(
     }
     for rhs = lhs + 1; rhs < types.length(); rhs = rhs + 1 {
       if gets[rhs] > 0 && writes[rhs] == 0 && types[lhs] == types[rhs] {
-        interferences[lhs][rhs] = false
-        interferences[rhs][lhs] = false
+        cl_bit_matrix_set_symmetric(interferences, lhs, rhs, false)
       }
     }
   }
@@ -3733,8 +4097,7 @@ fn cl_remove_read_only_default_interferences(
         gets[dest] > 0 &&
         writes[dest] == 0 &&
         types[source] == types[dest] {
-        interferences[source][dest] = false
-        interferences[dest][source] = false
+        cl_bit_matrix_set_symmetric(interferences, source, dest, false)
       }
     }
   }
@@ -3745,7 +4108,7 @@ fn cl_add_entry_value_interferences(
   actions : Array[CLAction],
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Unit {
   let writes = Array::make(types.length(), 0)
   let first_get = Array::make(types.length(), -1)
@@ -3786,7 +4149,7 @@ fn cl_add_entry_value_interferences(
 fn cl_add_plain_live_interferences(
   actions : Array[CLAction],
   liveness : CLLiveness,
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Unit {
   let total_locals = interferences.length()
   let remaining_gets = Array::make(total_locals, 0)
@@ -3833,11 +4196,8 @@ fn cl_copy_weights(
   actions : Array[CLAction],
   effective : Array[Bool],
   total_locals : Int,
-) -> Array[Array[Int]] {
-  let weights : Array[Array[Int]] = Array::new(capacity=total_locals)
-  for _idx = 0; _idx < total_locals; _idx = _idx + 1 {
-    weights.push(Array::make(total_locals, 0))
-  }
+) -> CLCopyWeights {
+  let weights = CLCopyWeights::new(total_locals)
   for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
     if !effective[action_idx] {
       continue
@@ -3846,8 +4206,7 @@ fn cl_copy_weights(
     match action.source {
       CLValueSource::Local(src) =>
         if src >= 0 && src < total_locals && src != action.local_idx {
-          weights[action.local_idx][src] += 1
-          weights[src][action.local_idx] += 1
+          cl_copy_weight_add(weights, action.local_idx, src, 1)
         }
       _ => ()
     }
@@ -3859,10 +4218,10 @@ fn cl_copy_weights(
 fn cl_slot_interferes(
   members : Array[Int],
   local_idx : Int,
-  interferences : Array[Array[Bool]],
+  interferences : CLBitMatrix,
 ) -> Bool {
   for slot_member in members {
-    if interferences[local_idx][slot_member] {
+    if cl_bit_matrix_get(interferences, local_idx, slot_member) {
       return true
     }
   }
@@ -3870,25 +4229,12 @@ fn cl_slot_interferes(
 }
 
 ///|
-fn cl_slot_copy_score(
-  members : Array[Int],
-  local_idx : Int,
-  weights : Array[Array[Int]],
-) -> Int {
-  let mut score = 0
-  for slot_member in members {
-    score += weights[local_idx][slot_member]
-  }
-  score
-}
-
-///|
 fn cl_color_with_order(
   order : Array[Int],
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
-  weights : Array[Array[Int]],
+  interferences : CLBitMatrix,
+  weights : CLCopyWeights,
 ) -> CLColoring {
   let total_locals = types.length()
   let old_to_new = Array::make(total_locals, -1)
@@ -3903,12 +4249,20 @@ fn cl_color_with_order(
   }
   for local_idx in order {
     let ty = types[local_idx]
+    let slot_copy_scores = Array::make(slot_types.length(), 0)
+    for edge in weights.rows[local_idx] {
+      let (other, weight) = edge
+      let assigned_slot = old_to_new[other]
+      if assigned_slot >= 0 && assigned_slot < slot_copy_scores.length() {
+        slot_copy_scores[assigned_slot] += weight
+      }
+    }
     let mut best_slot = -1
     let mut best_score = -1
     for slot = 0; slot < slot_types.length(); slot = slot + 1 {
       if slot_types[slot] == ty &&
         !cl_slot_interferes(slot_members[slot], local_idx, interferences) {
-        let score = cl_slot_copy_score(slot_members[slot], local_idx, weights)
+        let score = slot_copy_scores[slot]
         if score > best_score {
           best_score = score
           best_slot = slot
@@ -3931,9 +4285,10 @@ fn cl_color_with_order(
 
   let mut removed_copies = 0
   for lhs = 0; lhs < total_locals; lhs = lhs + 1 {
-    for rhs = lhs + 1; rhs < total_locals; rhs = rhs + 1 {
-      if old_to_new[lhs] == old_to_new[rhs] {
-        removed_copies += weights[lhs][rhs]
+    for edge in weights.rows[lhs] {
+      let (rhs, weight) = edge
+      if rhs > lhs && old_to_new[lhs] == old_to_new[rhs] {
+        removed_copies += weight
       }
     }
   }
@@ -4005,18 +4360,14 @@ fn cl_coloring_is_better(
 }
 
 ///|
-fn cl_local_copy_degree(weights : Array[Array[Int]], local_idx : Int) -> Int {
-  let mut degree = 0
-  for other = 0; other < weights.length(); other = other + 1 {
-    degree += weights[local_idx][other]
-  }
-  degree
+fn cl_local_copy_degree(weights : CLCopyWeights, local_idx : Int) -> Int {
+  cl_copy_weight_degree(weights, local_idx)
 }
 
 ///|
 fn cl_push_copy_weighted_order_segment(
   out : Array[Int],
-  weights : Array[Array[Int]],
+  weights : CLCopyWeights,
   param_count : Int,
   copy_connected : Bool,
   reverse : Bool,
@@ -4040,7 +4391,7 @@ fn cl_push_copy_weighted_order_segment(
 
 ///|
 fn cl_copy_weighted_order(
-  weights : Array[Array[Int]],
+  weights : CLCopyWeights,
   param_count : Int,
   reverse : Bool,
 ) -> Array[Int] {
@@ -4326,11 +4677,26 @@ fn cl_coloring_flagged_slot_score(
 }
 
 ///|
+fn cl_distinct_coloring_orders_with_visits(
+  orders : Array[Array[Int]],
+) -> (Array[Array[Int]], Int) {
+  let distinct : Array[Array[Int]] = []
+  let mut visited = 0
+  for order in orders {
+    visited += 1
+    if !distinct.any(fn(seen) { seen == order }) {
+      distinct.push(order)
+    }
+  }
+  (distinct, visited)
+}
+
+///|
 fn cl_pick_coloring(
   types : Array[@lib.ValType],
   param_count : Int,
-  interferences : Array[Array[Bool]],
-  weights : Array[Array[Int]],
+  interferences : CLBitMatrix,
+  weights : CLCopyWeights,
   preferred : Array[Bool],
   retained_copy_destinations : Array[Bool],
   structured_scalar_preferred : Array[Bool],
@@ -4345,82 +4711,36 @@ fn cl_pick_coloring(
     reverse.push(idx)
     idx -= 1
   }
-  let mut best = cl_color_with_order(
-    natural, types, param_count, interferences, weights,
-  )
-  let other = cl_color_with_order(
-    reverse, types, param_count, interferences, weights,
-  )
-  if cl_coloring_is_better(
-      other, best, preferred, retained_copy_destinations, structured_scalar_preferred,
-      types, param_count,
-    ) {
-    best = other
-  }
-  let copy_first = cl_color_with_order(
+  let (orders, _) = cl_distinct_coloring_orders_with_visits([
+    natural,
+    reverse,
     cl_copy_weighted_order(weights, param_count, false),
-    types,
-    param_count,
-    interferences,
-    weights,
-  )
-  if cl_coloring_is_better(
-      copy_first, best, preferred, retained_copy_destinations, structured_scalar_preferred,
-      types, param_count,
-    ) {
-    best = copy_first
-  }
-  let copy_reverse = cl_color_with_order(
     cl_copy_weighted_order(weights, param_count, true),
-    types,
-    param_count,
-    interferences,
-    weights,
-  )
-  if cl_coloring_is_better(
-      copy_reverse, best, preferred, retained_copy_destinations, structured_scalar_preferred,
-      types, param_count,
-    ) {
-    best = copy_reverse
-  }
-  let preferred_first = cl_color_with_order(
     cl_preferred_compaction_order(preferred, types, param_count),
-    types,
-    param_count,
-    interferences,
-    weights,
-  )
-  if cl_coloring_is_better(
-      preferred_first, best, preferred, retained_copy_destinations, structured_scalar_preferred,
-      types, param_count,
-    ) {
-    best = preferred_first
-  }
-  let retained_copy_destination_first = cl_color_with_order(
     cl_flagged_compaction_order(retained_copy_destinations, types, param_count),
-    types,
-    param_count,
-    interferences,
-    weights,
-  )
-  if cl_coloring_is_better(
-      retained_copy_destination_first, best, preferred, retained_copy_destinations,
-      structured_scalar_preferred, types, param_count,
-    ) {
-    best = retained_copy_destination_first
-  }
-  let structured_scalar_first = cl_color_with_order(
     cl_flagged_compaction_order(structured_scalar_preferred, types, param_count),
+  ])
+  let mut best = cl_color_with_order(
+    orders[0],
     types,
     param_count,
     interferences,
     weights,
   )
-  if cl_coloring_is_better(
-      structured_scalar_first, best, preferred, retained_copy_destinations, structured_scalar_preferred,
-      types, param_count,
-    ) {
-    best = structured_scalar_first
+  for order_idx = 1; order_idx < orders.length(); order_idx = order_idx + 1 {
+    let candidate = cl_color_with_order(
+      orders[order_idx],
+      types,
+      param_count,
+      interferences,
+      weights,
+    )
+    if cl_coloring_is_better(
+        candidate, best, preferred, retained_copy_destinations, structured_scalar_preferred,
+        types, param_count,
+      ) {
+      best = candidate
+    }
   }
   best
 }
