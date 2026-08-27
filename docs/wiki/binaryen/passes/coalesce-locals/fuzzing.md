@@ -12,6 +12,16 @@ sources:
 
 # `coalesce-locals` Fuzzing Profile
 
+## 2026-08-27 bit-matrix and control-summary renewal
+
+Final native SHA-256 `02bdbe741b1be767422f41ed40bc90ee93878f0dd4ec670edccaff454d4e457a` replaces dense interference/hazard booleans with a triangular `BitSet`, copy weights with sparse weighted adjacency, duplicate coloring candidates with stable exact-order deduplication, and recursive dense-tee fallthrough queries with one-visit branch-depth/escape summaries.
+
+- Regular GenValid: `.tmp/pass-fuzz-coalesce-locals-bitmatrix-regular-10000` compares `10000/10000`: `634` direct and `9366` cleanup-normalized, zero residual mismatches and zero validation/property/generator/command failures. Determinism is byte-stable `10000/10000`; codec idempotence is `10000/10000`; external `wasm-tools` validation is clean. Canonical size remains `9366` smaller / `634` equal / `0` larger, totaling `42,100,996` Starshine versus `42,129,462` Binaryen bytes.
+- Dedicated aggregate: `.tmp/pass-fuzz-coalesce-locals-bitmatrix-profile-10000` completes `10000/10000`: `3750` direct, `5000` cleanup-normalized, and the unchanged `1250` inspected `coalesce-locals-loop-copy-through` cleanup wins. Canonical size is `6250` smaller / `3750` equal / `0` larger; validation/property/generator/command failure counts are zero.
+- Runtime execution: `.tmp/pass-fuzz-coalesce-locals-bitmatrix-runtime-100` is self-semantic exact `100/100`, with zero blocked, mismatching, validation, property, generator, or command cases and canonical size equality `100/100`.
+
+Canonical timing and byte-identity evidence is `.tmp/coalesce-bitmatrix-20260827/final-corrected/result.json`. The final median is `3002.950ms` pass-local and `4205.134ms` command, with stable accepted output SHA-256 `dda5cf2d4db0998e4ac777b6fa1089456ba5a7f8c5cf1861c86984603fc624ec`.
+
 ## 2026-08-27 pathological-runtime repair renewal
 
 Final native SHA-256 `82cc09a70b29d4ab66081f52fe165dc0883b2efa98cc36e6449b258c231ca086` renews the direct pass after the production complexity repair.
