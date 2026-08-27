@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-14
+last_reviewed: 2026-08-27
 sources:
   - ../release-horizon-and-oracles.md
   - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
@@ -14,6 +14,7 @@ sources:
   - ../../../../src/passes/optimize_test.mbt
   - ../../../../src/passes/trace_golden_test.mbt
   - ../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../scripts/lib/self-optimize-compare-task.ts
   - https://docs.rs/wasm-opt/latest/wasm_opt/
 related:
   - ./index.md
@@ -33,6 +34,16 @@ related:
 - `vacuum` is a registered hot pass in `src/passes/optimize.mbt` and runs through the hot-pass dispatcher in `src/passes/pass_manager.mbt`.
 - The corrected O4z early GC neighborhood is `global-refining -> remove-unused-module-elements -> global-struct-inference -> ssa-nomerge`. Registry tests assert all three RUME occurrences and the downstream slot indices.
 - Binaryen `version_131` leaves the 56-slot / 38-owner top-level scheduler unchanged. Starshine preserves those first 56 slots exactly, then appends nineteen documented extensions: `strip-debug`, two `simplify-locals-nostructure -> coalesce-locals-cfg -> reorder-locals -> vacuum` waves, and two bounded `ssa-nomerge -> simplify-locals-nostructure -> coalesce-locals-cfg -> reorder-locals -> vacuum` cleanup waves. The CFG spelling is intentionally late-only: using it in the earlier compatibility slots perturbs inlining/simplification shape and increased the BLAKE3 SIMD artifact, while the current post-strip suffix and its local cleanup owners reduce validated BLAKE3 SIMD from 44,017 to 40,903 bytes (`-3,114`). `remove-unused-brs` still appears exactly three times at zero-based indices `13`, `24`, and `39`. The complete O4z expansion is now 75 entries.
+
+## 2026-08-27 direct wall-time inventory
+
+The current `[WALL]001` inventory screened 49 deduplicated direct passes on the 4,977,401-byte canonical artifact, SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`, using native CLI SHA-256 `3c40edc8a50c29f3c7a00ff025e03f0601618cbe2fa1486930c2259fd65bc0a1`, verified Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, and one warmup plus three serial measured pairs for material candidates on an AMD Ryzen 7 8845HS host. The per-tool `strip-debug` command floors are `866.894ms` Starshine and `514.042ms` Binaryen. All 44 completed comparable pairs preserve traced/no-trace Starshine byte identity; `flatten` and `merge-locals` intentionally fail closed as large-module no-ops, and `global-struct-inference-desc-cast` has no Binaryen-v131 CLI counterpart.
+
+Two extreme blockers sit above the ordinary median table. `simplify-locals-nonesting` exceeded the 900-second Starshine screen limit while Binaryen completed in `1.275s` command / `0.773s` pass, a command lower bound above `706x`; an independent 60-second bounded replay also timed out. `coalesce-locals` spent `554.787s` in the Starshine module pass and `555.976s` in traced input handling versus Binaryen `3.171s` pass / `3.660s` command, or `174.94x` pass-local and `151.90x` command wall time; its completed traced/no-trace outputs are byte-identical.
+
+Material baseline-subtracted gaps at or above 10x are TupleOptimization `154.75x`, RUME `56.90x`, DCE `56.48x`, Precompute `29.16x`, Vacuum `24.24x`, RemoveUnusedNames `22.94x`, SimplifyLocalsNoTee `21.94x`, MergeBlocks `20.50x`, plain inlining `17.91x`, DuplicateFunctionElimination `15.14x`, Directize `13.70x`, and Heap2Local `12.55x`. The owners are not interchangeable: TupleOptimization is lift-heavy; Precompute is outer-loop dominated; Vacuum is raw-preprocessing dominated; RemoveUnusedNames and Heap2Local are lift-heavy; MergeBlocks is almost entirely shared function-envelope work; DCE mixes pass-local, raw, and envelope costs; while RUME, plain inlining, DFE, Directize, SimplifyLocalsNoTee, and CoalesceLocals are genuine pass-local/module-pass owners.
+
+Low-absolute pass-local ratios remain secondary: GSI is `111.324/4.968ms` (`22.41x`) but only `1.93x` whole-command; DuplicateImportElimination is `1.388/0.070ms`; InlineMain is `18.097/1.322ms`. `ssa-nomerge` is the only confirmed near-threshold remainder at `9.52x` baseline-subtracted wall time, with `5,865.907ms` in raw admission and a `0.387ms` pass timer. The complete manifest is `.tmp/wall-pass-inventory-20260827/summary.md` with machine identity, commands, raw records, timeout evidence, and ownership medians.
 
 ## Current Ordered Audit
 
