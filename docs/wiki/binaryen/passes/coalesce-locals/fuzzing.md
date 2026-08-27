@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-26
+last_reviewed: 2026-08-27
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -11,6 +11,16 @@ sources:
 ---
 
 # `coalesce-locals` Fuzzing Profile
+
+## 2026-08-27 pathological-runtime repair renewal
+
+Final native SHA-256 `82cc09a70b29d4ab66081f52fe165dc0883b2efa98cc36e6449b258c231ca086` renews the direct pass after the production complexity repair.
+
+- Regular GenValid: `.tmp/pass-fuzz-coalesce-locals-indexed-tail-reuse-properties-10000` compares `10000/10000` with `634` direct and `9366` cleanup-normalized matches under `local-cleanup-debris` plus `unreachable-control-debris`. Validation, property, generator, command, and residual mismatch counts are zero. Determinism is byte-stable `10000/10000`; codec idempotence is `10000/10000`; every Starshine output passes external `wasm-tools` validation. Canonical size is `9366` smaller / `634` equal / `0` larger, totaling `42,100,996` Starshine versus `42,129,462` Binaryen bytes.
+- Dedicated aggregate: `.tmp/pass-fuzz-coalesce-locals-indexed-tail-reuse-profile-10000` compares all `10000`: `3750` direct, `5000` cleanup-normalized, and `1250` inspected residuals, all from `coalesce-locals-loop-copy-through`. Starshine removes one unbranched loop wrapper and its retained `nop`, saving exactly 16 bytes per residual and 20,000 bytes aggregate. A clean-HEAD replay at `.tmp/coalesce-pathology-20260827/head-baseline-check/` emits byte-identical output for the sampled case, proving the family predates this repair. Treat these as source-backed Starshine cleanup wins, not harness-provided semantic verdicts. There are zero Starshine validation/property/generator/command failures and zero canonical size losses.
+- Runtime execution: `.tmp/pass-fuzz-coalesce-locals-indexed-tail-reuse-runtime-100` is `100/100` self-semantic exact with zero blocked or mismatching cases. Canonical Starshine/Binaryen outputs are equal `100/100`.
+
+All broad lanes use the explicit native binary, `--max-subprocesses 8`, and `--max-mismatch-artifacts 20`. The regular and dedicated lanes use `--jobs auto`, seed `0x5eed`, and the verified Binaryen v131 cache. The canonical production output and timing evidence are under `.tmp/coalesce-pathology-20260827/final-indexed-tail-timing/`.
 
 ## 2026-08-26 bounded safety renewal
 
