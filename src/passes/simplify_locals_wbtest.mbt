@@ -10,6 +10,91 @@ fn simplify_locals_wbtest_ctx() -> HotPassContext {
 }
 
 ///|
+test "simplify-locals root stack hazard detects effectful reads before overwrite" {
+  let func = pass_test_lift_first_func(
+    (
+      #|(module
+      #|  (func (local i32)
+      #|    call $value
+      #|    local.set 0
+      #|    local.get 0
+      #|    call $consume)
+      #|  (func $value (result i32) i32.const 1)
+      #|  (func $consume (param i32)))
+    ),
+  )
+  let (hazard, _) = simplify_locals_root_local_set_stack_hazard_scan(func)
+  assert_true(hazard)
+}
+
+///|
+test "simplify-locals root stack hazard treats effectful read-write as a read first" {
+  let func = pass_test_lift_first_func(
+    (
+      #|(module
+      #|  (func (local i32)
+      #|    call $value
+      #|    local.set 0
+      #|    local.get 0
+      #|    call $increment
+      #|    local.set 0)
+      #|  (func $value (result i32) i32.const 1)
+      #|  (func $increment (param i32) (result i32) local.get 0))
+    ),
+  )
+  let (hazard, _) = simplify_locals_root_local_set_stack_hazard_scan(func)
+  assert_true(hazard)
+}
+
+///|
+test "simplify-locals root stack hazard clears pending writers on pure overwrite" {
+  let func = pass_test_lift_first_func(
+    (
+      #|(module
+      #|  (func (local i32)
+      #|    call $value
+      #|    local.set 0
+      #|    i32.const 2
+      #|    local.set 0
+      #|    local.get 0
+      #|    call $consume)
+      #|  (func $value (result i32) i32.const 1)
+      #|  (func $consume (param i32)))
+    ),
+  )
+  let (hazard, _) = simplify_locals_root_local_set_stack_hazard_scan(func)
+  assert_false(hazard)
+}
+
+///|
+test "simplify-locals root stack hazard scans dense roots linearly" {
+  let source = StringBuilder::new()
+  source.write_string("(module (func (local")
+  for local_id = 0; local_id < 128; local_id = local_id + 1 {
+    source.write_string(" i32")
+  }
+  source.write_string(")")
+  for local_id = 0; local_id < 128; local_id = local_id + 1 {
+    source.write_string(" call $value local.set \{local_id}")
+  }
+  for call_idx = 0; call_idx < 128; call_idx = call_idx + 1 {
+    source.write_string(" call $effect")
+  }
+  source.write_string(
+    ") (func $value (result i32) i32.const 1) (func $effect))",
+  )
+  let func = pass_test_lift_first_func(source.to_string())
+  let (hazard, visited_nodes) = simplify_locals_root_local_set_stack_hazard_scan(
+    func,
+  )
+  assert_false(hazard)
+  assert_true(
+    visited_nodes <= 512,
+    msg="expected one bounded root traversal, visited \{visited_nodes} nodes",
+  )
+}
+
+///|
 test "simplify-locals defers aggregate multi-read locals on the first cycle" {
   let func = pass_test_lift_first_func(
     "(module (func (local i32) i32.const 1 local.set 0 local.get 0 drop i32.const 2 local.set 0 local.get 0 drop))",

@@ -6897,62 +6897,186 @@ fn simplify_locals_node_reads_local(
 }
 
 ///|
-fn simplify_locals_root_stack_write_has_later_effectful_read(
+priv struct SimplifyLocalsRootHazardScanState {
+  pending_writers : Array[Bool]
+  seen_stamps : Array[Int]
+  mut next_stamp : Int
+  mut pending_count : Int
+  mut visited_nodes : Int
+}
+
+///|
+fn SimplifyLocalsRootHazardScanState::new(
   func : @ir.HotFunc,
-  root_ref : @ir.HotRegionRef,
-  root_idx : Int,
-  local_id : Int,
+) -> SimplifyLocalsRootHazardScanState {
+  {
+    pending_writers: Array::make(@ir.hot_local_count(func), false),
+    seen_stamps: Array::make(@ir.hot_node_count(func), 0),
+    next_stamp: 0,
+    pending_count: 0,
+    visited_nodes: 0,
+  }
+}
+
+///|
+fn simplify_locals_region_reads_pending_root_hazard_local(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  state : SimplifyLocalsRootHazardScanState,
 ) -> Bool {
-  for idx = root_idx + 1
-      idx < @ir.hot_region_root_count(func, root_ref)
-      idx = idx + 1 {
-    let root_id = @ir.hot_region_get(func, root_ref, idx)
-    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
-      continue
-    }
-    if simplify_locals_node_has_stack_effect_hazard(func, root_id) &&
-      simplify_locals_node_reads_local(func, root_id, local_id) {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if simplify_locals_node_reads_pending_root_hazard_local(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        state,
+      ) {
       return true
-    }
-    let root = @ir.hot_node_get(func, root_id)
-    match root.op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if root.imm0 == local_id =>
-        return false
-      _ => ()
     }
   }
   false
 }
 
 ///|
-fn simplify_locals_should_skip_root_local_set_stack_hazard(
+fn simplify_locals_node_reads_pending_root_hazard_local(
   func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  state : SimplifyLocalsRootHazardScanState,
 ) -> Bool {
-  let root_ref = @ir.HotRegionRef::root()
-  if @ir.hot_region_root_count(func, root_ref) <= 1 {
+  if node_id < 0 ||
+    node_id >= state.seen_stamps.length() ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    state.seen_stamps[node_id] == state.next_stamp {
     return false
   }
+  state.seen_stamps[node_id] = state.next_stamp
+  state.visited_nodes += 1
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet if node.imm0 >= 0 &&
+      node.imm0 < state.pending_writers.length() &&
+      state.pending_writers[node.imm0] => return true
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      if simplify_locals_region_reads_pending_root_hazard_local(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          state,
+        ) {
+        return true
+      }
+    @ir.HotOp::If => {
+      if simplify_locals_region_reads_pending_root_hazard_local(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+          state,
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          if simplify_locals_region_reads_pending_root_hazard_local(
+              func, else_ref, state,
+            ) {
+            return true
+          }
+        None => ()
+      }
+    }
+    @ir.HotOp::Try => {
+      if simplify_locals_region_reads_pending_root_hazard_local(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          state,
+        ) {
+        return true
+      }
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(catch_ref) =>
+          if simplify_locals_region_reads_pending_root_hazard_local(
+              func, catch_ref, state,
+            ) {
+            return true
+          }
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable =>
+      if simplify_locals_region_reads_pending_root_hazard_local(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          state,
+        ) ||
+        simplify_locals_region_reads_pending_root_hazard_local(
+          func,
+          @ir.hot_region_catch_list_ref(func, node_id),
+          state,
+        ) {
+        return true
+      }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if simplify_locals_is_region_child_slot(node.op, slot) {
+      continue
+    }
+    if simplify_locals_node_reads_pending_root_hazard_local(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        state,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn simplify_locals_root_local_set_stack_hazard_scan(
+  func : @ir.HotFunc,
+) -> (Bool, Int) {
+  let root_ref = @ir.HotRegionRef::root()
+  if @ir.hot_region_root_count(func, root_ref) <= 1 {
+    return (false, 0)
+  }
+  let state = SimplifyLocalsRootHazardScanState::new(func)
   for idx = 0; idx < @ir.hot_region_root_count(func, root_ref); idx = idx + 1 {
     let root_id = @ir.hot_region_get(func, root_ref, idx)
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
       continue
     }
+    let has_stack_hazard = simplify_locals_node_has_stack_effect_hazard(
+      func, root_id,
+    )
+    if has_stack_hazard && state.pending_count > 0 {
+      state.next_stamp += 1
+      if simplify_locals_node_reads_pending_root_hazard_local(
+          func, root_id, state,
+        ) {
+        return (true, state.visited_nodes)
+      }
+    }
     let root = @ir.hot_node_get(func, root_id)
     match root.op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
-        if simplify_locals_node_has_stack_effect_hazard(func, root_id) &&
-          simplify_locals_root_stack_write_has_later_effectful_read(
-            func,
-            root_ref,
-            idx,
-            root.imm0,
-          ) {
-          return true
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if root.imm0 >= 0 &&
+        root.imm0 < state.pending_writers.length() => {
+        if state.pending_writers[root.imm0] {
+          state.pending_count -= 1
         }
+        state.pending_writers[root.imm0] = has_stack_hazard
+        if has_stack_hazard {
+          state.pending_count += 1
+        }
+      }
       _ => ()
     }
   }
-  false
+  (false, state.visited_nodes)
+}
+
+///|
+fn simplify_locals_should_skip_root_local_set_stack_hazard(
+  func : @ir.HotFunc,
+) -> Bool {
+  simplify_locals_root_local_set_stack_hazard_scan(func).0
 }
 
 ///|
