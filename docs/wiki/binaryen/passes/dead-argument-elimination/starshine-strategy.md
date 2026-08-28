@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-25
+last_reviewed: 2026-08-28
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -29,6 +29,12 @@ related:
 For first-slice implementation order and validation details, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This page is the current status/code-map summary; the readiness page is the historical future-port checklist plus the current DAE-A through DAE-O implementation-family matrix.
 
 ## Current status
+
+### August 28, 2026 absolute-time strategy
+
+Plain DAE's artifact-scale typed-loop fallback is now organized around one immutable boundary snapshot and bounded incremental work. The body scan directly supplies aggregate call facts; stable callsite paths drive uniform-actual recovery; forwarded local-use and uniform-value facts are cached per fixed snapshot; direct-caller cycles are indexed once; later result waves are caller-to-callee worklists; and transactional validation checks the complete rewritten environment plus only touched or changed definitions. This preserves the existing exact 4,974,439-byte product while reducing pass-local median from `2,132.324ms` to `743.346ms`.
+
+The requested `1x` Binaryen stretch target remains unmet at `2.076x`, but the remaining absolute difference is about `385ms`, and the pass no longer exceeds one second. Future work should not chase ratio alone: reopen only for a larger absolute owner or for a design that fuses boundary scanning, uniform solving, pruning, and validation without weakening rollback or output contracts.
 
 Starshine has a **behavior-, lifecycle-, and release-signoff-complete module-pass surface** for the represented Binaryen-v131 plain `dead-argument-elimination` / upstream `dae` boundary family. The authoritative current evidence is in [`completion-matrix.md`](./completion-matrix.md); unsupported proposal surfaces continue to fail closed. Release review accepted the remaining dense-call performance gap on July 25, 2026, so no DAE-owned release blocker remains.
 

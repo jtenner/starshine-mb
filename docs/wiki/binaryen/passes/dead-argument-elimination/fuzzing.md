@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-25
+last_reviewed: 2026-08-28
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -11,6 +11,18 @@ sources:
 ---
 
 # `dead-argument-elimination` Fuzzing Profile
+
+## August 28, 2026 performance-only renewal
+
+Final native SHA-256 `3139521cb86ec4fbca113b7abcbf6cd51ba265ae656971294927bfd8585d6405` completed the required direct-DAE matrix with `drop-consts` and `unreachable-control-debris` normalization:
+
+- regular GenValid, seed `0x5eed`: `100000/100000`, with `88244` normalized, `966` cleanup-normalized, and `10790` current residuals; all `11756` non-equal canonical outputs are smaller and there are zero failures;
+- dedicated `dead-argument-elimination`, seed `0x5eed`: `10000/10000`, with `5000` normalized and `5000` established smaller cleanup/representation residuals, zero failures, and all ten leaves represented;
+- explicit wasm-smith, seed `0x5eed`: `9951` normalized, `2` cleanup-normalized, and `3` residuals across all `9956` comparable cases, plus the established 44 Binaryen/tool failures (`39` empty recursive groups, `3` bad section sizes, `1` invalid tag index, `1` table index out of range); aggregate canonical output is 32 bytes smaller, while one individual pre-existing case is larger;
+- random-all-profiles, seed `0x5555`: `8329` normalized, `179` cleanup-normalized, and `1492` current residuals, with `1607` smaller, `8369` equal, and `24` larger canonical outputs and zero failures;
+- runtime-callable self semantics: exact `100/100`, despite `47` structural residuals.
+
+The current binary and clean HEAD are byte-identical on all 100,000 regular inputs and all 10,000 dedicated, random-all, and wasm-smith inputs. The performance change therefore introduces no output or residual family; the July source/diff/runtime classifications remain authoritative for the pre-existing direct-DAE residuals. Evidence is under `.tmp/pass-fuzz-dae-perf-final-*` and `.tmp/dae-perf-20260828/final-clean-head-corpus-compare`.
 
 This page tracks the pass-owned GenValid lanes for the plain `dead-argument-elimination` / `dae` audit and the related `dae-optimizing` closeout lane.
 

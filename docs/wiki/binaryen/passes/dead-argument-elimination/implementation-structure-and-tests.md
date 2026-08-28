@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-08-28
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadArgumentElimination.cpp
@@ -29,6 +29,21 @@ related:
 ---
 
 # `dead-argument-elimination` implementation structure and tests
+
+## August 28, 2026 complexity contracts
+
+The typed-loop safe batch now has direct white-box contracts for the absolute-time owners:
+
+- stable uniform callsites are resolved once and contiguous zero-input/single-output roots bypass full operand slicing;
+- forwarded caller local use and cycle-safe per-parameter uniform values are cached for the fixed module snapshot, with one shared absolute-function visited bitmap;
+- recursive callers are rejected from indexed boundary facts rather than body rescans;
+- aggregate call facts come directly from the existing body scan;
+- direct-caller cycle membership is indexed once with the shared SCC implementation;
+- the batch graph intentionally omits topology extras it does not consume;
+- later dropped-result waves schedule only callees of result-changing definitions;
+- selective transactional validation rejects a touched signature/body mismatch and accepts a valid uniform-materialization rewrite.
+
+These contracts accompany ordinary behavior assertions and keep rollback, direct caller ownership, constant materialization, result-chain convergence, type pruning, and exact output unchanged.
 
 This page is the compact owner-file and proof-surface map for Binaryen `version_129` plain `dead-argument-elimination` / `dae`.
 

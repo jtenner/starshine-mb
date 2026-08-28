@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-28
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_argument_elimination.mbt
@@ -28,6 +28,14 @@ related:
 ---
 
 # `dead-argument-elimination`
+
+## August 28, 2026 final absolute-time reduction
+
+Fresh medians on the canonical 4,977,401-byte module were `2,132.324ms` Starshine pass-local and `3,321.786ms` command versus Binaryen v131 at `451.903ms` and `1,051.796ms`. The remaining time was not one monolithic DAE core: boundary analysis rebuilt call facts after already collecting them, uniform-actual resolution rescanned stable callers and recomputed forwarded parameter facts, cycle admission ran one DFS per candidate, every dropped-result wave rescanned all definitions, and the atomic fallback performed a second full-module validation.
+
+The retained implementation returns body-scan call facts directly, uses a topology-free graph for this narrow typed-loop transaction, resolves direct and forwarded uniform actuals through stable callsite paths, caches body-static local use and cycle-safe per-parameter forwarded values, shares one recursion bitmap, computes direct-caller cycles with one SCC pass, schedules later dropped-result waves from changed callers' outgoing callees, and validates the complete rewritten module environment plus only touched or structurally/signature-changed functions. Representative detailed owners fall from about `310ms` call-fact reconstruction to zero, `671ms` uniform collection to roughly `146ms`, `60-106ms` cycle probing to roughly `22ms`, later dropped-result candidate scans to `3ms` and `1ms`, and full validation from roughly `388ms` to about `104ms`.
+
+Final one-warmup/three-sample medians are `743.346ms` Starshine pass-local versus `358.127ms` Binaryen (`2.076x`) and `1,773.118ms` command versus `879.556ms` (`2.016x`). This misses the requested `1x` stretch target but removes `1,388.978ms` / `65.1%` from the fresh pass baseline and moves plain DAE below the repository's one-second absolute-priority threshold. Exact output remains 4,974,439 bytes, SHA-256 `75897ed1f6ecc8d8590145b2119023bba3682c01ee422e9bc7d4c8adcf15dc12`; final native SHA-256 is `3139521cb86ec4fbca113b7abcbf6cd51ba265ae656971294927bfd8585d6405`.
 
 ## Role
 
