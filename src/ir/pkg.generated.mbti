@@ -1150,6 +1150,10 @@ pub struct HotFunc {
   locals : HotLocals
   types : Array[HotTypeInfo]
   type_ids : @hashmap.HashMap[String, Int]
+  value_types : Array[@lib.ValType]
+  value_type_ids : Array[Int]
+  block_types : Array[@lib.BlockType]
+  block_type_ids : Array[Int]
   labels : Array[HotLabelInfo]
   consts : Array[HotConstPayload]
   memargs : Array[HotMemArg]

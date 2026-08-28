@@ -97,11 +97,34 @@ fn hot_lift_impl_declared_locals(locals : @lib.Locals) -> Array[ValType] {
 }
 
 ///|
+fn hot_lift_impl_validation_locals(
+  params : Array[ValType],
+  body_locals : @lib.Locals,
+) -> @lib.Locals {
+  if params.length() == 0 {
+    return body_locals
+  }
+  let runs : Array[@lib.LocalRun] = []
+  for param in params {
+    runs.push(@lib.LocalRun::new(1U, param))
+  }
+  for run in body_locals.runs() {
+    runs.push(run)
+  }
+  @lib.Locals::new(runs)
+}
+
+///|
 fn hot_lift_impl_env_from_context(
   ctx : HotModuleContext,
   locals : HotLocals,
   return_types : Array[ValType],
+  validation_locals? : @lib.Locals? = None,
 ) -> Env {
+  let all_locals = match validation_locals {
+    Some(decls) => decls
+    None => hot_lift_impl_all_locals(locals)
+  }
   let env = empty_env()
     .with_types(ctx.subtypes)
     .with_funcs_and_type_idxs(ctx.func_types, ctx.func_type_slots)
@@ -111,7 +134,7 @@ fn hot_lift_impl_env_from_context(
     .with_elems(ctx.elems)
     .with_datas(ctx.datas)
     .with_tags(ctx.tags)
-    .with_locals(hot_lift_impl_all_locals(locals))
+    .with_locals(all_locals)
     .with_label(return_types)
     .with_return_type(Some(return_types))
   env
@@ -1656,6 +1679,40 @@ fn hot_lift_impl_pushed_types(
 }
 
 ///|
+fn hot_lift_impl_typecheck_data_instruction(
+  instr : Instruction,
+  tc_state : TcState,
+  concrete_before_types? : Array[ValType] = [],
+) -> Result[(TcState, Int, Array[ValType]), HotLiftError] {
+  let before_types = tc_state.stack
+  let before_state = tc_state
+  let typecheck_state = tc_state_with_stack(tc_state, before_types)
+  let after_state = match hot_lift_impl_typecheck(instr, typecheck_state) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  match hot_lift_impl_known_pop_count(instr, tc_state.env) {
+    Some(count) if count <= before_types.length() =>
+      Ok(
+        (
+          after_state,
+          count,
+          hot_lift_impl_pushed_types(before_types, after_state.stack, count),
+        ),
+      )
+    _ =>
+      match
+        hot_lift_impl_resolve_generic_pop_count(
+          instr, before_state, after_state, concrete_before_types,
+        ) {
+        Ok((child_count, pushed_types)) =>
+          Ok((after_state, child_count, pushed_types))
+        Err(err) => Err(err)
+      }
+  }
+}
+
+///|
 fn hot_lift_impl_lift_region(
   func : HotFunc,
   expr : Expr,
@@ -2806,29 +2863,14 @@ fn hot_lift_impl_lift_instruction(
     _ => ()
   }
 
-  let before_types = tc_state.stack
-  let before_state = tc_state
-  let typecheck_state = tc_state_with_stack(tc_state, before_types)
-  let after_state = match hot_lift_impl_typecheck(instr, typecheck_state) {
-    Ok(next) => next
+  let (after_state, child_count, pushed_types) = match
+    hot_lift_impl_typecheck_data_instruction(
+      instr,
+      tc_state,
+      concrete_before_types=concrete_values,
+    ) {
+    Ok(resolved) => resolved
     Err(err) => return Err(err)
-  }
-  let concrete_before_types = concrete_values
-  let (child_count, pushed_types) = match
-    hot_lift_impl_known_pop_count(instr, tc_state.env) {
-    Some(count) if count <= before_types.length() =>
-      (
-        count,
-        hot_lift_impl_pushed_types(before_types, after_state.stack, count),
-      )
-    _ =>
-      match
-        hot_lift_impl_resolve_generic_pop_count(
-          instr, before_state, after_state, concrete_before_types,
-        ) {
-        Ok(resolved) => resolved
-        Err(err) => return Err(err)
-      }
   }
   if !hot_lift_impl_can_materialize_unreachable_instr(
       instr, tc_state, concrete_values, child_count,
@@ -2998,19 +3040,44 @@ pub fn hot_lift_body_with_context(
 }
 
 ///|
-pub fn hot_lift_body_with_context_result(
+fn hot_lift_impl_body_with_context_result(
   body : Expr,
   locals : HotLocals,
   ctx : HotModuleContext,
-  body_result_type? : BlockType = BlockType::void_(),
+  body_result_type : BlockType,
+  validation_locals? : @lib.Locals? = None,
+  known_return_types? : Array[ValType]? = None,
+  env_build_visits? : Array[Int]? = None,
 ) -> Result[HotFunc, HotLiftError] {
-  let return_env = hot_lift_impl_env_from_context(ctx, locals, [])
-  let (_, return_types) = match
-    hot_lift_impl_block_results(return_env, body_result_type) {
-    Ok(types) => types
-    Err(err) => return Err(err)
+  let return_types = match known_return_types {
+    Some(types) => types
+    None => {
+      match env_build_visits {
+        Some(visits) => visits[0] += 1
+        None => ()
+      }
+      let return_env = hot_lift_impl_env_from_context(
+        ctx,
+        locals,
+        [],
+        validation_locals~,
+      )
+      match hot_lift_impl_block_results(return_env, body_result_type) {
+        Ok((_, results)) => results
+        Err(err) => return Err(err)
+      }
+    }
   }
-  let env = hot_lift_impl_env_from_context(ctx, locals, return_types)
+  match env_build_visits {
+    Some(visits) => visits[0] += 1
+    None => ()
+  }
+  let env = hot_lift_impl_env_from_context(
+    ctx,
+    locals,
+    return_types,
+    validation_locals~,
+  )
   let func = HotFunc::new(locals~)
   hot_body_result_type_set(
     func,
@@ -3037,6 +3104,16 @@ pub fn hot_lift_body_with_context_result(
 }
 
 ///|
+pub fn hot_lift_body_with_context_result(
+  body : Expr,
+  locals : HotLocals,
+  ctx : HotModuleContext,
+  body_result_type? : BlockType = BlockType::void_(),
+) -> Result[HotFunc, HotLiftError] {
+  hot_lift_impl_body_with_context_result(body, locals, ctx, body_result_type)
+}
+
+///|
 pub fn hot_lift_body_with_context_unverified(
   body : Expr,
   locals : HotLocals,
@@ -3051,19 +3128,19 @@ pub fn hot_lift_body_with_context_unverified(
 }
 
 ///|
-fn hot_lift_impl_imported_func_count(mod_ : Module) -> Int {
-  let mut count = 0
-  match mod_.import_sec {
-    Some(@lib.ImportSec(imports)) =>
-      for import_ in imports {
-        match import_ {
-          @lib.Import(_, _, @lib.FuncExternType(_)) => count = count + 1
-          _ => ()
-        }
-      }
-    None => ()
+fn hot_lift_impl_defined_code_index(
+  total_func_count : Int,
+  defined_func_count : Int,
+  func_idx : FuncIdx,
+) -> Int? {
+  let FuncIdx(raw) = func_idx
+  let code_idx = raw.reinterpret_as_int() -
+    (total_func_count - defined_func_count)
+  if code_idx < 0 || code_idx >= defined_func_count {
+    None
+  } else {
+    Some(code_idx)
   }
-  count
 }
 
 ///|
@@ -3087,21 +3164,20 @@ pub fn hot_lift_func_with_context_result(
     Some(type_) => type_
     None => return Err(HotLiftError::InvalidFunctionIndex(func_idx))
   }
-  let code_idx = match func_idx {
-    FuncIdx(raw) =>
-      raw.reinterpret_as_int() - hot_lift_impl_imported_func_count(mod_)
-  }
-  if code_idx < 0 {
-    return Err(HotLiftError::MissingFunctionBody(func_idx))
-  }
-  let def = match mod_.code_sec {
-    Some(@lib.CodeSec(defs)) =>
-      match defs.get(code_idx) {
-        Some(def_) => def_
-        None => return Err(HotLiftError::MissingFunctionBody(func_idx))
-      }
+  let defs = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => defs
     None => return Err(HotLiftError::MissingFunctionBody(func_idx))
   }
+  let code_idx = match
+    hot_lift_impl_defined_code_index(
+      ctx.func_types.length(),
+      defs.length(),
+      func_idx,
+    ) {
+    Some(idx) => idx
+    None => return Err(HotLiftError::MissingFunctionBody(func_idx))
+  }
+  let def = defs[code_idx]
   let @lib.Func(body_locals, body) = def
   let @lib.FuncType(params, results) = func_type
   let locals = HotLocals::new(
@@ -3119,7 +3195,16 @@ pub fn hot_lift_func_with_context_result(
       }
   }
   let hot = match
-    hot_lift_body_with_context_result(body, locals, ctx, body_result_type~) {
+    hot_lift_impl_body_with_context_result(
+      body,
+      locals,
+      ctx,
+      body_result_type,
+      validation_locals=Some(
+        hot_lift_impl_validation_locals(params, body_locals),
+      ),
+      known_return_types=Some(results),
+    ) {
     Ok(hot) => hot
     Err(err) => return Err(err)
   }

@@ -5091,15 +5091,12 @@ fn non_nullable_externref() -> ValType {
 }
 
 ///|
-fn tc_state_all_locals_initialized(env : Env) -> Array[Bool] {
-  let initialized : Array[Bool] = []
-  for run in env.locals.runs() {
-    let count = run.count.reinterpret_as_int()
-    for _i = 0; _i < count; _i = _i + 1 {
-      initialized.push(true)
-    }
-  }
-  initialized
+fn tc_state_all_locals_initialized(
+  env : Env,
+  expanded_slot_visits? : Array[Int]? = None,
+) -> Array[Bool] {
+  ignore(expanded_slot_visits)
+  Array::make(env.locals.length(), true)
 }
 
 ///|

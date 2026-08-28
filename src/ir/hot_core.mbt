@@ -324,6 +324,10 @@ pub struct HotFunc {
   locals : HotLocals
   types : Array[HotTypeInfo]
   type_ids : @hashmap.HashMap[String, TypeId]
+  value_types : Array[ValType]
+  value_type_ids : Array[TypeId]
+  block_types : Array[BlockType]
+  block_type_ids : Array[TypeId]
   labels : Array[HotLabelInfo]
   consts : Array[HotConstPayload]
   memargs : Array[HotMemArg]
@@ -358,6 +362,10 @@ pub fn HotFunc::new(
     locals,
     types: [HotTypeInfo::VoidType],
     type_ids,
+    value_types: [],
+    value_type_ids: [],
+    block_types: [],
+    block_type_ids: [],
     labels: [],
     consts: [],
     memargs: [],

@@ -13,13 +13,24 @@ fn hot_intern_type(func : HotFunc, info : HotTypeInfo) -> TypeId {
 }
 
 ///|
-pub fn hot_type_intern_void(func : HotFunc) -> TypeId {
-  hot_intern_type(func, HotTypeInfo::VoidType)
+pub fn hot_type_intern_void(_func : HotFunc) -> TypeId {
+  0
 }
 
 ///|
 pub fn hot_type_intern_value(func : HotFunc, val_type : ValType) -> TypeId {
-  hot_intern_type(func, HotTypeInfo::Value(val_type))
+  for idx = 0; idx < func.value_types.length(); idx = idx + 1 {
+    if func.value_types[idx] == val_type {
+      return func.value_type_ids[idx]
+    }
+  }
+  let info = HotTypeInfo::Value(val_type)
+  let id = func.types.length()
+  func.types.push(info)
+  func.type_ids.set(info.to_string(), id)
+  func.value_types.push(val_type)
+  func.value_type_ids.push(id)
+  id
 }
 
 ///|
@@ -27,7 +38,18 @@ pub fn hot_type_intern_block_result(
   func : HotFunc,
   block_type : BlockType,
 ) -> TypeId {
-  hot_intern_type(func, HotTypeInfo::BlockResult(block_type))
+  for idx = 0; idx < func.block_types.length(); idx = idx + 1 {
+    if func.block_types[idx] == block_type {
+      return func.block_type_ids[idx]
+    }
+  }
+  let info = HotTypeInfo::BlockResult(block_type)
+  let id = func.types.length()
+  func.types.push(info)
+  func.type_ids.set(info.to_string(), id)
+  func.block_types.push(block_type)
+  func.block_type_ids.push(id)
+  id
 }
 
 ///|
