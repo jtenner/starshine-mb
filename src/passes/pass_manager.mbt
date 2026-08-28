@@ -31764,6 +31764,7 @@ fn run_hot_pipeline_raw_merge_blocks_dropped_const_multivalue(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "merge-blocks" {
     return None
@@ -31773,7 +31774,10 @@ fn run_hot_pipeline_raw_merge_blocks_dropped_const_multivalue(
   if body.length() < 3 {
     return None
   }
-  let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let module_ctx = match module_ctx {
+    Some(ctx) => ctx
+    None => @ir.hot_module_context_from_module(mod_)
+  }
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut idx = 0
@@ -31836,6 +31840,7 @@ fn run_hot_pipeline_raw_merge_blocks_flat_call_drop_prefixes(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "merge-blocks" {
     return None
@@ -31845,7 +31850,10 @@ fn run_hot_pipeline_raw_merge_blocks_flat_call_drop_prefixes(
   if body.length() < 6 || !(body[body.length() - 1] is @lib.Call(_)) {
     return None
   }
-  let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let module_ctx = match module_ctx {
+    Some(ctx) => ctx
+    None => @ir.hot_module_context_from_module(mod_)
+  }
   let dropped_call_has_one_operand = fn(instr : @lib.Instruction) -> Bool {
     match instr {
       @lib.Call(target) =>
@@ -76381,16 +76389,27 @@ fn run_hot_pipeline_func(
     Some(result) => return Ok(result)
     None => ()
   }
+  let merge_blocks_module_ctx = if descriptor.name == "merge-blocks" {
+    Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
+  } else {
+    None
+  }
   match
     run_hot_pipeline_raw_merge_blocks_dropped_const_multivalue(
-      mod_, func_idx, descriptor,
+      mod_,
+      func_idx,
+      descriptor,
+      module_ctx=merge_blocks_module_ctx,
     ) {
     Some(result) => return Ok(result)
     None => ()
   }
   match
     run_hot_pipeline_raw_merge_blocks_flat_call_drop_prefixes(
-      mod_, func_idx, descriptor,
+      mod_,
+      func_idx,
+      descriptor,
+      module_ctx=merge_blocks_module_ctx,
     ) {
     Some(result) => return Ok(result)
     None => ()

@@ -20631,6 +20631,34 @@ test "dead-code-elimination preserves unchanged extracted Func 3733 stack builde
 }
 
 ///|
+test "merge-blocks raw multivalue cleanup reuses supplied module context" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $pair (func (result i32 i32)))
+      #|  (func
+      #|    (block (type $pair)
+      #|      i32.const 1
+      #|      i32.const 2)
+      #|    drop
+      #|    drop))
+    ),
+  )
+  let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let result = match
+    run_hot_pipeline_raw_merge_blocks_dropped_const_multivalue(
+      mod_,
+      @lib.FuncIdx::new(0U),
+      @ir.HotPassDescriptor::new("merge-blocks"),
+      module_ctx=Some(module_ctx),
+    ) {
+    Some(result) => result
+    None => fail("expected dropped multivalue cleanup")
+  }
+  assert_eq(result.reason, "dropped-const-multivalue-merge-blocks")
+}
+
+///|
 #cfg(target="native")
 test "merge-blocks keeps O4z slot-42 no-data func 1355 witness valid" {
   let input_path = "tests/repros/o4z-slot42-merge-blocks-f1355-nodata.wasm"
