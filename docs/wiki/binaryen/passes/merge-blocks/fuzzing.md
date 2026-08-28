@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-12
+last_reviewed: 2026-08-28
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -10,6 +10,18 @@ sources:
 ---
 
 # `merge-blocks` Fuzzing Profile
+
+## 2026-08-28 shared-context performance renewal
+
+Final native SHA-256 `fe5b224539b5bb7c31d3dd0e0efd92693cac6a162a9ac2979bea4624ee8201b1` completed the required matrix:
+
+- regular GenValid, seed `0x5eed`: `100000/100000` normalized, zero mismatches or failures, and equal canonical totals of 422,113,416 bytes;
+- `merge-blocks-all`, seed `0x5eed`: `10000/10000`, with `7007` normalized and `2993` current expression-profile residuals. Every residual is exactly two canonical bytes smaller because Starshine omits the two effect-free empty-arm `nop`s retained by Binaryen; aggregate canonical size is 535,356 versus 541,342 bytes. All four leaves are represented: structural `3019`, expression `2993`, effect order `1998`, and EH/atomic `1990`;
+- explicit wasm-smith, seed `0x5eed`: all `9956` comparable cases normalized, zero Starshine failures, and the established 44 Binaryen/tool failures (`39` empty recursive groups, `3` bad section sizes, `1` invalid tag index, `1` table index out of range);
+- random-all-profiles, seed `0x5555`: `8865` normalized plus `1135` canonically smaller pre-existing residuals, zero equal-size residuals, size losses, or failures;
+- runtime-callable self semantics: exact `100/100`, zero failures.
+
+Current and clean HEAD outputs are byte-identical on every input in the dedicated, random-all, and wasm-smith 10,000-case corpora. The performance change therefore introduces no output family. Evidence is under `.tmp/pass-fuzz-merge-blocks-context-final-regular-100000`, `.tmp/pass-fuzz-merge-blocks-context-final-dedicated-10000`, `.tmp/pass-fuzz-merge-blocks-context-final-wasm-smith-10000`, `.tmp/pass-fuzz-merge-blocks-context-final-random-all-10000`, `.tmp/pass-fuzz-merge-blocks-context-final-runtime-100`, and `.tmp/merge-blocks-perf-20260828/clean-head-corpus-compare`.
 
 ## Dedicated aggregate
 

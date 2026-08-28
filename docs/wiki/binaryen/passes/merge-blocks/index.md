@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-12
+last_reviewed: 2026-08-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeBlocks.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks.wast
@@ -29,6 +29,14 @@ supersedes:
 ---
 
 # `merge-blocks`
+
+## 2026-08-28 artifact-scale command parity
+
+Fresh one-warmup/three-sample baseline medians on the canonical 4,977,401-byte artifact were `11,062.681ms` Starshine command and `33.222ms` pass-local versus Binaryen v131 at `1,196.765ms` and `693.539ms`. Attribution showed the MergeBlocks transform was already much faster than Binaryen. Almost the entire `10,170.084ms` function envelope came from two raw helpers rebuilding `HotModuleContext` from the full module for every one of 11,999 functions: dropped literal multivalue probing cost `8,300.787ms`, and flat call/drop-prefix probing cost `1,683.742ms`.
+
+The dispatcher now obtains the revision-stable module context from `HotPipelineModuleState` once and supplies it to both helpers. Their optional fallback keeps isolated/helper calls correct without imposing repeated production builds. Final medians are `1,110.605ms` Starshine command versus `1,187.812ms` Binaryen (`0.935x`) and `30.282ms` Starshine pass-local versus `692.020ms` Binaryen (`0.044x`). Function-unattributed work falls to `153.500ms`, and pipeline time falls from `10,443.473ms` to `365.870ms`.
+
+Every traced/no-trace output is byte-identical to the 4,977,401-byte input, SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`. Final native SHA-256 is `fe5b224539b5bb7c31d3dd0e0efd92693cac6a162a9ac2979bea4624ee8201b1`. This closes the direct command and pass-local P0 gates.
 
 ## 2026-07-31 correctness and performance reclose
 

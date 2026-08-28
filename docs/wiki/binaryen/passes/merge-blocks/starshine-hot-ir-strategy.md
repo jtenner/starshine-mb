@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
@@ -37,6 +37,12 @@ Starshine has four local rewrite routes:
 
 Expression-child lifting covers `if` conditions, `drop`, `i32.store`, and `throw`. The boundary routes exist because flat binary operand order and reference typing can be reconstructed differently from equivalent nested WAT.
 
+## August 28, 2026 shared-context envelope rule
+
+Raw MergeBlocks helpers that resolve function or type signatures must consume the dispatcher's cached `HotModuleContext`; they must not call `hot_module_context_from_module(...)` once per function. The dropped-multivalue and flat call/drop-prefix helpers retain an optional fallback only for isolated tests and direct helper use. Production dispatch resolves the context through `run_hot_pipeline_require_module_ctx(...)` and supplies the same value to both helpers.
+
+This rule reduced the canonical function envelope from `10,170.084ms` to `153.500ms` without changing a byte of output. The direct command now beats Binaryen v131 at `0.935x`, while pass-local work remains much faster at `0.044x`.
+
 ## Exact local code map
 
 | Lines | Surface | Role |
@@ -57,7 +63,7 @@ Expression-child lifting covers `if` conditions, `drop`, `i32.store`, and `throw
 | `src/passes/merge_blocks.mbt` | `merge_blocks_flatten_region_root_block(...)` | Main region-root splice and typed-carrier gate, including constant-time drop-parent lookup. |
 | `src/passes/merge_blocks.mbt` | structural and dropped-branch helpers | Remove branch-free parameterless/resultless loops and wrappers, clean dropped self-branch payloads, and apply the O4z-only redundant self-`br_if` cleanup. |
 | `src/passes/merge_blocks.mbt` | traversal and run | Visit structured children, lift prefixes, flatten wrappers/roots, and mark mutation. |
-| `src/passes/pass_manager.mbt` | raw/preclean/lowered helpers | Repair exact stack-form families before lifting and canonicalize reference/spill/local shapes after lowering; unsafe or unknown forms fail closed. |
+| `src/passes/pass_manager.mbt` | raw/preclean/lowered helpers | Repair exact stack-form families before lifting and canonicalize reference/spill/local shapes after lowering; raw signature-dependent helpers reuse the dispatcher's cached `HotModuleContext`; unsafe or unknown forms fail closed. |
 | `src/passes/optimize.mbt:256-259` | registry entry | Active hot-pass registration. |
 | `src/passes/optimize.mbt:322-323` / `340-341` | public preset arrays | Repeated late `merge-blocks` placement in `optimize` and `shrink`. |
 | `src/passes/pass_manager.mbt:9002` | dispatcher | `merge_blocks_run(ctx, func)` call site. |

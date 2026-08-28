@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
@@ -84,6 +84,12 @@ Primary owner:
 | pass-manager raw admission | Repair flat call/drop prefixes, the exact v131 ordered-atomic call fixture, and dropped literal multivalue blocks before HOT lifting. |
 | pass-manager preclean | Recursively normalize direct and nested dropped self-branch payloads plus unused reference-catch payloads before lifting. |
 | pass-manager lowered cleanup | Refinalize all-null reference blocks, flatten scalar spill blocks, compact unused appended locals, and preserve valid stack order. |
+
+## Shared-context complexity regression
+
+`src/passes/pass_manager_wbtest.mbt` now constructs a typed two-result dropped-block fixture, builds one `HotModuleContext`, and requires `run_hot_pipeline_raw_merge_blocks_dropped_const_multivalue(...)` to accept that supplied context while preserving the exact rewrite reason. The test first failed because the helper had no `module_ctx` parameter. Production dispatch supplies the same cached context to both the dropped-multivalue and flat call/drop-prefix helpers.
+
+This locks the owner that dominated artifact-scale command time: rebuilding complete module context inside each helper for every function.
 
 ## Local direct tests
 
