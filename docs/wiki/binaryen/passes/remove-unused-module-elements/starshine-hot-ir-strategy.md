@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ./index.md
+  - ../../../../../src/rume/remove_unused_module_elements.mbt
+  - ../../../../../src/rume/remove_unused_module_elements_wbtest.mbt
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -152,6 +154,19 @@ The public pass entrypoint and the nearby extraction helper sit at the end of th
 - `rume_run_module_pass(...)` at `:3250-3260`
 
 The extraction helper is not the public pass itself, but it matters for maintainers because it reuses the same liveness and rewrite machinery with a different root-normalization path and `keep_import_parent_segments = false`.
+
+## August 28, 2026 performance architecture
+
+The active implementation now lives in `src/rume/remove_unused_module_elements.mbt`; `src/passes/remove_unused_module_elements.mbt` is a compatibility wrapper. The artifact-scale repair establishes these additional rules:
+
+- module liveness and direct type-operand marking share one instruction traversal;
+- type roots from surviving functions, tables, globals, tags, elements, and data are finalized after element pruning;
+- external type dependencies close through a one-visit queue while multi-member recursive groups remain fail-closed;
+- no-element-change modules still run integrated type compaction;
+- repeated identical `(table, call-type)` indirect calls reuse the first candidate scan;
+- the dispatcher must not wrap RUME in `dfe_prune_unused_simple_types(...)`, whose one-module-scan-per-type proof is superseded by RUME's integrated collector.
+
+These rules reduce the canonical module-pass median from `3,939.555ms` to `81.032ms`, approximately `1.052x` Binaryen v131, while preserving exact output.
 
 ## Current strengths
 

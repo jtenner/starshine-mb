@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-28
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -55,6 +55,8 @@ related:
 - `data_cnt_sec` is rebuilt to match the surviving data-section length.
 
 ## Type-section Cleanup After Pruning
+
+The 2026-08-28 implementation fuses direct type-use marking into the existing liveness instruction scan, then adds surviving section roots after element pruning and closes external dependencies with a one-visit worklist. This replaces the dispatcher-level DFE helper that formerly rescanned the full module once per type. Multi-member recursive groups retain the previous fail-closed boundary.
 
 - Current Starshine RUME also compacts dead type entries after ordinary module-element pruning.
 - Type liveness and remapping include block/function types, call/ref-call types, GC struct/array/cast/atomic carriers, descriptor relationships, continuation construction/binding, and stack-switching forms.

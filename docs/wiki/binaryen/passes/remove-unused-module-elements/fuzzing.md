@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../tooling/pass-fuzz-compare.md
@@ -106,6 +106,18 @@ This remains an intentional correctness-and-size win. The `44` other cases are B
 - CI-profile fuzz suites at deterministic seed `0x5eed`: all individual suites green, including `5000` valid modules, `2650` invalid AST cases, `400` invalid binaries, `400` static invalid texts, `384` dynamic invalid texts, `390` invalid spec seeds, `86820` deterministic binary roundtrips, and `4096` command-harness cases.
 
 The aggregate `bun validate full --profile ci --target wasm-gc` wrapper reproduced the repository's known child-process no-return-code failure at its initial `moon info`. The aggregate wasm-gc `all` fuzz command likewise aborted without preserving its diagnostic after accumulated suites; running every suite serially, both with a fresh default seed and with CI seed `0x5eed`, passed. These wrapper failures are tooling/process aggregation failures, not RUME validation failures.
+
+## 2026-08-28 performance-change renewal
+
+Final native SHA-256 `4bca82a57ea2582360b460aebf0f19e623fc9359239a04075786c69a0b2f7461` completed the full required matrix:
+
+- regular GenValid, seed `0x5eed`, `100000/100000`: `100000` cleanup-normalized matches, zero residual mismatches or failures. The normalizer accounts for the established CLI-wide standalone-`nop` omission; canonical Starshine is exactly one cleanup byte smaller per case;
+- explicit wasm-smith, seed `0x5eed`: `9956/10000` comparable, `9955` normalized, the established `case-004700` full-u64 memory64 correctness/size win, zero Starshine failures, and 44 Binaryen/tool failures (`39` empty recursive groups, `3` bad section sizes, `1` invalid tag index, `1` table index out of range);
+- dedicated `rume-all`, seed `0x5eed`, `10000/10000`: `4106` ordinary normalized plus `5894` cleanup-normalized, zero mismatches or failures. Selection remains special imports `1784`, index-remap stress `1744`, dead graph `1764`, legacy EH `1203`, table traps `1190`, callable references `1183`, and continuations/descriptors `1132`;
+- random-all-profiles, seed `0x5555`, `10000/10000`: `7982` ordinary normalized, `1764` cleanup-normalized, `254` residuals, and zero failures. Replaying the identical saved corpus through clean HEAD produced exactly the same match counts, residual count, raw/canonical totals, and smaller/equal/larger directions. Persisted representatives are the established non-RUME local-run encoding and control-shell representation families;
+- runtime-callable self semantics: exact `100/100`, zero failures.
+
+The performance change therefore introduces no new compare family. Evidence is under `.tmp/pass-fuzz-rume-perf-regular-final-100000`, `.tmp/pass-fuzz-rume-perf-wasm-smith-final-10000`, `.tmp/pass-fuzz-rume-perf-rume-all-final-10000`, `.tmp/pass-fuzz-rume-perf-random-all-final-10000`, `.tmp/pass-fuzz-rume-clean-head-random-all-10000`, and `.tmp/pass-fuzz-rume-perf-runtime-final-100`.
 
 ## Practical rule
 

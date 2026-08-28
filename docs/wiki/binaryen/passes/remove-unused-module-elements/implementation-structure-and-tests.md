@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-28
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-closed-tnh.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ./index.md
+  - ../../../../../src/rume/remove_unused_module_elements_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/element-utils.h
@@ -202,6 +203,16 @@ They are teaching files for the deeper rules:
 ## Source-trust rule for this dossier
 
 Keep `version_129` as historical provenance for the original graph algorithm, but use `version_131` as the release oracle. The v131 owner and fixtures directly prove table-default call roots, wrong-type/default trap preservation, overlap conservatism, and the `trapsNeverHappen` relaxation. Those families are now implemented and covered by the focused and explicit-v131 evidence recorded in `parity.md`.
+
+## Current Starshine complexity regressions
+
+`src/rume/remove_unused_module_elements_wbtest.mbt` now locks three algorithmic contracts:
+
+- repeated identical indirect calls scan a table/type candidate payload once;
+- a type section whose entries are all directly function-rooted can be proved without scanning bodies;
+- a 64-entry transitive type dependency chain closes with one queue visit per type.
+
+The focused pass regression additionally requires standalone `rume_run_module_pass(...)` to produce the same unreachable-GC-type compaction as the public pipeline. This prevents the removed quadratic dispatcher wrapper from silently becoming necessary again.
 
 ## Most important implementation takeaway
 

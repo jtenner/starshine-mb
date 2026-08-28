@@ -1,12 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-28
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/rume/remove_unused_module_elements.mbt
+  - ../../../../../src/rume/remove_unused_module_elements_wbtest.mbt
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -124,6 +126,14 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
   - Current in-tree Starshine strategy with exact MoonBit registry, dispatcher, liveness, rewrite, type-cleanup, and test code locations; also explains why the pass remains module-scoped instead of becoming a pure HOT pass.
 - [`./parity.md`](./parity.md)
   - Current signoff matrix, transform-family audit, scheduler status, performance, residual ownership, and reopening criteria.
+
+## 2026-08-28 artifact-scale performance checkpoint
+
+A fresh canonical baseline measured `3,939.555ms` inside the Starshine module-pass timer and `4,835.079ms` for the no-trace command versus Binaryen v131 at `71.882ms` pass-local and `589.849ms` command. Attribution showed the RUME graph itself completed in roughly 66ms; almost the entire apparent pass cost came from the dispatcher wrapping RUME in `dfe_prune_unused_simple_types(...)`, whose conservative implementation scanned the complete module once for every type index.
+
+The retained implementation removes that redundant wrapper while preserving its behavior inside RUME. Type use is marked directly during the existing liveness walk, surviving section roots are closed after elem pruning, external type dependencies use a one-visit worklist, and no-element-change modules still run integrated type compaction. Repeated identical `(table, call-type)` indirect-call queries also share one candidate scan.
+
+Final one-warmup/three-sample medians are `81.032ms` Starshine pass-local versus `77.001ms` Binaryen (`1.052x`) and `1,004.710ms` Starshine command versus `620.215ms` Binaryen (`1.620x`). This closes the pass-local approximately-1x goal and the repository's absolute `<=1.169s` command gate. Every traced/no-trace sample preserves the exact 4,977,401-byte input/output, SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`; canonical Starshine and Binaryen output remains equal at 5,300,041 bytes.
 
 ## Current maintenance rule
 

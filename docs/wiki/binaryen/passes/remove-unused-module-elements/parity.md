@@ -1,12 +1,14 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-28
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
   - ../../../../../agent-todo.md
+  - ../../../../../src/rume/remove_unused_module_elements.mbt
+  - ../../../../../src/rume/remove_unused_module_elements_wbtest.mbt
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
   - ../../../../../src/validate/gen_valid.mbt
@@ -100,15 +102,20 @@ Starshine emits an empty module while Binaryen retains a huge unused memory64 an
 
 ## Performance
 
-Seven current-master direct debug-WASI runs after the repair report:
+The 2026-08-28 canonical 4,977,401-byte checkpoint identified a misleading owner boundary. RUME liveness itself completed near Binaryen speed, but `run_hot_pipeline_apply_module_pass(...)` immediately invoked `dfe_prune_unused_simple_types(...)`. That helper performed one full-module type-carrier probe per type and accounted for almost all of the `3,939.555ms` baseline pass median.
 
-- Starshine pass-local samples: `101.973`, `103.502`, `100.742`, `101.240`, `101.387`, `102.603`, `100.126 ms`
-- Starshine median: `101.387 ms`
-- Binaryen v131 pass-local samples: `67.5935`, `66.8218`, `67.3755`, `66.7585`, `69.6762`, `68.5737`, `69.1596 ms`
-- Binaryen v131 median: `67.5935 ms`
-- median ratio: `1.500x`
+RUME now owns the complete safe type-compaction proof directly:
 
-This improves the historical Starshine result from `113.379 ms` by about `10.6%` and remains comfortably inside the `2x` pass-local acceptance bound. After applying Binaryen-v131 strip-debug to Starshine's raw output, Starshine and Binaryen's direct output are byte-identical at `5,286,137` bytes with SHA-256 `267d26b0d4f499d4695f3ea4306bb9cc902e1b19e2257e532a34ee9d106a9d58`. Name-map sorting remains a secondary unmeasured target.
+- direct type operands are marked during the existing liveness instruction traversal;
+- surviving function/table/global/tag/elem/data roots are finalized after elem pruning;
+- single-member recursive entries close external type dependencies with one queue visit per reachable type;
+- multi-member recursive groups retain the previous fail-closed behavior;
+- the no-module-element-change return path still compacts dead types;
+- the dispatcher no longer runs the redundant DFE probe loop.
+
+Final samples after one warmup produce medians of `81.032ms` Starshine pass-local and `1,004.710ms` no-trace command versus Binaryen v131 at `77.001ms` and `620.215ms`. Ratios are `1.052x` pass-local and `1.620x` command. The pass is approximately 48.6x faster than the fresh `3,939.555ms` baseline and the command is approximately 4.8x faster than `4,835.079ms`, closing both performance gates without output change.
+
+Every final Starshine output is byte-identical to the 4,977,401-byte input, SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`. Canonical Starshine and Binaryen output is equal at 5,300,041 bytes. Final native SHA-256 is `4bca82a57ea2582360b460aebf0f19e623fc9359239a04075786c69a0b2f7461`.
 
 ## Scheduler reconciliation
 
