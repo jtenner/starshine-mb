@@ -2,5 +2,6 @@ import {
   "jtenner/starshine/bitset",
   "jtenner/starshine/lib",
   "jtenner/starshine/validate",
+  "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
 }

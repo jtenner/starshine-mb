@@ -3437,6 +3437,7 @@ test "remove-unused-module-elements prunes unreachable simple GC type families" 
     Ok(mod_) => mod_
     Err(err) => fail("expected unused GC type fixture decode, got \{err}")
   }
+  let direct = rume_run_module_pass(input)
   let optimized = match
     run_hot_pipeline(input, HotPipelineOptions::new(), [
       "remove-unused-module-elements",
@@ -3444,6 +3445,7 @@ test "remove-unused-module-elements prunes unreachable simple GC type families" 
     Ok(mod_) => mod_
     Err(err) => fail("expected unused GC type pruning success, got \{err}")
   }
+  @debug.assert_eq(direct, optimized)
   match optimized.type_sec {
     Some(
       @lib.TypeSec(
