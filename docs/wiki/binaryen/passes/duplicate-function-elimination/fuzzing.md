@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-06-16
+last_reviewed: 2026-08-26
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -40,4 +40,31 @@ All 58 raw mismatch inputs replay as raw mismatches with the exact final14-era b
 
 The lane is development evidence, not a fresh full four-lane DFE closeout. DFE still has no dedicated pass-owned GenValid profile for transitive duplicate-type/reference chains.
 
-If a future audit adds a pass-specific GenValid profile, update this page with the profile name, intended smoke/closeout count, any required `--require-feature` floors or `--normalize` flags, and the manifest fields needed for replay triage.
+## 2026-08-26 fixed-partition performance checkpoint
+
+The accepted serial DFE checkpoint renewed the pinned-v131 ordinary lane with bounded host pressure:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-dfe-fixed-partition-regular-10000 --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures
+```
+
+Results:
+
+- requested / compared: 10,000 / 10,000
+- normalized matches: 9,942
+- raw mismatches: 58
+- validation, property, generator, and command failures: 0
+- canonical sizes: 42,076,533 Starshine bytes versus 42,076,677 Binaryen bytes
+- canonical smaller / equal / larger: 58 / 9,942 / 0
+- mismatch artifacts: 20 persisted and 38 suppressed under the explicit cap
+
+The counts and canonical-smaller-only residual family match the documented August 21 baseline, so this performance slice introduces no new parity or size-loss family.
+
+The runtime-callable self-semantic lane used the same seed and explicit subprocess/artifact caps under `.tmp/pass-fuzz-dfe-fixed-partition-runtime-100`:
+
+- checked / matched: 100 / 100
+- blocked / mismatching: 0 / 0
+- validation, property, generator, and command failures: 0
+- canonical sizes: exactly equal on all 100 cases
+
+DFE still has no dedicated pass-owned GenValid profile. If a future audit adds one, update this page with the profile name, intended smoke/closeout count, required features or normalizers, and the manifest fields needed for replay triage.

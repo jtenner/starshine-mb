@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-26
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
@@ -66,33 +66,36 @@ That already tells readers two important local facts:
 - the pass is public and runnable by name
 - it is also scheduled in public presets in the same top-level DFE neighborhoods as Binaryen's no-DWARF optimizer
 
-## 2. Core fixed-point duplicate-detection and rebuild loop
+## 2. Fixed structural partition and canonical-remap convergence
 
 The current local core lives in `src/passes/duplicate_function_elimination.mbt`.
 
 The main entrypoints are:
 
-- `dfe_iteration(...)`
+- `dfe_eliminate_duplicate_functions(...)`
 - `dfe_run_module_pass_with_perf(...)`
 - `dfe_run_module_pass(...)`
 
 What this local core does:
 
-1. computes a canonical-type map up front when simple duplicate function types exist
-2. normalizes function bodies against that map before equality comparison
-3. hashes candidate functions into local collision groups using whole-body instruction hashes, not sparse samples
-4. exact-compares only within those groups
-5. keeps the earliest equal function as the survivor
-6. rebuilds the function/type arrays for kept definitions
-7. rewrites function indices across the module
-8. then runs the extra local cleanup stages described below
+1. computes canonical simple-type identities once
+2. hashes every defined function once into target-insensitive structural collision groups
+3. records type-use, unreachable-cleanup, and maximum direct-function-target facts during that same recursive body traversal
+4. lazily normalizes type indices only for functions that enter a collision group
+5. repeatedly exact-compares the fixed groups under the current canonical function remap, without rebuilding or rehashing the whole module between transitive waves
+6. keeps the earliest equal function as the survivor
+7. rebuilds function/type arrays once after convergence
+8. rewrites only surviving function bodies whose maximum direct target is at or beyond the earliest removed function
+9. restricts later type-index and unreachable-debris cleanup to functions marked by the initial structural traversal
+
+The target-insensitive hash is deliberately an over-approximation: direct `call`, `return_call`, and `ref.func` targets use opcode-shape hashes, while exact equality after canonical remapping remains the safety proof. Structured bodies, locals, annotations, and non-remappable instruction payloads remain part of the partition key.
 
 The important current local boundary is direct behavior versus broader no-DWARF preset parity:
 
-- direct `duplicate-function-elimination` iterates until no additional duplicate merge is found
+- direct `duplicate-function-elimination` converges transitive callee/caller duplicates over one fixed candidate partition
 - public `optimize` / `shrink` schedule Binaryen's early and late DFE slots
 
-The focused fixed-point test locks the callee-unlocking behavior so the old one-round limitation cannot return.
+White-box tests lock one-time hashing, candidate-only type normalization, complete body hashing, target-insensitive grouping, type/cleanup fact collection, and direct-target rewrite admission.
 
 ## 3. Function-reference rewrite surface
 
@@ -154,12 +157,15 @@ These helpers are another clear line between upstream DFE proper and the broader
 
 ## 5. How the current local pass is ordered
 
-`dfe_run_module_pass_with_perf(...)` at `src/passes/duplicate_function_elimination.mbt:3500-3532` makes the local stage order explicit:
+`dfe_run_module_pass_with_perf(...)` makes the local stage order explicit:
 
-1. run duplicate-elimination iterations to a fixed point
-2. if nothing merged, still canonicalize compactable element segments and strip names
-3. if something merged, canonicalize compactable element segments
-4. then compact duplicate simple types and rewrite the module accordingly
+1. build one structural partition and converge duplicate replacements under canonical function remaps
+2. rebuild and rewrite function-index surfaces once
+3. clean only preflight-marked unreachable-debris bodies
+4. canonicalize compactable element segments and strip names
+5. compact duplicate simple types and rewrite only preflight-marked type-bearing bodies, while retaining the required module-level type rewrite surface
+
+If no function merges, the existing element canonicalization and name stripping behavior remains available without running the merge-only type-compaction path.
 
 That is a very different story from upstream Binaryen's smaller hash/equality/rewrite loop.
 The local docs should keep saying that plainly.
@@ -169,8 +175,18 @@ The local docs should keep saying that plainly.
 - exact module-pass ownership is now easy to trace in one file
 - whole-module function-reference rewriting is explicit and tested
 - the local extra-cleanup bundle is substantial and documented rather than hidden
-- perf hooks are already wired through the module-pass entrypoints
-- since the 2026-06-03 audit, the hash prefilter covers whole function bodies and avoids sparse same-sample collision buckets that previously made unrelated large function sets degrade to expensive O(n²) exact comparison
+- perf hooks are wired through the module-pass entrypoints and detailed stages
+- the hash prefilter covers complete function structure while intentionally ignoring only remappable direct function targets
+- transitive duplicate chains no longer trigger repeated full-module hashing and reconstruction
+- type normalization, function-body remapping, type rewriting, and unreachable cleanup are admitted by exact per-function facts rather than broad rescans
+
+## 2026-08-26 serial performance checkpoint
+
+On the canonical 4,977,401-byte production artifact, the original measured implementation spent about `1.309s` inside DFE and about `2.397s` for the complete command, including seven full-module fixed-point iterations. The accepted serial checkpoint reduces representative pass-local samples to roughly `177-210ms` and complete no-trace command samples to roughly `1.247-1.301s` while preserving the exact 4,889,180-byte raw output SHA-256 `9b0b49c2813dbad2354eac3918716ba0c6aac4ff401d7eb8b14963340d38dbbe`.
+
+The final one-warmup/three-sample medians are `210.187ms` pass-local / `1,301.106ms` no-trace command versus Binaryen v131 at `94.465ms` / `637.146ms`, or `2.225x` / `2.042x`. This is an accepted roughly 6-7x serial speedup, not closure of the repository's `<=2x` P0 gates. Reaching Binaryen-local parity would require another exact serial reduction or native parallel hashing/rewrite support; whole-command 1x is additionally blocked by Starshine's larger shared decode/validation/encoding floor.
+
+Validation for this checkpoint is 4/4 white-box tests, 30/30 focused behavior tests, 7,047/7,047 pass-package tests, and 10,731/10,731 full Moon tests. The pinned-v131 regular lane compares 10,000/10,000 cases with 9,942 normalized matches and 58 pre-existing canonical-smaller Starshine residuals, zero canonical size losses, and zero failures. Runtime-callable self semantics are exact 100/100.
 
 ## Current deliberate differences from Binaryen
 

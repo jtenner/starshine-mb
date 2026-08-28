@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-26
 sources:
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
@@ -148,6 +148,14 @@ The post-fuzzer-change direct signoff lane is green for the explicit pass surfac
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination` compared `6759 / 10000` cases with `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
 
 This refresh removes `duplicate-function-elimination` from the AUD002 direct-pass revalidation queue. It does not close the separate preset-scheduler / multi-iteration Binaryen gap.
+
+## 2026-08-26 fixed-partition performance checkpoint
+
+Starshine now hashes each defined function once into a target-insensitive structural partition, then converges exact equality under canonical function remaps without rebuilding and rehashing the full module after every transitive duplicate wave. Type normalization is lazy for collision candidates; type-use, unreachable-cleanup, and maximum direct-target facts are collected during hashing; final function-body and type-body rewriting is restricted to proved affected survivors.
+
+On the canonical 4,977,401-byte artifact this reduces the approximately `1.309s` pass-local baseline to a final median of `210.187ms`, with complete no-trace command median `1,301.106ms`. Paired Binaryen v131 is `94.465ms` pass-local and `637.146ms` command, leaving the P0 open at `2.225x` and `2.042x` despite the roughly 6-7x Starshine speedup. The exact 4,889,180-byte Starshine output remains SHA-256 `9b0b49c2813dbad2354eac3918716ba0c6aac4ff401d7eb8b14963340d38dbbe`.
+
+Moon validation is 4/4 DFE white-box, 30/30 focused behavior, 7,047/7,047 pass-package, and 10,731/10,731 full. The pinned-v131 regular lane is 10,000/10,000 with 9,942 normalized matches and 58 pre-existing canonical-smaller residuals, zero canonical size losses, and zero failures; runtime-callable self semantics are exact 100/100.
 
 ## Current maintenance rule
 
