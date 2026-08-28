@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-28
 sources:
   - ../simplify-locals/index.md
   - ./index.md
@@ -85,6 +85,18 @@ The fastest read-along path through the current Starshine state is:
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - canonical no-DWARF default path uses `simplify-locals-nostructure` early and full `simplify-locals` later, not this sibling
 
+## August 28, 2026 performance architecture
+
+The artifact-scale pathology was in safety proof work, not profitable sinking:
+
+- `simplify_locals_should_skip_large_local_tee_memory_write_hazard(...)` found a tee and then recursively rebuilt complete descendant effect summaries at every shared-DAG parent;
+- one unchanged function consumed about 10.067 seconds in that guard while all timed rewrite phases together were below one second;
+- `simplify_locals_large_local_tee_memory_write_hazard_scan(...)` now preserves the same local-count/tee/write condition while visiting each reachable node once;
+- `simplify_locals_effects_mask_for_subtree_scan(...)` computes the pass's conservative exact effect mask with one visited set rather than recursively allocating a fresh whole-function summary per descendant;
+- the dispatcher returns exact large tee/store no-ops before lift only at the canonical SLNT raw fallback, after all earlier exact raw rewrites have run. Moving this bailout before those rewrites was rejected because it changed the canonical artifact from 4,893,604 to 4,899,775 bytes.
+
+White-box tests lock one visit per shared-DAG node for both proofs, and the dispatcher test requires `skip-raw reason=large-local-tee-memory-write-hazard-noop`. Final pass-local timing is `1.152x` Binaryen v131 with exact production output. The remaining `2.321x` command ratio is shared lowering/function-envelope/validation/encoding work, not a pass-body pathology.
+
 ## Current implementation boundaries
 
 ### 1. Both spellings are active
@@ -104,29 +116,12 @@ It is whether Starshine can run the same family with a policy that refuses fresh
 
 ## Remaining closeout work
 
-The parameterized HOT locals-family mode is now landed. Remaining work must preserve these source-backed semantics:
+The pass-local performance blocker is closed near parity. Remaining work is deliberately narrower:
 
-1. keep the pass function-local / HOT-level
-   - this is not a whole-module declaration pass
-2. reuse as much active full-`simplify-locals` machinery as possible
-   - sinkable tracking
-   - effect invalidation
-   - branch-exit and structured-result handling
-   - equivalent-copy cleanup
-   - final dead-set cleanup
-3. add one explicit no-tee policy boundary
-   - direct single-use sinking remains legal
-   - structure formation remains legal
-   - existing tees may still be analyzed as ordinary input syntax
-   - new `local.tee` materialization for multi-use sinking must be disabled
-4. keep descriptor and dispatcher naming honest
-   - decide whether canonical Starshine pass spelling is upstream `simplify-locals-notee`, local `simplify-locals-no-tee`, or both
-   - wire the chosen name through `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, and CLI help only when the behavior really exists
-5. add sibling-specific tests
-   - a positive single-use sink
-   - a positive structured `if` / block result rewrite
-   - a negative multi-use case that full `simplify-locals` might solve with a tee but no-tee mode must preserve
-   - an effect/EH barrier inherited from the full family
+1. reduce the shared command envelope without changing SLNT output;
+2. keep the exact no-new-tee, structure-enabled policy and all lifetime/EH barriers;
+3. keep the 193 pre-existing random-profile canonical-larger cases visible as parity evidence until their owner families are classified or aligned;
+4. preserve both canonical and compatibility spellings and their shared descriptor/dispatcher behavior.
 
 ## Do not confuse with neighboring passes
 

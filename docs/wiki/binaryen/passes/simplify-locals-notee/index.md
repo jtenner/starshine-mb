@@ -2,7 +2,7 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-28
 sources:
   - ../simplify-locals/index.md
   - ../../../../../src/passes/optimize.mbt
@@ -30,6 +30,14 @@ related:
 ## Binaryen-v131 renewal
 
 Closed on 2026-07-27. The refreshed `simplify-locals-notee` aggregate completed `10000/10000`: `2766` exact matches and `7234` strictly smaller Starshine outputs (`-54..-4` bytes), with zero validation, property, generator, or command failures. Idempotence is `1000/1000`.
+
+## 2026-08-28 artifact-scale performance checkpoint
+
+Fresh one-warmup/three-sample baseline medians on the canonical 4,977,401-byte production input were `15,124.449ms` Starshine pass-local and `17,507.965ms` no-trace command versus Binaryen v131 at `793.693ms` and `1,297.505ms`. Attribution isolated `10,067.547ms` in absolute function 10618 before any ordinary rewrite phase: the large-local tee/memory-write bailout recursively recomputed descendant effects through a heavily shared expression DAG.
+
+The retained repair makes both that bailout and pending-set effect summaries one-visit traversals over reachable HOT nodes. It also mirrors the exact large tee/store no-op at SLNT's raw fallback after all existing raw rewrites, avoiding unnecessary lift without bypassing profitable transformations. Final medians are `906.936ms` pass-local versus Binaryen `787.321ms` (`1.152x`) and `2,980.543ms` command versus `1,284.329ms` (`2.321x`). Pass work is approximately 16.7x faster and now near Binaryen parity; the remaining command gap belongs to shared lowering, function-envelope, batch-validation, and CLI validation/encoding phases.
+
+Every paired output is byte-identical at 4,893,604 bytes, SHA-256 `058f0ee1fe372c253f30b5ab7fc23464ce647caeefc86d87b4c0dc1ac941fe27`. Final native SHA-256 is `58fde6321d2ae50a492f55346047a2d0ba5d0c91e035605046be5cb6e9a1d537`.
 
 ## Role
 
@@ -104,7 +112,7 @@ So `-notee` is **not**:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly positive, negative, and bailout shape catalog.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Exact current Starshine status: upstream spelling absent, local alias removed, CLI/request rejection, active full-pass reuse surface, and future no-tee HOT-mode landing zone.
+  - Exact current Starshine implementation, raw/HOT safety boundaries, performance architecture, and remaining shared-envelope work.
 
 ## Current maintenance rule
 

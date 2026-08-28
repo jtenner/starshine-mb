@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-08-16
+last_reviewed: 2026-08-28
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -17,6 +17,12 @@ related:
 ---
 
 # `simplify-locals` Performance And Artifact Frontiers
+
+## 2026-08-28 no-tee direct-pass checkpoint
+
+On the canonical production artifact, `simplify-locals-notee` fell from `15,124.449ms` to `906.936ms` pass-local while Binaryen v131 measured `787.321ms`, reducing the pass ratio from `19.06x` to `1.152x`. The command fell from `17,507.965ms` to `2,980.543ms` versus Binaryen `1,284.329ms`. Exact output remains 4,893,604 bytes, SHA-256 `058f0ee1fe372c253f30b5ab7fc23464ce647caeefc86d87b4c0dc1ac941fe27`.
+
+The dominant repair replaces recursive shared-DAG effect recomputation in the large-local tee/write guard and pending-set summaries with one-visit traversals. Exact large tee/store no-ops also return at the raw SLNT fallback after all raw rewrites, reducing HOT lift from a 567ms baseline to a 217ms median. The pass body is now approximately Binaryen speed; remaining direct-command work is shared lowering, function envelope, batch validation, and command validation/encoding.
 
 The 2026-07-27 v131 renewal is a behavioral, validity, idempotence, and canonical-size closeout. It does not replace the historical large-artifact timing caveat below; renewed wall-time work remains owned by `[WALL]001` and is not a simplify-locals v131 parity blocker.
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-28
 sources:
   - ./index.md
 related:
@@ -124,6 +124,21 @@ So the pass is not merely a structured-result pass; it can also remove local wri
   - branch payload and block/loop exit handling participates in structured result formation.
 - `src/ir/manipulation.h`
   - expression replacement and local tree rewrites use shared Binaryen manipulation helpers.
+
+## Starshine complexity and dispatcher regressions
+
+The current local implementation is protected by:
+
+- `src/passes/simplify_locals_wbtest.mbt`
+  - large-local tee/memory-write detection visits each shared-DAG node at most once;
+  - pending-set effect summarization visits each shared-DAG node at most once;
+  - the existing dense-root hazard traversal remains bounded;
+- `src/passes/pass_manager_wbtest.mbt`
+  - an exact 16-local tee/store no-op must report `skip-raw reason=large-local-tee-memory-write-hazard-noop`, proving the bailout occurs before HOT lift only after raw rewrites are exhausted;
+- `src/passes/simplify_locals_variants_test.mbt` and `src/passes/simplify_locals_test.mbt`
+  - preserve no-new-tee policy, structure formation, effect order, branch ownership, EH boundaries, and cleanup behavior.
+
+The red states were explicit missing helper APIs for both one-visit scans and a dispatcher trace that still showed `skip-hot` instead of `skip-raw`.
 
 ## Dedicated tests
 
