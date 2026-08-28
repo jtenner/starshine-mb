@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-28
 sources:
   - ./test-matrix.md
   - ./local-ssa-policy.md
@@ -116,6 +116,19 @@ lift -> verify -> analyze -> mutate -> verify -> lower -> validate
 - **Validate**: module validation remains the final local semantic floor before pass-specific Binaryen oracle comparison.
 
 The shared fixture path in [`test-matrix.md`](./test-matrix.md) describes how IR tests prove this loop with WAT fixtures, HOT verification, lowering, and module validation.
+
+## Lift performance invariants
+
+HOT lift is shared infrastructure, so fixed per-function or per-control work multiplies across every active hot pass. The August 28, 2026 production-artifact checkpoint establishes these implementation rules:
+
+- module function lifting derives defined-function indices from context/code-section counts instead of rescanning imports per function;
+- module function results reuse the already resolved `FuncType`, avoiding a second validation-environment build;
+- validation locals retain compressed declaration runs rather than expanding and recompressing large same-typed local sets;
+- initial definite-local storage uses one length-based allocation rather than one append per local;
+- repeated scalar and simple block-result types use small typed caches while preserving the canonical public string-key table and verifier contract;
+- validator operand stacks remain isolated during instruction typechecking, and control regions retain independent initialization storage. Attempts to share either mutable structure changed legacy-EH behavior and were rejected.
+
+On the canonical 4,977,401-byte artifact, alternating clean-HEAD/current `tuple-optimization` runs reduce median lift from `1,067.202ms` to `595.670ms` while preserving exact output. The same source also lowers single-sample lift attribution for RemoveUnusedNames, Heap2Local, and SimplifyLocalsNoNesting, confirming that this is shared infrastructure work rather than a tuple-only bypass.
 
 ## Module Split Rule
 

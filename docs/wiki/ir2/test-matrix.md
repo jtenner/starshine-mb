@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-28
 sources:
   - https://webassembly.github.io/spec/core/syntax/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
@@ -27,6 +27,8 @@ sources:
   - ../../../src/ir/hot_query_test.mbt
   - ../../../src/ir/hot_lift_test.mbt
   - ../../../src/ir/hot_lift_perf_test.mbt
+  - ../../../src/ir/hot_lift_perf_wbtest.mbt
+  - ../../../src/ir/hot_types_perf_wbtest.mbt
   - ../../../src/ir/hot_lower_test.mbt
   - ../../../src/ir/hot_lower_live_repro_test.mbt
   - ../../../src/ir/hot_verify_test.mbt
@@ -45,6 +47,7 @@ sources:
   - ../../../src/ir/ssa_local_test.mbt
   - ../../../src/ir/ssa_destroy_test.mbt
   - ../../../src/ir/analysis_cache_test.mbt
+  - ../../../src/validate/typecheck_state_wbtest.mbt
   - ../../../src/passes/pass_test_helpers.mbt
   - ../../../src/passes/trace_golden_test.mbt
 related:
@@ -124,14 +127,14 @@ That one fixture intentionally exercises lift, CFG block formation, dominance, l
 | --- | --- | --- |
 | Architecture and revision contract | `src/ir/architecture_test.mbt` | Direct root/node mutations bump `HotFunc.revision`; `HotPassDescriptor` exposes required analyses and invalidations. |
 | HOT builders | `src/ir/hot_builders_test.mbt`, `src/ir/hot_builders_wbtest.mbt` | Typed builders own control labels/regions, branch tables, calls, `MemArg` side tables, select exact-instruction payloads, and lower through the existing HOT lowering path. |
-| HOT core, labels, and types | `src/ir/hot_core_wbtest.mbt`, `src/ir/hot_types_test.mbt`, `src/ir/hot_labels_test.mbt`, `src/ir/hot_labels_wbtest.mbt` | Core ids, canonical type interning, local metadata, label ownership, branch arity, and label rehoming stay explicit. |
+| HOT core, labels, and types | `src/ir/hot_core_wbtest.mbt`, `src/ir/hot_types_test.mbt`, `src/ir/hot_types_perf_wbtest.mbt`, `src/ir/hot_labels_test.mbt`, `src/ir/hot_labels_wbtest.mbt` | Core ids, canonical type interning, typed scalar/block-result cache reuse, local metadata, label ownership, branch arity, and label rehoming stay explicit. |
 | HOT flags and side tables | `src/ir/hot_flags_test.mbt`, `src/ir/hot_flags_wbtest.mbt`, `src/ir/hot_side_tables_test.mbt`, `src/ir/hot_side_tables_wbtest.mbt` | Canonical flags classify control, terminators, calls, heap traps, effects, exact instruction identity, memargs, branch-table targets, and catch metadata. |
 | HOT module context | `src/ir/hot_module_context_test.mbt` | Imported/defined function, table, memory, global, tag, function-type-slot, block-result, aggregate-field, and immutable-global initializer resolution work from module context. |
 | HOT mutation and region edits | `src/ir/hot_mutate_test.mbt`, `src/ir/hot_region_edit_test.mbt` | Root/child replacement, batched child edits, tombstones, local appends, detached deletes, label rehoming, and root/body/then/else/catch region insert/remove/splice/set helpers are covered. |
 | HOT walks and queries | `src/ir/hot_walk_test.mbt`, `src/ir/hot_query_test.mbt` | Root/child/subtree/worklist walks are deterministic; skip/stop/rewrite walkers are explicit; query helpers classify families, expose branch metadata, peel wrappers, split payload tails, and detect repeated shapes without mutating revisions. |
 | Lift + verify | `src/ir/test_helpers.mbt`, `src/ir/test_helpers_test.mbt`, `src/ir/hot_lift_test.mbt`, `src/ir/hot_verify_test.mbt`, `src/ir/hot_verify_wbtest.mbt` | WAT fixtures validate before lift; lifted hot bodies pass core/control verification; invalid body and control cases report focused errors. |
 | Lower + validate | `src/ir/test_helpers.mbt`, `src/ir/test_helpers_test.mbt`, `src/ir/hot_lower_test.mbt`, `src/ir/hot_lower_live_repro_test.mbt` | Mutated/lifted HOT bodies verify, lower into the original module shell, validate, and preserve important lowered shapes including carrier, payload, compare, call-spill, wrapper, unreachable, and typed-loop families. |
-| Lift/lower performance and stress repros | `src/ir/hot_lift_perf_test.mbt`, `src/ir/hot_lower_live_repro_test.mbt` | Duplicated multivalue control-entry stacks and saved lower-live repro families stay covered without turning broad randomized loops into ordinary tests. |
+| Lift/lower performance and stress repros | `src/ir/hot_lift_perf_test.mbt`, `src/ir/hot_lift_perf_wbtest.mbt`, `src/validate/typecheck_state_wbtest.mbt`, `src/ir/hot_lower_live_repro_test.mbt` | Duplicated multivalue control-entry stacks, count-derived function indexing, compressed validation locals, one-environment function-result reuse, length-based definite-local allocation, and saved lower-live repro families stay covered without turning broad randomized loops into ordinary tests. |
 | CFG shape | `src/ir/test_helpers_test.mbt`, `src/ir/cfg_test.mbt`, `src/ir/cfg_contract_test.mbt` | Stable entry/exit/synthetic blocks, region roots, predecessors, successors, branch/return/unreachable/exceptional edges, and the policy documented in [`./cfg-contract.md`](./cfg-contract.md). As of the 2026-06-04 focused recheck, add missing `return_call*` policy-helper tests and a concrete no-fallthrough tail-call CFG test before fixing the documented `cfg_contract.mbt` helper omission. |
 | CFG traversal order | `src/ir/cfg_order_test.mbt` | Preorder, reverse postorder, exceptional-inclusive RPO, block-worklist seed order, and region-local block order are deterministic even for diamonds, exception edges, and unreachable tails. |
 | Dominance | `src/ir/test_helpers_test.mbt`, `src/ir/dominators_test.mbt` | Stable immediate dominators, tree children, dominance frontiers, and helper behavior over reachable control shapes. |

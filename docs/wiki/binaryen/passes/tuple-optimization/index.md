@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-08-28
 sources:
   - ../../release-horizon-and-oracles.md
   - ../code-pushing/index.md
@@ -88,6 +88,22 @@ It is a source-backed clarification pass over a real existing dossier.
 - The dedicated `tuple-optimization-all` GenValid profile deliberately remains raw-red (`10000 / 10000`) but is now classified as a narrow measured Starshine-win scalar-spelling family for simple type-indexed pure/drop-only spill/tee/copy-chain cases: no effect/trap facts and uniform raw/text/local/op wins for Starshine across all sampled cases.
 - Candidate-heavy pass-local performance is soft-accepted under the user's 2026-06-30 caveat after reasonable TO-owned optimizations were exhausted. Final measured direct timings are `0.122/0.037`, `0.460/0.148`, `0.892/0.301`, and `1.705/0.580` ms at 100/500/1000/2000 pairs.
 - Raw normalized WAT text is still too strict to use as the only tuple-opt parity oracle.
+
+## 2026-08-28 shared HOT lift checkpoint
+
+The order-of-magnitude inventory attributed most artifact-scale command overhead around this pass to shared HOT lifting rather than the tuple transform alone. The retained IR checkpoint now:
+
+- derives defined-function indices without rescanning imports;
+- preserves compressed local declaration runs for validation;
+- reuses known function results and builds one validation environment;
+- allocates the initial all-initialized local bitmap by compressed length;
+- caches repeated scalar and simple block-result type IDs without repeated string construction.
+
+An alternating clean-HEAD/current comparison on the canonical 4,977,401-byte artifact reduces median HOT lift from `1,067.202ms` to `595.670ms` (`-44.2%`) and no-trace command from `2,762.360ms` to `2,264.276ms` (`-18.0%`), while tuple pass-local time remains neutral at about `285.3ms`. All paired outputs are byte-identical at 4,976,841 bytes, SHA-256 `4b616a392d85a2c2dbf52ea08b27ad99cc07351a166838c0eaab2d9d6733d172`.
+
+The shared change also reduces single-sample lift attribution from the inventory baselines for RemoveUnusedNames (`822.383ms` to `432.602ms`), Heap2Local (`1,600.031ms` to `862.847ms`), and SimplifyLocalsNoNesting (`1,617.657ms` to `857.347ms`). These are cross-pass smoke comparisons, not replacement medians for each pass dossier.
+
+Moon validation is 1,753/1,753 validate-package, 366/366 IR-package, 7,047/7,047 pass-package, and 10,737/10,737 full. The renewed ordinary tuple lane is 10,000/10,000 normalized with zero failures or mismatches; runtime-callable self semantics are exact 100/100. TupleOptimization remains an open wall-time P0 because its transform and function/pre-pass envelope still dominate the remaining gap.
 
 ## Biggest beginner correction
 
