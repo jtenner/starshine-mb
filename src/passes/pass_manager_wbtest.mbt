@@ -15463,6 +15463,44 @@ test "raw vacuum preclean collapses constant void if after debris cleanup" {
 }
 
 ///|
+test "simplify-locals no-tee skips large tee stores before HOT lift" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i32)
+      #|    i32.const 7
+      #|    local.tee 0
+      #|    drop
+      #|    i32.const 0
+      #|    i32.const 1
+      #|    i32.store))
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["simplify-locals-notee"],
+    ) {
+    Ok(result) => result
+    Err(err) => fail("expected pre-lift no-tee store bailout, got \{err}")
+  }
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals-notee]:skip-raw reason=large-local-tee-memory-write-hazard-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "vacuum local-only admission memoizes shared expression DAG" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),

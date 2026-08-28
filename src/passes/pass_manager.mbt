@@ -12382,6 +12382,16 @@ fn run_hot_pipeline_raw_simplify_locals(
     })
   }
   if raw_const_nop_only {
+    if parameter_count + stats.locals_count >= 16 &&
+      stats.local_tee_count > 0 &&
+      run_hot_pipeline_raw_instrs_have_memory_store(instrs) {
+      return Some({
+        reason: "large-local-tee-memory-write-hazard-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     return None
   }
   if run_hot_pipeline_simplify_locals_descriptor_is_nostructure(descriptor.name) {

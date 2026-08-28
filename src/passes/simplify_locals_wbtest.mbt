@@ -95,6 +95,51 @@ test "simplify-locals root stack hazard scans dense roots linearly" {
 }
 
 ///|
+test "simplify-locals no-tee memory guard scans shared DAG nodes once" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=Array::make(16, @lib.ValType::i32())),
+  )
+  let mut shared = @ir.hot_build_const_i32(func, @lib.I32(1))
+  for _depth = 0; _depth < 24; _depth = _depth + 1 {
+    shared = @ir.hot_build_compare(func, shared, shared)
+  }
+  @ir.hot_root_append(func, shared)
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_local_tee(func, 0, @ir.hot_build_const_i32(func, @lib.I32(2))),
+  )
+
+  let (hazard, visited_nodes) = simplify_locals_large_local_tee_memory_write_hazard_scan(
+    func,
+  )
+  assert_false(hazard)
+  assert_true(
+    visited_nodes <= @ir.hot_node_count(func),
+    msg="expected one visit per shared-DAG node, visited \{visited_nodes} of \{@ir.hot_node_count(func)} nodes",
+  )
+}
+
+///|
+test "simplify-locals effect summary scans shared DAG nodes once" {
+  let func = @ir.HotFunc::new()
+  let mut shared = @ir.hot_build_const_i32(func, @lib.I32(1))
+  for _depth = 0; _depth < 24; _depth = _depth + 1 {
+    shared = @ir.hot_build_compare(func, shared, shared)
+  }
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, shared))
+
+  let (mask, visited_nodes) = simplify_locals_effects_mask_for_subtree_scan(
+    func,
+    @ir.hot_root_get(func, 0),
+  )
+  @debug.assert_eq(mask, 0U)
+  assert_true(
+    visited_nodes <= @ir.hot_node_count(func),
+    msg="expected one effect-summary visit per shared-DAG node, visited \{visited_nodes} of \{@ir.hot_node_count(func)} nodes",
+  )
+}
+
+///|
 test "simplify-locals defers aggregate multi-read locals on the first cycle" {
   let func = pass_test_lift_first_func(
     "(module (func (local i32) i32.const 1 local.set 0 local.get 0 drop i32.const 2 local.set 0 local.get 0 drop))",
