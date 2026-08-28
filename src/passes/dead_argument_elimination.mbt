@@ -1374,6 +1374,59 @@ priv struct DaeLocalUse {
   writes : Array[Bool]
 }
 
+///| Fixed-module cache used only while collecting uniform actuals. A caller's
+
+///|
+/// local-use relation is body-static for the complete parameter batch.
+priv struct DaeUniformResolutionCache {
+  local_uses : Array[DaeLocalUse?]
+  local_use_ready : Array[Bool]
+  local_use_scans : Array[Int]?
+  forwarded_values : Array[Array[@lib.Instruction?]]
+  forwarded_ready : Array[Array[Bool]]
+  forwarded_resolving : Array[Array[Bool]]
+  forwarded_resolution_scans : Array[Int]?
+  function_infos : Array[DaeFunctionInfo]?
+  stable_callsite_resolutions : Array[Int]?
+  visited : Array[Bool]
+}
+
+///|
+fn DaeUniformResolutionCache::new(
+  defined : Int,
+  total : Int,
+  local_use_scans? : Array[Int]? = None,
+  forwarded_resolution_scans? : Array[Int]? = None,
+  function_infos? : Array[DaeFunctionInfo]? = None,
+  stable_callsite_resolutions? : Array[Int]? = None,
+  visited_allocations? : Array[Int]? = None,
+) -> DaeUniformResolutionCache {
+  let forwarded_values : Array[Array[@lib.Instruction?]] = []
+  let forwarded_ready : Array[Array[Bool]] = []
+  let forwarded_resolving : Array[Array[Bool]] = []
+  for _def_idx = 0; _def_idx < defined; _def_idx = _def_idx + 1 {
+    forwarded_values.push([])
+    forwarded_ready.push([])
+    forwarded_resolving.push([])
+  }
+  match visited_allocations {
+    Some(allocations) => allocations[0] += 1
+    None => ()
+  }
+  {
+    local_uses: Array::make(defined, None),
+    local_use_ready: Array::make(defined, false),
+    local_use_scans,
+    forwarded_values,
+    forwarded_ready,
+    forwarded_resolving,
+    forwarded_resolution_scans,
+    function_infos,
+    stable_callsite_resolutions,
+    visited: Array::make(total, false),
+  }
+}
+
 ///|
 priv struct DaeLocalUsageEvidence {
   target_local : @lib.LocalIdx
@@ -2601,19 +2654,38 @@ fn dae_call_boundary_facts_from_current(
 ///|
 fn dae_collect_module_boundary_snapshot(
   mod_ : @lib.Module,
+  perf? : HotPerfSession? = None,
 ) -> DaeModuleBoundarySnapshot {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let total = imported + defined
-  let analysis = dae_collect_current_function_analysis(mod_, total)
+  let analysis_start_us = perf_start_timer_opt(
+    perf, "detail:dae:boundary-snapshot:function-analysis",
+  )
+  let analysis = dae_collect_current_function_analysis(mod_, total, perf~)
+  perf_stop_timer_opt(
+    perf, "detail:dae:boundary-snapshot:function-analysis", analysis_start_us,
+  )
   let call_facts = analysis.call_facts
+  let type_indices_start_us = perf_start_timer_opt(
+    perf, "detail:dae:boundary-snapshot:type-indices",
+  )
   let type_indices = dae_collect_func_type_indices(mod_)
+  perf_stop_timer_opt(
+    perf, "detail:dae:boundary-snapshot:type-indices", type_indices_start_us,
+  )
+  let function_types_start_us = perf_start_timer_opt(
+    perf, "detail:dae:boundary-snapshot:function-types",
+  )
   let function_types : Array[@lib.FuncType?] = []
   let mut func_abs = 0
   while func_abs < total {
     function_types.push(dae_resolve_func_type(mod_, type_indices, func_abs))
     func_abs += 1
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:boundary-snapshot:function-types", function_types_start_us,
+  )
   {
     imported,
     defined,
@@ -2705,6 +2777,28 @@ fn dae_current_boundary_graph_new(
         ) => value
       _ => dae_collect_current_topology_extras(mod_, snapshot)
     },
+    function_epochs: dae_make_function_epochs(snapshot.defined, 0, 0),
+    module_epoch: 0,
+    call_epoch: 0,
+    type_epoch: 0,
+  }
+}
+
+///| Boundary-only graph for the typed-loop safe parameter/result transaction.
+
+///| These batches consume snapshot call, exposure, type, and loop facts but no
+
+///|
+/// direct-return or indirect/reference topology extras.
+fn dae_typed_batch_boundary_graph_new(
+  mod_ : @lib.Module,
+  perf? : HotPerfSession? = None,
+) -> DaeCurrentBoundaryGraph {
+  let snapshot = dae_collect_module_boundary_snapshot(mod_, perf~)
+  {
+    mod_,
+    snapshot,
+    topology: dae_empty_topology_extras(snapshot.total),
     function_epochs: dae_make_function_epochs(snapshot.defined, 0, 0),
     module_epoch: 0,
     call_epoch: 0,
@@ -5721,6 +5815,21 @@ fn dae_call_boundary_direct_callers_contain_def(
 }
 
 ///|
+fn dae_forwarded_uniform_caller_is_recursive(
+  facts : DaeCallBoundaryFacts,
+  caller_abs : Int,
+  imported : Int,
+) -> Bool {
+  if caller_abs < 0 || caller_abs >= facts.direct_callers.length() {
+    return false
+  }
+  dae_call_boundary_direct_callers_contain_def(
+    facts.direct_callers[caller_abs],
+    caller_abs - imported,
+  )
+}
+
+///|
 fn dae_call_boundary_candidate(
   facts : DaeCallBoundaryFacts,
   callee_abs : Int,
@@ -6907,17 +7016,29 @@ fn dae_call_facts_from_function_infos(
 fn dae_collect_current_function_analysis(
   mod_ : @lib.Module,
   total_funcs : Int,
+  perf? : HotPerfSession? = None,
+  call_fact_rebuilds? : Array[Int]? = None,
 ) -> DaeFunctionAnalysis {
+  ignore(call_fact_rebuilds)
   let direct_calls = Array::make(total_funcs, 0)
   let tail_calls = Array::make(total_funcs, false)
   let direct_callers = dae_make_direct_callers(total_funcs)
   let dropped_calls = Array::make(total_funcs, 0)
   let type_indices = dae_collect_func_type_indices(mod_)
+  let exposure_start_us = perf_start_timer_opt(
+    perf, "detail:dae:boundary-snapshot:exposure",
+  )
   let exposure = dae_collect_original_exposure(mod_, total_funcs, type_indices)
+  perf_stop_timer_opt(
+    perf, "detail:dae:boundary-snapshot:exposure", exposure_start_us,
+  )
   let escaped = dae_exposure_to_escaped(exposure)
   let function_infos = dae_make_function_infos(total_funcs, escaped)
   let caller_seen_stamps = Array::make(total_funcs, -1)
   let imported = dae_imported_func_count(mod_)
+  let body_scan_start_us = perf_start_timer_opt(
+    perf, "detail:dae:boundary-snapshot:body-scan",
+  )
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let mut caller_def = 0
@@ -6942,6 +7063,9 @@ fn dae_collect_current_function_analysis(
     }
     None => ()
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:boundary-snapshot:body-scan", body_scan_start_us,
+  )
   let mut escaped_idx = 0
   while escaped_idx < escaped.length() && escaped_idx < function_infos.length() {
     function_infos[escaped_idx].has_unseen_calls = escaped[escaped_idx] ||
@@ -6950,6 +7074,9 @@ fn dae_collect_current_function_analysis(
   }
   let defined = total_funcs - imported
   let parameter_loop_free = Array::make(defined, true)
+  let loop_admission_start_us = perf_start_timer_opt(
+    perf, "detail:dae:boundary-snapshot:loop-admission",
+  )
   match mod_.type_sec {
     Some(type_sec) =>
       for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
@@ -6975,16 +7102,23 @@ fn dae_collect_current_function_analysis(
         }
       }
   }
-  ignore(direct_calls)
-  ignore(tail_calls)
-  ignore(direct_callers)
-  ignore(dropped_calls)
-  {
-    call_facts: dae_call_facts_from_function_infos(function_infos),
-    function_infos,
-    exposure,
-    parameter_loop_free,
+  perf_stop_timer_opt(
+    perf, "detail:dae:boundary-snapshot:loop-admission", loop_admission_start_us,
+  )
+  let call_facts_start_us = perf_start_timer_opt(
+    perf, "detail:dae:boundary-snapshot:call-facts",
+  )
+  let call_facts : DaeCurrentCallFacts = {
+    direct_calls,
+    tail_calls,
+    direct_callers,
+    dropped_calls,
+    escaped,
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:boundary-snapshot:call-facts", call_facts_start_us,
+  )
+  { call_facts, function_infos, exposure, parameter_loop_free }
 }
 
 ///|
@@ -10641,6 +10775,39 @@ fn dae_callsite_single_instruction_actual(
   }
 }
 
+///| Exact fast path for flat calls whose complete operand suffix consists of
+
+///| one zero-input, one-output root per parameter. Any computed, shared-stack,
+
+///|
+/// or effect-interleaved operand falls back to full stack slicing.
+fn dae_callsite_contiguous_single_root_actual_start(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  param_count : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> Int? {
+  if param_count < 0 || call_idx < param_count || call_idx > instrs.length() {
+    return None
+  }
+  let start = call_idx - param_count
+  let mut param_idx = 0
+  while param_idx < param_count {
+    let actual_idx = start + param_idx
+    if dae_stack_single_value_producer_evidence(
+        instrs[actual_idx],
+        mod_,
+        func_type_indices,
+      )
+      is None {
+      return None
+    }
+    param_idx += 1
+  }
+  Some(start)
+}
+
 ///|
 fn dae_callsite_rewrite_application_evidence_is_consistent(
   evidence : DaeCallsiteRewriteApplicationEvidence,
@@ -11549,6 +11716,7 @@ fn dae_resolve_forwarded_uniform_const_local_get(
   boundary_facts : DaeCallBoundaryFacts,
   visited : Array[Bool],
   allow_immutable_global_get? : Bool = false,
+  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
 ) -> @lib.Instruction? {
   if caller_abs < 0 ||
     caller_abs >= func_type_indices.length() ||
@@ -11581,37 +11749,124 @@ fn dae_resolve_forwarded_uniform_const_local_get(
     return None
   }
   let func = funcs[def_idx]
-  if dae_count_self_calls_anywhere(func, caller_abs) > 0 {
+  if dae_forwarded_uniform_caller_is_recursive(
+      boundary_facts, caller_abs, imported,
+    ) {
     return None
   }
   let @lib.Func(locals, _) = func
-  let local_use = dae_local_use_for_callee(
-    func,
-    params.length() + locals.length(),
-    caller_abs,
-    params.length(),
-  )
+  let local_use = match uniform_resolution_cache {
+    Some(cache) if def_idx < cache.local_uses.length() => {
+      if !cache.local_use_ready[def_idx] {
+        cache.local_uses[def_idx] = Some(
+          dae_local_use_for_callee(
+            func,
+            params.length() + locals.length(),
+            caller_abs,
+            params.length(),
+          ),
+        )
+        cache.local_use_ready[def_idx] = true
+        match cache.local_use_scans {
+          Some(scans) => scans[0] += 1
+          None => ()
+        }
+      }
+      match cache.local_uses[def_idx] {
+        Some(value) => value
+        None => return None
+      }
+    }
+    _ =>
+      dae_local_use_for_callee(
+        func,
+        params.length() + locals.length(),
+        caller_abs,
+        params.length(),
+      )
+  }
   if local_use.writes[local_slot] {
     return None
+  }
+  match uniform_resolution_cache {
+    Some(cache) if def_idx < cache.forwarded_values.length() => {
+      if cache.forwarded_values[def_idx].length() != params.length() {
+        cache.forwarded_values[def_idx] = Array::make(params.length(), None)
+        cache.forwarded_ready[def_idx] = Array::make(params.length(), false)
+        cache.forwarded_resolving[def_idx] = Array::make(params.length(), false)
+      }
+      if cache.forwarded_ready[def_idx][local_slot] {
+        return cache.forwarded_values[def_idx][local_slot]
+      }
+      if cache.forwarded_resolving[def_idx][local_slot] {
+        return None
+      }
+      cache.forwarded_resolving[def_idx][local_slot] = true
+      match cache.forwarded_resolution_scans {
+        Some(scans) => scans[0] += 1
+        None => ()
+      }
+    }
+    _ => ()
   }
   visited[caller_abs] = true
   let collect_params = Array::make(params.length(), false)
   collect_params[local_slot] = true
-  let resolved = match
-    dae_collect_uniform_const_actuals_visited(
-      mod_,
-      caller_abs,
-      params.length(),
-      func_type_indices,
-      boundary_facts,
-      visited,
-      allow_immutable_global_get~,
-      collect_params=Some(collect_params),
-    ) {
+  let resolved_values = match uniform_resolution_cache {
+    Some(cache) =>
+      match cache.function_infos {
+        Some(function_infos) =>
+          dae_collect_uniform_const_actuals_from_function_infos(
+            mod_,
+            caller_abs,
+            params.length(),
+            func_type_indices,
+            boundary_facts,
+            function_infos,
+            allow_immutable_global_get~,
+            collect_params=Some(collect_params),
+            stable_callsite_resolutions=cache.stable_callsite_resolutions,
+            uniform_resolution_cache~,
+          )
+        None =>
+          dae_collect_uniform_const_actuals_visited(
+            mod_,
+            caller_abs,
+            params.length(),
+            func_type_indices,
+            boundary_facts,
+            visited,
+            allow_immutable_global_get~,
+            collect_params=Some(collect_params),
+            uniform_resolution_cache~,
+          )
+      }
+    None =>
+      dae_collect_uniform_const_actuals_visited(
+        mod_,
+        caller_abs,
+        params.length(),
+        func_type_indices,
+        boundary_facts,
+        visited,
+        allow_immutable_global_get~,
+        collect_params=Some(collect_params),
+      )
+  }
+  let resolved = match resolved_values {
     Some(values) => values[local_slot]
     None => None
   }
   visited[caller_abs] = false
+  match uniform_resolution_cache {
+    Some(cache) if def_idx < cache.forwarded_values.length() &&
+      cache.forwarded_values[def_idx].length() == params.length() => {
+      cache.forwarded_values[def_idx][local_slot] = resolved
+      cache.forwarded_ready[def_idx][local_slot] = true
+      cache.forwarded_resolving[def_idx][local_slot] = false
+    }
+    _ => ()
+  }
   resolved
 }
 
@@ -11680,6 +11935,7 @@ fn dae_resolve_uniform_const_candidate(
   boundary_facts : DaeCallBoundaryFacts,
   visited : Array[Bool],
   allow_immutable_global_get? : Bool = false,
+  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
 ) -> @lib.Instruction? {
   match
     dae_materializable_control_const(
@@ -11705,6 +11961,7 @@ fn dae_resolve_uniform_const_candidate(
         boundary_facts,
         visited,
         allow_immutable_global_get~,
+        uniform_resolution_cache~,
       )
     _ => None
   }
@@ -11726,6 +11983,7 @@ fn dae_collect_uniform_const_actuals_instrs(
   candidates : Array[@lib.Instruction?],
   allow_immutable_global_get? : Bool = false,
   collect_params? : Array[Bool]? = None,
+  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
 ) -> Bool {
   let param_count = param_types.length()
   let active_params = match collect_params {
@@ -11762,6 +12020,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                         boundary_facts,
                         visited,
                         allow_immutable_global_get~,
+                        uniform_resolution_cache~,
                       ) {
                       Some(candidate) =>
                         dae_record_uniform_const_candidate(
@@ -11843,6 +12102,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                 candidates,
                 allow_immutable_global_get~,
                 collect_params=Some(active_params),
+                uniform_resolution_cache~,
               ) {
               return false
             }
@@ -11863,6 +12123,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                     candidates,
                     allow_immutable_global_get~,
                     collect_params=Some(active_params),
+                    uniform_resolution_cache~,
                   ) {
                   return false
                 }
@@ -11887,6 +12148,7 @@ fn dae_collect_uniform_const_actuals_visited(
   visited : Array[Bool],
   allow_immutable_global_get? : Bool = false,
   collect_params? : Array[Bool]? = None,
+  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
 ) -> Array[@lib.Instruction?]? {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -11922,6 +12184,7 @@ fn dae_collect_uniform_const_actuals_visited(
           candidates,
           allow_immutable_global_get~,
           collect_params~,
+          uniform_resolution_cache~,
         ) {
         return None
       }
@@ -11950,6 +12213,7 @@ fn dae_collect_uniform_const_actuals_from_boundary_facts(
   boundary_facts : DaeCallBoundaryFacts,
   allow_immutable_global_get? : Bool = false,
   collect_params? : Array[Bool]? = None,
+  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
 ) -> Array[@lib.Instruction?]? {
   let total = func_type_indices.length()
   dae_collect_uniform_const_actuals_visited(
@@ -11961,6 +12225,7 @@ fn dae_collect_uniform_const_actuals_from_boundary_facts(
     Array::make(total, false),
     allow_immutable_global_get~,
     collect_params~,
+    uniform_resolution_cache~,
   )
 }
 
@@ -12022,6 +12287,8 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
   function_infos : Array[DaeFunctionInfo],
   allow_immutable_global_get? : Bool = false,
   collect_params? : Array[Bool]? = None,
+  stable_callsite_resolutions? : Array[Int]? = None,
+  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
 ) -> Array[@lib.Instruction?]? {
   if callee_abs < 0 || callee_abs >= function_infos.length() {
     return None
@@ -12039,10 +12306,18 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
   let seen = Array::make(param_count, false)
   let invalid = Array::make(param_count, false)
   let candidates : Array[@lib.Instruction?] = Array::make(param_count, None)
-  let visited = Array::make(func_type_indices.length(), false)
+  let visited = match uniform_resolution_cache {
+    Some(cache) if cache.visited.length() == func_type_indices.length() =>
+      cache.visited
+    _ => Array::make(func_type_indices.length(), false)
+  }
   for callsite in function_infos[callee_abs].calls {
     if !callsite.active || callsite.tail || callsite.callee_abs != callee_abs {
       continue
+    }
+    match stable_callsite_resolutions {
+      Some(resolutions) => resolutions[0] += 1
+      None => ()
     }
     let caller_def = callsite.caller_def
     if caller_def < 0 || caller_def >= funcs.length() {
@@ -12063,39 +12338,75 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
       Some(_) => ()
       None => return None
     }
-    let evidence = match
-      dae_callsite_value_slice_evidence(
-        scope, call_idx, param_count, entry_stack_values, mod_, func_type_indices,
-      ) {
-      Some(evidence) => evidence
-      None => return None
+    let direct_actual_start = dae_callsite_contiguous_single_root_actual_start(
+      scope, call_idx, param_count, mod_, func_type_indices,
+    )
+    match stable_callsite_resolutions {
+      Some(resolutions) if resolutions.length() >= 3 =>
+        match direct_actual_start {
+          Some(_) => resolutions[1] += 1
+          None => resolutions[2] += 1
+        }
+      _ => ()
+    }
+    let evidence = match direct_actual_start {
+      Some(_) => None
+      None =>
+        match
+          dae_callsite_value_slice_evidence(
+            scope, call_idx, param_count, entry_stack_values, mod_, func_type_indices,
+          ) {
+          Some(value) => Some(value)
+          None => return None
+        }
     }
     let mut p = 0
     while p < param_count {
       if active_params[p] && !invalid[p] {
-        match dae_callsite_single_instruction_actual(evidence, p, scope) {
-          Some(actual) =>
+        let actual = match direct_actual_start {
+          Some(start) => {
+            let actual_idx = start + p
+            Some({ param_idx: p, actual_idx, instr: scope[actual_idx] })
+          }
+          None =>
+            match evidence {
+              Some(value) =>
+                dae_callsite_single_instruction_actual(value, p, scope)
+              None => None
+            }
+        }
+        match actual {
+          Some(value) => {
+            match stable_callsite_resolutions {
+              Some(resolutions) if resolutions.length() >= 5 =>
+                match value.instr {
+                  @lib.LocalGet(_) => resolutions[4] += 1
+                  _ => resolutions[3] += 1
+                }
+              _ => ()
+            }
             match
               dae_resolve_uniform_const_candidate(
                 mod_,
                 imported + caller_def,
-                actual.instr,
+                value.instr,
                 func_type_indices,
                 boundary_facts,
                 visited,
                 allow_immutable_global_get~,
+                uniform_resolution_cache~,
               ) {
               Some(candidate) =>
                 dae_record_uniform_const_candidate(
                   seen, invalid, candidates, p, candidate,
                 )
               None =>
-                match actual.instr {
+                match value.instr {
                   @lib.LocalGet(local_idx) =>
                     match
                       dae_resolve_local_set_const_carrier(
                         scope,
-                        actual.actual_idx,
+                        value.actual_idx,
                         dae_local_idx_slot(local_idx),
                         mod_,
                         allow_immutable_global_get,
@@ -12109,6 +12420,7 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
                   _ => invalid[p] = true
                 }
             }
+          }
           None => invalid[p] = true
         }
       }
@@ -12139,6 +12451,8 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
   allow_immutable_global_get? : Bool = false,
   collect_params? : Array[Bool]? = None,
   prefer_stable_paths? : Bool = false,
+  stable_callsite_resolutions? : Array[Int]? = None,
+  uniform_resolution_cache? : DaeUniformResolutionCache? = None,
 ) -> Array[@lib.Instruction?]? {
   let mut has_inactive_direct_call = false
   if callee_abs >= 0 && callee_abs < function_infos.length() {
@@ -12162,6 +12476,8 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
       function_infos,
       allow_immutable_global_get~,
       collect_params~,
+      stable_callsite_resolutions~,
+      uniform_resolution_cache~,
     )
   } else {
     dae_collect_uniform_const_actuals_from_boundary_facts(
@@ -12172,6 +12488,7 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
       boundary_facts,
       allow_immutable_global_get~,
       collect_params~,
+      uniform_resolution_cache~,
     )
   }
 }
@@ -19975,6 +20292,43 @@ fn dae_try_rewrite_verified_materialized_const_suffix_candidate(
 }
 
 ///|
+fn dae_direct_caller_cycle_flags(
+  facts : DaeCallBoundaryFacts,
+  imported : Int,
+  defined : Int,
+) -> Array[Bool] {
+  let callers_by_def = dae_dependency_adjacency_new(defined)
+  let mut callee_def = 0
+  while callee_def < defined {
+    let callee_abs = imported + callee_def
+    if callee_abs >= 0 && callee_abs < facts.direct_callers.length() {
+      for caller_def in facts.direct_callers[callee_abs] {
+        if caller_def >= 0 &&
+          caller_def < defined &&
+          !callers_by_def[callee_def].contains(caller_def) {
+          callers_by_def[callee_def].push(caller_def)
+        }
+      }
+    }
+    callee_def += 1
+  }
+  let (component_by_def, component_members) = dae_boundary_components(
+    callers_by_def,
+  )
+  let cycles = Array::make(defined, false)
+  let mut def_idx = 0
+  while def_idx < defined {
+    let component = component_by_def[def_idx]
+    if component >= 0 && component < component_members.length() {
+      cycles[def_idx] = component_members[component].length() > 1 ||
+        callers_by_def[def_idx].contains(def_idx)
+    }
+    def_idx += 1
+  }
+  cycles
+}
+
+///|
 fn dae_boundary_has_direct_caller_cycle(
   facts : DaeCallBoundaryFacts,
   imported : Int,
@@ -20026,6 +20380,10 @@ fn dae_try_apply_unread_param_batch(
   boundary_snapshot? : DaeModuleBoundarySnapshot? = None,
   cleanup_targets? : Array[Bool]? = None,
   perf? : HotPerfSession? = None,
+  stable_callsite_resolutions? : Array[Int]? = None,
+  forwarded_local_use_scans? : Array[Int]? = None,
+  forwarded_uniform_resolutions? : Array[Int]? = None,
+  uniform_visited_allocations? : Array[Int]? = None,
 ) -> DaePassResult {
   let snapshot_start_us = perf_start_timer_opt(
     perf, "detail:dae:parameter-batch:snapshot",
@@ -20042,6 +20400,15 @@ fn dae_try_apply_unread_param_batch(
   // Definition-count-independent batch candidate construction. The family
   // transaction remains the only production commit boundary.
   let boundary_facts = snapshot.boundary_facts
+  let uniform_resolution_cache = DaeUniformResolutionCache::new(
+    defined,
+    snapshot.total,
+    local_use_scans=forwarded_local_use_scans,
+    forwarded_resolution_scans=forwarded_uniform_resolutions,
+    function_infos=Some(snapshot.function_infos),
+    stable_callsite_resolutions~,
+    visited_allocations=uniform_visited_allocations,
+  )
   let mut type_sec = match mod_.type_sec {
     Some(type_sec) => type_sec
     None =>
@@ -20070,7 +20437,13 @@ fn dae_try_apply_unread_param_batch(
   let candidate_start_us = perf_start_timer_opt(
     perf, "detail:dae:parameter-batch:candidates",
   )
-  let mut cycle_check_us = 0UL
+  let cycle_start_us = perf_start_timer_opt(
+    perf, "detail:dae:parameter-batch:cycle-check",
+  )
+  let direct_caller_cycles = dae_direct_caller_cycle_flags(
+    boundary_facts, imported, defined,
+  )
+  let cycle_check_us = perf_elapsed_since_start_opt(perf, cycle_start_us)
   let mut local_use_us = 0UL
   let mut uniform_actual_us = 0UL
   for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
@@ -20089,14 +20462,7 @@ fn dae_try_apply_unread_param_batch(
       boundary.has_self_direct_caller {
       continue
     }
-    let cycle_start_us = perf_start_timer_opt(
-      perf, "detail:dae:parameter-batch:cycle-check",
-    )
-    let has_direct_caller_cycle = dae_boundary_has_direct_caller_cycle(
-      boundary_facts, imported, callee_abs,
-    )
-    cycle_check_us += perf_elapsed_since_start_opt(perf, cycle_start_us)
-    if has_direct_caller_cycle {
+    if def_idx < direct_caller_cycles.length() && direct_caller_cycles[def_idx] {
       continue
     }
     if require_active_callers {
@@ -20163,6 +20529,9 @@ fn dae_try_apply_unread_param_batch(
         boundary_facts,
         snapshot.function_infos,
         collect_params=Some(collect_const_params),
+        prefer_stable_paths=true,
+        stable_callsite_resolutions~,
+        uniform_resolution_cache=Some(uniform_resolution_cache),
       )
     } else {
       None
@@ -20509,6 +20878,33 @@ fn dae_current_graph_has_dropped_result_candidate(
     def_idx += 1
   }
   false
+}
+
+///|
+fn dae_dropped_result_followup_defs(
+  graph : DaeCurrentBoundaryGraph,
+  effects : DaeCommitEffects,
+) -> Array[Bool] {
+  let snapshot = graph.snapshot
+  let active = Array::make(snapshot.defined, false)
+  let mut callee_def = 0
+  while callee_def < snapshot.defined {
+    let callee_abs = snapshot.imported + callee_def
+    if callee_abs >= 0 && callee_abs < snapshot.function_infos.length() {
+      for callsite in snapshot.function_infos[callee_abs].calls {
+        let caller_def = callsite.caller_def
+        if callsite.active &&
+          caller_def >= 0 &&
+          caller_def < effects.result_changed.length() &&
+          effects.result_changed[caller_def] {
+          active[callee_def] = true
+          break
+        }
+      }
+    }
+    callee_def += 1
+  }
+  active
 }
 
 ///|
@@ -21146,6 +21542,7 @@ fn dae_apply_dropped_result_batch_transaction_on_graph(
   perf? : HotPerfSession? = None,
   validate_candidate? : Bool = true,
   lightweight_post_graph? : Bool = false,
+  active_defs? : Array[Bool]? = None,
 ) -> DaeDroppedResultBatchApplication {
   let defined = graph.snapshot.defined
   let topology_preserved_report : Array[Bool] = []
@@ -21156,6 +21553,7 @@ fn dae_apply_dropped_result_batch_transaction_on_graph(
     current,
     original_exposure,
     graph,
+    active_defs~,
     topology_preserved_report~,
   )
   perf_stop_timer_opt(
@@ -49109,6 +49507,62 @@ fn dae_run_nested_cleanup(
   mod_
 }
 
+///| Validate the complete rewritten module environment, then only function
+
+///| bodies whose signature, locals/body, or DAE touched ownership changed.
+
+///| Unchanged definitions were valid in the input and see the same resolved
+
+///|
+/// function type; type-pruning rewrites are included by structural comparison.
+fn dae_validate_typed_batch_candidate(
+  original : @lib.Module,
+  candidate : @lib.Module,
+  touched : Array[Bool],
+) -> Bool {
+  let original_funcs = match original.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => []
+  }
+  let candidate_funcs = match candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => []
+  }
+  if original_funcs.length() != candidate_funcs.length() ||
+    touched.length() != candidate_funcs.length() ||
+    dae_imported_func_count(original) != dae_imported_func_count(candidate) {
+    return false
+  }
+  let imported = dae_imported_func_count(candidate)
+  let original_type_indices = dae_collect_func_type_indices(original)
+  let candidate_type_indices = dae_collect_func_type_indices(candidate)
+  let changed_funcs : Array[(@lib.FuncIdx, @lib.Func)] = []
+  let mut def_idx = 0
+  while def_idx < candidate_funcs.length() {
+    let func_abs = imported + def_idx
+    let signature_changed = dae_resolve_func_type(
+        original, original_type_indices, func_abs,
+      ) !=
+      dae_resolve_func_type(candidate, candidate_type_indices, func_abs)
+    if touched[def_idx] ||
+      original_funcs[def_idx] != candidate_funcs[def_idx] ||
+      signature_changed {
+      changed_funcs.push(
+        (
+          @lib.FuncIdx::new(func_abs.reinterpret_as_uint()),
+          candidate_funcs[def_idx],
+        ),
+      )
+    }
+    def_idx += 1
+  }
+  match
+    @validate.validate_defined_funcs_against_module(candidate, changed_funcs) {
+    Ok(errors) => errors.length() == 0
+    Err(_) => false
+  }
+}
+
 ///|
 fn dae_run_dropped_result_batch_only_result(
   mod_ : @lib.Module,
@@ -49126,7 +49580,7 @@ fn dae_run_dropped_result_batch_only_result(
   let graph_start_us = perf_start_timer_opt(
     perf, "detail:dae:dropped-result-transaction:graph",
   )
-  let mut graph = dae_current_boundary_graph_new(current)
+  let mut graph = dae_typed_batch_boundary_graph_new(current, perf~)
   let original_local_set_get_candidates = Array::make(
     graph.snapshot.defined,
     false,
@@ -49179,7 +49633,7 @@ fn dae_run_dropped_result_batch_only_result(
       if !dae_current_boundary_graph_adopt_parameter_batch_lightweight(
           graph, current,
         ) {
-        graph = dae_current_boundary_graph_new(current)
+        graph = dae_typed_batch_boundary_graph_new(current, perf~)
       }
       trace(
         "pass[dae-optimizing]:typed-loop-safe-parameter-batch first_def=\{parameter_candidate.primary_def}",
@@ -49190,6 +49644,7 @@ fn dae_run_dropped_result_batch_only_result(
     )
   }
   let mut wave = 0
+  let mut active_result_defs : Array[Bool]? = None
   while true {
     let transaction_start_us = perf_start_timer_opt(
       perf, "detail:dae:dropped-result-batch-only:transaction",
@@ -49207,6 +49662,7 @@ fn dae_run_dropped_result_batch_only_result(
       perf~,
       validate_candidate=false,
       lightweight_post_graph=true,
+      active_defs=active_result_defs,
     )
     perf_stop_timer_opt(
       perf, "detail:dae:dropped-result-batch-only:transaction", transaction_start_us,
@@ -49219,6 +49675,9 @@ fn dae_run_dropped_result_batch_only_result(
     )
     current = application.mod_out
     touched = application.touched
+    active_result_defs = Some(
+      dae_dropped_result_followup_defs(graph, application.effects),
+    )
     cleanup_touched = dae_merge_touched(
       cleanup_touched,
       application.effects.worth_optimizing,
@@ -49230,7 +49689,7 @@ fn dae_run_dropped_result_batch_only_result(
         let rebuild_start_us = perf_start_timer_opt(
           perf, "detail:dae:dropped-result-transaction:graph",
         )
-        graph = dae_current_boundary_graph_new(current)
+        graph = dae_typed_batch_boundary_graph_new(current, perf~)
         perf_stop_timer_opt(
           perf, "detail:dae:dropped-result-transaction:graph", rebuild_start_us,
         )
@@ -49281,13 +49740,14 @@ fn dae_run_dropped_result_batch_only_result(
   let validation_start_us = perf_start_timer_opt(
     perf, "detail:dae:dropped-result-transaction:validate",
   )
-  let validation = @validate.validate_module(pruned)
+  let validation = dae_validate_typed_batch_candidate(mod_, pruned, touched)
   perf_stop_timer_opt(
     perf, "detail:dae:dropped-result-transaction:validate", validation_start_us,
   )
-  let result = match validation {
-    Ok(_) => (pruned, touched, true, cleanup_touched)
-    Err(_) => (mod_, [], false, [])
+  let result = if validation {
+    (pruned, touched, true, cleanup_touched)
+  } else {
+    (mod_, [], false, [])
   }
   perf_stop_timer_opt(
     perf, "detail:dae:dropped-result-batch-only:total", total_start_us,

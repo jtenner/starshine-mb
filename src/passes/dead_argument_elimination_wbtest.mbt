@@ -14724,6 +14724,37 @@ test "dae current call facts record direct tail callees inside structured bodies
 }
 
 ///|
+test "dae current function analysis reuses body-scan call facts" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target
+      #|    drop
+      #|    i32.const 8
+      #|    call $target)
+      #|  (func (result i32)
+      #|    i32.const 9
+      #|    return_call $target))
+    ),
+  )
+  let call_fact_rebuilds = [0]
+  let analysis = dae_collect_current_function_analysis(
+    mod_,
+    3,
+    call_fact_rebuilds=Some(call_fact_rebuilds),
+  )
+  assert_eq(call_fact_rebuilds[0], 0)
+  assert_eq(analysis.call_facts.direct_calls, [3, 0, 0])
+  assert_eq(analysis.call_facts.dropped_calls, [1, 0, 0])
+  assert_eq(analysis.call_facts.direct_callers[0], [1, 2])
+  assert_true(analysis.call_facts.tail_calls[0])
+}
+
+///|
 test "dae current call facts stop after structured no-fallthrough roots" {
   let mod_ = pass_test_module_from_wat(
     (
@@ -14773,6 +14804,53 @@ test "dae stable callsites ignore inactive conflicting uniform actuals" {
     Some([Some(@lib.I32Const(value))]) => assert_eq(value, 7)
     _ => fail("expected only the active stable callsite literal")
   }
+}
+
+///|
+test "dae stable callsite direct roots avoid full operand slicing" {
+  let direct = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32 i64))
+      #|  (func
+      #|    i32.const 7
+      #|    i64.const 9
+      #|    call $target))
+    ),
+  )
+  let type_indices = dae_collect_func_type_indices(direct)
+  let direct_body = match direct.code_sec {
+    Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(body))])) => body
+    _ => fail("expected direct caller body")
+  }
+  assert_eq(
+    dae_callsite_contiguous_single_root_actual_start(
+      direct_body, 2, 2, direct, type_indices,
+    ),
+    Some(0),
+  )
+  let computed = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32))
+      #|  (func
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    i32.add
+      #|    call $target))
+    ),
+  )
+  let computed_types = dae_collect_func_type_indices(computed)
+  let computed_body = match computed.code_sec {
+    Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(body))])) => body
+    _ => fail("expected computed caller body")
+  }
+  assert_true(
+    dae_callsite_contiguous_single_root_actual_start(
+      computed_body, 3, 1, computed, computed_types,
+    )
+    is None,
+  )
 }
 
 ///|
@@ -16840,6 +16918,234 @@ test "dae unread parameter batch reuses a supplied boundary snapshot" {
       assert_eq(result_type, @lib.ValType::i32())
     }
     _ => fail("expected supplied-snapshot parameter removal")
+  }
+}
+
+///|
+test "dae dropped-result followup schedules only changed callers' callees" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $leaf (result i32)
+      #|    i32.const 42)
+      #|  (func $middle (result i32)
+      #|    call $leaf)
+      #|  (func (export "run")
+      #|    call $middle
+      #|    drop)
+      #|  (func $unrelated (result i32)
+      #|    i32.const 7))
+    ),
+  )
+  let graph = dae_typed_batch_boundary_graph_new(mod_)
+  let effects = dae_commit_effects_empty(4)
+  effects.result_changed[1] = true
+  assert_eq(dae_dropped_result_followup_defs(graph, effects), [
+    true, false, false, false,
+  ])
+}
+
+///|
+test "dae typed batch candidate validation checks touched signature changes" {
+  let original = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $with-param (func (param i32) (result i32)))
+      #|  (type $without-param (func (result i32)))
+      #|  (func $target (type $with-param)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let invalid = original.with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(1U), @lib.TypeIdx::new(1U)]),
+  )
+  assert_false(
+    dae_validate_typed_batch_candidate(original, invalid, [true, false]),
+  )
+  let valid = dae_try_apply_unread_param_batch(
+    original,
+    allow_uniform_params=true,
+    boundary_snapshot=Some(dae_collect_module_boundary_snapshot(original)),
+  )
+  assert_true(valid.changed)
+  assert_true(
+    dae_validate_typed_batch_candidate(original, valid.mod_out, valid.touched),
+  )
+}
+
+///|
+test "dae typed batch boundary graph skips unused topology collection" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let graph = dae_typed_batch_boundary_graph_new(mod_)
+  assert_eq(graph.snapshot.call_facts.direct_calls, [1, 0])
+  assert_false(
+    graph.topology.has_outgoing_call_indirect.any(fn(value) { value }),
+  )
+  assert_false(graph.topology.has_outgoing_call_ref.any(fn(value) { value }))
+  assert_false(graph.topology.has_outgoing_return_call.any(fn(value) { value }))
+}
+
+///|
+test "dae parameter batch indexes direct caller cycles once" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $a
+      #|    call $b)
+      #|  (func $b
+      #|    call $a)
+      #|  (func $leaf)
+      #|  (func
+      #|    call $leaf))
+    ),
+  )
+  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let cycles = dae_direct_caller_cycle_flags(
+    snapshot.boundary_facts,
+    snapshot.imported,
+    snapshot.defined,
+  )
+  assert_eq(cycles, [true, true, false, false])
+}
+
+///|
+test "dae forwarded uniform recursion uses indexed caller facts" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32))
+      #|  (func $wrapper (param i32)
+      #|    local.get 0
+      #|    call $target
+      #|    local.get 0
+      #|    call $wrapper)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $wrapper))
+    ),
+  )
+  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  assert_false(
+    dae_forwarded_uniform_caller_is_recursive(
+      snapshot.boundary_facts,
+      0,
+      snapshot.imported,
+    ),
+  )
+  assert_true(
+    dae_forwarded_uniform_caller_is_recursive(
+      snapshot.boundary_facts,
+      1,
+      snapshot.imported,
+    ),
+  )
+}
+
+///|
+test "dae unread parameter batch caches forwarded caller local use" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func $wrapper (param i32) (result i32)
+      #|    local.get 0
+      #|    call $target
+      #|    drop
+      #|    local.get 0
+      #|    call $target)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $wrapper)
+      #|  (func (result i32)
+      #|    i32.const 7
+      #|    call $wrapper))
+    ),
+  )
+  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let stable_callsite_resolutions = [0]
+  let forwarded_local_use_scans = [0]
+  let forwarded_uniform_resolutions = [0]
+  let uniform_visited_allocations = [0]
+  let candidate = dae_try_apply_unread_param_batch(
+    mod_,
+    active_defs=Some([true, false, false, false]),
+    allow_uniform_params=true,
+    boundary_snapshot=Some(snapshot),
+    stable_callsite_resolutions=Some(stable_callsite_resolutions),
+    forwarded_local_use_scans=Some(forwarded_local_use_scans),
+    forwarded_uniform_resolutions=Some(forwarded_uniform_resolutions),
+    uniform_visited_allocations=Some(uniform_visited_allocations),
+  )
+  assert_true(candidate.changed)
+  assert_eq(uniform_visited_allocations[0], 1)
+  assert_eq(stable_callsite_resolutions[0], 4)
+  assert_eq(forwarded_local_use_scans[0], 1)
+  assert_eq(forwarded_uniform_resolutions[0], 1)
+  let type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  match dae_resolve_func_type(candidate.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
+    _ => fail("expected rewritten target signature")
+  }
+}
+
+///|
+test "dae unread parameter batch resolves each uniform callsite once" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+    ),
+  )
+  for _idx = 0; _idx < 128; _idx = _idx + 1 {
+    source.write_string("    nop\n")
+  }
+  source.write_string(
+    (
+      #|    i32.const 7
+      #|    call $target)
+      #|  (func (result i32)
+    ),
+  )
+  for _idx = 0; _idx < 128; _idx = _idx + 1 {
+    source.write_string("    nop\n")
+  }
+  source.write_string(
+    (
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let mod_ = pass_test_module_from_wat(source.to_string())
+  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let stable_callsite_resolutions = [0]
+  let candidate = dae_try_apply_unread_param_batch(
+    mod_,
+    allow_uniform_params=true,
+    boundary_snapshot=Some(snapshot),
+    stable_callsite_resolutions=Some(stable_callsite_resolutions),
+  )
+  assert_true(candidate.changed)
+  assert_eq(stable_callsite_resolutions[0], 2)
+  let type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  match dae_resolve_func_type(candidate.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
+    _ => fail("expected rewritten target signature")
   }
 }
 
