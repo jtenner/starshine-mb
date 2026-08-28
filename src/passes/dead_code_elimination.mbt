@@ -20,6 +20,9 @@ pub fn dead_code_elimination_summary() -> String {
 priv struct DeadCodeEliminationNodeUseCache {
   mut revision : Int
   mut use_def : @ir.HotUseDef?
+  first_unreachable_revision : Array[Int]
+  first_unreachable_absent : @bitset.BitSet
+  first_unreachable_visits : Array[Int]?
 }
 
 ///|
@@ -63,8 +66,29 @@ fn dead_code_elimination_build_i32_eqz(
 }
 
 ///|
-fn DeadCodeEliminationNodeUseCache::new() -> DeadCodeEliminationNodeUseCache {
-  { revision: -1, use_def: None }
+fn DeadCodeEliminationNodeUseCache::new(
+  func : @ir.HotFunc,
+  first_unreachable_visits? : Array[Int]? = None,
+) -> DeadCodeEliminationNodeUseCache {
+  let node_count = @ir.hot_node_count(func)
+  {
+    revision: -1,
+    use_def: None,
+    first_unreachable_revision: Array::make(node_count, -1),
+    first_unreachable_absent: @bitset.BitSet::new(node_count),
+    first_unreachable_visits,
+  }
+}
+
+///|
+fn dead_code_elimination_ensure_first_unreachable_cache_capacity(
+  cache : DeadCodeEliminationNodeUseCache,
+  node_id : Int,
+) -> Unit {
+  while cache.first_unreachable_revision.length() <= node_id {
+    cache.first_unreachable_revision.push(-1)
+  }
+  cache.first_unreachable_absent.grow(cache.first_unreachable_revision.length())
 }
 
 ///|
@@ -2223,67 +2247,102 @@ fn dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload(
 }
 
 ///|
+priv struct DeadCodeEliminationPreservedCleanupRoot {
+  node_id : Int
+  needs_drop : Bool
+}
+
+///|
+fn DeadCodeEliminationPreservedCleanupRoot::new(
+  node_id : Int,
+  needs_drop : Bool,
+) -> DeadCodeEliminationPreservedCleanupRoot {
+  { node_id, needs_drop }
+}
+
+///|
 fn dead_code_elimination_append_preserved_prefix_root(
   func : @ir.HotFunc,
-  out : Array[Int],
+  out : Array[DeadCodeEliminationPreservedCleanupRoot],
   child_id : Int,
 ) -> Bool {
   if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
     return false
   }
-  if @ir.hot_node_result_arity(func, child_id) == 0 {
-    out.push(child_id)
-  } else {
-    out.push(@ir.hot_build_drop(func, child_id))
-  }
+  out.push(
+    DeadCodeEliminationPreservedCleanupRoot::new(
+      child_id,
+      @ir.hot_node_result_arity(func, child_id) > 0,
+    ),
+  )
   true
 }
 
 ///|
 fn dead_code_elimination_collect_first_unreachable_child_cleanup(
+  cache : DeadCodeEliminationNodeUseCache,
   func : @ir.HotFunc,
   node_id : Int,
-) -> Array[Int]? {
+) -> Array[DeadCodeEliminationPreservedCleanupRoot]? {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return None
   }
+  let revision = @ir.hot_revision_current(func)
+  dead_code_elimination_ensure_first_unreachable_cache_capacity(cache, node_id)
+  if cache.first_unreachable_revision[node_id] == revision &&
+    cache.first_unreachable_absent[node_id] {
+    return None
+  }
+  match cache.first_unreachable_visits {
+    Some(visits) => visits[0] += 1
+    None => ()
+  }
   match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Unreachable => return Some([node_id])
+    @ir.HotOp::Unreachable =>
+      return Some([DeadCodeEliminationPreservedCleanupRoot::new(node_id, false)])
     _ => ()
   }
   if @ir.hot_is_control_node(func, node_id) {
+    cache.first_unreachable_revision[node_id] = revision
+    cache.first_unreachable_absent[node_id] = true
     return None
   }
-  let prefix_roots : Array[Int] = []
+  let prefix_roots : Array[DeadCodeEliminationPreservedCleanupRoot] = []
   for child_idx = 0
       child_idx < @ir.hot_child_count(func, node_id)
       child_idx = child_idx + 1 {
     let child_id = @ir.hot_child_get(func, node_id, child_idx)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      cache.first_unreachable_revision[node_id] = revision
+      cache.first_unreachable_absent[node_id] = true
       return None
     }
     match
       dead_code_elimination_collect_first_unreachable_child_cleanup(
-        func, child_id,
+        cache, func, child_id,
       ) {
       Some(child_cleanup) => {
-        let replacement : Array[Int] = []
+        let plan : Array[DeadCodeEliminationPreservedCleanupRoot] = []
         for prefix in prefix_roots {
-          replacement.push(prefix)
+          plan.push(prefix)
         }
         for cleanup in child_cleanup {
-          replacement.push(cleanup)
+          plan.push(cleanup)
         }
-        return Some(replacement)
+        return Some(plan)
       }
       None =>
         if !dead_code_elimination_append_preserved_prefix_root(
             func, prefix_roots, child_id,
           ) {
+          cache.first_unreachable_revision[node_id] = revision
+          cache.first_unreachable_absent[node_id] = true
           return None
         }
     }
   }
+  cache.first_unreachable_revision[node_id] = revision
+  cache.first_unreachable_absent[node_id] = true
   None
 }
 
@@ -2296,13 +2355,25 @@ fn dead_code_elimination_try_preserve_prefix_before_unreachable_child(
   idx : Int,
   node_id : Int,
 ) -> Bool {
-  let replacement = match
-    dead_code_elimination_collect_first_unreachable_child_cleanup(func, node_id) {
-    Some(replacement) => replacement
+  let plan = match
+    dead_code_elimination_collect_first_unreachable_child_cleanup(
+      node_use_cache, func, node_id,
+    ) {
+    Some(plan) => plan
     None => return false
   }
-  if replacement.length() == 1 && replacement[0] == node_id {
+  if plan.length() == 1 && plan[0].node_id == node_id && !plan[0].needs_drop {
     return false
+  }
+  let replacement : Array[Int] = []
+  for root in plan {
+    replacement.push(
+      if root.needs_drop {
+        @ir.hot_build_drop(func, root.node_id)
+      } else {
+        root.node_id
+      },
+    )
   }
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, replacement)
   dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, removed)
@@ -3102,7 +3173,7 @@ fn dead_code_elimination_run(
   func : @ir.HotFunc,
 ) -> HotPassResult {
   let branch_user_cache = DeadCodeEliminationBranchUserCache::new()
-  let node_use_cache = DeadCodeEliminationNodeUseCache::new()
+  let node_use_cache = DeadCodeEliminationNodeUseCache::new(func)
   let fallthrough_cache = dead_code_elimination_new_fallthrough_cache(func)
   let purity_cache = dead_code_elimination_new_purity_cache(func)
   if dead_code_elimination_visit_region(

@@ -2086,108 +2086,237 @@ fn hot_pass_remove_region_nops(
 }
 
 ///|
-fn run_hot_pipeline_instr_scan(
+priv struct HotPipelineInstrScanSummary {
+  mut has_writes : Bool
+  mut has_structured_control : Bool
+  mut has_branches : Bool
+  mut has_drop : Bool
+  mut has_dead_tail_after_nonfallthrough : Bool
+  mut has_dead_drop_after_nonfallthrough : Bool
+  mut instr_count : Int
+  mut may_fallthrough : Bool
+}
+
+///|
+fn HotPipelineInstrScanSummary::new() -> HotPipelineInstrScanSummary {
+  {
+    has_writes: false,
+    has_structured_control: false,
+    has_branches: false,
+    has_drop: false,
+    has_dead_tail_after_nonfallthrough: false,
+    has_dead_drop_after_nonfallthrough: false,
+    instr_count: 0,
+    may_fallthrough: true,
+  }
+}
+
+///|
+fn hot_pipeline_instr_scan_merge(
+  summary : HotPipelineInstrScanSummary,
+  nested : HotPipelineInstrScanSummary,
+) -> Unit {
+  summary.has_writes = summary.has_writes || nested.has_writes
+  summary.has_structured_control = summary.has_structured_control ||
+    nested.has_structured_control
+  summary.has_branches = summary.has_branches || nested.has_branches
+  summary.has_drop = summary.has_drop || nested.has_drop
+  summary.has_dead_tail_after_nonfallthrough = summary.has_dead_tail_after_nonfallthrough ||
+    nested.has_dead_tail_after_nonfallthrough
+  summary.has_dead_drop_after_nonfallthrough = summary.has_dead_drop_after_nonfallthrough ||
+    nested.has_dead_drop_after_nonfallthrough
+  summary.instr_count += nested.instr_count
+}
+
+///|
+priv struct HotPipelineInstrScanState {
+  control_tokens : Array[Int]
+  targeted_controls : @bitset.BitSet
+  mut next_control_token : Int
+  visit_count : Array[Int]?
+}
+
+///|
+fn HotPipelineInstrScanState::new(
+  visit_count : Array[Int]?,
+) -> HotPipelineInstrScanState {
+  {
+    control_tokens: [],
+    targeted_controls: @bitset.BitSet::new(0),
+    next_control_token: 0,
+    visit_count,
+  }
+}
+
+///|
+fn hot_pipeline_instr_scan_push_control(
+  state : HotPipelineInstrScanState,
+) -> Int {
+  let token = state.next_control_token
+  state.next_control_token += 1
+  state.targeted_controls.grow(state.next_control_token)
+  state.control_tokens.push(token)
+  token
+}
+
+///|
+fn hot_pipeline_instr_scan_pop_control(
+  state : HotPipelineInstrScanState,
+) -> Unit {
+  ignore(state.control_tokens.pop())
+}
+
+///|
+fn hot_pipeline_instr_scan_mark_branch_target(
+  state : HotPipelineInstrScanState,
+  label_idx : @lib.LabelIdx,
+) -> Unit {
+  let @lib.LabelIdx(raw) = label_idx
+  let target_slot = state.control_tokens.length() - 1 - raw.reinterpret_as_int()
+  if target_slot < 0 || target_slot >= state.control_tokens.length() {
+    return
+  }
+  state.targeted_controls[state.control_tokens[target_slot]] = true
+}
+
+///|
+fn hot_pipeline_instr_scan_record_branch_targets(
+  state : HotPipelineInstrScanState,
+  instr : @lib.Instruction,
+) -> Unit {
+  match instr {
+    @lib.Br(target) | @lib.BrIf(target) =>
+      hot_pipeline_instr_scan_mark_branch_target(state, target)
+    @lib.BrTable(targets, default_target) => {
+      for target in targets {
+        hot_pipeline_instr_scan_mark_branch_target(state, target)
+      }
+      hot_pipeline_instr_scan_mark_branch_target(state, default_target)
+    }
+    _ => ()
+  }
+}
+
+///|
+fn run_hot_pipeline_instr_scan_impl(
   instrs : Array[@lib.Instruction],
-) -> (Bool, Bool, Bool, Bool, Bool, Int) {
-  let mut has_writes = false
-  let mut has_structured_control = false
-  let mut has_branches = false
-  let mut has_drop = false
-  let mut has_dead_tail_after_nonfallthrough = false
-  let mut instr_count = 0
+  state : HotPipelineInstrScanState,
+) -> HotPipelineInstrScanSummary {
+  let summary = HotPipelineInstrScanSummary::new()
   let mut prev_may_fallthrough = true
   for instr in instrs {
-    if !prev_may_fallthrough {
-      has_dead_tail_after_nonfallthrough = true
+    match state.visit_count {
+      Some(visits) => visits[0] += 1
+      None => ()
     }
-    instr_count = instr_count + 1
+    if !prev_may_fallthrough {
+      summary.has_dead_tail_after_nonfallthrough = true
+      match instr {
+        @lib.Drop => summary.has_dead_drop_after_nonfallthrough = true
+        _ => ()
+      }
+    }
+    summary.instr_count += 1
+    hot_pipeline_instr_scan_record_branch_targets(state, instr)
+    let mut instr_may_fallthrough = true
     match instr {
-      @lib.LocalSet(_) | @lib.LocalTee(_) => has_writes = true
-      @lib.Drop => has_drop = true
+      @lib.LocalSet(_) | @lib.LocalTee(_) => summary.has_writes = true
+      @lib.Drop => summary.has_drop = true
       @lib.Br(_)
       | @lib.BrIf(_)
       | @lib.BrTable(_, _)
       | @lib.BrOnNull(_)
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => has_branches = true
-      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) => {
-        has_structured_control = true
-        let (
-          nested_writes,
-          _,
-          nested_branches,
-          nested_drop,
-          nested_dead_tail,
-          nested_instr_count,
-        ) = run_hot_pipeline_instr_scan(body)
-        has_writes = has_writes || nested_writes
-        has_branches = has_branches || nested_branches
-        has_drop = has_drop || nested_drop
-        has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
-          nested_dead_tail
-        instr_count = instr_count + nested_instr_count
+      | @lib.BrOnCastFail(_, _, _, _) => summary.has_branches = true
+      _ => ()
+    }
+    match instr {
+      @lib.Br(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Unreachable => instr_may_fallthrough = false
+      @lib.Block(_, @lib.Expr(body)) => {
+        summary.has_structured_control = true
+        let token = hot_pipeline_instr_scan_push_control(state)
+        let nested = run_hot_pipeline_instr_scan_impl(body, state)
+        let targeted = state.targeted_controls[token]
+        hot_pipeline_instr_scan_pop_control(state)
+        hot_pipeline_instr_scan_merge(summary, nested)
+        instr_may_fallthrough = nested.may_fallthrough || targeted
+      }
+      @lib.Loop(_, @lib.Expr(body)) => {
+        summary.has_structured_control = true
+        ignore(hot_pipeline_instr_scan_push_control(state))
+        let nested = run_hot_pipeline_instr_scan_impl(body, state)
+        hot_pipeline_instr_scan_pop_control(state)
+        hot_pipeline_instr_scan_merge(summary, nested)
+        instr_may_fallthrough = nested.may_fallthrough
       }
       @lib.If(_, then_body, else_body) => {
-        has_structured_control = true
-        let (
-          then_writes,
-          _,
-          then_branches,
-          then_drop,
-          then_dead_tail,
-          then_instr_count,
-        ) = run_hot_pipeline_instr_scan(then_body)
-        has_writes = has_writes || then_writes
-        has_branches = has_branches || then_branches
-        has_drop = has_drop || then_drop
-        has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
-          then_dead_tail
-        instr_count = instr_count + then_instr_count
-        match else_body {
+        summary.has_structured_control = true
+        let token = hot_pipeline_instr_scan_push_control(state)
+        let then_summary = run_hot_pipeline_instr_scan_impl(then_body, state)
+        hot_pipeline_instr_scan_merge(summary, then_summary)
+        let else_may_fallthrough = match else_body {
           Some(else_body) => {
-            let (
-              else_writes,
-              _,
-              else_branches,
-              else_drop,
-              else_dead_tail,
-              else_instr_count,
-            ) = run_hot_pipeline_instr_scan(else_body)
-            has_writes = has_writes || else_writes
-            has_branches = has_branches || else_branches
-            has_drop = has_drop || else_drop
-            has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
-              else_dead_tail
-            instr_count = instr_count + else_instr_count
+            let else_summary = run_hot_pipeline_instr_scan_impl(
+              else_body, state,
+            )
+            hot_pipeline_instr_scan_merge(summary, else_summary)
+            else_summary.may_fallthrough
           }
-          None => ()
+          None => true
         }
+        let targeted = state.targeted_controls[token]
+        hot_pipeline_instr_scan_pop_control(state)
+        instr_may_fallthrough = then_summary.may_fallthrough ||
+          else_may_fallthrough ||
+          targeted
       }
       @lib.TryTable(_, _, @lib.Expr(body)) => {
-        has_structured_control = true
-        let (
-          nested_writes,
-          _,
-          nested_branches,
-          nested_drop,
-          nested_dead_tail,
-          nested_instr_count,
-        ) = run_hot_pipeline_instr_scan(body)
-        has_writes = has_writes || nested_writes
-        has_branches = has_branches || nested_branches
-        has_drop = has_drop || nested_drop
-        has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
-          nested_dead_tail
-        instr_count = instr_count + nested_instr_count
+        summary.has_structured_control = true
+        let token = hot_pipeline_instr_scan_push_control(state)
+        let nested = run_hot_pipeline_instr_scan_impl(body, state)
+        let targeted = state.targeted_controls[token]
+        hot_pipeline_instr_scan_pop_control(state)
+        hot_pipeline_instr_scan_merge(summary, nested)
+        instr_may_fallthrough = nested.may_fallthrough || targeted
       }
       _ => ()
     }
-    prev_may_fallthrough = run_hot_pipeline_dce_raw_instr_may_fallthrough(instr)
+    prev_may_fallthrough = instr_may_fallthrough
+    summary.may_fallthrough = summary.may_fallthrough && instr_may_fallthrough
+  }
+  summary
+}
+
+///|
+fn run_hot_pipeline_instr_scan(
+  instrs : Array[@lib.Instruction],
+  visit_count? : Array[Int]? = None,
+  dead_drop_after_nonfallthrough? : Array[Bool]? = None,
+) -> (Bool, Bool, Bool, Bool, Bool, Int) {
+  let summary = run_hot_pipeline_instr_scan_impl(
+    instrs,
+    HotPipelineInstrScanState::new(visit_count),
+  )
+  match dead_drop_after_nonfallthrough {
+    Some(result) => result[0] = summary.has_dead_drop_after_nonfallthrough
+    None => ()
   }
   (
-    has_writes, has_structured_control, has_branches, has_drop, has_dead_tail_after_nonfallthrough,
-    instr_count,
+    summary.has_writes,
+    summary.has_structured_control,
+    summary.has_branches,
+    summary.has_drop,
+    summary.has_dead_tail_after_nonfallthrough,
+    summary.instr_count,
   )
 }
 
@@ -14485,6 +14614,8 @@ priv struct HotPipelineModuleState {
   mut vacuum_pass_count : Int
   mut vacuum_lower_elapsed_us : UInt64
   mut vacuum_lower_count : Int
+  dce_unchanged_lowering_known : @bitset.BitSet
+  dce_unchanged_lowering_required : @bitset.BitSet
 }
 
 ///|
@@ -14502,7 +14633,38 @@ fn HotPipelineModuleState::new() -> HotPipelineModuleState {
     vacuum_pass_count: 0,
     vacuum_lower_elapsed_us: 0UL,
     vacuum_lower_count: 0,
+    dce_unchanged_lowering_known: @bitset.BitSet::new(0),
+    dce_unchanged_lowering_required: @bitset.BitSet::new(0),
   }
+}
+
+///|
+fn run_hot_pipeline_dce_record_requires_unchanged_lowering(
+  module_state : HotPipelineModuleState,
+  func_idx : @lib.FuncIdx,
+  required : Bool,
+) -> Unit {
+  let @lib.FuncIdx(raw) = func_idx
+  let idx = raw.reinterpret_as_int()
+  module_state.dce_unchanged_lowering_known.grow(idx + 1)
+  module_state.dce_unchanged_lowering_required.grow(idx + 1)
+  module_state.dce_unchanged_lowering_known[idx] = true
+  module_state.dce_unchanged_lowering_required[idx] = required
+}
+
+///|
+fn run_hot_pipeline_dce_cached_requires_unchanged_lowering(
+  module_state : HotPipelineModuleState,
+  func_idx : @lib.FuncIdx,
+) -> Bool? {
+  let @lib.FuncIdx(raw) = func_idx
+  let idx = raw.reinterpret_as_int()
+  if idx < 0 ||
+    idx >= module_state.dce_unchanged_lowering_known.length() ||
+    !module_state.dce_unchanged_lowering_known[idx] {
+    return None
+  }
+  Some(module_state.dce_unchanged_lowering_required[idx])
 }
 
 ///|
@@ -30005,8 +30167,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         })
       None => ()
     }
+    let requires_unchanged_lowering = [false]
     let (_, has_structured_control, _, _, _, _) = run_hot_pipeline_instr_scan(
       instrs,
+      dead_drop_after_nonfallthrough=Some(requires_unchanged_lowering),
+    )
+    run_hot_pipeline_dce_record_requires_unchanged_lowering(
+      module_state,
+      func_idx,
+      requires_unchanged_lowering[0],
     )
     if !has_structured_control {
       let module_ctx = run_hot_pipeline_require_module_ctx(
@@ -76571,6 +76740,19 @@ fn run_hot_pipeline_func(
   } else {
     None
   }
+  let dce_requires_unchanged_lowering = if descriptor.name ==
+    "dead-code-elimination" {
+    match
+      run_hot_pipeline_dce_cached_requires_unchanged_lowering(
+        module_state, func_idx,
+      ) {
+      Some(required) => required
+      None =>
+        run_hot_pipeline_dce_raw_requires_lowering_even_if_unchanged(original)
+    }
+  } else {
+    false
+  }
   match
     hot_pass_run_with_aggregate_perf_timer(ctx, func, aggregate_pass_timer) {
     Ok(result) =>
@@ -76593,10 +76775,7 @@ fn run_hot_pipeline_func(
         run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
           run_hot_pipeline_original_func(mod_, func_idx),
         )) &&
-        !(descriptor.name == "dead-code-elimination" &&
-        run_hot_pipeline_dce_raw_requires_lowering_even_if_unchanged(
-          run_hot_pipeline_original_func(mod_, func_idx),
-        )) {
+        !dce_requires_unchanged_lowering {
         return Ok({
           reason: "",
           func: run_hot_pipeline_original_func(mod_, func_idx),
