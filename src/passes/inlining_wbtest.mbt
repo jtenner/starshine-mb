@@ -1,4 +1,185 @@
 ///|
+test "inlining resolves flat trivial modes without HOT lift" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.add))",
+  )
+  let types = inl_collect_func_type_indices(mod_)
+  @debug.assert_eq(
+    inl_flat_trivial_instruction_modes(
+      [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+      ],
+      2,
+      mod_,
+      types,
+    ),
+    Some((true, true)),
+  )
+  @debug.assert_eq(
+    inl_flat_trivial_instruction_modes(
+      [
+        @lib.Instruction::i32_const(@lib.I32::new(1)),
+        @lib.Instruction::i32_const(@lib.I32::new(2)),
+        @lib.Instruction::i32_add(),
+      ],
+      0,
+      mod_,
+      types,
+    ),
+    Some((false, true)),
+  )
+  @debug.assert_eq(
+    inl_flat_trivial_instruction_modes(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(1))]),
+        ),
+        @lib.Instruction::i32_eqz(),
+      ],
+      0,
+      mod_,
+      types,
+    ),
+    Some((false, false)),
+  )
+}
+
+///|
+test "inlining skips trivial classification for settled tiny functions" {
+  let source = StringBuilder::new()
+  source.write_string("(module")
+  for _ in 0..<256 {
+    source.write_string(" (func (result i32) i32.const 1)")
+  }
+  source.write_string(")")
+  let mod_ = pass_test_module_from_wat(source.to_string())
+  let counts = [0, 0, 0]
+  let infos = inl_build_function_infos(mod_, classification_counts=Some(counts))
+  @debug.assert_eq(counts, [0, 0, 0])
+  assert_true(infos.all(fn(info) { info.inlineable }))
+}
+
+///|
+test "inlining caches unchanged trivial modes across planning rounds" {
+  let source =
+    #|(module
+    #|  (func (export "raw") (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.eqz)
+    #|  (func (export "structured") (result i32)
+    #|    block (result i32)
+    #|      i32.const 1
+    #|    end
+    #|    i32.eqz)
+    #|  (func (export "flat") (result i32)
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    i32.add))
+  let mod_ = pass_test_module_from_wat(source)
+  let total = inl_defined_func_count(mod_)
+  let cache : Array[(Bool, Bool)?] = Array::make(total, None)
+  let first_counts = [0, 0, 0]
+  ignore(
+    inl_build_function_infos(
+      mod_,
+      always_inline_max_size=0,
+      trivial_mode_cache=Some(cache),
+      classification_counts=Some(first_counts),
+    ),
+  )
+  @debug.assert_eq(first_counts[0] + first_counts[1] + first_counts[2], total)
+  let second_counts = [0, 0, 0]
+  ignore(
+    inl_build_function_infos(
+      mod_,
+      always_inline_max_size=0,
+      trivial_mode_cache=Some(cache),
+      classification_counts=Some(second_counts),
+    ),
+  )
+  @debug.assert_eq(second_counts, [0, 0, 0])
+}
+
+///|
+test "inlining remaps cached trivial modes and invalidates touched bodies" {
+  let cache : Array[(Bool, Bool)?] = [
+    Some((true, false)),
+    Some((false, true)),
+    Some((false, false)),
+    Some((true, true)),
+  ]
+  let touched = [false, true, false, true]
+  let remap = [0, 2, 3]
+  @debug.assert_eq(inl_remap_trivial_mode_cache(cache, touched, remap), [
+    Some((true, false)),
+    Some((false, false)),
+    None,
+  ])
+}
+
+///|
+test "inlining reconstructs only changed control paths" {
+  let source = StringBuilder::new()
+  source.write_string("(module (func $tiny i32.const 1 drop) (func")
+  for _ in 0..<256 {
+    source.write_string(" (block nop)")
+  }
+  source.write_string(" call $tiny))")
+  let mod_ = pass_test_module_from_wat(source.to_string())
+  let infos = inl_build_function_infos(mod_)
+  let allocations = [0]
+  let result = inl_rewrite_all_calls(
+    mod_,
+    infos,
+    reconstruction_allocations=Some(allocations),
+  )
+  assert_true(result.changed)
+  assert_true(allocations[0] <= 1, msg=allocations[0].to_string())
+}
+
+///|
+test "inlining skips callers without inlineable direct targets" {
+  let source = StringBuilder::new()
+  source.write_string("(module (import \"env\" \"sink\" (func $sink))")
+  for _ in 0..<256 {
+    source.write_string(" (func call $sink)")
+  }
+  source.write_string(")")
+  let mod_ = pass_test_module_from_wat(source.to_string())
+  let infos = inl_build_function_infos(mod_)
+  let visits = [0]
+  let result = inl_rewrite_all_calls(mod_, infos, rewrite_visits=Some(visits))
+  assert_false(result.changed)
+  @debug.assert_eq(visits[0], 0)
+}
+
+///|
+test "plain inlining prepares multivalue block types once" {
+  assert_true(inl_should_prepare_multivalue_block_types(false, 0, 0))
+  assert_false(inl_should_prepare_multivalue_block_types(false, 0, 1))
+  assert_true(inl_should_prepare_multivalue_block_types(true, 0, 1))
+  assert_true(inl_should_prepare_multivalue_block_types(false, 2, 1))
+}
+
+///|
+test "plain inlining skips optimizing-only graph prediction" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (func (export \"run\") (result i32) i32.const 1))",
+  )
+  let plain_visits = [0]
+  let plain = inl_original_graph_info_for_mode(mod_, false, plain_visits)
+  @debug.assert_eq(plain_visits[0], 0)
+  assert_false(inl_hash_has_positive(plain.final_trim_counts))
+  assert_false(inl_hash_has_positive(plain.retain_inlined_helper_counts))
+  let optimizing_visits = [0]
+  ignore(inl_original_graph_info_for_mode(mod_, true, optimizing_visits))
+  @debug.assert_eq(optimizing_visits[0], 1)
+}
+
+///|
 test "inlining iteration requires a touched body or function-count change" {
   assert_false(inl_iteration_has_progress([false, false], 4, 4))
   assert_true(inl_iteration_has_progress([false, true], 4, 4))
@@ -75,6 +256,28 @@ test "inlining combined binary size guard matches strict Binaryen default thresh
   assert_true(inl_combined_binary_size_within_limit(100000, 63839))
   assert_false(inl_combined_binary_size_within_limit(100000, 63840))
   assert_false(inl_combined_binary_size_within_limit(100000, 63841))
+}
+
+///|
+test "inlining preflights dead unreachable drop pruning" {
+  assert_true(
+    inl_instrs_need_dead_unreachable_drop_pruning([
+      @lib.Instruction::loop_(
+        @lib.BlockType::val_type(@lib.ValType::i64()),
+        @lib.Expr::new([
+          @lib.Instruction::unreachable_(),
+          @lib.Instruction::drop(),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(
+    inl_instrs_need_dead_unreachable_drop_pruning([
+      @lib.Instruction::i32_const(@lib.I32::new(1)),
+      @lib.Instruction::drop(),
+    ]),
+  )
 }
 
 ///|

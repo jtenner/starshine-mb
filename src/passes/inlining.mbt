@@ -27,6 +27,7 @@ priv struct InlFunctionInfo {
   type_idx : @lib.TypeIdx?
   size : Int
   max_combined_binary_size : Int
+  direct_targets : Array[Int]
   inlineable : Bool
 }
 
@@ -39,9 +40,71 @@ priv struct InlTailCallsiteHoist {
 priv struct InlRewriteState {
   mut func : @lib.Func
   mut changed : Bool
+  mut revision : Int
   size : Int
   reusable_body_local_start : Int
   tail_callsite_hoists : Array[InlTailCallsiteHoist]
+}
+
+///|
+priv struct InlCowInstrOutput {
+  original : Array[@lib.Instruction]
+  mut rewritten : Array[@lib.Instruction]?
+  mut index : Int
+  allocations : Array[Int]?
+}
+
+///|
+fn InlCowInstrOutput::new(
+  original : Array[@lib.Instruction],
+  allocations? : Array[Int]? = None,
+) -> InlCowInstrOutput {
+  { original, rewritten: None, index: 0, allocations }
+}
+
+///|
+fn InlCowInstrOutput::push_original(
+  self : InlCowInstrOutput,
+  instr : @lib.Instruction,
+) -> Unit {
+  match self.rewritten {
+    Some(out) => out.push(instr)
+    None => ()
+  }
+  self.index += 1
+}
+
+///|
+fn InlCowInstrOutput::begin_replacement(
+  self : InlCowInstrOutput,
+) -> Array[@lib.Instruction] {
+  let out = match self.rewritten {
+    Some(out) => out
+    None => {
+      let out : Array[@lib.Instruction] = []
+      for idx in 0..<self.index {
+        out.push(self.original[idx])
+      }
+      self.rewritten = Some(out)
+      match self.allocations {
+        Some(counts) => counts[0] += 1
+        None => ()
+      }
+      out
+    }
+  }
+  self.index += 1
+  out
+}
+
+///|
+fn InlCowInstrOutput::finish(
+  self : InlCowInstrOutput,
+) -> Array[@lib.Instruction] {
+  match self.rewritten {
+    Some(out) => out
+    None => self.original
+  }
 }
 
 ///|
@@ -791,6 +854,57 @@ fn inl_body_is_shrinking_trivial(
 }
 
 ///|
+fn inl_flat_trivial_instruction_modes(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> (Bool, Bool)? {
+  if body.length() == 0 {
+    return None
+  }
+  for instr in body {
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return Some((false, false))
+      _ => ()
+    }
+  }
+  let root_idx = body.length() - 1
+  let input_count = match
+    dae_instr_stack_effect(body[root_idx], mod_, func_type_indices) {
+    Some((inputs, _)) => inputs
+    None => return None
+  }
+  if input_count != root_idx {
+    return None
+  }
+  let mut shrinks = input_count <= param_count
+  for operand_idx = 0; operand_idx < input_count; operand_idx = operand_idx + 1 {
+    if inl_count_instr(body[operand_idx]) != 1 {
+      return None
+    }
+    match dae_instr_stack_effect(body[operand_idx], mod_, func_type_indices) {
+      Some((0, 1)) => ()
+      _ => return None
+    }
+    if shrinks {
+      match body[operand_idx] {
+        @lib.LocalGet(local_idx) =>
+          if inl_local_idx_slot(local_idx) != operand_idx {
+            shrinks = false
+          }
+        _ => shrinks = false
+      }
+    }
+  }
+  Some((shrinks, true))
+}
+
+///|
 fn inl_hot_trivial_instruction_modes(
   mod_ : @lib.Module,
   func_abs : Int,
@@ -913,6 +1027,7 @@ fn inl_scan_refs(
   instrs : Array[@lib.Instruction],
   refs : Array[Int],
   used : Array[Bool],
+  direct_targets? : Array[Int]? = None,
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -920,6 +1035,10 @@ fn inl_scan_refs(
         let slot = inl_func_idx_slot(func_idx)
         if slot >= 0 && slot < refs.length() {
           refs[slot] += 1
+          match direct_targets {
+            Some(targets) => targets.push(slot)
+            None => ()
+          }
         }
       }
       @lib.RefFunc(func_idx) => {
@@ -931,12 +1050,14 @@ fn inl_scan_refs(
       }
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) => inl_scan_refs(body, refs, used)
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        inl_scan_refs(body, refs, used, direct_targets~)
       @lib.If(_, then_body, Some(else_body)) => {
-        inl_scan_refs(then_body, refs, used)
-        inl_scan_refs(else_body, refs, used)
+        inl_scan_refs(then_body, refs, used, direct_targets~)
+        inl_scan_refs(else_body, refs, used, direct_targets~)
       }
-      @lib.If(_, then_body, None) => inl_scan_refs(then_body, refs, used)
+      @lib.If(_, then_body, None) =>
+        inl_scan_refs(then_body, refs, used, direct_targets~)
       _ => ()
     }
   }
@@ -1813,17 +1934,25 @@ fn inl_build_function_infos(
   flexible_inline_max_size? : Int = 20,
   max_combined_binary_size? : Int = 400 * 1024,
   allow_functions_with_loops? : Bool = false,
+  trivial_mode_cache? : Array[(Bool, Bool)?]? = None,
+  classification_counts? : Array[Int]? = None,
 ) -> Array[InlFunctionInfo] {
   let imports = inl_imported_func_count(mod_)
   let total = imports + inl_defined_func_count(mod_)
   let refs = Array::make(total, 0)
   let used = Array::make(total, false)
   inl_mark_global_uses(mod_, used)
+  let direct_targets_by_func : Array[Array[Int]] = []
+  for _ in 0..<imports {
+    direct_targets_by_func.push([])
+  }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(_, @lib.Expr(body)) = func
-        inl_scan_refs(body, refs, used)
+        let direct_targets : Array[Int] = []
+        inl_scan_refs(body, refs, used, direct_targets=Some(direct_targets))
+        direct_targets_by_func.push(direct_targets)
       }
     None => ()
   }
@@ -1860,18 +1989,97 @@ fn inl_build_function_infos(
       let @lib.Func(_, @lib.Expr(body)) = func
       let (calls, loops, tries, tails) = inl_scan_shape_instrs(body)
       let measured_size = inl_count_instrs(body)
-      let (hot_trivial_shrinks, trivial_may_not_shrink) = inl_hot_trivial_instruction_modes(
-        mod_, abs, module_ctx, measured_size,
-      )
       match inl_resolve_func_type(mod_, types, abs) {
         Some(@lib.FuncType(params, results)) => {
-          let trivial_shrinks = hot_trivial_shrinks ||
-            inl_body_is_shrinking_trivial(
-              body,
-              params.length(),
-              mod_~,
-              func_type_indices=types,
-            )
+          let partial_wrapper = abs >= 0 &&
+            abs < partial_wrappers.length() &&
+            partial_wrappers[abs]
+          let no_full_policy = abs >= 0 &&
+            abs < no_full_inline.length() &&
+            no_full_inline[abs] &&
+            !partial_wrapper
+          let toolchain_inline_hint = if abs >= 0 &&
+            abs < toolchain_inline_hints.length() {
+            toolchain_inline_hints[abs]
+          } else {
+            InlToolchainInlineHint::DefaultInline
+          }
+          let one_caller_size_ok = one_caller_inline_max_size < 0 ||
+            measured_size <= one_caller_inline_max_size
+          let hint_requires_classification = match toolchain_inline_hint {
+            DefaultInline =>
+              measured_size > always_inline_max_size &&
+              !(refs[abs] == 1 && !used[abs] && one_caller_size_ok)
+            NeverInline => false
+            AlwaysInline => false
+          }
+          let classification_required = !partial_wrapper &&
+            !no_full_policy &&
+            hint_requires_classification
+          let (trivial_shrinks, trivial_may_not_shrink) = if !classification_required {
+            (false, false)
+          } else {
+            let cached_modes : (Bool, Bool)? = match trivial_mode_cache {
+              Some(cache) =>
+                if abs >= 0 && abs < cache.length() {
+                  cache[abs]
+                } else {
+                  None
+                }
+              None => None
+            }
+            match cached_modes {
+              Some(modes) => modes
+              None => {
+                let raw_trivial_shrinks = inl_body_is_shrinking_trivial(
+                  body,
+                  params.length(),
+                  mod_~,
+                  func_type_indices=types,
+                )
+                let modes = if raw_trivial_shrinks {
+                  match classification_counts {
+                    Some(counts) => counts[0] += 1
+                    None => ()
+                  }
+                  (true, false)
+                } else {
+                  match
+                    inl_flat_trivial_instruction_modes(
+                      body,
+                      params.length(),
+                      mod_,
+                      types,
+                    ) {
+                    Some(modes) => {
+                      match classification_counts {
+                        Some(counts) => counts[1] += 1
+                        None => ()
+                      }
+                      modes
+                    }
+                    None => {
+                      match classification_counts {
+                        Some(counts) => counts[2] += 1
+                        None => ()
+                      }
+                      inl_hot_trivial_instruction_modes(
+                        mod_, abs, module_ctx, measured_size,
+                      )
+                    }
+                  }
+                }
+                match trivial_mode_cache {
+                  Some(cache) =>
+                    if abs >= 0 && abs < cache.length() {
+                      cache[abs] = Some(modes)
+                    }
+                  None => ()
+                }
+                modes
+              }
+            }
+          }
           (
             params, results, measured_size, calls, loops, tries, tails, trivial_shrinks,
             trivial_may_not_shrink,
@@ -1942,6 +2150,11 @@ fn inl_build_function_infos(
       type_idx,
       size,
       max_combined_binary_size,
+      direct_targets: if abs >= 0 && abs < direct_targets_by_func.length() {
+        direct_targets_by_func[abs]
+      } else {
+        []
+      },
       inlineable,
     })
     abs += 1
@@ -2794,14 +3007,18 @@ fn inl_inline_call_instrs(
   touched : Array[Bool],
   inlined_from : Array[Bool],
   try_depth? : Int = 0,
+  reconstruction_allocations? : Array[Int]? = None,
 ) -> Array[@lib.Instruction] {
-  let out : Array[@lib.Instruction] = []
+  let output = InlCowInstrOutput::new(
+    instrs,
+    allocations=reconstruction_allocations,
+  )
   let mut reachable = true
   for instr in instrs {
     if !reachable {
       match instr {
         @lib.Call(_) | @lib.ReturnCall(_) => {
-          out.push(instr)
+          output.push_original(instr)
           continue
         }
         _ => ()
@@ -2832,18 +3049,22 @@ fn inl_inline_call_instrs(
             Some((next_func, replacement)) => {
               state.func = next_func
               state.changed = true
+              state.revision += 1
               if caller_abs >= 0 && caller_abs < touched.length() {
                 touched[caller_abs] = true
               }
               if callee_abs >= 0 && callee_abs < inlined_from.length() {
                 inlined_from[callee_abs] = true
               }
-              inl_push_inline_replacement(out, replacement)
+              inl_push_inline_replacement(
+                output.begin_replacement(),
+                replacement,
+              )
             }
-            None => out.push(instr)
+            None => output.push_original(instr)
           }
         } else {
-          out.push(instr)
+          output.push_original(instr)
         }
       }
       @lib.ReturnCall(func_idx) => {
@@ -2870,12 +3091,14 @@ fn inl_inline_call_instrs(
             Some((next_func, replacement)) => {
               state.func = next_func
               state.changed = true
+              state.revision += 1
               if caller_abs >= 0 && caller_abs < touched.length() {
                 touched[caller_abs] = true
               }
               if callee_abs >= 0 && callee_abs < inlined_from.length() {
                 inlined_from[callee_abs] = true
               }
+              let out = output.begin_replacement()
               if try_depth > 0 {
                 let param_count = infos[callee_abs].params.length()
                 let site_prefix : Array[@lib.Instruction] = []
@@ -2898,51 +3121,58 @@ fn inl_inline_call_instrs(
                 out.push(@lib.Instruction::return_())
               }
             }
-            None => out.push(instr)
+            None => output.push_original(instr)
           }
         } else {
-          out.push(instr)
+          output.push_original(instr)
         }
       }
-      @lib.Block(block_type, @lib.Expr(body)) =>
-        out.push(
-          @lib.Instruction::block(
-            block_type,
-            @lib.Expr::new(
-              inl_inline_call_instrs(
-                body,
-                caller_abs,
-                state,
-                mod_,
-                infos,
-                imports,
-                touched,
-                inlined_from,
-                try_depth~,
-              ),
-            ),
-          ),
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let revision = state.revision
+        let next_body = inl_inline_call_instrs(
+          body,
+          caller_abs,
+          state,
+          mod_,
+          infos,
+          imports,
+          touched,
+          inlined_from,
+          try_depth~,
+          reconstruction_allocations~,
         )
-      @lib.Loop(block_type, @lib.Expr(body)) =>
-        out.push(
-          @lib.Instruction::loop_(
-            block_type,
-            @lib.Expr::new(
-              inl_inline_call_instrs(
-                body,
-                caller_abs,
-                state,
-                mod_,
-                infos,
-                imports,
-                touched,
-                inlined_from,
-                try_depth~,
-              ),
-            ),
-          ),
+        if state.revision == revision {
+          output.push_original(instr)
+        } else {
+          output
+          .begin_replacement()
+          .push(@lib.Instruction::block(block_type, @lib.Expr::new(next_body)))
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let revision = state.revision
+        let next_body = inl_inline_call_instrs(
+          body,
+          caller_abs,
+          state,
+          mod_,
+          infos,
+          imports,
+          touched,
+          inlined_from,
+          try_depth~,
+          reconstruction_allocations~,
         )
+        if state.revision == revision {
+          output.push_original(instr)
+        } else {
+          output
+          .begin_replacement()
+          .push(@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)))
+        }
+      }
       @lib.If(block_type, then_body, else_body) => {
+        let revision = state.revision
         let next_then = inl_inline_call_instrs(
           then_body,
           caller_abs,
@@ -2953,6 +3183,7 @@ fn inl_inline_call_instrs(
           touched,
           inlined_from,
           try_depth~,
+          reconstruction_allocations~,
         )
         let next_else = match else_body {
           Some(body) =>
@@ -2967,39 +3198,54 @@ fn inl_inline_call_instrs(
                 touched,
                 inlined_from,
                 try_depth~,
+                reconstruction_allocations~,
               ),
             )
           None => None
         }
-        out.push(@lib.Instruction::if_(block_type, next_then, next_else))
+        if state.revision == revision {
+          output.push_original(instr)
+        } else {
+          output
+          .begin_replacement()
+          .push(@lib.Instruction::if_(block_type, next_then, next_else))
+        }
       }
-      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-        out.push(
-          @lib.Instruction::try_table(
-            block_type,
-            catches,
-            @lib.Expr::new(
-              inl_inline_call_instrs(
-                body,
-                caller_abs,
-                state,
-                mod_,
-                infos,
-                imports,
-                touched,
-                inlined_from,
-                try_depth=try_depth + 1,
-              ),
-            ),
-          ),
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let revision = state.revision
+        let next_body = inl_inline_call_instrs(
+          body,
+          caller_abs,
+          state,
+          mod_,
+          infos,
+          imports,
+          touched,
+          inlined_from,
+          try_depth=try_depth + 1,
+          reconstruction_allocations~,
         )
-      _ => out.push(instr)
+        if state.revision == revision {
+          output.push_original(instr)
+        } else {
+          output
+          .begin_replacement()
+          .push(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            ),
+          )
+        }
+      }
+      _ => output.push_original(instr)
     }
     if inl_instr_terminates_sequence(instr) {
       reachable = false
     }
   }
-  out
+  output.finish()
 }
 
 ///|
@@ -3732,12 +3978,14 @@ fn inl_rewrite_func_body(
   func : @lib.Func,
   touched : Array[Bool],
   inlined_from : Array[Bool],
+  reconstruction_allocations : Array[Int]?,
 ) -> @lib.Func {
   let caller_abs = imports + def_idx
   let @lib.Func(_, @lib.Expr(body)) = func
   let state : InlRewriteState = {
     func,
     changed: false,
+    revision: 0,
     size: if caller_abs >= 0 && caller_abs < infos.length() {
       infos[caller_abs].size
     } else {
@@ -3764,7 +4012,15 @@ fn inl_rewrite_func_body(
     return func
   }
   let next_body = inl_inline_call_instrs(
-    body, caller_abs, state, mod_, infos, imports, touched, inlined_from,
+    body,
+    caller_abs,
+    state,
+    mod_,
+    infos,
+    imports,
+    touched,
+    inlined_from,
+    reconstruction_allocations~,
   )
   if state.changed {
     let @lib.Func(next_locals, _) = state.func
@@ -3783,6 +4039,8 @@ fn inl_rewrite_func_body(
 fn inl_rewrite_all_calls(
   mod_ : @lib.Module,
   infos : Array[InlFunctionInfo],
+  rewrite_visits? : Array[Int]? = None,
+  reconstruction_allocations? : Array[Int]? = None,
 ) -> InlPassResult {
   let imports = inl_imported_func_count(mod_)
   let total = infos.length()
@@ -3794,9 +4052,23 @@ fn inl_rewrite_all_calls(
       let out : Array[@lib.Func] = []
       let mut def_idx = 0
       for func in funcs {
-        let next = inl_rewrite_func_body(
-          mod_, infos, imports, def_idx, func, touched, inlined_from,
-        )
+        let caller_abs = imports + def_idx
+        let has_inlineable_target = caller_abs >= 0 &&
+          caller_abs < infos.length() &&
+          infos[caller_abs].direct_targets.any(fn(target) {
+            target >= 0 && target < infos.length() && infos[target].inlineable
+          })
+        let next = if !has_inlineable_target {
+          func
+        } else {
+          match rewrite_visits {
+            Some(visits) => visits[0] += 1
+            None => ()
+          }
+          inl_rewrite_func_body(
+            mod_, infos, imports, def_idx, func, touched, inlined_from, reconstruction_allocations,
+          )
+        }
         if next != func {
           changed = true
         }
@@ -4359,6 +4631,32 @@ fn inl_remap_prior_touched(
     let original = final_to_original_abs[final_abs]
     if original >= 0 && original < touched.length() && touched[original] {
       out[final_abs] = true
+    }
+  }
+  out
+}
+
+///|
+fn inl_remap_trivial_mode_cache(
+  cache : Array[(Bool, Bool)?],
+  touched : Array[Bool],
+  final_to_prior_abs : Array[Int],
+) -> Array[(Bool, Bool)?] {
+  if cache.length() == 0 {
+    return []
+  }
+  let out : Array[(Bool, Bool)?] = Array::make(
+    final_to_prior_abs.length(),
+    None,
+  )
+  for final_abs = 0
+      final_abs < final_to_prior_abs.length()
+      final_abs = final_abs + 1 {
+    let prior_abs = final_to_prior_abs[final_abs]
+    if prior_abs >= 0 &&
+      prior_abs < cache.length() &&
+      (prior_abs >= touched.length() || !touched[prior_abs]) {
+      out[final_abs] = cache[prior_abs]
     }
   }
   out
@@ -6101,6 +6399,28 @@ fn inl_original_reachable_private_cycle_funcs(
 }
 
 ///|
+fn inl_original_graph_info_for_mode(
+  mod_ : @lib.Module,
+  optimize : Bool,
+  analysis_visits : Array[Int],
+) -> InlOriginalGraphInfo {
+  if optimize {
+    analysis_visits[0] += 1
+    return inl_original_reachable_private_cycle_funcs(mod_)
+  }
+  let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
+  {
+    cycle_remove: Array::make(total, false),
+    public_scc_representative: Array::make(total, -1),
+    predicted_unreachable_counts: @hashmap.new(),
+    final_trim_counts: @hashmap.new(),
+    retain_inlined_helper_counts: @hashmap.new(),
+    skip_trailing_exact_move: false,
+    force_predicted_pad_on_retain_return: false,
+  }
+}
+
+///|
 fn inl_func_is_exact_unreachable(func : @lib.Func) -> Bool {
   match func {
     @lib.Func(_, @lib.Expr([@lib.Unreachable])) => true
@@ -7581,6 +7901,52 @@ fn inl_instr_is_dead_unreachable_value(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn inl_instrs_need_dead_unreachable_drop_pruning(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    let nested_needs_pruning = match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        inl_instrs_need_dead_unreachable_drop_pruning(body)
+      @lib.If(_, then_body, else_body) =>
+        if inl_instrs_need_dead_unreachable_drop_pruning(then_body) {
+          true
+        } else {
+          match else_body {
+            Some(body) => inl_instrs_need_dead_unreachable_drop_pruning(body)
+            None => false
+          }
+        }
+      _ => false
+    }
+    if nested_needs_pruning {
+      return true
+    }
+  }
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 2 < instrs.length() && inl_instr_is_unreachable_root(instrs[idx]) {
+      let next_is_drop = match instrs[idx + 1] {
+        @lib.Drop => true
+        _ => false
+      }
+      if next_is_drop && inl_instr_is_unreachable_root(instrs[idx + 2]) {
+        return true
+      }
+    }
+    if idx + 1 < instrs.length() &&
+      inl_instr_is_dead_unreachable_value(instrs[idx]) &&
+      inl_instr_is_unreachable_root(instrs[idx + 1]) {
+      return true
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn inl_prune_dead_unreachable_drops_in_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
@@ -7650,20 +8016,27 @@ fn inl_prune_dead_unreachable_drops_in_instrs(
 fn inl_prune_dead_unreachable_drops(mod_ : @lib.Module) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let out : Array[@lib.Func] = []
-      let mut changed = false
-      for func in funcs {
+      let mut out : Array[@lib.Func]? = None
+      for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+        let func = funcs[def_idx]
         let @lib.Func(locals, @lib.Expr(body)) = func
-        let next_body = inl_prune_dead_unreachable_drops_in_instrs(body)
-        if next_body != body {
-          changed = true
+        if !inl_instrs_need_dead_unreachable_drop_pruning(body) {
+          continue
         }
-        out.push(@lib.Func::new(locals, @lib.Expr::new(next_body)))
+        let next_body = inl_prune_dead_unreachable_drops_in_instrs(body)
+        match out {
+          Some(copy) =>
+            copy[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+          None => {
+            let copy = funcs.copy()
+            copy[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+            out = Some(copy)
+          }
+        }
       }
-      if changed {
-        mod_.with_code_sec(@lib.CodeSec::new(out))
-      } else {
-        mod_
+      match out {
+        Some(copy) => mod_.with_code_sec(@lib.CodeSec::new(copy))
+        None => mod_
       }
     }
     None => mod_
@@ -8383,6 +8756,7 @@ pub fn inline_main_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let state : InlRewriteState = {
     func: funcs[main_def],
     changed: false,
+    revision: 0,
     size: infos[main_abs].size,
     reusable_body_local_start: match funcs[main_def] {
       @lib.Func(locals, _) => locals.length()
@@ -8418,6 +8792,15 @@ pub fn inline_main_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn inl_should_prepare_multivalue_block_types(
+  optimize : Bool,
+  partial_inlining_ifs : Int,
+  iteration : Int,
+) -> Bool {
+  iteration == 0 || optimize || partial_inlining_ifs > 0
+}
+
+///|
 fn inl_iteration_has_progress(
   touched : Array[Bool],
   before_defined : Int,
@@ -8441,14 +8824,18 @@ fn inl_run_module_pass_once(
   max_combined_binary_size : Int,
   allow_functions_with_loops : Bool,
   partial_inlining_ifs : Int,
+  prepare_multivalue_block_types : Bool,
+  trivial_mode_cache : Array[(Bool, Bool)?],
   perf? : HotPerfSession? = None,
-) -> (@lib.Module, Bool, Array[Int], Array[Bool]) {
+) -> (@lib.Module, Bool, Array[Int], Array[Bool], Array[(Bool, Bool)?]) {
   let prepare_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:prepare-multivalue-block-types",
   )
-  let prepared = inl_prepare_multivalue_block_types(
-    mod_, optimize_level, shrink_level,
-  )
+  let prepared = if prepare_multivalue_block_types {
+    inl_prepare_multivalue_block_types(mod_, optimize_level, shrink_level)
+  } else {
+    mod_
+  }
   perf_stop_timer_opt(
     perf, "detail:inlining:once:prepare-multivalue-block-types", prepare_start_us,
   )
@@ -8469,6 +8856,11 @@ fn inl_run_module_pass_once(
     flexible_inline_max_size~,
     max_combined_binary_size~,
     allow_functions_with_loops~,
+    trivial_mode_cache=if trivial_mode_cache.length() > 0 {
+      Some(trivial_mode_cache)
+    } else {
+      None
+    },
   )
   perf_stop_timer_opt(
     perf, "detail:inlining:once:build-function-infos", infos_start_us,
@@ -8493,21 +8885,26 @@ fn inl_run_module_pass_once(
       perf, "detail:inlining:once:prune-dead-unreachable-drops", prune_start_us,
     )
     let total = inl_imported_func_count(pruned) + inl_defined_func_count(pruned)
-    return (pruned, false, [], inl_normalize_touched(pending_touched, total))
+    return (
+      pruned,
+      false,
+      [],
+      inl_normalize_touched(pending_touched, total),
+      [],
+    )
   }
   let original_graph_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:original-reachable-private-cycle-funcs",
   )
-  let original_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
+  let original_graph_info = inl_original_graph_info_for_mode(mod_, optimize, [0])
   perf_stop_timer_opt(
     perf, "detail:inlining:once:original-reachable-private-cycle-funcs", original_graph_start_us,
   )
   let preserve_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:preserve-root-cycle-check",
   )
-  let preserve_root_cycle_cleanup = inl_has_same_sig_root_cycle_dead_suffix(
-    mod_,
-  )
+  let preserve_root_cycle_cleanup = optimize &&
+    inl_has_same_sig_root_cycle_dead_suffix(mod_)
   perf_stop_timer_opt(
     perf, "detail:inlining:once:preserve-root-cycle-check", preserve_start_us,
   )
@@ -8547,6 +8944,11 @@ fn inl_run_module_pass_once(
     removal.original_abs,
   )
   inl_union_touched_into(cumulative_touched, removal.touched)
+  let next_trivial_mode_cache = inl_remap_trivial_mode_cache(
+    trivial_mode_cache,
+    result.touched,
+    removal.original_abs,
+  )
   if !optimize {
     return (
       removal.mod_out,
@@ -8557,6 +8959,7 @@ fn inl_run_module_pass_once(
       ),
       touched_original_abs,
       cumulative_touched,
+      next_trivial_mode_cache,
     )
   }
   let nested_start_us = perf_start_timer_opt(
@@ -8647,6 +9050,7 @@ fn inl_run_module_pass_once(
     ),
     touched_original_abs,
     trimmed.touched,
+    [],
   )
 }
 
@@ -8707,7 +9111,7 @@ fn inlining_run_module_pass_with_perf(
   let initial_graph_start_us = perf_start_timer_opt(
     perf, "detail:inlining:initial-original-reachable-private-cycle-funcs",
   )
-  let initial_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
+  let initial_graph_info = inl_original_graph_info_for_mode(mod_, optimize, [0])
   perf_stop_timer_opt(
     perf, "detail:inlining:initial-original-reachable-private-cycle-funcs", initial_graph_start_us,
   )
@@ -8717,13 +9121,25 @@ fn inlining_run_module_pass_with_perf(
   let max_iterations_for_func = 5
   let mut current = mod_
   let mut pending_touched = Array::make(initial_total, false)
+  let cache_plain_function_facts = !optimize && partial_inlining_ifs <= 0
+  let mut trivial_mode_cache : Array[(Bool, Bool)?] = if cache_plain_function_facts {
+    Array::make(initial_total, None)
+  } else {
+    []
+  }
   let mut iterations = 0
   let max_iterations = inl_defined_func_count(mod_) + 1
   while iterations < max_iterations {
     let iteration_start_us = perf_start_timer_opt(
       perf, "detail:inlining:iteration",
     )
-    let (next, changed, touched_original_abs, next_touched) = inl_run_module_pass_once(
+    let (
+      next,
+      changed,
+      touched_original_abs,
+      next_touched,
+      next_trivial_mode_cache,
+    ) = inl_run_module_pass_once(
       current,
       pending_touched,
       optimize,
@@ -8737,6 +9153,10 @@ fn inlining_run_module_pass_with_perf(
       max_combined_binary_size,
       allow_functions_with_loops,
       partial_inlining_ifs,
+      inl_should_prepare_multivalue_block_types(
+        optimize, partial_inlining_ifs, iterations,
+      ),
+      trivial_mode_cache,
       perf~,
     )
     perf_stop_timer_opt(perf, "detail:inlining:iteration", iteration_start_us)
@@ -8763,6 +9183,7 @@ fn inlining_run_module_pass_with_perf(
     }
     current = next
     pending_touched = next_touched
+    trivial_mode_cache = next_trivial_mode_cache
     iterations += 1
     for original_abs in touched_original_abs {
       if original_abs >= 0 && original_abs < iteration_counts.length() {
