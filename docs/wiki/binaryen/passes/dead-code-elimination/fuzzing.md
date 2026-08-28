@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: strong
-last_reviewed: 2026-07-11
+last_reviewed: 2026-08-28
 sources:
   - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -240,4 +240,14 @@ Result: compared 100000/100000 with 0 raw normalized matches, 100000 cleanup-nor
 
 The 2026-07-17 current-artifact batch/validity slice in research note [`1648`](../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md) reran the two lanes required for that performance/correctness change with a fresh explicit native binary and Binaryen v130. Regular GenValid with `local-cleanup-debris` compared `10000/10000` with `10000` normalized matches and zero failures/mismatches. Dedicated `dead-code-elimination-all` compared `10000/10000` with `7513` normalized matches and the exact established `2487` measured Starshine-win mismatches: `842` branch-payload-forwarder, `825` structured-prefix, and `820` effectful-structured-prefix; all `809` split-local-set-wrapper cases still matched. No new family, validation failure, or semantic mismatch appeared.
 
-Future full pass closeout reruns, if required after new DCE changes, should use the repo-standard pass matrix with the DCE-specific cleanup normalizer on the regular and broad lanes. Use `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`; a concurrently present `target/native/...` artifact needs explicit freshness verification before it can be used for signoff.
+## 2026-08-28 performance-change renewal
+
+The allocation-free cleanup-plan, linear raw-summary, and cached unchanged-lowering changes were renewed with native SHA-256 `4bd410b58e5af7b1ccbdd88f6214e9b813d8da562cd80320f32b33171487bb9c`:
+
+- regular GenValid, seed `0x5eed`, `local-cleanup-debris`: 100,000/100,000 normalized, zero mismatches or failures, canonical size equal in all cases;
+- explicit wasm-smith, seed `0x5eed`: 9,956 compared, 9,953 normalized, three inspected mismatches, zero Starshine validation/property/generator failures, and 44 Binaryen/tool failures (`39` empty recursive groups, `3` bad section sizes, `1` invalid tag index, `1` table index out of range). The three residuals are established Starshine-win cleanup: removal of dropped `memory.size`/float constants before unreachable control and one dead `nop`; canonical sizes shrink `77→64`, `84→78`, and `74→73` bytes;
+- dedicated `dead-code-elimination-all`: 10,000/10,000 compared, 8,355 normalized, 1,645 classified canonical-smaller mismatches (`825` structured-prefix and `820` effectful-structured-prefix), zero failures, and no canonical size losses. The branch-payload-forwarder leaf now matches in all `842` cases on both current and the saved pre-change binary;
+- random-all-profiles with `local-cleanup-debris`, seed `0x5555`: 10,000/10,000 compared, 8,904 raw normalized, 637 cleanup-normalized, 459 residuals, and zero failures. Every aggregate counter, selected-profile outcome, and size direction is identical to the saved clean-HEAD binary; these are pre-existing cross-profile residuals rather than DCE performance regressions;
+- runtime-callable self semantics: exact 100/100 with zero failures.
+
+Future full pass closeout reruns should continue using the repo-standard pass matrix with the DCE-specific cleanup normalizer on the regular and broad lanes. Use `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`; a concurrently present `target/native/...` artifact needs explicit freshness verification before it can be used for signoff.

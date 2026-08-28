@@ -1,11 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-28
 sources:
   - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
+  - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -137,6 +138,17 @@ The same date's direct debug-artifact compare first exposed type-index-only cano
 So the tagged source remains a strong current oracle for this folder, and the active Starshine direct pass plus the ordered DCE prefix are re-proven under the refreshed mixed-generator compare lane.
 
 Research note [`1648`](../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md) added current-artifact execution evidence without reopening the behavior audit: DCE now batches changed-function writeback validation, restores internally invalid candidates independently, and falls back to the original per-function path. External validation exposed additional GC/multivalue failures that the internal validator missed, so depth-aware self-target branch fallthrough, a multivalue local-carrier boundary, and unchanged-function writeback preservation were added red-first. The fresh direct artifact was valid and deterministic in `2.847s` / `2.471s`, reached fixed point on the third application, and kept the regular and dedicated count-10000 corpora at their established classifications. Public shrink then advanced past DCE and stalled in the same vacuum raw-preclean owner as public optimize.
+
+## 2026-08-28 artifact-scale performance checkpoint
+
+The post-HOT-lift canonical baseline still spent `6,266.946ms` inside the DCE pass and `11,580.004ms` in the no-trace direct command versus Binaryen v131 at `198.088ms` pass-local and `710.680ms` command. Attribution isolated two independent superlinear owners:
+
+- `dead_code_elimination_collect_first_unreachable_child_cleanup(...)` speculatively built detached `drop` nodes while merely searching a shared DAG for an unreachable child. One unchanged 852-line function allocated roughly 196,000 HOT nodes and consumed over four seconds.
+- `run_hot_pipeline_instr_scan(...)` recursively rescanned nested bodies through `run_hot_pipeline_dce_raw_instr_may_fallthrough(...)`; four large functions owned almost all of the approximately three-second raw admission cost. The post-pass dead-drop lowering guard repeated the same recursive proof outside the raw timer.
+
+The retained implementation now builds an allocation-free cleanup plan, memoizes negative unreachable-child results by HOT revision, computes raw control/fallthrough facts in one traversal using active control tokens, and caches the exact dead-drop-after-nonfallthrough fact by function for unchanged writeback. The one-warmup/three-sample final medians are `188.440ms` Starshine pass-local versus `201.393ms` Binaryen (`0.936x`) and `1,915.570ms` Starshine command versus `741.628ms` Binaryen (`2.583x`). The DCE pass body therefore meets the requested 1x target; the direct command remains open because shared function-envelope plus command validation/encoding phases still exceed the repository's absolute `2x` gate.
+
+Every final artifact sample is byte-identical to the baseline at 4,968,057 bytes, SHA-256 `933cf8431540576e01b6344e037b8092eb2bd85b6b454883f25723f579d73954`. Focused DCE tests, the 7,051-test pass package, and the 10,741-test full Moon suite pass. The renewed regular lane is 100,000/100,000 normalized; runtime-callable self semantics are exact 100/100. The explicit wasm-smith lane retains three inspected canonical-smaller/no-op Starshine-win residuals plus 44 Binaryen/tool failures, and the random-all-profiles lane is byte-for-byte identical to clean HEAD in every aggregate counter and residual family.
 
 ## Current maintenance rule
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-28
 sources:
   - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ./index.md
@@ -9,6 +9,7 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
+  - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -97,6 +98,17 @@ The real local implementation lives in `src/passes/dead_code_elimination.mbt`, n
 `pass_manager.mbt` owns only the surrounding raw-skip and writeback-routing logic.
 
 Within the owner file, the pass is organized around a few durable concerns.
+
+### 2026-08-28 performance invariants
+
+The artifact-scale speedup adds four implementation rules that are now part of the local HOT contract:
+
+- first-unreachable-child discovery is a read-only planning operation; it must not allocate detached `drop` nodes unless an unreachable descendant is actually proved;
+- negative first-unreachable results are revision-keyed and shared across DAG users;
+- raw instruction summary and fallthrough facts are computed once with active control-label tokens instead of recursively rescanning each nested body;
+- the exact dead-drop-after-nonfallthrough fact is cached during raw admission and reused after an unchanged HOT pass instead of traversing the raw body again.
+
+White-box coverage in `src/passes/dead_code_elimination_wbtest.mbt` locks allocation-free shared-DAG probing, one visit per deeply nested raw instruction, exact dead-drop classification, and function-indexed unchanged-lowering caching. These are complexity and output-shape invariants, not telemetry-only checks.
 
 ### 1. Cached branch-user, fallthrough, purity, and node-use facts
 

@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-28
 sources:
   - ./index.md
+  - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_all-features.wast
@@ -238,6 +239,17 @@ The combined test file and scheduler placement together support a simple rule:
 The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
 A narrow `version_129` versus current `main` source diff on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative ordinary/EH tests did not surface a teaching-relevant drift in the pass contract.
 So the `version_129` file remains a strong current oracle for this dossier.
+
+## Current Starshine complexity regressions
+
+`src/passes/dead_code_elimination_wbtest.mbt` now protects four local performance contracts that are intentionally separate from the upstream Binaryen test map:
+
+- a shared no-unreachable HOT DAG is visited at most once per original node and allocates no speculative nodes;
+- deeply nested raw control is summarized with exactly one visit per instruction;
+- dead `drop` immediately after nonfallthrough is distinguished from an ordinary live dropped value;
+- unchanged-lowering admission is cached by function index and remains unavailable until the raw proof records it.
+
+These tests prevent recurrence of the two artifact-scale superlinear owners while the existing behavior tests continue to lock the actual transform semantics.
 
 ## What a future Starshine port must preserve
 
