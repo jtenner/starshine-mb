@@ -2827,6 +2827,7 @@ fn dfe_rewrite_module_func_idxs(
   mod_ : @lib.Module,
   remap : Array[UInt],
   perf? : HotPerfSession? = None,
+  code_rewrite_flags? : @bitset.BitSet? = None,
 ) -> @lib.Module {
   let mut rewritten = mod_
   match mod_.export_sec {
@@ -2905,8 +2906,19 @@ fn dfe_rewrite_module_func_idxs(
     Some(@lib.CodeSec(funcs)) => {
       let timer = dfe_perf_start_timer_opt(perf, "func-rewrite:code-sec")
       let next : Array[@lib.Func] = Array::new(capacity=funcs.length())
-      for func in funcs {
-        next.push(dfe_rewrite_func_func_idxs(func, remap))
+      match code_rewrite_flags {
+        Some(flags) if flags.length() == funcs.length() =>
+          for idx = 0; idx < funcs.length(); idx = idx + 1 {
+            if flags[idx] {
+              next.push(dfe_rewrite_func_func_idxs(funcs[idx], remap))
+            } else {
+              next.push(funcs[idx])
+            }
+          }
+        _ =>
+          for func in funcs {
+            next.push(dfe_rewrite_func_func_idxs(func, remap))
+          }
       }
       rewritten = rewritten.with_code_sec(@lib.CodeSec::new(next))
       dfe_perf_stop_timer_opt(perf, "func-rewrite:code-sec", timer)
@@ -3095,21 +3107,6 @@ fn dfe_trace_opt(perf : HotPerfSession?, msg : String) -> Unit {
 }
 
 ///|
-priv struct DfeIterationResult {
-  mod_ : @lib.Module
-}
-
-///|
-fn dfe_locals_shape_hash(locals : @lib.Locals) -> Int {
-  let mut key = 17
-  for run in locals.runs() {
-    key = key * 31 + run.count().hash()
-    key = key * 31 + run.val_type().hash()
-  }
-  key
-}
-
-///|
 fn dfe_functions_equivalent(
   left_canon_type : UInt,
   left_func : @lib.Func,
@@ -3139,49 +3136,251 @@ fn dfe_functions_equivalent_no_annotations(
 }
 
 ///|
-fn dfe_function_hash_key(
-  type_hash : Int,
-  func : @lib.Func,
-  annotations : Array[@lib.FuncAnnotation],
+fn dfe_shape_instruction_array_hash(
+  instrs : Array[@lib.Instruction],
+  mentions_type_idxs? : Array[Bool]? = None,
+  needs_debris_cleanup? : Array[Bool]? = None,
+  max_func_target? : Array[Int]? = None,
 ) -> Int {
-  let @lib.Func(locals, body) = func
-  let @lib.Expr(instrs) = body
-  let mut key = (
-      (dfe_locals_shape_hash(locals) * 31 + type_hash) * 31 +
-      instrs.length().hash()
-    ) *
-    31 +
-    annotations.hash()
-  // Match Binaryen's hash-prefilter spirit by considering the whole body, not
-  // just a few samples. Sparse same-sample collisions otherwise fall back to an
-  // O(n^2) exact-compare bucket on large unrelated function sets.
-  let mut i = 0
-  while i < instrs.length() {
-    key = key * 31 + instrs[i].hash()
-    i += 1
+  let mut key = instrs.length().hash()
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match needs_debris_cleanup {
+      Some(flag) =>
+        if !flag[0] {
+          match instrs[idx] {
+            @lib.Unreachable | @lib.Block(_, _) => {
+              let mut next = idx + 1
+              while next < instrs.length() {
+                match instrs[next] {
+                  @lib.Drop => next += 1
+                  _ => break
+                }
+              }
+              if next < instrs.length() && instrs[next] is @lib.Unreachable {
+                match instrs[idx] {
+                  @lib.Unreachable => flag[0] = true
+                  @lib.Block(_, _) =>
+                    if pass_raw_dropped_block_has_unreachable_tail(instrs[idx]) ||
+                      pass_raw_void_block_can_inline_before_unreachable(
+                        instrs[idx],
+                      ) {
+                      flag[0] = true
+                    }
+                  _ => ()
+                }
+              }
+            }
+            _ => ()
+          }
+        }
+      None => ()
+    }
+    key = key * 31 +
+      dfe_shape_instruction_hash(
+        instrs[idx],
+        mentions_type_idxs~,
+        needs_debris_cleanup~,
+        max_func_target~,
+      )
   }
   key
 }
 
 ///|
-fn dfe_function_hash_key_no_annotations(
-  type_hash : Int,
-  func : @lib.Func,
+fn dfe_shape_instruction_hash(
+  instr : @lib.Instruction,
+  mentions_type_idxs? : Array[Bool]? = None,
+  needs_debris_cleanup? : Array[Bool]? = None,
+  max_func_target? : Array[Int]? = None,
 ) -> Int {
-  let @lib.Func(locals, body) = func
-  let @lib.Expr(instrs) = body
-  let mut key = (
-      (dfe_locals_shape_hash(locals) * 31 + type_hash) * 31 +
-      instrs.length().hash()
-    ) *
-    31
-  // Keep the no-annotation fast path equally collision-resistant.
-  let mut i = 0
-  while i < instrs.length() {
-    key = key * 31 + instrs[i].hash()
-    i += 1
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      if dfe_block_type_mentions_type_idxs(block_type) {
+        match mentions_type_idxs {
+          Some(flag) => flag[0] = true
+          None => ()
+        }
+      }
+      1009 * 31 +
+      dfe_shape_instruction_array_hash(
+        body,
+        mentions_type_idxs~,
+        needs_debris_cleanup~,
+        max_func_target~,
+      )
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      if dfe_block_type_mentions_type_idxs(block_type) {
+        match mentions_type_idxs {
+          Some(flag) => flag[0] = true
+          None => ()
+        }
+      }
+      1013 * 31 +
+      dfe_shape_instruction_array_hash(
+        body,
+        mentions_type_idxs~,
+        needs_debris_cleanup~,
+        max_func_target~,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      if dfe_block_type_mentions_type_idxs(block_type) {
+        match mentions_type_idxs {
+          Some(flag) => flag[0] = true
+          None => ()
+        }
+      }
+      let mut key = 1019 * 31 +
+        dfe_shape_instruction_array_hash(
+          then_body,
+          mentions_type_idxs~,
+          needs_debris_cleanup~,
+          max_func_target~,
+        )
+      match else_body {
+        Some(body) =>
+          key = key * 31 +
+            dfe_shape_instruction_array_hash(
+              body,
+              mentions_type_idxs~,
+              needs_debris_cleanup~,
+              max_func_target~,
+            )
+        None => key *= 31
+      }
+      key
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      if dfe_block_type_mentions_type_idxs(block_type) {
+        match mentions_type_idxs {
+          Some(flag) => flag[0] = true
+          None => ()
+        }
+      }
+      (1021 * 31 + catches.hash()) * 31 +
+      dfe_shape_instruction_array_hash(
+        body,
+        mentions_type_idxs~,
+        needs_debris_cleanup~,
+        max_func_target~,
+      )
+    }
+    @lib.Call(func_idx) => {
+      match max_func_target {
+        Some(max_target) => {
+          let @lib.FuncIdx(raw) = func_idx
+          let target = raw.reinterpret_as_int()
+          if target > max_target[0] {
+            max_target[0] = target
+          }
+        }
+        None => ()
+      }
+      1031
+    }
+    @lib.ReturnCall(func_idx) => {
+      match max_func_target {
+        Some(max_target) => {
+          let @lib.FuncIdx(raw) = func_idx
+          let target = raw.reinterpret_as_int()
+          if target > max_target[0] {
+            max_target[0] = target
+          }
+        }
+        None => ()
+      }
+      1033
+    }
+    @lib.RefFunc(func_idx) => {
+      match max_func_target {
+        Some(max_target) => {
+          let @lib.FuncIdx(raw) = func_idx
+          let target = raw.reinterpret_as_int()
+          if target > max_target[0] {
+            max_target[0] = target
+          }
+        }
+        None => ()
+      }
+      1039
+    }
+    _ =>
+      if dfe_instruction_mentions_type_idxs(instr) {
+        match mentions_type_idxs {
+          Some(flag) => flag[0] = true
+          None => ()
+        }
+        1049
+      } else {
+        instr.hash()
+      }
+  }
+}
+
+///|
+fn dfe_shape_locals_hash(locals : @lib.Locals) -> Int {
+  let mut key = 17
+  for run in locals.runs() {
+    key = key * 31 + run.count().hash()
+    let val_type_hash = if dfe_val_type_mentions_type_idxs(run.val_type()) {
+      1
+    } else {
+      run.val_type().hash()
+    }
+    key = key * 31 + val_type_hash
   }
   key
+}
+
+///|
+fn dfe_function_shape_hash_no_annotations(
+  type_hash : Int,
+  func : @lib.Func,
+  mentions_type_idxs? : Array[Bool]? = None,
+  needs_debris_cleanup? : Array[Bool]? = None,
+  max_func_target? : Array[Int]? = None,
+) -> Int {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  for run in locals.runs() {
+    if dfe_val_type_mentions_type_idxs(run.val_type()) {
+      match mentions_type_idxs {
+        Some(flag) => flag[0] = true
+        None => ()
+      }
+    }
+  }
+  (
+    (dfe_shape_locals_hash(locals) * 31 + type_hash) * 31 +
+    instrs.length().hash()
+  ) *
+  31 +
+  dfe_shape_instruction_array_hash(
+    instrs,
+    mentions_type_idxs~,
+    needs_debris_cleanup~,
+    max_func_target~,
+  )
+}
+
+///|
+fn dfe_function_shape_hash(
+  type_hash : Int,
+  func : @lib.Func,
+  annotations : Array[@lib.FuncAnnotation],
+  mentions_type_idxs? : Array[Bool]? = None,
+  needs_debris_cleanup? : Array[Bool]? = None,
+  max_func_target? : Array[Int]? = None,
+) -> Int {
+  dfe_function_shape_hash_no_annotations(
+    type_hash,
+    func,
+    mentions_type_idxs~,
+    needs_debris_cleanup~,
+    max_func_target~,
+  ) *
+  31 +
+  annotations.hash()
 }
 
 ///|
@@ -3523,14 +3722,86 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
 }
 
 ///|
-fn dfe_iteration(
+priv struct DfeEliminationResult {
+  mod_ : @lib.Module
+  changed : Bool
+  iteration_count : Int
+  type_rewrite_flags : @bitset.BitSet?
+  cleanup_flags : @bitset.BitSet?
+}
+
+///|
+fn dfe_canonical_abs_remap(
+  replacements : Array[Int],
+  imported_count : Int,
+) -> Array[UInt] {
+  let remap : Array[UInt] = Array::new(
+    capacity=imported_count + replacements.length(),
+  )
+  for idx = 0; idx < imported_count; idx = idx + 1 {
+    remap.push(idx.reinterpret_as_uint())
+  }
+  for local_idx = 0
+      local_idx < replacements.length()
+      local_idx = local_idx + 1 {
+    remap.push(
+      (imported_count + dfe_canonical_local_idx(replacements, local_idx)).reinterpret_as_uint(),
+    )
+  }
+  remap
+}
+
+///|
+fn dfe_type_normalized_candidate(
+  funcs : Array[@lib.Func],
+  local_idx : Int,
+  type_canon : Map[UInt, UInt],
+  cache : Array[@lib.Func?],
+  ready : Array[Bool],
+  normalization_visits : Array[Int]?,
+  normalized_rewrite_count : Array[Int],
+) -> @lib.Func {
+  if !ready[local_idx] {
+    match normalization_visits {
+      Some(visits) => visits[0] += 1
+      None => ()
+    }
+    let func = funcs[local_idx]
+    let normalized = if type_canon.length() == 0 {
+      func
+    } else {
+      let scan = dfe_scan_rewrite_func_type_idxs(func, type_canon)
+      match scan.rewritten {
+        Some(next) => {
+          normalized_rewrite_count[0] += 1
+          next
+        }
+        None => func
+      }
+    }
+    cache[local_idx] = Some(normalized)
+    ready[local_idx] = true
+  }
+  cache[local_idx].unwrap()
+}
+
+///|
+fn dfe_eliminate_duplicate_functions(
   mod_ : @lib.Module,
   perf? : HotPerfSession? = None,
-) -> DfeIterationResult? {
+  hash_visits? : Array[Int]? = None,
+  normalization_visits? : Array[Int]? = None,
+) -> DfeEliminationResult {
   match (mod_.func_sec, mod_.code_sec) {
     (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
       if type_idxs.length() != funcs.length() {
-        return None
+        return {
+          mod_,
+          changed: false,
+          iteration_count: 0,
+          type_rewrite_flags: None,
+          cleanup_flags: None,
+        }
       }
       let type_canon_timer = dfe_perf_start_timer_opt(perf, "type-canon")
       let type_canon = match mod_.type_sec {
@@ -3541,31 +3812,14 @@ fn dfe_iteration(
       dfe_perf_stop_timer_opt(perf, "type-canon", type_canon_timer)
       let imported_count = dfe_imported_func_count(mod_)
       let annotations_by_abs_idx = dfe_func_annotation_map(mod_)
-      let normalize_timer = dfe_perf_start_timer_opt(perf, "normalize-funcs")
-      let mut normalized_rewrite_count = 0
-      let normalized_funcs : Array[@lib.Func] = if type_canon.length() == 0 {
-        funcs
-      } else {
-        let rewritten : Array[@lib.Func] = Array::new(capacity=funcs.length())
-        for idx = 0; idx < funcs.length(); idx = idx + 1 {
-          let func = funcs[idx]
-          let scan = dfe_scan_rewrite_func_type_idxs(func, type_canon)
-          match scan.rewritten {
-            Some(next) => {
-              normalized_rewrite_count += 1
-              rewritten.push(next)
-            }
-            None => rewritten.push(func)
-          }
-        }
-        rewritten
-      }
-      dfe_perf_stop_timer_opt(perf, "normalize-funcs", normalize_timer)
-      dfe_trace_opt(
-        perf,
-        "normalize rewritten_funcs=\{normalized_rewrite_count} total_funcs=\{funcs.length()}",
-      )
       let has_annotations = annotations_by_abs_idx.length() > 0
+      let normalized_funcs : Array[@lib.Func?] = Array::make(
+        funcs.length(),
+        None,
+      )
+      let normalized_ready = Array::make(funcs.length(), false)
+      let normalized_rewrite_count = [0]
+
       let canonical_type_raws : Array[UInt] = Array::new(
         capacity=type_idxs.length(),
       )
@@ -3583,6 +3837,17 @@ fn dfe_iteration(
       let normalized_annotations : Array[Array[@lib.FuncAnnotation]] = Array::new(
         capacity=funcs.length(),
       )
+      if has_annotations {
+        for local_idx = 0; local_idx < funcs.length(); local_idx = local_idx + 1 {
+          normalized_annotations.push(
+            dfe_func_annotations(
+              annotations_by_abs_idx,
+              (imported_count + local_idx).reinterpret_as_uint(),
+            ),
+          )
+        }
+      }
+
       let hash_group_timer = dfe_perf_start_timer_opt(perf, "hash-groups")
       let first_by_hash : @hashmap.HashMap[Int, Int] = @hashmap.new(
         capacity=funcs.length(),
@@ -3591,51 +3856,52 @@ fn dfe_iteration(
         capacity=funcs.length() / 8 + 1,
       )
       let hash_groups : Array[Array[Int]] = []
-      let mut local_idx = 0
-      if has_annotations {
-        while local_idx < funcs.length() {
-          let abs_idx = imported_count + local_idx
-          let annotations = dfe_func_annotations(
-            annotations_by_abs_idx,
-            abs_idx.reinterpret_as_uint(),
-          )
-          normalized_annotations.push(annotations)
-          let key = dfe_function_hash_key(
-            canonical_type_hashes[local_idx],
-            normalized_funcs[local_idx],
-            annotations,
-          )
-          match first_by_hash.get(key) {
-            Some(first_idx) =>
-              match collision_group_by_hash.get(key) {
-                Some(group_idx) => hash_groups[group_idx].push(local_idx)
-                None => {
-                  collision_group_by_hash.set(key, hash_groups.length())
-                  hash_groups.push([first_idx, local_idx])
-                }
-              }
-            None => first_by_hash.set(key, local_idx)
-          }
-          local_idx += 1
+      let original_type_rewrite_flags = @bitset.BitSet::new(funcs.length())
+      let original_cleanup_flags = @bitset.BitSet::new(funcs.length())
+      let max_func_target_by_local : Array[Int] = []
+      for local_idx = 0; local_idx < funcs.length(); local_idx = local_idx + 1 {
+        match hash_visits {
+          Some(visits) => visits[0] += 1
+          None => ()
         }
-      } else {
-        while local_idx < funcs.length() {
-          let key = dfe_function_hash_key_no_annotations(
+        let mentions_type_idxs = [false]
+        let needs_debris_cleanup = [false]
+        let max_func_target = [-1]
+        let key = if has_annotations {
+          dfe_function_shape_hash(
             canonical_type_hashes[local_idx],
-            normalized_funcs[local_idx],
+            funcs[local_idx],
+            normalized_annotations[local_idx],
+            mentions_type_idxs=Some(mentions_type_idxs),
+            needs_debris_cleanup=Some(needs_debris_cleanup),
+            max_func_target=Some(max_func_target),
           )
-          match first_by_hash.get(key) {
-            Some(first_idx) =>
-              match collision_group_by_hash.get(key) {
-                Some(group_idx) => hash_groups[group_idx].push(local_idx)
-                None => {
-                  collision_group_by_hash.set(key, hash_groups.length())
-                  hash_groups.push([first_idx, local_idx])
-                }
+        } else {
+          dfe_function_shape_hash_no_annotations(
+            canonical_type_hashes[local_idx],
+            funcs[local_idx],
+            mentions_type_idxs=Some(mentions_type_idxs),
+            needs_debris_cleanup=Some(needs_debris_cleanup),
+            max_func_target=Some(max_func_target),
+          )
+        }
+        max_func_target_by_local.push(max_func_target[0])
+        if mentions_type_idxs[0] {
+          original_type_rewrite_flags[local_idx] = true
+        }
+        if needs_debris_cleanup[0] {
+          original_cleanup_flags[local_idx] = true
+        }
+        match first_by_hash.get(key) {
+          Some(first_idx) =>
+            match collision_group_by_hash.get(key) {
+              Some(group_idx) => hash_groups[group_idx].push(local_idx)
+              None => {
+                collision_group_by_hash.set(key, hash_groups.length())
+                hash_groups.push([first_idx, local_idx])
               }
-            None => first_by_hash.set(key, local_idx)
-          }
-          local_idx += 1
+            }
+          None => first_by_hash.set(key, local_idx)
         }
       }
       dfe_perf_stop_timer_opt(perf, "hash-groups", hash_group_timer)
@@ -3645,111 +3911,165 @@ fn dfe_iteration(
       )
 
       let replacements : Array[Int] = Array::make(funcs.length(), -1)
+      let collision_timer = dfe_perf_start_timer_opt(perf, "collision-check")
       let mut changed = false
+      let mut iteration_count = 0
       let mut comparison_count = 0
       let mut replacement_count = 0
-      let collision_timer = dfe_perf_start_timer_opt(perf, "collision-check")
-      for group in hash_groups {
-        if group.length() <= 1 {
-          continue
-        }
-        let mut i = 0
-        while i < group.length() - 1 {
-          let first = group[i]
-          if replacements[first] >= 0 {
-            i += 1
-            continue
+      while true {
+        let canonical_abs = dfe_canonical_abs_remap(
+          replacements, imported_count,
+        )
+        let mut round_changed = false
+        for group in hash_groups {
+          let live_indices : Array[Int] = []
+          let live_funcs : Array[@lib.Func] = []
+          for local_idx in group {
+            if replacements[local_idx] < 0 {
+              live_indices.push(local_idx)
+              let normalized = dfe_type_normalized_candidate(
+                funcs, local_idx, type_canon, normalized_funcs, normalized_ready,
+                normalization_visits, normalized_rewrite_count,
+              )
+              live_funcs.push(
+                dfe_rewrite_func_func_idxs(normalized, canonical_abs),
+              )
+            }
           }
-          let mut j = i + 1
-          while j < group.length() {
-            let second = group[j]
-            if replacements[second] >= 0 {
-              j += 1
+          let mut i = 0
+          while i + 1 < live_indices.length() {
+            let first = live_indices[i]
+            if replacements[first] >= 0 {
+              i += 1
               continue
             }
-            comparison_count += 1
-            let equivalent = if has_annotations {
-              dfe_functions_equivalent(
-                canonical_type_raws[first],
-                normalized_funcs[first],
-                normalized_annotations[first],
-                canonical_type_raws[second],
-                normalized_funcs[second],
-                normalized_annotations[second],
-              )
-            } else {
-              dfe_functions_equivalent_no_annotations(
-                canonical_type_raws[first],
-                normalized_funcs[first],
-                canonical_type_raws[second],
-                normalized_funcs[second],
-              )
+            let mut j = i + 1
+            while j < live_indices.length() {
+              let second = live_indices[j]
+              if replacements[second] >= 0 {
+                j += 1
+                continue
+              }
+              comparison_count += 1
+              let equivalent = if has_annotations {
+                dfe_functions_equivalent(
+                  canonical_type_raws[first],
+                  live_funcs[i],
+                  normalized_annotations[first],
+                  canonical_type_raws[second],
+                  live_funcs[j],
+                  normalized_annotations[second],
+                )
+              } else {
+                dfe_functions_equivalent_no_annotations(
+                  canonical_type_raws[first],
+                  live_funcs[i],
+                  canonical_type_raws[second],
+                  live_funcs[j],
+                )
+              }
+              if equivalent {
+                replacements[second] = first
+                changed = true
+                round_changed = true
+                replacement_count += 1
+              }
+              j += 1
             }
-            if equivalent {
-              replacements[second] = first
-              changed = true
-              replacement_count += 1
-            }
-            j += 1
+            i += 1
           }
-          i += 1
         }
+        if !round_changed {
+          break
+        }
+        iteration_count += 1
       }
       dfe_perf_stop_timer_opt(perf, "collision-check", collision_timer)
       dfe_trace_opt(
         perf,
+        "normalize rewritten_funcs=\{normalized_rewrite_count[0]} total_funcs=\{funcs.length()}",
+      )
+      dfe_trace_opt(
+        perf,
         "collision comparisons=\{comparison_count} replacements=\{replacement_count}",
       )
-
       if !changed {
-        return None
+        return {
+          mod_,
+          changed: false,
+          iteration_count,
+          type_rewrite_flags: None,
+          cleanup_flags: None,
+        }
       }
 
       let rebuild_timer = dfe_perf_start_timer_opt(perf, "rebuild")
       let kept_types : Array[@lib.TypeIdx] = Array::new(capacity=funcs.length())
       let kept_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
       let kept_abs : Array[Int] = Array::make(funcs.length(), -1)
+      let kept_original_indices : Array[Int] = []
+      let kept_type_rewrite_flags = @bitset.BitSet::new(
+        funcs.length() - replacement_count,
+      )
+      let kept_cleanup_flags = @bitset.BitSet::new(
+        funcs.length() - replacement_count,
+      )
       let kept_timer = dfe_perf_start_timer_opt(perf, "rebuild:kept")
-      let mut next_abs = imported_count.reinterpret_as_uint()
-      let mut idx = 0
-      while idx < funcs.length() {
+      let mut next_abs = imported_count
+      for idx = 0; idx < funcs.length(); idx = idx + 1 {
         if replacements[idx] < 0 {
-          kept_abs[idx] = next_abs.reinterpret_as_int()
+          kept_abs[idx] = next_abs
+          kept_original_indices.push(idx)
           kept_types.push(type_idxs[idx])
-          kept_funcs.push(normalized_funcs[idx])
-          next_abs += 1U
+          kept_funcs.push(funcs[idx])
+          if original_type_rewrite_flags[idx] {
+            kept_type_rewrite_flags[kept_funcs.length() - 1] = true
+          }
+          if original_cleanup_flags[idx] {
+            kept_cleanup_flags[kept_funcs.length() - 1] = true
+          }
+          next_abs += 1
         }
-        idx += 1
       }
       dfe_perf_stop_timer_opt(perf, "rebuild:kept", kept_timer)
       dfe_trace_opt(
         perf,
         "rebuild kept_funcs=\{kept_funcs.length()} removed_funcs=\{funcs.length() - kept_funcs.length()}",
       )
-
       let remap_timer = dfe_perf_start_timer_opt(perf, "rebuild:remap")
       let abs_remap : Array[UInt] = Array::new(
         capacity=imported_count + funcs.length(),
       )
-      let mut import_idx = 0
-      while import_idx < imported_count {
-        abs_remap.push(import_idx.reinterpret_as_uint())
-        import_idx += 1
+      for idx = 0; idx < imported_count; idx = idx + 1 {
+        abs_remap.push(idx.reinterpret_as_uint())
       }
-
-      idx = 0
-      while idx < funcs.length() {
+      for idx = 0; idx < funcs.length(); idx = idx + 1 {
         let canonical = dfe_canonical_local_idx(replacements, idx)
-        let next = kept_abs[canonical]
-        if next >= 0 {
-          abs_remap.push(next.reinterpret_as_uint())
-        } else {
-          return None
+        abs_remap.push(kept_abs[canonical].reinterpret_as_uint())
+      }
+      let mut first_removed_abs = -1
+      for local_idx = 0
+          local_idx < replacements.length()
+          local_idx = local_idx + 1 {
+        if replacements[local_idx] >= 0 {
+          first_removed_abs = imported_count + local_idx
+          break
         }
-        idx += 1
+      }
+      let kept_func_rewrite_flags = @bitset.BitSet::new(kept_funcs.length())
+      let mut func_rewrite_count = 0
+      for kept_idx = 0
+          kept_idx < kept_original_indices.length()
+          kept_idx = kept_idx + 1 {
+        let original_idx = kept_original_indices[kept_idx]
+        if first_removed_abs >= 0 &&
+          max_func_target_by_local[original_idx] >= first_removed_abs {
+          kept_func_rewrite_flags[kept_idx] = true
+          func_rewrite_count += 1
+        }
       }
       dfe_perf_stop_timer_opt(perf, "rebuild:remap", remap_timer)
-
+      dfe_trace_opt(perf, "rebuild func_rewrite_count=\{func_rewrite_count}")
       let compacted = mod_
         .without_name_sec()
         .with_func_sec(@lib.FuncSec::new(kept_types))
@@ -3757,34 +4077,121 @@ fn dfe_iteration(
       let rewrite_timer = dfe_perf_start_timer_opt(
         perf, "rebuild:rewrite-module",
       )
-      let rewritten = dfe_rewrite_module_func_idxs(compacted, abs_remap, perf~)
+      let rewritten = dfe_rewrite_module_func_idxs(
+        compacted,
+        abs_remap,
+        perf~,
+        code_rewrite_flags=Some(kept_func_rewrite_flags),
+      )
       dfe_perf_stop_timer_opt(perf, "rebuild:rewrite-module", rewrite_timer)
       dfe_perf_stop_timer_opt(perf, "rebuild", rebuild_timer)
-      Some({ mod_: rewritten })
+      {
+        mod_: rewritten,
+        changed: true,
+        iteration_count,
+        type_rewrite_flags: Some(kept_type_rewrite_flags),
+        cleanup_flags: Some(kept_cleanup_flags),
+      }
     }
-    _ => None
+    _ =>
+      {
+        mod_,
+        changed: false,
+        iteration_count: 0,
+        type_rewrite_flags: None,
+        cleanup_flags: None,
+      }
   }
 }
 
 ///|
-fn dfe_cleanup_unreachable_debris(mod_ : @lib.Module) -> @lib.Module {
+fn dfe_instrs_need_unreachable_debris_cleanup(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Unreachable | @lib.Block(_, _) => {
+        let mut next = idx + 1
+        while next < instrs.length() {
+          match instrs[next] {
+            @lib.Drop => next += 1
+            _ => break
+          }
+        }
+        if next < instrs.length() && instrs[next] is @lib.Unreachable {
+          match instrs[idx] {
+            @lib.Unreachable => return true
+            @lib.Block(_, _) =>
+              if pass_raw_dropped_block_has_unreachable_tail(instrs[idx]) ||
+                pass_raw_void_block_can_inline_before_unreachable(instrs[idx]) {
+                return true
+              }
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    let nested = match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dfe_instrs_need_unreachable_debris_cleanup(body)
+      @lib.If(_, then_body, else_body) =>
+        if dfe_instrs_need_unreachable_debris_cleanup(then_body) {
+          true
+        } else {
+          match else_body {
+            Some(body) => dfe_instrs_need_unreachable_debris_cleanup(body)
+            None => false
+          }
+        }
+      _ => false
+    }
+    if nested {
+      return true
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
+fn dfe_cleanup_unreachable_debris(
+  mod_ : @lib.Module,
+  perf? : HotPerfSession? = None,
+  cleanup_flags? : @bitset.BitSet? = None,
+) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let next : Array[@lib.Func] = []
       let mut changed = false
-      for func in funcs {
+      let mut changed_count = 0
+      for idx = 0; idx < funcs.length(); idx = idx + 1 {
+        let func = funcs[idx]
         let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let should_clean = match cleanup_flags {
+          Some(flags) if flags.length() == funcs.length() => flags[idx]
+          _ => dfe_instrs_need_unreachable_debris_cleanup(instrs)
+        }
+        if !should_clean {
+          next.push(func)
+          continue
+        }
         let (next_instrs, func_changed) = pass_raw_remove_dropped_unreachable_debris(
           instrs,
         )
         if func_changed {
           changed = true
+          changed_count += 1
           next.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
         } else {
           next.push(func)
         }
       }
       if changed {
+        dfe_trace_opt(perf, "cleanup changed_funcs=\{changed_count}")
         mod_.with_code_sec(@lib.CodeSec::new(next))
       } else {
         mod_
@@ -3803,26 +4210,20 @@ fn dfe_run_module_pass_with_perf(
     return mod_
   }
   let iteration_timer = dfe_perf_start_timer_opt(perf, "iterations")
-  let mut current = mod_
-  let mut changed = false
-  let mut iteration_count = 0
-  while true {
-    match dfe_iteration(current, perf~) {
-      Some(iteration) => {
-        current = iteration.mod_
-        changed = true
-        iteration_count += 1
-      }
-      None => break
-    }
-  }
+  let elimination = dfe_eliminate_duplicate_functions(mod_, perf~)
+  let mut current = elimination.mod_
+  let changed = elimination.changed
   dfe_perf_stop_timer_opt(perf, "iterations", iteration_timer)
-  dfe_trace_opt(perf, "iterations count=\{iteration_count}")
+  dfe_trace_opt(perf, "iterations count=\{elimination.iteration_count}")
 
   let cleanup_timer = dfe_perf_start_timer_opt(
     perf, "cleanup-unreachable-debris",
   )
-  current = dfe_cleanup_unreachable_debris(current)
+  current = dfe_cleanup_unreachable_debris(
+    current,
+    perf~,
+    cleanup_flags=elimination.cleanup_flags,
+  )
   dfe_perf_stop_timer_opt(perf, "cleanup-unreachable-debris", cleanup_timer)
 
   let elem_timer = dfe_perf_start_timer_opt(perf, "canonicalize-elem-segments")
@@ -3839,6 +4240,7 @@ fn dfe_run_module_pass_with_perf(
   let rewritten = dfe_canonicalize_duplicate_simple_type_indices(
     with_elem_segments,
     perf~,
+    code_rewrite_flags=elimination.type_rewrite_flags,
   )
   dfe_perf_stop_timer_opt(perf, "canonicalize-duplicate-types", type_timer)
   rewritten
