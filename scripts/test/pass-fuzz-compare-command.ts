@@ -135,6 +135,8 @@ process.exit(0);
       fakeStarshine,
       "--wasm-opt-bin",
       fakeWasmOpt,
+      "--require-binaryen-version",
+      "131",
       "--wasm-tools-bin",
       fakeWasmTools,
       "--jobs",
@@ -217,6 +219,8 @@ process.exit(0);
     };
     passFlags: string[];
     binaryenPassFlags: string[];
+    requiredBinaryenVersion: string | null;
+    binaryenTool: { resolvedPath: string; version: string; sha256: string };
   };
   assert(summary.requestedCount === 4, `unexpected requested count ${summary.requestedCount}`);
   assert(summary.comparedCount === 4, `unexpected compared count ${summary.comparedCount}`);
@@ -254,8 +258,21 @@ process.exit(0);
     summary.runtimeExecutionMatrix.summary.total === 0 && summary.runtimeExecutionMatrix.semanticMismatchSamples.length === 0,
     `expected empty default runtime matrix summary/samples, got ${JSON.stringify(summary.runtimeExecutionMatrix)}`,
   );
-  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { generator: string; transformId?: string; genValidProfileCaseLabel?: string; genValidFeatureFacts?: Record<string, unknown>; inputEffectTrapFacts?: Record<string, boolean> });
+  assert(summary.requiredBinaryenVersion === "131", `unexpected required Binaryen version ${summary.requiredBinaryenVersion}`);
+  assert(summary.binaryenTool.version === "131", `unexpected verified Binaryen version ${summary.binaryenTool.version}`);
+  assert(summary.binaryenTool.resolvedPath === fs.realpathSync(fakeWasmOpt), `unexpected Binaryen path ${summary.binaryenTool.resolvedPath}`);
+  assert(/^[0-9a-f]{64}$/.test(summary.binaryenTool.sha256), `unexpected Binaryen hash ${summary.binaryenTool.sha256}`);
+  const toolchain = JSON.parse(fs.readFileSync(path.join(outDir, "toolchain.json"), "utf8")) as {
+    schema: string;
+    requiredBinaryenVersion: string | null;
+    binaryen: { sha256: string };
+  };
+  assert(toolchain.schema === "starshine.optimizer-toolchain.v1", `unexpected toolchain schema ${toolchain.schema}`);
+  assert(toolchain.requiredBinaryenVersion === "131", `unexpected toolchain requirement ${toolchain.requiredBinaryenVersion}`);
+  assert(toolchain.binaryen.sha256 === summary.binaryenTool.sha256, "expected toolchain and summary hashes to match");
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { generator: string; transformId?: string; genValidProfileCaseLabel?: string; genValidFeatureFacts?: Record<string, unknown>; inputEffectTrapFacts?: Record<string, boolean>; binaryenToolSha256?: string });
   assert(cases.length === 4, `expected 4 case records, got ${cases.length}`);
+  assert(cases.every((record) => record.binaryenToolSha256 === summary.binaryenTool.sha256), `expected per-case Binaryen identity, got ${JSON.stringify(cases, null, 2)}`);
   assert(
     cases.every((record) => record.inputEffectTrapFacts && typeof record.inputEffectTrapFacts.mayTrap === "boolean"),
     `expected per-case effect/trap facts in cases.jsonl, got ${JSON.stringify(cases, null, 2)}`,
@@ -270,8 +287,8 @@ process.exit(0);
     `expected gen-valid case metadata to preserve profile case labels, got ${JSON.stringify(cases, null, 2)}`,
   );
   assert(
-    genValidCases.every((record) => record.genValidFeatureFacts && record.genValidFeatureFacts.mode === "coverage-forced"),
-    `expected gen-valid case metadata to preserve manifest feature facts, got ${JSON.stringify(cases, null, 2)}`,
+    genValidCases.every((record) => record.genValidFeatureFacts === undefined),
+    `expected full gen-valid feature facts to remain in the manifest instead of bounded case records, got ${JSON.stringify(cases, null, 2)}`,
   );
   assert(
     JSON.stringify(summary.passFlags) === JSON.stringify(["--remove-unused-brs"]),
@@ -3469,6 +3486,83 @@ process.exit(0);
   assert(validateCalls.length === 2, `expected baseline and final starshine validation only, got ${validateCalls.length}`);
 }
 
+export function runPassFuzzCompareRequiredBinaryenVersionGuardTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-binaryen-version-"));
+  const moonMarker = path.join(tmpdir, "moon-ran");
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `const fs = require("node:fs"); fs.writeFileSync(${JSON.stringify(moonMarker)}, "ran"); process.exit(0);`,
+  );
+  const fakeV116 = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt-116"),
+    `if (process.argv.includes("--version")) { process.stdout.write("wasm-opt version 116\\n"); process.exit(0); } process.exit(1);`,
+  );
+  const fakeMalformed = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt-malformed"),
+    `if (process.argv.includes("--version")) { process.stdout.write("Binaryen unknown\\n"); process.exit(0); } process.exit(1);`,
+  );
+
+  const cases = [
+    { label: "wrong-version", binary: fakeV116, expected: "Binaryen version mismatch: required 131, got 116" },
+    { label: "malformed", binary: fakeMalformed, expected: "unrecognized Binaryen version output" },
+    { label: "missing", binary: path.join(tmpdir, "missing-wasm-opt"), expected: "Binaryen executable does not exist" },
+  ];
+  for (const entry of cases) {
+    fs.rmSync(moonMarker, { force: true });
+    const outDir = path.join(tmpdir, entry.label);
+    const result = spawnSync(
+      "bun",
+      [
+        path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+        "--count", "1",
+        "--out-dir", outDir,
+        "--moon", fakeMoon,
+        "--wasm-opt-bin", entry.binary,
+        "--require-binaryen-version", "131",
+        "--pass", "vacuum",
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    if (result.error) throw result.error;
+    assert(result.status !== 0, `expected ${entry.label} Binaryen guard to fail`);
+    assert(result.stderr.includes(entry.expected), `expected ${entry.label} error ${entry.expected}, got:\n${result.stderr}`);
+    assert(!fs.existsSync(moonMarker), `expected ${entry.label} to fail before generation`);
+    assert(!fs.existsSync(outDir), `expected ${entry.label} to fail before creating ${outDir}`);
+  }
+
+  const fakeV131 = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt-131"),
+    `if (process.argv.includes("--version")) { process.stdout.write("wasm-opt version 131 (version_131)\\n"); process.exit(0); } process.exit(1);`,
+  );
+  const resumeDir = path.join(tmpdir, "resume-different-identity");
+  fs.mkdirSync(resumeDir, { recursive: true });
+  fs.writeFileSync(path.join(resumeDir, "toolchain.json"), JSON.stringify({
+    schema: "starshine.optimizer-toolchain.v1",
+    requiredBinaryenVersion: "131",
+    binaryen: { version: "131", sha256: "0".repeat(64) },
+  }));
+  fs.writeFileSync(path.join(resumeDir, "cases.jsonl"), "");
+  const resumed = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count", "1",
+      "--out-dir", resumeDir,
+      "--moon", fakeMoon,
+      "--wasm-opt-bin", fakeV131,
+      "--require-binaryen-version", "131",
+      "--resume",
+      "--pass", "vacuum",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  if (resumed.error) throw resumed.error;
+  assert(resumed.status !== 0, "expected resume under a different Binaryen hash to fail");
+  assert(resumed.stderr.includes("--resume Binaryen identity differs"), `unexpected resume identity error:\n${resumed.stderr}`);
+  assert(!fs.existsSync(moonMarker), "expected resume identity mismatch to fail before generation");
+}
+
 export function runPassFuzzCompareStarshineBinDefaultsToAutoJobsTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-auto-jobs-"));
@@ -3635,6 +3729,7 @@ if (import.meta.main) {
   runPassFuzzCompareReplayMismatchStatusTest();
   runPassFuzzCompareGenValidMismatchReductionArtifactsTest();
   runPassFuzzCompareMinComparedGateTest();
+  runPassFuzzCompareRequiredBinaryenVersionGuardTest();
   runPassFuzzCompareStarshineBinDefaultsToAutoJobsTest();
   runPassFuzzCompareParallelJobsRequireStarshineBinTest();
   runPassFuzzCompareDefaultStarshineInvocationTest();

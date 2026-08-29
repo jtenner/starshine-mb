@@ -133,6 +133,7 @@ type PassFuzzCompareOptions = {
   moonBin: string;
   starshineBin: string | null;
   wasmOptBin: string;
+  requiredBinaryenVersion: string | null;
   wasmToolsBin: string;
   binaryenValidateBin: string;
   wabtValidateBin: string;
@@ -240,6 +241,7 @@ type CaseRecord = {
   compositionOutcome?: "pass" | "fail";
   binaryenCacheOutcome?: "hit" | "miss" | "failure-hit" | "failure-miss";
   semanticCacheOutcome?: "hit" | "miss";
+  binaryenToolSha256?: string;
   starshineRawBytes?: number;
   binaryenRawBytes?: number;
   starshineCanonicalBytes?: number;
@@ -382,6 +384,8 @@ export type PassFuzzCompareSummary = {
   passFlags: string[];
   optimizerFlags: OptimizerModeFlag[];
   binaryenPassFlags: string[];
+  requiredBinaryenVersion: string | null;
+  binaryenTool: VerifiedBinaryenToolIdentity;
   normalizers: CompareNormalizer[];
   cache: {
     dir: string | null;
@@ -405,6 +409,7 @@ const RESERVED_OPTIONS = new Set([
   "--moon",
   "--starshine-bin",
   "--wasm-opt-bin",
+  "--require-binaryen-version",
   "--wasm-tools-bin",
   "--binaryen-validate-bin",
   "--wabt-validate-bin",
@@ -553,6 +558,9 @@ const HELP_TEXT = [
   "  --commutator-left <pass>",
   "  --commutator-right <pass>",
   "                       Run P(Q(M)) versus Q(P(M)) under node-v2; both operands are required",
+  "  --wasm-opt-bin <path> Binaryen wasm-opt executable. Default: wasm-opt",
+  "  --require-binaryen-version <n>",
+  "                       Fail before generation unless wasm-opt reports this exact release",
   "  --binaryen-validate-bin <path>",
   "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
   "  --wabt-validate-bin <path>",
@@ -2435,6 +2443,85 @@ function readToolIdentity(command: string, args: string[], repoRoot: string): st
   }
 }
 
+export type VerifiedBinaryenToolIdentity = {
+  command: string;
+  resolvedPath: string;
+  versionOutput: string;
+  version: string;
+  sha256: string;
+};
+
+function resolveExecutablePath(command: string, repoRoot: string): string {
+  const direct = path.isAbsolute(command) ? command : path.resolve(repoRoot, command);
+  if (command.includes(path.sep) || command.includes("/")) {
+    try {
+      return fs.realpathSync(direct);
+    } catch {
+      fail(`Binaryen executable does not exist: ${command}`);
+    }
+  }
+  const pathEntries = (process.env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  const suffixes = process.platform === "win32" ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT").split(";") : [""];
+  for (const entry of pathEntries) {
+    for (const suffix of suffixes) {
+      const candidate = path.join(entry, `${command}${suffix}`);
+      try {
+        if (fs.statSync(candidate).isFile()) return fs.realpathSync(candidate);
+      } catch {
+        // Keep searching PATH.
+      }
+    }
+  }
+  fail(`Binaryen executable was not found on PATH: ${command}`);
+}
+
+function parseBinaryenVersionOutput(output: string): string {
+  const match = /(?:^|\s)wasm-opt version\s+(\d+)(?:\s|$|\()/.exec(output.trim());
+  if (match === null) fail(`unrecognized Binaryen version output: ${JSON.stringify(output.trim())}`);
+  return match[1];
+}
+
+export function parseBinaryenVersionOutputForTest(output: string): string {
+  return parseBinaryenVersionOutput(output);
+}
+
+function verifyBinaryenToolIdentity(
+  command: string,
+  requiredVersion: string | null,
+  repoRoot: string,
+): VerifiedBinaryenToolIdentity {
+  const resolvedPath = resolveExecutablePath(command, repoRoot);
+  const result = spawnSync(command, ["--version"], {
+    cwd: repoRoot,
+    env: makeRepoTmpEnv(repoRoot),
+    encoding: "utf8",
+    timeout: 5000,
+  });
+  if (result.error !== undefined && requiredVersion !== null) {
+    fail(`failed to execute Binaryen version probe ${command}: ${result.error.message}`);
+  }
+  if (result.status !== 0 && requiredVersion !== null) {
+    fail(`Binaryen version probe failed for ${command} with status ${String(result.status)}: ${(result.stderr || result.stdout).trim()}`);
+  }
+  const versionOutput = [result.stdout?.trim() ?? "", result.stderr?.trim() ?? ""].filter(Boolean).join("\n");
+  let version = "unknown";
+  try {
+    version = parseBinaryenVersionOutput(versionOutput);
+  } catch (error) {
+    if (requiredVersion !== null) throw error;
+  }
+  if (requiredVersion !== null && version !== requiredVersion) {
+    fail(`Binaryen version mismatch: required ${requiredVersion}, got ${version} from ${resolvedPath}`);
+  }
+  return {
+    command,
+    resolvedPath,
+    versionOutput,
+    version,
+    sha256: sha256Hex(fs.readFileSync(resolvedPath)),
+  };
+}
+
 type BinaryenCacheIdentity = {
   wasmOpt: string;
   passFlags: string[];
@@ -3767,6 +3854,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let moonBin = resolveMoonBin();
   let starshineBin: string | null = null;
   let wasmOptBin = process.env.WASM_OPT_BIN || "wasm-opt";
+  let requiredBinaryenVersion: string | null = null;
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
   let binaryenValidateBin = process.env.BINARYEN_WASM_VALIDATE_BIN || "wasm-validate";
   let wabtValidateBin = process.env.WABT_WASM_VALIDATE_BIN || "wasm-validate";
@@ -3868,6 +3956,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         wasmOptBin = argv[i + 1] ?? fail("missing value for --wasm-opt-bin");
         i += 2;
         break;
+      case "--require-binaryen-version": {
+        const value = argv[i + 1] ?? fail("missing value for --require-binaryen-version");
+        if (!/^\d+$/.test(value)) fail("require-binaryen-version must be a decimal release number");
+        requiredBinaryenVersion = value;
+        i += 2;
+        break;
+      }
       case "--wasm-tools-bin":
         wasmToolsBin = argv[i + 1] ?? fail("missing value for --wasm-tools-bin");
         i += 2;
@@ -4128,6 +4223,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           i += 1;
           break;
         }
+        if (token.startsWith("--require-binaryen-version=")) {
+          const value = token.substring("--require-binaryen-version=".length);
+          if (!/^\d+$/.test(value)) fail("require-binaryen-version must be a decimal release number");
+          requiredBinaryenVersion = value;
+          i += 1;
+          break;
+        }
         if (token.startsWith("--binaryen-validate-bin=")) {
           binaryenValidateBin = token.substring("--binaryen-validate-bin=".length);
           i += 1;
@@ -4257,6 +4359,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       moonBin,
       starshineBin,
       wasmOptBin,
+      requiredBinaryenVersion,
       wasmToolsBin,
       binaryenValidateBin,
       wabtValidateBin,
@@ -4329,17 +4432,50 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const resultPath = path.join(outDir, "result.json");
   const summaryPath = path.join(outDir, "summary.json");
   const casesPath = path.join(outDir, "cases.jsonl");
+  const toolchainPath = path.join(outDir, "toolchain.json");
   const binaryenPassFlags = [
     ...options.optimizerFlags,
     ...options.passFlags.map(normalizeBinaryenPassFlag),
   ];
   const resolvedCacheDir = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
   const wasmToolsIdentity = readToolIdentity(options.wasmToolsBin, ["--version"], repoRoot);
+  const verifiedBinaryenTool = verifyBinaryenToolIdentity(
+    options.wasmOptBin,
+    options.requiredBinaryenVersion,
+    repoRoot,
+  );
   const binaryenIdentity: BinaryenCacheIdentity = {
-    wasmOpt: readToolIdentity(options.wasmOptBin, ["--version"], repoRoot),
+    wasmOpt: JSON.stringify(verifiedBinaryenTool),
     passFlags: binaryenPassFlags,
     passFlagsHash: sha256Hex(JSON.stringify(binaryenPassFlags)),
   };
+  const toolchainRecord = {
+    schema: "starshine.optimizer-toolchain.v1",
+    requiredBinaryenVersion: options.requiredBinaryenVersion,
+    binaryen: verifiedBinaryenTool,
+  };
+  if (options.resume) {
+    if (!fs.existsSync(toolchainPath)) {
+      if (options.requiredBinaryenVersion !== null) {
+        fail(`--resume with --require-binaryen-version requires ${toolchainPath}`);
+      }
+    } else {
+      let saved: typeof toolchainRecord;
+      try {
+        saved = JSON.parse(fs.readFileSync(toolchainPath, "utf8")) as typeof toolchainRecord;
+      } catch (error) {
+        fail(`failed to read saved optimizer toolchain ${toolchainPath}: ${commandFailureDetail(error)}`);
+      }
+      if (
+        saved.schema !== toolchainRecord.schema ||
+        saved.requiredBinaryenVersion !== toolchainRecord.requiredBinaryenVersion ||
+        saved.binaryen?.version !== verifiedBinaryenTool.version ||
+        saved.binaryen?.sha256 !== verifiedBinaryenTool.sha256
+      ) {
+        fail(`--resume Binaryen identity differs from ${toolchainPath}`);
+      }
+    }
+  }
   const replayCases =
     options.replayFailuresFrom === null
       ? null
@@ -4370,6 +4506,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   }
 
   fs.mkdirSync(outDir, { recursive: true });
+  if (!options.resume) {
+    fs.writeFileSync(toolchainPath, JSON.stringify(toolchainRecord, null, 2) + "\n");
+  }
   fs.mkdirSync(inputsDir, { recursive: true });
   fs.mkdirSync(smithDir, { recursive: true });
   if (!options.resume) {
@@ -4564,6 +4703,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     passFlags: options.passFlags,
     optimizerFlags: options.optimizerFlags,
     binaryenPassFlags,
+    requiredBinaryenVersion: options.requiredBinaryenVersion,
+    binaryenTool: verifiedBinaryenTool,
     normalizers: options.normalizers,
     cache: {
       dir: options.cacheDir,
@@ -4629,6 +4770,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const { inputEffectTrapFacts, ...recordWithoutEffectDetails } = record;
     const enrichedRecord = {
       ...recordWithoutEffectDetails,
+      binaryenToolSha256: record.binaryenToolSha256 ?? verifiedBinaryenTool.sha256,
       ...(inputEffectTrapFacts === undefined
         ? {}
         : { inputEffectTrapFacts: boundedEffectTrapFactsForCase(inputEffectTrapFacts) }),

@@ -21,9 +21,29 @@ import {
   passFuzzResumedCorrectnessCountersForTest,
   passFuzzResumedOptimizerCountersForTest,
   passFuzzSizeCountersForTest,
+  parseBinaryenVersionOutputForTest,
 } from "./pass-fuzz-compare-task";
 
 describe("pass-fuzz persistent cache options", () => {
+  test("parses and requires an exact Binaryen release when requested", () => {
+    const defaults = parsePassFuzzCompareArgs(["--pass", "vacuum"]);
+    const required = parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--require-binaryen-version", "131",
+    ]);
+
+    expect(defaults.kind).toBe("run");
+    if (defaults.kind === "run") expect(defaults.options.requiredBinaryenVersion).toBeNull();
+    expect(required.kind).toBe("run");
+    if (required.kind === "run") expect(required.options.requiredBinaryenVersion).toBe("131");
+    expect(parseBinaryenVersionOutputForTest("wasm-opt version 131 (version_131)\n")).toBe("131");
+    expect(() => parseBinaryenVersionOutputForTest("Binaryen unknown\n")).toThrow(
+      "unrecognized Binaryen version output",
+    );
+    expect(() => parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--require-binaryen-version", "version_131",
+    ])).toThrow("require-binaryen-version must be a decimal release number");
+  });
+
   test("defaults to the repo-local persistent pass-fuzz cache", () => {
     const parsed = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs"]);
 

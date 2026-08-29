@@ -64,7 +64,7 @@ bun fuzz compare-pass \
   --pass <canonical-pass>|--<pass-flag> [--pass ...] \
   --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
   --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin <official-version-131-wasm-opt> \
+  --wasm-opt-bin <official-version-131-wasm-opt> --require-binaryen-version 131 \
   [--wasm-smith] [--generator wasm-smith|gen-valid] \
   [--gen-valid-profile <profile>] \
   [--require-feature <feature>] [--exclude-feature <feature>] \
@@ -113,12 +113,12 @@ Run a long compare lane only when its pass is executable at **both** sides of th
 
 1. **Harness admission.** `bun fuzz compare-pass --list-passes` reports only names in `SUPPORTED_PASS_FLAGS` in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts). An absent name is rejected during argument parsing, before input generation or Binaryen execution.
 2. **Starshine admission.** The same flag must reach an active Starshine dispatcher. A registry entry in [`src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) can intentionally be `BoundaryOnly`; such a request terminates with a boundary-only error rather than exercising a transform.
-3. **Oracle admission.** The local spelling must map to the actual public Binaryen flag, and release signoff must use an explicit verified oracle. For v131, run `<path> --version` first and require `wasm-opt version 131 (version_131)`, then pass that path through `--wasm-opt-bin`. Use `binaryenPassFlags` and Binaryen identity fields in `result.json` to verify aliases and tool selection; a bare PATH lookup or local alias that passes through unchanged can invalidate the setup.
+3. **Oracle admission.** The local spelling must map to the actual public Binaryen flag, and release signoff must use an explicit verified oracle. For v131, pass the official executable through `--wasm-opt-bin <path> --require-binaryen-version 131`. The harness probes before input generation, rejects unavailable/malformed/wrong-version tools, hashes the resolved executable, writes `toolchain.json`, persists `requiredBinaryenVersion` and `binaryenTool` in `result.json`, stamps each case with `binaryenToolSha256`, and rejects resume under a different hash/version. Use `binaryenPassFlags` to verify aliases. A bare PATH lookup without the required-version guard is exploratory evidence only.
 4. **Surface admission.** The selected generator/profile must create modules on which the pass can act, and the run must set a meaningful `--min-compared` threshold. A green process with zero compared cases is not parity signoff.
 
 A pass that fails any of these checks has a **planned fuzzing profile**, not a runnable smoke lane. Its wiki page should document the status test and future command template, but must not label parser rejection, command failure, or zero comparisons as Binaryen-parity evidence. This is especially important for boundary-only registry entries: a Binaryen pass can be real while Starshine deliberately has no active implementation yet.
 
-Binaryen oracle path note: release evidence must state and verify the exact `--wasm-opt-bin`. Bare PATH resolution is acceptable only for exploratory work whose tool version is recorded and matches the intended oracle; it is not valid v131 signoff while PATH resolves to v116.
+Binaryen oracle path note: release evidence must state the exact `--wasm-opt-bin`, include `--require-binaryen-version 131`, and retain `toolchain.json`. Bare PATH resolution is acceptable only for exploratory work; it is never locked-v131 signoff without the guard even if an operator checked the version manually.
 
 Native binary path note: Starshine's current native-release policy is to pass `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. Both `_build/...` and older `target/native/...` artifacts can exist in a worktree; existence alone does not prove freshness. Do not use `target/native/release/build/cmd/cmd.exe` for signoff unless its timestamp or hash proves it is the same freshly built executable. This is local artifact policy, not a generic MoonBit CLI output-path guarantee; see [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md), and the harness implementation.
 
@@ -164,7 +164,7 @@ bun fuzz compare-pass \
   --out-dir .tmp/dae-random-all-10000 \
   --resume --no-reduce-mismatches \
   --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin <official-version-131-wasm-opt> \
+  --wasm-opt-bin <official-version-131-wasm-opt> --require-binaryen-version 131 \
   --max-failures 10000 --keep-going-after-command-failures
 ```
 
