@@ -388,6 +388,43 @@ test "O4z preset expansion keeps Binaryen v131's 56 slots plus late local conver
 }
 
 ///|
+test "module-aware report expansion exposes every repeated preset boundary" {
+  let mod_ = @lib.Module::new()
+  let options = HotPipelineOptions::new(optimize_level=4, shrink_level=4)
+  let expanded = match
+    pass_registry_expanded_names_for_module(mod_, options, ["optimize"]) {
+    Ok(names) => names
+    Err(err) => fail("expected report expansion success, got \{err}")
+  }
+  assert_true(expanded.length() > 56)
+  @debug.assert_eq(expanded[0], "duplicate-function-elimination")
+  @debug.assert_eq(expanded[expanded.length() - 1], "vacuum")
+  assert_false(expanded.contains("heap-store-optimization"))
+  assert_false(expanded.contains("tuple-optimization"))
+  assert_false(expanded.contains("string-gathering"))
+  let mut vacuum_count = 0
+  for name in expanded {
+    if name == "vacuum" {
+      vacuum_count += 1
+    }
+  }
+  assert_true(vacuum_count >= 8)
+}
+
+///|
+test "module-aware report expansion rejects unsupported boundaries" {
+  let result = pass_registry_expanded_names_for_module(
+    @lib.Module::new(),
+    HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ["gufa"],
+  )
+  match result {
+    Err(message) => assert_true(message.contains("boundary-only"))
+    Ok(names) => fail("expected unsupported report expansion, got \{names}")
+  }
+}
+
+///|
 test "public non-O4z presets keep only measured fast-payoff passes" {
   let o1 = optimize_preset_passes(HotPipelineOptions::new(optimize_level=1))
   let o2 = optimize_preset_passes(HotPipelineOptions::new(optimize_level=2))

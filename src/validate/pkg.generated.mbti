@@ -914,6 +914,11 @@ pub struct GenValidFeatureFacts {
   has_gc_tail_call_combo : Bool
   has_shared_memory_atomics : Bool
   has_imports_start_exports : Bool
+  has_semantic_effects : Bool
+  has_import_event_channel : Bool
+  has_trap_frontier : Bool
+  has_resource_observation : Bool
+  has_poisoned_dead_code : Bool
   has_ssa_straight_line_local_chain : Bool
   has_ssa_already_ssa_local : Bool
   has_ssa_multi_def_same_local : Bool
@@ -1033,6 +1038,11 @@ pub struct GenValidFeatureStats {
   gc_tail_call_combo : Int
   shared_memory_atomics : Int
   imports_start_exports : Int
+  semantic_effects : Int
+  import_event_channel : Int
+  trap_frontier : Int
+  resource_observation : Int
+  poisoned_dead_code : Int
   ssa_straight_line_local_chain : Int
   ssa_already_ssa_local : Int
   ssa_multi_def_same_local : Int
@@ -1230,6 +1240,11 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
+  SemanticEffectsProfile
+  SemanticImportEventsProfile
+  SemanticTrapFrontierProfile
+  SemanticResourcesProfile
+  SemanticOptimizerAllProfile
   GsiDescCastPositiveProfile
   GsiDescCastZeroBoundaryProfile
   GsiDescCastMultiBoundaryProfile
@@ -2029,6 +2044,11 @@ pub enum ValidateValidFeatureKey {
   GcTailCallCombo
   SharedMemoryAtomics
   ImportsStartExports
+  SemanticEffects
+  ImportEventChannel
+  TrapFrontier
+  ResourceObservation
+  PoisonedDeadCode
   InvalidAstStrategies
   InvalidBinaryStrategies
   WastArbitraryParity

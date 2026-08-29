@@ -3150,7 +3150,23 @@ pub struct GenValidBatchManifestEntry {
   validation_error_message : String?
   facts : GenValidFeatureFacts
   transform_id : String?
+  base_file_name : String?
+  relation_group_id : String?
 } derive(Eq, Debug)
+
+///|
+fn gen_valid_metamorphic_base_file_name(index : Int) -> String {
+  "gen-valid-\{fuzz_zero_pad_decimal(index, 6)}-base.wasm"
+}
+
+///|
+fn gen_valid_metamorphic_relation_group_id(
+  seed : UInt64,
+  index : Int,
+  transform_id : String,
+) -> String {
+  "metamorphic:\{seed}:\{index}:\{transform_id}"
+}
 
 ///|
 pub struct GenValidBatchArtifacts {
@@ -3394,6 +3410,13 @@ fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
       "shared_memory_atomics"
     @validate.ValidateValidFeatureKey::ImportsStartExports =>
       "imports_start_exports"
+    @validate.ValidateValidFeatureKey::SemanticEffects => "semantic_effects"
+    @validate.ValidateValidFeatureKey::ImportEventChannel =>
+      "import_event_channel"
+    @validate.ValidateValidFeatureKey::TrapFrontier => "trap_frontier"
+    @validate.ValidateValidFeatureKey::ResourceObservation =>
+      "resource_observation"
+    @validate.ValidateValidFeatureKey::PoisonedDeadCode => "poisoned_dead_code"
     @validate.ValidateValidFeatureKey::InvalidAstStrategies =>
       "invalid_ast_strategies"
     @validate.ValidateValidFeatureKey::InvalidBinaryStrategies =>
@@ -3767,6 +3790,28 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
     }
     selected += 1
     let file_name = "gen-valid-\{fuzz_zero_pad_decimal(selected, 6)}.wasm"
+    let base_file_name = match artifact_transform_id {
+      Some(_) => Some(gen_valid_metamorphic_base_file_name(selected))
+      None => None
+    }
+    let relation_group_id = match artifact_transform_id {
+      Some(transform_id) =>
+        Some(
+          gen_valid_metamorphic_relation_group_id(seed, selected, transform_id),
+        )
+      None => None
+    }
+    match base_file_name {
+      Some(base_name) =>
+        match encode_module(generated.wasm_module) {
+          Ok(base_bytes) => artifacts.push((base_name, base_bytes))
+          Err(err) =>
+            return Err(
+              "gen-valid metamorphic base encode failed at attempt \{attempts}: \{err}",
+            )
+        }
+      None => ()
+    }
     artifacts.push((file_name, bytes))
     manifest.push({
       file_name,
@@ -3780,6 +3825,8 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
       validation_error_message: None,
       facts: generated.facts,
       transform_id: artifact_transform_id,
+      base_file_name,
+      relation_group_id,
     })
     feature_stats = next_stats
   }
@@ -3902,6 +3949,28 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
     }
     selected += 1
     let file_name = "gen-valid-\{fuzz_zero_pad_decimal(selected, 6)}.wasm"
+    let base_file_name = match artifact_transform_id {
+      Some(_) => Some(gen_valid_metamorphic_base_file_name(selected))
+      None => None
+    }
+    let relation_group_id = match artifact_transform_id {
+      Some(transform_id) =>
+        Some(
+          gen_valid_metamorphic_relation_group_id(seed, selected, transform_id),
+        )
+      None => None
+    }
+    match base_file_name {
+      Some(base_name) =>
+        match encode_module(generated.wasm_module) {
+          Ok(base_bytes) => artifacts.push((base_name, base_bytes))
+          Err(err) =>
+            return Err(
+              "gen-valid metamorphic base encode failed at attempt \{attempts}: \{err}",
+            )
+        }
+      None => ()
+    }
     artifacts.push((file_name, bytes))
     manifest.push({
       file_name,
@@ -3922,6 +3991,8 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
       validation_error_message: None,
       facts: generated.facts,
       transform_id: artifact_transform_id,
+      base_file_name,
+      relation_group_id,
     })
     feature_stats = next_stats
   }
@@ -3994,6 +4065,8 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
       validation_error_message: None,
       facts: generated.facts,
       transform_id: None,
+      base_file_name: None,
+      relation_group_id: None,
     })
     i += 1
   }
@@ -4042,7 +4115,7 @@ pub fn emit_gen_valid_batch_artifacts(
 fn format_gen_valid_batch_feature_facts_json(
   facts : GenValidFeatureFacts,
 ) -> String {
-  "{\"mode\":\"\{fuzz_json_escape(@debug.to_string(facts.mode))}\",\"imports\":\{facts.has_imports},\"func_exports\":\{facts.has_func_exports},\"table_exports\":\{facts.has_table_exports},\"mem_exports\":\{facts.has_mem_exports},\"global_exports\":\{facts.has_global_exports},\"tag_exports\":\{facts.has_tag_exports},\"start\":\{facts.has_start},\"lacks_start\":\{facts.lacks_start},\"tables\":\{facts.has_tables},\"mems\":\{facts.has_mems},\"globals\":\{facts.has_globals},\"tags\":\{facts.has_tags},\"elems\":\{facts.has_elems},\"datas\":\{facts.has_datas},\"data_count\":\{facts.has_data_count},\"ref_types\":\{facts.uses_ref_types},\"v128\":\{facts.uses_v128},\"calls\":\{facts.has_call},\"call_indirect\":\{facts.has_call_indirect},\"branch_heavy_control\":\{facts.has_branch_heavy_control},\"payload_control_flow\":\{facts.has_payload_control_flow},\"multivalue_control_flow\":\{facts.has_multivalue_control_flow},\"numeric_full_ops\":\{facts.has_numeric_full_ops},\"br_table\":\{facts.has_br_table},\"standalone_unreachable\":\{facts.has_standalone_unreachable},\"local_tee\":\{facts.has_local_tee},\"typed_select\":\{facts.has_typed_select},\"tail_calls\":\{facts.has_tail_calls},\"scalar_memory_widths\":\{facts.has_scalar_memory_widths},\"nonzero_memarg\":\{facts.has_nonzero_memarg},\"memory_limit_variants\":\{facts.has_memory_limit_variants},\"table_limit_variants\":\{facts.has_table_limit_variants},\"const_expr_variants\":\{facts.has_const_expr_variants},\"basic_ref_instructions\":\{facts.has_basic_ref_instructions},\"i31_extern_conversions\":\{facts.has_i31_extern_conversions},\"simd_phase1\":\{facts.has_simd_phase1},\"simd_phase2\":\{facts.has_simd_phase2},\"simd_phase3\":\{facts.has_simd_phase3},\"atomics\":\{facts.has_atomics},\"gc_constructors\":\{facts.has_gc_constructors},\"gc_accessors\":\{facts.has_gc_accessors},\"string_ops\":\{facts.has_string_ops},\"exception_try_table_matrix\":\{facts.has_exception_try_table_matrix},\"subtyping_topology\":\{facts.has_subtyping_topology},\"rich_gc_field_plans\":\{facts.has_rich_gc_field_plans},\"import_export_topology\":\{facts.has_import_export_topology},\"element_segment_range\":\{facts.has_element_segment_range},\"data_segment_range\":\{facts.has_data_segment_range},\"name_custom_sections\":\{facts.has_name_custom_sections},\"gc_exception_combo\":\{facts.has_gc_exception_combo},\"gc_tail_call_combo\":\{facts.has_gc_tail_call_combo},\"shared_memory_atomics\":\{facts.has_shared_memory_atomics},\"imports_start_exports\":\{facts.has_imports_start_exports},\"ssa_straight_line_local_chain\":\{facts.has_ssa_straight_line_local_chain},\"ssa_already_ssa_local\":\{facts.has_ssa_already_ssa_local},\"ssa_multi_def_same_local\":\{facts.has_ssa_multi_def_same_local},\"ssa_param_entry_read\":\{facts.has_ssa_param_entry_read},\"ssa_local_tee_def_use\":\{facts.has_ssa_local_tee_def_use},\"ssa_tee_freshen_candidate\":\{facts.has_ssa_tee_freshen_candidate},\"ssa_tee_merge_feeding_candidate\":\{facts.has_ssa_tee_merge_feeding_candidate},\"ssa_tee_child_expression\":\{facts.has_ssa_tee_child_expression},\"ssa_param_write\":\{facts.has_ssa_param_write},\"ssa_dead_local_set\":\{facts.has_ssa_dead_local_set},\"ssa_dead_local_tee\":\{facts.has_ssa_dead_local_tee},\"ssa_if_join_phi_candidate\":\{facts.has_ssa_if_join_phi_candidate},\"ssa_loop_backedge_phi_candidate\":\{facts.has_ssa_loop_backedge_phi_candidate},\"ssa_br_table_phi_candidate\":\{facts.has_ssa_br_table_phi_candidate},\"ssa_parallel_copy_candidate\":\{facts.has_ssa_parallel_copy_candidate},\"ssa_parallel_copy_cycle_candidate\":\{facts.has_ssa_parallel_copy_cycle_candidate},\"ssa_default_local_merge\":\{facts.has_ssa_default_local_merge},\"ssa_one_arm_default_merge\":\{facts.has_ssa_one_arm_default_merge},\"ssa_one_arm_param_merge\":\{facts.has_ssa_one_arm_param_merge},\"ssa_both_arm_local_merge\":\{facts.has_ssa_both_arm_local_merge},\"ssa_loop_carried_local_merge\":\{facts.has_ssa_loop_carried_local_merge},\"ssa_mixed_fresh_canonical_writes\":\{facts.has_ssa_mixed_fresh_canonical_writes},\"ssa_unreachable_local_carrier\":\{facts.has_ssa_unreachable_local_carrier},\"ssa_dropped_increment_guard_shape\":\{facts.has_ssa_dropped_increment_guard_shape},\"ssa_dropped_increment_reversed_boundary\":\{facts.has_ssa_dropped_increment_reversed_boundary},\"ssa_exceptional_fail_closed_shape\":\{facts.has_ssa_exceptional_fail_closed_shape},\"ssa_typed_loop_param_fail_closed_shape\":\{facts.has_ssa_typed_loop_param_fail_closed_shape},\"ssa_nested_cfg_fail_closed_shape\":\{facts.has_ssa_nested_cfg_fail_closed_shape},\"ssa_nested_result_if_supported_shape\":\{facts.has_ssa_nested_result_if_supported_shape},\"ssa_nested_result_if_condition_write\":\{facts.has_ssa_nested_result_if_condition_write},\"ssa_nested_result_if_condition_value_block\":\{facts.has_ssa_nested_result_if_condition_value_block},\"ssa_nested_result_if_arm_value_block\":\{facts.has_ssa_nested_result_if_arm_value_block},\"ssa_nested_result_if_mixed_arm_value_block\":\{facts.has_ssa_nested_result_if_mixed_arm_value_block},\"ssa_nested_result_if_scalar_result\":\{facts.has_ssa_nested_result_if_scalar_result},\"ssa_structured_early_return_local\":\{facts.has_ssa_structured_early_return_local},\"ssa_block_branch_merge_copy\":\{facts.has_ssa_block_branch_merge_copy},\"ssa_block_br_if_merge_copy\":\{facts.has_ssa_block_br_if_merge_copy},\"ssa_structured_param_merge\":\{facts.has_ssa_structured_param_merge},\"ssa_branch_local_not_read_later\":\{facts.has_ssa_branch_local_not_read_later},\"ssa_default_local_read_after_branchy_control\":\{facts.has_ssa_default_local_read_after_branchy_control},\"ssa_dropped_unreachable_debris_before_hard_unreachable\":\{facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable},\"ssa_canonical_body_local_next_read\":\{facts.has_ssa_canonical_body_local_next_read},\"ssa_immediate_block_exit_canonical_set_br\":\{facts.has_ssa_immediate_block_exit_canonical_set_br},\"ssa_enclosing_label_copy_before_exit\":\{facts.has_ssa_enclosing_label_copy_before_exit},\"ssa_void_br_table_canonical_copies\":\{facts.has_ssa_void_br_table_canonical_copies},\"ssa_branch_operand_local_boundary\":\{facts.has_ssa_branch_operand_local_boundary},\"ssa_nested_loop_target_boundary\":\{facts.has_ssa_nested_loop_target_boundary},\"ssa_large_structured_local_mix\":\{facts.has_ssa_large_structured_local_mix}}"
+  "{\"mode\":\"\{fuzz_json_escape(@debug.to_string(facts.mode))}\",\"imports\":\{facts.has_imports},\"func_exports\":\{facts.has_func_exports},\"table_exports\":\{facts.has_table_exports},\"mem_exports\":\{facts.has_mem_exports},\"global_exports\":\{facts.has_global_exports},\"tag_exports\":\{facts.has_tag_exports},\"start\":\{facts.has_start},\"lacks_start\":\{facts.lacks_start},\"tables\":\{facts.has_tables},\"mems\":\{facts.has_mems},\"globals\":\{facts.has_globals},\"tags\":\{facts.has_tags},\"elems\":\{facts.has_elems},\"datas\":\{facts.has_datas},\"data_count\":\{facts.has_data_count},\"ref_types\":\{facts.uses_ref_types},\"v128\":\{facts.uses_v128},\"calls\":\{facts.has_call},\"call_indirect\":\{facts.has_call_indirect},\"branch_heavy_control\":\{facts.has_branch_heavy_control},\"payload_control_flow\":\{facts.has_payload_control_flow},\"multivalue_control_flow\":\{facts.has_multivalue_control_flow},\"numeric_full_ops\":\{facts.has_numeric_full_ops},\"br_table\":\{facts.has_br_table},\"standalone_unreachable\":\{facts.has_standalone_unreachable},\"local_tee\":\{facts.has_local_tee},\"typed_select\":\{facts.has_typed_select},\"tail_calls\":\{facts.has_tail_calls},\"scalar_memory_widths\":\{facts.has_scalar_memory_widths},\"nonzero_memarg\":\{facts.has_nonzero_memarg},\"memory_limit_variants\":\{facts.has_memory_limit_variants},\"table_limit_variants\":\{facts.has_table_limit_variants},\"const_expr_variants\":\{facts.has_const_expr_variants},\"basic_ref_instructions\":\{facts.has_basic_ref_instructions},\"i31_extern_conversions\":\{facts.has_i31_extern_conversions},\"simd_phase1\":\{facts.has_simd_phase1},\"simd_phase2\":\{facts.has_simd_phase2},\"simd_phase3\":\{facts.has_simd_phase3},\"atomics\":\{facts.has_atomics},\"gc_constructors\":\{facts.has_gc_constructors},\"gc_accessors\":\{facts.has_gc_accessors},\"string_ops\":\{facts.has_string_ops},\"exception_try_table_matrix\":\{facts.has_exception_try_table_matrix},\"subtyping_topology\":\{facts.has_subtyping_topology},\"rich_gc_field_plans\":\{facts.has_rich_gc_field_plans},\"import_export_topology\":\{facts.has_import_export_topology},\"element_segment_range\":\{facts.has_element_segment_range},\"data_segment_range\":\{facts.has_data_segment_range},\"name_custom_sections\":\{facts.has_name_custom_sections},\"gc_exception_combo\":\{facts.has_gc_exception_combo},\"gc_tail_call_combo\":\{facts.has_gc_tail_call_combo},\"shared_memory_atomics\":\{facts.has_shared_memory_atomics},\"imports_start_exports\":\{facts.has_imports_start_exports},\"semantic_effects\":\{facts.has_semantic_effects},\"import_event_channel\":\{facts.has_import_event_channel},\"trap_frontier\":\{facts.has_trap_frontier},\"resource_observation\":\{facts.has_resource_observation},\"poisoned_dead_code\":\{facts.has_poisoned_dead_code},\"ssa_straight_line_local_chain\":\{facts.has_ssa_straight_line_local_chain},\"ssa_already_ssa_local\":\{facts.has_ssa_already_ssa_local},\"ssa_multi_def_same_local\":\{facts.has_ssa_multi_def_same_local},\"ssa_param_entry_read\":\{facts.has_ssa_param_entry_read},\"ssa_local_tee_def_use\":\{facts.has_ssa_local_tee_def_use},\"ssa_tee_freshen_candidate\":\{facts.has_ssa_tee_freshen_candidate},\"ssa_tee_merge_feeding_candidate\":\{facts.has_ssa_tee_merge_feeding_candidate},\"ssa_tee_child_expression\":\{facts.has_ssa_tee_child_expression},\"ssa_param_write\":\{facts.has_ssa_param_write},\"ssa_dead_local_set\":\{facts.has_ssa_dead_local_set},\"ssa_dead_local_tee\":\{facts.has_ssa_dead_local_tee},\"ssa_if_join_phi_candidate\":\{facts.has_ssa_if_join_phi_candidate},\"ssa_loop_backedge_phi_candidate\":\{facts.has_ssa_loop_backedge_phi_candidate},\"ssa_br_table_phi_candidate\":\{facts.has_ssa_br_table_phi_candidate},\"ssa_parallel_copy_candidate\":\{facts.has_ssa_parallel_copy_candidate},\"ssa_parallel_copy_cycle_candidate\":\{facts.has_ssa_parallel_copy_cycle_candidate},\"ssa_default_local_merge\":\{facts.has_ssa_default_local_merge},\"ssa_one_arm_default_merge\":\{facts.has_ssa_one_arm_default_merge},\"ssa_one_arm_param_merge\":\{facts.has_ssa_one_arm_param_merge},\"ssa_both_arm_local_merge\":\{facts.has_ssa_both_arm_local_merge},\"ssa_loop_carried_local_merge\":\{facts.has_ssa_loop_carried_local_merge},\"ssa_mixed_fresh_canonical_writes\":\{facts.has_ssa_mixed_fresh_canonical_writes},\"ssa_unreachable_local_carrier\":\{facts.has_ssa_unreachable_local_carrier},\"ssa_dropped_increment_guard_shape\":\{facts.has_ssa_dropped_increment_guard_shape},\"ssa_dropped_increment_reversed_boundary\":\{facts.has_ssa_dropped_increment_reversed_boundary},\"ssa_exceptional_fail_closed_shape\":\{facts.has_ssa_exceptional_fail_closed_shape},\"ssa_typed_loop_param_fail_closed_shape\":\{facts.has_ssa_typed_loop_param_fail_closed_shape},\"ssa_nested_cfg_fail_closed_shape\":\{facts.has_ssa_nested_cfg_fail_closed_shape},\"ssa_nested_result_if_supported_shape\":\{facts.has_ssa_nested_result_if_supported_shape},\"ssa_nested_result_if_condition_write\":\{facts.has_ssa_nested_result_if_condition_write},\"ssa_nested_result_if_condition_value_block\":\{facts.has_ssa_nested_result_if_condition_value_block},\"ssa_nested_result_if_arm_value_block\":\{facts.has_ssa_nested_result_if_arm_value_block},\"ssa_nested_result_if_mixed_arm_value_block\":\{facts.has_ssa_nested_result_if_mixed_arm_value_block},\"ssa_nested_result_if_scalar_result\":\{facts.has_ssa_nested_result_if_scalar_result},\"ssa_structured_early_return_local\":\{facts.has_ssa_structured_early_return_local},\"ssa_block_branch_merge_copy\":\{facts.has_ssa_block_branch_merge_copy},\"ssa_block_br_if_merge_copy\":\{facts.has_ssa_block_br_if_merge_copy},\"ssa_structured_param_merge\":\{facts.has_ssa_structured_param_merge},\"ssa_branch_local_not_read_later\":\{facts.has_ssa_branch_local_not_read_later},\"ssa_default_local_read_after_branchy_control\":\{facts.has_ssa_default_local_read_after_branchy_control},\"ssa_dropped_unreachable_debris_before_hard_unreachable\":\{facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable},\"ssa_canonical_body_local_next_read\":\{facts.has_ssa_canonical_body_local_next_read},\"ssa_immediate_block_exit_canonical_set_br\":\{facts.has_ssa_immediate_block_exit_canonical_set_br},\"ssa_enclosing_label_copy_before_exit\":\{facts.has_ssa_enclosing_label_copy_before_exit},\"ssa_void_br_table_canonical_copies\":\{facts.has_ssa_void_br_table_canonical_copies},\"ssa_branch_operand_local_boundary\":\{facts.has_ssa_branch_operand_local_boundary},\"ssa_nested_loop_target_boundary\":\{facts.has_ssa_nested_loop_target_boundary},\"ssa_large_structured_local_mix\":\{facts.has_ssa_large_structured_local_mix}}"
 }
 
 ///|
@@ -5343,8 +5416,16 @@ fn format_gen_valid_batch_manifest_json(
       Some(label) => "\"\{fuzz_json_escape(label)}\""
       None => "null"
     }
+    let base_file_json = match item.base_file_name {
+      Some(name) => "\"\{fuzz_json_escape(name)}\""
+      None => "null"
+    }
+    let relation_group_json = match item.relation_group_id {
+      Some(id) => "\"\{fuzz_json_escape(id)}\""
+      None => "null"
+    }
     out.write_string(
-      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"seed\":\{item.seed},\"index\":\{item.index},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(item.selected_profile)}\",\"profile_case_label\":\{profile_case_json},\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"transform_id\":\{transform_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)}}",
+      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"base_file_name\":\{base_file_json},\"relation_group_id\":\{relation_group_json},\"seed\":\{item.seed},\"index\":\{item.index},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(item.selected_profile)}\",\"profile_case_label\":\{profile_case_json},\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"transform_id\":\{transform_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)}}",
     )
     i += 1
   }
@@ -5374,56 +5455,6 @@ fn emit_gen_valid_batch_selection(
     Err(e) => return Err(e)
   }
   Ok(selection)
-}
-
-///|
-fn format_gen_valid_batch_compact_manifest_json(
-  args : EmitGenValidBatchArgs,
-  profile : GenValidProfile,
-  feature_stats : GenValidFeatureStats,
-  selected : Int,
-  attempts : Int,
-  skipped_candidates : Int,
-) -> String {
-  let out = StringBuilder::new()
-  out.write_string(
-    "{\"generator\":\"gen-valid\",\"seed\":\{args.seed},\"count\":\{args.count},\"profile\":\"\{fuzz_json_escape(args.profile)}\",\"max_attempts\":\{args.max_attempts},\"attempts\":\{attempts},\"selected\":\{selected},\"skipped_candidates\":\{skipped_candidates},\"metamorphic_transform_ids\":\{format_gen_valid_batch_transform_ids_json(args.metamorphic_transform_ids)},\"required_features\":\{format_validate_valid_feature_floors_json(args.required_features)},\"excluded_features\":\{format_gen_valid_batch_feature_keys_json(args.excluded_features)},\"feature_stats\":\{format_gen_valid_feature_stats_json(feature_stats)},\"stream_derivations\":\{format_gen_valid_stream_derivations_json(args.seed)},\"records\":[",
-  )
-  let requested_profile_label = gen_valid_profile_name(profile)
-  let config_label = if gen_valid_profile_is_composite(profile) {
-    requested_profile_label
-  } else {
-    args.profile
-  }
-  let mut i = 1
-  while i <= selected {
-    if i > 1 {
-      out.write_char(',')
-    }
-    let leaf_profile = gen_valid_profile_leaf_for_case(profile, args.seed, i)
-    let selected_profile_label = gen_valid_profile_name(leaf_profile)
-    let transform_json = if args.metamorphic_transform_ids.length() > 0 {
-      let transform_id = args.metamorphic_transform_ids[(i - 1) %
-        args.metamorphic_transform_ids.length()]
-      "\"\{fuzz_json_escape(transform_id)}\""
-    } else {
-      "null"
-    }
-    let profile_case_json = match
-      emit_gen_valid_batch_profile_case_label(
-        leaf_profile,
-        emit_gen_valid_batch_candidate_seed(args.seed, i),
-      ) {
-      Some(label) => "\"\{fuzz_json_escape(label)}\""
-      None => "null"
-    }
-    out.write_string(
-      "{\"file_name\":\"gen-valid-\{fuzz_zero_pad_decimal(i, 6)}.wasm\",\"seed\":\{args.seed},\"index\":\{i},\"config_label\":\"\{fuzz_json_escape(config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(selected_profile_label)}\",\"profile_case_label\":\{profile_case_json},\"attempts\":1,\"validated\":true,\"validation_error_message\":null,\"transform_id\":\{transform_json}}",
-    )
-    i += 1
-  }
-  out.write_string("]}")
-  out.to_string()
 }
 
 ///|
@@ -5476,6 +5507,7 @@ fn emit_gen_valid_batch_to_dir(
   let mut feature_stats = GenValidFeatureStats::empty(
     GenValidConfig::for_profile(first_leaf).mode,
   )
+  let manifest : Array[GenValidBatchManifestEntry] = []
   let mut selected = 0
   let mut attempts = 0
   let mut skipped_candidates = 0
@@ -5525,6 +5557,8 @@ fn emit_gen_valid_batch_to_dir(
         )
     }
     let mut artifact_module = generated.wasm_module
+    let mut metamorphic_base_bytes : Bytes? = None
+    let mut artifact_transform_id : String? = None
     if args.metamorphic_transform_ids.length() > 0 {
       let requested_id = args.metamorphic_transform_ids[selected %
         args.metamorphic_transform_ids.length()]
@@ -5544,6 +5578,14 @@ fn emit_gen_valid_batch_to_dir(
         Ok(v) => v
         Err(e) => return Err(e)
       }
+      artifact_transform_id = Some(transformed.transform_id)
+      metamorphic_base_bytes = match encode_module(generated.wasm_module) {
+        Ok(v) => Some(v)
+        Err(err) =>
+          return Err(
+            "gen-valid metamorphic base encode failed at attempt \{attempts}: \{err}",
+          )
+      }
       artifact_module = transformed.wasm_module
     }
     let bytes = match encode_module(artifact_module) {
@@ -5554,12 +5596,65 @@ fn emit_gen_valid_batch_to_dir(
         )
     }
     selected += 1
+    match metamorphic_base_bytes {
+      Some(base_bytes) => {
+        let base_path = fuzz_join_path(
+          args.out_dir,
+          gen_valid_metamorphic_base_file_name(selected),
+        )
+        match write_file_bytes(base_path, base_bytes) {
+          Ok(_) => ()
+          Err(e) =>
+            return Err(
+              "failed to write gen-valid metamorphic base artifact \{base_path}: \{e}",
+            )
+        }
+      }
+      None => ()
+    }
     let file_name = "gen-valid-\{fuzz_zero_pad_decimal(selected, 6)}.wasm"
+    let base_file_name = match artifact_transform_id {
+      Some(_) => Some(gen_valid_metamorphic_base_file_name(selected))
+      None => None
+    }
+    let relation_group_id = match artifact_transform_id {
+      Some(transform_id) =>
+        Some(
+          gen_valid_metamorphic_relation_group_id(
+            args.seed,
+            selected,
+            transform_id,
+          ),
+        )
+      None => None
+    }
     let path = fuzz_join_path(args.out_dir, file_name)
     match write_file_bytes(path, bytes) {
       Ok(_) => ()
       Err(e) => return Err("failed to write gen-valid artifact \{path}: \{e}")
     }
+    manifest.push({
+      file_name,
+      seed: args.seed,
+      index: selected,
+      config_label: if gen_valid_profile_is_composite(profile) {
+        gen_valid_profile_name(profile)
+      } else {
+        generated.config_label
+      },
+      selected_profile: selected_profile_label,
+      profile_case_label: emit_gen_valid_batch_profile_case_label(
+        leaf_profile,
+        emit_gen_valid_batch_candidate_seed(args.seed, attempts),
+      ),
+      attempts: generated.attempts,
+      validated: true,
+      validation_error_message: None,
+      facts: generated.facts,
+      transform_id: artifact_transform_id,
+      base_file_name,
+      relation_group_id,
+    })
     feature_stats = next_stats
   }
   let floor_failures = check_validate_valid_feature_floors(
@@ -5573,7 +5668,7 @@ fn emit_gen_valid_batch_to_dir(
   }
   let selection = {
     artifacts: [],
-    manifest: [],
+    manifest,
     feature_stats,
     floor_failures,
     selected,
@@ -5582,9 +5677,7 @@ fn emit_gen_valid_batch_to_dir(
   }
   match args.manifest_path {
     Some(path) => {
-      let manifest_json = format_gen_valid_batch_compact_manifest_json(
-        args, profile, feature_stats, selected, attempts, skipped_candidates,
-      )
+      let manifest_json = format_gen_valid_batch_manifest_json(args, selection)
       match write_file_bytes(path, fuzz_string_to_bytes(manifest_json)) {
         Ok(_) => ()
         Err(e) => return Err("failed to write gen-valid manifest \{path}: \{e}")
@@ -5820,7 +5913,7 @@ fn fuzz_seed_add(base : Int64, offset : Int) -> Int64 {
 
 ///|
 fn format_gen_valid_feature_stats_json(stats : GenValidFeatureStats) -> String {
-  "{\"mode\":\"\{fuzz_json_escape(@debug.to_string(stats.mode))}\",\"modules\":\{stats.modules},\"imports\":\{stats.imports},\"func_exports\":\{stats.func_exports},\"tables\":\{stats.tables},\"mems\":\{stats.mems},\"globals\":\{stats.globals},\"tags\":\{stats.tags},\"elems\":\{stats.elems},\"datas\":\{stats.datas},\"data_count\":\{stats.data_count},\"ref_types\":\{stats.ref_types},\"v128\":\{stats.v128},\"calls\":\{stats.calls},\"call_indirect\":\{stats.call_indirect},\"branch_heavy_control\":\{stats.branch_heavy_control},\"numeric_full_ops\":\{stats.numeric_full_ops},\"br_table\":\{stats.br_table},\"local_tee\":\{stats.local_tee},\"typed_select\":\{stats.typed_select},\"tail_calls\":\{stats.tail_calls},\"atomics\":\{stats.atomics},\"gc_constructors\":\{stats.gc_constructors},\"gc_accessors\":\{stats.gc_accessors},\"string_ops\":\{stats.string_ops},\"exception_try_table_matrix\":\{stats.exception_try_table_matrix},\"subtyping_topology\":\{stats.subtyping_topology},\"import_export_topology\":\{stats.import_export_topology}}"
+  "{\"mode\":\"\{fuzz_json_escape(@debug.to_string(stats.mode))}\",\"modules\":\{stats.modules},\"imports\":\{stats.imports},\"func_exports\":\{stats.func_exports},\"tables\":\{stats.tables},\"mems\":\{stats.mems},\"globals\":\{stats.globals},\"tags\":\{stats.tags},\"elems\":\{stats.elems},\"datas\":\{stats.datas},\"data_count\":\{stats.data_count},\"ref_types\":\{stats.ref_types},\"v128\":\{stats.v128},\"calls\":\{stats.calls},\"call_indirect\":\{stats.call_indirect},\"branch_heavy_control\":\{stats.branch_heavy_control},\"numeric_full_ops\":\{stats.numeric_full_ops},\"br_table\":\{stats.br_table},\"local_tee\":\{stats.local_tee},\"typed_select\":\{stats.typed_select},\"tail_calls\":\{stats.tail_calls},\"atomics\":\{stats.atomics},\"gc_constructors\":\{stats.gc_constructors},\"gc_accessors\":\{stats.gc_accessors},\"string_ops\":\{stats.string_ops},\"exception_try_table_matrix\":\{stats.exception_try_table_matrix},\"subtyping_topology\":\{stats.subtyping_topology},\"import_export_topology\":\{stats.import_export_topology},\"semantic_effects\":\{stats.semantic_effects},\"import_event_channel\":\{stats.import_event_channel},\"trap_frontier\":\{stats.trap_frontier},\"resource_observation\":\{stats.resource_observation},\"poisoned_dead_code\":\{stats.poisoned_dead_code}}"
 }
 
 ///|

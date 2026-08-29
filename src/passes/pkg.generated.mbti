@@ -211,6 +211,8 @@ pub fn pass_registry_all() -> Array[HotPassRegistryEntry]
 
 pub fn pass_registry_category(String) -> HotPassRegistryCategory?
 
+pub fn pass_registry_expanded_names_for_module(@lib.Module, HotPipelineOptions, Array[String]) -> Result[Array[String], String]
+
 pub fn pass_registry_fixed_point_cleanup_sequence() -> Array[String]
 
 pub fn pass_registry_help_entries() -> Array[HotPassRegistryEntry]

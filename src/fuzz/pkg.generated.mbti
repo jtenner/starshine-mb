@@ -598,6 +598,8 @@ pub struct GenValidBatchManifestEntry {
   validation_error_message : String?
   facts : @validate.GenValidFeatureFacts
   transform_id : String?
+  base_file_name : String?
+  relation_group_id : String?
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidCoverageSelection {

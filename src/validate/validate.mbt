@@ -3436,6 +3436,11 @@ pub enum ValidateValidFeatureKey {
   GcTailCallCombo
   SharedMemoryAtomics
   ImportsStartExports
+  SemanticEffects
+  ImportEventChannel
+  TrapFrontier
+  ResourceObservation
+  PoisonedDeadCode
   InvalidAstStrategies
   InvalidBinaryStrategies
   WastArbitraryParity
@@ -3549,6 +3554,11 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
     GcTailCallCombo => logger.write_string("GcTailCallCombo")
     SharedMemoryAtomics => logger.write_string("SharedMemoryAtomics")
     ImportsStartExports => logger.write_string("ImportsStartExports")
+    SemanticEffects => logger.write_string("SemanticEffects")
+    ImportEventChannel => logger.write_string("ImportEventChannel")
+    TrapFrontier => logger.write_string("TrapFrontier")
+    ResourceObservation => logger.write_string("ResourceObservation")
+    PoisonedDeadCode => logger.write_string("PoisonedDeadCode")
     InvalidAstStrategies => logger.write_string("InvalidAstStrategies")
     InvalidBinaryStrategies => logger.write_string("InvalidBinaryStrategies")
     WastArbitraryParity => logger.write_string("WastArbitraryParity")
@@ -3792,6 +3802,11 @@ pub fn validate_valid_feature_actual_count(
     GcTailCallCombo => stats.gc_tail_call_combo
     SharedMemoryAtomics => stats.shared_memory_atomics
     ImportsStartExports => stats.imports_start_exports
+    SemanticEffects => stats.semantic_effects
+    ImportEventChannel => stats.import_event_channel
+    TrapFrontier => stats.trap_frontier
+    ResourceObservation => stats.resource_observation
+    PoisonedDeadCode => stats.poisoned_dead_code
     InvalidAstStrategies => 0
     InvalidBinaryStrategies => 0
     WastArbitraryParity => 0
@@ -3916,6 +3931,11 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     GcTailCallCombo,
     SharedMemoryAtomics,
     ImportsStartExports,
+    SemanticEffects,
+    ImportEventChannel,
+    TrapFrontier,
+    ResourceObservation,
+    PoisonedDeadCode,
     InvalidAstStrategies,
     InvalidBinaryStrategies,
     WastArbitraryParity,
@@ -4085,6 +4105,11 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     GcTailCallCombo => "gc_tail_call_combo"
     SharedMemoryAtomics => "shared_memory_atomics"
     ImportsStartExports => "imports_start_exports"
+    SemanticEffects => "semantic_effects"
+    ImportEventChannel => "import_event_channel"
+    TrapFrontier => "trap_frontier"
+    ResourceObservation => "resource_observation"
+    PoisonedDeadCode => "poisoned_dead_code"
     InvalidAstStrategies => "invalid_ast_strategies"
     InvalidBinaryStrategies => "invalid_binary_strategies"
     WastArbitraryParity => "wast_arbitrary_parity"
@@ -4207,6 +4232,11 @@ fn validate_valid_feature_key_from_label(
     "gc_tail_call_combo" => Some(GcTailCallCombo)
     "shared_memory_atomics" => Some(SharedMemoryAtomics)
     "imports_start_exports" => Some(ImportsStartExports)
+    "semantic_effects" => Some(SemanticEffects)
+    "import_event_channel" => Some(ImportEventChannel)
+    "trap_frontier" => Some(TrapFrontier)
+    "resource_observation" => Some(ResourceObservation)
+    "poisoned_dead_code" => Some(PoisonedDeadCode)
     "invalid_ast_strategies" => Some(InvalidAstStrategies)
     "invalid_binary_strategies" => Some(InvalidBinaryStrategies)
     "wast_arbitrary_parity" => Some(WastArbitraryParity)

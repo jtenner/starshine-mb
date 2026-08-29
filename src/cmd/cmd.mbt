@@ -3553,6 +3553,15 @@ fn cmd_build_help_text() -> String {
     out, "--debug-serial-passes", "Debug mode: run one pass per segment, validate after each pass, and revalidate encoded output.",
   )
   append_help_line(
+    out, "--emit-runtime-interface-json", "Decode exactly one input and write its optimizer runtime-interface v1 report to stdout.",
+  )
+  append_help_line(
+    out, "--emit-expanded-pass-queue-json", "Decode exactly one input and write its module-aware expanded optimizer pass queue to stdout.",
+  )
+  append_help_line(
+    out, "--emit-optimizer-thresholds-json", "Write resolved optimizer threshold values to stdout without requiring an input.",
+  )
+  append_help_line(
     out, "--always-inline-max-function-size, -aimfs <N>", "Set the maximum size of functions that are always inlined (default 2).",
   )
   append_help_line(
@@ -4988,20 +4997,25 @@ pub fn run_cmd_with_adapter(
     Some(result) => return result
     None => ()
   }
+  let (effective_args, optimizer_report_mode) = match
+    cmd_extract_optimizer_report_mode(args) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
   cmd_prepare_runtime()
-  if args.length() > 0 {
-    if args[0] == "spec" || args[0] == "spec-runner" {
-      let spec_args = Array::new(capacity=args.length() - 1)
+  if effective_args.length() > 0 {
+    if effective_args[0] == "spec" || effective_args[0] == "spec-runner" {
+      let spec_args = Array::new(capacity=effective_args.length() - 1)
       let mut i = 1
-      while i < args.length() {
-        spec_args.push(args[i])
+      while i < effective_args.length() {
+        spec_args.push(effective_args[i])
         i += 1
       }
       return run_spec_cmd_with_adapter(spec_args, io)
     }
   }
 
-  let cli_base = match parse_cli_args(args) {
+  let cli_base = match parse_cli_args(effective_args) {
     Ok(parsed) => normalize_parse_result_paths(parsed)
     Err(e) => return Err(CmdError::CliParse(e))
   }
@@ -5099,7 +5113,8 @@ pub fn run_cmd_with_adapter(
     io,
     merged.glob_enabled,
   )
-  if input_files.length() == 0 {
+  if input_files.length() == 0 &&
+    optimizer_report_mode != Some(CmdOptimizerReportMode::Thresholds) {
     return Err(CmdError::NoInputFiles)
   }
   let traps_never_happen = resolve_traps_never_happen(merged)
@@ -5199,6 +5214,40 @@ pub fn run_cmd_with_adapter(
     low_memory_bound,
     merged.debug_serial_passes,
   )
+  match optimizer_report_mode {
+    Some(CmdOptimizerReportMode::Thresholds) =>
+      match
+        cmd_write_optimizer_report_stdout(
+          io,
+          cmd_optimizer_threshold_report_json(options),
+        ) {
+        Ok(_) =>
+          return Ok(
+            CmdRunSummary::new(
+              resolved_passes=resolved_passes.copy(),
+              optimize_level~,
+              shrink_level~,
+              traps_never_happen~,
+              ignore_implicit_traps~,
+              monomorphize_min_benefit~,
+              closed_world~,
+              low_memory_unused~,
+              low_memory_bound~,
+            ),
+          )
+        Err(err) => return Err(err)
+      }
+    Some(CmdOptimizerReportMode::ExpandedPassQueue)
+    | Some(CmdOptimizerReportMode::RuntimeInterface) =>
+      if input_files.length() != 1 {
+        return Err(
+          CmdError::OptimizeFailed(
+            "module optimizer JSON reports require exactly one input",
+          ),
+        )
+      }
+    None => ()
+  }
   cmd_trace_emit(
     io,
     trace_optimize,
@@ -5275,7 +5324,8 @@ pub fn run_cmd_with_adapter(
       "input \{input_path}:lowered bytes=\{wasm_bytes.length()}",
     )
 
-    if should_copy_wasm_noop_without_module_pipeline(
+    if optimizer_report_mode is None &&
+      should_copy_wasm_noop_without_module_pipeline(
         format,
         resolved_passes,
         pass_flags_truncated,
@@ -5309,6 +5359,58 @@ pub fn run_cmd_with_adapter(
     }
     cmd_trace_timer_stop(io, trace_optimize, "decode", decode_start_us)
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
+
+    match optimizer_report_mode {
+      Some(CmdOptimizerReportMode::ExpandedPassQueue) => {
+        let report = match
+          cmd_optimizer_pass_queue_report_json(mod, options, resolved_passes) {
+          Ok(text) => text
+          Err(err) => return Err(CmdError::OptimizeFailed(err))
+        }
+        match cmd_write_optimizer_report_stdout(io, report) {
+          Ok(_) =>
+            return Ok(
+              CmdRunSummary::new(
+                input_files=[input_path],
+                resolved_passes=resolved_passes.copy(),
+                optimize_level~,
+                shrink_level~,
+                traps_never_happen~,
+                ignore_implicit_traps~,
+                monomorphize_min_benefit~,
+                closed_world~,
+                low_memory_unused~,
+                low_memory_bound~,
+              ),
+            )
+          Err(err) => return Err(err)
+        }
+      }
+      Some(CmdOptimizerReportMode::RuntimeInterface) =>
+        match
+          cmd_write_optimizer_report_stdout(
+            io,
+            cmd_optimizer_runtime_interface_report_json(mod),
+          ) {
+          Ok(_) =>
+            return Ok(
+              CmdRunSummary::new(
+                input_files=[input_path],
+                resolved_passes=resolved_passes.copy(),
+                optimize_level~,
+                shrink_level~,
+                traps_never_happen~,
+                ignore_implicit_traps~,
+                monomorphize_min_benefit~,
+                closed_world~,
+                low_memory_unused~,
+                low_memory_bound~,
+              ),
+            )
+          Err(err) => return Err(err)
+        }
+      _ => ()
+    }
 
     let pipeline_setup_start_us = cmd_trace_timer_start(trace_optimize)
     let pipeline_steps = match cmd_resolve_pipeline_steps(resolved_passes) {

@@ -2212,7 +2212,7 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
       Ok(profile) => profile
       Err(msg) => fail(msg)
     },
-    InliningOptimizingAllProfile,
+    SemanticOptimizerAllProfile,
   )
 
   let memory = GenValidConfig::for_profile(PassMemoryProfile)

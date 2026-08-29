@@ -9865,6 +9865,248 @@ fn metamorphic_function_body_block_type(
 }
 
 ///|
+fn metamorphic_shift_outer_label(
+  label : @lib.LabelIdx,
+  control_depth : Int,
+  added_outer_depth : Int,
+) -> @lib.LabelIdx {
+  let @lib.LabelIdx(slot) = label
+  let depth = slot.reinterpret_as_int()
+  if depth >= control_depth {
+    @lib.LabelIdx::new((depth + added_outer_depth).reinterpret_as_uint())
+  } else {
+    label
+  }
+}
+
+///|
+fn metamorphic_shift_outer_catches(
+  catches : Array[@lib.Catch],
+  control_depth : Int,
+  added_outer_depth : Int,
+) -> Array[@lib.Catch] {
+  let shifted : Array[@lib.Catch] = []
+  for catch_ in catches {
+    match catch_ {
+      @lib.Catch(tag, label) =>
+        shifted.push(
+          @lib.Catch::new(
+            tag,
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.CatchRef(tag, label) =>
+        shifted.push(
+          @lib.Catch::ref_(
+            tag,
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.CatchAll(label) =>
+        shifted.push(
+          @lib.Catch::all(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.CatchAllRef(label) =>
+        shifted.push(
+          @lib.Catch::all_ref(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+    }
+  }
+  shifted
+}
+
+///|
+fn metamorphic_shift_outer_branches(
+  instrs : Array[@lib.Instruction],
+  added_outer_depth : Int,
+  control_depth? : Int = 0,
+) -> Array[@lib.Instruction] {
+  let shifted : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Br(label) =>
+        shifted.push(
+          @lib.Instruction::br(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.BrIf(label) =>
+        shifted.push(
+          @lib.Instruction::br_if(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.BrTable(labels, fallback) => {
+        let next_labels : Array[@lib.LabelIdx] = []
+        for label in labels {
+          next_labels.push(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+          )
+        }
+        shifted.push(
+          @lib.Instruction::br_table(
+            next_labels,
+            metamorphic_shift_outer_label(
+              fallback, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      }
+      @lib.BrOnNull(label) =>
+        shifted.push(
+          @lib.Instruction::br_on_null(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.BrOnNonNull(label) =>
+        shifted.push(
+          @lib.Instruction::br_on_non_null(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.BrOnCast(label, cast_op, source, target) =>
+        shifted.push(
+          @lib.Instruction::br_on_cast(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+            cast_op.source_nullable(),
+            source,
+            cast_op.target_nullable(),
+            target,
+            source_exact=cast_op.source_exact(),
+            target_exact=cast_op.target_exact(),
+          ),
+        )
+      @lib.BrOnCastFail(label, cast_op, source, target) =>
+        shifted.push(
+          @lib.Instruction::br_on_cast_fail(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+            cast_op.source_nullable(),
+            source,
+            cast_op.target_nullable(),
+            target,
+            source_exact=cast_op.source_exact(),
+            target_exact=cast_op.target_exact(),
+          ),
+        )
+      @lib.BrOnCastDescEq(label, source, target) =>
+        shifted.push(
+          @lib.Instruction::br_on_cast_desc_eq(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+            source,
+            target,
+          ),
+        )
+      @lib.BrOnCastDescEqFail(label, source, target) =>
+        shifted.push(
+          @lib.Instruction::br_on_cast_desc_eq_fail(
+            metamorphic_shift_outer_label(
+              label, control_depth, added_outer_depth,
+            ),
+            source,
+            target,
+          ),
+        )
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        shifted.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              metamorphic_shift_outer_branches(
+                body,
+                added_outer_depth,
+                control_depth=control_depth + 1,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        shifted.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              metamorphic_shift_outer_branches(
+                body,
+                added_outer_depth,
+                control_depth=control_depth + 1,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) => {
+        let next_else = match else_body {
+          Some(body) =>
+            Some(
+              metamorphic_shift_outer_branches(
+                body,
+                added_outer_depth,
+                control_depth=control_depth + 1,
+              ),
+            )
+          None => None
+        }
+        shifted.push(
+          @lib.Instruction::if_(
+            block_type,
+            metamorphic_shift_outer_branches(
+              then_body,
+              added_outer_depth,
+              control_depth=control_depth + 1,
+            ),
+            next_else,
+          ),
+        )
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        shifted.push(
+          @lib.Instruction::try_table(
+            block_type,
+            metamorphic_shift_outer_catches(
+              catches, control_depth, added_outer_depth,
+            ),
+            @lib.Expr::new(
+              metamorphic_shift_outer_branches(
+                body,
+                added_outer_depth,
+                control_depth=control_depth + 1,
+              ),
+            ),
+          ),
+        )
+      _ => shifted.push(instr)
+    }
+  }
+  shifted
+}
+
+///|
 fn metamorphic_wrap_defined_function_bodies_in_identity_blocks(
   mod : @lib.Module,
   depth : Int,
@@ -9887,7 +10129,10 @@ fn metamorphic_wrap_defined_function_bodies_in_identity_blocks(
             }
             match block_type {
               Some(bt) => {
-                let mut wrapped = expr
+                let @lib.Expr(body) = expr
+                let mut wrapped = @lib.Expr::new(
+                  metamorphic_shift_outer_branches(body, depth),
+                )
                 for k = 0; k < depth; k = k + 1 {
                   wrapped = @lib.Expr::new([
                     @lib.Instruction::block(bt, wrapped),
@@ -9942,7 +10187,10 @@ fn metamorphic_wrap_defined_function_bodies_in_identity_loops(
             }
             match block_type {
               Some(bt) => {
-                let mut wrapped = expr
+                let @lib.Expr(body) = expr
+                let mut wrapped = @lib.Expr::new(
+                  metamorphic_shift_outer_branches(body, depth),
+                )
                 for k = 0; k < depth; k = k + 1 {
                   wrapped = @lib.Expr::new([
                     @lib.Instruction::loop_(bt, wrapped),

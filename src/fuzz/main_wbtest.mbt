@@ -967,6 +967,14 @@ test "FUZ1045A7 text differential suite is opt-in and skips unavailable tools" {
 }
 
 ///|
+test "metamorphic identity-loop wrapper preserves catch_ref label typing" {
+  match run_validate_valid_metamorphic_fuzz("ci", 117179728388800956UL) {
+    Ok(stats) => assert_true(stats.validated > 0)
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "validate-valid-metamorphic suite is active and reports transform details" {
   assert_true(fuzz_active_suite_names().contains("validate-valid-metamorphic"))
   let results = match
@@ -2502,6 +2510,14 @@ test "gen-valid batch manifest reports requested and applied metamorphic transfo
     manifest.contains("\"transform_id\":\"add-non-name-custom-section\""),
   )
   assert_true(manifest.contains("\"transform_id\":\"add-module-name-section\""))
+  assert_true(
+    manifest.contains("\"base_file_name\":\"gen-valid-000001-base.wasm\""),
+  )
+  assert_true(
+    manifest.contains(
+      "\"relation_group_id\":\"metamorphic:4150:1:add-non-name-custom-section\"",
+    ),
+  )
 }
 
 ///|

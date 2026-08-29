@@ -718,6 +718,11 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
+  SemanticEffectsProfile
+  SemanticImportEventsProfile
+  SemanticTrapFrontierProfile
+  SemanticResourcesProfile
+  SemanticOptimizerAllProfile
   GsiDescCastPositiveProfile
   GsiDescCastZeroBoundaryProfile
   GsiDescCastMultiBoundaryProfile
@@ -1083,6 +1088,11 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ControlHeavyProfile => "control-heavy"
     TopologyHeavyProfile => "topology-heavy"
     PathologicalValidProfile => "pathological-valid"
+    SemanticEffectsProfile => "semantic-effects"
+    SemanticImportEventsProfile => "semantic-import-events"
+    SemanticTrapFrontierProfile => "semantic-trap-frontier"
+    SemanticResourcesProfile => "semantic-resources"
+    SemanticOptimizerAllProfile => "semantic-optimizer-all"
     GsiDescCastPositiveProfile => "gsi-desc-cast-positive"
     GsiDescCastZeroBoundaryProfile => "gsi-desc-cast-zero-boundary"
     GsiDescCastMultiBoundaryProfile => "gsi-desc-cast-multi-boundary"
@@ -1405,6 +1415,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | SgoAllProfile
     | FlattenAllProfile
     | DirectizeAllProfile
+    | SemanticOptimizerAllProfile
     | RandomAllProfilesProfile => true
     _ => false
   }
@@ -1849,6 +1860,13 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(DirectizeLegacyEhProfile, 3),
         GenValidProfileMember::new(DirectizeBoundaryProfile, 2),
       ]
+    SemanticOptimizerAllProfile =>
+      [
+        GenValidProfileMember::new(SemanticEffectsProfile, 3),
+        GenValidProfileMember::new(SemanticImportEventsProfile, 3),
+        GenValidProfileMember::new(SemanticTrapFrontierProfile, 3),
+        GenValidProfileMember::new(SemanticResourcesProfile, 3),
+      ]
     RandomAllProfilesProfile =>
       [
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
@@ -2000,6 +2018,11 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ControlHeavyProfile,
     TopologyHeavyProfile,
     PathologicalValidProfile,
+    SemanticEffectsProfile,
+    SemanticImportEventsProfile,
+    SemanticTrapFrontierProfile,
+    SemanticResourcesProfile,
+    SemanticOptimizerAllProfile,
     GsiDescCastPositiveProfile,
     GsiDescCastZeroBoundaryProfile,
     GsiDescCastMultiBoundaryProfile,
@@ -2438,7 +2461,10 @@ pub fn gen_valid_profile_by_name(
     "optimize-casts-closeout" => Ok(OptimizeCastsAllProfile)
     "optimize-casts-all-profiles" => Ok(OptimizeCastsAllProfile)
     "inlining-optimizing" => Ok(InliningOptimizingAllProfile)
-    "runtime-callable" => Ok(InliningOptimizingAllProfile)
+    "runtime-callable" => Ok(SemanticOptimizerAllProfile)
+    "semantic-optimizer" => Ok(SemanticOptimizerAllProfile)
+    "semantic-optimizer-closeout" => Ok(SemanticOptimizerAllProfile)
+    "semantic-optimizer-all-profiles" => Ok(SemanticOptimizerAllProfile)
     "inlining-optimizing-closeout" => Ok(InliningOptimizingAllProfile)
     "inlining-optimizing-all-profiles" => Ok(InliningOptimizingAllProfile)
     "io" => Ok(InliningOptimizingAllProfile)
@@ -4797,6 +4823,157 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_name_length: 256,
         max_segment_payload_size: 4096,
       }
+    SemanticEffectsProfile => {
+      let base = GenValidConfig::portable_coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_imports: 4,
+        max_defined_funcs: 10,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 6,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_body_statements: 24,
+        section_bias: GenValidSectionBias::{
+          ..base.section_bias,
+          tables_percent: 0,
+          mems_percent: 0,
+        },
+        max_body_depth: 5,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_calls: true,
+          allow_start: false,
+          allow_elems: false,
+          allow_datas: false,
+          allow_v128: false,
+          allow_branch_heavy_control: true,
+          allow_relaxed_simd: false,
+          allow_table_limit_variants: false,
+          allow_memory_limit_variants: false,
+          allow_shared_memories: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_const_expr_variants: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    }
+    SemanticImportEventsProfile => {
+      let base = GenValidConfig::portable_coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_imports: 4,
+        max_defined_funcs: 10,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 6,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        section_bias: GenValidSectionBias::{
+          ..base.section_bias,
+          imports_percent: 100,
+          tables_percent: 0,
+          mems_percent: 0,
+        },
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: true,
+          allow_start: false,
+          allow_elems: false,
+          allow_datas: false,
+          allow_v128: false,
+          allow_calls: true,
+          allow_relaxed_simd: false,
+          allow_table_limit_variants: false,
+          allow_memory_limit_variants: false,
+          allow_shared_memories: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_const_expr_variants: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    }
+    SemanticTrapFrontierProfile => {
+      let base = GenValidConfig::portable_coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_imports: 4,
+        max_defined_funcs: 12,
+        max_tables: 0,
+        max_mems: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_body_statements: 32,
+        section_bias: GenValidSectionBias::{
+          ..base.section_bias,
+          tables_percent: 0,
+          mems_percent: 0,
+        },
+        max_body_depth: 7,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_call_indirect: true,
+          allow_start: false,
+          allow_elems: false,
+          allow_datas: false,
+          allow_v128: false,
+          allow_branch_heavy_control: true,
+          allow_relaxed_simd: false,
+          allow_table_limit_variants: false,
+          allow_memory_limit_variants: false,
+          allow_shared_memories: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_const_expr_variants: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    }
+    SemanticResourcesProfile => {
+      let base = GenValidConfig::portable_coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_imports: 4,
+        max_defined_funcs: 10,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 10,
+        max_elems: 0,
+        max_datas: 0,
+        max_segment_payload_size: 1024,
+        section_bias: GenValidSectionBias::{
+          ..base.section_bias,
+          tables_percent: 0,
+          mems_percent: 0,
+        },
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_tables: true,
+          allow_mems: true,
+          allow_globals: true,
+          allow_elems: false,
+          allow_datas: false,
+          allow_start: false,
+          allow_v128: false,
+          allow_memory64: false,
+          allow_shared_memories: false,
+          allow_atomics: false,
+          allow_relaxed_simd: false,
+          allow_const_expr_variants: false,
+          allow_table_limit_variants: false,
+          allow_memory_limit_variants: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    }
+    SemanticOptimizerAllProfile =>
+      GenValidConfig::for_profile(SemanticEffectsProfile)
     GsiDescCastPositiveProfile
     | GsiDescCastZeroBoundaryProfile
     | GsiDescCastMultiBoundaryProfile
@@ -9520,6 +9697,11 @@ pub struct GenValidFeatureFacts {
   has_gc_tail_call_combo : Bool
   has_shared_memory_atomics : Bool
   has_imports_start_exports : Bool
+  has_semantic_effects : Bool
+  has_import_event_channel : Bool
+  has_trap_frontier : Bool
+  has_resource_observation : Bool
+  has_poisoned_dead_code : Bool
   has_ssa_straight_line_local_chain : Bool
   has_ssa_already_ssa_local : Bool
   has_ssa_multi_def_same_local : Bool
@@ -9700,6 +9882,11 @@ pub struct GenValidFeatureStats {
   gc_tail_call_combo : Int
   shared_memory_atomics : Int
   imports_start_exports : Int
+  semantic_effects : Int
+  import_event_channel : Int
+  trap_frontier : Int
+  resource_observation : Int
+  poisoned_dead_code : Int
   ssa_straight_line_local_chain : Int
   ssa_already_ssa_local : Int
   ssa_multi_def_same_local : Int
@@ -10060,6 +10247,11 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     gc_tail_call_combo: 0,
     shared_memory_atomics: 0,
     imports_start_exports: 0,
+    semantic_effects: 0,
+    import_event_channel: 0,
+    trap_frontier: 0,
+    resource_observation: 0,
+    poisoned_dead_code: 0,
     ssa_straight_line_local_chain: 0,
     ssa_already_ssa_local: 0,
     ssa_multi_def_same_local: 0,
@@ -10223,6 +10415,16 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_shared_memory_atomics),
     imports_start_exports: self.imports_start_exports +
     gen_valid_bool_count(facts.has_imports_start_exports),
+    semantic_effects: self.semantic_effects +
+    gen_valid_bool_count(facts.has_semantic_effects),
+    import_event_channel: self.import_event_channel +
+    gen_valid_bool_count(facts.has_import_event_channel),
+    trap_frontier: self.trap_frontier +
+    gen_valid_bool_count(facts.has_trap_frontier),
+    resource_observation: self.resource_observation +
+    gen_valid_bool_count(facts.has_resource_observation),
+    poisoned_dead_code: self.poisoned_dead_code +
+    gen_valid_bool_count(facts.has_poisoned_dead_code),
     ssa_straight_line_local_chain: self.ssa_straight_line_local_chain +
     gen_valid_bool_count(facts.has_ssa_straight_line_local_chain),
     ssa_already_ssa_local: self.ssa_already_ssa_local +
@@ -37695,6 +37897,19 @@ pub fn gen_valid_feature_facts(
     has_gc_tail_call_combo: has_gc_feature && has_tail_calls,
     has_shared_memory_atomics: has_shared_memories && has_atomics,
     has_imports_start_exports: has_imports && has_start && has_any_export,
+    has_semantic_effects: has_call ||
+    has_mems ||
+    has_globals ||
+    has_tables ||
+    has_tags,
+    has_import_event_channel: has_imports && (has_start || has_func_exports),
+    has_trap_frontier: has_standalone_unreachable ||
+    has_call_indirect ||
+    has_exception_try_table_matrix ||
+    has_scalar_memory_widths,
+    has_resource_observation: has_mems && has_tables && has_globals,
+    has_poisoned_dead_code: has_standalone_unreachable &&
+    (control_nodes >= 2 || branch_ops > 0),
     has_ssa_straight_line_local_chain: ssa_facts.has_ssa_straight_line_local_chain,
     has_ssa_already_ssa_local: ssa_facts.has_ssa_already_ssa_local,
     has_ssa_multi_def_same_local: ssa_facts.has_ssa_multi_def_same_local,

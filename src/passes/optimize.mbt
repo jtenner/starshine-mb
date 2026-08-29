@@ -1190,6 +1190,24 @@ fn run_hot_pipeline_expand_passes(
 }
 
 ///|
+pub fn pass_registry_expanded_names_for_module(
+  mod_ : @lib.Module,
+  options : HotPipelineOptions,
+  requested_passes : Array[String],
+) -> Result[Array[String], String] {
+  let entries = match
+    run_hot_pipeline_expand_passes(mod_, options, requested_passes) {
+    Ok(entries) => entries
+    Err(err) => return Err(err)
+  }
+  let names : Array[String] = []
+  for entry in entries {
+    names.push(entry.name)
+  }
+  Ok(names)
+}
+
+///|
 fn run_hot_pipeline_entry_can_stack(entry : HotPassRegistryEntry) -> Bool {
   match entry.descriptor {
     Some(descriptor) =>
