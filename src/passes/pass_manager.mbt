@@ -44827,6 +44827,60 @@ fn run_hot_pipeline_raw_precompute_has_call_result_local_reload(
 fn run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
+  for start = 0; start < instrs.length(); start = start + 1 {
+    let carrier = match instrs[start] {
+      @lib.LocalGet(carrier) => carrier
+      _ => continue
+    }
+    let mut values_above_carrier = 0
+    let mut overwritten_while_live = false
+    let mut carrier_alive = true
+    let end = Int::min(instrs.length(), start + 24)
+    for idx = start + 1; idx < end; idx = idx + 1 {
+      match instrs[idx] {
+        @lib.LocalGet(_) => values_above_carrier += 1
+        @lib.LocalSet(written) =>
+          if values_above_carrier > 0 {
+            values_above_carrier -= 1
+            if written == carrier {
+              overwritten_while_live = true
+            }
+          } else {
+            if overwritten_while_live {
+              return true
+            }
+            carrier_alive = false
+            break
+          }
+        @lib.LocalTee(written) =>
+          if values_above_carrier > 0 {
+            if written == carrier {
+              overwritten_while_live = true
+            }
+          } else if overwritten_while_live {
+            return true
+          }
+        @lib.Drop =>
+          if values_above_carrier > 0 {
+            values_above_carrier -= 1
+          } else {
+            carrier_alive = false
+            break
+          }
+        @lib.Nop => ()
+        _ => {
+          if overwritten_while_live {
+            return true
+          }
+          carrier_alive = false
+          break
+        }
+      }
+    }
+    if carrier_alive && overwritten_while_live {
+      return true
+    }
+  }
   for start = 0; start + 3 < instrs.length(); start = start + 1 {
     match
       (instrs[start], instrs[start + 1], instrs[start + 2], instrs[start + 3]) {

@@ -73,6 +73,42 @@ test "precompute keeps stack-carried call producers before intervening effects" 
 }
 
 ///|
+test "precompute preserves three-value stack-carried overwritten locals" {
+  let source =
+    #|(module
+    #|  (func (export "f") (param i64 i32 i64) (result i64)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    local.set 0
+    #|    drop
+    #|    local.set 2
+    #|    local.get 2))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried overwrite precompute success, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+    original.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("reason=stack-carried-overwritten-local-precompute-noop")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "precompute preserves folded tee writes observed after stack-carried values" {
   let optimized = match
     pass_test_run_pipeline(
