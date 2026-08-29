@@ -22,6 +22,7 @@ import {
   passFuzzResumedOptimizerCountersForTest,
   passFuzzSizeCountersForTest,
   parseBinaryenVersionOutputForTest,
+  passFuzzShouldReduceMismatchForTest,
 } from "./pass-fuzz-compare-task";
 
 describe("pass-fuzz persistent cache options", () => {
@@ -258,6 +259,30 @@ describe("pass-fuzz persistent cache options", () => {
       hasUnreachable: true,
       mayTrap: true,
     });
+  });
+
+  test("does not reduce structural mismatches that cannot be persisted", () => {
+    expect(passFuzzShouldReduceMismatchForTest({
+      reduceMismatches: true,
+      generator: "gen-valid",
+      replay: false,
+      persistedCount: 19,
+      maxMismatchArtifacts: 20,
+    })).toBe(true);
+    expect(passFuzzShouldReduceMismatchForTest({
+      reduceMismatches: true,
+      generator: "gen-valid",
+      replay: false,
+      persistedCount: 20,
+      maxMismatchArtifacts: 20,
+    })).toBe(false);
+    expect(passFuzzShouldReduceMismatchForTest({
+      reduceMismatches: false,
+      generator: "gen-valid",
+      replay: false,
+      persistedCount: 0,
+      maxMismatchArtifacts: 20,
+    })).toBe(false);
   });
 
   test("caps persisted mismatch artifacts independently from mismatch counting", () => {

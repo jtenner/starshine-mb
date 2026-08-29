@@ -3020,6 +3020,19 @@ function safeArtifactNameSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
 }
 
+export function passFuzzShouldReduceMismatchForTest(options: {
+  reduceMismatches: boolean;
+  generator: GeneratorKind;
+  replay: boolean;
+  persistedCount: number;
+  maxMismatchArtifacts: number;
+}): boolean {
+  return options.reduceMismatches &&
+    options.generator === "gen-valid" &&
+    !options.replay &&
+    options.persistedCount < options.maxMismatchArtifacts;
+}
+
 export function passFuzzReductionLogTextForTest(status: CaseStatus, reductionArtifact: MismatchReductionArtifact): string {
   return formatReductionReportLog({
     status,
@@ -6339,7 +6352,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.mismatchCount += 1;
         failures += 1;
         const detail = "normalized outputs differed";
-        const reductionArtifact = options.reduceMismatches && generator === "gen-valid" && replayCase === null
+        const reductionArtifact = passFuzzShouldReduceMismatchForTest({
+          reduceMismatches: options.reduceMismatches,
+          generator,
+          replay: replayCase !== null,
+          persistedCount: summary.mismatchArtifactsPersistedCount,
+          maxMismatchArtifacts: options.maxMismatchArtifacts,
+        })
           ? reduceGenValidMismatchInput(
               inputPath,
               options,

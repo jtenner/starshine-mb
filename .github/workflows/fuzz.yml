@@ -149,6 +149,7 @@ jobs:
             --jobs auto \
             --max-subprocesses 4 \
             --max-mismatch-artifacts 10 \
+            --no-reduce-mismatches \
             --starshine-bin _build/native/release/build/cmd/cmd.exe \
             --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" \
             --require-binaryen-version 131 \
