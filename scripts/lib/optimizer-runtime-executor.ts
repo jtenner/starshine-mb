@@ -39,6 +39,15 @@ export type NodeObservationV2Options = {
 
 export type NodeThreeWaySemanticOracleV2Report = {
   schema: "starshine.optimizer-three-way-runtime-report.v1";
+  timings: {
+    runtimeInterfaceMs: number;
+    invocationPlanMs: number;
+    originalObservationMs: number;
+    starshineObservationMs: number;
+    binaryenObservationMs: number;
+    comparisonMs: number;
+    totalMs: number;
+  };
   runtimeInterface: RuntimeInterfaceV1;
   plan: InvocationPlanV2;
   original: RuntimeObservationV2;
@@ -1153,6 +1162,8 @@ export async function runNodeThreeWaySemanticOracleV2(
     binaryenDiagnostic?: "ok" | "tool-failure" | "timeout" | "unsupported";
   },
 ): Promise<NodeThreeWaySemanticOracleV2Report> {
+  const totalStarted = performance.now();
+  let stageStarted = performance.now();
   const runtimeInterface = options.starshineBin != null
     ? buildRuntimeInterfaceFromStarshine(
         originalWasmPath,
@@ -1161,10 +1172,13 @@ export async function runNodeThreeWaySemanticOracleV2(
         options.starshineArgsPrefix,
       )
     : buildRuntimeInterfaceFromWasm(originalWasmPath, options.wasmToolsBin);
+  const runtimeInterfaceMs = performance.now() - stageStarted;
+  stageStarted = performance.now();
   const plan = buildInvocationPlanV2(runtimeInterface, {
     seed: options.seed,
     maxPairwise: options.maxPairwise,
   });
+  const invocationPlanMs = performance.now() - stageStarted;
   const executionOptions: NodeObservationV2Options = {
     mode: options.mode,
     timeoutMs: options.timeoutMs,
@@ -1172,18 +1186,23 @@ export async function runNodeThreeWaySemanticOracleV2(
     tableEntryCap: options.tableEntryCap,
     wasmToolsBin: options.wasmToolsBin,
   };
+  stageStarted = performance.now();
   const original = await executeNodeObservationV2WithTimeout(
     originalWasmPath,
     runtimeInterface,
     plan,
     executionOptions,
   );
+  const originalObservationMs = performance.now() - stageStarted;
+  stageStarted = performance.now();
   const starshine = await executeNodeObservationV2WithTimeout(
     starshineWasmPath,
     runtimeInterface,
     plan,
     executionOptions,
   );
+  const starshineObservationMs = performance.now() - stageStarted;
+  stageStarted = performance.now();
   const binaryen = binaryenWasmPath === null
     ? null
     : await executeNodeObservationV2WithTimeout(
@@ -1192,6 +1211,8 @@ export async function runNodeThreeWaySemanticOracleV2(
         plan,
         executionOptions,
       );
+  const binaryenObservationMs = binaryenWasmPath === null ? 0 : performance.now() - stageStarted;
+  stageStarted = performance.now();
   const originalVsStarshine = compareRuntimeObservationsV2(original, starshine, options.policy);
   const originalVsBinaryen = binaryen === null
     ? null
@@ -1210,8 +1231,18 @@ export async function runNodeThreeWaySemanticOracleV2(
     starshineVsBinaryen: threeWayRelation(starshineVsBinaryen),
     binaryenDiagnostic: options.binaryenDiagnostic ?? (binaryen === null ? "tool-failure" : "ok"),
   });
+  const comparisonMs = performance.now() - stageStarted;
   return {
     schema: "starshine.optimizer-three-way-runtime-report.v1",
+    timings: {
+      runtimeInterfaceMs,
+      invocationPlanMs,
+      originalObservationMs,
+      starshineObservationMs,
+      binaryenObservationMs,
+      comparisonMs,
+      totalMs: performance.now() - totalStarted,
+    },
     runtimeInterface,
     plan,
     original,

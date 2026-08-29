@@ -154,6 +154,15 @@ describe("three-way Node semantic oracle v2", () => {
     expect(report.classification.pattern).toBe("only-starshine-differs");
     expect(report.originalVsStarshine.classification).toBe("semantic-mismatch");
     expect(report.originalVsBinaryen?.classification).toBe("semantic-match");
+    expect(report.timings.runtimeInterfaceMs).toBeGreaterThanOrEqual(0);
+    expect(report.timings.invocationPlanMs).toBeGreaterThanOrEqual(0);
+    expect(report.timings.originalObservationMs).toBeGreaterThanOrEqual(0);
+    expect(report.timings.starshineObservationMs).toBeGreaterThanOrEqual(0);
+    expect(report.timings.binaryenObservationMs).toBeGreaterThanOrEqual(0);
+    expect(report.timings.comparisonMs).toBeGreaterThanOrEqual(0);
+    expect(report.timings.totalMs).toBeGreaterThanOrEqual(
+      report.timings.runtimeInterfaceMs + report.timings.invocationPlanMs,
+    );
   });
 
   test("continues original-versus-Starshine when Binaryen is unavailable", async () => {

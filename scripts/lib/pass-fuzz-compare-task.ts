@@ -4914,7 +4914,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             timeoutMs: options.runtimeTimeoutMs,
             memoryCapBytes: options.observationMemoryCapBytes,
             tableEntryCap: options.observationTableEntryCap,
-            runtimeVersion: `node-v2:${binaryenDiagnostic}`,
+            runtimeVersion: `node-v2-timings-v1:${binaryenDiagnostic}`,
           });
       semanticV2Report = semanticCacheRoot === null || semanticCacheKey === null
         ? null
