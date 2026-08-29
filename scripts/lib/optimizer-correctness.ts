@@ -809,6 +809,30 @@ export async function reducePassSequencePreservingFailureClassAsync(
   return { passes: current, failureClass, predicateEvaluations, steps };
 }
 
+export {
+  buildInvocationPlanV2,
+  classifyThreeWaySemanticComparison,
+  compareRuntimeObservationsV2,
+  emptyRuntimeObservationV2,
+  normalizeRuntimeTrap,
+  sha256RuntimeValue,
+  stableRuntimeJson,
+  type InvocationPlanV2,
+  type RuntimeInterfaceV1,
+  type RuntimeObservationV2,
+  type SemanticComparisonV2,
+  type TypedRuntimeValue,
+} from "./optimizer-runtime";
+
+export {
+  runCommutatorProperty,
+  runConvergenceProperty,
+  runMetamorphicEquivalenceProperty,
+  runSemanticIdempotenceProperty,
+  type OptimizerPropertyResult,
+  type PropertyHarness,
+} from "./optimizer-properties";
+
 export function runOptionalWasmReduce(options: {
   wasmReduceBin: string;
   inputPath: string;

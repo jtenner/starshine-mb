@@ -1,3 +1,19 @@
+export type EffectTrapHazard = {
+  offset: number;
+  opcode: number;
+  kind:
+    | "import-or-local-call"
+    | "global-write"
+    | "memory-read"
+    | "memory-write"
+    | "table-read"
+    | "table-write"
+    | "atomic"
+    | "exception"
+    | "explicit-unreachable"
+    | "possible-trap";
+};
+
 export type EffectTrapFacts = {
   hasCall: boolean;
   mutatesMemory: boolean;
@@ -7,6 +23,8 @@ export type EffectTrapFacts = {
   hasAtomics: boolean;
   hasUnreachable: boolean;
   mayTrap: boolean;
+  hazards: EffectTrapHazard[];
+  possibleTrapCategories: string[];
 };
 
 export function emptyEffectTrapFacts(): EffectTrapFacts {
@@ -19,7 +37,49 @@ export function emptyEffectTrapFacts(): EffectTrapFacts {
     hasAtomics: false,
     hasUnreachable: false,
     mayTrap: false,
+    hazards: [],
+    possibleTrapCategories: [],
   };
+}
+
+function noteTrapCategory(facts: EffectTrapFacts, category: string): void {
+  if (!facts.possibleTrapCategories.includes(category)) facts.possibleTrapCategories.push(category);
+}
+
+function noteHazard(facts: EffectTrapFacts, offset: number, opcode: number, kind: EffectTrapHazard["kind"]): void {
+  facts.hazards.push({ offset, opcode, kind });
+}
+
+function recordOpcodeHazard(facts: EffectTrapFacts, opcode: number, offset: number): void {
+  if (opcode === 0x00) {
+    noteHazard(facts, offset, opcode, "explicit-unreachable");
+    noteTrapCategory(facts, "explicit-unreachable");
+  } else if (opcode === 0x10 || opcode === 0x12 || opcode === 0x11 || opcode === 0x13) {
+    noteHazard(facts, offset, opcode, "import-or-local-call");
+    if (opcode === 0x11 || opcode === 0x13) noteTrapCategory(facts, "indirect-call-type-mismatch");
+  } else if (opcode === 0x24) {
+    noteHazard(facts, offset, opcode, "global-write");
+  } else if (opcode === 0x25) {
+    noteHazard(facts, offset, opcode, "table-read");
+    noteTrapCategory(facts, "out-of-bounds-table-access");
+  } else if (opcode === 0x26) {
+    noteHazard(facts, offset, opcode, "table-write");
+    noteTrapCategory(facts, "out-of-bounds-table-access");
+  } else if (opcode >= 0x28 && opcode <= 0x35) {
+    noteHazard(facts, offset, opcode, "memory-read");
+    noteTrapCategory(facts, "out-of-bounds-memory-access");
+  } else if (opcode >= 0x36 && opcode <= 0x3e) {
+    noteHazard(facts, offset, opcode, "memory-write");
+    noteTrapCategory(facts, "out-of-bounds-memory-access");
+  } else if ((opcode >= 0x6d && opcode <= 0x70) || (opcode >= 0x7f && opcode <= 0x82)) {
+    noteHazard(facts, offset, opcode, "possible-trap");
+    noteTrapCategory(facts, "integer-division-or-remainder");
+  } else if (opcode === 0xfe) {
+    noteHazard(facts, offset, opcode, "atomic");
+    noteTrapCategory(facts, "atomic-memory-access");
+  } else if (opcode === 0x06 || opcode === 0x07 || opcode === 0x08 || opcode === 0x09 || opcode === 0x0a || opcode === 0x18 || opcode === 0x19) {
+    noteHazard(facts, offset, opcode, "exception");
+  }
 }
 
 function markTrap(facts: EffectTrapFacts): void {
@@ -237,7 +297,10 @@ export function scanEffectTrapFactsFromWasmBytes(input: Uint8Array): EffectTrapF
   const ranges = codeBodyRanges(input) ?? [{ start: 0, end: input.length }];
   for (const { start, end } of ranges) {
     for (let offset = start; offset < end; offset += 1) {
-      offset = scanOpcode(input[offset], input, offset + 1, end, facts) - 1;
+      const opcodeOffset = offset;
+      const opcode = input[offset];
+      recordOpcodeHazard(facts, opcode, opcodeOffset);
+      offset = scanOpcode(opcode, input, offset + 1, end, facts) - 1;
     }
   }
   return facts;

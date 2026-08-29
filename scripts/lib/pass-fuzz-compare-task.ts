@@ -15,7 +15,7 @@ import {
 } from "./task-runtime";
 import { type FuzzSummaryReport, formatFuzzSummaryReport, normalizeFuzzSummaryReport } from "./fuzz-summary-counters";
 import { type EffectTrapFacts, scanEffectTrapFactsFromWasmBytes } from "./effect-trap-scanner";
-import { formatReductionReportLog, reduceBinaryByByteSlicesWithReport, type ReductionStep } from "./fuzz-reducers";
+import { formatReductionReportLog, reduceBinaryByByteSlicesWithReport, reduceBinaryByByteSlicesWithReportAsync, type ReductionStep } from "./fuzz-reducers";
 import { normalizeSsaLocalAllocationDebris } from "./pass-fuzz-ssa-local-allocation-debris";
 import {
   classifyOptimizerDeterminism,
@@ -26,6 +26,37 @@ import {
   type SelfSemanticOracleReport,
 } from "./optimizer-correctness";
 import { replayOptimizerFailure } from "./optimizer-replay";
+import {
+  runNodeThreeWaySemanticOracleV2,
+  type NodeThreeWaySemanticOracleV2Report,
+} from "./optimizer-runtime-executor";
+import type { ObservationMode } from "./optimizer-runtime";
+import {
+  localizeFirstSemanticDivergence,
+  type PassLocalizationReport,
+  type LocalizationRunner,
+} from "./optimizer-localization";
+import {
+  runCommutatorProperty,
+  runConvergenceProperty,
+  runMetamorphicEquivalenceProperty,
+  runSemanticIdempotenceProperty,
+  type OptimizerPropertyResult,
+  type PropertyHarness,
+} from "./optimizer-properties";
+import { loadExpandedPassQueueFromStarshine } from "./optimizer-expanded-pass-queue";
+import {
+  buildSemanticCacheKey,
+  loadSemanticCacheEntry,
+  storeSemanticCacheEntry,
+} from "./optimizer-semantic-cache";
+import {
+  fingerprintMatches,
+  semanticFingerprintFromRuntimeReport,
+  semanticFingerprintHash,
+  stableSemanticFingerprintJson,
+  type SemanticFailureFingerprint,
+} from "./optimizer-failure-fingerprint";
 
 type GeneratorMode = "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
@@ -33,6 +64,7 @@ type CompareNormalizer = "drop-consts" | "unreachable-control-debris" | "local-c
 type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure" | "property-failure";
 type ExternalValidatorKind = "wasm-tools" | "binaryen" | "wabt";
 type RuntimeExecutionMode = "off" | "node";
+type SemanticOracleMode = "off" | "node-v2";
 export type RuntimeInvocationOutcome =
   | { kind: "result"; value: unknown }
   | { kind: "trap"; detail: string }
@@ -65,9 +97,14 @@ type RuntimeExportInvocationMatrixPersistence = {
   outcome: RuntimeExportInvocationMatrixOutcome;
   semanticMismatchSamples: RuntimeExportInvocationReport[];
 };
-type PropertyMode = "none" | "idempotence" | "composition";
+type PropertyMode = "none" | "idempotence" | "composition" | "semantic-idempotence" | "convergence";
 type PropertyFailureClass =
   | "semantic-self"
+  | "semantic-self-v2"
+  | "semantic-idempotence"
+  | "convergence"
+  | "commutator"
+  | "metamorphic-equivalence"
   | "optimizer-nondeterminism"
   | "optimizer-idempotence"
   | "codec-idempotence"
@@ -102,8 +139,18 @@ type PassFuzzCompareOptions = {
   externalValidators: ExternalValidatorKind[];
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
+  propertyModes: Exclude<PropertyMode, "none">[];
+  convergenceMax: number;
+  commutatorLeft: string | null;
+  commutatorRight: string | null;
   selfSemantic: boolean;
+  semanticOracle: SemanticOracleMode;
   semanticPolicy: SemanticComparisonPolicy;
+  observationMode: ObservationMode;
+  observationMemoryCapBytes: number;
+  observationTableEntryCap: number;
+  runtimeTimeoutMs: number;
+  localizeFirstDivergence: boolean;
   determinism: boolean;
   codecIdempotence: boolean;
   serialPasses: boolean;
@@ -112,11 +159,13 @@ type PassFuzzCompareOptions = {
   genValidRequiredFeatures: string[];
   genValidExcludedFeatures: string[];
   genValidMetamorphicTransforms: string[];
+  emitMetamorphicPairs: boolean;
   maxFailures: number;
   maxMismatchArtifacts: number;
   maxSubprocesses: number;
   keepGoingAfterCommandFailures: boolean;
   reduceMismatches: boolean;
+  semanticReductionRelaxFamily: boolean;
   jobs: number | null;
   passFlags: string[];
   optimizerFlags: OptimizerModeFlag[];
@@ -150,21 +199,47 @@ type SemanticSelfOutcome = SelfSemanticOracleReport["classification"];
 type DeterminismOutcome = "byte-stable" | "canonical-stable-only" | "failure";
 type CodecIdempotenceOutcome = "stable" | "failure";
 
+type CaseEffectTrapFacts = Pick<
+  EffectTrapFacts,
+  | "hasCall"
+  | "mutatesMemory"
+  | "mutatesTable"
+  | "mutatesGlobal"
+  | "hasException"
+  | "hasAtomics"
+  | "hasUnreachable"
+  | "mayTrap"
+>;
+
 type CaseRecord = {
   caseIndex: number;
   generator: GeneratorKind;
   status: CaseStatus;
   detail: string;
   failureClass?: CommandFailureClass;
+  diagnosticFailureClass?: CommandFailureClass;
   propertyFailureClass?: PropertyFailureClass;
   transformId?: string;
   genValidSelectedProfile?: string;
   genValidProfileCaseLabel?: string;
-  genValidFeatureFacts?: unknown;
-  inputEffectTrapFacts?: EffectTrapFacts;
+  inputEffectTrapFacts?: CaseEffectTrapFacts;
   semanticSelfOutcome?: SemanticSelfOutcome;
   determinismOutcome?: DeterminismOutcome;
   codecIdempotenceOutcome?: CodecIdempotenceOutcome;
+  semanticV2Outcome?: { primary: string; pattern: string };
+  semanticPropertyOutcomes?: Array<{
+    kind: "semantic-idempotence" | "convergence" | "commutator" | "metamorphic-equivalence";
+    status: string;
+    classification: string;
+  }>;
+  localizationOutcome?: {
+    classification: string;
+    recoveryCount: number;
+  };
+  idempotenceOutcome?: "pass" | "fail";
+  compositionOutcome?: "pass" | "fail";
+  binaryenCacheOutcome?: "hit" | "miss" | "failure-hit" | "failure-miss";
+  semanticCacheOutcome?: "hit" | "miss";
   starshineRawBytes?: number;
   binaryenRawBytes?: number;
   starshineCanonicalBytes?: number;
@@ -214,6 +289,7 @@ export type PassFuzzCompareSummary = {
   mismatchArtifactsSuppressedCount: number;
   maxSubprocesses: number;
   reduceMismatches: boolean;
+  semanticReductionRelaxFamily: boolean;
   jobs: number;
   seed: string;
   generator: GeneratorMode;
@@ -228,10 +304,51 @@ export type PassFuzzCompareSummary = {
   externalValidators: ExternalValidatorKind[];
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
+  propertyModes: Exclude<PropertyMode, "none">[];
+  convergenceMax: number;
   propertyFailureCount: number;
   propertyFailureClasses: Partial<Record<PropertyFailureClass, number>>;
   selfSemantic: boolean;
+  semanticOracle: SemanticOracleMode;
   semanticPolicy: SemanticComparisonPolicy;
+  observationMode: ObservationMode;
+  observationMemoryCapBytes: number;
+  observationTableEntryCap: number;
+  runtimeTimeoutMs: number;
+  semanticV2CheckedCount: number;
+  semanticV2MatchCount: number;
+  semanticV2BlockedCount: number;
+  semanticV2MismatchCount: number;
+  semanticV2ThreeWayPatterns: Record<string, number>;
+  semanticIdempotenceCheckedCount: number;
+  semanticIdempotenceMatchCount: number;
+  semanticIdempotenceBlockedCount: number;
+  semanticIdempotenceFailureCount: number;
+  convergenceCheckedCount: number;
+  convergenceFixedPointCount: number;
+  convergenceBlockedCount: number;
+  convergenceFailureCount: number;
+  convergenceClassifications: Record<string, number>;
+  commutatorLeft: string | null;
+  commutatorRight: string | null;
+  commutatorCheckedCount: number;
+  commutatorMatchCount: number;
+  commutatorBlockedCount: number;
+  commutatorFailureCount: number;
+  commutatorClassifications: Record<string, number>;
+  emitMetamorphicPairs: boolean;
+  metamorphicCheckedCount: number;
+  metamorphicMatchCount: number;
+  metamorphicBlockedCount: number;
+  metamorphicFailureCount: number;
+  metamorphicGeneratorFailureCount: number;
+  metamorphicClassifications: Record<string, number>;
+  localizeFirstDivergence: boolean;
+  localizationCheckedCount: number;
+  localizationReproducedCount: number;
+  localizationContextDependentCount: number;
+  localizationBlockedCount: number;
+  localizationRecoveriesCount: number;
   semanticSelfCheckedCount: number;
   semanticSelfMatchCount: number;
   semanticSelfBlockedCount: number;
@@ -274,6 +391,8 @@ export type PassFuzzCompareSummary = {
     binaryenMisses: number;
     binaryenFailureHits: number;
     binaryenFailureMisses: number;
+    semanticHits: number;
+    semanticMisses: number;
   };
   failureDirs: string[];
 };
@@ -292,13 +411,23 @@ const RESERVED_OPTIONS = new Set([
   "--external-validator",
   "--runtime-execution",
   "--property",
+  "--convergence-max",
+  "--commutator-left",
+  "--commutator-right",
   "--semantic-policy",
+  "--semantic-oracle",
+  "--observation-mode",
+  "--observation-memory-cap-bytes",
+  "--observation-table-entry-cap",
+  "--runtime-timeout-ms",
+  "--localize-first-divergence",
   "--generator",
   "--wasm-smith",
   "--gen-valid-profile",
   "--require-feature",
   "--exclude-feature",
   "--gen-valid-metamorphic-transform",
+  "--emit-metamorphic-pairs",
   "--max-failures",
   "--max-mismatch-artifacts",
   "--max-subprocesses",
@@ -399,14 +528,31 @@ const HELP_TEXT = [
   "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
   "  --runtime-execution <mode>",
   "                       Optional Starshine-vs-Binaryen runtime smoke adapter: off | node. Default: off",
-  "  --self-semantic      Execute the original input and Starshine output with one replayable deterministic plan",
+  "  --self-semantic      Execute the legacy version 1 original-vs-Starshine semantic oracle",
+  "  --semantic-oracle <mode>",
+  "                       Primary-original three-way semantic oracle: off | node-v2. Default: off",
   "  --semantic-policy <mode>",
-  "                       Self-semantic comparison: strict | canonical-nan | trap-aware. Default: trap-aware",
+  "                       Semantic comparison: strict | canonical-nan | trap-aware. Default: trap-aware",
+  "  --observation-mode <mode>",
+  "                       Invocation isolation for node-v2: independent | stateful. Default: independent",
+  "  --observation-memory-cap-bytes <n>",
+  "                       Maximum bytes observed per memory; larger resources are blocked. Default: 1048576",
+  "  --observation-table-entry-cap <n>",
+  "                       Maximum entries observed per table; larger resources are blocked. Default: 1024",
+  "  --runtime-timeout-ms <n>",
+  "                       Per-module worker timeout for semantic execution. Default: 1000",
+  "  --localize-first-divergence",
+  "                       On semantic failure, evaluate prefix zero and every pass boundary and replay the boundary pass alone",
   "  --determinism        Optimize two fresh decodes of the same input and require deterministic output",
   "  --codec-idempotence  Decode/encode the optimized output twice and require stable Starshine bytes",
   "  --debug-serial-passes",
   "                       Run Starshine with validation after each pass boundary instead of stacked scheduling",
-  "  --property <mode>    Existing optional property check: idempotence | composition. Default: none",
+  "  --property <mode>    Optional property; may repeat: idempotence | composition | semantic-idempotence | convergence",
+  "  --convergence-max <n>",
+  "                       Maximum optimizer generations for convergence. Default: 8",
+  "  --commutator-left <pass>",
+  "  --commutator-right <pass>",
+  "                       Run P(Q(M)) versus Q(P(M)) under node-v2; both operands are required",
   "  --binaryen-validate-bin <path>",
   "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
   "  --wabt-validate-bin <path>",
@@ -421,6 +567,8 @@ const HELP_TEXT = [
   "                       Exclude GenValid batch features; may repeat",
   "  --gen-valid-metamorphic-transform <id>",
   "                       Request transformed GenValid variants and preserve transform ids in reports; may repeat",
+  "  --emit-metamorphic-pairs",
+  "                       Execute each transformed GenValid case against its emitted deterministic base twin under node-v2",
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --max-mismatch-artifacts <n>",
   "                       Persist at most this many ordinary mismatch bundles. Default: 20",
@@ -430,6 +578,8 @@ const HELP_TEXT = [
   "                       Record command failures without counting them toward --max-failures",
   "  --no-reduce-mismatches",
   "                       Persist mismatch artifacts without running the GenValid byte-slice reducer",
+  "  --semantic-reduction-relax-family",
+  "                       After exact semantic reduction makes no progress, explicitly allow and record family-level relaxation",
   "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris, local-cleanup-debris, ssa-local-allocation-debris. May repeat",
   "  --jobs <n|auto>       Concurrent case jobs. Default: auto with --starshine-bin, otherwise 1; auto uses available parallelism; >1 requires --starshine-bin",
   "  --cache-dir <dir>     Persistent cache for wasm-smith inputs and Binaryen oracle outputs. Default: .tmp/pass-fuzz-cache",
@@ -628,11 +778,33 @@ function normalizeRuntimeExecutionMode(raw: string): RuntimeExecutionMode {
   }
 }
 
+function normalizeSemanticOracleMode(raw: string): SemanticOracleMode {
+  switch (raw.trim()) {
+    case "off":
+    case "node-v2":
+      return raw.trim();
+    default:
+      fail(`unsupported semantic oracle for pass-fuzz-compare: ${raw}`);
+  }
+}
+
+function normalizeObservationMode(raw: string): ObservationMode {
+  switch (raw.trim()) {
+    case "independent":
+    case "stateful":
+      return raw.trim();
+    default:
+      fail(`unsupported observation mode for pass-fuzz-compare: ${raw}`);
+  }
+}
+
 function normalizePropertyMode(raw: string): PropertyMode {
   switch (raw.trim()) {
     case "none":
     case "idempotence":
     case "composition":
+    case "semantic-idempotence":
+    case "convergence":
       return raw.trim();
     default:
       fail(`unsupported property mode for pass-fuzz-compare: ${raw}`);
@@ -2416,7 +2588,7 @@ function requiredGenValidCount(mode: GeneratorMode, totalCount: number): number 
 function listGeneratedGenValidInputs(dir: string): string[] {
   return fs
     .readdirSync(dir)
-    .filter((entry) => entry.endsWith(".wasm"))
+    .filter((entry) => /^gen-valid-\d{6}\.wasm$/.test(entry))
     .sort()
     .map((entry) => path.join(dir, entry));
 }
@@ -2434,7 +2606,22 @@ function emptyEffectTrapCounts(): EffectTrapCounts {
   };
 }
 
-function noteInputEffectTrapFacts(summary: PassFuzzCompareSummary, facts: EffectTrapFacts): void {
+export function boundedEffectTrapFactsForCase(
+  facts: CaseEffectTrapFacts | EffectTrapFacts,
+): CaseEffectTrapFacts {
+  return {
+    hasCall: facts.hasCall,
+    mutatesMemory: facts.mutatesMemory,
+    mutatesTable: facts.mutatesTable,
+    mutatesGlobal: facts.mutatesGlobal,
+    hasException: facts.hasException,
+    hasAtomics: facts.hasAtomics,
+    hasUnreachable: facts.hasUnreachable,
+    mayTrap: facts.mayTrap,
+  };
+}
+
+function noteInputEffectTrapFacts(summary: PassFuzzCompareSummary, facts: CaseEffectTrapFacts): void {
   if (facts.hasCall) summary.inputEffectTrapCounts.hasCall += 1;
   if (facts.mutatesMemory) summary.inputEffectTrapCounts.mutatesMemory += 1;
   if (facts.mutatesTable) summary.inputEffectTrapCounts.mutatesTable += 1;
@@ -2451,6 +2638,14 @@ function genValidManifestTransformId(genValidManifestEntry: unknown | null): str
     if (typeof transformId === "string" && transformId.length > 0) {
       return transformId;
     }
+  }
+  return null;
+}
+
+function genValidManifestPairField(genValidManifestEntry: unknown | null, field: "base_file_name" | "relation_group_id"): string | null {
+  if (genValidManifestEntry !== null && typeof genValidManifestEntry === "object" && field in genValidManifestEntry) {
+    const value = (genValidManifestEntry as Record<string, unknown>)[field];
+    if (typeof value === "string" && value.length > 0) return value;
   }
   return null;
 }
@@ -2502,6 +2697,63 @@ function noteGenValidProfileCaseCount(summary: PassFuzzCompareSummary, profileCa
   }
   const counts = summary.genValidProfileCaseCounts ?? (summary.genValidProfileCaseCounts = {});
   counts[profileCaseLabel] = (counts[profileCaseLabel] ?? 0) + 1;
+}
+
+function noteSemanticV2Report(
+  summary: PassFuzzCompareSummary,
+  report: NodeThreeWaySemanticOracleV2Report,
+): void {
+  summary.semanticV2CheckedCount += 1;
+  const primary = report.classification.primary;
+  if (primary === "semantic-match") summary.semanticV2MatchCount += 1;
+  else if (primary === "blocked-original-runtime") summary.semanticV2BlockedCount += 1;
+  else summary.semanticV2MismatchCount += 1;
+  const pattern = report.classification.pattern;
+  summary.semanticV2ThreeWayPatterns[pattern] = (summary.semanticV2ThreeWayPatterns[pattern] ?? 0) + 1;
+}
+
+function semanticV2IsStarshineFailure(report: NodeThreeWaySemanticOracleV2Report): boolean {
+  return report.classification.primary === "starshine-semantic-mismatch"
+    || report.classification.primary === "starshine-correctness-failure";
+}
+
+function persistSemanticV2Report(
+  outDir: string,
+  workDir: string,
+  caseIndex: number,
+  report: NodeThreeWaySemanticOracleV2Report,
+): string {
+  const text = JSON.stringify(report, null, 2) + "\n";
+  fs.writeFileSync(path.join(workDir, "semantic-v2.json"), text);
+  const observationsDir = path.join(outDir, "semantic-observations");
+  fs.mkdirSync(observationsDir, { recursive: true });
+  const reportPath = path.join(observationsDir, `case-${String(caseIndex).padStart(6, "0")}.json`);
+  fs.writeFileSync(reportPath, text);
+  return reportPath;
+}
+
+function semanticFingerprintFromV2Report(
+  report: NodeThreeWaySemanticOracleV2Report,
+  passFlags: string[],
+  localization: PassLocalizationReport | null = null,
+): SemanticFailureFingerprint {
+  return semanticFingerprintFromRuntimeReport(report, {
+    passSequence: localization?.passSequence ?? passFlags.map((flag) => flag.replace(/^--/, "")),
+    firstDivergentPassBoundary: localization?.firstDivergentBoundary?.pass ?? null,
+  });
+}
+
+function persistSemanticV2Fingerprint(
+  workDir: string,
+  report: NodeThreeWaySemanticOracleV2Report,
+  passFlags: string[],
+  localization: PassLocalizationReport | null = null,
+): { fingerprint: SemanticFailureFingerprint; hash: string } {
+  const fingerprint = semanticFingerprintFromV2Report(report, passFlags, localization);
+  const hash = semanticFingerprintHash(fingerprint);
+  fs.writeFileSync(path.join(workDir, "semantic-fingerprint.json"), stableSemanticFingerprintJson(fingerprint));
+  fs.writeFileSync(path.join(workDir, "semantic-fingerprint.sha256"), `${hash}\n`);
+  return { fingerprint, hash };
 }
 
 function noteRuntimeExportInvocationMatrix(
@@ -2585,6 +2837,32 @@ export function passFuzzSummaryCoverageReport(summary: PassFuzzCompareSummary): 
   for (const [profileCaseLabel, count] of Object.entries(summary.genValidProfileCaseCounts ?? {})) {
     addCounter(strategies, `optional_gen_valid_profile_case_${sanitizeCounterKey(profileCaseLabel)}`, count);
   }
+  addCounter(strategies, "optional_semantic_v2_checked", summary.semanticV2CheckedCount ?? 0);
+  addCounter(strategies, "optional_semantic_v2_matched", summary.semanticV2MatchCount ?? 0);
+  addCounter(strategies, "optional_semantic_v2_blocked", summary.semanticV2BlockedCount ?? 0);
+  for (const [pattern, count] of Object.entries(summary.semanticV2ThreeWayPatterns ?? {})) {
+    addCounter(strategies, `optional_semantic_v2_pattern_${sanitizeCounterKey(pattern)}`, count);
+  }
+  addCounter(strategies, "optional_semantic_idempotence_checked", summary.semanticIdempotenceCheckedCount ?? 0);
+  addCounter(strategies, "optional_semantic_idempotence_matched", summary.semanticIdempotenceMatchCount ?? 0);
+  addCounter(strategies, "optional_convergence_checked", summary.convergenceCheckedCount ?? 0);
+  addCounter(strategies, "optional_convergence_fixed_point", summary.convergenceFixedPointCount ?? 0);
+  addCounter(strategies, "optional_commutator_checked", summary.commutatorCheckedCount ?? 0);
+  addCounter(strategies, "optional_commutator_matched", summary.commutatorMatchCount ?? 0);
+  addCounter(strategies, "optional_metamorphic_checked", summary.metamorphicCheckedCount ?? 0);
+  addCounter(strategies, "optional_metamorphic_matched", summary.metamorphicMatchCount ?? 0);
+  for (const [classification, count] of Object.entries(summary.metamorphicClassifications ?? {})) {
+    addCounter(strategies, `optional_metamorphic_${sanitizeCounterKey(classification)}`, count);
+  }
+  for (const [classification, count] of Object.entries(summary.commutatorClassifications ?? {})) {
+    addCounter(strategies, `optional_commutator_${sanitizeCounterKey(classification)}`, count);
+  }
+  for (const [classification, count] of Object.entries(summary.convergenceClassifications ?? {})) {
+    addCounter(strategies, `optional_convergence_${sanitizeCounterKey(classification)}`, count);
+  }
+  addCounter(strategies, "optional_localization_checked", summary.localizationCheckedCount ?? 0);
+  addCounter(strategies, "optional_localization_reproduced", summary.localizationReproducedCount ?? 0);
+  addCounter(strategies, "optional_localization_recoveries", summary.localizationRecoveriesCount ?? 0);
   addCounter(strategies, "optional_semantic_self_checked", summary.semanticSelfCheckedCount);
   addCounter(strategies, "optional_semantic_self_matched", summary.semanticSelfMatchCount);
   addCounter(strategies, "optional_semantic_self_blocked", summary.semanticSelfBlockedCount);
@@ -2616,6 +2894,9 @@ export function passFuzzSummaryCoverageReport(summary: PassFuzzCompareSummary): 
   addCounter(failures, "generator", summary.generatorFailureCount);
   addCounter(failures, "command", summary.commandFailureCount);
   addCounter(failures, "property", summary.propertyFailureCount);
+  addCounter(failures, "semantic.v2", summary.semanticV2MismatchCount ?? 0);
+  addCounter(failures, "semantic.idempotence", summary.semanticIdempotenceFailureCount ?? 0);
+  addCounter(failures, "convergence", summary.convergenceFailureCount ?? 0);
   addCounter(failures, "semantic.self", summary.semanticSelfMismatchCount);
   addCounter(failures, "optimizer.nondeterminism", summary.determinismFailureCount);
   for (const [failureClass, count] of Object.entries(summary.propertyFailureClasses ?? {})) {
@@ -2895,6 +3176,112 @@ function reduceGenValidMismatchInput(
   };
 }
 
+async function reduceSemanticV2FailureInput(
+  inputPath: string,
+  expectedFingerprint: SemanticFailureFingerprint,
+  options: PassFuzzCompareOptions,
+  starshineInvocation: StarshineInvocation,
+  repoRoot: string,
+  repoTmpDir: string,
+  repoTmpEnv: NodeJS.ProcessEnv,
+  workDir: string,
+  semanticSeed: bigint,
+): Promise<void> {
+  const originalBytes = fs.readFileSync(inputPath);
+  const reductionDir = fs.mkdtempSync(path.join(repoTmpDir, "starshine-semantic-fingerprint-reduce-"));
+  let evaluation = 0;
+  try {
+    const evaluateOnce = async (candidate: Uint8Array): Promise<SemanticFailureFingerprint | null> => {
+      evaluation += 1;
+      const candidatePath = path.join(reductionDir, `candidate-${evaluation}.wasm`);
+      const optimizedPath = path.join(reductionDir, `optimized-${evaluation}.wasm`);
+      fs.writeFileSync(candidatePath, candidate);
+      if (!(await runValidateAsync(options.wasmToolsBin, candidatePath, repoRoot)).ok) return null;
+      try {
+        await runStarshineWithRetry(
+          starshineInvocation,
+          [
+            ...starshineInvocation.argsPrefix,
+            ...starshineExecutionFlags(options),
+            ...options.passFlags,
+            "--out",
+            optimizedPath,
+            candidatePath,
+          ],
+          optimizedPath,
+          repoRoot,
+          repoTmpEnv,
+        );
+      } catch {
+        return null;
+      }
+      if (!(await runValidateAsync(options.wasmToolsBin, optimizedPath, repoRoot)).ok) return null;
+      const report = await runNodeThreeWaySemanticOracleV2(candidatePath, optimizedPath, null, {
+        seed: semanticSeed,
+        policy: options.semanticPolicy,
+        mode: options.observationMode,
+        timeoutMs: options.runtimeTimeoutMs,
+        memoryCapBytes: options.observationMemoryCapBytes,
+        tableEntryCap: options.observationTableEntryCap,
+        wasmToolsBin: options.wasmToolsBin,
+        starshineBin: starshineInvocation.command,
+        starshineArgsPrefix: starshineInvocation.argsPrefix,
+        binaryenDiagnostic: "tool-failure",
+      });
+      if (!semanticV2IsStarshineFailure(report)) return null;
+      return semanticFingerprintFromRuntimeReport(report, {
+        passSequence: expectedFingerprint.passSequence,
+        firstDivergentPassBoundary: expectedFingerprint.firstDivergentPassBoundary ?? null,
+      });
+    };
+    const runLevel = async (bytes: Uint8Array, level: "exact" | "family") =>
+      reduceBinaryByByteSlicesWithReportAsync(bytes, async (candidate) => {
+        const first = await evaluateOnce(candidate);
+        if (first === null || !fingerprintMatches(expectedFingerprint, first, level)) return false;
+        const second = await evaluateOnce(candidate);
+        return second !== null
+          && fingerprintMatches(expectedFingerprint, second, level)
+          && fingerprintMatches(first, second, "exact");
+      });
+    const exactReduction = await runLevel(originalBytes, "exact");
+    let reduction = exactReduction;
+    let matchLevel: "exact" | "family" = "exact";
+    let relaxation: { from: "exact"; to: "family"; reason: string } | null = null;
+    if (exactReduction.finalSize === exactReduction.originalSize && options.semanticReductionRelaxFamily) {
+      relaxation = {
+        from: "exact",
+        to: "family",
+        reason: "explicit --semantic-reduction-relax-family after exact reducer made no progress",
+      };
+      reduction = await runLevel(originalBytes, "family");
+      matchLevel = "family";
+    }
+    const finalFingerprint = await evaluateOnce(reduction.result) ?? expectedFingerprint;
+    const report = {
+      schema: "starshine.optimizer-fingerprint-reduction.v1",
+      matchLevel,
+      originalFingerprint: expectedFingerprint,
+      finalFingerprint,
+      originalSize: reduction.originalSize,
+      finalSize: reduction.finalSize,
+      predicateEvaluations: exactReduction.predicateEvaluations +
+        (matchLevel === "family" ? reduction.predicateEvaluations : 0),
+      steps: matchLevel === "family"
+        ? [
+            ...exactReduction.steps.map((step) => ({ ...step, matchLevel: "exact" })),
+            ...reduction.steps.map((step) => ({ ...step, matchLevel: "family" })),
+          ]
+        : reduction.steps.map((step) => ({ ...step, matchLevel: "exact" })),
+      changed: reduction.finalSize < reduction.originalSize,
+      relaxation,
+    };
+    fs.writeFileSync(path.join(workDir, "semantic-fingerprint-reduction.json"), JSON.stringify(report, null, 2) + "\n");
+    if (report.changed) fs.writeFileSync(path.join(workDir, "semantic-reduced-input.wasm"), reduction.result);
+  } finally {
+    fs.rmSync(reductionDir, { recursive: true, force: true });
+  }
+}
+
 async function reduceOptimizerPropertyPasses(
   inputPath: string,
   failureClass: PropertyFailureClass,
@@ -3025,6 +3412,10 @@ function applyResumedCaseRecord(
   if (record.inputEffectTrapFacts !== undefined) {
     noteInputEffectTrapFacts(summary, record.inputEffectTrapFacts);
   }
+  if (record.diagnosticFailureClass !== undefined) {
+    summary.commandFailureCount += 1;
+    noteCommandFailureClass(summary, record.diagnosticFailureClass);
+  }
   const correctness = passFuzzResumedCorrectnessCountersForTest([record]);
   summary.semanticSelfCheckedCount += correctness.semanticSelfCheckedCount;
   summary.semanticSelfMatchCount += correctness.semanticSelfMatchCount;
@@ -3037,6 +3428,55 @@ function applyResumedCaseRecord(
   summary.determinismFailureCount += correctness.determinismFailureCount;
   summary.codecIdempotenceCheckedCount += correctness.codecIdempotenceCheckedCount;
   summary.codecIdempotenceMatchCount += correctness.codecIdempotenceMatchCount;
+  const optimizer = passFuzzResumedOptimizerCountersForTest([record]);
+  summary.semanticV2CheckedCount += optimizer.semanticV2CheckedCount;
+  summary.semanticV2MatchCount += optimizer.semanticV2MatchCount;
+  summary.semanticV2BlockedCount += optimizer.semanticV2BlockedCount;
+  summary.semanticV2MismatchCount += optimizer.semanticV2MismatchCount;
+  for (const [key, count] of Object.entries(optimizer.semanticV2ThreeWayPatterns)) {
+    summary.semanticV2ThreeWayPatterns[key] = (summary.semanticV2ThreeWayPatterns[key] ?? 0) + count;
+  }
+  summary.semanticIdempotenceCheckedCount += optimizer.semanticIdempotenceCheckedCount;
+  summary.semanticIdempotenceMatchCount += optimizer.semanticIdempotenceMatchCount;
+  summary.semanticIdempotenceBlockedCount += optimizer.semanticIdempotenceBlockedCount;
+  summary.semanticIdempotenceFailureCount += optimizer.semanticIdempotenceFailureCount;
+  summary.convergenceCheckedCount += optimizer.convergenceCheckedCount;
+  summary.convergenceFixedPointCount += optimizer.convergenceFixedPointCount;
+  summary.convergenceBlockedCount += optimizer.convergenceBlockedCount;
+  summary.convergenceFailureCount += optimizer.convergenceFailureCount;
+  for (const [key, count] of Object.entries(optimizer.convergenceClassifications)) {
+    summary.convergenceClassifications[key] = (summary.convergenceClassifications[key] ?? 0) + count;
+  }
+  summary.commutatorCheckedCount += optimizer.commutatorCheckedCount;
+  summary.commutatorMatchCount += optimizer.commutatorMatchCount;
+  summary.commutatorBlockedCount += optimizer.commutatorBlockedCount;
+  summary.commutatorFailureCount += optimizer.commutatorFailureCount;
+  for (const [key, count] of Object.entries(optimizer.commutatorClassifications)) {
+    summary.commutatorClassifications[key] = (summary.commutatorClassifications[key] ?? 0) + count;
+  }
+  summary.metamorphicCheckedCount += optimizer.metamorphicCheckedCount;
+  summary.metamorphicMatchCount += optimizer.metamorphicMatchCount;
+  summary.metamorphicBlockedCount += optimizer.metamorphicBlockedCount;
+  summary.metamorphicFailureCount += optimizer.metamorphicFailureCount;
+  summary.metamorphicGeneratorFailureCount += optimizer.metamorphicGeneratorFailureCount;
+  for (const [key, count] of Object.entries(optimizer.metamorphicClassifications)) {
+    summary.metamorphicClassifications[key] = (summary.metamorphicClassifications[key] ?? 0) + count;
+  }
+  summary.localizationCheckedCount += optimizer.localizationCheckedCount;
+  summary.localizationReproducedCount += optimizer.localizationReproducedCount;
+  summary.localizationContextDependentCount += optimizer.localizationContextDependentCount;
+  summary.localizationBlockedCount += optimizer.localizationBlockedCount;
+  summary.localizationRecoveriesCount += optimizer.localizationRecoveriesCount;
+  summary.idempotenceCheckedCount += optimizer.idempotenceCheckedCount;
+  summary.idempotenceMatchCount += optimizer.idempotenceMatchCount;
+  summary.compositionCheckedCount += optimizer.compositionCheckedCount;
+  summary.compositionMatchCount += optimizer.compositionMatchCount;
+  summary.cache.binaryenHits += optimizer.cache.binaryenHits;
+  summary.cache.binaryenMisses += optimizer.cache.binaryenMisses;
+  summary.cache.binaryenFailureHits += optimizer.cache.binaryenFailureHits;
+  summary.cache.binaryenFailureMisses += optimizer.cache.binaryenFailureMisses;
+  summary.cache.semanticHits += optimizer.cache.semanticHits;
+  summary.cache.semanticMisses += optimizer.cache.semanticMisses;
   const sizes = passFuzzSizeCountersForTest([record]);
   summary.starshineRawBytes += sizes.starshineRawBytes;
   summary.binaryenRawBytes += sizes.binaryenRawBytes;
@@ -3064,7 +3504,7 @@ function applyResumedCaseRecord(
     case "match":
       if (record.detail.startsWith("compare-normalized outputs matched")) {
         summary.cleanupNormalizedMatchCount += 1;
-      } else {
+      } else if (!record.detail.startsWith("original-primary semantic match")) {
         summary.normalizedMatchCount += 1;
       }
       return 0;
@@ -3208,6 +3648,117 @@ export function passFuzzResumedCorrectnessCountersForTest(
   return counters;
 }
 
+export function passFuzzResumedOptimizerCountersForTest(records: CaseRecord[]) {
+  const counters = {
+    semanticV2CheckedCount: 0,
+    semanticV2MatchCount: 0,
+    semanticV2BlockedCount: 0,
+    semanticV2MismatchCount: 0,
+    semanticV2ThreeWayPatterns: {} as Record<string, number>,
+    semanticIdempotenceCheckedCount: 0,
+    semanticIdempotenceMatchCount: 0,
+    semanticIdempotenceBlockedCount: 0,
+    semanticIdempotenceFailureCount: 0,
+    convergenceCheckedCount: 0,
+    convergenceFixedPointCount: 0,
+    convergenceBlockedCount: 0,
+    convergenceFailureCount: 0,
+    convergenceClassifications: {} as Record<string, number>,
+    commutatorCheckedCount: 0,
+    commutatorMatchCount: 0,
+    commutatorBlockedCount: 0,
+    commutatorFailureCount: 0,
+    commutatorClassifications: {} as Record<string, number>,
+    metamorphicCheckedCount: 0,
+    metamorphicMatchCount: 0,
+    metamorphicBlockedCount: 0,
+    metamorphicFailureCount: 0,
+    metamorphicGeneratorFailureCount: 0,
+    metamorphicClassifications: {} as Record<string, number>,
+    localizationCheckedCount: 0,
+    localizationReproducedCount: 0,
+    localizationContextDependentCount: 0,
+    localizationBlockedCount: 0,
+    localizationRecoveriesCount: 0,
+    idempotenceCheckedCount: 0,
+    idempotenceMatchCount: 0,
+    compositionCheckedCount: 0,
+    compositionMatchCount: 0,
+    cache: {
+      binaryenHits: 0,
+      binaryenMisses: 0,
+      binaryenFailureHits: 0,
+      binaryenFailureMisses: 0,
+      semanticHits: 0,
+      semanticMisses: 0,
+    },
+  };
+  const increment = (record: Record<string, number>, key: string): void => {
+    record[key] = (record[key] ?? 0) + 1;
+  };
+  for (const record of records) {
+    if (record.semanticV2Outcome !== undefined) {
+      counters.semanticV2CheckedCount += 1;
+      const primary = record.semanticV2Outcome.primary;
+      if (primary === "semantic-match") counters.semanticV2MatchCount += 1;
+      else if (primary === "blocked-original-runtime") counters.semanticV2BlockedCount += 1;
+      else counters.semanticV2MismatchCount += 1;
+      increment(counters.semanticV2ThreeWayPatterns, record.semanticV2Outcome.pattern);
+    }
+    for (const outcome of record.semanticPropertyOutcomes ?? []) {
+      if (outcome.kind === "semantic-idempotence") {
+        counters.semanticIdempotenceCheckedCount += 1;
+        if (outcome.status === "pass") counters.semanticIdempotenceMatchCount += 1;
+        else if (outcome.status === "blocked") counters.semanticIdempotenceBlockedCount += 1;
+        else counters.semanticIdempotenceFailureCount += 1;
+      } else if (outcome.kind === "convergence") {
+        counters.convergenceCheckedCount += 1;
+        increment(counters.convergenceClassifications, outcome.classification);
+        if (outcome.classification === "fixed-point") counters.convergenceFixedPointCount += 1;
+        if (outcome.status === "blocked") counters.convergenceBlockedCount += 1;
+        else if (outcome.status === "fail") counters.convergenceFailureCount += 1;
+      } else if (outcome.kind === "commutator") {
+        counters.commutatorCheckedCount += 1;
+        increment(counters.commutatorClassifications, outcome.classification);
+        if (outcome.status === "pass") counters.commutatorMatchCount += 1;
+        else if (outcome.status === "blocked") counters.commutatorBlockedCount += 1;
+        else counters.commutatorFailureCount += 1;
+      } else {
+        counters.metamorphicCheckedCount += 1;
+        increment(counters.metamorphicClassifications, outcome.classification);
+        if (outcome.status === "pass") counters.metamorphicMatchCount += 1;
+        else if (outcome.status === "blocked") counters.metamorphicBlockedCount += 1;
+        else if (outcome.status === "generator-failure") counters.metamorphicGeneratorFailureCount += 1;
+        else counters.metamorphicFailureCount += 1;
+      }
+    }
+    if (record.localizationOutcome !== undefined) {
+      counters.localizationCheckedCount += 1;
+      counters.localizationRecoveriesCount += record.localizationOutcome.recoveryCount;
+      if (record.localizationOutcome.classification === "reproduced") counters.localizationReproducedCount += 1;
+      else if (record.localizationOutcome.classification === "context-dependent") counters.localizationContextDependentCount += 1;
+      else if (record.localizationOutcome.classification === "blocked") counters.localizationBlockedCount += 1;
+    }
+    if (record.idempotenceOutcome !== undefined) {
+      counters.idempotenceCheckedCount += 1;
+      if (record.idempotenceOutcome === "pass") counters.idempotenceMatchCount += 1;
+    }
+    if (record.compositionOutcome !== undefined) {
+      counters.compositionCheckedCount += 1;
+      if (record.compositionOutcome === "pass") counters.compositionMatchCount += 1;
+    }
+    switch (record.binaryenCacheOutcome) {
+      case "hit": counters.cache.binaryenHits += 1; break;
+      case "miss": counters.cache.binaryenMisses += 1; break;
+      case "failure-hit": counters.cache.binaryenFailureHits += 1; break;
+      case "failure-miss": counters.cache.binaryenFailureMisses += 1; break;
+    }
+    if (record.semanticCacheOutcome === "hit") counters.cache.semanticHits += 1;
+    else if (record.semanticCacheOutcome === "miss") counters.cache.semanticMisses += 1;
+  }
+  return counters;
+}
+
 export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let count = 10000;
   let minCompared: number | null = null;
@@ -3222,8 +3773,27 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   const externalValidators: ExternalValidatorKind[] = [];
   let runtimeExecution: RuntimeExecutionMode = "off";
   let propertyMode: PropertyMode = "none";
+  const propertyModes: Exclude<PropertyMode, "none">[] = [];
+  let convergenceMax = 8;
+  let commutatorLeft: string | null = null;
+  let commutatorRight: string | null = null;
+  const selectPropertyMode = (value: PropertyMode): void => {
+    if (value === "none") {
+      propertyModes.length = 0;
+      propertyMode = "none";
+      return;
+    }
+    if (!propertyModes.includes(value)) propertyModes.push(value);
+    propertyMode = propertyModes[0] ?? "none";
+  };
   let selfSemantic = false;
+  let semanticOracle: SemanticOracleMode = "off";
   let semanticPolicy: SemanticComparisonPolicy = "trap-aware";
+  let observationMode: ObservationMode = "independent";
+  let observationMemoryCapBytes = 1024 * 1024;
+  let observationTableEntryCap = 1024;
+  let runtimeTimeoutMs = 1000;
+  let localizeFirstDivergence = false;
   let determinism = false;
   let codecIdempotence = false;
   let serialPasses = false;
@@ -3232,11 +3802,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   const genValidRequiredFeatures: string[] = [];
   const genValidExcludedFeatures: string[] = [];
   const genValidMetamorphicTransforms: string[] = [];
+  let emitMetamorphicPairs = false;
   let maxFailures = 20;
   let maxMismatchArtifacts = 20;
   let maxSubprocesses = 8;
   let keepGoingAfterCommandFailures = false;
   let reduceMismatches = true;
+  let semanticReductionRelaxFamily = false;
   let jobs: number | null = null;
   const passFlags: string[] = [];
   const optimizerFlags: OptimizerModeFlag[] = [];
@@ -3321,11 +3893,47 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         i += 2;
         break;
       case "--property":
-        propertyMode = normalizePropertyMode(argv[i + 1] ?? fail("missing value for --property"));
+        selectPropertyMode(normalizePropertyMode(argv[i + 1] ?? fail("missing value for --property")));
+        i += 2;
+        break;
+      case "--convergence-max":
+        convergenceMax = parsePositiveInt("convergence-max", argv[i + 1] ?? fail("missing value for --convergence-max"));
+        i += 2;
+        break;
+      case "--commutator-left":
+        commutatorLeft = normalizePassNameToFlag(argv[i + 1] ?? fail("missing value for --commutator-left"));
+        i += 2;
+        break;
+      case "--commutator-right":
+        commutatorRight = normalizePassNameToFlag(argv[i + 1] ?? fail("missing value for --commutator-right"));
         i += 2;
         break;
       case "--self-semantic":
         selfSemantic = true;
+        i += 1;
+        break;
+      case "--semantic-oracle":
+        semanticOracle = normalizeSemanticOracleMode(argv[i + 1] ?? fail("missing value for --semantic-oracle"));
+        i += 2;
+        break;
+      case "--observation-mode":
+        observationMode = normalizeObservationMode(argv[i + 1] ?? fail("missing value for --observation-mode"));
+        i += 2;
+        break;
+      case "--observation-memory-cap-bytes":
+        observationMemoryCapBytes = parsePositiveInt("observation-memory-cap-bytes", argv[i + 1] ?? fail("missing value for --observation-memory-cap-bytes"));
+        i += 2;
+        break;
+      case "--observation-table-entry-cap":
+        observationTableEntryCap = parsePositiveInt("observation-table-entry-cap", argv[i + 1] ?? fail("missing value for --observation-table-entry-cap"));
+        i += 2;
+        break;
+      case "--runtime-timeout-ms":
+        runtimeTimeoutMs = parsePositiveInt("runtime-timeout-ms", argv[i + 1] ?? fail("missing value for --runtime-timeout-ms"));
+        i += 2;
+        break;
+      case "--localize-first-divergence":
+        localizeFirstDivergence = true;
         i += 1;
         break;
       case "--semantic-policy":
@@ -3375,6 +3983,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         );
         i += 2;
         break;
+      case "--emit-metamorphic-pairs":
+        emitMetamorphicPairs = true;
+        i += 1;
+        break;
       case "--max-failures":
         maxFailures = parseNonNegativeInt(
           "max-failures",
@@ -3402,6 +4014,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         break;
       case "--no-reduce-mismatches":
         reduceMismatches = false;
+        i += 1;
+        break;
+      case "--semantic-reduction-relax-family":
+        semanticReductionRelaxFamily = true;
         i += 1;
         break;
       case "--normalize":
@@ -3473,12 +4089,42 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           break;
         }
         if (token.startsWith("--property=")) {
-          propertyMode = normalizePropertyMode(token.substring("--property=".length));
+          selectPropertyMode(normalizePropertyMode(token.substring("--property=".length)));
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--convergence-max=")) {
+          convergenceMax = parsePositiveInt("convergence-max", token.substring("--convergence-max=".length));
           i += 1;
           break;
         }
         if (token.startsWith("--semantic-policy=")) {
           semanticPolicy = normalizeSemanticPolicy(token.substring("--semantic-policy=".length));
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--semantic-oracle=")) {
+          semanticOracle = normalizeSemanticOracleMode(token.substring("--semantic-oracle=".length));
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--observation-mode=")) {
+          observationMode = normalizeObservationMode(token.substring("--observation-mode=".length));
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--observation-memory-cap-bytes=")) {
+          observationMemoryCapBytes = parsePositiveInt("observation-memory-cap-bytes", token.substring("--observation-memory-cap-bytes=".length));
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--observation-table-entry-cap=")) {
+          observationTableEntryCap = parsePositiveInt("observation-table-entry-cap", token.substring("--observation-table-entry-cap=".length));
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--runtime-timeout-ms=")) {
+          runtimeTimeoutMs = parsePositiveInt("runtime-timeout-ms", token.substring("--runtime-timeout-ms=".length));
           i += 1;
           break;
         }
@@ -3489,6 +4135,16 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         }
         if (token.startsWith("--wabt-validate-bin=")) {
           wabtValidateBin = token.substring("--wabt-validate-bin=".length);
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--commutator-left=")) {
+          commutatorLeft = normalizePassNameToFlag(token.substring("--commutator-left=".length));
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--commutator-right=")) {
+          commutatorRight = normalizePassNameToFlag(token.substring("--commutator-right=".length));
           i += 1;
           break;
         }
@@ -3563,11 +4219,29 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   if (resume && replayFailuresFrom !== null) {
     fail("--resume cannot be combined with --replay-failures-from");
   }
-  if (resume && propertyMode !== "none") {
-    fail("--resume does not yet support --property because interrupted property aggregates are not persisted per case");
-  }
   if (resume && runtimeExecution !== "off") {
     fail("--resume does not yet support --runtime-execution because interrupted runtime matrices are not persisted per case");
+  }
+  if ((commutatorLeft === null) !== (commutatorRight === null)) {
+    fail("--commutator-left and --commutator-right must be provided together");
+  }
+  if (localizeFirstDivergence && semanticOracle !== "node-v2") {
+    fail("--localize-first-divergence requires --semantic-oracle node-v2");
+  }
+  if (commutatorLeft !== null && semanticOracle !== "node-v2") {
+    fail("commutator execution requires --semantic-oracle node-v2");
+  }
+  if (emitMetamorphicPairs && genValidMetamorphicTransforms.length === 0) {
+    fail("--emit-metamorphic-pairs requires at least one --gen-valid-metamorphic-transform");
+  }
+  if (emitMetamorphicPairs && generator !== "gen-valid") {
+    fail("--emit-metamorphic-pairs requires the GenValid generator");
+  }
+  if (emitMetamorphicPairs && semanticOracle !== "node-v2") {
+    fail("--emit-metamorphic-pairs requires --semantic-oracle node-v2");
+  }
+  if (propertyModes.some((mode) => mode === "semantic-idempotence" || mode === "convergence") && semanticOracle !== "node-v2") {
+    fail("semantic-idempotence and convergence properties require --semantic-oracle node-v2");
   }
   if (resume && externalValidators.length > 0) {
     fail("--resume does not yet support --external-validator because interrupted skip counts are not persisted per case");
@@ -3589,8 +4263,18 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       externalValidators,
       runtimeExecution,
       propertyMode,
+      propertyModes,
+      convergenceMax,
+      commutatorLeft,
+      commutatorRight,
       selfSemantic,
+      semanticOracle,
       semanticPolicy,
+      observationMode,
+      observationMemoryCapBytes,
+      observationTableEntryCap,
+      runtimeTimeoutMs,
+      localizeFirstDivergence,
       determinism,
       codecIdempotence,
       serialPasses,
@@ -3599,11 +4283,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       genValidRequiredFeatures,
       genValidExcludedFeatures,
       genValidMetamorphicTransforms,
+      emitMetamorphicPairs,
       maxFailures,
       maxMismatchArtifacts,
       maxSubprocesses,
       keepGoingAfterCommandFailures,
       reduceMismatches,
+      semanticReductionRelaxFamily,
       jobs,
       passFlags,
       optimizerFlags,
@@ -3778,6 +4464,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     mismatchArtifactsSuppressedCount: 0,
     maxSubprocesses: options.maxSubprocesses,
     reduceMismatches: options.reduceMismatches,
+    semanticReductionRelaxFamily: options.semanticReductionRelaxFamily,
     jobs: effectiveJobs,
     seed: seedHex(options.seed),
     generator: options.generator,
@@ -3795,10 +4482,51 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     externalValidators: options.externalValidators,
     runtimeExecution: options.runtimeExecution,
     propertyMode: options.propertyMode,
+    propertyModes: options.propertyModes,
+    convergenceMax: options.convergenceMax,
     propertyFailureCount: 0,
     propertyFailureClasses: {},
     selfSemantic: options.selfSemantic,
+    semanticOracle: options.semanticOracle,
     semanticPolicy: options.semanticPolicy,
+    observationMode: options.observationMode,
+    observationMemoryCapBytes: options.observationMemoryCapBytes,
+    observationTableEntryCap: options.observationTableEntryCap,
+    runtimeTimeoutMs: options.runtimeTimeoutMs,
+    semanticV2CheckedCount: 0,
+    semanticV2MatchCount: 0,
+    semanticV2BlockedCount: 0,
+    semanticV2MismatchCount: 0,
+    semanticV2ThreeWayPatterns: {},
+    semanticIdempotenceCheckedCount: 0,
+    semanticIdempotenceMatchCount: 0,
+    semanticIdempotenceBlockedCount: 0,
+    semanticIdempotenceFailureCount: 0,
+    convergenceCheckedCount: 0,
+    convergenceFixedPointCount: 0,
+    convergenceBlockedCount: 0,
+    convergenceFailureCount: 0,
+    convergenceClassifications: {},
+    commutatorLeft: options.commutatorLeft,
+    commutatorRight: options.commutatorRight,
+    commutatorCheckedCount: 0,
+    commutatorMatchCount: 0,
+    commutatorBlockedCount: 0,
+    commutatorFailureCount: 0,
+    commutatorClassifications: {},
+    emitMetamorphicPairs: options.emitMetamorphicPairs,
+    metamorphicCheckedCount: 0,
+    metamorphicMatchCount: 0,
+    metamorphicBlockedCount: 0,
+    metamorphicFailureCount: 0,
+    metamorphicGeneratorFailureCount: 0,
+    metamorphicClassifications: {},
+    localizeFirstDivergence: options.localizeFirstDivergence,
+    localizationCheckedCount: 0,
+    localizationReproducedCount: 0,
+    localizationContextDependentCount: 0,
+    localizationBlockedCount: 0,
+    localizationRecoveriesCount: 0,
     semanticSelfCheckedCount: 0,
     semanticSelfMatchCount: 0,
     semanticSelfBlockedCount: 0,
@@ -3845,6 +4573,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       binaryenMisses: 0,
       binaryenFailureHits: 0,
       binaryenFailureMisses: 0,
+      semanticHits: 0,
+      semanticMisses: 0,
     },
     failureDirs: [],
   };
@@ -3858,12 +4588,24 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const caseTransformIds = new Map<number, string>();
   const caseGenValidSelectedProfiles = new Map<number, string>();
   const caseGenValidProfileCaseLabels = new Map<number, string>();
-  const caseGenValidFeatureFacts = new Map<number, unknown>();
   const caseCorrectnessOutcomes = new Map<
     number,
     Pick<
       CaseRecord,
       "semanticSelfOutcome" | "determinismOutcome" | "codecIdempotenceOutcome"
+    >
+  >();
+  const caseOptimizerEvidence = new Map<
+    number,
+    Pick<
+      CaseRecord,
+      | "semanticV2Outcome"
+      | "semanticPropertyOutcomes"
+      | "localizationOutcome"
+      | "idempotenceOutcome"
+      | "compositionOutcome"
+      | "binaryenCacheOutcome"
+      | "semanticCacheOutcome"
     >
   >();
   const caseSizeComparisons = new Map<
@@ -3881,20 +4623,21 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const transformId = caseTransformIds.get(record.caseIndex);
     const genValidSelectedProfile = caseGenValidSelectedProfiles.get(record.caseIndex);
     const genValidProfileCaseLabel = caseGenValidProfileCaseLabels.get(record.caseIndex);
-    const genValidFeatureFacts = caseGenValidFeatureFacts.get(record.caseIndex);
     const correctnessOutcomes = caseCorrectnessOutcomes.get(record.caseIndex);
+    const optimizerEvidence = caseOptimizerEvidence.get(record.caseIndex);
     const sizeComparison = caseSizeComparisons.get(record.caseIndex);
+    const { inputEffectTrapFacts, ...recordWithoutEffectDetails } = record;
     const enrichedRecord = {
-      ...record,
+      ...recordWithoutEffectDetails,
+      ...(inputEffectTrapFacts === undefined
+        ? {}
+        : { inputEffectTrapFacts: boundedEffectTrapFactsForCase(inputEffectTrapFacts) }),
       ...(record.transformId === undefined && transformId !== undefined ? { transformId } : {}),
       ...(record.genValidSelectedProfile === undefined && genValidSelectedProfile !== undefined
         ? { genValidSelectedProfile }
         : {}),
       ...(record.genValidProfileCaseLabel === undefined && genValidProfileCaseLabel !== undefined
         ? { genValidProfileCaseLabel }
-        : {}),
-      ...(record.genValidFeatureFacts === undefined && genValidFeatureFacts !== undefined
-        ? { genValidFeatureFacts }
         : {}),
       ...(record.semanticSelfOutcome === undefined &&
       correctnessOutcomes?.semanticSelfOutcome !== undefined
@@ -3907,6 +4650,27 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       ...(record.codecIdempotenceOutcome === undefined &&
       correctnessOutcomes?.codecIdempotenceOutcome !== undefined
         ? { codecIdempotenceOutcome: correctnessOutcomes.codecIdempotenceOutcome }
+        : {}),
+      ...(record.semanticV2Outcome === undefined && optimizerEvidence?.semanticV2Outcome !== undefined
+        ? { semanticV2Outcome: optimizerEvidence.semanticV2Outcome }
+        : {}),
+      ...(record.semanticPropertyOutcomes === undefined && optimizerEvidence?.semanticPropertyOutcomes !== undefined
+        ? { semanticPropertyOutcomes: optimizerEvidence.semanticPropertyOutcomes }
+        : {}),
+      ...(record.localizationOutcome === undefined && optimizerEvidence?.localizationOutcome !== undefined
+        ? { localizationOutcome: optimizerEvidence.localizationOutcome }
+        : {}),
+      ...(record.idempotenceOutcome === undefined && optimizerEvidence?.idempotenceOutcome !== undefined
+        ? { idempotenceOutcome: optimizerEvidence.idempotenceOutcome }
+        : {}),
+      ...(record.compositionOutcome === undefined && optimizerEvidence?.compositionOutcome !== undefined
+        ? { compositionOutcome: optimizerEvidence.compositionOutcome }
+        : {}),
+      ...(record.binaryenCacheOutcome === undefined && optimizerEvidence?.binaryenCacheOutcome !== undefined
+        ? { binaryenCacheOutcome: optimizerEvidence.binaryenCacheOutcome }
+        : {}),
+      ...(record.semanticCacheOutcome === undefined && optimizerEvidence?.semanticCacheOutcome !== undefined
+        ? { semanticCacheOutcome: optimizerEvidence.semanticCacheOutcome }
         : {}),
       ...(record.starshineRawBytes === undefined &&
       sizeComparison?.starshineRawBytes !== undefined
@@ -3961,12 +4725,223 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const compositionWatPath = path.join(workDir, "starshine.composition.wat");
     let genValidManifestEntry: unknown | null = null;
     let transformId: string | null = null;
+    let metamorphicBasePath: string | null = null;
+    let metamorphicRelationId: string | null = null;
     let inputEffectTrapFacts: EffectTrapFacts | null = null;
     let runtimeInvocationReports: RuntimeExportInvocationReport[] | null = null;
     let selfSemanticReport: SelfSemanticOracleReport | null = null;
+    let semanticV2Report: NodeThreeWaySemanticOracleV2Report | null = null;
     let semanticSelfOutcome: SemanticSelfOutcome | undefined;
     let determinismOutcome: DeterminismOutcome | undefined;
     let codecIdempotenceOutcome: CodecIdempotenceOutcome | undefined;
+
+    function updateCaseOptimizerEvidence(
+      evidence: Pick<
+        CaseRecord,
+        | "semanticV2Outcome"
+        | "semanticPropertyOutcomes"
+        | "localizationOutcome"
+        | "idempotenceOutcome"
+        | "compositionOutcome"
+        | "binaryenCacheOutcome"
+        | "semanticCacheOutcome"
+      >,
+    ): void {
+      caseOptimizerEvidence.set(caseNumber, {
+        ...(caseOptimizerEvidence.get(caseNumber) ?? {}),
+        ...evidence,
+      });
+    }
+
+    async function evaluateSemanticV2(
+      binaryenWasmPath: string | null,
+      binaryenDiagnostic: "ok" | "tool-failure" | "timeout" | "unsupported",
+    ): Promise<NodeThreeWaySemanticOracleV2Report | null> {
+      if (options.semanticOracle === "off") return null;
+      const semanticSeed = options.seed + BigInt(caseNumber);
+      const semanticCacheRoot = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
+      const semanticCacheKey = semanticCacheRoot === null
+        ? null
+        : buildSemanticCacheKey({
+            original: fs.readFileSync(inputPath),
+            starshine: fs.readFileSync(starshineRawPath),
+            binaryen: binaryenWasmPath === null ? null : fs.readFileSync(binaryenWasmPath),
+            seed: semanticSeed,
+            policy: options.semanticPolicy,
+            mode: options.observationMode,
+            timeoutMs: options.runtimeTimeoutMs,
+            memoryCapBytes: options.observationMemoryCapBytes,
+            tableEntryCap: options.observationTableEntryCap,
+            runtimeVersion: `node-v2:${binaryenDiagnostic}`,
+          });
+      semanticV2Report = semanticCacheRoot === null || semanticCacheKey === null
+        ? null
+        : loadSemanticCacheEntry<NodeThreeWaySemanticOracleV2Report>(semanticCacheRoot, semanticCacheKey);
+      if (semanticV2Report === null) {
+        summary.cache.semanticMisses += 1;
+        updateCaseOptimizerEvidence({ semanticCacheOutcome: "miss" });
+        semanticV2Report = await runNodeThreeWaySemanticOracleV2(
+          inputPath,
+          starshineRawPath,
+          binaryenWasmPath,
+          {
+            seed: semanticSeed,
+            policy: options.semanticPolicy,
+            mode: options.observationMode,
+            timeoutMs: options.runtimeTimeoutMs,
+            memoryCapBytes: options.observationMemoryCapBytes,
+            tableEntryCap: options.observationTableEntryCap,
+            wasmToolsBin: options.wasmToolsBin,
+            starshineBin: starshineInvocation.command,
+            starshineArgsPrefix: starshineInvocation.argsPrefix,
+            binaryenDiagnostic,
+          },
+        );
+        if (semanticCacheRoot !== null && semanticCacheKey !== null) {
+          storeSemanticCacheEntry(semanticCacheRoot, semanticCacheKey, semanticV2Report);
+        }
+      } else {
+        summary.cache.semanticHits += 1;
+        updateCaseOptimizerEvidence({ semanticCacheOutcome: "hit" });
+      }
+      updateCaseOptimizerEvidence({
+        semanticV2Outcome: {
+          primary: semanticV2Report.classification.primary,
+          pattern: semanticV2Report.classification.pattern,
+        },
+      });
+      noteSemanticV2Report(summary, semanticV2Report);
+      persistSemanticV2Report(outDir, workDir, caseNumber, semanticV2Report);
+      return semanticV2Report;
+    }
+
+    async function evaluateLocalization(): Promise<PassLocalizationReport | null> {
+      if (!options.localizeFirstDivergence) return null;
+      let canonicalization = 0;
+      const expandedQueue = loadExpandedPassQueueFromStarshine(
+        inputPath,
+        starshineInvocation.command,
+        [...starshineExecutionFlags(options), ...options.passFlags],
+        undefined,
+        starshineInvocation.argsPrefix,
+      );
+      const passSequence = expandedQueue.passSequence;
+      const artifactDir = path.join(outDir, "localization-artifacts", `case-${String(caseNumber).padStart(6, "0")}`);
+      fs.mkdirSync(artifactDir, { recursive: true });
+      const runner: LocalizationRunner<string> = {
+        runPrefix: async (prefixLength) => {
+          const outputPath = path.join(workDir, `localization.prefix-${String(prefixLength).padStart(2, "0")}.wasm`);
+          await runStarshineWithRetry(
+            starshineInvocation,
+            [
+              ...starshineInvocation.argsPrefix,
+              ...starshineExecutionFlags(options),
+              ...passSequence.slice(0, prefixLength).map((pass) => `--${pass}`),
+              "--out",
+              outputPath,
+              inputPath,
+            ],
+            outputPath,
+            repoRoot,
+            repoTmpEnv,
+          );
+          return outputPath;
+        },
+        validate: async (modulePath) => (await runValidateAsync(options.wasmToolsBin, modulePath, repoRoot)).ok,
+        semanticCompare: async (originalPath, modulePath) => {
+          const report = await runNodeThreeWaySemanticOracleV2(
+            originalPath,
+            modulePath,
+            null,
+            {
+              seed: options.seed + BigInt(caseNumber),
+              policy: options.semanticPolicy,
+              mode: options.observationMode,
+              timeoutMs: options.runtimeTimeoutMs,
+              memoryCapBytes: options.observationMemoryCapBytes,
+              tableEntryCap: options.observationTableEntryCap,
+              wasmToolsBin: options.wasmToolsBin,
+              starshineBin: starshineInvocation.command,
+              starshineArgsPrefix: starshineInvocation.argsPrefix,
+              binaryenDiagnostic: "tool-failure",
+            },
+          );
+          if (report.originalVsStarshine.classification === "semantic-match") return "equal";
+          if (report.originalVsStarshine.classification === "semantic-mismatch") return "different";
+          return "blocked";
+        },
+        hash: async (modulePath) => {
+          canonicalization += 1;
+          const canonicalPath = path.join(workDir, `localization.canonical-${String(canonicalization).padStart(2, "0")}.wasm`);
+          await canonicalizeWasm(options.wasmOptBin, modulePath, canonicalPath, repoRoot);
+          return `sha256:${sha256Hex(fs.readFileSync(canonicalPath))}`;
+        },
+        size: async (modulePath) => fs.statSync(modulePath).size,
+        runStandalone: async (predecessorPath, pass) => {
+          const outputPath = path.join(workDir, "localization.standalone.wasm");
+          await runStarshineWithRetry(
+            starshineInvocation,
+            [
+              ...starshineInvocation.argsPrefix,
+              ...starshineExecutionFlags(options),
+              `--${pass}`,
+              "--out",
+              outputPath,
+              predecessorPath,
+            ],
+            outputPath,
+            repoRoot,
+            repoTmpEnv,
+          );
+          return outputPath;
+        },
+        semanticCompareStandalone: async (originalPath, standalonePath) => {
+          const report = await runNodeThreeWaySemanticOracleV2(
+            originalPath,
+            standalonePath,
+            null,
+            {
+              seed: options.seed + BigInt(caseNumber),
+              policy: options.semanticPolicy,
+              mode: options.observationMode,
+              timeoutMs: options.runtimeTimeoutMs,
+              memoryCapBytes: options.observationMemoryCapBytes,
+              tableEntryCap: options.observationTableEntryCap,
+              wasmToolsBin: options.wasmToolsBin,
+              starshineBin: starshineInvocation.command,
+              starshineArgsPrefix: starshineInvocation.argsPrefix,
+              binaryenDiagnostic: "tool-failure",
+            },
+          );
+          if (report.originalVsStarshine.classification === "semantic-match") return "equal";
+          if (report.originalVsStarshine.classification === "semantic-mismatch") return "different";
+          return "blocked";
+        },
+        persist: async (name, modulePath) => {
+          const target = path.join(artifactDir, `${safeArtifactNameSegment(name)}.wasm`);
+          fs.copyFileSync(modulePath, target);
+          return path.relative(outDir, target);
+        },
+      };
+      const report = await localizeFirstSemanticDivergence(inputPath, passSequence, runner, "moon-expanded-queue");
+      const text = JSON.stringify(report, null, 2) + "\n";
+      fs.writeFileSync(path.join(workDir, "pass-localization.json"), text);
+      const reportsDir = path.join(outDir, "localizations");
+      fs.mkdirSync(reportsDir, { recursive: true });
+      fs.writeFileSync(path.join(reportsDir, `case-${String(caseNumber).padStart(6, "0")}.json`), text);
+      summary.localizationCheckedCount += 1;
+      summary.localizationRecoveriesCount += report.laterRecoveries.length;
+      if (report.standaloneReproduction === "reproduced") summary.localizationReproducedCount += 1;
+      else if (report.standaloneReproduction === "context-dependent") summary.localizationContextDependentCount += 1;
+      else if (report.standaloneReproduction === "blocked" || report.classification === "blocked") summary.localizationBlockedCount += 1;
+      updateCaseOptimizerEvidence({
+        localizationOutcome: {
+          classification: report.standaloneReproduction,
+          recoveryCount: report.laterRecoveries.length,
+        },
+      });
+      return report;
+    }
 
     try {
       if (replayCase !== null) {
@@ -3977,6 +4952,12 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           fail("not enough generated gen-valid inputs");
         genValidManifestEntry = genValidManifestRecords.get(path.basename(source)) ?? null;
         transformId = genValidManifestTransformId(genValidManifestEntry);
+        if (options.emitMetamorphicPairs) {
+          const baseFileName = genValidManifestPairField(genValidManifestEntry, "base_file_name") ?? fail(`missing metamorphic base_file_name for ${path.basename(source)}`);
+          metamorphicRelationId = genValidManifestPairField(genValidManifestEntry, "relation_group_id") ?? fail(`missing metamorphic relation_group_id for ${path.basename(source)}`);
+          metamorphicBasePath = path.join(path.dirname(source), baseFileName);
+          if (!fs.existsSync(metamorphicBasePath)) fail(`missing emitted metamorphic base artifact ${metamorphicBasePath}`);
+        }
         if (transformId !== null) {
           caseTransformIds.set(caseNumber, transformId);
         }
@@ -3989,10 +4970,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         if (profileCaseLabel !== null) {
           caseGenValidProfileCaseLabels.set(caseNumber, profileCaseLabel);
           noteGenValidProfileCaseCount(summary, profileCaseLabel);
-        }
-        const featureFacts = genValidManifestFeatureFacts(genValidManifestEntry);
-        if (featureFacts !== null) {
-          caseGenValidFeatureFacts.set(caseNumber, featureFacts);
         }
         fs.copyFileSync(source, inputPath);
       } else {
@@ -4402,7 +5379,292 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         return;
       }
 
-      if (options.propertyMode === "idempotence") {
+      async function runSemanticProperty(
+        kind: "semantic-idempotence" | "convergence" | "commutator" | "metamorphic-equivalence",
+      ): Promise<OptimizerPropertyResult> {
+        let application = 0;
+        let canonicalization = 0;
+        let usedExistingFirstApplication = false;
+        const artifactDir = path.join(
+          outDir,
+          "property-artifacts",
+          `case-${String(caseNumber).padStart(6, "0")}-${kind}`,
+        );
+        fs.mkdirSync(artifactDir, { recursive: true });
+        const harness: PropertyHarness<string> = {
+          apply: async (modulePath, passes) => {
+            if (!usedExistingFirstApplication && modulePath === inputPath && JSON.stringify(passes) === JSON.stringify(options.passFlags)) {
+              usedExistingFirstApplication = true;
+              return starshineRawPath;
+            }
+            application += 1;
+            const outputPath = path.join(workDir, `${kind}.application-${String(application).padStart(2, "0")}.wasm`);
+            await runStarshineWithRetry(
+              starshineInvocation,
+              [
+                ...starshineInvocation.argsPrefix,
+                ...starshineExecutionFlags(options),
+                ...passes,
+                "--out",
+                outputPath,
+                modulePath,
+              ],
+              outputPath,
+              repoRoot,
+              repoTmpEnv,
+            );
+            return outputPath;
+          },
+          validate: async (modulePath) => (await runValidateAsync(options.wasmToolsBin, modulePath, repoRoot)).ok,
+          semanticCompare: async (leftPath, rightPath) => {
+            const report = await runNodeThreeWaySemanticOracleV2(
+              leftPath,
+              rightPath,
+              null,
+              {
+                seed: options.seed + BigInt(caseNumber),
+                policy: options.semanticPolicy,
+                mode: options.observationMode,
+                timeoutMs: options.runtimeTimeoutMs,
+                memoryCapBytes: options.observationMemoryCapBytes,
+                tableEntryCap: options.observationTableEntryCap,
+                wasmToolsBin: options.wasmToolsBin,
+                starshineBin: starshineInvocation.command,
+                starshineArgsPrefix: starshineInvocation.argsPrefix,
+                binaryenDiagnostic: "tool-failure",
+              },
+            );
+            switch (report.originalVsStarshine.classification) {
+              case "semantic-match": return "equal";
+              case "semantic-mismatch": return "different";
+              case "blocked": return "blocked";
+            }
+          },
+          structuralHash: async (modulePath) => {
+            canonicalization += 1;
+            const canonicalPath = path.join(workDir, `${kind}.canonical-${String(canonicalization).padStart(2, "0")}.wasm`);
+            try {
+              await canonicalizeWasm(options.wasmOptBin, modulePath, canonicalPath, repoRoot);
+              return `canonical-sha256:${sha256Hex(fs.readFileSync(canonicalPath))}`;
+            } catch {
+              return `raw-sha256:${sha256Hex(fs.readFileSync(modulePath))}`;
+            }
+          },
+          encodedSize: async (modulePath) => fs.statSync(modulePath).size,
+          persist: async (name, modulePath) => {
+            const target = path.join(artifactDir, `${safeArtifactNameSegment(name)}.wasm`);
+            fs.copyFileSync(modulePath, target);
+            return path.relative(outDir, target);
+          },
+        };
+        const result = kind === "semantic-idempotence"
+          ? await runSemanticIdempotenceProperty(inputPath, options.passFlags, harness)
+          : kind === "convergence"
+            ? await runConvergenceProperty(inputPath, options.passFlags, harness, { maxGenerations: options.convergenceMax })
+            : kind === "commutator"
+              ? await runCommutatorProperty(
+                  inputPath,
+                  options.commutatorLeft ?? fail("missing commutator left pass"),
+                  options.commutatorRight ?? fail("missing commutator right pass"),
+                  harness,
+                )
+              : await runMetamorphicEquivalenceProperty(
+                  metamorphicBasePath ?? fail("missing metamorphic base path"),
+                  inputPath,
+                  options.passFlags,
+                  harness,
+                  {
+                    relationId: metamorphicRelationId ?? fail("missing metamorphic relation id"),
+                    compareRelation: harness.semanticCompare,
+                  },
+                );
+        const priorPropertyOutcomes = caseOptimizerEvidence.get(caseNumber)?.semanticPropertyOutcomes ?? [];
+        updateCaseOptimizerEvidence({
+          semanticPropertyOutcomes: [
+            ...priorPropertyOutcomes,
+            { kind, status: result.status, classification: result.classification },
+          ],
+        });
+        const propertyResultsDir = path.join(outDir, "property-results");
+        fs.mkdirSync(propertyResultsDir, { recursive: true });
+        const resultText = JSON.stringify(result, null, 2) + "\n";
+        const resultName = `case-${String(caseNumber).padStart(6, "0")}-${kind}.json`;
+        fs.writeFileSync(path.join(propertyResultsDir, resultName), resultText);
+        fs.writeFileSync(path.join(workDir, `property-${kind}.json`), resultText);
+        return result;
+      }
+
+      for (const kind of options.propertyModes) {
+        if (kind !== "semantic-idempotence" && kind !== "convergence") continue;
+        const result = await runSemanticProperty(kind);
+        if (kind === "semantic-idempotence") {
+          summary.semanticIdempotenceCheckedCount += 1;
+          if (result.status === "pass") summary.semanticIdempotenceMatchCount += 1;
+          else if (result.status === "blocked") summary.semanticIdempotenceBlockedCount += 1;
+          else summary.semanticIdempotenceFailureCount += 1;
+        } else {
+          summary.convergenceCheckedCount += 1;
+          summary.convergenceClassifications[result.classification] = (summary.convergenceClassifications[result.classification] ?? 0) + 1;
+          if (result.classification === "fixed-point") summary.convergenceFixedPointCount += 1;
+          if (result.status === "blocked") summary.convergenceBlockedCount += 1;
+          else if (result.status === "fail") summary.convergenceFailureCount += 1;
+        }
+        if (result.status === "fail" || result.status === "generator-failure") {
+          const failureClass: PropertyFailureClass = kind;
+          summary.propertyFailureCount += 1;
+          notePropertyFailureClass(summary, failureClass);
+          failures += 1;
+          const detail = `${kind} property failed: ${result.classification}${result.firstFailure ? ` at ${result.firstFailure.stage}: ${result.firstFailure.detail}` : ""}`;
+          summary.failureDirs.push(
+            persistFailureArtifacts(
+              outDir,
+              caseNumber,
+              generator,
+              "property-failure",
+              detail,
+              workDir,
+              options.wasmToolsBin,
+              repoRoot,
+              options.passFlags,
+              genValidManifestEntry,
+              inputEffectTrapFacts,
+              null,
+              null,
+              failureClass,
+              {
+                semanticPolicy: options.semanticPolicy,
+                serialPasses: options.serialPasses,
+                observationMode: options.observationMode,
+                observationMemoryCapBytes: options.observationMemoryCapBytes,
+                observationTableEntryCap: options.observationTableEntryCap,
+                runtimeTimeoutMs: options.runtimeTimeoutMs,
+                propertyResult: result,
+              },
+            ),
+          );
+          recordCase({
+            caseIndex: caseNumber,
+            generator,
+            status: "property-failure",
+            detail,
+            propertyFailureClass: failureClass,
+            inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+          });
+          return;
+        }
+      }
+
+      if (options.commutatorLeft !== null && options.commutatorRight !== null) {
+        const result = await runSemanticProperty("commutator");
+        summary.commutatorCheckedCount += 1;
+        summary.commutatorClassifications[result.classification] = (summary.commutatorClassifications[result.classification] ?? 0) + 1;
+        if (result.status === "pass") summary.commutatorMatchCount += 1;
+        else if (result.status === "blocked") summary.commutatorBlockedCount += 1;
+        else summary.commutatorFailureCount += 1;
+        if (result.status === "fail" || result.status === "generator-failure") {
+          const failureClass: PropertyFailureClass = "commutator";
+          summary.propertyFailureCount += 1;
+          notePropertyFailureClass(summary, failureClass);
+          failures += 1;
+          const detail = `commutator property failed: ${result.classification}${result.firstFailure ? ` at ${result.firstFailure.stage}: ${result.firstFailure.detail}` : ""}`;
+          summary.failureDirs.push(
+            persistFailureArtifacts(
+              outDir,
+              caseNumber,
+              generator,
+              "property-failure",
+              detail,
+              workDir,
+              options.wasmToolsBin,
+              repoRoot,
+              options.passFlags,
+              genValidManifestEntry,
+              inputEffectTrapFacts,
+              null,
+              null,
+              failureClass,
+              {
+                semanticPolicy: options.semanticPolicy,
+                serialPasses: options.serialPasses,
+                observationMode: options.observationMode,
+                observationMemoryCapBytes: options.observationMemoryCapBytes,
+                observationTableEntryCap: options.observationTableEntryCap,
+                runtimeTimeoutMs: options.runtimeTimeoutMs,
+                commutatorLeft: options.commutatorLeft,
+                commutatorRight: options.commutatorRight,
+                propertyResult: result,
+              },
+            ),
+          );
+          recordCase({
+            caseIndex: caseNumber,
+            generator,
+            status: "property-failure",
+            detail,
+            propertyFailureClass: failureClass,
+            inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+          });
+          return;
+        }
+      }
+
+      if (options.emitMetamorphicPairs) {
+        const result = await runSemanticProperty("metamorphic-equivalence");
+        summary.metamorphicCheckedCount += 1;
+        summary.metamorphicClassifications[result.classification] = (summary.metamorphicClassifications[result.classification] ?? 0) + 1;
+        if (result.status === "pass") summary.metamorphicMatchCount += 1;
+        else if (result.status === "blocked") summary.metamorphicBlockedCount += 1;
+        else if (result.status === "generator-failure") summary.metamorphicGeneratorFailureCount += 1;
+        else summary.metamorphicFailureCount += 1;
+        if (result.status === "fail" || result.status === "generator-failure") {
+          const failureClass: PropertyFailureClass = "metamorphic-equivalence";
+          summary.propertyFailureCount += 1;
+          notePropertyFailureClass(summary, failureClass);
+          failures += 1;
+          const detail = `metamorphic-equivalence property failed: ${result.classification}${result.firstFailure ? ` at ${result.firstFailure.stage}: ${result.firstFailure.detail}` : ""}`;
+          summary.failureDirs.push(
+            persistFailureArtifacts(
+              outDir,
+              caseNumber,
+              generator,
+              "property-failure",
+              detail,
+              workDir,
+              options.wasmToolsBin,
+              repoRoot,
+              options.passFlags,
+              genValidManifestEntry,
+              inputEffectTrapFacts,
+              null,
+              null,
+              failureClass,
+              {
+                semanticPolicy: options.semanticPolicy,
+                serialPasses: options.serialPasses,
+                observationMode: options.observationMode,
+                observationMemoryCapBytes: options.observationMemoryCapBytes,
+                observationTableEntryCap: options.observationTableEntryCap,
+                runtimeTimeoutMs: options.runtimeTimeoutMs,
+                metamorphicRelationId,
+                metamorphicBasePath,
+                propertyResult: result,
+              },
+            ),
+          );
+          recordCase({
+            caseIndex: caseNumber,
+            generator,
+            status: "property-failure",
+            detail,
+            propertyFailureClass: failureClass,
+            transformId: transformId ?? undefined,
+            inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+          });
+          return;
+        }
+      }
+
+      if (options.propertyModes.includes("idempotence")) {
         summary.idempotenceCheckedCount += 1;
         const idempotenceArgs = [
           ...starshineInvocation.argsPrefix,
@@ -4444,7 +5706,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           );
           if (firstWat === secondWat) {
             summary.idempotenceMatchCount += 1;
+            updateCaseOptimizerEvidence({ idempotenceOutcome: "pass" });
           } else {
+            updateCaseOptimizerEvidence({ idempotenceOutcome: "fail" });
             summary.propertyFailureCount += 1;
             failures += 1;
             const detail = "idempotence property failed: pass(pass(input)) differed from pass(input)";
@@ -4473,6 +5737,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             return;
           }
         } catch (error) {
+          updateCaseOptimizerEvidence({ idempotenceOutcome: "fail" });
           summary.propertyFailureCount += 1;
           failures += 1;
           const detail = `idempotence property command failed: ${commandFailureDetail(error)}`;
@@ -4502,7 +5767,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         }
       }
 
-      if (options.propertyMode === "composition") {
+      if (options.propertyModes.includes("composition")) {
         if (options.passFlags.length < 2) {
           fail("--property composition requires at least two pass flags");
         }
@@ -4553,7 +5818,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           );
           if (combinedWat === sequentialWat) {
             summary.compositionMatchCount += 1;
+            updateCaseOptimizerEvidence({ compositionOutcome: "pass" });
           } else {
+            updateCaseOptimizerEvidence({ compositionOutcome: "fail" });
             summary.propertyFailureCount += 1;
             failures += 1;
             const detail = "composition property failed: combined pass invocation differed from sequential single-pass invocations";
@@ -4582,6 +5849,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             return;
           }
         } catch (error) {
+          updateCaseOptimizerEvidence({ compositionOutcome: "fail" });
           summary.propertyFailureCount += 1;
           failures += 1;
           const detail = `composition property command failed: ${commandFailureDetail(error)}`;
@@ -4626,23 +5894,101 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       if (binaryenOracle.ok) {
         if (binaryenOracle.cacheHit) {
           summary.cache.binaryenHits += 1;
+          updateCaseOptimizerEvidence({ binaryenCacheOutcome: "hit" });
         } else {
           summary.cache.binaryenMisses += 1;
+          updateCaseOptimizerEvidence({ binaryenCacheOutcome: "miss" });
         }
         binaryenWat = binaryenOracle.wat;
       } else {
         if (binaryenOracle.cacheHit) {
           summary.cache.binaryenFailureHits += 1;
+          updateCaseOptimizerEvidence({ binaryenCacheOutcome: "failure-hit" });
         } else {
           summary.cache.binaryenFailureMisses += 1;
+          updateCaseOptimizerEvidence({ binaryenCacheOutcome: "failure-miss" });
         }
         summary.commandFailureCount += 1;
-        if (!options.keepGoingAfterCommandFailures) {
-          failures += 1;
-        }
         const detail = `Binaryen/canonicalization command failed: ${binaryenOracle.detail}`;
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);
+        const partialSemanticReport = await evaluateSemanticV2(null, "tool-failure");
+        if (partialSemanticReport !== null && semanticV2IsStarshineFailure(partialSemanticReport)) {
+          const localization = await evaluateLocalization();
+          const fingerprint = persistSemanticV2Fingerprint(workDir, partialSemanticReport, options.passFlags, localization);
+          if (options.reduceMismatches && generator === "gen-valid" && replayCase === null) {
+            await reduceSemanticV2FailureInput(
+              inputPath,
+              fingerprint.fingerprint,
+              options,
+              starshineInvocation,
+              repoRoot,
+              repoTmpDir,
+              repoTmpEnv,
+              workDir,
+              options.seed + BigInt(caseNumber),
+            );
+          }
+          failures += 1;
+          summary.propertyFailureCount += 1;
+          notePropertyFailureClass(summary, "semantic-self-v2");
+          const semanticDetail = `semantic:self-v2 ${partialSemanticReport.classification.primary} pattern=${partialSemanticReport.classification.pattern}; ${detail}`;
+          summary.failureDirs.push(
+            persistFailureArtifacts(
+              outDir,
+              caseNumber,
+              generator,
+              "property-failure",
+              semanticDetail,
+              workDir,
+              options.wasmToolsBin,
+              repoRoot,
+              options.passFlags,
+              genValidManifestEntry,
+              inputEffectTrapFacts,
+              null,
+              null,
+              "semantic-self-v2",
+              {
+                semanticPolicy: options.semanticPolicy,
+                serialPasses: options.serialPasses,
+                observationMode: options.observationMode,
+                observationMemoryCapBytes: options.observationMemoryCapBytes,
+                observationTableEntryCap: options.observationTableEntryCap,
+                runtimeTimeoutMs: options.runtimeTimeoutMs,
+                semanticV2: { report: partialSemanticReport, fingerprint, localization },
+              },
+            ),
+          );
+          recordCase({
+            caseIndex: caseNumber,
+            generator,
+            status: "property-failure",
+            detail: semanticDetail,
+            propertyFailureClass: "semantic-self-v2",
+            inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+          });
+          return;
+        }
+        if (partialSemanticReport?.classification.primary === "semantic-match") {
+          summary.comparedCount += 1;
+          if (generator === "gen-valid") {
+            summary.generatorCounts.genValid += 1;
+            noteGenValidTransformCount(summary, transformId);
+          } else {
+            summary.generatorCounts.wasmSmith += 1;
+          }
+          recordCase({
+            caseIndex: caseNumber,
+            generator,
+            status: "match",
+            detail: `original-primary semantic match; Binaryen diagnostic unavailable: ${failureClass}`,
+            diagnosticFailureClass: failureClass,
+            inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+          });
+          return;
+        }
+        if (!options.keepGoingAfterCommandFailures) failures += 1;
         summary.failureDirs.push(
           persistFailureArtifacts(
             outDir,
@@ -4656,6 +6002,10 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             options.passFlags,
             genValidManifestEntry,
             inputEffectTrapFacts,
+            null,
+            null,
+            null,
+            partialSemanticReport,
           ),
         );
         recordCase({
@@ -4706,6 +6056,65 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           status: "command-failure",
           detail,
           failureClass,
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+        });
+        return;
+      }
+
+      const completedSemanticReport = await evaluateSemanticV2(binaryenRawPath, "ok");
+      if (completedSemanticReport !== null && semanticV2IsStarshineFailure(completedSemanticReport)) {
+        const localization = await evaluateLocalization();
+        const fingerprint = persistSemanticV2Fingerprint(workDir, completedSemanticReport, options.passFlags, localization);
+        if (options.reduceMismatches && generator === "gen-valid" && replayCase === null) {
+          await reduceSemanticV2FailureInput(
+            inputPath,
+            fingerprint.fingerprint,
+            options,
+            starshineInvocation,
+            repoRoot,
+            repoTmpDir,
+            repoTmpEnv,
+            workDir,
+            options.seed + BigInt(caseNumber),
+          );
+        }
+        summary.propertyFailureCount += 1;
+        notePropertyFailureClass(summary, "semantic-self-v2");
+        failures += 1;
+        const detail = `semantic:self-v2 ${completedSemanticReport.classification.primary} pattern=${completedSemanticReport.classification.pattern} difference=${completedSemanticReport.originalVsStarshine.firstDifferencePath ?? "unknown"}`;
+        summary.failureDirs.push(
+          persistFailureArtifacts(
+            outDir,
+            caseNumber,
+            generator,
+            "property-failure",
+            detail,
+            workDir,
+            options.wasmToolsBin,
+            repoRoot,
+            options.passFlags,
+            genValidManifestEntry,
+            inputEffectTrapFacts,
+            null,
+            null,
+            "semantic-self-v2",
+            {
+              semanticPolicy: options.semanticPolicy,
+              serialPasses: options.serialPasses,
+              observationMode: options.observationMode,
+              observationMemoryCapBytes: options.observationMemoryCapBytes,
+              observationTableEntryCap: options.observationTableEntryCap,
+              runtimeTimeoutMs: options.runtimeTimeoutMs,
+              semanticV2: { report: completedSemanticReport, fingerprint, localization },
+            },
+          ),
+        );
+        recordCase({
+          caseIndex: caseNumber,
+          generator,
+          status: "property-failure",
+          detail,
+          propertyFailureClass: "semantic-self-v2",
           inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
         return;
@@ -4919,7 +6328,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Compare-normalized matches: ${summary.cleanupNormalizedMatchCount}\n`);
   process.stdout.write(`Validation failures: ${summary.validationFailureCount}\n`);
   process.stdout.write(`Property failures: ${summary.propertyFailureCount}\n`);
-  process.stdout.write(`Cache: wasm-smith ${summary.cache.wasmSmithHits} hits/${summary.cache.wasmSmithMisses} misses; Binaryen ${summary.cache.binaryenHits} hits/${summary.cache.binaryenMisses} misses; Binaryen failures ${summary.cache.binaryenFailureHits} hits/${summary.cache.binaryenFailureMisses} misses\n`);
+  process.stdout.write(`Cache: wasm-smith ${summary.cache.wasmSmithHits} hits/${summary.cache.wasmSmithMisses} misses; Binaryen ${summary.cache.binaryenHits} hits/${summary.cache.binaryenMisses} misses; Binaryen failures ${summary.cache.binaryenFailureHits} hits/${summary.cache.binaryenFailureMisses} misses; semantic-v2 ${summary.cache.semanticHits} hits/${summary.cache.semanticMisses} misses\n`);
   process.stdout.write(`Generator failures: ${summary.generatorFailureCount}\n`);
   process.stdout.write(`Command failures: ${summary.commandFailureCount}\n`);
   process.stdout.write(`Mismatches: ${summary.mismatchCount}\n`);

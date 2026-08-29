@@ -15,9 +15,11 @@ import {
   passFuzzReductionLogTextForTest,
   passFuzzSummaryCoverageReport,
   applyCompareNormalizersForTest,
+  boundedEffectTrapFactsForCase,
   parsePassFuzzCompareArgs,
   passFuzzResumePlanForTest,
   passFuzzResumedCorrectnessCountersForTest,
+  passFuzzResumedOptimizerCountersForTest,
   passFuzzSizeCountersForTest,
 } from "./pass-fuzz-compare-task";
 
@@ -69,6 +71,104 @@ describe("pass-fuzz persistent cache options", () => {
     }
   });
 
+  test("accepts the additive semantic oracle v2 configuration", () => {
+    const defaults = parsePassFuzzCompareArgs(["--pass", "optimize-instructions"]);
+    const parsed = parsePassFuzzCompareArgs([
+      "--pass",
+      "optimize-instructions",
+      "--semantic-oracle",
+      "node-v2",
+      "--observation-mode",
+      "stateful",
+      "--observation-memory-cap-bytes",
+      "262144",
+      "--observation-table-entry-cap",
+      "32",
+      "--runtime-timeout-ms",
+      "250",
+    ]);
+
+    expect(defaults.kind).toBe("run");
+    if (defaults.kind === "run") expect(defaults.options.semanticOracle).toBe("off");
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.semanticOracle).toBe("node-v2");
+      expect(parsed.options.observationMode).toBe("stateful");
+      expect(parsed.options.observationMemoryCapBytes).toBe(262144);
+      expect(parsed.options.observationTableEntryCap).toBe(32);
+      expect(parsed.options.runtimeTimeoutMs).toBe(250);
+      expect(parsed.options.selfSemantic).toBe(false);
+    }
+  });
+
+  test("requires explicit opt-in for semantic fingerprint family relaxation", () => {
+    const defaults = parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--semantic-oracle", "node-v2",
+    ]);
+    const relaxed = parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--semantic-oracle", "node-v2",
+      "--semantic-reduction-relax-family",
+    ]);
+    expect(defaults.kind).toBe("run");
+    if (defaults.kind === "run") expect(defaults.options.semanticReductionRelaxFamily).toBe(false);
+    expect(relaxed.kind).toBe("run");
+    if (relaxed.kind === "run") expect(relaxed.options.semanticReductionRelaxFamily).toBe(true);
+  });
+
+  test("accepts repeated semantic property selection and convergence bounds", () => {
+    const parsed = parsePassFuzzCompareArgs([
+      "--pass", "optimize-instructions",
+      "--semantic-oracle", "node-v2",
+      "--property", "idempotence",
+      "--property", "semantic-idempotence",
+      "--property=convergence",
+      "--convergence-max", "5",
+    ]);
+
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.propertyMode).toBe("idempotence");
+      expect(parsed.options.propertyModes).toEqual(["idempotence", "semantic-idempotence", "convergence"]);
+      expect(parsed.options.convergenceMax).toBe(5);
+    }
+  });
+
+  test("accepts production GenValid metamorphic pair execution", () => {
+    const parsed = parsePassFuzzCompareArgs([
+      "--pass", "vacuum",
+      "--semantic-oracle", "node-v2",
+      "--gen-valid-metamorphic-transform", "add-non-name-custom-section",
+      "--emit-metamorphic-pairs",
+    ]);
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") expect(parsed.options.emitMetamorphicPairs).toBe(true);
+    expect(() => parsePassFuzzCompareArgs([
+      "--pass", "vacuum",
+      "--semantic-oracle", "node-v2",
+      "--emit-metamorphic-pairs",
+    ])).toThrow("requires at least one --gen-valid-metamorphic-transform");
+  });
+
+  test("accepts a strict production commutator pair", () => {
+    const parsed = parsePassFuzzCompareArgs([
+      "--pass", "vacuum",
+      "--semantic-oracle", "node-v2",
+      "--commutator-left", "rse",
+      "--commutator-right=remove-unused-brs",
+    ]);
+
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.commutatorLeft).toBe("--redundant-set-elimination");
+      expect(parsed.options.commutatorRight).toBe("--remove-unused-brs");
+    }
+    expect(() => parsePassFuzzCompareArgs([
+      "--pass", "vacuum",
+      "--semantic-oracle", "node-v2",
+      "--commutator-left", "vacuum",
+    ])).toThrow("commutator-left and --commutator-right must be provided together");
+  });
+
   test("accepts independent optimizer correctness properties together", () => {
     const parsed = parsePassFuzzCompareArgs([
       "--pass",
@@ -114,6 +214,30 @@ describe("pass-fuzz persistent cache options", () => {
     if (withoutCache.kind === "run") {
       expect(withoutCache.options.cacheDir).toBeNull();
     }
+  });
+
+  test("bounds per-case effect facts for long resumable journals", () => {
+    expect(boundedEffectTrapFactsForCase({
+      hasCall: true,
+      mutatesMemory: true,
+      mutatesTable: false,
+      mutatesGlobal: true,
+      hasException: false,
+      hasAtomics: false,
+      hasUnreachable: true,
+      mayTrap: true,
+      hazards: Array.from({ length: 1000 }, (_, offset) => ({ offset, opcode: 0, kind: "possible-trap" as const })),
+      possibleTrapCategories: ["explicit-unreachable"],
+    })).toEqual({
+      hasCall: true,
+      mutatesMemory: true,
+      mutatesTable: false,
+      mutatesGlobal: true,
+      hasException: false,
+      hasAtomics: false,
+      hasUnreachable: true,
+      mayTrap: true,
+    });
   });
 
   test("caps persisted mismatch artifacts independently from mismatch counting", () => {
@@ -189,6 +313,22 @@ describe("pass-fuzz persistent cache options", () => {
     }
   });
 
+  test("resume accepts persisted semantic property commutator and metamorphic state", () => {
+    const parsed = parsePassFuzzCompareArgs([
+      "--pass", "vacuum",
+      "--out-dir", ".tmp/interrupted-semantic",
+      "--resume",
+      "--semantic-oracle", "node-v2",
+      "--property", "semantic-idempotence",
+      "--property", "convergence",
+      "--commutator-left", "vacuum",
+      "--commutator-right", "remove-unused-brs",
+      "--gen-valid-metamorphic-transform", "add-non-name-custom-section",
+      "--emit-metamorphic-pairs",
+    ]);
+    expect(parsed.kind).toBe("run");
+  });
+
   test("resume plans skip every completed case even when parallel completion left holes", () => {
     const plan = passFuzzResumePlanForTest(
       [
@@ -237,6 +377,38 @@ describe("pass-fuzz persistent cache options", () => {
       codecIdempotenceCheckedCount: 2,
       codecIdempotenceMatchCount: 2,
     });
+  });
+
+  test("resume reconstructs semantic property localization and cache counters", () => {
+    const counters = passFuzzResumedOptimizerCountersForTest([{
+      caseIndex: 1,
+      generator: "gen-valid",
+      status: "match",
+      detail: "normalized outputs matched",
+      semanticV2Outcome: { primary: "semantic-match", pattern: "all-equal" },
+      semanticPropertyOutcomes: [
+        { kind: "semantic-idempotence", status: "pass", classification: "semantic-fixed-point" },
+        { kind: "convergence", status: "pass", classification: "fixed-point" },
+        { kind: "commutator", status: "pass", classification: "semantic-orders-structurally-equal" },
+        { kind: "metamorphic-equivalence", status: "blocked", classification: "input-relation-blocked" },
+      ],
+      localizationOutcome: { classification: "reproduced", recoveryCount: 2 },
+      idempotenceOutcome: "pass",
+      compositionOutcome: "fail",
+      binaryenCacheOutcome: "hit",
+      semanticCacheOutcome: "miss",
+    }]);
+    expect(counters.semanticV2CheckedCount).toBe(1);
+    expect(counters.semanticV2MatchCount).toBe(1);
+    expect(counters.semanticIdempotenceMatchCount).toBe(1);
+    expect(counters.convergenceFixedPointCount).toBe(1);
+    expect(counters.commutatorMatchCount).toBe(1);
+    expect(counters.metamorphicBlockedCount).toBe(1);
+    expect(counters.localizationRecoveriesCount).toBe(2);
+    expect(counters.idempotenceMatchCount).toBe(1);
+    expect(counters.compositionCheckedCount).toBe(1);
+    expect(counters.cache.binaryenHits).toBe(1);
+    expect(counters.cache.semanticMisses).toBe(1);
   });
 
   test("aggregates pass-local raw size wins and regressions", () => {

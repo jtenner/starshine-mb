@@ -7,6 +7,8 @@
     { "id": "table-indirect", "file": "table-indirect.wat", "surfaces": ["table", "reference-types", "indirect-call"] },
     { "id": "simd-bits", "file": "simd-bits.wat", "surfaces": ["simd", "lane-boundary"] },
     { "id": "call-tail", "file": "call-tail.wat", "surfaces": ["call-heavy", "tail-call"] },
-    { "id": "gc-struct-array", "file": "gc-struct-array.wat", "surfaces": ["gc-struct", "gc-array-type", "mutable-field"] }
+    { "id": "gc-struct-array", "file": "gc-struct-array.wat", "surfaces": ["gc-struct", "gc-array-type", "mutable-field"] },
+    { "id": "start-import-trap", "file": "start-import-trap.wat", "surfaces": ["import-event", "start-function", "trap-frontier", "memory-beyond-64k", "committed-state-before-trap"] },
+    { "id": "imported-resources", "file": "imported-resources.wat", "surfaces": ["imported-global", "imported-memory", "imported-table", "memory-beyond-64k", "table-alias-relation"] }
   ]
 }

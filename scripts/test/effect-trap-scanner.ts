@@ -41,6 +41,11 @@ export function runEffectTrapScannerTest(): void {
   assert(effects.mutatesTable, "table.set should set mutatesTable");
   assert(effects.hasUnreachable, "unreachable opcode should set hasUnreachable");
   assert(effects.mayTrap, "store/table.set/unreachable should set mayTrap");
+  assert(effects.hazards.some((hazard) => hazard.kind === "import-or-local-call"), "call location should be recorded");
+  assert(effects.hazards.some((hazard) => hazard.kind === "memory-write"), "memory write location should be recorded");
+  assert(effects.hazards.some((hazard) => hazard.kind === "table-write"), "table write location should be recorded");
+  assert(effects.hazards.some((hazard) => hazard.kind === "explicit-unreachable"), "unreachable location should be recorded");
+  assert(effects.possibleTrapCategories.includes("explicit-unreachable"), "trap categories should include explicit unreachable");
 
   const prefixed = scanEffectTrapFactsFromWasmBytes(moduleWithCodeBytes([
     0xfc, 0x0a, 0x00, 0x00, // memory.copy

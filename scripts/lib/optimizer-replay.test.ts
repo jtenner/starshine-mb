@@ -19,13 +19,13 @@ function fakeStarshine(dir: string, outputWasm: string): string {
   const executable = path.join(dir, "fake-starshine.ts");
   fs.writeFileSync(
     executable,
-    `#!/usr/bin/env bun\nimport fs from "node:fs";\nconst args = process.argv.slice(2);\nconst out = args[args.indexOf("--out") + 1];\nfs.copyFileSync(${JSON.stringify(outputWasm)}, out);\n`,
+    `#!/usr/bin/env bun\nimport fs from "node:fs";\nconst args = process.argv.slice(2);\nif (args.includes("--emit-runtime-interface-json")) {\n  console.log(JSON.stringify({ schema: "starshine.optimizer-runtime-interface.v1", moduleHash: "fixture", interfaceHash: "fixture", features: [], hasStart: false, imports: { functions: [], globals: [], memories: [], tables: [], tags: [] }, exports: [{ name: "run", kind: "function", index: 0, signature: { params: ["i32"], results: ["i32"] }, support: "directly-constructible" }] }));\n  process.exit(0);\n}\nconst out = args[args.indexOf("--out") + 1];\nfs.copyFileSync(${JSON.stringify(outputWasm)}, out);\n`,
   );
   fs.chmodSync(executable, 0o755);
   return executable;
 }
 
-function semanticFailureFixture(afterWat: string): { failureDir: string; starshineBin: string } {
+function semanticFailureFixture(afterWat: string, failureClass = "semantic-self"): { failureDir: string; starshineBin: string } {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-optimizer-replay-"));
   const failureDir = path.join(root, "failure");
   fs.mkdirSync(failureDir);
@@ -40,9 +40,16 @@ function semanticFailureFixture(afterWat: string): { failureDir: string; starshi
     path.join(failureDir, "failure-metadata.json"),
     JSON.stringify({
       status: "property-failure",
-      propertyFailureClass: "semantic-self",
+      propertyFailureClass: failureClass,
       replay: { input: "input.wasm", passFlags: ["--vacuum"] },
-      propertyEvidence: { semanticPolicy: "strict", serialPasses: false },
+      propertyEvidence: {
+        semanticPolicy: "strict",
+        serialPasses: false,
+        observationMode: "independent",
+        observationMemoryCapBytes: 1048576,
+        observationTableEntryCap: 1024,
+        runtimeTimeoutMs: 1000,
+      },
       genValidManifestEntry: { seed: "0x5eed" },
     }, null, 2) + "\n",
   );
@@ -61,6 +68,78 @@ describe("optimizer failure replay", () => {
     expect(result.reproduced).toBe(true);
     expect(result.failureClass).toBe("semantic-self");
     expect(result.detail).toContain("semantic-mismatch");
+  });
+
+  test("reconstructs and reproduces a semantic-self-v2 failure", async () => {
+    const fixture = semanticFailureFixture(
+      `(module (func (export "run") (param i32) (result i32) local.get 0))`,
+      "semantic-self-v2",
+    );
+
+    const result = await replayOptimizerFailure({
+      source: fixture.failureDir,
+      starshineBin: fixture.starshineBin,
+    });
+
+    expect(result.reproduced).toBe(true);
+    expect(result.failureClass).toBe("semantic-self-v2");
+    expect(result.detail).toContain("starshine-semantic-mismatch");
+  });
+
+  test("rejects a semantic-v2 replay that changes the exact fingerprint", async () => {
+    const fixture = semanticFailureFixture(
+      `(module (func (export "run") (param i32) (result i32) local.get 0))`,
+      "semantic-self-v2",
+    );
+    fs.writeFileSync(path.join(fixture.failureDir, "semantic-fingerprint.json"), JSON.stringify({
+      schema: "starshine.optimizer-semantic-fingerprint.v1",
+      propertyKind: "semantic-self-v2",
+      primaryFailureClass: "starshine-semantic-mismatch",
+      semanticPolicy: "strict",
+      observationCompleteness: "complete",
+      passSequence: ["vacuum"],
+      firstDifferenceCategory: "trap-class",
+      memoryOrTableOffset: 999,
+    }, null, 2) + "\n");
+
+    const result = await replayOptimizerFailure({
+      source: fixture.failureDir,
+      starshineBin: fixture.starshineBin,
+    });
+
+    expect(result.reproduced).toBe(false);
+    expect(result.detail).toContain("fingerprint=mismatch");
+  });
+
+  test("replays a promoted optimizer-case v2 manifest", async () => {
+    const fixture = semanticFailureFixture(
+      `(module (func (export "run") (param i32) (result i32) local.get 0))`,
+      "semantic-self-v2",
+    );
+    fs.rmSync(path.join(fixture.failureDir, "failure-metadata.json"));
+    fs.writeFileSync(path.join(fixture.failureDir, "manifest.json"), JSON.stringify({
+      schema: "starshine.optimizer-case.v2",
+      input: { path: "input.wasm" },
+      origin: { seed: "0x5eed" },
+      pipeline: { passes: ["vacuum"], mode: "normal" },
+      property: {
+        kind: "semantic-self-v2",
+        semanticPolicy: "strict",
+        observationMode: "independent",
+        observationMemoryCapBytes: 1048576,
+        observationTableEntryCap: 1024,
+        runtimeTimeoutMs: 1000,
+      },
+      failure: { class: "semantic-self-v2" },
+    }, null, 2) + "\n");
+
+    const result = await replayOptimizerFailure({
+      source: fixture.failureDir,
+      starshineBin: fixture.starshineBin,
+    });
+
+    expect(result.reproduced).toBe(true);
+    expect(result.failureClass).toBe("semantic-self-v2");
   });
 
   test("reports when the original semantic failure no longer reproduces", async () => {

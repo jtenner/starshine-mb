@@ -46,16 +46,34 @@ type OptimizerFailureMetadata = {
   propertyEvidence?: {
     semanticPolicy?: string;
     serialPasses?: boolean;
+    observationMode?: "independent" | "stateful";
+    observationMemoryCapBytes?: number;
+    observationTableEntryCap?: number;
+    runtimeTimeoutMs?: number;
     passReduction?: { passes?: string[]; predicateEvaluations?: number; steps?: unknown[] } | null;
     selfSemantic?: {
       plan?: unknown;
       before?: unknown;
       after?: unknown;
     } | null;
+    semanticV2?: {
+      report?: {
+        runtimeInterface?: unknown;
+        plan?: unknown;
+        original?: unknown;
+        starshine?: unknown;
+        binaryen?: unknown;
+        originalVsStarshine?: unknown;
+        originalVsBinaryen?: unknown;
+        starshineVsBinaryen?: unknown;
+        classification?: unknown;
+      };
+      fingerprint?: { fingerprint?: unknown; hash?: string };
+    } | null;
   } | null;
 };
 
-type OptimizerCorpusManifest = {
+type OptimizerCorpusManifestV1 = {
   schema: "starshine.optimizer-case.v1";
   id: string;
   input: { path: "input.wasm"; hash: string; originalHash: string; usedReducedArtifact: boolean };
@@ -77,6 +95,35 @@ type OptimizerCorpusManifest = {
   afterObservation: unknown | null;
   replay: { command: string; manifest: "manifest.json" };
 };
+
+type OptimizerCorpusManifestV2 = {
+  schema: "starshine.optimizer-case.v2";
+  id: string;
+  input: OptimizerCorpusManifestV1["input"];
+  origin: OptimizerCorpusManifestV1["origin"];
+  pipeline: OptimizerCorpusManifestV1["pipeline"];
+  property: OptimizerCorpusManifestV1["property"] & {
+    observationMode: "independent" | "stateful";
+    observationMemoryCapBytes: number;
+    observationTableEntryCap: number;
+    runtimeTimeoutMs: number;
+  };
+  failure: OptimizerCorpusManifestV1["failure"];
+  reduction: OptimizerCorpusManifestV1["reduction"];
+  runtimeInterface: unknown;
+  invocationPlan: unknown;
+  observations: { original: unknown; starshine: unknown; binaryen: unknown };
+  semanticComparisons: {
+    originalVsStarshine: unknown;
+    originalVsBinaryen: unknown;
+    starshineVsBinaryen: unknown;
+  };
+  threeWayClassification: unknown;
+  fingerprint: { value: unknown; hash: string | null };
+  replay: OptimizerCorpusManifestV1["replay"];
+};
+
+type OptimizerCorpusManifest = OptimizerCorpusManifestV1 | OptimizerCorpusManifestV2;
 
 function requireObject(value: unknown, label: string): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -177,7 +224,9 @@ function loadExistingManifests(corpusRoot: string): { path: string; manifest: Op
     if (!fs.existsSync(manifestPath)) continue;
     try {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as OptimizerCorpusManifest;
-      if (manifest.schema === "starshine.optimizer-case.v1") entries.push({ path: path.dirname(manifestPath), manifest });
+      if (manifest.schema === "starshine.optimizer-case.v1" || manifest.schema === "starshine.optimizer-case.v2") {
+        entries.push({ path: path.dirname(manifestPath), manifest });
+      }
     } catch {
       // Malformed existing entries are left for corpus lint; promotion does not overwrite them.
     }
@@ -227,6 +276,7 @@ export async function promoteOptimizerFailure(options: {
     passes: normalizedPasses(metadata.replay.passFlags),
     semanticPolicy: metadata.propertyEvidence?.semanticPolicy ?? null,
     serialPasses: metadata.propertyEvidence?.serialPasses ?? false,
+    semanticFingerprintHash: metadata.propertyEvidence?.semanticV2?.fingerprint?.hash ?? null,
   });
   const predicateHash = hashText(predicateText);
 
@@ -251,8 +301,8 @@ export async function promoteOptimizerFailure(options: {
 
   const source = metadata.genValidManifestEntry;
   const selfSemantic = metadata.propertyEvidence?.selfSemantic;
-  const manifest: OptimizerCorpusManifest = {
-    schema: "starshine.optimizer-case.v1",
+  const semanticV2 = metadata.propertyEvidence?.semanticV2;
+  const common = {
     id: caseId,
     input: {
       path: "input.wasm",
@@ -291,14 +341,47 @@ export async function promoteOptimizerFailure(options: {
       predicateEvaluations: metadata.reduction?.predicateEvaluations ?? null,
       steps: metadata.reduction?.steps ?? [],
     },
-    invocationPlan: selfSemantic?.plan ?? null,
-    beforeObservation: selfSemantic?.before ?? null,
-    afterObservation: selfSemantic?.after ?? null,
     replay: {
       command: `bun fuzz replay-optimizer ${caseId}`,
-      manifest: "manifest.json",
+      manifest: "manifest.json" as const,
     },
   };
+  const manifest: OptimizerCorpusManifest = metadata.propertyFailureClass === "semantic-self-v2" && semanticV2?.report
+    ? {
+        ...common,
+        schema: "starshine.optimizer-case.v2",
+        property: {
+          ...common.property,
+          observationMode: metadata.propertyEvidence?.observationMode ?? "independent",
+          observationMemoryCapBytes: metadata.propertyEvidence?.observationMemoryCapBytes ?? 1024 * 1024,
+          observationTableEntryCap: metadata.propertyEvidence?.observationTableEntryCap ?? 1024,
+          runtimeTimeoutMs: metadata.propertyEvidence?.runtimeTimeoutMs ?? 1000,
+        },
+        runtimeInterface: semanticV2.report.runtimeInterface ?? null,
+        invocationPlan: semanticV2.report.plan ?? null,
+        observations: {
+          original: semanticV2.report.original ?? null,
+          starshine: semanticV2.report.starshine ?? null,
+          binaryen: semanticV2.report.binaryen ?? null,
+        },
+        semanticComparisons: {
+          originalVsStarshine: semanticV2.report.originalVsStarshine ?? null,
+          originalVsBinaryen: semanticV2.report.originalVsBinaryen ?? null,
+          starshineVsBinaryen: semanticV2.report.starshineVsBinaryen ?? null,
+        },
+        threeWayClassification: semanticV2.report.classification ?? null,
+        fingerprint: {
+          value: semanticV2.fingerprint?.fingerprint ?? null,
+          hash: semanticV2.fingerprint?.hash ?? null,
+        },
+      }
+    : {
+        ...common,
+        schema: "starshine.optimizer-case.v1",
+        invocationPlan: selfSemantic?.plan ?? null,
+        beforeObservation: selfSemantic?.before ?? null,
+        afterObservation: selfSemantic?.after ?? null,
+      };
   fs.writeFileSync(path.join(casePath, "manifest.json"), stableOptimizerCaseJson(manifest));
   writeIndex(corpusRoot);
   return { casePath, caseId, duplicate: false, usedReducedArtifact };

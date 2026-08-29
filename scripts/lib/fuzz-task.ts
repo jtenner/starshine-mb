@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { spawnSync } from "node:child_process";
 
 import { assertTarget, fail, resolveMoonBin, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 import { runPassFuzzCompare } from "./pass-fuzz-compare-task";
@@ -9,6 +10,14 @@ import { promoteOptimizerFailure } from "./optimizer-corpus";
 import { replayOptimizerFailure } from "./optimizer-replay";
 import { parseOptimizerSeedRunArgs, runOptimizerSeedCorpus } from "./optimizer-seeds";
 import { runOptionalWasmReduce } from "./optimizer-correctness";
+import { exploreOptimizerWasmNeighborhood } from "./optimizer-neighborhood";
+import { buildThresholdCliffGroup, optimizerThresholdsFromMoonReport, type MoonOptimizerThresholdReport } from "./optimizer-thresholds";
+import {
+  exhaustiveValidateRewrite,
+  proveRewriteWithSolver,
+  type IntegerExpression,
+  type RewriteContract,
+} from "./optimizer-translation-validation";
 
 export type FuzzOptions = {
   profile: string;
@@ -521,6 +530,169 @@ export function runFuzz(
   runner(options.moonBin, args, { cwd: repoRoot });
 }
 
+type OptimizerThresholdCommandResult = { status: number | null; stdout: string; stderr: string; error?: Error };
+
+export type OptimizerThresholdReportOptions = {
+  starshineBin?: string;
+  run?: (bin: string, args: string[]) => OptimizerThresholdCommandResult;
+};
+
+export function optimizerThresholdReport(seed = "0x5eed", options: OptimizerThresholdReportOptions = {}) {
+  const starshineBin = options.starshineBin ?? process.env.STARSHINE_BIN ?? path.join("_build", "native", "release", "build", "cmd", "cmd.exe");
+  const run = options.run ?? ((bin: string, args: string[]) => {
+    const result = spawnSync(bin, args, { encoding: "utf8" });
+    return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "", error: result.error };
+  });
+  const command = run(starshineBin, ["--emit-optimizer-thresholds-json"]);
+  if (command.error != null) fail(`failed to run Moon optimizer threshold report: ${command.error.message}`);
+  if (command.status !== 0) fail(`Moon optimizer threshold report failed: ${command.stderr || command.stdout || `exit ${command.status}`}`);
+  let moonReport: MoonOptimizerThresholdReport;
+  try {
+    moonReport = JSON.parse(command.stdout) as MoonOptimizerThresholdReport;
+  } catch (error) {
+    fail(`invalid Moon optimizer threshold JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const thresholds = optimizerThresholdsFromMoonReport(moonReport);
+  return {
+    schema: "starshine.optimizer-threshold-registry.v1" as const,
+    source: moonReport.source,
+    seed,
+    thresholds,
+    groups: thresholds.map((descriptor) => buildThresholdCliffGroup(descriptor, seed)),
+  };
+}
+
+export type OptimizerProofTaskOptions = {
+  contractPath: string;
+  solverBin: string;
+  outDir: string;
+};
+
+export function parseOptimizerProofArgs(argv: string[]): OptimizerProofTaskOptions {
+  const positional: string[] = [];
+  let solverBin = process.env.Z3_BIN || "z3";
+  let outDir = path.join(".tmp", "optimizer-rewrite-proofs");
+  for (let index = 0; index < argv.length; ) {
+    const token = argv[index];
+    if (!token.startsWith("--")) {
+      positional.push(token);
+      index += 1;
+      continue;
+    }
+    switch (token) {
+      case "--solver":
+        solverBin = argv[index + 1] ?? fail("missing value for --solver");
+        index += 2;
+        break;
+      case "--out-dir":
+        outDir = argv[index + 1] ?? fail("missing value for --out-dir");
+        index += 2;
+        break;
+      default:
+        fail(`unknown prove-rewrites option: ${token}`);
+    }
+  }
+  if (positional.length !== 1) fail("prove-rewrites requires exactly one contract JSON file");
+  return { contractPath: positional[0], solverBin, outDir };
+}
+
+function decodeIntegerExpression(value: unknown): IntegerExpression {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) fail("malformed integer expression");
+  const object = value as Record<string, unknown>;
+  const kind = object.kind;
+  const width = object.width;
+  if (typeof kind !== "string" || typeof width !== "number" || !Number.isInteger(width) || width < 1 || width > 64) {
+    fail("malformed integer expression kind or width");
+  }
+  if (kind === "var") {
+    if (typeof object.name !== "string" || object.name.length === 0) fail("malformed integer variable");
+    return { kind, name: object.name, width };
+  }
+  if (kind === "const") {
+    if (typeof object.value !== "string" && typeof object.value !== "number") fail("malformed integer constant");
+    return { kind, value: BigInt(object.value), width };
+  }
+  const binaryKinds = new Set(["add", "sub", "mul", "and", "or", "xor", "shl", "shr_u", "div_s", "div_u", "rem_s", "rem_u"]);
+  if (!binaryKinds.has(kind)) fail(`unsupported integer expression kind: ${kind}`);
+  return {
+    kind: kind as Exclude<IntegerExpression["kind"], "var" | "const">,
+    width,
+    left: decodeIntegerExpression(object.left),
+    right: decodeIntegerExpression(object.right),
+  };
+}
+
+function decodeRewriteContract(value: unknown): RewriteContract {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) fail("malformed rewrite contract");
+  const object = value as Record<string, unknown>;
+  if (typeof object.id !== "string" || object.id.length === 0) fail("rewrite contract missing id");
+  if (!Array.isArray(object.variables)) fail(`rewrite contract ${object.id} missing variables`);
+  const variables = object.variables.map((entry) => {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) fail(`rewrite contract ${object.id} has malformed variable`);
+    const variable = entry as Record<string, unknown>;
+    if (typeof variable.name !== "string" || typeof variable.width !== "number" || !Number.isInteger(variable.width)) {
+      fail(`rewrite contract ${object.id} has malformed variable`);
+    }
+    return { name: variable.name, width: variable.width };
+  });
+  if ("precondition" in object) fail(`rewrite contract ${object.id} uses unsupported non-declarative precondition`);
+  return {
+    id: object.id,
+    variables,
+    before: decodeIntegerExpression(object.before),
+    after: decodeIntegerExpression(object.after),
+  };
+}
+
+function loadRewriteContracts(contractPath: string): RewriteContract[] {
+  const parsed = JSON.parse(fs.readFileSync(path.resolve(contractPath), "utf8")) as unknown;
+  const entries = Array.isArray(parsed)
+    ? parsed
+    : parsed !== null && typeof parsed === "object" && Array.isArray((parsed as { contracts?: unknown }).contracts)
+      ? (parsed as { contracts: unknown[] }).contracts
+      : [parsed];
+  return entries.map(decodeRewriteContract);
+}
+
+function solverVersion(solverBin: string): string | null {
+  const version = spawnSync(solverBin, ["--version"], { encoding: "utf8" });
+  return version.error || version.status !== 0 ? null : (version.stdout || version.stderr).trim();
+}
+
+async function runOptimizerProofTask(options: OptimizerProofTaskOptions): Promise<void> {
+  const contracts = loadRewriteContracts(options.contractPath);
+  const outDir = path.resolve(options.outDir);
+  fs.mkdirSync(outDir, { recursive: true });
+  const version = solverVersion(options.solverBin);
+  const results: unknown[] = [];
+  for (const contract of contracts) {
+    const exhaustive = exhaustiveValidateRewrite(contract);
+    const proof = await proveRewriteWithSolver(contract, {
+      solver: async (smt) => {
+        if (version === null) return { status: "unavailable" as const, stdout: "", version: null };
+        const result = spawnSync(options.solverBin, ["-in"], { input: smt, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+        if (result.error) return { status: "unavailable" as const, stdout: result.error.message, version };
+        const first = result.stdout.trimStart().split(/\s+/, 1)[0];
+        if (first === "sat" || first === "unsat" || first === "unknown") {
+          return { status: first, stdout: result.stdout, version };
+        }
+        return { status: "unavailable" as const, stdout: result.stderr || result.stdout || `exit ${String(result.status)}`, version };
+      },
+    });
+    const result = {
+      schema: "starshine.optimizer-rewrite-validation.v1",
+      ruleId: contract.id,
+      exhaustive,
+      proof,
+    };
+    const safeId = contract.id.replace(/[^A-Za-z0-9._-]+/g, "_");
+    fs.writeFileSync(path.join(outDir, `${safeId}.smt2`), proof.smtLib);
+    fs.writeFileSync(path.join(outDir, `${safeId}.json`), JSON.stringify(result, (_key, child) => typeof child === "bigint" ? child.toString() : child, 2) + "\n");
+    results.push(result);
+  }
+  process.stdout.write(`${JSON.stringify({ schema: "starshine.optimizer-rewrite-validation-batch.v1", solverVersion: version, results }, (_key, child) => typeof child === "bigint" ? child.toString() : child, 2)}\n`);
+}
+
 export type OptimizerReplayTaskOptions = {
   source: string;
   starshineBin: string | undefined;
@@ -542,6 +714,16 @@ export type OptimizerReductionTaskOptions = {
 export type OptimizerPromotionTaskOptions = {
   failureDir: string;
   corpusRoot: string;
+  starshineBin: string | undefined;
+  moonBin: string;
+  wasmToolsBin: string;
+};
+
+export type OptimizerExploreTaskOptions = {
+  source: string;
+  outDir: string;
+  seed: bigint;
+  budget: number;
   starshineBin: string | undefined;
   moonBin: string;
   wasmToolsBin: string;
@@ -619,6 +801,65 @@ export function parseOptimizerReplayArgs(argv: string[]): OptimizerReplayTaskOpt
 
 export function parseOptimizerPromotionArgs(argv: string[]): OptimizerPromotionTaskOptions {
   return parseOptimizerToolArgs(argv, "promotion") as OptimizerPromotionTaskOptions;
+}
+
+export function parseOptimizerExploreArgs(argv: string[]): OptimizerExploreTaskOptions {
+  const positional: string[] = [];
+  let outDir: string | null = null;
+  let seed = 0x5eedn;
+  let budget = 32;
+  let starshineBin: string | undefined;
+  let moonBin = "moon";
+  let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
+  for (let index = 0; index < argv.length; ) {
+    const token = argv[index];
+    if (!token.startsWith("--")) {
+      positional.push(token);
+      index += 1;
+      continue;
+    }
+    switch (token) {
+      case "--out-dir":
+        outDir = argv[index + 1] ?? fail("missing value for --out-dir");
+        index += 2;
+        break;
+      case "--seed": {
+        const raw = argv[index + 1] ?? fail("missing value for --seed");
+        try {
+          seed = BigInt(raw);
+        } catch {
+          fail(`invalid optimizer neighborhood seed: ${raw}`);
+        }
+        if (seed < 0n) fail("optimizer neighborhood seed must be non-negative");
+        index += 2;
+        break;
+      }
+      case "--budget": {
+        const raw = argv[index + 1] ?? fail("missing value for --budget");
+        budget = Number(raw);
+        if (!Number.isInteger(budget) || budget < 0) fail(`invalid optimizer neighborhood budget: ${raw}`);
+        index += 2;
+        break;
+      }
+      case "--starshine-bin":
+        starshineBin = argv[index + 1] ?? fail("missing value for --starshine-bin");
+        index += 2;
+        break;
+      case "--moon":
+        moonBin = argv[index + 1] ?? fail("missing value for --moon");
+        index += 2;
+        break;
+      case "--wasm-tools-bin":
+        wasmToolsBin = argv[index + 1] ?? fail("missing value for --wasm-tools-bin");
+        index += 2;
+        break;
+      default:
+        fail(`unknown explore-optimizer-repro option: ${token}`);
+    }
+  }
+  if (positional.length !== 1) fail("explore-optimizer-repro requires exactly one failure directory or manifest");
+  if (outDir === null) fail("explore-optimizer-repro requires --out-dir <path>");
+  return { source: positional[0], outDir, seed, budget, starshineBin, moonBin, wasmToolsBin };
 }
 
 export function parseOptimizerReductionArgs(argv: string[]): OptimizerReductionTaskOptions {
@@ -722,6 +963,20 @@ async function runOptimizerReductionTask(options: OptimizerReductionTaskOptions)
   if (result.status === "failed") process.exitCode = 1;
 }
 
+async function runOptimizerExploreTask(options: OptimizerExploreTaskOptions): Promise<void> {
+  const report = await exploreOptimizerWasmNeighborhood({
+    source: options.source,
+    inputPath: optimizerReductionInputPath(options.source),
+    outDir: options.outDir,
+    seed: options.seed,
+    budget: options.budget,
+    starshineBin: options.starshineBin,
+    moonBin: options.moonBin,
+    wasmToolsBin: options.wasmToolsBin,
+  });
+  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+}
+
 async function runOptimizerSeedTask(argv: string[]): Promise<void> {
   const report = await runOptimizerSeedCorpus(parseOptimizerSeedRunArgs(argv));
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -770,9 +1025,25 @@ export function main(argv: string[]): void {
     void runOptimizerReductionTask(parseOptimizerReductionArgs(rest));
     return;
   }
+  if (subcommand === "explore-optimizer-repro") {
+    void runOptimizerExploreTask(parseOptimizerExploreArgs(rest));
+    return;
+  }
+  if (subcommand === "list-optimizer-thresholds") {
+    if (rest.length > 1 || (rest.length === 1 && !rest[0].startsWith("--seed="))) {
+      fail("usage: bun fuzz list-optimizer-thresholds [--seed=<value>]");
+    }
+    const seed = rest[0]?.substring("--seed=".length) || "0x5eed";
+    process.stdout.write(`${JSON.stringify(optimizerThresholdReport(seed), null, 2)}\n`);
+    return;
+  }
+  if (subcommand === "prove-rewrites") {
+    void runOptimizerProofTask(parseOptimizerProofArgs(rest));
+    return;
+  }
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--recipe <name>|--recipe=<name>] [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--out-dir <dir>|--out-dir=<dir>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]\n   or: bun fuzz replay-optimizer <failure-dir|manifest.json> [--starshine-bin <path>]\n   or: bun fuzz promote-optimizer <failure-dir> [--corpus-root tests/optimizer/regressions] [--starshine-bin <path>]\n   or: bun fuzz optimizer-seeds [--pass <name> ...] [--self-semantic] [--debug-serial-passes]\n   or: bun fuzz reduce-optimizer <failure-dir|manifest.json> --out <reduced.wasm> [--wasm-reduce-bin <path>]\n   or: bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>",
+      "usage: bun fuzz run [--recipe <name>|--recipe=<name>] [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--out-dir <dir>|--out-dir=<dir>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]\n   or: bun fuzz replay-optimizer <failure-dir|manifest.json> [--starshine-bin <path>]\n   or: bun fuzz promote-optimizer <failure-dir> [--corpus-root tests/optimizer/regressions] [--starshine-bin <path>]\n   or: bun fuzz optimizer-seeds [--pass <name> ...] [--self-semantic] [--debug-serial-passes]\n   or: bun fuzz reduce-optimizer <failure-dir|manifest.json> --out <reduced.wasm> [--wasm-reduce-bin <path>]\n   or: bun fuzz list-optimizer-thresholds [--seed=<value>]\n   or: bun fuzz prove-rewrites <contracts.json> [--solver z3] [--out-dir .tmp/optimizer-rewrite-proofs]\n   or: bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));

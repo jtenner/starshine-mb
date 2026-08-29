@@ -43,11 +43,35 @@ function fixture(options: {
       propertyEvidence: {
         semanticPolicy: "trap-aware",
         serialPasses: true,
+        observationMode: "stateful",
+        observationMemoryCapBytes: 1048576,
+        observationTableEntryCap: 1024,
+        runtimeTimeoutMs: 1000,
         selfSemantic: {
           plan: { schema: "starshine.invocation-plan.v1", seed: "0x5eed", runtime: "node", steps: [] },
           before: { schema: "starshine.runtime-observation.v1" },
           after: { schema: "starshine.runtime-observation.v1" },
         },
+        semanticV2: options.failureClass === "semantic-self-v2"
+          ? {
+              report: {
+                schema: "starshine.optimizer-three-way-runtime-report.v1",
+                runtimeInterface: { schema: "starshine.optimizer-runtime-interface.v1", interfaceHash: "iface" },
+                plan: { schema: "starshine.optimizer-invocation-plan.v2", hash: "plan" },
+                original: { schema: "starshine.optimizer-runtime-observation.v2" },
+                starshine: { schema: "starshine.optimizer-runtime-observation.v2" },
+                binaryen: { schema: "starshine.optimizer-runtime-observation.v2" },
+                originalVsStarshine: { schema: "starshine.optimizer-semantic-comparison.v2", classification: "semantic-mismatch" },
+                originalVsBinaryen: { schema: "starshine.optimizer-semantic-comparison.v2", classification: "semantic-match" },
+                starshineVsBinaryen: { schema: "starshine.optimizer-semantic-comparison.v2", classification: "semantic-mismatch" },
+                classification: { primary: "starshine-semantic-mismatch", pattern: "only-starshine-differs" },
+              },
+              fingerprint: {
+                fingerprint: { schema: "starshine.optimizer-semantic-fingerprint.v1", propertyKind: "semantic-self-v2" },
+                hash: "sha256:fingerprint",
+              },
+            }
+          : null,
       },
     }, null, 2) + "\n",
   );
@@ -76,6 +100,26 @@ describe("optimizer regression corpus promotion", () => {
     expect(manifest.origin.profile).toBe("pass-fuzz-stress");
     expect(manifest.invocationPlan).toMatchObject({ schema: "starshine.invocation-plan.v1" });
     expect(JSON.parse(fs.readFileSync(path.join(corpusRoot, "index.json"), "utf8")).cases).toEqual([manifest.id]);
+  });
+
+  test("writes additive corpus v2 evidence for semantic-self-v2 failures", async () => {
+    const { failureDir, corpusRoot } = fixture({ failureClass: "semantic-self-v2" });
+
+    const result = await promoteOptimizerFailure({
+      failureDir,
+      corpusRoot,
+      verifyFailure: async () => ({ reproduced: true, failureClass: "semantic-self-v2", detail: "v2 mismatch reproduced" }),
+    });
+
+    const manifest = JSON.parse(fs.readFileSync(path.join(result.casePath, "manifest.json"), "utf8"));
+    expect(manifest.schema).toBe("starshine.optimizer-case.v2");
+    expect(manifest.runtimeInterface).toMatchObject({ schema: "starshine.optimizer-runtime-interface.v1" });
+    expect(manifest.invocationPlan).toMatchObject({ schema: "starshine.optimizer-invocation-plan.v2" });
+    expect(manifest.observations.original).toMatchObject({ schema: "starshine.optimizer-runtime-observation.v2" });
+    expect(manifest.observations.starshine).toMatchObject({ schema: "starshine.optimizer-runtime-observation.v2" });
+    expect(manifest.semanticComparisons.originalVsStarshine).toMatchObject({ classification: "semantic-mismatch" });
+    expect(manifest.fingerprint.hash).toBe("sha256:fingerprint");
+    expect(manifest.property.observationMode).toBe("stateful");
   });
 
   test("duplicate promotion returns the existing case without creating a second entry", async () => {

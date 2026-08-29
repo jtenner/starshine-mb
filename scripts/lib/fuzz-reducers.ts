@@ -1,4 +1,5 @@
 export type ReductionPredicate<T> = (candidate: T) => boolean;
+export type AsyncReductionPredicate<T> = (candidate: T) => Promise<boolean>;
 
 export type ReductionStep = {
   kind: string;
@@ -206,6 +207,27 @@ export function reduceBinaryByByteSlicesWithReport(
   };
 }
 
+export async function reduceBinaryByByteSlicesWithReportAsync(
+  bytes: Uint8Array,
+  predicate: AsyncReductionPredicate<Uint8Array>,
+): Promise<ReductionReport<Uint8Array>> {
+  const values = Array.from(bytes);
+  const reduced = await reduceSequenceByChunkDeletionAsync(
+    values,
+    (candidate) => Uint8Array.from(candidate),
+    predicate,
+    "delete-byte-slice",
+  );
+  const result = Uint8Array.from(reduced.items);
+  return {
+    result,
+    originalSize: bytes.length,
+    finalSize: result.length,
+    predicateEvaluations: reduced.predicateEvaluations,
+    steps: reduced.steps,
+  };
+}
+
 export function reduceTextByLineDeletion(text: string, predicate: ReductionPredicate<string>): string {
   return reduceTextByLineDeletionWithReport(text, predicate).result;
 }
@@ -300,6 +322,43 @@ function reduceSequenceByChunkDeletion<T, Candidate>(
     if (!changed) {
       chunkSize = Math.floor(chunkSize / 2);
     }
+  }
+  return { items: current, changed: anyChanged, predicateEvaluations, steps };
+}
+
+async function reduceSequenceByChunkDeletionAsync<T, Candidate>(
+  original: readonly T[],
+  makeCandidate: (items: readonly T[]) => Candidate,
+  predicate: AsyncReductionPredicate<Candidate>,
+  stepKind: string = "delete-sequence-range",
+): Promise<{ items: T[]; changed: boolean; predicateEvaluations: number; steps: ReductionStep[] }> {
+  let current = Array.from(original);
+  let anyChanged = false;
+  let predicateEvaluations = 0;
+  const steps: ReductionStep[] = [];
+  if (current.length === 0) return { items: current, changed: false, predicateEvaluations, steps };
+  let chunkSize = largestPowerOfTwoAtMost(current.length);
+  while (chunkSize >= 1) {
+    let changed = false;
+    for (let start = 0; start < current.length; ) {
+      const end = Math.min(start + chunkSize, current.length);
+      if (start === 0 && end === current.length) {
+        start = end;
+        continue;
+      }
+      const beforeSize = current.length;
+      const candidateItems = current.slice(0, start).concat(current.slice(end));
+      predicateEvaluations += 1;
+      if (await predicate(makeCandidate(candidateItems))) {
+        current = candidateItems;
+        changed = true;
+        anyChanged = true;
+        steps.push({ kind: stepKind, start, length: end - start, beforeSize, afterSize: current.length });
+        continue;
+      }
+      start = end;
+    }
+    if (!changed) chunkSize = Math.floor(chunkSize / 2);
   }
   return { items: current, changed: anyChanged, predicateEvaluations, steps };
 }

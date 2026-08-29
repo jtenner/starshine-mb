@@ -9,6 +9,14 @@ import {
   type SemanticComparisonPolicy,
 } from "./optimizer-correctness";
 import type { OptimizerFailureReplayResult } from "./optimizer-corpus";
+import { runNodeThreeWaySemanticOracleV2 } from "./optimizer-runtime-executor";
+import type { ObservationMode } from "./optimizer-runtime";
+import {
+  fingerprintMatches,
+  semanticFingerprintFromRuntimeReport,
+  type FingerprintMatchLevel,
+  type SemanticFailureFingerprint,
+} from "./optimizer-failure-fingerprint";
 
 type ReplaySpecification = {
   inputPath: string;
@@ -17,6 +25,11 @@ type ReplaySpecification = {
   semanticPolicy: SemanticComparisonPolicy;
   serialPasses: boolean;
   seed: bigint;
+  observationMode: ObservationMode;
+  observationMemoryCapBytes: number;
+  observationTableEntryCap: number;
+  runtimeTimeoutMs: number;
+  expectedFingerprint: SemanticFailureFingerprint | null;
 };
 
 function parseSeed(value: unknown): bigint {
@@ -32,8 +45,23 @@ function parseSeed(value: unknown): bigint {
   return 0x5eedn;
 }
 
+function normalizePositiveInt(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function normalizeObservationMode(value: unknown): ObservationMode {
+  return value === "stateful" ? "stateful" : "independent";
+}
+
 function normalizePolicy(value: unknown): SemanticComparisonPolicy {
   return value === "strict" || value === "canonical-nan" || value === "trap-aware" ? value : "trap-aware";
+}
+
+function loadPersistedFingerprint(directory: string): SemanticFailureFingerprint | null {
+  const fingerprintPath = path.join(directory, "semantic-fingerprint.json");
+  if (!fs.existsSync(fingerprintPath)) return null;
+  const value = JSON.parse(fs.readFileSync(fingerprintPath, "utf8")) as SemanticFailureFingerprint;
+  return value.schema === "starshine.optimizer-semantic-fingerprint.v1" ? value : null;
 }
 
 function loadReplaySpecification(source: string): ReplaySpecification {
@@ -48,7 +76,14 @@ function loadReplaySpecification(source: string): ReplaySpecification {
       propertyFailureClass?: string;
       status?: string;
       replay?: { input?: string; passFlags?: string[] };
-      propertyEvidence?: { semanticPolicy?: string; serialPasses?: boolean };
+      propertyEvidence?: {
+        semanticPolicy?: string;
+        serialPasses?: boolean;
+        observationMode?: string;
+        observationMemoryCapBytes?: number;
+        observationTableEntryCap?: number;
+        runtimeTimeoutMs?: number;
+      };
       genValidManifestEntry?: { seed?: unknown };
     };
     const failureClass = metadata.propertyFailureClass ??
@@ -62,6 +97,11 @@ function loadReplaySpecification(source: string): ReplaySpecification {
       semanticPolicy: normalizePolicy(metadata.propertyEvidence?.semanticPolicy),
       serialPasses: metadata.propertyEvidence?.serialPasses ?? false,
       seed: parseSeed(metadata.genValidManifestEntry?.seed),
+      observationMode: normalizeObservationMode(metadata.propertyEvidence?.observationMode),
+      observationMemoryCapBytes: normalizePositiveInt(metadata.propertyEvidence?.observationMemoryCapBytes, 1024 * 1024),
+      observationTableEntryCap: normalizePositiveInt(metadata.propertyEvidence?.observationTableEntryCap, 1024),
+      runtimeTimeoutMs: normalizePositiveInt(metadata.propertyEvidence?.runtimeTimeoutMs, 1000),
+      expectedFingerprint: loadPersistedFingerprint(directory),
     };
   }
 
@@ -72,10 +112,20 @@ function loadReplaySpecification(source: string): ReplaySpecification {
     input?: { path?: string };
     origin?: { seed?: unknown };
     pipeline?: { passes?: string[]; mode?: string };
-    property?: { kind?: string; semanticPolicy?: string | null };
+    property?: {
+      kind?: string;
+      semanticPolicy?: string | null;
+      observationMode?: string;
+      observationMemoryCapBytes?: number;
+      observationTableEntryCap?: number;
+      runtimeTimeoutMs?: number;
+    };
     failure?: { class?: string };
+    semanticEvidence?: { fingerprint?: { value?: unknown } };
   };
-  if (manifest.schema !== "starshine.optimizer-case.v1") throw new Error(`unsupported optimizer case schema ${manifest.schema}`);
+  if (manifest.schema !== "starshine.optimizer-case.v1" && manifest.schema !== "starshine.optimizer-case.v2") {
+    throw new Error(`unsupported optimizer case schema ${manifest.schema}`);
+  }
   const failureClass = manifest.failure?.class ?? manifest.property?.kind;
   if (!failureClass) throw new Error("optimizer case missing failure class");
   return {
@@ -85,6 +135,11 @@ function loadReplaySpecification(source: string): ReplaySpecification {
     semanticPolicy: normalizePolicy(manifest.property?.semanticPolicy),
     serialPasses: manifest.pipeline?.mode === "serial",
     seed: parseSeed(manifest.origin?.seed),
+    observationMode: normalizeObservationMode(manifest.property?.observationMode),
+    observationMemoryCapBytes: normalizePositiveInt(manifest.property?.observationMemoryCapBytes, 1024 * 1024),
+    observationTableEntryCap: normalizePositiveInt(manifest.property?.observationTableEntryCap, 1024),
+    runtimeTimeoutMs: normalizePositiveInt(manifest.property?.runtimeTimeoutMs, 1000),
+    expectedFingerprint: (manifest.semanticEvidence?.fingerprint?.value as SemanticFailureFingerprint | undefined) ?? loadPersistedFingerprint(directory),
   };
 }
 
@@ -131,6 +186,7 @@ export async function replayOptimizerFailure(options: {
   starshineBin?: string;
   moonBin?: string;
   wasmToolsBin?: string;
+  fingerprintLevel?: FingerprintMatchLevel;
 }): Promise<OptimizerFailureReplayResult> {
   const loaded = loadReplaySpecification(options.source);
   const spec = options.inputOverride === undefined
@@ -162,6 +218,43 @@ export async function replayOptimizerFailure(options: {
           reproduced,
           failureClass: reproduced ? "semantic-self" : null,
           detail: `semantic:self ${report.classification}${report.firstDifference ? ` at ${report.firstDifference.path}` : ""}`,
+        };
+      }
+      case "semantic-self-v2": {
+        const report = await runNodeThreeWaySemanticOracleV2(
+          spec.inputPath,
+          optimizedPath,
+          null,
+          {
+            seed: spec.seed,
+            policy: spec.semanticPolicy,
+            mode: spec.observationMode,
+            timeoutMs: spec.runtimeTimeoutMs,
+            memoryCapBytes: spec.observationMemoryCapBytes,
+            tableEntryCap: spec.observationTableEntryCap,
+            wasmToolsBin,
+            starshineBin: starshine.command,
+            starshineArgsPrefix: starshine.prefix,
+            binaryenDiagnostic: "tool-failure",
+          },
+        );
+        const semanticFailure = report.classification.primary === "starshine-semantic-mismatch"
+          || report.classification.primary === "starshine-correctness-failure";
+        const actualFingerprint = semanticFailure
+          ? semanticFingerprintFromRuntimeReport(report, {
+              passSequence: spec.expectedFingerprint?.passSequence ?? spec.passFlags.map((flag) => flag.replace(/^--/, "")),
+              firstDivergentPassBoundary: spec.expectedFingerprint?.firstDivergentPassBoundary ?? null,
+            })
+          : null;
+        const fingerprintLevel = options.fingerprintLevel ?? "exact";
+        const fingerprintMatch = spec.expectedFingerprint === null
+          ? semanticFailure
+          : actualFingerprint !== null && fingerprintMatches(spec.expectedFingerprint, actualFingerprint, fingerprintLevel);
+        const reproduced = semanticFailure && fingerprintMatch;
+        return {
+          reproduced,
+          failureClass: reproduced ? "semantic-self-v2" : null,
+          detail: `semantic:self-v2 ${report.classification.primary} pattern=${report.classification.pattern} difference=${report.originalVsStarshine.firstDifferencePath ?? "none"} fingerprint=${spec.expectedFingerprint === null ? "legacy-class-only" : fingerprintMatch ? `${fingerprintLevel}-match` : "mismatch"}`,
         };
       }
       case "validation-failure": {

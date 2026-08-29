@@ -4,6 +4,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { runNodeSelfSemanticOracle } from "./optimizer-correctness";
+import { runNodeThreeWaySemanticOracleV2 } from "./optimizer-runtime-executor";
+import type { ObservationMode } from "./optimizer-runtime";
 
 export type OptimizerSeedEntry = {
   id: string;
@@ -21,6 +23,8 @@ export type OptimizerSeedRunOptions = {
   corpusRoot: string;
   passFlags: string[];
   selfSemantic: boolean;
+  semanticOracle: "off" | "node-v2";
+  observationMode: ObservationMode;
   serialPasses: boolean;
   starshineBin: string | undefined;
   moonBin: string;
@@ -76,6 +80,8 @@ export function parseOptimizerSeedRunArgs(argv: string[]): OptimizerSeedRunOptio
   let corpusRoot = "tests/optimizer/seeds";
   const passFlags: string[] = [];
   let selfSemantic = false;
+  let semanticOracle: "off" | "node-v2" = "off";
+  let observationMode: ObservationMode = "independent";
   let serialPasses = false;
   let starshineBin: string | undefined;
   let moonBin = "moon";
@@ -98,6 +104,20 @@ export function parseOptimizerSeedRunArgs(argv: string[]): OptimizerSeedRunOptio
         selfSemantic = true;
         index += 1;
         break;
+      case "--semantic-oracle": {
+        const value = argv[index + 1] ?? fail("missing value for --semantic-oracle");
+        if (value !== "off" && value !== "node-v2") fail(`unsupported optimizer-seeds semantic oracle ${value}`);
+        semanticOracle = value;
+        index += 2;
+        break;
+      }
+      case "--observation-mode": {
+        const value = argv[index + 1] ?? fail("missing value for --observation-mode");
+        if (value !== "independent" && value !== "stateful") fail(`unsupported optimizer-seeds observation mode ${value}`);
+        observationMode = value;
+        index += 2;
+        break;
+      }
       case "--debug-serial-passes":
         serialPasses = true;
         index += 1;
@@ -122,7 +142,7 @@ export function parseOptimizerSeedRunArgs(argv: string[]): OptimizerSeedRunOptio
         fail(`unknown optimizer-seeds option ${token}`);
     }
   }
-  return { corpusRoot, passFlags, selfSemantic, serialPasses, starshineBin, moonBin, wasmToolsBin, seed };
+  return { corpusRoot, passFlags, selfSemantic, semanticOracle, observationMode, serialPasses, starshineBin, moonBin, wasmToolsBin, seed };
 }
 
 function commandResult(command: string, args: string[]): { ok: boolean; detail: string } {
@@ -177,6 +197,33 @@ export async function runOptimizerSeedCorpus(options: OptimizerSeedRunOptions): 
       if (!validated.ok) {
         cases.push({ id: seed.id, status: "failed", detail: `validation failed: ${validated.detail}` });
         continue;
+      }
+      if (options.semanticOracle === "node-v2") {
+        const report = await runNodeThreeWaySemanticOracleV2(
+          inputPath,
+          outputPath,
+          null,
+          {
+            seed: options.seed + BigInt(index),
+            policy: "trap-aware",
+            mode: options.observationMode,
+            timeoutMs: 1000,
+            memoryCapBytes: 1024 * 1024,
+            tableEntryCap: 1024,
+            wasmToolsBin: options.wasmToolsBin,
+            starshineBin: starshine.command,
+            starshineArgsPrefix: starshine.prefix,
+            binaryenDiagnostic: "tool-failure",
+          },
+        );
+        if (report.classification.primary === "starshine-semantic-mismatch" || report.classification.primary === "starshine-correctness-failure") {
+          cases.push({ id: seed.id, status: "failed", detail: `semantic:v2 ${report.classification.primary} ${report.classification.pattern}` });
+          continue;
+        }
+        if (report.classification.primary === "blocked-original-runtime") {
+          cases.push({ id: seed.id, status: "blocked", detail: `semantic:v2 ${report.classification.pattern}` });
+          continue;
+        }
       }
       if (options.selfSemantic) {
         const report = await runNodeSelfSemanticOracle(inputPath, outputPath, {
