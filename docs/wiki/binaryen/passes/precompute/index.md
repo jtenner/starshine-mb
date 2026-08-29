@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-08-28
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
@@ -212,6 +212,16 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 ## 2026-07-26 v131 correctness-repair renewal
 
 The renewed explicit-v131 audit closes the post-repair evidence item in `[AUDIT-CORRECTNESS]001`. The rebuilt native CLI and explicit Binaryen-v131 oracle complete both public four-lane matrices with zero validation, generator, property, Starshine command, or true semantic failures. Plain and propagating regular `100000` plus dedicated `10000` lanes have zero residual mismatches. Random-all residuals are either source-inspected smaller dead-value/control cleanup or the existing reachable-`atomic.fence` correctness boundary. wasm-smith retains only case `6523` for the fence boundary and, for propagation, case `3694` as a seven-byte smaller exact scratch-local shape. Fresh `500/500` idempotence and runtime samples are green for both public names. Exact directories and counts live in [`./fuzzing.md`](./fuzzing.md), and the repair/evidence narrative is in [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md).
+
+## 2026-08-28 recursive self-bootstrap overwrite repair
+
+Recursive self-optimization exposed a stricter variant of the existing stack-carried overwritten-local boundary. Native and self-hosted stage one matched exactly, and self-hosted stage one produced native-identical stage two. Self-hosted stage two also produced native-identical stage three, but that structurally valid stage-three CLI failed `tests/spec/address.wast` command 1 with `invalid memory index in memarg`.
+
+Exact stage-two candidate capture proved the main optimized and similar-functions candidates remained runtime-capable, while final-precompute, global-refining cleanup, and scalar-final cleanup all failed after their shared plain `precompute` step. Applying plain `precompute` directly to the healthy candidate changed only 20 bodies; hybridization isolated absolute function 9119. The reduced function is `(param i64 i32 i64) -> i64`: `local.get 0; local.get 1; local.get 2; local.set 0; drop; local.set 2; local.get 2` must return the original parameter 0, but Precompute lowered it to `local.get 2; local.set 0; local.get 0; local.set 2`, returning the new parameter 2 value.
+
+The existing guard recognized only fixed two-value/call-shaped variants. It now performs one bounded, allocation-free stack-marker scan from each `local.get`, tracking later flat `local.get`, `local.set`, `local.tee`, `drop`, and `nop` traffic. If the same local is overwritten while its older value remains live below later operands, any subsequent use of that carried marker makes the function fail closed before HOT lowering. The direct regression requires exact body preservation and `stack-carried-overwritten-local-precompute-noop`.
+
+Final formatted native SHA-256 is `17ea38fb70b6b8ce0a3ad5f3e67e6a6332fbf9aa4083184e490d1516e8896564`. Self-hosted stages one through four match their native outputs byte-for-byte. Native iteration converges at generation 11; all generations pass `address.wast`; stage three and generation 11 pass the complete checked-in spec suite (`284` total, `87` passed, `197` known skips, `0` failed); and generation 11 self-optimizes exactly to itself. Exact artifact hashes and fuzz evidence are recorded in [`./fuzzing.md`](./fuzzing.md).
 
 ## 2026-08-25 artifact-scale stack-carried overwrite repair
 

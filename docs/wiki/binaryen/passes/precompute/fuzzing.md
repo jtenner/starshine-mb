@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-20
+last_reviewed: 2026-08-28
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ./index.md
@@ -12,6 +12,19 @@ sources:
 ---
 
 # `precompute` Fuzzing Profile
+
+## 2026-08-28 recursive self-bootstrap repair renewal
+
+The three-value stack-carried overwritten-local repair renews all required direct `precompute` lanes against explicit Binaryen v131 and `_build/native/release/build/cmd/cmd.exe`, with `--max-subprocesses 8`, `--max-mismatch-artifacts 20`, and the established dropped-constant/local-cleanup/unreachable-control normalizers:
+
+1. regular GenValid `.tmp/pass-fuzz-precompute-self-bootstrap-fix-regular-100000`: `100000/100000`, `485` normalized plus `99,515` cleanup-normalized, zero mismatches or failures;
+2. dedicated `precompute-all` `.tmp/pass-fuzz-precompute-self-bootstrap-fix-dedicated-10000`: `10000/10000`, `3,238` normalized plus `6,762` cleanup-normalized, zero mismatches or failures, all eleven leaves sampled;
+3. wasm-smith `.tmp/pass-fuzz-precompute-self-bootstrap-fix-wasm-smith-10000`: `9,956/10,000` comparable, `9,932` normalized, `22` cleanup-normalized, the established reachable-`atomic.fence` preservation difference at case 6523, one smaller unreachable-nop cleanup at case 9956, and `44` classified Binaryen-only tool failures;
+4. random all-profiles `.tmp/pass-fuzz-precompute-self-bootstrap-fix-random-all-10000`: `10000/10000`, `3,226` normalized, `3,016` cleanup-normalized, and `3,758` established cross-pass residuals with zero validation, generator, property, or command failures. Exact pre-fix/current replay on the same 10,000 inputs is byte-identical, proving the repair adds no generated output family.
+
+The focused runtime lane `.tmp/pass-fuzz-precompute-self-bootstrap-fix-runtime-idempotence-500` compares `500/500` with `176` normalized plus `324` cleanup-normalized, `500/500` deterministic bytes, `500/500` codec stability, `500/500` pass idempotence, `475` self-semantic matches, `25` runtime-unsupported GC/reference cases, and zero semantic, validation, property, generator, or command failures.
+
+Final recursive bootstrap evidence is under `.tmp/self-opt-bootstrap-20260829/fixed-bootstrap-final/`. The 14,876,871-byte debug input has SHA-256 `caf6d3982a6254f570b8b478d8d202561b7823606e8f0d2de163f4a6e1587393`. Stage one is 5,236,654 bytes (`105f5a85f577035fe7dba281e8227dc1cf1a745ce24bad7c6ec007979dd140d8`), stage two is 5,223,999 bytes (`b44c95a3ccb6ed7f98d9c67e09b3e66f17585232a0c836baf851c97710191d02`), stage three is 5,210,785 bytes (`2cc27e8577177f4a0aabd338d04fb40abe20531f15dff7ff3d19b52bf2c2ad64`), and the generation-11 fixed point is 5,209,130 bytes (`e5f0d56e5b0403d518b01de6482b8da42d349d38fa0468985ccb7181980cc850`). Self-hosted stages one through four are byte-identical to native; every native generation passes `address.wast`; stage three and generation 11 pass the full `284`-file suite with zero failures; and generation 11 self-optimizes exactly to itself.
 
 ## 2026-08-20 compact SIMD and zero-memory-init refresh
 

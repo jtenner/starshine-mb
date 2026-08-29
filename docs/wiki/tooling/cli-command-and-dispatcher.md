@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/README.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
@@ -100,6 +100,10 @@ Boundary-only and removed registry names are intentionally tracked for planning,
 ### Preset and `-O` behavior
 
 `--optimize` and `--shrink` are both pass flags and optimize-level hints. Raw `-O...` / `--optimize-level` / `--shrink-level` values update the effective numeric levels. If no explicit pass flags are present, the dispatcher synthesizes one default pass name from levels: `shrink` wins when the shrink level is nonzero, otherwise `optimize` wins when the optimize level is nonzero. If any explicit pass/debug flag exists, the explicit queue is used as written. The Wasm O4z encoded-size portfolio is enabled only when the resolved queue is nonempty and consists exclusively of `optimize` and/or `shrink`; mixed explicit queues such as `shrink -> vacuum` run exactly their requested pass contract without portfolio candidates.
+
+The portfolio's final validity selection is stable and size ordered. Candidates are considered by ascending encoded byte length, ties retain generation order, and validation stops at the first valid candidate. This is equivalent to validating every candidate and then taking the stable minimum, while avoiding decode and whole-module validation of larger candidates once a smaller valid result is established. An invalid shortest candidate still falls through to the next-shortest candidate. Normal mode does not decode the selected bytes a second time after this validity check; `--debug-serial-passes` retains the separate post-encode decode/validation safety path.
+
+On native builds, the final-precompute, global-refining, and scalar-final cleanup candidates run in isolated child processes because they consume the same immutable optimized module and have no ordering dependency. The parent collects results in declaration order, so generation-order tie behavior is unchanged. A worker that produces no candidate records that outcome explicitly; an abnormal exit, fork failure, write failure, or unreadable result reruns that job serially instead of silently dropping coverage. WASM, wasm-gc, JavaScript, and LLVM targets retain the exact serial path. Successfully returned worker candidates carry an explicit validation proof because each worker decodes and validates the actual bytes after encoding; validating only the pre-encoding module is not sufficient for this proof boundary. Final selection may reuse that encoded-byte proof, but every shorter unproved candidate is still decoded and validated before it can win.
 
 Both local presets currently expand to the same implemented mixed module/hot pass sequence in [`optimize_preset_passes(...)`](../../../src/passes/optimize.mbt) and [`shrink_preset_passes(...)`](../../../src/passes/optimize.mbt). The deeper Binaryen `-O` / no-DWARF comparison lives in [`../binaryen/no-dwarf-default-optimize-path.md`](../binaryen/no-dwarf-default-optimize-path.md) and the pass namespace map lives in [`../ir2/registry-map.md`](../ir2/registry-map.md).
 
