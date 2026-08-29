@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-08-29
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/README.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
@@ -107,6 +107,16 @@ On native builds, the final-precompute, global-refining, and scalar-final cleanu
 
 Both local presets currently expand to the same implemented mixed module/hot pass sequence in [`optimize_preset_passes(...)`](../../../src/passes/optimize.mbt) and [`shrink_preset_passes(...)`](../../../src/passes/optimize.mbt). The deeper Binaryen `-O` / no-DWARF comparison lives in [`../binaryen/no-dwarf-default-optimize-path.md`](../binaryen/no-dwarf-default-optimize-path.md) and the pass namespace map lives in [`../ir2/registry-map.md`](../ir2/registry-map.md).
 
+### Optimizer machine reports
+
+The native command owns three mutually exclusive JSON report flags:
+
+- `--emit-runtime-interface-json <input>` decodes exactly one module and writes `starshine.optimizer-runtime-interface.v1`, including typed imports/exports, resource limits, support classifications, feature facts, start presence, and deterministic hashes;
+- `--emit-expanded-pass-queue-json [optimizer flags] <input>` writes `starshine.optimizer-expanded-pass-queue.v1` from the same module-aware scheduler expansion used by execution, retaining repeated pass slots; and
+- `--emit-optimizer-thresholds-json [optimizer tuning flags]` writes `starshine.optimizer-threshold-registry.v1` from resolved `OptimizeOptions` without requiring an input.
+
+Module reports stop after decode and do not optimize or emit Wasm output. Threshold reporting still runs normal CLI/config/environment option resolution. Multiple report flags or multiple inputs for a module report fail closed. The Bun semantic harness uses the runtime-interface report in production; `bun fuzz list-optimizer-thresholds` consumes the threshold report instead of duplicating defaults.
+
 ### Trap-mode flags are options, not passes
 
 `--trap-mode <allow|never>`, `--traps-never-happen`, and `--traps-may-happen` are parsed as optimizer options, not scheduled pass names. [`src/cli/cli_test.mbt`](../../../src/cli/cli_test.mbt) locks both sides: mixed-case values are accepted, missing/invalid values are rejected, `--traps-never-happen --traps-may-happen` resolves by last flag wins, and trap-mode toggles are omitted from `resolve_pass_flags(...)` so a neighboring explicit pass such as `--flatten` remains the scheduled item.
@@ -177,6 +187,22 @@ Use [`tracing-playbook.md`](./tracing-playbook.md) for trace-line shape and [`va
 - Any new command flag needs parser coverage in `src/cli/cli_test.mbt` or command coverage in `src/cmd/cmd_wbtest.mbt`; any new pass category or preset change also needs `src/passes/optimize.mbt` and registry/preset docs refreshed.
 - If a pass starts or stops consuming `OptimizeOptions.traps_never_happen`, update the pass dossier, [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md), compare-pass classification guidance, command tests, and the relevant local owner/test citations together.
 - Any new printable item kind needs coordinated changes to CLI help, `cmd_is_supported_print_kind(...)`, `cmd_resolve_pipeline_print_entry(...)`, the ordered stderr log test, this page, and whichever focused wiki page owns the selector's name source or index space.
+
+## Optimizer correctness tooling boundary
+
+The semantic campaign commands are routed as strict `bun fuzz` siblings rather than Starshine module flags:
+
+```text
+bun fuzz compare-pass ... --semantic-oracle node-v2
+bun fuzz list-optimizer-thresholds [--seed=<value>]
+bun fuzz prove-rewrites <contracts.json> [--solver z3] [--out-dir <dir>]
+bun fuzz replay-optimizer <failure-dir|manifest.json>
+bun fuzz promote-optimizer <failure-dir>
+```
+
+`list-optimizer-thresholds` emits `starshine.optimizer-threshold-registry.v1` from the current `InliningOptions::new` defaults and deterministic `N-1/N/N+1` groups. `prove-rewrites` reads declarative integer contracts, runs reduced-width exhaustive checking, invokes Z3 when available, and persists SMT-LIB plus versioned JSON results. These commands do not alter the Starshine module queue or locked preset order.
+
+A machine-readable runtime-interface report emitted directly from Starshine's decoded MoonBit module, an expanded pass-sequence report for presets/composites, and MoonBit-owned threshold export remain pending. Compare-pass currently derives the runtime interface from decoded `wasm-tools print` structure, and the threshold command labels its MoonBit source owner explicitly.
 
 ## Sources
 

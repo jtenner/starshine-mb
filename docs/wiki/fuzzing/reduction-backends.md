@@ -147,6 +147,10 @@ When adding a reducer or wiring a new failure path:
 6. Update parser/formatter tests for any new log key or step shape.
 7. Cross-link the caller's workflow page, generator ledger row, or diagnostics page so future agents can find the reduction evidence.
 
+## Semantic fingerprint reducer component
+
+[`optimizer-failure-fingerprint.ts`](../../../scripts/lib/optimizer-failure-fingerprint.ts) defines `starshine.optimizer-semantic-fingerprint.v1`, shared runtime-report derivation, exact/family matching, and `starshine.optimizer-fingerprint-reduction.v1`. Semantic-v2 compare failures persist canonical `semantic-fingerprint.json` and `semantic-fingerprint.sha256`, including expanded repeated pass slots and any observed first-divergent boundary. Fresh GenValid semantic failures run the async byte-slice reducer with independent validation, optimization, observation-v2 execution, and two exact-fingerprint evaluations per accepted candidate; outputs are `semantic-fingerprint-reduction.json` plus `semantic-reduced-input.wasm` when smaller. Replay loads the persisted fingerprint and requires exact equality when present, so `bun fuzz reduce-optimizer` and its external `wasm-reduce` predicate preserve the same exact witness. Legacy artifacts without a fingerprint remain explicitly class-only. Family relaxation still requires explicit orchestration and is not silently used by compare-pass.
+
 ## Sources
 
 - Background: Zeller and Hildebrandt's delta-debugging paper, C-Reduce's predicate model, and Binaryen's `wasm-reduce` documentation; the local sources above define Starshine behavior.
