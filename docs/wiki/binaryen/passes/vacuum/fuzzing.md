@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-29
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -9,6 +9,16 @@ sources:
 ---
 
 # `vacuum` Fuzzing Profile
+
+## Level-zero flatten/preclean composition — 2026-08-29
+
+Proposal-rich semantic modules exposed a broad early-return family: at optimization level zero, raw Vacuum flattened an unbranched result block and immediately returned the function, skipping the already-safe raw precleaner. One saved function retained 1,422 dropped pure scalar trees that Binaryen v131 removed while preserving checked float-to-integer truncation traps.
+
+The level-zero flatten path now runs `run_hot_pipeline_raw_vacuum_preclean_instrs` on the flattened body before returning. The red-first regression removes `drop(i32.add(...))`, keeps `drop(i32.trunc_f64_s(...))`, and preserves the final result. Focused `optimize_test.mbt` passes `118/118`.
+
+Saved explicit-v131 replay reduced Starshine raw output from `21,501` to `1,697` bytes. After strip/canonicalization both Starshine and Binaryen are `1,145` bytes and have identical non-local instruction text. Starshine declares `120` locals versus Binaryen's `174`; `local-cleanup-debris` proves this is only unused-local declaration drift, with fewer declarations and no canonical-size regression, so the residual is a measured Starshine win rather than a parity excuse.
+
+Pinned semantic matrix `.tmp/semantic-optimizer-v131-after-level-zero-local-normalized-16` reports `16/16` cleanup-normalized matches, `16/16` semantic matches, semantic-idempotence matches, convergence fixed points, commutator matches, and metamorphic matches, with zero mismatches or validation/property/generator/command failures. The first explicit-v131 random-all sample improves from `62` raw matches plus `38` mismatches to `62` raw plus `22` cleanup-normalized matches and `16` remaining gaps out of `100`; those residuals remain open.
 
 ## Guarded-hazard-first preclean refresh — 2026-08-21
 

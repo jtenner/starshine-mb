@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-29
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
@@ -90,6 +90,10 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - current GitHub `main` still matches `version_129` `Vacuum.cpp` in substance
 
 So explicit `unreachable` preservation is part of the tagged `version_129` oracle here, not a newer trunk-only drift note.
+
+## 2026-08-29 level-zero flatten/preclean composition
+
+Level-zero raw Vacuum no longer returns immediately after flattening an unbranched result block. It now applies the existing effect/trap-aware raw precleaner to that flattened body first, removing large dropped pure scalar forests while preserving checked truncation traps and the live result. A saved Binaryen-v131 semantic-profile case fell from `21,501` to `1,697` Starshine raw bytes; canonical Starshine and Binaryen are both `1,145` bytes and differ only because Starshine removes 54 additional unused local declarations. The pinned 16-case semantic matrix is `16/16` cleanup-normalized and semantically green. A 100-case random-all sample still has 16 residual gaps after local cleanup, so broad closeout remains open.
 
 ## 2026-08-21 guarded-hazard-first scheduling
 

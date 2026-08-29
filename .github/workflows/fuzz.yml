@@ -149,6 +149,7 @@ jobs:
             --commutator-right remove-unused-brs \
             --gen-valid-metamorphic-transform add-non-name-custom-section \
             --emit-metamorphic-pairs \
+            --normalize local-cleanup-debris \
             --jobs auto \
             --max-subprocesses 4 \
             --max-mismatch-artifacts 10 \

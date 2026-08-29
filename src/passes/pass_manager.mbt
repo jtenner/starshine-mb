@@ -68469,9 +68469,13 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       instrs, false, false,
     )
     if changed {
+      let (precleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+        flattened,
+        None,
+      )
       return Some({
         reason: "raw-vacuum-unbranched-result-blocks",
-        func: @lib.Func::new(locals, @lib.Expr::new(flattened)),
+        func: @lib.Func::new(locals, @lib.Expr::new(precleaned)),
         unchanged_original: false,
         trace_skip_raw: true,
       })

@@ -83,6 +83,7 @@ export function runCiWorkflowContractTest(): void {
     ['--property semantic-idempotence', "semantic idempotence CI smoke"],
     ['--commutator-left vacuum', "commutator CI smoke"],
     ['--emit-metamorphic-pairs', "paired metamorphic CI smoke"],
+    ['--normalize local-cleanup-debris', "measured unused-local Starshine-win normalization"],
     ['--no-reduce-mismatches', "bounded semantic CI without structural reduction"],
   ] as Array<[string, string]>) {
     requireText(fuzzWorkflow, fragment, label);

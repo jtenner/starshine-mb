@@ -152,6 +152,30 @@ test "level-zero vacuum removes unbranched function-root result blocks" {
 }
 
 ///|
+test "level-zero vacuum continues pure-drop cleanup after result block flattening" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32)
+        #|    (drop (i32.add (i32.const 1) (i32.const 2)))
+        #|    (drop (i32.trunc_f64_s (f64.const 12)))
+        #|    (block (result i32) (i32.const 7))))
+        #|,
+      ),
+      ["vacuum"],
+      options=HotPipelineOptions::new(optimize_level=0, shrink_level=0),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected continued level-zero vacuum cleanup, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("i32.trunc_f64s"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "level-zero vacuum removes nested unbranched result blocks" {
   let optimized = match
     pass_test_run_pipeline(
