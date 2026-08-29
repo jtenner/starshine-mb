@@ -54,6 +54,19 @@ describe("pass-fuzz persistent cache options", () => {
     }
   });
 
+  test("accepts a prebuilt GenValid generator binary", () => {
+    const defaults = parsePassFuzzCompareArgs(["--pass", "vacuum"]);
+    const explicit = parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--gen-valid-bin", "_build/native/release/build/fuzz/fuzz.exe",
+    ]);
+    expect(defaults.kind).toBe("run");
+    if (defaults.kind === "run") expect(defaults.options.genValidBin).toBeNull();
+    expect(explicit.kind).toBe("run");
+    if (explicit.kind === "run") {
+      expect(explicit.options.genValidBin).toBe("_build/native/release/build/fuzz/fuzz.exe");
+    }
+  });
+
   test("defaults compare-pass generation to a GenValid-only lane", () => {
     const parsed = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs"]);
 

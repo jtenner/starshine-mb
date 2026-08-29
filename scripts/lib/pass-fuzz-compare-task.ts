@@ -156,6 +156,7 @@ type PassFuzzCompareOptions = {
   codecIdempotence: boolean;
   serialPasses: boolean;
   generator: GeneratorMode;
+  genValidBin: string | null;
   genValidProfile: string | null;
   genValidRequiredFeatures: string[];
   genValidExcludedFeatures: string[];
@@ -295,6 +296,7 @@ export type PassFuzzCompareSummary = {
   jobs: number;
   seed: string;
   generator: GeneratorMode;
+  genValidBin: string | null;
   genValidProfile: string | null;
   genValidRequiredFeatures: string[];
   genValidExcludedFeatures: string[];
@@ -428,6 +430,7 @@ const RESERVED_OPTIONS = new Set([
   "--localize-first-divergence",
   "--generator",
   "--wasm-smith",
+  "--gen-valid-bin",
   "--gen-valid-profile",
   "--require-feature",
   "--exclude-feature",
@@ -567,6 +570,8 @@ const HELP_TEXT = [
   "                       WABT validator command for --external-validator wabt. Default: wasm-validate",
   "  --wasm-smith         Use the separate wasm-smith external-generator lane. Default: gen-valid",
   "  --generator <mode>    Legacy alias: wasm-smith | gen-valid. Default: gen-valid",
+  "  --gen-valid-bin <path>",
+  "                       Prebuilt native src/fuzz executable; avoids moon run compilation",
   "  --gen-valid-profile <name>",
   "                       Forward a named GenValid profile to batch generation",
   "  --require-feature <feature>",
@@ -3899,6 +3904,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let codecIdempotence = false;
   let serialPasses = false;
   let generator: GeneratorMode = "gen-valid";
+  let genValidBin: string | null = null;
   let genValidProfile: string | null = null;
   const genValidRequiredFeatures: string[] = [];
   const genValidExcludedFeatures: string[] = [];
@@ -4073,6 +4079,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         i += 2;
         break;
       }
+      case "--gen-valid-bin":
+        genValidBin = argv[i + 1] ?? fail("missing value for --gen-valid-bin");
+        i += 2;
+        break;
       case "--gen-valid-profile":
         genValidProfile = argv[i + 1] ?? fail("missing value for --gen-valid-profile");
         i += 2;
@@ -4263,6 +4273,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           i += 1;
           break;
         }
+        if (token.startsWith("--gen-valid-bin=")) {
+          genValidBin = token.substring("--gen-valid-bin=".length);
+          i += 1;
+          break;
+        }
         if (token.startsWith("--gen-valid-profile=")) {
           genValidProfile = token.substring("--gen-valid-profile=".length);
           i += 1;
@@ -4395,6 +4410,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       codecIdempotence,
       serialPasses,
       generator,
+      genValidBin,
       genValidProfile,
       genValidRequiredFeatures,
       genValidExcludedFeatures,
@@ -4533,31 +4549,34 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   if (genValidCount > 0 && !options.resume) {
     const genValidMoonDir = path.relative(repoRoot, genValidDir) || ".";
     const genValidManifestPath = path.join(genValidMoonDir, "manifest.json");
-    runOrThrow(
-      options.moonBin,
-      [
-        "run",
-        "--target",
-        "native",
-        "--release",
-        "src/fuzz",
-        "--",
-        "--emit-gen-valid-batch",
-        "--count",
-        String(genValidCount),
-        "--seed",
-        seedHex(options.seed),
-        ...(options.genValidProfile === null ? [] : ["--gen-valid-profile", options.genValidProfile]),
-        ...options.genValidRequiredFeatures.flatMap((feature) => ["--require-feature", feature]),
-        ...options.genValidExcludedFeatures.flatMap((feature) => ["--exclude-feature", feature]),
-        ...options.genValidMetamorphicTransforms.flatMap((id) => ["--metamorphic-transform", id]),
-        "--out-dir",
-        genValidMoonDir,
-        "--manifest",
-        genValidManifestPath,
-      ],
-      { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe" },
-    );
+    const genValidArgs = [
+      "--emit-gen-valid-batch",
+      "--count",
+      String(genValidCount),
+      "--seed",
+      seedHex(options.seed),
+      ...(options.genValidProfile === null ? [] : ["--gen-valid-profile", options.genValidProfile]),
+      ...options.genValidRequiredFeatures.flatMap((feature) => ["--require-feature", feature]),
+      ...options.genValidExcludedFeatures.flatMap((feature) => ["--exclude-feature", feature]),
+      ...options.genValidMetamorphicTransforms.flatMap((id) => ["--metamorphic-transform", id]),
+      "--out-dir",
+      genValidMoonDir,
+      "--manifest",
+      genValidManifestPath,
+    ];
+    if (options.genValidBin === null) {
+      runOrThrow(
+        options.moonBin,
+        ["run", "--target", "native", "--release", "src/fuzz", "--", ...genValidArgs],
+        { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe" },
+      );
+    } else {
+      runOrThrow(
+        options.genValidBin,
+        genValidArgs,
+        { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe" },
+      );
+    }
   }
   const genValidInputs = genValidCount > 0 ? listGeneratedGenValidInputs(genValidDir) : [];
   if (options.resume && genValidInputs.length < genValidCount) {
@@ -4620,6 +4639,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     jobs: effectiveJobs,
     seed: seedHex(options.seed),
     generator: options.generator,
+    genValidBin: options.genValidBin,
     genValidProfile: options.genValidProfile,
     genValidRequiredFeatures: options.genValidRequiredFeatures,
     genValidExcludedFeatures: options.genValidExcludedFeatures,

@@ -108,8 +108,10 @@ jobs:
           "$BINARYEN_DIR/bin/wasm-opt" --version
           "$Z3_DIR/bin/z3" --version
 
-      - name: Build native Starshine
-        run: moon build --target native --release src/cmd
+      - name: Build native Starshine and GenValid generator
+        run: |
+          moon build --target native --release src/cmd
+          moon build --target native --release src/fuzz
 
       - name: Run pinned semantic component and solver tests
         run: |
@@ -133,6 +135,7 @@ jobs:
             --count 16 \
             --seed 0x5eed \
             --pass vacuum \
+            --gen-valid-bin _build/native/release/build/fuzz/fuzz.exe \
             --gen-valid-profile semantic-optimizer-all \
             --require-feature semantic_effects:1 \
             --require-feature import_event_channel:1 \

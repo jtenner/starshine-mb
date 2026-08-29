@@ -74,6 +74,8 @@ export function runCiWorkflowContractTest(): void {
     ['BINARYEN_VERSION: "131"', "pinned semantic Binaryen"],
     ['Z3_VERSION: "4.13.3"', "pinned semantic Z3"],
     ['semantic-optimizer-smoke:', "semantic optimizer CI job"],
+    ['moon build --target native --release src/fuzz', "prebuilt semantic GenValid command"],
+    ['--gen-valid-bin _build/native/release/build/fuzz/fuzz.exe', "prebuilt semantic GenValid executable"],
     ['--gen-valid-profile semantic-optimizer-all', "semantic GenValid aggregate"],
     ['--require-binaryen-version 131', "semantic Binaryen release guard"],
     ['--require-feature semantic_effects:1', "semantic effects floor"],
