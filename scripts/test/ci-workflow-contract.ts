@@ -67,6 +67,22 @@ export function runCiWorkflowContractTest(): void {
     fail(`required CI workflow must resolve MoonBit registry dependencies in every job; found ${moonUpdateCount} moon update step(s)`);
   }
 
+  const fuzzWorkflow = fs.readFileSync(path.join(workflowDir, "fuzz.yml"), "utf8");
+  for (const [fragment, label] of [
+    ['WASM_TOOLS_VERSION: "1.251.0"', "pinned semantic wasm-tools"],
+    ['BINARYEN_VERSION: "131"', "pinned semantic Binaryen"],
+    ['Z3_VERSION: "4.13.3"', "pinned semantic Z3"],
+    ['semantic-optimizer-smoke:', "semantic optimizer CI job"],
+    ['--gen-valid-profile semantic-optimizer-all', "semantic GenValid aggregate"],
+    ['--require-feature semantic_effects:1', "semantic effects floor"],
+    ['--semantic-oracle node-v2', "observation-v2 CI smoke"],
+    ['--property semantic-idempotence', "semantic idempotence CI smoke"],
+    ['--commutator-left vacuum', "commutator CI smoke"],
+    ['--emit-metamorphic-pairs', "paired metamorphic CI smoke"],
+  ] as Array<[string, string]>) {
+    requireText(fuzzWorkflow, fragment, label);
+  }
+
   const nodeWorkflow = fs.readFileSync(path.join(workflowDir, "node-wasm-tests.yml"), "utf8");
   requireText(
     nodeWorkflow,

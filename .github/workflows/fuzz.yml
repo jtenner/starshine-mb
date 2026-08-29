@@ -1,5 +1,12 @@
 name: "Fuzz Suites"
 
+env:
+  WASM_TOOLS_VERSION: "1.251.0"
+  BINARYEN_VERSION: "131"
+  Z3_VERSION: "4.13.3"
+  BINARYEN_DIR: ${{ github.workspace }}/.tmp/binaryen-version_131
+  Z3_DIR: ${{ github.workspace }}/.tmp/z3-4.13.3-x64-glibc-2.35
+
 on:
   workflow_dispatch:
   pull_request:
@@ -48,6 +55,103 @@ jobs:
       - name: Run full MoonBit test gate (check + tests + fuzz)
         run: |
           bun validate full --profile ci --seed 0x5eed --target wasm-gc
+
+      - name: Run bounded semantic optimizer component tests
+        run: |
+          bun test \
+            scripts/lib/optimizer-runtime.test.ts \
+            scripts/lib/optimizer-properties.test.ts \
+            scripts/lib/optimizer-failure-fingerprint.test.ts \
+            scripts/lib/optimizer-localization.test.ts \
+            scripts/lib/optimizer-expanded-pass-queue.test.ts \
+            scripts/lib/optimizer-metamorphic.test.ts \
+            scripts/lib/optimizer-thresholds.test.ts \
+            scripts/lib/optimizer-neighborhood.test.ts \
+            scripts/lib/optimizer-translation-validation.test.ts
+
+  semantic-optimizer-smoke:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve MoonBit registry dependencies
+        run: moon update
+
+      - name: Install pinned semantic tools
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"
+          mkdir -p .tmp
+          curl -fsSL \
+            "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" \
+            -o .tmp/binaryen.tar.gz
+          tar -xzf .tmp/binaryen.tar.gz -C .tmp
+          curl -fsSL \
+            "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/z3-${Z3_VERSION}-x64-glibc-2.35.zip" \
+            -o .tmp/z3.zip
+          unzip -q .tmp/z3.zip -d .tmp
+          wasm-tools --version
+          "$BINARYEN_DIR/bin/wasm-opt" --version
+          "$Z3_DIR/bin/z3" --version
+
+      - name: Build native Starshine
+        run: moon build --target native --release src/cmd
+
+      - name: Run pinned semantic component and solver tests
+        run: |
+          bun test \
+            scripts/lib/optimizer-runtime.test.ts \
+            scripts/lib/optimizer-runtime-executor.test.ts \
+            scripts/lib/optimizer-semantic-cache.test.ts \
+            scripts/lib/optimizer-neighborhood.test.ts \
+            scripts/lib/optimizer-translation-validation.test.ts
+          mkdir -p .tmp/semantic-z3
+          cat > .tmp/semantic-z3/contracts.json <<'EOF'
+          [{"id":"ci-add-zero","variables":[{"name":"x","width":32}],"before":{"kind":"add","width":32,"left":{"kind":"var","name":"x","width":32},"right":{"kind":"const","value":"0","width":32}},"after":{"kind":"var","name":"x","width":32}}]
+          EOF
+          bun fuzz prove-rewrites .tmp/semantic-z3/contracts.json \
+            --solver "$Z3_DIR/bin/z3" \
+            --out-dir .tmp/semantic-z3/proofs
+
+      - name: Run bounded semantic optimizer profile matrix
+        run: |
+          bun fuzz compare-pass \
+            --count 16 \
+            --seed 0x5eed \
+            --pass vacuum \
+            --gen-valid-profile semantic-optimizer-all \
+            --require-feature semantic_effects:1 \
+            --require-feature import_event_channel:1 \
+            --require-feature trap_frontier:1 \
+            --require-feature resource_observation:1 \
+            --semantic-oracle node-v2 \
+            --observation-mode stateful \
+            --property semantic-idempotence \
+            --property convergence \
+            --commutator-left vacuum \
+            --commutator-right remove-unused-brs \
+            --gen-valid-metamorphic-transform add-non-name-custom-section \
+            --emit-metamorphic-pairs \
+            --jobs auto \
+            --max-subprocesses 4 \
+            --max-mismatch-artifacts 10 \
+            --starshine-bin _build/native/release/build/cmd/cmd.exe \
+            --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" \
+            --out-dir .tmp/semantic-optimizer-ci
 
   fuzz-stress-native:
     if: github.event_name == 'schedule'
