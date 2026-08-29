@@ -4243,29 +4243,78 @@ fn cmd_choose_smallest_encoded_candidate(
 }
 
 ///|
+fn cmd_o4z_prevalidate_encoded_candidate(bytes : Bytes) -> Bytes? {
+  match decode_module(bytes) {
+    Ok(mod_) =>
+      match validate_module(mod_) {
+        Ok(_) => Some(bytes)
+        Err(_) => None
+      }
+    Err(_) => None
+  }
+}
+
+///|
+fn cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
+  candidates : Array[(String, Bytes)],
+  prevalidated_labels : Array[String],
+  is_valid : (String, Bytes) -> Bool,
+) -> (String, Bytes) {
+  if candidates.length() == 0 {
+    abort("size portfolio requires at least one valid encoded candidate")
+  }
+  let ordered : Array[Int] = []
+  for idx = 0; idx < candidates.length(); idx = idx + 1 {
+    let mut insert_at = ordered.length()
+    for pos = 0; pos < ordered.length(); pos = pos + 1 {
+      if candidates[idx].1.length() < candidates[ordered[pos]].1.length() {
+        insert_at = pos
+        break
+      }
+    }
+    ordered.insert(insert_at, idx)
+  }
+  for idx in ordered {
+    let candidate = candidates[idx]
+    let mut prevalidated = false
+    for label in prevalidated_labels {
+      if label == candidate.0 {
+        prevalidated = true
+        break
+      }
+    }
+    if prevalidated || is_valid(candidate.0, candidate.1) {
+      return candidate
+    }
+  }
+  abort("size portfolio requires at least one valid encoded candidate")
+}
+
+///|
 fn cmd_choose_smallest_valid_encoded_candidate(
   candidates : Array[(String, Bytes)],
 ) -> (String, Bytes) {
-  let mut selected : (String, Bytes)? = None
-  for candidate in candidates {
-    let valid = match decode_module(candidate.1) {
-      Ok(mod_) => validate_module(mod_) is Ok(_)
-      Err(_) => false
-    }
-    if !valid {
-      continue
-    }
-    match selected {
-      Some((_, selected_bytes)) if candidate.1.length() >=
-        selected_bytes.length() => ()
-      _ => selected = Some(candidate)
-    }
-  }
-  match selected {
-    Some(candidate) => candidate
-    None =>
-      abort("size portfolio requires at least one valid encoded candidate")
-  }
+  cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels(
+    candidates,
+    [],
+  )
+}
+
+///|
+fn cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels(
+  candidates : Array[(String, Bytes)],
+  prevalidated_labels : Array[String],
+) -> (String, Bytes) {
+  cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
+    candidates,
+    prevalidated_labels,
+    fn(_, bytes) {
+      match decode_module(bytes) {
+        Ok(mod_) => validate_module(mod_) is Ok(_)
+        Err(_) => false
+      }
+    },
+  )
 }
 
 ///|
@@ -5518,6 +5567,7 @@ pub fn run_cmd_with_adapter(
       None => 0
     }
     let portfolio_candidates : Array[(String, Bytes)] = []
+    let prevalidated_portfolio_labels : Array[String] = []
     if !size_portfolio_enabled ||
       (
         !stack_carried_simd_trunc_global_write &&
@@ -5597,81 +5647,107 @@ pub fn run_cmd_with_adapter(
           optimized,
         ) {
         let final_cleanup_options = optimize_options_with_levels(options, 0, 0)
-        match
-          optimize_module_with_pass_flags(
-            optimized,
-            cmd_o4z_final_precompute_passes(),
-            final_cleanup_options,
-            validate_final_module=false,
-          ) {
-          Ok(precomputed) => {
-            let precomputed = @passes.o4z_canonicalize_final_size_candidate(
-              precomputed,
-            )
-            if precomputed != optimized {
-              match validate_module(precomputed) {
-                Ok(_) =>
-                  match
-                    encode_module_for_pipeline(io, input_path, precomputed) {
-                    Ok(bytes) =>
-                      portfolio_candidates.push(
-                        ("optimized-final-precompute", bytes),
-                      )
-                    Err(_) => ()
+        let independent_final_candidates = cmd_run_independent_encoded_candidate_jobs([
+            (
+              "optimized-final-precompute",
+              fn() {
+                match
+                  optimize_module_with_pass_flags(
+                    optimized,
+                    cmd_o4z_final_precompute_passes(),
+                    final_cleanup_options,
+                    validate_final_module=false,
+                  ) {
+                  Ok(precomputed) => {
+                    let precomputed = @passes.o4z_canonicalize_final_size_candidate(
+                      precomputed,
+                    )
+                    if precomputed == optimized {
+                      None
+                    } else {
+                      match validate_module(precomputed) {
+                        Ok(_) =>
+                          match
+                            encode_module_for_pipeline(
+                              io, input_path, precomputed,
+                            ) {
+                            Ok(bytes) =>
+                              cmd_o4z_prevalidate_encoded_candidate(bytes)
+                            Err(_) => None
+                          }
+                        Err(_) => None
+                      }
+                    }
                   }
-                Err(_) => ()
-              }
-            }
-          }
-          Err(_) => ()
-        }
-        match
-          optimize_module_with_pass_flags(
-            optimized,
-            [
-              "global-refining", "optimize-instructions", "precompute", "duplicate-function-elimination",
-            ],
-            final_cleanup_options,
-            validate_final_module=false,
-          ) {
-          Ok(cleaned) =>
-            if cleaned != optimized {
-              match validate_module(cleaned) {
-                Ok(_) =>
-                  match encode_module_for_pipeline(io, input_path, cleaned) {
-                    Ok(bytes) =>
-                      portfolio_candidates.push(
-                        ("optimized-global-refining-cleanup", bytes),
-                      )
-                    Err(_) => ()
-                  }
-                Err(_) => ()
-              }
-            }
-          Err(_) => ()
-        }
-        match
-          optimize_module_with_pass_flags(
-            optimized,
-            cmd_o4z_scalar_final_cleanup_passes(),
-            final_cleanup_options,
-            validate_final_module=false,
-          ) {
-          Ok(cleaned) =>
-            if cleaned != optimized {
-              match validate_module(cleaned) {
-                Ok(_) =>
-                  match encode_module_for_pipeline(io, input_path, cleaned) {
-                    Ok(bytes) =>
-                      portfolio_candidates.push(
-                        ("optimized-scalar-final-cleanup", bytes),
-                      )
-                    Err(_) => ()
-                  }
-                Err(_) => ()
-              }
-            }
-          Err(_) => ()
+                  Err(_) => None
+                }
+              },
+            ),
+            (
+              "optimized-global-refining-cleanup",
+              fn() {
+                match
+                  optimize_module_with_pass_flags(
+                    optimized,
+                    [
+                      "global-refining", "optimize-instructions", "precompute", "duplicate-function-elimination",
+                    ],
+                    final_cleanup_options,
+                    validate_final_module=false,
+                  ) {
+                  Ok(cleaned) =>
+                    if cleaned == optimized {
+                      None
+                    } else {
+                      match validate_module(cleaned) {
+                        Ok(_) =>
+                          match
+                            encode_module_for_pipeline(io, input_path, cleaned) {
+                            Ok(bytes) =>
+                              cmd_o4z_prevalidate_encoded_candidate(bytes)
+                            Err(_) => None
+                          }
+                        Err(_) => None
+                      }
+                    }
+                  Err(_) => None
+                }
+              },
+            ),
+            (
+              "optimized-scalar-final-cleanup",
+              fn() {
+                match
+                  optimize_module_with_pass_flags(
+                    optimized,
+                    cmd_o4z_scalar_final_cleanup_passes(),
+                    final_cleanup_options,
+                    validate_final_module=false,
+                  ) {
+                  Ok(cleaned) =>
+                    if cleaned == optimized {
+                      None
+                    } else {
+                      match validate_module(cleaned) {
+                        Ok(_) =>
+                          match
+                            encode_module_for_pipeline(io, input_path, cleaned) {
+                            Ok(bytes) =>
+                              cmd_o4z_prevalidate_encoded_candidate(bytes)
+                            Err(_) => None
+                          }
+                        Err(_) => None
+                      }
+                    }
+                  Err(_) => None
+                }
+              },
+            ),
+          ],
+        )
+        for candidate in independent_final_candidates {
+          portfolio_candidates.push(candidate)
+          prevalidated_portfolio_labels.push(candidate.0)
         }
         if @passes.o4z_size_candidate_has_unobservable_atomic_fence(optimized) {
           let final_canonical = @passes.o4z_canonicalize_final_size_candidate(
@@ -6361,13 +6437,11 @@ pub fn run_cmd_with_adapter(
       )
       ("input", wasm_bytes)
     } else if size_portfolio_enabled {
-      cmd_choose_smallest_valid_encoded_candidate(portfolio_candidates)
+      cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels(
+        portfolio_candidates, prevalidated_portfolio_labels,
+      )
     } else {
       cmd_choose_smallest_encoded_candidate(portfolio_candidates)
-    }
-    let selected_pre_encode_mod = match decode_module(out_bytes) {
-      Ok(mod_) => mod_
-      Err(_) => optimized
     }
     cmd_trace_timer_stop(
       io, trace_optimize, "candidate-selection", candidate_selection_start_us,
@@ -6379,6 +6453,10 @@ pub fn run_cmd_with_adapter(
     )
     let post_encode_validate_start_us = cmd_trace_timer_start(trace_optimize)
     if should_validate_encoded_module_after_encode(merged.debug_serial_passes) {
+      let selected_pre_encode_mod = match decode_module(out_bytes) {
+        Ok(mod_) => mod_
+        Err(_) => optimized
+      }
       cmd_trace_emit(
         io,
         trace_optimize,
@@ -6527,6 +6605,19 @@ fn cmd_native_system(command : Bytes) -> Int {
 ///|
 #cfg(target="native")
 extern "c" fn cmd_native_getpid() -> Int = "getpid"
+
+///|
+#cfg(target="native")
+extern "c" fn cmd_native_fork() -> Int = "fork"
+
+///|
+#cfg(target="native")
+#borrow(status)
+extern "c" fn cmd_native_waitpid(
+  pid : Int,
+  status : Bytes,
+  options : Int,
+) -> Int = "waitpid"
 
 ///|
 #cfg(target="native")
@@ -6878,6 +6969,134 @@ fn cmd_native_now_ms() -> UInt64 {
 #cfg(target="native")
 fn cmd_native_tmp_path(prefix : String, suffix : String) -> String {
   "/tmp/starshine-cmd-\{prefix}-\{cmd_native_getpid()}-\{cmd_native_now_ms()}\{suffix}"
+}
+
+///|
+fn cmd_run_independent_encoded_candidate_jobs_serial(
+  jobs : Array[(String, () -> Bytes?)],
+) -> Array[(String, Bytes)] {
+  let out : Array[(String, Bytes)] = []
+  for job in jobs {
+    match (job.1)() {
+      Some(bytes) => out.push((job.0, bytes))
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_wait_exit_code(pid : Int) -> Int? {
+  let status = Bytes::new(4)
+  if cmd_native_waitpid(pid, status, 0) != pid {
+    return None
+  }
+  let mut raw = 0
+  let mut shift = 0
+  for byte in status {
+    raw = raw | (byte.to_int() << shift)
+    shift += 8
+  }
+  let signal = raw & 0x7F
+  if signal == 0 {
+    Some((raw >> 8) & 0xFF)
+  } else {
+    None
+  }
+}
+
+///|
+#cfg(target="native")
+fn cmd_run_independent_encoded_candidate_jobs(
+  jobs : Array[(String, () -> Bytes?)],
+) -> Array[(String, Bytes)] {
+  if jobs.length() < 2 {
+    return cmd_run_independent_encoded_candidate_jobs_serial(jobs)
+  }
+  let base = cmd_native_tmp_path("o4z-portfolio", "")
+  let pids : Array[Int] = []
+  let paths : Array[String] = []
+  for idx = 0; idx < jobs.length(); idx = idx + 1 {
+    let path = "\{base}-\{idx}.wasm"
+    cmd_native_remove_file(path)
+    paths.push(path)
+    let pid = cmd_native_fork()
+    if pid == 0 {
+      let exit_code = match (jobs[idx].1)() {
+        Some(bytes) =>
+          match cmd_native_write_file(path, bytes) {
+            Ok(_) => 0
+            Err(_) => 2
+          }
+        None => 3
+      }
+      cmd_native_exit(exit_code)
+      abort("native candidate worker exit returned")
+    }
+    pids.push(pid)
+  }
+  let out : Array[(String, Bytes)] = []
+  for idx = 0; idx < jobs.length(); idx = idx + 1 {
+    let pid = pids[idx]
+    let path = paths[idx]
+    let worker_code = if pid > 0 {
+      cmd_native_wait_exit_code(pid)
+    } else {
+      None
+    }
+    match worker_code {
+      Some(0) =>
+        match cmd_native_read_file(path) {
+          Ok(bytes) => out.push((jobs[idx].0, bytes))
+          Err(_) =>
+            match (jobs[idx].1)() {
+              Some(bytes) => out.push((jobs[idx].0, bytes))
+              None => ()
+            }
+        }
+      Some(3) => ()
+      _ =>
+        match (jobs[idx].1)() {
+          Some(bytes) => out.push((jobs[idx].0, bytes))
+          None => ()
+        }
+    }
+    cmd_native_remove_file(path)
+  }
+  out
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_run_independent_encoded_candidate_jobs(
+  jobs : Array[(String, () -> Bytes?)],
+) -> Array[(String, Bytes)] {
+  cmd_run_independent_encoded_candidate_jobs_serial(jobs)
+}
+
+///|
+#cfg(target="wasm-gc")
+fn cmd_run_independent_encoded_candidate_jobs(
+  jobs : Array[(String, () -> Bytes?)],
+) -> Array[(String, Bytes)] {
+  cmd_run_independent_encoded_candidate_jobs_serial(jobs)
+}
+
+///|
+#cfg(target="js")
+fn cmd_run_independent_encoded_candidate_jobs(
+  jobs : Array[(String, () -> Bytes?)],
+) -> Array[(String, Bytes)] {
+  cmd_run_independent_encoded_candidate_jobs_serial(jobs)
+}
+
+///|
+#cfg(target="llvm")
+fn cmd_run_independent_encoded_candidate_jobs(
+  jobs : Array[(String, () -> Bytes?)],
+) -> Array[(String, Bytes)] {
+  cmd_run_independent_encoded_candidate_jobs_serial(jobs)
 }
 
 ///|

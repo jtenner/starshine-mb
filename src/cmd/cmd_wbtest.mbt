@@ -1910,6 +1910,103 @@ test "O4z size portfolio selects the shortest encoded candidate stably" {
 }
 
 ///|
+test "O4z size portfolio validates shortest candidates first and stops" {
+  let visited : Array[String] = []
+  let small_invalid = bytes_from_ints([1])
+  let tied_first = bytes_from_ints([2, 2])
+  let tied_second = bytes_from_ints([3, 3])
+  let large = bytes_from_ints([4, 4, 4, 4])
+  let (label, selected) = cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
+    [
+      ("large", large),
+      ("tied-first", tied_first),
+      ("small-invalid", small_invalid),
+      ("tied-second", tied_second),
+    ],
+    [],
+    fn(label, _) {
+      visited.push(label)
+      label != "small-invalid"
+    },
+  )
+  @debug.assert_eq(visited, ["small-invalid", "tied-first"])
+  @debug.assert_eq(label, "tied-first")
+  @debug.assert_eq(selected, tied_first)
+}
+
+///|
+test "normal O4z skips selected candidate re-decode outside debug serial validation" {
+  assert_false(should_validate_encoded_module_after_encode(false))
+  assert_true(should_validate_encoded_module_after_encode(true))
+}
+
+///|
+test "O4z worker validation proof certifies encoded bytes" {
+  let invalid = bytes_from_ints([1, 2, 3])
+  let valid = encode_module_bytes(fixture_i32_const_module(42))
+  @debug.assert_eq(cmd_o4z_prevalidate_encoded_candidate(invalid), None)
+  @debug.assert_eq(cmd_o4z_prevalidate_encoded_candidate(valid), Some(valid))
+}
+
+///|
+test "O4z candidate selection reuses only explicit worker validation proofs" {
+  let visited : Array[String] = []
+  let shorter_unproved = bytes_from_ints([1])
+  let proved = bytes_from_ints([2, 2])
+  let larger = bytes_from_ints([3, 3, 3])
+  let (label, selected) = cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
+    [
+      ("larger", larger),
+      ("proved", proved),
+      ("shorter-unproved", shorter_unproved),
+    ],
+    ["proved"],
+    fn(label, _) {
+      visited.push(label)
+      false
+    },
+  )
+  @debug.assert_eq(visited, ["shorter-unproved"])
+  @debug.assert_eq(label, "proved")
+  @debug.assert_eq(selected, proved)
+}
+
+///|
+#cfg(target="native")
+test "native O4z independent candidate jobs overlap and retain stable order" {
+  let started = native_now_ms()
+  let results = cmd_run_independent_encoded_candidate_jobs([
+    (
+      "first",
+      fn() {
+        ignore(native_usleep(350000U))
+        Some(bytes_from_ints([1]))
+      },
+    ),
+    (
+      "omitted",
+      fn() {
+        ignore(native_usleep(350000U))
+        None
+      },
+    ),
+    (
+      "third",
+      fn() {
+        ignore(native_usleep(350000U))
+        Some(bytes_from_ints([3]))
+      },
+    ),
+  ])
+  let elapsed = native_now_ms() - started
+  @debug.assert_eq(results, [
+    ("first", bytes_from_ints([1])),
+    ("third", bytes_from_ints([3])),
+  ])
+  assert_true(elapsed < 850UL, msg="expected three candidate jobs to overlap")
+}
+
+///|
 test "O4z size portfolio rejects a smaller decodable stack-invalid candidate" {
   let invalid = bytes_from_ints([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 6, 1, 4, 0, 65,
@@ -8846,6 +8943,10 @@ extern "c" fn native_exit(code : Int) -> Unit = "quick_exit"
 #cfg(target="native")
 #borrow(tv)
 extern "c" fn native_gettimeofday(tv : Bytes, tz : UInt64) -> Int = "gettimeofday"
+
+///|
+#cfg(target="native")
+extern "c" fn native_usleep(usec : UInt) -> Int = "usleep"
 
 ///|
 #cfg(target="native")
