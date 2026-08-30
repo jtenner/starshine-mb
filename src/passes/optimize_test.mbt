@@ -510,6 +510,30 @@ test "vacuum removes fully dropped pure multivalue blocks" {
 }
 
 ///|
+test "vacuum removes pure-condition empty ifs in branchy loops" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32 i32 i32) (local i32 i32)
+        #|    (loop $loop
+        #|      (if (i32.const 1) (then (drop (local.get 2))))
+        #|      (local.set 2 (local.get 1))
+        #|      (br_if $loop (local.get 2)))))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected empty loop-if vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped memory size observations" {
   let optimized = match
     pass_test_run_pipeline(

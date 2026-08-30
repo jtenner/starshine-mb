@@ -1884,6 +1884,11 @@ fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     let node = @ir.hot_node_get(func, node_id)
+    if node.op is @ir.HotOp::If &&
+      hot_pass_vacuum_remove_empty_if(ctx, func, region_ref, idx, node_id) {
+      changed = true
+      continue
+    }
     if node.op is @ir.HotOp::Drop &&
       @ir.hot_child_count(func, node_id) == 1 &&
       @ir.hot_node_get(func, @ir.hot_child_get(func, node_id, 0)).op
@@ -1915,6 +1920,10 @@ fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
               ) ||
               changed
           None => ()
+        }
+        if hot_pass_vacuum_remove_empty_if(ctx, func, region_ref, idx, node_id) {
+          changed = true
+          continue
         }
       }
       @ir.HotOp::Try => {
