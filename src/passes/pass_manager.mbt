@@ -60064,10 +60064,37 @@ fn run_hot_pipeline_raw_vacuum_try_pop_const_nontrapping_int_divrem(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instr_cannot_fall_through_to_next(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Br(_) | @lib.BrTable(_, _) | @lib.Return | @lib.Unreachable => true
+    @lib.Block(_, @lib.Expr(body)) if body.length() > 0 =>
+      match body[body.length() - 1] {
+        @lib.Br(@lib.LabelIdx(depth)) => depth > 0U
+        @lib.BrTable(targets, @lib.LabelIdx(default_depth)) if default_depth >
+          0U => {
+          for target in targets {
+            let @lib.LabelIdx(depth) = target
+            if depth == 0U {
+              return false
+            }
+          }
+          true
+        }
+        @lib.Return | @lib.Unreachable => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  for instr in instrs {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
     let removable = match instr {
       @lib.Nop
       | @lib.LocalGet(_)
@@ -60081,6 +60108,10 @@ fn run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(
       | @lib.BrTable(_, _)
       | @lib.Return
       | @lib.StructNewDefault(_) => true
+      @lib.Unreachable if idx > 0 =>
+        run_hot_pipeline_raw_vacuum_instr_cannot_fall_through_to_next(
+          instrs[idx - 1],
+        )
       @lib.Block(_, @lib.Expr(body)) =>
         run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(body)
       @lib.Loop(_, @lib.Expr(body)) =>

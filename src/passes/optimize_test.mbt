@@ -353,6 +353,36 @@ test "vacuum removes proven dropped control beside local writes" {
 }
 
 ///|
+test "vacuum collapses local-only nested outer-branch dead tails" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func
+        #|    (block $void (br $void))
+        #|    (drop
+        #|      (block $direct (result i32)
+        #|        (br $direct (i32.const 17))
+        #|        (unreachable)))
+        #|    (drop
+        #|      (block $outer (result i32)
+        #|        (block
+        #|          (br $outer (i32.const 19))
+        #|          (unreachable))
+        #|        (unreachable)))))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested outer-branch vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(block"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped memory size observations" {
   let optimized = match
     pass_test_run_pipeline(
