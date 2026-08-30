@@ -891,6 +891,15 @@ pub enum GenValidProfile {
   DuplicateImportEliminationLegacyEhProfile
   DuplicateImportEliminationNonfunctionProfile
   DuplicateImportEliminationAllProfile
+  MergeSimilarFunctionsLiteralsProfile
+  MergeSimilarFunctionsRepeatedDiffProfile
+  MergeSimilarFunctionsExactDuplicatesProfile
+  MergeSimilarFunctionsDuplicateTypesProfile
+  MergeSimilarFunctionsLocalsProfile
+  MergeSimilarFunctionsNestedProfile
+  MergeSimilarFunctionsCallTargetsProfile
+  MergeSimilarFunctionsTailCallsProfile
+  MergeSimilarFunctionsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
@@ -1299,6 +1308,20 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     DuplicateImportEliminationNonfunctionProfile =>
       "duplicate-import-elimination-nonfunction"
     DuplicateImportEliminationAllProfile => "duplicate-import-elimination"
+    MergeSimilarFunctionsLiteralsProfile => "merge-similar-functions-literals"
+    MergeSimilarFunctionsRepeatedDiffProfile =>
+      "merge-similar-functions-repeated-diff"
+    MergeSimilarFunctionsExactDuplicatesProfile =>
+      "merge-similar-functions-exact-duplicates"
+    MergeSimilarFunctionsDuplicateTypesProfile =>
+      "merge-similar-functions-duplicate-types"
+    MergeSimilarFunctionsLocalsProfile => "merge-similar-functions-locals"
+    MergeSimilarFunctionsNestedProfile => "merge-similar-functions-nested"
+    MergeSimilarFunctionsCallTargetsProfile =>
+      "merge-similar-functions-call-targets"
+    MergeSimilarFunctionsTailCallsProfile =>
+      "merge-similar-functions-tail-calls"
+    MergeSimilarFunctionsAllProfile => "merge-similar-functions-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
@@ -1402,6 +1425,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | MergeLocalsAllProfile
     | RemoveUnusedBrsAllProfile
     | DuplicateImportEliminationAllProfile
+    | MergeSimilarFunctionsAllProfile
     | SsaNomergeAllProfile
     | SimplifyLocalsAllProfile
     | SimplifyLocalsNoteeAllProfile
@@ -1724,6 +1748,23 @@ pub fn gen_valid_profile_members(
           2,
         ),
       ]
+    MergeSimilarFunctionsAllProfile =>
+      [
+        GenValidProfileMember::new(MergeSimilarFunctionsLiteralsProfile, 3),
+        GenValidProfileMember::new(MergeSimilarFunctionsRepeatedDiffProfile, 2),
+        GenValidProfileMember::new(
+          MergeSimilarFunctionsExactDuplicatesProfile,
+          2,
+        ),
+        GenValidProfileMember::new(
+          MergeSimilarFunctionsDuplicateTypesProfile,
+          2,
+        ),
+        GenValidProfileMember::new(MergeSimilarFunctionsLocalsProfile, 2),
+        GenValidProfileMember::new(MergeSimilarFunctionsNestedProfile, 2),
+        GenValidProfileMember::new(MergeSimilarFunctionsCallTargetsProfile, 3),
+        GenValidProfileMember::new(MergeSimilarFunctionsTailCallsProfile, 2),
+      ]
     SsaNomergeAllProfile =>
       [
         GenValidProfileMember::new(SsaNomergeParityProfile, 3),
@@ -1883,6 +1924,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(MergeLocalsAllProfile, 1),
         GenValidProfileMember::new(RemoveUnusedBrsAllProfile, 1),
         GenValidProfileMember::new(DuplicateImportEliminationAllProfile, 1),
+        GenValidProfileMember::new(MergeSimilarFunctionsAllProfile, 1),
         GenValidProfileMember::new(DirectizeAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
@@ -2207,6 +2249,15 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     DuplicateImportEliminationLegacyEhProfile,
     DuplicateImportEliminationNonfunctionProfile,
     DuplicateImportEliminationAllProfile,
+    MergeSimilarFunctionsLiteralsProfile,
+    MergeSimilarFunctionsRepeatedDiffProfile,
+    MergeSimilarFunctionsExactDuplicatesProfile,
+    MergeSimilarFunctionsDuplicateTypesProfile,
+    MergeSimilarFunctionsLocalsProfile,
+    MergeSimilarFunctionsNestedProfile,
+    MergeSimilarFunctionsCallTargetsProfile,
+    MergeSimilarFunctionsTailCallsProfile,
+    MergeSimilarFunctionsAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
@@ -2424,6 +2475,11 @@ pub fn gen_valid_profile_by_name(
       Ok(DuplicateImportEliminationAllProfile)
     "die" => Ok(DuplicateImportEliminationAllProfile)
     "die-closeout" => Ok(DuplicateImportEliminationAllProfile)
+    "merge-similar-functions"
+    | "merge-similar-functions-closeout"
+    | "merge-similar-functions-all-profiles"
+    | "msf"
+    | "msf-closeout" => Ok(MergeSimilarFunctionsAllProfile)
     "flatten" => Ok(FlattenAllProfile)
     "flatten-closeout" => Ok(FlattenAllProfile)
     "flatten-all-profiles" => Ok(FlattenAllProfile)
@@ -5197,6 +5253,17 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_duplicate_import_elimination_profile_config(
         DuplicateImportEliminationFunctionsProfile,
       )
+    MergeSimilarFunctionsLiteralsProfile
+    | MergeSimilarFunctionsRepeatedDiffProfile
+    | MergeSimilarFunctionsExactDuplicatesProfile
+    | MergeSimilarFunctionsDuplicateTypesProfile
+    | MergeSimilarFunctionsLocalsProfile
+    | MergeSimilarFunctionsNestedProfile
+    | MergeSimilarFunctionsCallTargetsProfile
+    | MergeSimilarFunctionsTailCallsProfile =>
+      gen_valid_msf_profile_config(profile)
+    MergeSimilarFunctionsAllProfile =>
+      gen_valid_msf_profile_config(MergeSimilarFunctionsLiteralsProfile)
     SsaNomergeCoverageProfile
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
@@ -32944,6 +33011,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_duplicate_import_elimination_profile_config(config) {
     return gen_valid_duplicate_import_elimination_profile_module(ctx)
+  }
+  if gen_valid_is_msf_profile_config(config) {
+    return gen_valid_msf_profile_module(ctx)
   }
   if gen_valid_is_merge_locals_profile_config(config) {
     return gen_valid_merge_locals_profile_module(ctx)

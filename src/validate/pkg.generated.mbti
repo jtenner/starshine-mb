@@ -94,6 +94,8 @@ pub fn gen_valid_module_result_from_seed(UInt64, GenValidConfig) -> Result[GenVa
 
 pub fn gen_valid_module_with_config(@splitmix.RandomState, GenValidConfig) -> @lib.Module
 
+pub fn gen_valid_msf_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_numtype(GenValidContext) -> @lib.NumType
 
 pub fn gen_valid_oi_trigger_profile_case_for_seed(UInt64) -> Int
@@ -1413,6 +1415,15 @@ pub enum GenValidProfile {
   DuplicateImportEliminationLegacyEhProfile
   DuplicateImportEliminationNonfunctionProfile
   DuplicateImportEliminationAllProfile
+  MergeSimilarFunctionsLiteralsProfile
+  MergeSimilarFunctionsRepeatedDiffProfile
+  MergeSimilarFunctionsExactDuplicatesProfile
+  MergeSimilarFunctionsDuplicateTypesProfile
+  MergeSimilarFunctionsLocalsProfile
+  MergeSimilarFunctionsNestedProfile
+  MergeSimilarFunctionsCallTargetsProfile
+  MergeSimilarFunctionsTailCallsProfile
+  MergeSimilarFunctionsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile

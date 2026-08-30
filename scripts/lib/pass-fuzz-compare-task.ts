@@ -491,6 +491,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--local-cse",
   "--merge-locals",
   "--duplicate-function-elimination",
+  "--merge-similar-functions",
   "--duplicate-import-elimination",
   "--strip-debug",
   "--simplify-globals-optimizing",
