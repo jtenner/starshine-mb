@@ -332,6 +332,28 @@ test "vacuum removes dropped memory size observations" {
 }
 
 ///|
+test "vacuum removes unread local ref i31 and default struct assignments" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field (mut i32)) (field eqref)))
+        #|  (func (local anyref)
+        #|    (local.set 0 (ref.i31 (i32.const 1)))
+        #|    (local.set 0 (struct.new_default $s))))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unread GC local vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("ref.i31"), msg=pretty)
+  assert_false(pretty.contains("struct.new_default"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped pure SIMD shuffles" {
   let input = pass_test_module_from_wat(
     (

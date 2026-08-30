@@ -631,6 +631,7 @@ fn vacuum_heap_is_removable_if_unused(
       | @lib.Instruction::StructNewDefault(_)
       | @lib.Instruction::ArrayNewFixed(_, _)
       | @lib.Instruction::RefEq
+      | @lib.Instruction::RefI31
     ) => true
     Some(@lib.Instruction::ArrayNew(_)) => length_is_not_negative_const(1)
     Some(@lib.Instruction::ArrayNewDefault(_)) =>
@@ -59840,7 +59841,8 @@ fn run_hot_pipeline_raw_vacuum_pure_instr_operand_count(
     | @lib.I64Extend8S
     | @lib.I64Extend16S
     | @lib.I64Extend32S
-    | @lib.RefIsNull => Some(1)
+    | @lib.RefIsNull
+    | @lib.RefI31 => Some(1)
     @lib.I32Eq
     | @lib.I32Ne
     | @lib.I32LtS

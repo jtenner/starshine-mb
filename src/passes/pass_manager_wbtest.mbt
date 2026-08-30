@@ -16399,6 +16399,21 @@ test "pass registry public lookup stays detached from cached preset expansions" 
 }
 
 ///|
+test "hot vacuum classifies unread ref i31 and default struct locals as removable" {
+  let func = pass_test_lift_first_func(
+    "(module (type $s (struct (field (mut i32)) (field eqref))) (func (local anyref) (local.set 0 (ref.i31 (i32.const 1))) (local.set 0 (struct.new_default $s))))",
+  )
+  let states = Array::make(@ir.hot_node_count(func), 0)
+  assert_true(
+    hot_pass_vacuum_can_remove_local_only_region_memoized(
+      func,
+      @ir.HotRegionRef::root(),
+      states,
+    ),
+  )
+}
+
+///|
 test "hot vacuum classifies dropped pure self-branch result blocks as removable" {
   let func = pass_test_lift_first_func(
     "(module (func (drop (block (result i32) (br_table 0 0 (i32.const 334) (i32.const 2))))))",
