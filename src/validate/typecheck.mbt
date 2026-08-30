@@ -223,7 +223,7 @@ fn TcState::pop_expect(st : TcState, expected : ValType) -> TcResult {
       if Match::matches(actual, expected, st.env) {
         Ok(st2)
       } else {
-        Err("type mismatch")
+        Err("type mismatch: expected=\{expected} actual=\{actual}")
       }
     }
   }
@@ -444,10 +444,13 @@ fn normalize_loop_exit(
 pub impl Typecheck for Expr with fn typecheck(self, st0) {
   let Expr(instrs) = self
   let mut st = st0
-  for ins in instrs {
+  for index, ins in instrs {
     match Typecheck::typecheck(ins, st) {
       Ok(stp) => st = stp
-      Err(err) => return Err(err)
+      Err(err) =>
+        return Err(
+          "instruction[\{index}] \{ins}: \{err}; stack=\{st.stack}",
+        )
     }
   }
   Ok(st)
@@ -7370,6 +7373,23 @@ test "Typecheck type mismatch fails" {
   match result {
     Ok(_) => fail("I32Add should fail with mismatched types")
     Err(_) => ()
+  }
+}
+
+///|
+test "Expr typecheck errors include instruction and stack context" {
+  let expression = Expr::new([
+    Instruction::i64_const(I64(1L)),
+    Instruction::i32_const(I32(2)),
+    Instruction::i32_add(),
+  ])
+  match Typecheck::typecheck(expression, make_state_owned(empty_env(), [])) {
+    Ok(_) => fail("expected mixed scalar add to fail")
+    Err(error) => {
+      assert_true(error.contains("instruction[2]"))
+      assert_true(error.contains("stack="))
+      assert_true(error.contains("type mismatch"))
+    }
   }
 }
 

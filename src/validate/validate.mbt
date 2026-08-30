@@ -1354,7 +1354,7 @@ fn validate_func_body_against_functype(
       }
       match
         validate_end_stack_for_function_body(st1, results, "function body") {
-        Err(e) => return Err(e)
+        Err(e) => return Err("\{e}; body=\{body}")
         Ok(_) => ()
       }
       Ok(())

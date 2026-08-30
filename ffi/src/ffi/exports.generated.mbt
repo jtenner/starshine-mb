@@ -740,6 +740,16 @@ pub fn ffi_ffi_bridge_module_new() -> @lib.Module {
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_module_with_compiler_exports")
+pub fn ffi_ffi_bridge_module_with_compiler_exports(
+  value0 : @lib.Module,
+  value1 : Int,
+) -> @lib.Module {
+  @ffi_bridge.module_with_compiler_exports(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_module_with_declarative_functions")
 pub fn ffi_ffi_bridge_module_with_declarative_functions(
   value0 : @lib.Module,
@@ -870,6 +880,27 @@ pub fn ffi_ffi_bridge_validate_wasi_preview1_schema(
   value0 : @ffi_bridge.WasiPreview1Schema,
 ) -> Result[Unit, String] {
   @ffi_bridge.validate_wasi_preview1_schema(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_validation_error_byte_at")
+pub fn ffi_ffi_bridge_validation_error_byte_at(value0 : UInt) -> Byte {
+  @ffi_bridge.validation_error_byte_at(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_validation_error_byte_length")
+pub fn ffi_ffi_bridge_validation_error_byte_length() -> UInt {
+  @ffi_bridge.validation_error_byte_length()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_validation_error_function_index")
+pub fn ffi_ffi_bridge_validation_error_function_index() -> Int {
+  @ffi_bridge.validation_error_function_index()
 }
 
 ///|
@@ -1208,6 +1239,16 @@ pub fn ffi_ir_cache_get_or_build_use_def(
 #export_name("ffi_ir_cache_invalidate_all")
 pub fn ffi_ir_cache_invalidate_all(value0 : @ir.HotAnalysisCache) -> Unit {
   @ir.cache_invalidate_all(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_cache_invalidate_analyses")
+pub fn ffi_ir_cache_invalidate_analyses(
+  value0 : @ir.HotAnalysisCache,
+  value1 : Array[@ir.HotAnalysis],
+) -> Unit {
+  @ir.cache_invalidate_analyses(value0, value1)
 }
 
 ///|
@@ -4114,6 +4155,16 @@ pub fn ffi_ir_hot_type_void(value0 : @ir.HotFunc) -> Int {
 #export_name("ffi_ir_hot_verify_all_or_abort")
 pub fn ffi_ir_hot_verify_all_or_abort(value0 : @ir.HotFunc) -> Unit {
   @ir.hot_verify_all_or_abort(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_verify_cached_analyses")
+pub fn ffi_ir_hot_verify_cached_analyses(
+  value0 : @ir.HotFunc,
+  value1 : @ir.HotAnalysisCache,
+) -> Result[Unit, @ir.HotVerifyError] {
+  @ir.hot_verify_cached_analyses(value0, value1)
 }
 
 ///|
@@ -16361,6 +16412,13 @@ pub fn ffi_passes_pass_registry_category(
 
 ///|
 #doc(hidden)
+#export_name("ffi_passes_pass_registry_fixed_point_cleanup_sequence")
+pub fn ffi_passes_pass_registry_fixed_point_cleanup_sequence() -> Array[String] {
+  @passes.pass_registry_fixed_point_cleanup_sequence()
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_passes_pass_registry_help_entries")
 pub fn ffi_passes_pass_registry_help_entries() -> Array[
   @passes.HotPassRegistryEntry,
@@ -16375,6 +16433,16 @@ pub fn ffi_passes_pass_registry_lookup(
   value0 : String,
 ) -> @passes.HotPassRegistryEntry? {
   @passes.pass_registry_lookup(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_pass_registry_random_executable_sequence")
+pub fn ffi_passes_pass_registry_random_executable_sequence(
+  value0 : String,
+  value1 : UInt64,
+) -> Array[String] {
+  @passes.pass_registry_random_executable_sequence(value0, value1)
 }
 
 ///|

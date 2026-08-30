@@ -47,6 +47,8 @@ pub fn instructions_push_array_push(Array[@lib.Instruction], Int, Int, Int) -> U
 
 pub fn module_new() -> @lib.Module
 
+pub fn module_with_compiler_exports(@lib.Module, Int) -> @lib.Module
+
 pub fn module_with_declarative_functions(@lib.Module, FunctionReferenceBuilder) -> @lib.Module
 
 pub fn module_with_default_memory(@lib.Module) -> @lib.Module
@@ -74,6 +76,12 @@ pub fn val_types_push(Array[@lib.ValType], @lib.ValType) -> Unit
 pub fn validate_module(@lib.Module) -> Bool
 
 pub fn validate_wasi_preview1_schema(WasiPreview1Schema) -> Result[Unit, String]
+
+pub fn validation_error_byte_at(UInt) -> Byte
+
+pub fn validation_error_byte_length() -> UInt
+
+pub fn validation_error_function_index() -> Int
 
 pub fn wasi_preview1_fd_read_schema() -> WasiPreview1Schema
 

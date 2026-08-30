@@ -4,6 +4,26 @@ pub struct EncodedModule {
 }
 
 ///|
+let validation_error_bytes : Ref[Bytes] = Ref::new(Bytes::from_array([]))
+
+///|
+let validation_error_function_index_cache : Ref[Int] = Ref::new(-1)
+
+///|
+fn validation_message_bytes(message : String) -> Bytes {
+  let output = @buffer.new(size_hint=message.length())
+  for character in message {
+    let code = character.to_int()
+    if code >= 0 && code <= 255 {
+      output.write_byte(code.to_byte())
+    } else {
+      output.write_byte('?'.to_int().to_byte())
+    }
+  }
+  output.to_bytes()
+}
+
+///|
 pub fn val_types_new() -> Array[@lib.ValType] {
   []
 }
@@ -286,7 +306,39 @@ pub fn module_with_default_memory(module_ : @lib.Module) -> @lib.Module {
 
 ///|
 pub fn validate_module(module_ : @lib.Module) -> Bool {
-  @validate.validate_module(module_) is Ok(_)
+  match @validate.validate_module(module_) {
+    Ok(_) => {
+      validation_error_bytes.val = Bytes::from_array([])
+      validation_error_function_index_cache.val = -1
+      true
+    }
+    Err(error) => {
+      validation_error_bytes.val = validation_message_bytes(
+        @validate.validation_error_message(error),
+      )
+      validation_error_function_index_cache.val = match
+        @validate.validation_error_func_idx(error) {
+        Some(@lib.FuncIdx(index)) => index.reinterpret_as_int()
+        None => -1
+      }
+      false
+    }
+  }
+}
+
+///|
+pub fn validation_error_byte_length() -> UInt {
+  validation_error_bytes.val.length().reinterpret_as_uint()
+}
+
+///|
+pub fn validation_error_byte_at(index : UInt) -> Byte {
+  validation_error_bytes.val[index.reinterpret_as_int()]
+}
+
+///|
+pub fn validation_error_function_index() -> Int {
+  validation_error_function_index_cache.val
 }
 
 ///|

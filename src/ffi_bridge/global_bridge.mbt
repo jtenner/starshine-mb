@@ -65,3 +65,24 @@ pub fn module_with_start_function(
     ),
   )
 }
+
+///|
+pub fn module_with_compiler_exports(
+  module_ : @lib.Module,
+  main_function_index : Int,
+) -> @lib.Module {
+  module_.with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("main"),
+        @lib.ExternIdx::func(
+          @lib.FuncIdx::new(main_function_index.reinterpret_as_uint()),
+        ),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("memory"),
+        @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+      ),
+    ]),
+  )
+}
