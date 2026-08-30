@@ -583,6 +583,34 @@ test "vacuum flattens exception regions whose bodies cannot throw" {
 }
 
 ///|
+test "vacuum cleans legacy catch bodies without flattening throwing tries" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (func (param i32) (result i32) (local i32)
+        #|    (try (result i32)
+        #|      (do (throw $e))
+        #|      (catch_all
+        #|        (local.set 1 (local.get 0))
+        #|        (drop (local.get 0))
+        #|        (local.get 1)))))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected catch-body vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(try"), msg=pretty)
+  assert_true(pretty.contains("throw"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped memory size observations" {
   let optimized = match
     pass_test_run_pipeline(

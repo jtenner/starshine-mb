@@ -61681,6 +61681,37 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_legacy_try(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Try(_, _, _, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_instrs_have_legacy_try(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_instrs_have_legacy_try(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_vacuum_instrs_have_legacy_try(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext?,
@@ -63474,11 +63505,37 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           }
           changed = true
         } else {
+          let next_catches : Array[@lib.LegacyCatch] = []
+          for catch_ in catches {
+            match catch_ {
+              @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
+                let (next_catch_body, catch_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+                  catch_body, module_ctx,
+                )
+                changed = changed || catch_changed
+                next_catches.push(
+                  @lib.LegacyCatch::tagged(
+                    tag_idx,
+                    @lib.Expr::new(next_catch_body),
+                  ),
+                )
+              }
+              @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+                let (next_catch_body, catch_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+                  catch_body, module_ctx,
+                )
+                changed = changed || catch_changed
+                next_catches.push(
+                  @lib.LegacyCatch::all(@lib.Expr::new(next_catch_body)),
+                )
+              }
+            }
+          }
           rewritten.push(
             @lib.Instruction::try_(
               block_type,
               @lib.Expr::new(next_body),
-              catches,
+              next_catches,
               delegate~,
             ),
           )
@@ -68976,6 +69033,9 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   let has_flattenable_no_throw_exception_region = run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
     instrs,
   )
+  let has_legacy_try = run_hot_pipeline_raw_vacuum_instrs_have_legacy_try(
+    instrs,
+  )
   if run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(instrs) {
     return Some({
       reason: "negative-array-allocation-vacuum-noop",
@@ -69096,6 +69156,7 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     run_hot_pipeline_raw_vacuum_instrs_have_repeated_dropped_load(instrs) ||
     has_dropped_typeidx_block ||
     has_flattenable_no_throw_exception_region ||
+    has_legacy_try ||
     has_fresh_array_set ||
     has_dropped_ref_func_struct ||
     has_dropped_simple_struct {
