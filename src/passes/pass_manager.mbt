@@ -725,6 +725,73 @@ fn vacuum_dropped_struct_atomic_get_operand(
 }
 
 ///|
+fn vacuum_branch_targets_only_label(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  label_id : @ir.LabelId,
+) -> Bool {
+  match @ir.hot_branch_target(func, node_id) {
+    Some(target) if target == label_id => ()
+    _ => return false
+  }
+  if @ir.hot_node_get(func, node_id).op is @ir.HotOp::BrTable {
+    for target in @ir.hot_branch_table_targets_for_node(func, node_id) {
+      if target != label_id {
+        return false
+      }
+    }
+  }
+  true
+}
+
+///|
+fn vacuum_block_has_only_pure_self_branches(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  let label_id = @ir.hot_control_node_label(func, node_id)
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  let mut saw_self_branch = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, body_ref); idx = idx + 1 {
+    let root = @ir.hot_region_get(func, body_ref, idx)
+    match @ir.hot_node_get(func, root).op {
+      @ir.HotOp::Br | @ir.HotOp::BrIf | @ir.HotOp::BrTable => {
+        if !vacuum_branch_targets_only_label(func, root, label_id) {
+          return false
+        }
+        for slot = 0; slot < @ir.hot_child_count(func, root); slot = slot + 1 {
+          if !vacuum_can_remove_dropped_node(
+              func,
+              @ir.hot_child_get(func, root, slot),
+            ) {
+            return false
+          }
+        }
+        saw_self_branch = true
+      }
+      _ => if !vacuum_can_remove_dropped_node(func, root) { return false }
+    }
+  }
+  saw_self_branch
+}
+
+///|
+fn vacuum_region_can_remove_dropped_nodes(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if !vacuum_can_remove_dropped_node(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn vacuum_can_remove_dropped_node(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
@@ -748,6 +815,20 @@ fn vacuum_can_remove_dropped_node(
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract
     | @ir.HotOp::RefTest => true
+    @ir.HotOp::Block => vacuum_block_has_only_pure_self_branches(func, node_id)
+    @ir.HotOp::If =>
+      if !vacuum_region_can_remove_dropped_nodes(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        false
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            vacuum_region_can_remove_dropped_nodes(func, else_ref)
+          None => false
+        }
+      }
     @ir.HotOp::Binary => vacuum_binary_is_nontrapping(func, node_id)
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
@@ -759,7 +840,14 @@ fn vacuum_can_remove_dropped_node(
   if !is_removable_shape {
     return false
   }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+  let value_child_count = if node.op is @ir.HotOp::If {
+    1
+  } else if node.op is @ir.HotOp::Block {
+    0
+  } else {
+    @ir.hot_child_count(func, node_id)
+  }
+  for slot = 0; slot < value_child_count; slot = slot + 1 {
     if !vacuum_can_remove_dropped_node(
         func,
         @ir.hot_child_get(func, node_id, slot),
@@ -59867,6 +59955,51 @@ fn run_hot_pipeline_raw_vacuum_pure_stack_expr_start(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_has_only_pure_self_branch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  let branch_is_self = match body[body.length() - 1] {
+    @lib.Br(@lib.LabelIdx(depth)) | @lib.BrIf(@lib.LabelIdx(depth)) =>
+      depth == 0U
+    @lib.BrTable(targets, @lib.LabelIdx(default_depth)) if default_depth == 0U => {
+      let mut all_self = true
+      for target in targets {
+        let @lib.LabelIdx(depth) = target
+        if depth != 0U {
+          all_self = false
+        }
+      }
+      all_self
+    }
+    _ => false
+  }
+  if !branch_is_self {
+    return false
+  }
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    if !(body[idx] is @lib.Nop) &&
+      run_hot_pipeline_raw_vacuum_pure_instr_operand_count(body[idx]) is None {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_single_pure_stack_value(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  run_hot_pipeline_raw_vacuum_pure_stack_expr_start(body, body.length()) ==
+  Some(0)
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_try_pop_const_nontrapping_int_divrem(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -61345,6 +61478,14 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         continue
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
+        if block_type != @lib.BlockType::void_() &&
+          idx + 1 < instrs.length() &&
+          instrs[idx + 1] is @lib.Drop &&
+          run_hot_pipeline_raw_vacuum_body_has_only_pure_self_branch(body) {
+          changed = true
+          idx = idx + 2
+          continue
+        }
         match block_type {
           @lib.VoidBlockType =>
             match
@@ -63014,6 +63155,23 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             None
           }
           _ => next_else
+        }
+        let dropped_pure_result_if = match (block_type, normalized_else) {
+          (@lib.ValTypeBlockType(_), Some(else_body)) if idx + 1 <
+            instrs.length() &&
+            instrs[idx + 1] is @lib.Drop &&
+            run_hot_pipeline_raw_vacuum_body_is_single_pure_stack_value(
+              next_then,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_is_single_pure_stack_value(
+              else_body,
+            ) => run_hot_pipeline_raw_vacuum_try_pop_pure_stack_expr(rewritten)
+          _ => false
+        }
+        if dropped_pure_result_if {
+          changed = true
+          idx = idx + 2
+          continue
         }
         match block_type {
           @lib.VoidBlockType if rewritten.length() > 0 =>
@@ -68477,7 +68635,9 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       )
       return Some({
         reason: "raw-vacuum-unbranched-result-blocks",
-        func: @lib.Func::new(locals, @lib.Expr::new(precleaned)),
+        func: run_hot_pipeline_raw_vacuum_finalize_precleaned_func(
+          mod_, func_idx, module_state, options, locals, precleaned,
+        ),
         unchanged_original: false,
         trace_skip_raw: true,
       })

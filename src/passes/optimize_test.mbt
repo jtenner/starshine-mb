@@ -257,6 +257,67 @@ test "vacuum removes dropped pure scalar expressions" {
 }
 
 ///|
+test "vacuum removes dropped pure result if expressions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $touch (result i32) (i32.const 9))
+        #|  (func (param i32)
+        #|    (drop
+        #|      (if (result i32) (i32.const 0)
+        #|        (then (i32.const 7))
+        #|        (else (i32.const 8))))
+        #|    (drop
+        #|      (if (result i32) (local.get 0)
+        #|        (then (call $touch))
+        #|        (else (i32.const 10))))))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped result-if vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("I32(7)"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("(if"), msg=pretty)
+}
+
+///|
+test "vacuum removes pure self-branch block debris" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $touch)
+        #|  (func
+        #|    (block $void (br_if $void (i32.const 1)))
+        #|    (drop
+        #|      (block $value (result i32)
+        #|        (br_if $value (i32.const 7) (i32.const 1))))
+        #|    (drop
+        #|      (block $table (result i32)
+        #|        (br_table $table $table (i32.const 8) (i32.const 0))))
+        #|    (block $effect (call $touch) (br $effect))))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected self-branch block vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("I32(7)"), msg=pretty)
+  assert_false(pretty.contains("I32(8)"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped memory size observations" {
   let optimized = match
     pass_test_run_pipeline(

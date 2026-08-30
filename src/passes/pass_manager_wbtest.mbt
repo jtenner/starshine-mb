@@ -16399,6 +16399,42 @@ test "pass registry public lookup stays detached from cached preset expansions" 
 }
 
 ///|
+test "hot vacuum classifies dropped pure self-branch result blocks as removable" {
+  let func = pass_test_lift_first_func(
+    "(module (func (drop (block (result i32) (br_table 0 0 (i32.const 334) (i32.const 2))))))",
+  )
+  let drop = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  assert_true(@ir.hot_node_get(func, drop).op is @ir.HotOp::Drop)
+  let block = @ir.hot_child_get(func, drop, 0)
+  assert_true(@ir.hot_node_get(func, block).op is @ir.HotOp::Block)
+  assert_true(vacuum_can_remove_dropped_node(func, block))
+}
+
+///|
+test "raw vacuum preclean removes dropped pure self-branch result blocks" {
+  let instrs = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(334),
+        @lib.Instruction::i32_const(2),
+        @lib.Instruction::br_table(
+          [@lib.LabelIdx::new(0U)],
+          @lib.LabelIdx::new(0U),
+        ),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+  ]
+  let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+    instrs,
+    None,
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [])
+}
+
+///|
 test "pass registry public lookup stays detached from cached descriptors" {
   let baseline_requires_len = match pass_registry_lookup("vacuum") {
     Some(entry) =>
