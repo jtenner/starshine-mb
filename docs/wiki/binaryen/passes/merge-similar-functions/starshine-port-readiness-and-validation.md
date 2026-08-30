@@ -68,6 +68,8 @@ Final direct compare evidence uses `.tmp/toolchains/binaryen-version_131/bin/was
 
 The random-all residuals are not MSF transform drift: the pass does not merge those modules, and the differences are pre-existing Starshine canonical local/block encodings that are 8-12 bytes smaller than Binaryen's output.
 
+Post-performance corruption signoff adds 25,000 dedicated external-validation/determinism/codec/idempotence cases, 5,000 independent and 1,000 stateful original-primary semantic matches, 5,000 broad random-all structural cases, 10,000 wasm-smith validity/determinism/codec cases, 1,000 custom-section metamorphic pairs, and a 25-generation production-artifact fixed-point soak. The 107 broad semantic five-second timeouts all resolve as Starshine/original matches at 30 seconds. The 51 wasm-smith idempotence harness failures are Binaryen-131 parser failures: direct Starshine replay validates and reproduces all 51 byte-for-byte. A 2,000-module section audit preserves every untouched payload exactly, including all 1,000 injected non-name custom sections. See [`./fuzzing.md`](./fuzzing.md) for artifacts and classifications.
+
 ## Performance and artifact gate
 
 Direct production timing on the prior 5,261,119-byte Starshine O4z artifact uses one warmup plus five alternating measurements:

@@ -125,3 +125,18 @@ A final traced run attributes:
 The replaced full candidate scan took 333.195ms on the same artifact. The incremental proof checks untouched section identity, type/function/element append-only prefixes, the complete candidate environment, and every changed or new function before accepting output.
 
 Full O4z remains host-noisy near wall parity. Across seven alternating pairs, independent medians are 25.508s for Starshine and 24.984s for Binaryen (`1.021x`), but the median paired difference is 0.010s in Starshine's favor. Starshine uses 33.402s median user CPU versus Binaryen's 194.593s and remains 30,513 bytes smaller.
+
+## Post-rewrite corruption-safety lanes
+
+The incremental candidate validator received additional signoff beyond parity comparison:
+
+- `.tmp/pass-fuzz-msf-corruption-dedicated-25000`: 25,000/25,000 dedicated MSF-triggering modules passed `wasm-tools validate --features all`, byte determinism, codec idempotence, pass idempotence, and exact canonical Binaryen parity.
+- `.tmp/pass-fuzz-msf-corruption-semantic-stateful-1000`: 1,000/1,000 stateful original/Starshine/Binaryen observations were all equal; semantic idempotence and bounded convergence were 1,000/1,000; deterministic bytes, codec stability, and external validation were also green.
+- `.tmp/pass-fuzz-msf-corruption-semantic-independent-5000`: 5,000/5,000 independent original-primary observations were all equal with external validation and exact canonical parity.
+- `.tmp/pass-fuzz-msf-corruption-random-all-5000`: all 5,000 broad GenValid outputs externally validated and were deterministic, codec-idempotent, and pass-idempotent. The 49 residual structural diffs were 31 eight-byte and 18 twelve-byte canonical Starshine wins in the already documented local/block representation family; no output was canonically larger.
+- `.tmp/pass-fuzz-msf-corruption-wasm-smith-10000`: all 10,000 Starshine outputs passed external validation, byte determinism, and codec idempotence; 9,949 completed the Binaryen-normalized idempotence check. The other 51 were Binaryen-131 parser/tool failures on valid Starshine outputs. Direct replay in `direct-replay/summary.json` validated all 51 before and after a second Starshine pass and found all 51 byte-identical.
+- `.tmp/pass-fuzz-msf-corruption-random-all-semantic-1000`: the five-second lane produced 473 observable Starshine/original matches, 420 original-runtime-blocked cases, and 107 timeout-only Starshine observations. Replaying all 107 at 30 seconds in `.tmp/pass-fuzz-msf-corruption-random-all-semantic-replay-30s` resolved every case as a Starshine/original match. Combined observable evidence is therefore 580/580, with no semantic mismatch; 420 cases remain correctly blocked because the original could not be observed.
+- `.tmp/pass-fuzz-msf-corruption-custom-section-metamorphic-1000`: 1,000/1,000 base/transformed pairs were semantically equal and externally valid after adding non-name custom sections. A separate 2,000-module binary-section audit in `section-preservation/summary.json` found every untouched section payload byte-identical; all 1,000 transformed outputs retained their non-name custom section.
+- `.tmp/msf-corruption-production-soak-25`: 25 repeated MSF generations of the 5,113,549-byte production artifact externally validated and remained byte-identical at SHA-256 `ba3d9af87f5293b498601d277768e22a0be0b41144d7be8d59d9ddfb5f54cfab`.
+
+These lanes found no malformed module, section drift, deterministic instability, codec instability, pass instability, or original-primary semantic mismatch from the optimized validator path.
