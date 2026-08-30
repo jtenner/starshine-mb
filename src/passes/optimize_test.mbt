@@ -301,6 +301,9 @@ test "vacuum removes pure self-branch block debris" {
         #|    (drop
         #|      (block $table (result i32)
         #|        (br_table $table $table (i32.const 8) (i32.const 0))))
+        #|    (drop
+        #|      (block $vector (result v128)
+        #|        (br_if $vector (v128.const i32x4 0 0 0 0) (i32.const 0))))
         #|    (block $effect (call $touch) (br $effect))))
         #|,
       ),
@@ -314,6 +317,7 @@ test "vacuum removes pure self-branch block debris" {
   assert_false(pretty.contains("br_table"), msg=pretty)
   assert_false(pretty.contains("I32(7)"), msg=pretty)
   assert_false(pretty.contains("I32(8)"), msg=pretty)
+  assert_false(pretty.contains("v128.const"), msg=pretty)
   assert_true(pretty.contains("call"), msg=pretty)
 }
 

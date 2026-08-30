@@ -28,6 +28,8 @@ Focused black-box tests pass `121/121`; white-box pass-manager tests pass `347/3
 
 Residual case 12 then exposed an admission inconsistency for nontrapping `ref.i31`: HOT heap cleanup could classify it only after adding the exact opcode, while the raw no-candidate scanner still lacked its unary stack arity. Both classifiers now admit `RefI31`, allowing the existing local-only void-body proof to remove unread `ref.i31` and `struct.new_default` assignments. Replay `.tmp/vacuum-ref-i31-case12` cleanup-normalizes with Starshine `44` versus Binaryen `45` canonical bytes. `.tmp/vacuum-ref-i31-random-all-v131-100` moves to `62` raw plus `24` cleanup-normalized matches and `14` residual cases, with zero failures.
 
+Residual case 62 showed the same HOT exact-op omission for `v128.const`: raw pure-stack cleanup already knew the constant was arity zero, but HOT SIMD cleanup only admitted `i8x16.shuffle`. `V128Const` is now explicitly nontrapping. Replay `.tmp/vacuum-v128-const-case62` cleanup-normalizes with Starshine `24` versus Binaryen `25` canonical bytes, and `.tmp/vacuum-v128-const-random-all-v131-100` reaches `62` raw plus `25` cleanup-normalized matches with `13` residual cases and zero failures.
+
 ## Guarded-hazard-first preclean refresh — 2026-08-21
 
 Native SHA-256 `84c39740f7056c4bef913badd5c946484bd375b7f4f117d2165360d4239003d8` computes Vacuum's existing instruction and stack-effect facts before the specialized candidate chain. Functions with both local writes and stack-effect hazards now run the same raw preclean immediately, retain the same optional second-preclean and finalization, and return the same unchanged guarded-hazard result when no rewrite occurs. Non-guarded specialized and terminal-debris paths are unchanged.

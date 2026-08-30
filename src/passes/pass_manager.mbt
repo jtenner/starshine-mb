@@ -587,7 +587,25 @@ fn vacuum_convert_is_nontrapping(instr : @lib.Instruction?) -> Bool {
 fn vacuum_simd_is_nontrapping(instr : @lib.Instruction?) -> Bool {
   match instr {
     Some(
-      @lib.Instruction::I8x16Shuffle(
+      @lib.Instruction::V128Const(
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _
+      )
+      | @lib.Instruction::I8x16Shuffle(
         _,
         _,
         _,
