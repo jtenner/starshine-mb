@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-29
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -23,16 +23,15 @@ related:
 
 ## Role
 
-- `merge-similar-functions` is a real public Binaryen pass.
-- It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **removed** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- It is also still listed in the local Batch 4 registry map in [research note 0063](../../../ir2/registry-map.md).
-- It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
-- Official Binaryen instead schedules it in the late global post-pass phase when **`shrinkLevel >= 2`**, placing it near size-focused neighbors like `duplicate-function-elimination`, `duplicate-import-elimination`, and `simplify-globals*`.
+- `merge-similar-functions` is a real public Binaryen pass and an active Starshine module pass.
+- Starshine's owner is [`src/passes/merge_similar_functions.mbt`](../../../../../src/passes/merge_similar_functions.mbt); the public registry and dispatcher accept `--merge-similar-functions`.
+- It remains outside the wall-time-first non-O4z presets.
+- Binaryen schedules it in the late global post-pass phase when **`shrinkLevel >= 2`**. Starshine preserves the locked O4z top-level queue and runs generic MSF through the existing validated `optimized-similar-functions` portfolio candidate.
 
 ## Why this pass matters
 
-- The original no-DWARF queue, the saved generated-artifact `-O4z` queue, and the first widened upstream-only registry wave are already dossier-covered, so this folder is an explicit source-backed expansion for another real local removed-registry entry.
-- `agent-todo.md` currently has **no dedicated `merge-similar-functions` slice**.
+- The pass closes the previously measured 117,057-byte O4z size gap owner without disturbing the locked scheduler.
+- The integrated O4z artifact is 5,113,549 bytes versus pinned Binaryen 131 at 5,144,062 bytes on the same 14,943,550-byte input.
 - The pass sits directly beside already-documented late module neighbors, but it solves a different problem from `duplicate-function-elimination`: it merges **near-duplicates by inventing parameters and thunks**, not exact duplicates.
 - It is relevant to future `-Oz` / `-O4z` / shrink-family parity work even though it is outside the current no-DWARF `-O` / `-Os` page.
 
@@ -84,7 +83,7 @@ So this pass is best taught as:
 - Call-target parameterization uses `ref.func` thunk payloads plus `call_ref` / `return_call_ref` in the shared helper.
 - Profitability and the `255` synthetic-param limit are first-class bailout rules, not mere polish.
 - A 2026-05-05 current-main recheck found the same implementation file contents as `version_129` on the reviewed surface.
-- Starshine currently keeps the pass as a removed-registry known name: explicit requests are rejected before execution, no module owner file exists, and no active backlog slice is open.
+- Starshine implements the complete helper/thunk path, validates every candidate transactionally, and owns eight dedicated GenValid leaves.
 
 ## Page map
 
@@ -99,13 +98,13 @@ So this pass is best taught as:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, mixed, and bailout WAT families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future-port map: removed-registry entry, request rejection, no owner/dispatcher/preset/backlog state, reusable module representation surfaces, and the module-level helper/thunk rewrite phases a faithful port would need.
+  Current active implementation, safety boundaries, O4z portfolio integration, performance, and artifact result.
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `merge-similar-functions` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real late module pass for it.
-- Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it belongs to the shrink-family late global post-pass story, not the repo's current no-DWARF `-O` / `-Os` path.
+- Treat this folder as the canonical home for `merge-similar-functions` implementation and signoff evidence.
+- Keep the active module-pass status, eight-leaf GenValid aggregate, and O4z portfolio integration synchronized with source.
+- Keep the scheduler distinction explicit: Binaryen owns a shrink-level late-global slot, while Starshine preserves its locked top-level queue and selects the validated MSF portfolio candidate.
 - Keep the split from `duplicate-function-elimination` explicit too: exact duplicates belong to DFE, near-duplicates-with-synthetic-params belong here.
 - Keep the mechanics fact explicit too: the real contract is not just “helper plus thunks,” but a source-backed hash-then-classify-then-diff-derive-then-clone-and-shift-locals algorithm.
 - Keep the Starshine status explicit too: the local codebase currently tracks this only as a removed registry name, not as a scheduled module pass.

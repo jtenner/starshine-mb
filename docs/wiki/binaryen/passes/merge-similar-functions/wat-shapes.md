@@ -330,7 +330,7 @@ When reading candidate output, ask these questions in order:
 
 If the answer to any of the first five becomes “no,” expect a bailout.
 
-For current Starshine behavior, remember that these Binaryen output shapes are **future-port targets only**. Starshine currently tracks `merge-similar-functions` as a removed known name and rejects direct requests before any helper/thunk rewrite runs; see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Starshine now implements these helper/thunk families directly. See [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and [`./fuzzing.md`](./fuzzing.md) for local mechanics and signoff evidence.
 
 ## Sources
 

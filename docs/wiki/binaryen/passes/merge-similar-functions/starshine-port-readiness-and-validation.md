@@ -1,167 +1,90 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-29
 sources:
   - ./index.md
-  - ./binaryen-strategy.md
-  - ./implementation-structure-and-tests.md
-  - ./equivalence-classes-param-derivation-and-thunk-rewrites.md
-  - ./profitability-indirection-and-type-barriers.md
-  - ./wat-shapes.md
   - ./starshine-strategy.md
-  - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/cmd/cmd.mbt
-  - ../../../ir2/registry-map.md
-  - ../../../../../agent-todo.md
+  - ../../../../../src/passes/merge_similar_functions.mbt
+  - ../../../../../src/passes/merge_similar_functions_test.mbt
+  - ../../../../../src/passes/merge_similar_functions_wbtest.mbt
+  - ../../../../../src/validate/gen_valid_merge_similar_functions.mbt
+  - ../../../../../src/validate/gen_valid_merge_similar_functions_wbtest.mbt
 related:
-  - ./index.md
   - ./binaryen-strategy.md
-  - ./implementation-structure-and-tests.md
   - ./equivalence-classes-param-derivation-and-thunk-rewrites.md
   - ./profitability-indirection-and-type-barriers.md
-  - ./wat-shapes.md
-  - ./starshine-strategy.md
-  - ../duplicate-function-elimination/index.md
-  - ../duplicate-import-elimination/index.md
-  - ../inlining/index.md
+  - ./fuzzing.md
 ---
 
-# Starshine port-readiness and validation for `merge-similar-functions`
+# Starshine validation for `merge-similar-functions`
 
-Use this page after the overview in [`./index.md`](./index.md), the Binaryen strategy in [`./binaryen-strategy.md`](./binaryen-strategy.md), the mechanics pages in [`./equivalence-classes-param-derivation-and-thunk-rewrites.md`](./equivalence-classes-param-derivation-and-thunk-rewrites.md) and [`./profitability-indirection-and-type-barriers.md`](./profitability-indirection-and-type-barriers.md), the shape catalog in [`./wat-shapes.md`](./wat-shapes.md), and the current Starshine status map in [`./starshine-strategy.md`](./starshine-strategy.md).
-This page answers a narrower question: **what is the safest route from today's removed-registry Starshine status to a validated future port?**
+## Implemented surface
 
-## Current local starting point
+The former removed/boundary-only plan is complete. Starshine has an active module owner, registry entry, dispatcher arm, focused tests, dedicated GenValid profiles, compare-pass support, and O4z portfolio integration.
 
-Starshine does **not** implement `merge-similar-functions` today.
-The current code surfaces are still only:
+The implementation covers:
 
-- removed-name registry tracking: [`src/passes/optimize.mbt#L145-L146`](../../../../../src/passes/optimize.mbt#L145-L146)
-- removed-pass request rejection: [`src/passes/optimize.mbt#L504-L523`](../../../../../src/passes/optimize.mbt#L504-L523)
-- shrink preset omission: [`src/passes/optimize.mbt#L451-L459`](../../../../../src/passes/optimize.mbt#L451-L459)
-- default pass synthesis: [`src/cmd/cmd.mbt#L1638-L1642`](../../../../../src/cmd/cmd.mbt#L1638-L1642)
-- pass-flag expansion before execution: [`src/cmd/cmd.mbt#L3475-L3479`](../../../../../src/cmd/cmd.mbt#L3475-L3479)
-- module-pass dispatcher gap: [`src/passes/pass_manager.mbt#L8912-L8940`](../../../../../src/passes/pass_manager.mbt#L8912-L8940)
+- literal parameterization for `i32`, `i64`, `f32`, `f64`, and `v128`
+- repeated diff-vector reuse
+- profitable exact duplicates
+- duplicate simple function type indices with equal resolved signatures
+- original params plus shifted body locals
+- nested block, loop, if, legacy-try, and try-table bodies
+- same-type direct-callee parameterization through typed function refs
+- tail-call-preserving thunks and `return_call_ref`
+- 255-parameter admission and 256-parameter rejection
+- deterministic primary-function class order
+- complete-module validation rollback
 
-There is still no `src/passes/merge_similar_functions.mbt`, no active module dispatcher case, no default preset role, and no dedicated `agent-todo.md` slice.
+## Focused tests
 
-## Binaryen oracle lanes to preserve
+The focused suites cover positive and fail-closed behavior:
 
-The upstream pass is not a simple local peephole.
-A Starshine port should preserve the source-backed lanes summarized by the retained [`2026-05-05 research recheck`](./index.md):
+- large literal siblings
+- repeated literals sharing one parameter
+- local-index shifting
+- same-signature direct callees
+- incompatible callee signatures
+- nested literal sites
+- exact duplicates
+- duplicate simple type indices
+- differing local declaration type barriers
+- helper order across interleaved classes
+- tiny-function profitability bailout
+- O4z portfolio routing
+- generated profile validation, encoding, roundtrip, and actual pass triggering
 
-1. scan defined functions only
-2. reject imported targets, signature mismatches, and total-local-count mismatches early
-3. prefilter with hashing, then split real equivalence classes with exact comparison
-4. derive synthetic params by lockstep expression-slot traversal
-5. clone one primary body into a shared helper
-6. append synthetic params after original params and repair old locals
-7. rewrite originals as thunks that preserve the original names
-8. keep direct-callee indirection behind the reference-types-plus-GC and callee-type gates
-9. enforce the `255` synthetic-param limit
-10. keep profitability explicit so tiny legal wrappers can remain unchanged
+## Pinned Binaryen 131 evidence
 
-## Recommended implementation sequence
+Final direct compare evidence uses `.tmp/toolchains/binaryen-version_131/bin/wasm-opt` with `--require-binaryen-version 131`.
 
-### Slice 0: registry honesty and request rejection
+- regular GenValid: 100,000/100,000 compared; 96,352 ordinary plus 3,648 command-cleanup-normalized matches; zero mismatches or failures
+- dedicated `merge-similar-functions-all`: 10,000/10,000 exact normalized matches; zero failures
+- wasm-smith: 9,956 comparable; 9,955 ordinary plus one unreachable-cleanup-normalized match; zero residual mismatches; 44 classified Binaryen/tool failures
+- random-all profiles: 10,000/10,000 compared; 9,854 ordinary plus 46 cleanup-normalized matches; 100 inspected canonical-smaller pre-existing command/representation residuals; zero validation, generator, property, or command failures
+- original-primary semantic v2: 100/100 all-equal, zero blocked and zero mismatching cases on the final eight-leaf aggregate
+- structural properties: 100/100 byte-deterministic, codec-idempotent, and pass-idempotent
 
-Before mutation, decide and test the public policy:
+The random-all residuals are not MSF transform drift: the pass does not merge those modules, and the differences are pre-existing Starshine canonical local/block encodings that are 8-12 bytes smaller than Binaryen's output.
 
-- keep `merge-similar-functions` removed until a real implementation exists, or
-- add an explicit analyzer-only lane behind a new internal/debug registry path
+## Performance and artifact gate
 
-Required tests:
+Direct production timing uses one warmup plus three alternating measurements on the prior 5,261,119-byte Starshine O4z artifact:
 
-- explicit `--merge-similar-functions` must not silently no-op under the current removed-registry state
-- the request should fail with the removed-pass error before any module rewrite runs
-- docs and CLI help must not imply the option is active until a pass consumes it
+- Starshine median: 1.225 seconds
+- Binaryen 131 median with `-s 2`: 0.616 seconds
+- ratio: 1.989x
 
-### Slice 1: no-rewrite candidate analyzer
+The integrated O4z output is 5,113,549 bytes, validates externally, passes self-opt smoke, and is 30,513 bytes smaller than the pinned Binaryen 131 O4z output for the same 14,943,550-byte input.
 
-Build a deterministic analyzer that reports candidate classes but returns the original module unchanged.
+## Maintenance rule
 
-It should classify:
+Keep the pass active only while all of these remain true:
 
-- defined functions
-- imported functions
-- top-level function-type mismatches
-- total-local-count mismatches
-- candidate classes that would exceed the `255` synthetic-param cap
-- supported literal-only or call-target-only diff families
-
-Validation:
-
-- byte-for-byte no output change
-- stable candidate counters in focused tests
-- no accidental activation in presets
-
-### Slice 2: literal-only specialization
-
-The first mutating slice should choose the narrowest positive:
-
-- helper clone from one primary body
-- synthetic param appended after original params
-- literal diff sites rewritten to `local.get`
-- old non-param locals shifted upward
-- original names preserved as thunks
-
-Do not yet move effectful operand subtrees or direct-call targets across siblings.
-
-### Slice 3: direct-callee indirection
-
-Only after literal-only cloning is reliable, add the harder call-target family:
-
-- `ref.func` payloads in thunks
-- function-ref helper params
-- `call_ref` / `return_call_ref` in the helper body
-- same-function-type gating for the differing callees
-- reference-types-plus-GC gating for the feature surface
-
-### Slice 4: profitability and tail-call style
-
-Once the basic helper/thunk rewrite is green, add the size/usefulness gate and tail-call style preservation.
-That keeps tiny wrappers and tail-call families honest instead of over-merging them.
-
-### Slice 5: validation and parity
-
-A complete port needs both text and binary validation because the pass changes function declarations, call operands, locals, and helper names.
-
-Use a widening ladder rather than jumping straight to artifact fuzzing:
-
-1. removed-registry rejection tests first
-2. no-rewrite candidate tests
-3. literal-only helper/thunk rewrite positives and negatives
-4. direct-callee indirection positives and type-barrier negatives
-5. param-limit and profitability bailouts
-6. Binaryen oracle comparison with `--merge-similar-functions`
-7. broader pass-fuzz only after the module-level clone/retarget machinery has local validation coverage
-
-## Read-along map
-
-- Upstream strategy: [`./binaryen-strategy.md`](./binaryen-strategy.md)
-- Source/test owner map: [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-- Mechanics: [`./equivalence-classes-param-derivation-and-thunk-rewrites.md`](./equivalence-classes-param-derivation-and-thunk-rewrites.md)
-- Profitability and barriers: [`./profitability-indirection-and-type-barriers.md`](./profitability-indirection-and-type-barriers.md)
-- Concrete WAT shapes: [`./wat-shapes.md`](./wat-shapes.md)
-- Current Starshine status: [`./starshine-strategy.md`](./starshine-strategy.md)
-- Related size passes: [`../duplicate-function-elimination/index.md`](../duplicate-function-elimination/index.md), [`../duplicate-import-elimination/index.md`](../duplicate-import-elimination/index.md), [`../inlining/index.md`](../inlining/index.md)
-
-## Open questions to keep explicit
-
-- Which module-pass owner file should house helper/thunk synthesis once the first mutating slice lands?
-- Should the first analyzer report same-hash buckets separately from real equivalence classes, or only expose the stricter class result?
-- Do we want a separate debug lane for `call_ref` indirection before ordinary `merge-similar-functions` becomes publicly active?
-
-## Bottom line
-
-The source-backed implementation path is:
-
-1. keep `merge-similar-functions` removed until tests drive a real owner file
-2. start with narrow literal-only positives and source-backed negative gates
-3. add direct-callee indirection as a separate slice
-4. treat profitability and tail-call-style preservation as part of the real contract, not polish
-5. validate against the official Binaryen lit families before broad artifact replay
-
-That keeps Starshine aligned with Binaryen's actual `merge-similar-functions` contract instead of drifting into a generic duplicate-function merger.
+- direct output validates transactionally
+- exact diff-vector reuse and local shifting remain covered
+- call-target classes retain exact type gates and declarative refs
+- dedicated GenValid continues to guarantee profitable triggers
+- the regular and dedicated lanes have zero residual mismatches after only documented command-level cleanup normalization
+- O4z keeps its locked top-level scheduler order and receives MSF through the validated portfolio candidate
