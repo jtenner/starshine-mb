@@ -117,6 +117,10 @@ pub fn merge_locals_descriptor() -> @ir.HotPassDescriptor
 
 pub fn merge_locals_summary() -> String
 
+pub fn merge_similar_functions_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn merge_similar_functions_summary() -> String
+
 pub fn no_full_inline_summary() -> String
 
 pub fn no_inline_copy_policy_annotations(@lib.Module, UInt, UInt) -> @lib.Module

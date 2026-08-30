@@ -68042,9 +68042,11 @@ fn o4z_canonicalize_final_size_strip_type_only_empty_module(
 
 ///|
 pub fn o4z_outline_similar_size_functions(mod_ : @lib.Module) -> @lib.Module {
-  o4z_size_outline_byte_comparator_siblings(
-    o4z_size_outline_bulk_memory_siblings(
-      o4z_size_outline_constant_step_recurrences(mod_),
+  merge_similar_functions_run_module_pass(
+    o4z_size_outline_byte_comparator_siblings(
+      o4z_size_outline_bulk_memory_siblings(
+        o4z_size_outline_constant_step_recurrences(mod_),
+      ),
     ),
   )
 }
@@ -90143,6 +90145,7 @@ fn run_hot_pipeline_apply_module_pass(
     "untee" => untee_run_module_pass(mod_)
     "duplicate-function-elimination" =>
       dfe_run_module_pass_with_perf(mod_, options.perf)
+    "merge-similar-functions" => merge_similar_functions_run_module_pass(mod_)
     "remove-unused-module-elements" =>
       rume_run_module_pass(
         mod_,

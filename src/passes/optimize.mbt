@@ -130,10 +130,10 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "constant-field-null-test-folding", "signature-pruning", "signature-refining",
     "global-type-optimization", "simplify-globals", "global-effects", "propagate-globals-globally",
     "type-refining", "type-generalizing", "type-finalizing", "type-un-finalizing",
-    "unsubtyping", "merge-similar-functions", "minimize-rec-groups", "type-merging",
-    "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all",
-    "i64-to-i32-lowering", "reorder-types", "reorder-globals-always", "reorder-functions",
-    "reorder-functions-by-name", "remove-unused-types", "remove-unused",
+    "unsubtyping", "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
+    "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering", "reorder-types",
+    "reorder-globals-always", "reorder-functions", "reorder-functions-by-name", "remove-unused-types",
+    "remove-unused",
   ]
 }
 
@@ -295,6 +295,10 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     ),
     pass_registry_entry_module("untee", untee_summary()),
     pass_registry_entry_module("duplicate-function-elimination", dfe_summary()),
+    pass_registry_entry_module(
+      "merge-similar-functions",
+      merge_similar_functions_summary(),
+    ),
     pass_registry_entry_module("remove-unused-module-elements", rume_summary()),
     pass_registry_entry_module(
       "remove-unused-nonfunction-module-elements",
