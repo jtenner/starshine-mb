@@ -835,6 +835,11 @@ fn vacuum_can_remove_dropped_node(
     | @ir.HotOp::TupleExtract
     | @ir.HotOp::RefTest => true
     @ir.HotOp::Block => vacuum_block_has_only_pure_self_branches(func, node_id)
+    @ir.HotOp::Loop =>
+      vacuum_region_can_remove_dropped_nodes(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
     @ir.HotOp::If =>
       if !vacuum_region_can_remove_dropped_nodes(
           func,
@@ -60011,6 +60016,52 @@ fn run_hot_pipeline_raw_vacuum_body_has_only_pure_self_branch(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_has_only_pure_outer_branch_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let child_body = match body {
+    [@lib.Block(@lib.VoidBlockType, @lib.Expr(child)), @lib.Unreachable] =>
+      child
+    _ => return false
+  }
+  let effective_end = if child_body.length() > 0 &&
+    child_body[child_body.length() - 1] is @lib.Unreachable {
+    child_body.length() - 1
+  } else {
+    child_body.length()
+  }
+  if effective_end == 0 {
+    return false
+  }
+  let terminal_is_outer_branch = match child_body[effective_end - 1] {
+    @lib.Br(@lib.LabelIdx(depth)) => depth == 1U
+    @lib.BrTable(targets, @lib.LabelIdx(default_depth)) if default_depth == 1U => {
+      for target in targets {
+        let @lib.LabelIdx(depth) = target
+        if depth != 1U {
+          return false
+        }
+      }
+      true
+    }
+    _ => false
+  }
+  if !terminal_is_outer_branch {
+    return false
+  }
+  for idx = 0; idx + 1 < effective_end; idx = idx + 1 {
+    match child_body[idx] {
+      @lib.Nop => ()
+      @lib.BrIf(@lib.LabelIdx(depth)) if depth == 1U => ()
+      instr if run_hot_pipeline_raw_vacuum_pure_instr_operand_count(instr)
+        is Some(_) => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_is_single_pure_stack_value(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -61534,7 +61585,12 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         if block_type != @lib.BlockType::void_() &&
           idx + 1 < instrs.length() &&
           instrs[idx + 1] is @lib.Drop &&
-          run_hot_pipeline_raw_vacuum_body_has_only_pure_self_branch(body) {
+          (
+            run_hot_pipeline_raw_vacuum_body_has_only_pure_self_branch(body) ||
+            run_hot_pipeline_raw_vacuum_body_has_only_pure_outer_branch_wrapper(
+              body,
+            )
+          ) {
           changed = true
           idx = idx + 2
           continue
@@ -63160,6 +63216,15 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             }
             changed = true
           }
+          _ if block_type != @lib.BlockType::void_() &&
+            idx + 1 < instrs.length() &&
+            instrs[idx + 1] is @lib.Drop &&
+            run_hot_pipeline_raw_vacuum_body_has_only_pure_self_branch(
+              next_body,
+            ) => {
+            changed = true
+            idx = idx + 1
+          }
           _ =>
             rewritten.push(
               @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
@@ -63167,6 +63232,14 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         }
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
+        if block_type != @lib.BlockType::void_() &&
+          idx + 1 < instrs.length() &&
+          instrs[idx + 1] is @lib.Drop &&
+          run_hot_pipeline_raw_vacuum_body_is_single_pure_stack_value(body) {
+          changed = true
+          idx = idx + 2
+          continue
+        }
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
           body, module_ctx,
         )
