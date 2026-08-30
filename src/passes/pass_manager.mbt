@@ -59705,7 +59705,9 @@ fn run_hot_pipeline_raw_vacuum_instr_is_terminal_unreachable_debris(
     | @lib.I32Const(_)
     | @lib.I64Const(_)
     | @lib.F32Const(_)
-    | @lib.F64Const(_) => true
+    | @lib.F64Const(_)
+    | @lib.Br(_)
+    | @lib.BrTable(_, _) => true
     @lib.Block(_, @lib.Expr([@lib.Unreachable])) => true
     @lib.TryTable(@lib.VoidBlockType, _, @lib.Expr([])) => true
     _ => false
@@ -68796,7 +68798,8 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   if !changed {
     return None
   }
-  let final_rewritten = if run_hot_pipeline_raw_vacuum_instrs_need_load_linked_second_preclean(
+  let final_rewritten = if instr_count <= 2048 ||
+    run_hot_pipeline_raw_vacuum_instrs_need_load_linked_second_preclean(
       rewritten,
     ) {
     let (rerun, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(

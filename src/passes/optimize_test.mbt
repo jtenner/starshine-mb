@@ -322,6 +322,37 @@ test "vacuum removes pure self-branch block debris" {
 }
 
 ///|
+test "vacuum removes proven dropped control beside local writes" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $pair (func (result i32 i64)))
+        #|  (func (type $pair) (local i64)
+        #|    (local.set 0 (i64.const 43))
+        #|    (drop
+        #|      (block $value (result i32)
+        #|        (br_table $value $value (i32.const 393) (i32.const 1))
+        #|        (unreachable)))
+        #|    (i32.const 47)
+        #|    (i64.const 53)))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected guarded dropped-control vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("I32(393)"), msg=pretty)
+  assert_true(pretty.contains("I32(47)"), msg=pretty)
+  assert_true(pretty.contains("I64(53)"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped memory size observations" {
   let optimized = match
     pass_test_run_pipeline(
