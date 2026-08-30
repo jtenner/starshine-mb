@@ -534,6 +534,55 @@ test "vacuum removes pure-condition empty ifs in branchy loops" {
 }
 
 ///|
+test "vacuum flattens exception regions whose bodies cannot throw" {
+  let optimized_try = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (func (param i32) (result i32) (local i32)
+        #|    (try (result i32)
+        #|      (do
+        #|        (local.set 1 (local.get 0))
+        #|        (drop (local.get 0))
+        #|        (local.get 1))
+        #|      (catch $e (i32.const 0)))))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected no-throw try vacuum success, got \{err}")
+  }
+  let try_pretty = optimized_try.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(try_pretty.contains("(try"), msg=try_pretty)
+  assert_false(try_pretty.contains("drop"), msg=try_pretty)
+  assert_true(try_pretty.contains("local.set"), msg=try_pretty)
+
+  let optimized_trap = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (func (local i32 i32)
+        #|    (try
+        #|      (do (unreachable))
+        #|      (catch_all (local.set 1 (local.get 0))))
+        #|    (drop (local.get 1))))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected trap-only try vacuum success, got \{err}")
+  }
+  let trap_pretty = optimized_trap.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(trap_pretty.contains("(try"), msg=trap_pretty)
+  assert_false(trap_pretty.contains("local.set"), msg=trap_pretty)
+  assert_true(trap_pretty.contains("unreachable"), msg=trap_pretty)
+}
+
+///|
 test "vacuum removes dropped memory size observations" {
   let optimized = match
     pass_test_run_pipeline(

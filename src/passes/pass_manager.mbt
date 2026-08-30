@@ -61583,6 +61583,104 @@ fn run_hot_pipeline_raw_vacuum_fresh_array_set_replacement_at(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instrs_cannot_throw_exception(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Rethrow(_)
+      | @lib.Suspend(_)
+      | @lib.Resume(_, _)
+      | @lib.ResumeThrow(_, _, _)
+      | @lib.ResumeThrowRef(_, _)
+      | @lib.StackSwitch(_, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return false
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_vacuum_instrs_cannot_throw_exception(body) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_raw_vacuum_instrs_cannot_throw_exception(then_body) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !run_hot_pipeline_raw_vacuum_instrs_cannot_throw_exception(body) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_can_flatten_no_throw_exception_region(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  !run_hot_pipeline_raw_instrs_have_branch(body) &&
+  run_hot_pipeline_raw_vacuum_instrs_cannot_throw_exception(body)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Try(_, @lib.Expr(body), _, _) =>
+        if run_hot_pipeline_raw_vacuum_body_can_flatten_no_throw_exception_region(
+            body,
+          ) {
+          return true
+        }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
+            body,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext?,
@@ -63362,6 +63460,29 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         rewritten.push(
           @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
         )
+      }
+      @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+          body, module_ctx,
+        )
+        changed = changed || body_changed
+        if run_hot_pipeline_raw_vacuum_body_can_flatten_no_throw_exception_region(
+            next_body,
+          ) {
+          for next_instr in next_body {
+            rewritten.push(next_instr)
+          }
+          changed = true
+        } else {
+          rewritten.push(
+            @lib.Instruction::try_(
+              block_type,
+              @lib.Expr::new(next_body),
+              catches,
+              delegate~,
+            ),
+          )
+        }
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
@@ -68852,6 +68973,9 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   let has_dropped_typeidx_block = run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(
     instrs,
   )
+  let has_flattenable_no_throw_exception_region = run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
+    instrs,
+  )
   if run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(instrs) {
     return Some({
       reason: "negative-array-allocation-vacuum-noop",
@@ -68971,6 +69095,7 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     ) ||
     run_hot_pipeline_raw_vacuum_instrs_have_repeated_dropped_load(instrs) ||
     has_dropped_typeidx_block ||
+    has_flattenable_no_throw_exception_region ||
     has_fresh_array_set ||
     has_dropped_ref_func_struct ||
     has_dropped_simple_struct {
