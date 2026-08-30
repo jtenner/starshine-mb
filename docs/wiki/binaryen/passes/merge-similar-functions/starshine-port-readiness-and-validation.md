@@ -61,7 +61,7 @@ Final direct compare evidence uses `.tmp/toolchains/binaryen-version_131/bin/was
 
 - regular GenValid: 100,000/100,000 compared; 96,352 ordinary plus 3,648 command-cleanup-normalized matches; zero mismatches or failures
 - dedicated `merge-similar-functions-all`: 10,000/10,000 exact normalized matches; zero failures
-- wasm-smith: 9,956 comparable; 9,955 ordinary plus one unreachable-cleanup-normalized match; zero residual mismatches; 44 classified Binaryen/tool failures
+- wasm-smith optimization rerun: 9,949 comparable exact canonical matches; zero residual mismatches; 51 classified Binaryen/tool failures
 - random-all profiles: 10,000/10,000 compared; 9,854 ordinary plus 46 cleanup-normalized matches; 100 inspected canonical-smaller pre-existing command/representation residuals; zero validation, generator, property, or command failures
 - original-primary semantic v2: 100/100 all-equal, zero blocked and zero mismatching cases on the final eight-leaf aggregate
 - structural properties: 100/100 byte-deterministic, codec-idempotent, and pass-idempotent
@@ -70,13 +70,17 @@ The random-all residuals are not MSF transform drift: the pass does not merge th
 
 ## Performance and artifact gate
 
-Direct production timing uses one warmup plus three alternating measurements on the prior 5,261,119-byte Starshine O4z artifact:
+Direct production timing on the prior 5,261,119-byte Starshine O4z artifact uses one warmup plus five alternating measurements:
 
-- Starshine median: 1.225 seconds
-- Binaryen 131 median with `-s 2`: 0.616 seconds
-- ratio: 1.989x
+- pre-rewrite Starshine median: 1.226 seconds
+- optimized Starshine median: 0.945 seconds
+- Binaryen 131 median with `-s 2`: 0.603 seconds
+- optimized ratio: 1.567x
+- Starshine improvement: 0.282 seconds / 22.96%
 
-The integrated O4z output is 5,113,549 bytes, validates externally, passes self-opt smoke, and is 30,513 bytes smaller than the pinned Binaryen 131 O4z output for the same 14,943,550-byte input.
+The retained implementation fuses shape hashing with instruction counting, caches flattened signatures and direct-call type indices, keeps local compatibility collision-only, hashes exact difference vectors, retains only primary site metadata plus sibling values, and replaces a redundant full candidate scan with an append-only proof plus complete-environment validation of every changed/new function. Final traced phases are 68.333ms analysis, 5.032ms class splitting, 6.176ms planning/rewrite, and 44.482ms candidate validation; the previous full candidate validation took 333.195ms.
+
+The integrated O4z output remains 5,113,549 bytes, validates externally, passes self-opt smoke, and is 30,513 bytes smaller than the pinned Binaryen 131 O4z output for the same 14,943,550-byte input. Seven alternating O4z pairs are effectively wall-noisy parity: independent medians are 25.508s versus 24.984s (`1.021x`), while the paired-difference median favors Starshine by 0.010s. Starshine median user CPU is 33.402s versus Binaryen's 194.593s.
 
 ## Maintenance rule
 

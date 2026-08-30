@@ -61,7 +61,7 @@ The pass also preserves Binaryen-observable details found during fuzzing:
 - differing direct callees must use the same exact function type index before function-reference parameterization
 - accessed local indices must have compatible types across the class
 - helper and thunk insertion preserves every original function index, export, start reference, and call target
-- a candidate that fails full module validation is discarded
+- a candidate is discarded unless an append-only proof preserves every untouched section and existing type/function/element prefix, rebuilds the complete validation environment, and validates every changed or appended function
 - name metadata is stripped after a successful rewrite because helper insertion and local clearing invalidate local/debug names
 
 ## O4z artifact result
@@ -74,7 +74,9 @@ On the same 14,943,550-byte debug CLI used for the prior O4z comparison:
 - Starshine now emits **30,513 fewer bytes** than Binaryen on this artifact
 - the new Starshine artifact validates with `wasm-tools --features all` and passes `bun validate self-opt-smoke`
 
-The direct MSF stage takes a median 1.225 seconds versus Binaryen 131's 0.616 seconds with `-s 2`, a 1.989x ratio that satisfies the repository's `<=2x` pass-local target.
+After the retained performance rewrite, direct command medians are 0.945 seconds for Starshine and 0.603 seconds for Binaryen 131 with `-s 2`, a 1.567x ratio. Starshine falls 0.282 seconds / 22.96% from its 1.226-second pre-rewrite baseline while preserving exact output bytes. A final trace attributes 68.333ms to fused analysis, 5.032ms to class splitting, 6.176ms to planning/rewrite, and 44.482ms to append-only candidate validation; the previous full candidate scan took 333.195ms.
+
+A seven-pair full O4z sample is host-noisy but near wall parity: independent medians are 25.508s for Starshine and 24.984s for Binaryen (`1.021x`), while the median paired difference is 0.010s in Starshine's favor. Starshine uses 33.402s median user CPU versus Binaryen's 194.593s and keeps the 30,513-byte output advantage.
 
 ## Fuzz ownership
 

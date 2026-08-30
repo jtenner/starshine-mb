@@ -98,7 +98,30 @@ Use the same pinned tool flags for the 10,000-case `--wasm-smith` lane and the 1
 
 - regular: 100,000/100,000; 96,352 ordinary plus 3,648 cleanup-normalized; zero residuals/failures
 - dedicated: 10,000/10,000 exact normalized; zero failures
-- wasm-smith: 9,956 comparable; 9,955 ordinary plus one cleanup-normalized; zero residuals; 44 Binaryen/tool failures
+- wasm-smith optimization rerun: 9,949 comparable exact canonical matches; zero residuals; 51 Binaryen/tool failures
 - random-all: 10,000/10,000; 9,854 ordinary plus 46 cleanup-normalized; 100 inspected 8-12-byte canonical Starshine wins from unrelated pre-existing local/block encoding; zero Starshine failures
 - semantic v2: 100/100 all-equal on the final dedicated aggregate
 - determinism/codec/idempotence: 100/100 each
+
+## Performance rewrite
+
+The retained optimization was measured on the same 5,261,119-byte pre-MSF Starshine artifact used for initial signoff. One warmup plus five alternating direct runs produced:
+
+- Starshine before: 1.226 seconds median
+- Starshine after: 0.945 seconds median
+- pinned Binaryen 131: 0.603 seconds median
+- improvement: 0.282 seconds / 22.96%
+- final Starshine/Binaryen ratio: 1.567x
+
+The exact 5,113,549-byte output and SHA-256 `ba3d9af87f5293b498601d277768e22a0be0b41144d7be8d59d9ddfb5f54cfab` are unchanged.
+
+A final traced run attributes:
+
+- fused function analysis: 68.333ms
+- exact class splitting: 5.032ms
+- parameter planning and rewrite: 6.176ms
+- append-only candidate validation: 44.482ms
+
+The replaced full candidate scan took 333.195ms on the same artifact. The incremental proof checks untouched section identity, type/function/element append-only prefixes, the complete candidate environment, and every changed or new function before accepting output.
+
+Full O4z remains host-noisy near wall parity. Across seven alternating pairs, independent medians are 25.508s for Starshine and 24.984s for Binaryen (`1.021x`), but the median paired difference is 0.010s in Starshine's favor. Starshine uses 33.402s median user CPU versus Binaryen's 194.593s and remains 30,513 bytes smaller.
