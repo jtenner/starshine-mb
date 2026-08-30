@@ -78578,6 +78578,26 @@ fn run_hot_pipeline_repair_touched_batch_writeback(
 }
 
 ///|
+fn run_hot_pipeline_precompute_repair_batch_writeback(
+  original_mod : @lib.Module,
+  candidate_mod : @lib.Module,
+  descriptor_name : String,
+  options : HotPipelineOptions,
+) -> @lib.Module? {
+  match original_mod.code_sec {
+    Some(@lib.CodeSec(defs)) =>
+      run_hot_pipeline_repair_touched_batch_writeback(
+        original_mod,
+        candidate_mod,
+        Array::make(defs.length(), true),
+        descriptor_name,
+        options,
+      )
+    None => Some(candidate_mod)
+  }
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_repair_batch_writeback(
   original_mod : @lib.Module,
   candidate_mod : @lib.Module,
@@ -78783,6 +78803,7 @@ fn run_hot_pipeline_apply_hot_pass(
   defer_ssa_nomerge_writeback_guard? : Bool = true,
   defer_remove_unused_brs_writeback_guard? : Bool = true,
   defer_dce_writeback_guard? : Bool = true,
+  defer_precompute_writeback_guard? : Bool = true,
   defer_simplify_locals_writeback_guard? : Bool = true,
   defer_optimize_instructions_writeback_guard? : Bool = true,
 ) -> Result[@lib.Module, String] {
@@ -78825,6 +78846,11 @@ fn run_hot_pipeline_apply_hot_pass(
     descriptor.name == "remove-unused-brs"
   let defer_this_dce_writeback_guard = defer_dce_writeback_guard &&
     descriptor.name == "dead-code-elimination"
+  let defer_this_precompute_writeback_guard = defer_precompute_writeback_guard &&
+    (
+      descriptor.name == "precompute" ||
+      descriptor.name == "precompute-propagate"
+    )
   let defer_this_simplify_locals_writeback_guard = defer_simplify_locals_writeback_guard &&
     run_hot_pipeline_descriptor_is_simplify_locals_family(descriptor.name)
   let defer_this_optimize_instructions_writeback_guard = defer_optimize_instructions_writeback_guard &&
@@ -78980,6 +79006,11 @@ fn run_hot_pipeline_apply_hot_pass(
           None
         } else if defer_this_dce_writeback_guard {
           run_hot_pipeline_dce_nonvalidation_skip_invalid_lower_reason(result)
+        } else if defer_this_precompute_writeback_guard {
+          run_hot_pipeline_touched_nonvalidation_skip_invalid_lower_reason(
+            descriptor.name,
+            result,
+          )
         } else if defer_this_simplify_locals_writeback_guard {
           run_hot_pipeline_touched_nonvalidation_skip_invalid_lower_reason(
             descriptor.name,
@@ -79250,6 +79281,41 @@ fn run_hot_pipeline_apply_hot_pass(
     "stage:hot-pass:module-rebuild",
     module_rebuild_start_us,
   )
+  if defer_this_precompute_writeback_guard && next_code_sec is Some(_) {
+    let batch_guard_start_us = perf_start_timer_opt(
+      options.perf,
+      "guard:\{descriptor.name}-writeback-batch",
+    )
+    match
+      run_hot_pipeline_precompute_repair_batch_writeback(
+        mod_,
+        next_mod,
+        descriptor.name,
+        options,
+      ) {
+      Some(repaired_mod) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "guard:\{descriptor.name}-writeback-batch",
+          batch_guard_start_us,
+        )
+        return Ok(repaired_mod)
+      }
+      None => {
+        perf_stop_timer_opt(
+          options.perf,
+          "guard:\{descriptor.name}-writeback-batch",
+          batch_guard_start_us,
+        )
+        return run_hot_pipeline_apply_hot_pass(
+          mod_,
+          entry,
+          options,
+          defer_precompute_writeback_guard=false,
+        )
+      }
+    }
+  }
   if defer_this_optimize_instructions_writeback_guard &&
     next_code_sec is Some(_) {
     let batch_guard_start_us = perf_start_timer_opt(

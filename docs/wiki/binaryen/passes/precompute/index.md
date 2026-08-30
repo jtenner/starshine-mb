@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-08-30
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
@@ -26,6 +26,8 @@ sources:
   - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_test.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/self-optimize-compare-task.ts
@@ -222,6 +224,14 @@ Exact stage-two candidate capture proved the main optimized and similar-function
 The existing guard recognized only fixed two-value/call-shaped variants. It now performs one bounded, allocation-free stack-marker scan from each `local.get`, tracking later flat `local.get`, `local.set`, `local.tee`, `drop`, and `nop` traffic. If the same local is overwritten while its older value remains live below later operands, any subsequent use of that carried marker makes the function fail closed before HOT lowering. The direct regression requires exact body preservation and `stack-carried-overwritten-local-precompute-noop`.
 
 Final formatted native SHA-256 is `17ea38fb70b6b8ce0a3ad5f3e67e6a6332fbf9aa4083184e490d1516e8896564`. Self-hosted stages one through four match their native outputs byte-for-byte. Native iteration converges at generation 11; all generations pass `address.wast`; stage three and generation 11 pass the complete checked-in spec suite (`284` total, `87` passed, `197` known skips, `0` failed); and generation 11 self-optimizes exactly to itself. Exact artifact hashes and fuzz evidence are recorded in [`./fuzzing.md`](./fuzzing.md).
+
+## 2026-08-30 batched writeback validation
+
+Wall attribution on the 4,977,401-byte canonical production artifact showed that plain `precompute` spent only about 20 ms in the pass but 3.7-4.2 seconds in dispatcher outer-loop work. The direct run changed 532 definitions, and each changed function was being validated separately against the full candidate module.
+
+The hot-pass dispatcher now keeps the existing per-function escape-carrier checks, accumulates changed definitions, validates them once against the complete candidate module, and restores only invalid definitions. If the batch cannot be completed, execution retries through the previous per-function validation path. A focused pass-manager regression requires the batch timer for both public Precompute variants.
+
+One warmup plus three measured serial pairs reduce plain Precompute to a `1,119.580ms` no-trace command median and `18.967ms` pass-local median versus Binaryen v131 at `703.670ms` / `161.308ms`. This closes the repository's direct `2x` and absolute `1.333s` gates. The raw 4,957,401-byte and canonical 5,279,750-byte outputs are byte-identical to the pre-change baseline, with SHA-256 `4de88d9fbb3d2ca93b7c4f6036def7dae5c91095db3add44359c4c634145fb4b` and `5c889ce5f89c9968a87890ce43445062a6416423598471d503f20da93fca09ef`. Evidence is under `.tmp/optimization-campaign-20260830/`.
 
 ## 2026-08-25 artifact-scale stack-carried overwrite repair
 

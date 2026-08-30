@@ -16001,6 +16001,37 @@ test "optimize-instructions validates changed function writeback" {
 }
 
 ///|
+test "precompute variants batch direct writeback validation" {
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let trace : Array[String] = []
+    let trace_fn = fn(line) { trace.push(line) }
+    let perf = HotPerfSession::new(
+      trace=trace_fn,
+      dump_options=HotPerfDumpOptions::new(),
+    )
+    let optimized = match
+      pass_test_run_pipeline(
+        "(module (func (result i32) i32.const 1 i32.const 2 i32.add) (func (result i32) i32.const 3 i32.const 4 i32.add))",
+        [pass_name],
+        options=HotPipelineOptions::new(trace=Some(trace_fn), perf=Some(perf)),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected \{pass_name} batch success, got \{err}")
+    }
+    for func_idx in [0U, 1U] {
+      let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+      assert_false(pretty.contains("i32.add"), msg=pretty)
+    }
+    assert_true(
+      trace.any(fn(line) {
+        line.contains("perf:timer name=guard:\{pass_name}-writeback-batch")
+      }),
+      msg=trace.join("\n"),
+    )
+  }
+}
+
+///|
 test "optimize-instructions batches direct writeback validation" {
   let trace : Array[String] = []
   let trace_fn = fn(line) { trace.push(line) }

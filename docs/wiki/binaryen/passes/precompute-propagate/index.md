@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-12
+last_reviewed: 2026-08-30
 sources:
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
@@ -11,6 +11,8 @@ sources:
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
   - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../precompute/index.md
@@ -99,6 +101,12 @@ So the pass is best taught as:
 ## 2026-07-26 v131 correctness-repair renewal
 
 Fresh explicit-v131 evidence after the shared raw-control and cleanup repairs keeps the public propagating member closed. Regular `100000` and dedicated `precompute-all` `10000` lanes have zero residual mismatches. Random-all has `2135` source-inspected smaller dead-read/control cleanup wins and `328` intentional reachable-`atomic.fence` preservation differences, for a net `-24,119` canonical bytes. wasm-smith compares `9956` cases with `9954` direct matches, one fence-preservation correctness difference, one seven-byte-smaller exact scratch-local form, and `44` Binaryen-only parser/tool failures. Runtime/idempotence is green at `500/500`; see [`./fuzzing.md`](./fuzzing.md).
+
+## 2026-08-30 batched writeback validation
+
+The dispatcher optimization shared with plain Precompute replaces per-changed-function full-module writeback validation with one complete candidate-module batch while preserving per-function escape-carrier checks, individual rollback, and the old path as a fallback. The focused pass-manager regression covers both public names.
+
+One warmup plus three measured serial pairs give a `1,391.824ms` no-trace command median and `189.088ms` pass-local median versus Binaryen v131 at `1,209.404ms` / `656.085ms`. Starshine is within the repository-wide `2x` gate at `1.151x` command and `0.288x` pass-local; the pass-specific `1.25s` stretch target remains narrowly open. Median batch writeback is `38.481ms`, and raw output remains 4,973,138 bytes. Evidence is under `.tmp/optimization-campaign-20260830/`.
 
 ## Current maintenance rule
 

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-28
+last_reviewed: 2026-08-30
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ./index.md
@@ -12,6 +12,10 @@ sources:
 ---
 
 # `precompute` Fuzzing Profile
+
+## 2026-08-30 batched writeback-validation safety lane
+
+After replacing per-changed-function full-module writeback validation with one changed-definition batch, the regular explicit-v131 lane at `.tmp/optimization-campaign-20260830/pass-fuzz-precompute-regular-10000` compares `10000/10000`: `60` direct normalized plus `9,940` cleanup-normalized matches, zero mismatches, and zero validation, property, generator, or command failures. Canonical sizes total 744,713 Starshine bytes versus 3,522,550 Binaryen bytes, with 9,190 smaller, 60 equal, and 750 larger outputs; no new semantic/output family was introduced by the validation-scheduling change.
 
 ## 2026-08-28 recursive self-bootstrap repair renewal
 
