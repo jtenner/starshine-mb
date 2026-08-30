@@ -476,6 +476,40 @@ test "vacuum removes dropped pure nonbranching result loops" {
 }
 
 ///|
+test "vacuum removes fully dropped pure multivalue blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $pair (func (result i32 i64)))
+        #|  (func (type $pair) (local i32)
+        #|    (local.set 0 (i32.const 1))
+        #|    (block $guard (br_if $guard (i32.const 1)))
+        #|    (block (type $pair) (i32.const 725) (i64.const 569))
+        #|    (drop)
+        #|    (drop)
+        #|    (i32.const 47)
+        #|    (i64.const 53)))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dropped multivalue block vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("(block (Type"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("I32(725)"), msg=pretty)
+  assert_false(pretty.contains("I64(569)"), msg=pretty)
+  assert_true(pretty.contains("I32(47)"), msg=pretty)
+  assert_true(pretty.contains("I64(53)"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped memory size observations" {
   let optimized = match
     pass_test_run_pipeline(

@@ -59982,6 +59982,101 @@ fn run_hot_pipeline_raw_vacuum_pure_stack_expr_start(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_has_exact_pure_stack_values(
+  body : Array[@lib.Instruction],
+  count : Int,
+) -> Bool {
+  if count <= 0 {
+    return body.length() == 0
+  }
+  let mut end = body.length()
+  for value_idx = 0; value_idx < count; value_idx = value_idx + 1 {
+    let start = match
+      run_hot_pipeline_raw_vacuum_pure_stack_expr_start(body, end) {
+      Some(value) => value
+      None => return false
+    }
+    end = start
+  }
+  end == 0
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx + 2 < instrs.length() &&
+      instrs[idx] is @lib.Block(@lib.TypeIdxBlockType(_), _) &&
+      instrs[idx + 1] is @lib.Drop &&
+      instrs[idx + 2] is @lib.Drop {
+      return true
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_dropped_pure_multivalue_width_at(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  module_ctx : @ir.HotModuleContext?,
+) -> Int? {
+  let (type_idx, body) = match instrs[idx] {
+    @lib.Block(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body)) =>
+      (type_idx, body)
+    _ => return None
+  }
+  let ctx = match module_ctx {
+    Some(ctx) => ctx
+    None => return None
+  }
+  let result_count = match
+    @ir.hot_module_resolve_type_func_type(ctx, type_idx) {
+    Some(@lib.FuncType(params, results)) if params.is_empty() &&
+      results.length() > 1 => results.length()
+    _ => return None
+  }
+  if idx + result_count >= instrs.length() ||
+    !run_hot_pipeline_raw_vacuum_body_has_exact_pure_stack_values(
+      body, result_count,
+    ) {
+    return None
+  }
+  for offset = 1; offset <= result_count; offset = offset + 1 {
+    if !(instrs[idx + offset] is @lib.Drop) {
+      return None
+    }
+  }
+  Some(result_count + 1)
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_has_only_pure_self_branch(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -61491,6 +61586,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
     if !prev_may_fallthrough {
       changed = true
       break
+    }
+    match
+      run_hot_pipeline_raw_vacuum_dropped_pure_multivalue_width_at(
+        instrs, idx, module_ctx,
+      ) {
+      Some(width) => {
+        idx += width
+        changed = true
+        continue
+      }
+      None => ()
     }
     if idx + 3 < instrs.length() {
       match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
@@ -68734,6 +68840,9 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let has_dropped_typeidx_block = run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(
+    instrs,
+  )
   if run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(instrs) {
     return Some({
       reason: "negative-array-allocation-vacuum-noop",
@@ -68755,9 +68864,13 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       instrs, false, false,
     )
     if changed {
+      let level_zero_module_ctx = if has_dropped_typeidx_block {
+        Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
+      } else {
+        None
+      }
       let (precleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-        flattened,
-        None,
+        flattened, level_zero_module_ctx,
       )
       return Some({
         reason: "raw-vacuum-unbranched-result-blocks",
@@ -68848,6 +68961,7 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       instrs,
     ) ||
     run_hot_pipeline_raw_vacuum_instrs_have_repeated_dropped_load(instrs) ||
+    has_dropped_typeidx_block ||
     has_fresh_array_set ||
     has_dropped_ref_func_struct ||
     has_dropped_simple_struct {
