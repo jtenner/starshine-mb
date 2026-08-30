@@ -257,6 +257,20 @@ test "vacuum removes dropped pure scalar expressions" {
 }
 
 ///|
+test "vacuum removes dropped memory size observations" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (import \"env\" \"memory\" (memory 1)) (func (drop (memory.size))))",
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped memory.size vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.size"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped pure SIMD shuffles" {
   let input = pass_test_module_from_wat(
     (

@@ -737,6 +737,7 @@ fn vacuum_can_remove_dropped_node(
     @ir.HotOp::Const
     | @ir.HotOp::LocalGet
     | @ir.HotOp::GlobalGet
+    | @ir.HotOp::MemorySize
     | @ir.HotOp::TableSize
     | @ir.HotOp::Unary
     | @ir.HotOp::Compare
@@ -872,6 +873,7 @@ fn hot_pass_vacuum_can_remove_local_only_node_memoized(
     | @ir.HotOp::LocalSet
     | @ir.HotOp::LocalTee
     | @ir.HotOp::GlobalGet
+    | @ir.HotOp::MemorySize
     | @ir.HotOp::TableSize
     | @ir.HotOp::Unary
     | @ir.HotOp::Compare
