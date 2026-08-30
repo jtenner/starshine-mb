@@ -583,6 +583,33 @@ test "vacuum flattens exception regions whose bodies cannot throw" {
 }
 
 ///|
+test "vacuum flattens owner-targeted try tables whose bodies cannot throw" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global (mut i32) (i32.const 0))
+        #|  (func
+        #|    block
+        #|      try_table (catch_all 0)
+        #|        i32.const 1
+        #|        global.set 0
+        #|      end
+        #|    end))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected owner-targeted try_table vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "vacuum cleans legacy catch bodies without flattening throwing tries" {
   let optimized = match
     pass_test_run_pipeline(

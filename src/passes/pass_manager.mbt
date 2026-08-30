@@ -61635,6 +61635,41 @@ fn run_hot_pipeline_raw_vacuum_body_can_flatten_no_throw_exception_region(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_try_table_catches_all_target_owner(
+  catches : Array[@lib.Catch],
+) -> Bool {
+  if catches.is_empty() {
+    return false
+  }
+  for catch_ in catches {
+    let label = match catch_ {
+      @lib.Catch(_, label)
+      | @lib.CatchRef(_, label)
+      | @lib.CatchAll(label)
+      | @lib.CatchAllRef(label) => label
+    }
+    if !run_hot_pipeline_raw_vacuum_label_targets_owner(label, 0) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_owner_targeted_no_throw_try_table(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  match body {
+    [@lib.TryTable(@lib.VoidBlockType, catches, @lib.Expr(try_body))] =>
+      run_hot_pipeline_raw_vacuum_try_table_catches_all_target_owner(catches) &&
+      run_hot_pipeline_raw_vacuum_body_can_flatten_no_throw_exception_region(
+        try_body,
+      )
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -61652,7 +61687,20 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region
           ) {
           return true
         }
-      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        if block_type == @lib.BlockType::void_() &&
+          run_hot_pipeline_raw_vacuum_body_is_owner_targeted_no_throw_try_table(
+            body,
+          ) {
+          return true
+        }
+        if run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
+            body,
+          ) {
+          return true
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
             body,
           ) {
@@ -61837,6 +61885,25 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           ) {
           changed = true
           idx = idx + 2
+          continue
+        }
+        if block_type == @lib.BlockType::void_() &&
+          run_hot_pipeline_raw_vacuum_body_is_owner_targeted_no_throw_try_table(
+            body,
+          ) {
+          match body[0] {
+            @lib.TryTable(_, _, @lib.Expr(try_body)) => {
+              let (next_try_body, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+                try_body, module_ctx,
+              )
+              for next_instr in next_try_body {
+                rewritten.push(next_instr)
+              }
+            }
+            _ => ()
+          }
+          changed = true
+          idx = idx + 1
           continue
         }
         match block_type {
