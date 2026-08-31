@@ -1,12 +1,10 @@
 ///| Compact high-level bridge for Dewdrop's self-host compiler.
-///| It constructs typed Starshine facts and never exposes serialization.
-pub fn module_with_dewdrop_compiler_facts(
-  module_ : @lib.Module,
-) -> @lib.Module {
+
+///|
+/// It constructs typed Starshine facts and never exposes serialization.
+pub fn module_with_dewdrop_compiler_facts(module_ : @lib.Module) -> @lib.Module {
   let builder = @representation.OptimizationFactsBuilder::new()
-  builder.set_producer(
-    @representation.ProducerInfo::new("dewdrop", "0.1.0"),
-  )
+  builder.set_producer(@representation.ProducerInfo::new("dewdrop", "0.1.0"))
   let exported_functions : Map[UInt, Bool] = Map::default()
   let mut host_can_call_exports = false
   let mut host_can_mutate_exported_state = false
@@ -62,9 +60,7 @@ pub fn module_with_dewdrop_compiler_facts(
         effects=Some(broad_effects),
         boundary=Some(
           @representation.FunctionBoundaryFacts::new(
-            false,
-            false,
-            host_callable,
+            false, false, host_callable,
           ),
         ),
       ),
