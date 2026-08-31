@@ -16094,7 +16094,7 @@ test "filtered hot pass stack rewrites only touched functions" {
 }
 
 ///|
-test "ssa-nomerge batch writeback repair restores invalid changed functions" {
+test "ssa batch writeback repair restores invalid changed functions" {
   let input = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
@@ -16117,22 +16117,27 @@ test "ssa-nomerge batch writeback repair restores invalid changed functions" {
   let candidate = input.with_code_sec(
     @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([]))]),
   )
-  let trace : Array[String] = []
-  let repaired = match
-    run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
-      input,
-      candidate,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Some(mod_) => mod_
-    None => fail("expected ssa-nomerge batch repair to recover valid module")
-  }
+  for pass_name in ["ssa-nomerge", "ssa"] {
+    let trace : Array[String] = []
+    let repaired = match
+      run_hot_pipeline_ssa_repair_batch_writeback(
+        pass_name,
+        input,
+        candidate,
+        HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ) {
+      Some(mod_) => mod_
+      None => fail("expected \{pass_name} batch repair to recover valid module")
+    }
 
-  @debug.assert_eq(repaired, input)
-  assert_true(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:skip-invalid-lower") }),
-    msg=trace.to_string(),
-  )
+    @debug.assert_eq(repaired, input)
+    assert_true(
+      trace.any(fn(line) {
+        line.contains("pass[\{pass_name}]:skip-invalid-lower")
+      }),
+      msg=trace.to_string(),
+    )
+  }
 }
 
 ///|

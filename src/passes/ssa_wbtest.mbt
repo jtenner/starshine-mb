@@ -16,7 +16,7 @@ test "full ssa validates a merge rewrite before mutating the function" {
     inputs: [SsaFullMergeInput::ExplicitWrite(invalid_write)],
   }
 
-  assert_false(ssa_full_apply_simple_explicit_merge_rewrite(func, rewrite))
+  assert_true(ssa_full_validate_merge_rewrite(func, rewrite, 1) is None)
   @debug.assert_eq(@ir.hot_local_count(func), before_local_count)
   @debug.assert_eq(@ir.hot_node_get(func, get_id), before_get)
 }

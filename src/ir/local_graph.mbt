@@ -330,10 +330,11 @@ fn local_graph_merge_predecessors(
   block_id : BlockId,
   local_count : Int,
   out_states : Array[Array[Array[Int]]],
+  include_exceptional : Bool,
 ) -> Array[Array[Int]] {
   let merged = local_graph_empty_state(local_count)
   for pred in cfg_predecessor_edges(cfg, block_id) {
-    if pred.kind == CfgEdgeKind::ExceptionalEdge {
+    if !include_exceptional && pred.kind == CfgEdgeKind::ExceptionalEdge {
       continue
     }
     let pred_state = out_states[pred.block]
@@ -348,6 +349,7 @@ fn local_graph_merge_predecessors(
 fn local_graph_build_in_states(
   func : HotFunc,
   cfg : HotCfg,
+  include_exceptional : Bool,
 ) -> Array[Array[Array[Int]]] {
   let local_count = hot_local_count(func)
   let in_states : Array[Array[Array[Int]]] = []
@@ -364,7 +366,9 @@ fn local_graph_build_in_states(
       let next_in = if block_id == cfg_entry_block(cfg) {
         local_graph_entry_state(local_count)
       } else {
-        local_graph_merge_predecessors(cfg, block_id, local_count, out_states)
+        local_graph_merge_predecessors(
+          cfg, block_id, local_count, out_states, include_exceptional,
+        )
       }
       if !local_graph_state_equal(in_states[block_id], next_in) {
         in_states[block_id] = next_in
@@ -492,14 +496,18 @@ fn local_graph_build_local_already_ssa(
 }
 
 ///|
-pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
+fn local_graph_build_with_exceptional_policy(
+  func : HotFunc,
+  cfg : HotCfg,
+  include_exceptional : Bool,
+) -> HotLocalGraph {
   let local_count = hot_local_count(func)
   let get_sources : Array[Array[Int]] = []
   for _ in 0..<hot_node_count(func) {
     get_sources.push([])
   }
   let write_influences = local_graph_empty_influences(func)
-  let in_states = local_graph_build_in_states(func, cfg)
+  let in_states = local_graph_build_in_states(func, cfg, include_exceptional)
   for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
     ignore(
       local_graph_transfer_block(
@@ -526,6 +534,19 @@ pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
       func, local_count,
     ),
   }
+}
+
+///|
+pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
+  local_graph_build_with_exceptional_policy(func, cfg, false)
+}
+
+///|
+pub fn local_graph_build_full_flow(
+  func : HotFunc,
+  cfg : HotCfg,
+) -> HotLocalGraph {
+  local_graph_build_reverse_flow(func, cfg, true)
 }
 
 ///|
@@ -748,6 +769,227 @@ fn local_graph_sequences(func : HotFunc, cfg : HotCfg) -> Array[Array[NodeId]] {
     out.push(local_graph_block_sequence(func, cfg, block_id))
   }
   out
+}
+
+///|
+fn local_graph_reverse_actions_node(
+  func : HotFunc,
+  node_id : NodeId,
+  out : Array[NodeId],
+  traverse_nested_blocks : Bool,
+) -> Unit {
+  if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = hot_node_get(func, node_id)
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if local_graph_is_region_slot(node.op, slot) {
+      continue
+    }
+    local_graph_reverse_actions_node(
+      func,
+      hot_child_get(func, node_id, slot),
+      out,
+      true,
+    )
+  }
+  if traverse_nested_blocks && node.op == HotOp::Block {
+    let body_ref = hot_region_body_ref(func, node_id)
+    if local_graph_nested_block_region_is_straight_line(func, body_ref) {
+      for idx = 0; idx < hot_region_root_count(func, body_ref); idx = idx + 1 {
+        local_graph_reverse_actions_node(
+          func,
+          hot_region_get(func, body_ref, idx),
+          out,
+          true,
+        )
+      }
+    }
+  }
+  match node.op {
+    HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee => out.push(node_id)
+    _ => ()
+  }
+}
+
+///|
+fn local_graph_reverse_action_sequences(
+  func : HotFunc,
+  cfg : HotCfg,
+) -> Array[Array[NodeId]] {
+  let sequences : Array[Array[NodeId]] = []
+  for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
+    let actions : Array[NodeId] = []
+    for node_id in cfg_block_get(cfg, block_id).nodes {
+      local_graph_reverse_actions_node(func, node_id, actions, false)
+    }
+    sequences.push(actions)
+  }
+  sequences
+}
+
+///|
+fn local_graph_reverse_find_last_write(
+  func : HotFunc,
+  actions : Array[NodeId],
+  end : Int,
+  local_id : LocalId,
+) -> NodeId? {
+  let mut idx = if end < actions.length() { end } else { actions.length() }
+  while idx > 0 {
+    idx -= 1
+    let node_id = actions[idx]
+    let node = hot_node_get(func, node_id)
+    match node.op {
+      HotOp::LocalSet | HotOp::LocalTee =>
+        if node.imm0 == local_id {
+          return Some(node_id)
+        }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn local_graph_reverse_entry_sources(
+  func : HotFunc,
+  cfg : HotCfg,
+  actions : Array[Array[NodeId]],
+  block_id : BlockId,
+  local_id : LocalId,
+  include_exceptional : Bool,
+  cache : Array[Array[Int]?],
+  local_count : Int,
+) -> Array[Int] {
+  let key = block_id * local_count + local_id
+  match cache[key] {
+    Some(sources) => return sources.copy()
+    None => ()
+  }
+  let sources : Array[Int] = []
+  let work : Array[BlockId] = [block_id]
+  let seen = Array::make(cfg_block_count(cfg), false)
+  seen[block_id] = true
+  while !work.is_empty() {
+    let current = work.pop().unwrap()
+    let predecessors : Array[BlockId] = []
+    for pred in cfg_predecessor_edges(cfg, current) {
+      if !include_exceptional && pred.kind == CfgEdgeKind::ExceptionalEdge {
+        continue
+      }
+      predecessors.push(pred.block)
+    }
+    if predecessors.is_empty() {
+      if current == cfg_entry_block(cfg) {
+        let entry_source = local_graph_entry_source_id(local_id)
+        if !local_graph_array_contains(sources, entry_source) {
+          sources.push(entry_source)
+        }
+      }
+      continue
+    }
+    for pred in predecessors {
+      match
+        local_graph_reverse_find_last_write(
+          func,
+          actions[pred],
+          actions[pred].length(),
+          local_id,
+        ) {
+        Some(write_id) => {
+          let source_id = local_graph_set_source_id(local_count, write_id)
+          if !local_graph_array_contains(sources, source_id) {
+            sources.push(source_id)
+          }
+        }
+        None =>
+          if !seen[pred] {
+            seen[pred] = true
+            work.push(pred)
+          }
+      }
+    }
+  }
+  cache[key] = Some(sources.copy())
+  sources
+}
+
+///|
+fn local_graph_build_reverse_flow(
+  func : HotFunc,
+  cfg : HotCfg,
+  include_exceptional : Bool,
+) -> HotLocalGraph {
+  let local_count = hot_local_count(func)
+  let node_count = hot_node_count(func)
+  let actions = local_graph_reverse_action_sequences(func, cfg)
+  let node_blocks = Array::make(node_count, -1)
+  let node_positions = Array::make(node_count, -1)
+  for block_id = 0; block_id < actions.length(); block_id = block_id + 1 {
+    for idx = 0; idx < actions[block_id].length(); idx = idx + 1 {
+      let node_id = actions[block_id][idx]
+      if node_id >= 0 && node_id < node_count {
+        node_blocks[node_id] = block_id
+        node_positions[node_id] = idx
+      }
+    }
+  }
+
+  let get_sources : Array[Array[Int]] = []
+  let write_influences = local_graph_empty_influences(func)
+  for _ in 0..<node_count {
+    get_sources.push([])
+  }
+  let cache : Array[Array[Int]?] = Array::make(
+    cfg_block_count(cfg) * local_count,
+    None,
+  )
+  for node_id = 0; node_id < node_count; node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) ||
+      !(hot_node_get(func, node_id).op is HotOp::LocalGet) {
+      continue
+    }
+    let block_id = node_blocks[node_id]
+    if block_id < 0 {
+      continue
+    }
+    let local_id = hot_node_get(func, node_id).imm0
+    let sources = match
+      local_graph_reverse_find_last_write(
+        func,
+        actions[block_id],
+        node_positions[node_id],
+        local_id,
+      ) {
+      Some(write_id) => [local_graph_set_source_id(local_count, write_id)]
+      None =>
+        local_graph_reverse_entry_sources(
+          func, cfg, actions, block_id, local_id, include_exceptional, cache, local_count,
+        )
+    }
+    local_graph_record_get_sources(
+      local_count,
+      node_id,
+      sources,
+      Some(get_sources),
+      Some(write_influences),
+    )
+  }
+  {
+    local_count,
+    param_count: hot_param_count(func),
+    get_source_ids: get_sources,
+    set_influence_gets: write_influences,
+    write_local_ids: local_graph_build_write_local_ids(func),
+    write_is_tees: local_graph_build_write_is_tees(func),
+    local_is_already_ssa: local_graph_build_local_already_ssa(
+      func, local_count, get_sources,
+    ),
+    local_has_legal_default: local_graph_build_local_defaultability(
+      func, local_count,
+    ),
+  }
 }
 
 ///|

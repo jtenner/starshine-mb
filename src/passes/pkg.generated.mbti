@@ -549,6 +549,19 @@ type HotTupleOptimizationRootSlot derive(Eq, @debug.Debug)
 
 type HotTupleOptimizationSeedCollection derive(Eq, @debug.Debug)
 
+pub(all) enum SsaFullGetDecision {
+  Retarget(Int)
+  MaterializeDefault
+  Merge(Int)
+  KeepCanonical
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SsaFullGetRewrite {
+  get_id : Int
+  original_local : Int
+  decision : SsaFullGetDecision
+} derive(Eq, @debug.Debug)
+
 pub(all) struct SsaFullMergeGetRewrite {
   get_id : Int
   original_local : Int
@@ -563,7 +576,20 @@ pub(all) enum SsaFullMergeInput {
 } derive(Eq, @debug.Debug)
 
 pub(all) struct SsaFullRewritePlan {
+  write_rewrites : Array[SsaFullWriteRewrite]
+  get_rewrites : Array[SsaFullGetRewrite]
   merge_gets : Array[SsaFullMergeGetRewrite]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SsaFullWriteDecision {
+  Freshen(Int)
+  KeepCanonical
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SsaFullWriteRewrite {
+  write_id : Int
+  original_local : Int
+  decision : SsaFullWriteDecision
 } derive(Eq, @debug.Debug)
 
 pub(all) enum SsaNoMergeGetDecision {

@@ -236,7 +236,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   }
   @debug.assert_eq(@ir.hot_pass_requires(ssa), [])
   @debug.assert_eq(full_ssa.name, "ssa")
-  @debug.assert_eq(@ir.hot_pass_requires(full_ssa), [])
+  @debug.assert_eq(@ir.hot_pass_requires(full_ssa), [@ir.HotAnalysis::cfg()])
   @debug.assert_eq(dce.name, "dead-code-elimination")
   @debug.assert_eq(@ir.hot_pass_requires(dce), [])
   @debug.assert_eq(opt.name, "optimize-instructions")

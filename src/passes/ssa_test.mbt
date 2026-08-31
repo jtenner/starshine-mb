@@ -197,7 +197,7 @@ test "full ssa planner creates merge action for explicit diamond writes" {
   let rewrite = plan.merge_gets[0]
   @debug.assert_eq(rewrite.get_id, merge_get)
   @debug.assert_eq(rewrite.original_local, 1)
-  @debug.assert_eq(rewrite.merge_local, 2)
+  @debug.assert_eq(rewrite.merge_local, 4)
   @debug.assert_eq(rewrite.inputs.length(), 2)
   assert_true(
     ssa_full_test_plan_has_input(
@@ -239,7 +239,7 @@ test "full ssa planner models parameter-entry merge prepends" {
   @debug.assert_eq(plan.merge_gets.length(), 1)
   let rewrite = plan.merge_gets[0]
   @debug.assert_eq(rewrite.get_id, merge_get)
-  @debug.assert_eq(rewrite.merge_local, 2)
+  @debug.assert_eq(rewrite.merge_local, 3)
   assert_true(
     ssa_full_test_plan_has_input(
       rewrite.inputs,
@@ -282,7 +282,7 @@ test "full ssa planner models default-entry merges without prepends" {
   @debug.assert_eq(plan.merge_gets.length(), 1)
   let rewrite = plan.merge_gets[0]
   @debug.assert_eq(rewrite.get_id, merge_get)
-  @debug.assert_eq(rewrite.merge_local, 2)
+  @debug.assert_eq(rewrite.merge_local, 3)
   assert_true(
     ssa_full_test_plan_has_input(
       rewrite.inputs,
@@ -414,6 +414,26 @@ test "full ssa public pass replaces default exact ref reads" {
 }
 
 ///|
+test "full ssa public pass preserves reads from an already-ssa body-local write" {
+  let source =
+    #|(module
+    #|  (func (result i32)
+    #|    (local i32)
+    #|    i32.const 15
+    #|    local.set 0
+    #|    local.get 0))
+  let optimized = match pass_test_run_pipeline(source, ["ssa"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected already-ssa local success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_full_test_first_defined_func(optimized)
+  assert_true(
+    ssa_full_test_local_get_indices(instrs).contains(0U),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "full ssa public pass materializes simple explicit-write merge locals" {
   let source =
     #|(module
@@ -434,11 +454,11 @@ test "full ssa public pass materializes simple explicit-write merge locals" {
   }
 
   let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
-  @debug.assert_eq(locals.length(), 2)
-  @debug.assert_eq(ssa_full_test_local_set_indices(instrs), [1U, 1U])
-  @debug.assert_eq(ssa_full_test_local_tee_indices(instrs), [2U, 2U])
+  @debug.assert_eq(locals.length(), 4)
+  @debug.assert_eq(ssa_full_test_local_set_indices(instrs), [2U, 3U])
+  @debug.assert_eq(ssa_full_test_local_tee_indices(instrs), [4U, 4U])
   assert_true(
-    ssa_full_test_local_get_indices(instrs).any(fn(idx) { idx == 2U }),
+    ssa_full_test_local_get_indices(instrs).any(fn(idx) { idx == 4U }),
     msg=instrs.to_string(),
   )
   assert_false(
@@ -448,7 +468,7 @@ test "full ssa public pass materializes simple explicit-write merge locals" {
 }
 
 ///|
-test "full ssa public pass leaves parameter-entry merge families fail-closed until prepend materialization" {
+test "full ssa public pass prepends parameter-entry merge values" {
   let source =
     #|(module
     #|  (func (param i32 i32) (result i32)
@@ -467,9 +487,189 @@ test "full ssa public pass leaves parameter-entry merge families fail-closed unt
   }
 
   let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
-  @debug.assert_eq(locals.length(), 0)
+  @debug.assert_eq(locals.length(), 2)
+  let sets = ssa_full_test_local_set_indices(instrs)
+  assert_true(sets.contains(2U), msg=instrs.to_string())
+  assert_true(sets.contains(3U), msg=instrs.to_string())
+  @debug.assert_eq(ssa_full_test_local_tee_indices(instrs), [3U])
   assert_true(
-    ssa_full_test_local_get_indices(instrs).any(fn(idx) { idx == 1U }),
+    ssa_full_test_local_get_indices(instrs).any(fn(idx) { idx == 3U }),
     msg=instrs.to_string(),
   )
+}
+
+///|
+test "full ssa public pass uses fresh-local defaults for one-arm body merges" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    end
+    #|    local.get 1))
+  let optimized = match pass_test_run_pipeline(source, ["ssa"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected default-entry merge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 3)
+  @debug.assert_eq(ssa_full_test_local_set_indices(instrs), [2U])
+  @debug.assert_eq(ssa_full_test_local_tee_indices(instrs), [3U])
+  assert_true(
+    ssa_full_test_local_get_indices(instrs).any(fn(idx) { idx == 3U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "full ssa public pass nests merge tees when two gets share predecessor sets" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["ssa"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected shared-set merge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 5)
+  @debug.assert_eq(ssa_full_test_local_set_indices(instrs), [2U, 3U])
+  let tees = ssa_full_test_local_tee_indices(instrs)
+  @debug.assert_eq(tees.length(), 4)
+  assert_true(tees.contains(4U), msg=instrs.to_string())
+  assert_true(tees.contains(5U), msg=instrs.to_string())
+  let gets = ssa_full_test_local_get_indices(instrs)
+  assert_true(gets.contains(4U), msg=instrs.to_string())
+  assert_true(gets.contains(5U), msg=instrs.to_string())
+}
+
+///|
+test "full ssa public pass handles loop backedge merge locals" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32)
+    #|    i32.const 0
+    #|    local.set 1
+    #|    block
+    #|      loop
+    #|        local.get 1
+    #|        drop
+    #|        i32.const 1
+    #|        local.set 1
+    #|        local.get 0
+    #|        br_if 0
+    #|      end
+    #|    end
+    #|    local.get 1))
+  let optimized = match pass_test_run_pipeline(source, ["ssa"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected loop full ssa success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
+  assert_true(locals.length() >= 4, msg=locals.to_string())
+  assert_true(ssa_full_test_local_tee_indices(instrs).length() >= 2)
+}
+
+///|
+test "full ssa public pass handles branch-target and br_table merges" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (local i32)
+    #|    i32.const 0
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      br_if 0
+    #|      i32.const 7
+    #|      local.set 1
+    #|    end
+    #|    block
+    #|      local.get 0
+    #|      br_table 0 0
+    #|    end
+    #|    local.get 1
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["ssa"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected branch full ssa success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
+  assert_true(locals.length() >= 4, msg=locals.to_string())
+  assert_true(ssa_full_test_local_tee_indices(instrs).length() >= 2)
+}
+
+///|
+test "full ssa public pass handles typed loop local flow" {
+  let source =
+    #|(module
+    #|  (type $loop (func (param i32)))
+    #|  (func (param i32)
+    #|    (local i32)
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 0
+    #|    loop (type $loop)
+    #|      drop
+    #|      local.get 1
+    #|      drop
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 0
+    #|      br 0
+    #|    end
+    #|    local.get 1
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["ssa"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed-control full ssa success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
+  assert_true(locals.length() >= 4, msg=locals.to_string())
+  assert_true(ssa_full_test_local_tee_indices(instrs).length() >= 2)
+}
+
+///|
+test "full ssa public pass handles explicit exceptional predecessors" {
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func (param i32)
+    #|    (local i32)
+    #|    block
+    #|      try_table (catch_all 0)
+    #|        i32.const 7
+    #|        local.set 1
+    #|        throw $e
+    #|      end
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["ssa"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected EH full ssa success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_full_test_first_defined_func(optimized)
+  assert_true(locals.length() >= 4, msg=locals.to_string())
+  assert_true(ssa_full_test_local_tee_indices(instrs).length() >= 2)
 }

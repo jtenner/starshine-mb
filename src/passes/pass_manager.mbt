@@ -30646,7 +30646,33 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     })
   }
   if descriptor.name == "ssa" {
-    return None
+    let hot_func = match
+      @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+      Ok(hot_func) => hot_func
+      Err(err) =>
+        return Some({
+          reason: "full-ssa-hot-lift-unsupported-noop:\{err}",
+          func: original,
+          unchanged_original: true,
+          trace_skip_raw: true,
+        })
+    }
+    let local_graph = @ir.local_graph_build_full_flow(
+      hot_func,
+      @ir.cfg_build(hot_func),
+    )
+    let plan = ssa_full_build_merge_rewrite_plan(hot_func, local_graph)
+    let (rewritten, changed) = ssa_full_rewrite_raw_func(original, params, plan)
+    return Some({
+      reason: if changed {
+        "full-ssa-localgraph-raw-plan"
+      } else {
+        "full-ssa-localgraph-raw-noop"
+      },
+      func: rewritten,
+      unchanged_original: !changed,
+      trace_skip_raw: true,
+    })
   }
   let (_, has_disjoint_typed_loops) = run_hot_pipeline_raw_typed_loop_param_forest_shape(
     instrs, module_ctx,
@@ -78414,7 +78440,8 @@ fn run_hot_pipeline_vacuum_repair_batch_writeback(
 }
 
 ///|
-fn run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
+fn run_hot_pipeline_ssa_repair_batch_writeback(
+  pass_name : String,
   original_mod : @lib.Module,
   candidate_mod : @lib.Module,
   options : HotPipelineOptions,
@@ -78449,7 +78476,7 @@ fn run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
         Err(err) => {
           pipeline_trace_hook(
             options.trace,
-            "ssa-nomerge",
+            pass_name,
             "writeback-batch-invalid",
             payload="err=\{err}",
           )
@@ -78461,7 +78488,7 @@ fn run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
       }
       pipeline_trace_hook(
         options.trace,
-        "ssa-nomerge",
+        pass_name,
         "writeback-batch-invalid",
         payload="changed=\{changed_funcs.length()} invalid=\{invalid_funcs.length()}",
       )
@@ -78481,7 +78508,7 @@ fn run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
         repaired_defs[code_idx] = original_defs[code_idx]
         pipeline_trace_hook(
           options.trace,
-          "ssa-nomerge",
+          pass_name,
           "skip-invalid-lower",
           payload="func=\{func_idx} reason=writeback-batch-validate:\{err}",
         )
@@ -78841,7 +78868,7 @@ fn run_hot_pipeline_apply_hot_pass(
   let defer_this_vacuum_writeback_guard = defer_vacuum_writeback_guard &&
     descriptor.name == "vacuum"
   let defer_this_ssa_nomerge_writeback_guard = defer_ssa_nomerge_writeback_guard &&
-    descriptor.name == "ssa-nomerge"
+    (descriptor.name == "ssa-nomerge" || descriptor.name == "ssa")
   let defer_this_remove_unused_brs_writeback_guard = defer_remove_unused_brs_writeback_guard &&
     descriptor.name == "remove-unused-brs"
   let defer_this_dce_writeback_guard = defer_dce_writeback_guard &&
@@ -79478,16 +79505,19 @@ fn run_hot_pipeline_apply_hot_pass(
   if defer_this_ssa_nomerge_writeback_guard && next_code_sec is Some(_) {
     let batch_guard_start_us = perf_start_timer_opt(
       options.perf,
-      "guard:ssa-nomerge-writeback-batch",
+      "guard:ssa-writeback-batch",
     )
     match
-      run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
-        mod_, next_mod, options,
+      run_hot_pipeline_ssa_repair_batch_writeback(
+        descriptor.name,
+        mod_,
+        next_mod,
+        options,
       ) {
       Some(repaired_mod) => {
         perf_stop_timer_opt(
           options.perf,
-          "guard:ssa-nomerge-writeback-batch",
+          "guard:ssa-writeback-batch",
           batch_guard_start_us,
         )
         match @validate.validate_module(repaired_mod) {
@@ -79495,7 +79525,7 @@ fn run_hot_pipeline_apply_hot_pass(
           Err(err) => {
             pipeline_trace_hook(
               options.trace,
-              "ssa-nomerge",
+              descriptor.name,
               "writeback-batch-module-invalid",
               payload="reason=\{err}",
             )
@@ -79506,7 +79536,7 @@ fn run_hot_pipeline_apply_hot_pass(
       None => {
         perf_stop_timer_opt(
           options.perf,
-          "guard:ssa-nomerge-writeback-batch",
+          "guard:ssa-writeback-batch",
           batch_guard_start_us,
         )
         return run_hot_pipeline_apply_hot_pass(

@@ -775,6 +775,8 @@ pub fn liveness_build(HotCfg, HotUseDef, include_exceptional_edges? : Bool) -> H
 
 pub fn local_graph_build(HotFunc, HotCfg) -> HotLocalGraph
 
+pub fn local_graph_build_full_flow(HotFunc, HotCfg) -> HotLocalGraph
+
 pub fn local_graph_can_move_set_past_node(HotFunc, HotCfg, HotLocalGraph, Int, Int) -> Array[Int]
 
 pub fn local_graph_entry_source_has_legal_default(HotLocalGraph, Int) -> Bool
