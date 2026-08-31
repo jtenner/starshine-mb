@@ -38,6 +38,7 @@ using @validate {
   gen_valid_merge_blocks_profile_case_label,
   gen_valid_rume_profile_case_label,
   gen_valid_reorder_globals_profile_case_label,
+  gen_valid_ssa_full_profile_case_label,
   gen_valid_merge_locals_profile_case_label,
   gen_valid_memory_packing_profile_case_label,
   gen_valid_msf_profile_case_label,

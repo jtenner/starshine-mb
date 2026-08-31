@@ -455,6 +455,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--avoid-reinterprets",
   "--untee",
   "--flatten",
+  "--ssa",
   "--ssa-nomerge",
   "--dead-code-elimination",
   "--remove-unused-names",

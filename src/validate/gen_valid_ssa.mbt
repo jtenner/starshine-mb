@@ -2065,6 +2065,264 @@ fn gen_valid_ssa_body_local(param_count : Int, body_idx : Int) -> LocalIdx {
 }
 
 ///|
+fn gen_valid_ssa_full_first_ref_local(
+  env : GenValidBodyEnv,
+  param_count : Int,
+) -> LocalIdx? {
+  for idx = param_count; idx < env.local_types.length(); idx = idx + 1 {
+    match env.local_types[idx] {
+      RefTypeValType(_) => return Some(LocalIdx::new(idx.reinterpret_as_uint()))
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn gen_valid_append_ssa_full_body_slice(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  accepts : Array[ValType],
+) -> Unit {
+  let param_count = accepts.length()
+  let l0 = gen_valid_ssa_body_local(param_count, 0)
+  let l1 = gen_valid_ssa_body_local(param_count, 1)
+  let l2 = gen_valid_ssa_body_local(param_count, 2)
+  let p0 = LocalIdx::new(0U)
+  match gen_valid_profile_by_name(gen_valid_config_label(ctx.config)) {
+    Ok(SsaFreshSetProfile) => {
+      out.push(Instruction::i32_const(I32(10)))
+      out.push(Instruction::local_set(l0))
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+      out.push(Instruction::i32_const(I32(20)))
+      out.push(Instruction::local_set(l0))
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaFreshTeeProfile) => {
+      out.push(Instruction::i32_const(I32(10)))
+      out.push(Instruction::local_tee(l0))
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+      out.push(Instruction::i32_const(I32(20)))
+      out.push(Instruction::local_tee(l0))
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaParamEntryProfile) =>
+      if param_count > 0 {
+        out.push(Instruction::local_get(p0))
+        out.push(Instruction::drop())
+      }
+    Ok(SsaDefaultNumericProfile) => {
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(0U))]),
+        ),
+      )
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaDefaultRefProfile) => {
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(0U))]),
+        ),
+      )
+      match gen_valid_ssa_full_first_ref_local(env, param_count) {
+        Some(local_idx) => {
+          out.push(Instruction::local_get(local_idx))
+          out.push(Instruction::drop())
+        }
+        None => ()
+      }
+    }
+    Ok(SsaUnreachableProfile) => {
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::unreachable_()]),
+        ),
+      )
+      out.push(Instruction::i32_const(I32(7)))
+      out.push(Instruction::local_set(l0))
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaMergeExplicitProfile) => {
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(
+        Instruction::if_(
+          BlockType::void_(),
+          [Instruction::i32_const(I32(7)), Instruction::local_set(l0)],
+          Some([Instruction::i32_const(I32(9)), Instruction::local_set(l0)]),
+        ),
+      )
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaMergeParamEntryProfile) =>
+      if param_count > 0 && accepts[0] == ValType::i32() {
+        out.push(Instruction::i32_const(I32(1)))
+        out.push(
+          Instruction::if_(
+            BlockType::void_(),
+            [Instruction::i32_const(I32(7)), Instruction::local_set(p0)],
+            None,
+          ),
+        )
+        out.push(Instruction::local_get(p0))
+        out.push(Instruction::drop())
+      }
+    Ok(SsaMergeDefaultEntryProfile) => {
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(
+        Instruction::if_(
+          BlockType::void_(),
+          [Instruction::i32_const(I32(7)), Instruction::local_set(l0)],
+          None,
+        ),
+      )
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaMergeSharedSetsProfile) => {
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(
+        Instruction::if_(
+          BlockType::void_(),
+          [Instruction::i32_const(I32(7)), Instruction::local_set(l0)],
+          Some([Instruction::i32_const(I32(9)), Instruction::local_set(l0)]),
+        ),
+      )
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaLoopProfile) => {
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::local_set(l0))
+      out.push(
+        Instruction::loop_(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::local_get(l0),
+            Instruction::drop(),
+            Instruction::i32_const(I32(1)),
+            Instruction::local_set(l0),
+            Instruction::local_get(l0),
+            Instruction::br_if(LabelIdx::new(0U)),
+          ]),
+        ),
+      )
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaBranchProfile) => {
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::local_set(l0))
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(l0),
+            Instruction::br(LabelIdx::new(0U)),
+          ]),
+        ),
+      )
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::local_set(l1))
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::i32_const(I32(9)),
+            Instruction::local_set(l1),
+            Instruction::i32_const(I32(0)),
+            Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+          ]),
+        ),
+      )
+      out.push(Instruction::local_get(l1))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaTypedControlProfile) =>
+      if param_count > 0 && accepts[0] == ValType::i32() {
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::local_set(l0))
+        out.push(Instruction::local_get(p0))
+        out.push(
+          Instruction::loop_(
+            BlockType::type_idx(TypeIdx::new(0U)),
+            Expr::new([
+              Instruction::drop(),
+              Instruction::local_get(l0),
+              Instruction::drop(),
+              Instruction::i32_const(I32(1)),
+              Instruction::local_set(l0),
+              Instruction::local_get(p0),
+              Instruction::i32_const(I32(0)),
+              Instruction::br_if(LabelIdx::new(0U)),
+              Instruction::drop(),
+            ]),
+          ),
+        )
+        out.push(Instruction::local_get(l0))
+        out.push(Instruction::drop())
+      }
+    Ok(SsaNestedValueProfile) => {
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(Instruction::local_set(l0))
+      out.push(
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(l0),
+            Instruction::i32_const(I32(9)),
+            Instruction::local_set(l1),
+            Instruction::local_get(l0),
+          ]),
+        ),
+      )
+      out.push(Instruction::local_set(l2))
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(l1))
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(l2))
+      out.push(Instruction::drop())
+    }
+    Ok(SsaEhProfile) => {
+      out.push(
+        Instruction::try_table(
+          BlockType::void_(),
+          [Catch::all(LabelIdx::new(0U))],
+          Expr::new([
+            Instruction::i32_const(I32(42)),
+            Instruction::local_set(l0),
+            Instruction::throw_(TagIdx::new(0U)),
+          ]),
+        ),
+      )
+      out.push(Instruction::local_get(l0))
+      out.push(Instruction::drop())
+    }
+    _ => ()
+  }
+}
+
+///|
 fn gen_valid_append_ssa_nomerge_body_slice(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -2074,7 +2332,9 @@ fn gen_valid_append_ssa_nomerge_body_slice(
   if !ctx.config.features.allow_ssa_nomerge_body_generator {
     return
   }
-  if gen_valid_is_slns_straight_line_config(ctx.config) {
+  if gen_valid_is_ssa_full_family_config(ctx.config) {
+    gen_valid_append_ssa_full_body_slice(out, ctx, env, accepts)
+  } else if gen_valid_is_slns_straight_line_config(ctx.config) {
     gen_valid_append_slns_straight_line_body_slice(out, accepts)
   } else if gen_valid_is_simplify_locals_structure_result_config(ctx.config) {
     gen_valid_append_simplify_locals_structure_result_body_slice(out, accepts)

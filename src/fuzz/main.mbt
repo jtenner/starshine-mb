@@ -3669,6 +3669,10 @@ fn emit_gen_valid_batch_profile_case_label(
     Some(label) => return Some(label)
     None => ()
   }
+  match gen_valid_ssa_full_profile_case_label(leaf_profile) {
+    Some(label) => return Some(label)
+    None => ()
+  }
   gen_valid_oi_trigger_profile_case_label(leaf_profile, seed)
 }
 

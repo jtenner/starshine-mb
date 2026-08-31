@@ -685,6 +685,7 @@ export function runPassFuzzCompareListPassesCommandTest(): void {
   }
   assert(result.stdout.includes("remove-unused-brs"), `expected remove-unused-brs in list output:\n${result.stdout}`);
   assert(result.stdout.includes("heap2local"), `expected heap2local in list output:\n${result.stdout}`);
+  assert(result.stdout.split("\n").includes("ssa"), `expected ssa in list output:\n${result.stdout}`);
   assert(result.stdout.includes("reorder-locals"), `expected reorder-locals in list output:\n${result.stdout}`);
   assert(result.stdout.includes("directize"), `expected directize in list output:\n${result.stdout}`);
   assert(result.stdout.includes("untee"), `expected untee in list output:\n${result.stdout}`);

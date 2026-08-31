@@ -905,6 +905,22 @@ pub enum GenValidProfile {
   SsaNomergeParityProfile
   SsaNomergeStressProfile
   SsaNomergeAllProfile
+  SsaFreshSetProfile
+  SsaFreshTeeProfile
+  SsaParamEntryProfile
+  SsaDefaultNumericProfile
+  SsaDefaultRefProfile
+  SsaUnreachableProfile
+  SsaMergeExplicitProfile
+  SsaMergeParamEntryProfile
+  SsaMergeDefaultEntryProfile
+  SsaMergeSharedSetsProfile
+  SsaLoopProfile
+  SsaBranchProfile
+  SsaTypedControlProfile
+  SsaNestedValueProfile
+  SsaEhProfile
+  SsaAllProfile
   SimplifyLocalsLocalTrafficProfile
   SimplifyLocalsStructureResultProfile
   SimplifyLocalsFlatParentProfile
@@ -1327,6 +1343,22 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SsaNomergeParityProfile => "ssa-nomerge-parity"
     SsaNomergeStressProfile => "ssa-nomerge-stress"
     SsaNomergeAllProfile => "ssa-nomerge-all"
+    SsaFreshSetProfile => "ssa-fresh-set"
+    SsaFreshTeeProfile => "ssa-fresh-tee"
+    SsaParamEntryProfile => "ssa-param-entry"
+    SsaDefaultNumericProfile => "ssa-default-numeric"
+    SsaDefaultRefProfile => "ssa-default-ref"
+    SsaUnreachableProfile => "ssa-unreachable"
+    SsaMergeExplicitProfile => "ssa-merge-explicit"
+    SsaMergeParamEntryProfile => "ssa-merge-param-entry"
+    SsaMergeDefaultEntryProfile => "ssa-merge-default-entry"
+    SsaMergeSharedSetsProfile => "ssa-merge-shared-sets"
+    SsaLoopProfile => "ssa-loop"
+    SsaBranchProfile => "ssa-branch"
+    SsaTypedControlProfile => "ssa-typed-control"
+    SsaNestedValueProfile => "ssa-nested-value"
+    SsaEhProfile => "ssa-eh"
+    SsaAllProfile => "ssa-all"
     SimplifyLocalsLocalTrafficProfile => "simplify-locals-local-traffic"
     SimplifyLocalsStructureResultProfile => "simplify-locals-structure-result"
     SimplifyLocalsFlatParentProfile => "simplify-locals-flat-parent"
@@ -1427,6 +1459,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | DuplicateImportEliminationAllProfile
     | MergeSimilarFunctionsAllProfile
     | SsaNomergeAllProfile
+    | SsaAllProfile
     | SimplifyLocalsAllProfile
     | SimplifyLocalsNoteeAllProfile
     | SimplifyLocalsNoteeNostructureAllProfile
@@ -1772,6 +1805,24 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SsaNomergeCoverageProfile, 2),
         GenValidProfileMember::new(SsaNomergeStressProfile, 1),
       ]
+    SsaAllProfile =>
+      [
+        GenValidProfileMember::new(SsaFreshSetProfile, 1),
+        GenValidProfileMember::new(SsaFreshTeeProfile, 1),
+        GenValidProfileMember::new(SsaParamEntryProfile, 1),
+        GenValidProfileMember::new(SsaDefaultNumericProfile, 1),
+        GenValidProfileMember::new(SsaDefaultRefProfile, 1),
+        GenValidProfileMember::new(SsaUnreachableProfile, 1),
+        GenValidProfileMember::new(SsaMergeExplicitProfile, 1),
+        GenValidProfileMember::new(SsaMergeParamEntryProfile, 1),
+        GenValidProfileMember::new(SsaMergeDefaultEntryProfile, 1),
+        GenValidProfileMember::new(SsaMergeSharedSetsProfile, 1),
+        GenValidProfileMember::new(SsaLoopProfile, 1),
+        GenValidProfileMember::new(SsaBranchProfile, 1),
+        GenValidProfileMember::new(SsaTypedControlProfile, 1),
+        GenValidProfileMember::new(SsaNestedValueProfile, 1),
+        GenValidProfileMember::new(SsaEhProfile, 1),
+      ]
     SimplifyLocalsAllProfile =>
       [
         GenValidProfileMember::new(SimplifyLocalsLocalTrafficProfile, 3),
@@ -1928,6 +1979,8 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(DirectizeAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
+        GenValidProfileMember::new(SsaMergeExplicitProfile, 1),
+        GenValidProfileMember::new(SsaNestedValueProfile, 1),
       ]
     _ => []
   }
@@ -2263,6 +2316,22 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SsaNomergeParityProfile,
     SsaNomergeStressProfile,
     SsaNomergeAllProfile,
+    SsaFreshSetProfile,
+    SsaFreshTeeProfile,
+    SsaParamEntryProfile,
+    SsaDefaultNumericProfile,
+    SsaDefaultRefProfile,
+    SsaUnreachableProfile,
+    SsaMergeExplicitProfile,
+    SsaMergeParamEntryProfile,
+    SsaMergeDefaultEntryProfile,
+    SsaMergeSharedSetsProfile,
+    SsaLoopProfile,
+    SsaBranchProfile,
+    SsaTypedControlProfile,
+    SsaNestedValueProfile,
+    SsaEhProfile,
+    SsaAllProfile,
     SimplifyLocalsLocalTrafficProfile,
     SimplifyLocalsStructureResultProfile,
     SimplifyLocalsFlatParentProfile,
@@ -2489,6 +2558,7 @@ pub fn gen_valid_profile_by_name(
     "random-profiles" => Ok(RandomAllProfilesProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
+    "ssa" | "ssa-closeout" | "ssa-all-profiles" => Ok(SsaAllProfile)
     "simplify-locals"
     | "simplify-locals-closeout"
     | "simplify-locals-all-profiles" => Ok(SimplifyLocalsAllProfile)
@@ -5270,6 +5340,22 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | SsaNomergeStressProfile => gen_valid_ssa_nomerge_profile_config(profile)
     SsaNomergeAllProfile =>
       gen_valid_ssa_nomerge_profile_config(SsaNomergeCoverageProfile)
+    SsaFreshSetProfile
+    | SsaFreshTeeProfile
+    | SsaParamEntryProfile
+    | SsaDefaultNumericProfile
+    | SsaDefaultRefProfile
+    | SsaUnreachableProfile
+    | SsaMergeExplicitProfile
+    | SsaMergeParamEntryProfile
+    | SsaMergeDefaultEntryProfile
+    | SsaMergeSharedSetsProfile
+    | SsaLoopProfile
+    | SsaBranchProfile
+    | SsaTypedControlProfile
+    | SsaNestedValueProfile
+    | SsaEhProfile => gen_valid_ssa_full_profile_config(profile)
+    SsaAllProfile => gen_valid_ssa_full_profile_config(SsaMergeExplicitProfile)
     SimplifyLocalsLocalTrafficProfile
     | SimplifyLocalsStructureResultProfile
     | SimplifyLocalsFlatParentProfile
@@ -9273,6 +9359,105 @@ fn gen_valid_is_duplicate_import_elimination_profile_config(
 }
 
 ///|
+pub fn gen_valid_ssa_full_profile_case_label(
+  profile : GenValidProfile,
+) -> String? {
+  match profile {
+    SsaFreshSetProfile => Some("ssa:fresh-set-and-retarget")
+    SsaFreshTeeProfile => Some("ssa:fresh-tee-and-retarget")
+    SsaParamEntryProfile => Some("ssa:single-param-entry")
+    SsaDefaultNumericProfile => Some("ssa:single-default-numeric")
+    SsaDefaultRefProfile => Some("ssa:single-default-ref-refinalize")
+    SsaUnreachableProfile => Some("ssa:unreachable-get-noop")
+    SsaMergeExplicitProfile => Some("ssa:merge-explicit-writes")
+    SsaMergeParamEntryProfile => Some("ssa:merge-param-entry-prepend")
+    SsaMergeDefaultEntryProfile => Some("ssa:merge-default-entry-no-prepend")
+    SsaMergeSharedSetsProfile => Some("ssa:merge-shared-sets-nested-tees")
+    SsaLoopProfile => Some("ssa:loop-backedge-merge")
+    SsaBranchProfile => Some("ssa:branch-target-merges")
+    SsaTypedControlProfile => Some("ssa:typed-control-local-flow")
+    SsaNestedValueProfile => Some("ssa:nested-value-block-local-flow")
+    SsaEhProfile => Some("ssa:exceptional-local-flow")
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_ssa_full_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if profile == SsaDefaultRefProfile {
+      8
+    } else {
+      4
+    },
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: if profile == SsaEhProfile {
+      1
+    } else {
+      0
+    },
+    max_elems: 0,
+    max_datas: 0,
+    max_params: if profile == SsaEhProfile {
+      0
+    } else {
+      2
+    },
+    max_results: 0,
+    max_locals: 12,
+    max_body_statements: match profile {
+      SsaFreshSetProfile => 101
+      SsaFreshTeeProfile => 102
+      SsaParamEntryProfile => 103
+      SsaDefaultNumericProfile => 104
+      SsaDefaultRefProfile => 105
+      SsaUnreachableProfile => 106
+      SsaMergeExplicitProfile => 107
+      SsaMergeParamEntryProfile => 108
+      SsaMergeDefaultEntryProfile => 109
+      SsaMergeSharedSetsProfile => 110
+      SsaLoopProfile => 111
+      SsaBranchProfile => 112
+      SsaTypedControlProfile => 113
+      SsaNestedValueProfile => 114
+      SsaEhProfile => 115
+      _ => 100
+    },
+    max_body_depth: 6,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_branch_heavy_control: true,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: true,
+      allow_calls: false,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: profile == SsaEhProfile,
+      allow_v128: profile == SsaDefaultNumericProfile,
+      allow_relaxed_simd: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_subtyping_topology: false,
+      allow_ref_types: profile == SsaDefaultRefProfile,
+      allow_name_custom_sections: false,
+    },
+  }
+}
+
+///|
 fn gen_valid_ssa_nomerge_profile_config(
   profile : GenValidProfile,
 ) -> GenValidConfig {
@@ -9595,6 +9780,25 @@ fn gen_valid_is_ssa_nomerge_family_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(SsaNomergeSmokeProfile) ||
   config == GenValidConfig::for_profile(SsaNomergeParityProfile) ||
   config == GenValidConfig::for_profile(SsaNomergeStressProfile)
+}
+
+///|
+fn gen_valid_is_ssa_full_family_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(SsaFreshSetProfile) ||
+  config == GenValidConfig::for_profile(SsaFreshTeeProfile) ||
+  config == GenValidConfig::for_profile(SsaParamEntryProfile) ||
+  config == GenValidConfig::for_profile(SsaDefaultNumericProfile) ||
+  config == GenValidConfig::for_profile(SsaDefaultRefProfile) ||
+  config == GenValidConfig::for_profile(SsaUnreachableProfile) ||
+  config == GenValidConfig::for_profile(SsaMergeExplicitProfile) ||
+  config == GenValidConfig::for_profile(SsaMergeParamEntryProfile) ||
+  config == GenValidConfig::for_profile(SsaMergeDefaultEntryProfile) ||
+  config == GenValidConfig::for_profile(SsaMergeSharedSetsProfile) ||
+  config == GenValidConfig::for_profile(SsaLoopProfile) ||
+  config == GenValidConfig::for_profile(SsaBranchProfile) ||
+  config == GenValidConfig::for_profile(SsaTypedControlProfile) ||
+  config == GenValidConfig::for_profile(SsaNestedValueProfile) ||
+  config == GenValidConfig::for_profile(SsaEhProfile)
 }
 
 ///|
@@ -12747,13 +12951,26 @@ fn gen_result_types(
 
 ///|
 fn gen_param_types(ctx : GenValidContext) -> Array[ValType] {
-  let count = ctx.random_int_from(
+  let force_i32_param = ctx.config ==
+    GenValidConfig::for_profile(SsaParamEntryProfile) ||
+    ctx.config == GenValidConfig::for_profile(SsaMergeParamEntryProfile) ||
+    ctx.config == GenValidConfig::for_profile(SsaTypedControlProfile)
+  let random_count = ctx.random_int_from(
     TypeStream,
     gen_valid_clamp_non_negative(ctx.config.max_params) + 1,
   )
+  let count = if force_i32_param && random_count == 0 {
+    1
+  } else {
+    random_count
+  }
   let params : Array[ValType] = []
-  for _ in 0..<count {
-    params.push(gen_valid_valtype(ctx))
+  for i = 0; i < count; i = i + 1 {
+    if force_i32_param && i == 0 {
+      params.push(ValType::i32())
+    } else {
+      params.push(gen_valid_valtype(ctx))
+    }
   }
   params
 }
@@ -12800,6 +13017,13 @@ fn gen_valid_ensure_body_layout_locals(
     }
     for i = 0; i < required_i32_prefix; i = i + 1 {
       locals[i] = ValType::i32()
+    }
+    if ctx.config == GenValidConfig::for_profile(SsaDefaultRefProfile) {
+      if locals.length() == required_i32_prefix {
+        locals.push(ValType::anyref())
+      } else {
+        locals[required_i32_prefix] = ValType::anyref()
+      }
     }
     let mut has_i64 = false
     let mut has_f32 = false
@@ -21048,7 +21272,10 @@ fn gen_valid_build_func(
     gen_valid_append_optimize_casts_body_slice(body_instrs, ctx, env)
   }
   match current_func_idx {
-    Some(idx) if gen_valid_is_ssa_nomerge_family_config(ctx.config) &&
+    Some(idx) if (
+        gen_valid_is_ssa_nomerge_family_config(ctx.config) ||
+        gen_valid_is_ssa_full_family_config(ctx.config)
+      ) &&
       idx != FuncIdx::new(0U) => ()
     // SSA templates are a no-op unless allow_ssa_nomerge_body_generator (see gen_valid_ssa.mbt).
     _ => gen_valid_append_ssa_nomerge_body_slice(body_instrs, ctx, env, accepts)
