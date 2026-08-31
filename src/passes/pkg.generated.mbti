@@ -5,10 +5,13 @@ import {
   "jtenner/starshine/bitset",
   "jtenner/starshine/ir",
   "jtenner/starshine/lib",
+  "jtenner/starshine/representation",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub fn apply_compiler_facts(@lib.Module, CompilerFactUsePolicy) -> Result[ApplyCompilerFactsResult, String]
+
 pub fn avoid_reinterprets_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn avoid_reinterprets_summary() -> String
@@ -408,6 +411,54 @@ pub fn untee_summary() -> String
 // Errors
 
 // Types and methods
+pub struct ApplyCompilerFactsResult {
+  module_ : @lib.Module
+  stats : CompilerFactMaterializationStats
+} derive(@debug.Debug)
+
+pub struct CompilerFactIndex {
+  facts : @representation.OptimizationFactsSec
+  functions : Array[@representation.FunctionFacts?]
+  bodies : Array[@representation.FunctionBodyFacts?]
+  signatures : Array[@representation.SignatureFacts?]
+  types : Array[@representation.TypeFacts?]
+  globals : Array[@representation.GlobalFacts?]
+  tables : Array[@representation.TableFacts?]
+} derive(@debug.Debug)
+pub fn CompilerFactIndex::allocation_facts(Self, @representation.ValueSite) -> @representation.AllocationFacts?
+pub fn CompilerFactIndex::body_facts(Self, @lib.FuncIdx) -> @representation.FunctionBodyFacts?
+pub fn CompilerFactIndex::call_facts(Self, @representation.CodeSite) -> @representation.CallSiteFacts?
+pub fn CompilerFactIndex::compiler_fact_exact_call_target(Self, @representation.CodeSite, target_value_site? : @representation.ValueSite?) -> UInt?
+pub fn CompilerFactIndex::function_facts(Self, @lib.FuncIdx) -> @representation.FunctionFacts?
+pub fn CompilerFactIndex::global_facts(Self, @lib.GlobalIdx) -> @representation.GlobalFacts?
+pub fn CompilerFactIndex::hints_for_function(Self, @lib.FuncIdx) -> Array[@representation.OptimizationHint]
+pub fn CompilerFactIndex::hints_for_site(Self, @representation.CodeSite) -> Array[@representation.OptimizationHint]
+pub fn CompilerFactIndex::new(@representation.OptimizationFactsSec) -> Self
+pub fn CompilerFactIndex::signature_facts(Self, @lib.TypeIdx) -> @representation.SignatureFacts?
+pub fn CompilerFactIndex::table_facts(Self, @lib.TableIdx) -> @representation.TableFacts?
+pub fn CompilerFactIndex::type_facts(Self, @lib.TypeIdx) -> @representation.TypeFacts?
+pub fn CompilerFactIndex::value_facts(Self, @representation.ValueSite) -> @representation.ValueFacts?
+
+pub struct CompilerFactMaterializationStats {
+  mut fact_sections_seen : Int
+  mut exact_call_target_facts_seen : Int
+  mut exact_call_target_facts_accepted : Int
+  mut call_ref_converted : Int
+  mut return_call_ref_converted : Int
+  mut structurally_incompatible_rejected : Int
+  mut ignored_untrusted_assertions : Int
+} derive(Eq, @debug.Debug)
+pub fn CompilerFactMaterializationStats::new() -> Self
+
+pub enum CompilerFactUsePolicy {
+  IgnoreFacts
+  HintsOnly
+  TrustAssertions
+} derive(Eq, @debug.Debug)
+pub fn CompilerFactUsePolicy::hints_only() -> Self
+pub fn CompilerFactUsePolicy::ignore() -> Self
+pub fn CompilerFactUsePolicy::trust_assertions() -> Self
+
 pub(all) struct FlattenFlatnessReport {
   mut rich_operand_count : Int
   mut value_control_count : Int
@@ -506,6 +557,7 @@ pub struct HotPipelineOptions {
   traps_never_happen : Bool
   ignore_implicit_traps : Bool
   zero_filled_memory : Bool
+  compiler_fact_policy : CompilerFactUsePolicy
   optimize_level : Int
   shrink_level : Int
   inlining_always_inline_max_size : Int
@@ -519,7 +571,7 @@ pub struct HotPipelineOptions {
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
-pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, zero_filled_memory? : Bool, optimize_level? : Int, shrink_level? : Int, inlining_always_inline_max_size? : Int, inlining_one_caller_inline_max_size? : Int, inlining_flexible_inline_max_size? : Int, inlining_max_combined_binary_size? : Int, inlining_allow_functions_with_loops? : Bool, inlining_partial_inlining_ifs? : Int, stack_function_passes? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
+pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, zero_filled_memory? : Bool, compiler_fact_policy? : CompilerFactUsePolicy, optimize_level? : Int, shrink_level? : Int, inlining_always_inline_max_size? : Int, inlining_one_caller_inline_max_size? : Int, inlining_flexible_inline_max_size? : Int, inlining_max_combined_binary_size? : Int, inlining_allow_functions_with_loops? : Bool, inlining_partial_inlining_ifs? : Int, stack_function_passes? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
 
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly

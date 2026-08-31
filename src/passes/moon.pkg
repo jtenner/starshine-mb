@@ -5,6 +5,7 @@ import {
   "jtenner/starshine/ir",
   "jtenner/starshine/lib",
   "jtenner/starshine/rume",
+  "jtenner/starshine/representation",
   "jtenner/starshine/validate",
   "jtenner/starshine/wast",
   "moonbitlang/core/buffer",

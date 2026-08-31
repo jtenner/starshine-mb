@@ -345,6 +345,9 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_module("no-partial-inline", no_partial_inline_summary()),
     pass_registry_entry_module("string-gathering", string_gathering_summary()),
     pass_registry_entry_module("reorder-globals", reorder_globals_summary()),
+    pass_registry_entry_module(
+      "apply-compiler-facts", "Materialize explicitly trusted frontend assertions into ordinary Wasm before optimization.",
+    ),
     pass_registry_entry_module("directize", directize_summary()),
     pass_registry_entry_preset(
       "optimize",
@@ -1274,7 +1277,17 @@ pub fn run_hot_pipeline(
   }
   (options.trace)("pipeline:start requested=\{requested_passes.length()}")
   let pipeline_start_us = perf_start_timer_opt(options.perf, "pipeline")
-  let mut current = mod_
+  let prepared = match
+    apply_compiler_facts(mod_, options.compiler_fact_policy) {
+    Ok(result) => result
+    Err(err) => return Err(err)
+  }
+  if prepared.stats.fact_sections_seen > 0 {
+    (options.trace)(
+      "pass[apply-compiler-facts]:summary sections=\{prepared.stats.fact_sections_seen} exact_seen=\{prepared.stats.exact_call_target_facts_seen} exact_accepted=\{prepared.stats.exact_call_target_facts_accepted} call_ref=\{prepared.stats.call_ref_converted} return_call_ref=\{prepared.stats.return_call_ref_converted} rejected=\{prepared.stats.structurally_incompatible_rejected} ignored=\{prepared.stats.ignored_untrusted_assertions}",
+    )
+  }
+  let mut current = prepared.module_
   let original_has_caught_try_table = run_hot_pipeline_module_has_caught_try_table(
     mod_,
   )

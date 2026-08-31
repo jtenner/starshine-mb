@@ -268,6 +268,7 @@ pub struct CliParseResult {
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
   mut closed_world : Bool?
+  mut compiler_facts_policy : String?
   mut tracing : CliTracingLevel?
 } derive(Eq, Debug)
 
@@ -296,6 +297,7 @@ pub fn CliParseResult::new(
   low_memory_unused? : Bool? = None,
   low_memory_bound? : UInt64? = None,
   closed_world? : Bool? = None,
+  compiler_facts_policy? : String? = None,
   tracing? : CliTracingLevel? = None,
 ) -> CliParseResult {
   {
@@ -322,6 +324,7 @@ pub fn CliParseResult::new(
     low_memory_unused,
     low_memory_bound,
     closed_world,
+    compiler_facts_policy,
     tracing,
   }
 }
@@ -1288,6 +1291,31 @@ pub fn parse_cli_args(
                   CliParseError::invalid_optimization_flag("--low-memory-bound"),
                 )
             }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "compiler-facts" => {
+            let (value, consumed_next) = match inline_value {
+              Some(v) if v.length() > 0 => (v, false)
+              Some(_) =>
+                return Err(
+                  CliParseError::missing_flag_value("--compiler-facts"),
+                )
+              None =>
+                if index + 1 < args.length() &&
+                  !looks_like_option_token(args[index + 1]) {
+                  (args[index + 1], true)
+                } else {
+                  return Err(
+                    CliParseError::missing_flag_value("--compiler-facts"),
+                  )
+                }
+            }
+            if value != "ignore" && value != "hints" && value != "trust" {
+              return Err(
+                CliParseError::invalid_optimization_flag("--compiler-facts"),
+              )
+            }
+            parsed.compiler_facts_policy = Some(value)
             index += if consumed_next { 2 } else { 1 }
           }
           "closed-world" => {

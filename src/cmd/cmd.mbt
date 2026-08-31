@@ -310,6 +310,7 @@ pub struct OptimizeOptions {
   low_memory_bound : UInt64
   traps_never_happen : Bool
   ignore_implicit_traps : Bool
+  compiler_fact_policy : @passes.CompilerFactUsePolicy
   validation_policy : OptimizeValidationPolicy
   stack_function_passes : Bool
 } derive(Eq, Debug)
@@ -331,6 +332,7 @@ pub fn OptimizeOptions::new(
   low_memory_bound? : UInt64 = 1024UL,
   traps_never_happen? : Bool = false,
   ignore_implicit_traps? : Bool = false,
+  compiler_fact_policy? : @passes.CompilerFactUsePolicy = @passes.CompilerFactUsePolicy::ignore(),
   validation_policy? : OptimizeValidationPolicy = OptimizeValidationPolicy::final_module_only(),
   stack_function_passes? : Bool = true,
 ) -> OptimizeOptions {
@@ -345,6 +347,7 @@ pub fn OptimizeOptions::new(
     low_memory_bound,
     traps_never_happen,
     ignore_implicit_traps,
+    compiler_fact_policy,
     validation_policy,
     stack_function_passes,
   }
@@ -563,6 +566,7 @@ fn normalize_parse_result_paths(parsed : CliParseResult) -> CliParseResult {
     low_memory_unused=parsed.low_memory_unused,
     low_memory_bound=parsed.low_memory_bound,
     closed_world=parsed.closed_world,
+    compiler_facts_policy=parsed.compiler_facts_policy,
     tracing=parsed.tracing,
   )
 }
@@ -1787,6 +1791,14 @@ fn merge_parse_results(
         None => config.closed_world
       }
   }
+  let compiler_facts_policy = match cli.compiler_facts_policy {
+    Some(value) => Some(value)
+    None =>
+      match env.compiler_facts_policy {
+        Some(value) => Some(value)
+        None => config.compiler_facts_policy
+      }
+  }
   let tracing = match cli.tracing {
     Some(level) => Some(level)
     None =>
@@ -1820,6 +1832,7 @@ fn merge_parse_results(
     low_memory_unused~,
     low_memory_bound~,
     closed_world~,
+    compiler_facts_policy~,
     tracing~,
   )
 }
@@ -1972,6 +1985,17 @@ fn default_inlining_options(
 }
 
 ///|
+fn resolve_compiler_fact_policy(
+  value : String?,
+) -> @passes.CompilerFactUsePolicy {
+  match value {
+    Some("hints") => @passes.CompilerFactUsePolicy::hints_only()
+    Some("trust") => @passes.CompilerFactUsePolicy::trust_assertions()
+    _ => @passes.CompilerFactUsePolicy::ignore()
+  }
+}
+
+///|
 fn make_optimize_options(
   optimize_level : Int,
   shrink_level : Int,
@@ -1989,6 +2013,7 @@ fn make_optimize_options(
   low_memory_unused : Bool,
   low_memory_bound : UInt64,
   debug_serial_passes : Bool,
+  compiler_fact_policy : @passes.CompilerFactUsePolicy,
 ) -> OptimizeOptions {
   OptimizeOptions::new(
     optimize_level~,
@@ -2008,6 +2033,7 @@ fn make_optimize_options(
     low_memory_bound~,
     traps_never_happen~,
     ignore_implicit_traps~,
+    compiler_fact_policy~,
     validation_policy=if debug_serial_passes {
       OptimizeValidationPolicy::after_segment()
     } else {
@@ -2033,6 +2059,7 @@ fn optimize_options_to_hot_pipeline_options(
     traps_never_happen=options.traps_never_happen,
     ignore_implicit_traps=options.ignore_implicit_traps,
     zero_filled_memory=options.zero_filled_memory,
+    compiler_fact_policy=options.compiler_fact_policy,
     optimize_level=options.optimize_level,
     shrink_level=options.shrink_level,
     inlining_always_inline_max_size=options.inlining.always_inline_max_size,
@@ -3541,6 +3568,9 @@ fn cmd_build_help_text() -> String {
     out, "--closed-world", "Allow passes to assume a closed-world module graph when required for whole-program GC rewrites.",
   )
   append_help_line(
+    out, "--compiler-facts <ignore|hints|trust>", "Choose compiler.facts use policy. Default ignore; trust is only for controlled frontend metadata.",
+  )
+  append_help_line(
     out, "--zero-filled-memory", "Treat imported memory as initially zero-filled for eligible memory-packing rewrites.",
   )
   append_help_line(
@@ -4730,6 +4760,7 @@ fn optimize_options_with_levels(
     low_memory_bound=options.low_memory_bound,
     traps_never_happen=options.traps_never_happen,
     ignore_implicit_traps=options.ignore_implicit_traps,
+    compiler_fact_policy=options.compiler_fact_policy,
     validation_policy=options.validation_policy,
     stack_function_passes=options.stack_function_passes,
   )
@@ -5069,6 +5100,7 @@ pub fn run_cmd_with_adapter(
         low_memory_unused=cli_base.low_memory_unused,
         low_memory_bound=cli_base.low_memory_bound,
         closed_world=cli_base.closed_world,
+        compiler_facts_policy=cli_base.compiler_facts_policy,
         tracing=cli_base.tracing,
       )
     }
@@ -5124,6 +5156,9 @@ pub fn run_cmd_with_adapter(
   let traps_never_happen = resolve_traps_never_happen(merged)
   let ignore_implicit_traps = resolve_ignore_implicit_traps(merged)
   let closed_world = resolve_closed_world(merged)
+  let compiler_fact_policy = resolve_compiler_fact_policy(
+    merged.compiler_facts_policy,
+  )
   let (optimize_level, shrink_level) = resolve_optimize_levels(
     merged.optimize_flags,
   )
@@ -5217,6 +5252,7 @@ pub fn run_cmd_with_adapter(
     low_memory_unused,
     low_memory_bound,
     merged.debug_serial_passes,
+    compiler_fact_policy,
   )
   match optimizer_report_mode {
     Some(CmdOptimizerReportMode::Thresholds) =>

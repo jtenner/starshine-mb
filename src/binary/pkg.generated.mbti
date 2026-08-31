@@ -12,7 +12,11 @@ import {
 // Values
 pub fn compiler_fact_module_opcode_offsets(@lib.Module) -> Result[Array[Array[UInt]], BinaryEncodeError]
 
+pub fn compiler_fact_module_opcode_sites(@lib.Module) -> Result[Array[Array[(UInt, @lib.Instruction)]], BinaryEncodeError]
+
 pub fn compiler_fact_opcode_offsets(@lib.Expr, stringrefs? : Array[Bytes]?) -> Result[Array[UInt], BinaryEncodeError]
+
+pub fn compiler_fact_opcode_sites(@lib.Expr, stringrefs? : Array[Bytes]?) -> Result[Array[(UInt, @lib.Instruction)], BinaryEncodeError]
 
 pub fn decode_module(Bytes) -> Result[@lib.Module, DecodeError]
 
@@ -220,40 +224,93 @@ pub impl Decode for @lib.TypeSec
 pub impl Decode for @lib.U32
 pub impl Decode for @lib.U64
 pub impl Decode for @lib.ValType
+pub impl Decode for @representation.AccessFacts
+pub impl Decode for @representation.AccessSiteFacts
+pub impl Decode for @representation.AliasSource
+pub impl Decode for @representation.AllocationFacts
+pub impl Decode for @representation.AllocationFieldFacts
+pub impl Decode for @representation.AllocationKind
 pub impl Decode for @representation.AllocationSiteFacts
+pub impl Decode for @representation.ArrayElementFacts
 pub impl Decode for @representation.BranchFacts
 pub impl Decode for @representation.BranchProfile
 pub impl Decode for @representation.CallProfile
 pub impl Decode for @representation.CallSiteFacts
+pub impl Decode for @representation.ClosedAliasSet
 pub impl Decode for @representation.ClosedFunctionSet
 pub impl Decode for @representation.ClosedGlobalSet
+pub impl Decode for @representation.ClosedHeapTypeSet
 pub impl Decode for @representation.ClosedMemorySet
 pub impl Decode for @representation.ClosedTableSet
 pub impl Decode for @representation.ClosedTypeViewSet
+pub impl Decode for @representation.ClosedValueSet
+pub impl Decode for @representation.CodeSite
 pub impl Decode for @representation.CompilerFactCustomSection
 pub impl Decode for @representation.EffectFacts
 pub impl Decode for @representation.EffectMask
 pub impl Decode for @representation.EscapeSinkMask
 pub impl Decode for @representation.ExpressionFact
-pub impl Decode for @representation.Fact
-pub impl Decode for @representation.FactRelation
-pub impl Decode for @representation.FactSiteRef
+pub impl Decode for @representation.FactHeapType
+pub impl Decode for @representation.FactOperand
+pub impl Decode for @representation.FactValue
+pub impl Decode for @representation.FieldFacts
+pub impl Decode for @representation.FieldUsageFacts
+pub impl Decode for @representation.FloatClassMask
+pub impl Decode for @representation.FloatFacts
+pub impl Decode for @representation.FloatWidth
 pub impl Decode for @representation.FunctionBodyFacts
 pub impl Decode for @representation.FunctionBoundaryFacts
 pub impl Decode for @representation.FunctionFacts
 pub impl Decode for @representation.FunctionProfile
+pub impl Decode for @representation.FunctionResultRef
+pub impl Decode for @representation.GlobalFacts
+pub impl Decode for @representation.HeapDomain
+pub impl Decode for @representation.HintTarget
+pub impl Decode for @representation.IndexedValueFacts
 pub impl Decode for @representation.InlinePolicy
+pub impl Decode for @representation.IntConstant
+pub impl Decode for @representation.IntWidth
+pub impl Decode for @representation.IntegerFacts
+pub impl Decode for @representation.KnownBits
+pub impl Decode for @representation.KnownV128Bits
 pub impl Decode for @representation.LoopFacts
 pub impl Decode for @representation.LoopProfile
+pub impl Decode for @representation.MutationFacts
+pub impl Decode for @representation.MutationPhase
+pub impl Decode for @representation.NullabilityFacts
+pub impl Decode for @representation.NumericOperationFacts
+pub impl Decode for @representation.NumericOperationSiteFacts
 pub impl Decode for @representation.OptimizationFactsSec
+pub impl Decode for @representation.OptimizationGoal
+pub impl Decode for @representation.OptimizationHint
 pub impl Decode for @representation.ParameterFacts
+pub impl Decode for @representation.ParameterRef
 pub impl Decode for @representation.ParameterUseMask
+pub impl Decode for @representation.ProducerInfo
+pub impl Decode for @representation.ReferenceFacts
+pub impl Decode for @representation.RelationKind
 pub impl Decode for @representation.ResultFacts
 pub impl Decode for @representation.ResultIdentityFacts
+pub impl Decode for @representation.ScopedRelationFacts
+pub impl Decode for @representation.SignatureFacts
 pub impl Decode for @representation.SignedRange
+pub impl Decode for @representation.SourceProvenance
+pub impl Decode for @representation.TableEntryFacts
+pub impl Decode for @representation.TableFacts
 pub impl Decode for @representation.TemperatureHint
+pub impl Decode for @representation.TypeFacts
+pub impl Decode for @representation.TypePopulation
+pub impl Decode for @representation.TypeView
 pub impl Decode for @representation.UnsignedRange
+pub impl Decode for @representation.V128Bits
 pub impl Decode for @representation.ValueFacts
+pub impl Decode for @representation.ValueRef
+pub impl Decode for @representation.ValueSite
+pub impl Decode for @representation.VectorFacts
+pub impl Decode for @representation.VectorLaneShape
+pub impl Decode for @representation.WorldFacts
+pub impl Decode for @representation.WorldMode
+pub impl Decode for @representation.WriteFacts
 pub impl[T : Decode] Decode for Array[T]
 pub impl[T : Decode] Decode for @list.List[T]
 
@@ -339,40 +396,93 @@ pub impl Encode for @lib.TypeSec
 pub impl Encode for @lib.U32
 pub impl Encode for @lib.U64
 pub impl Encode for @lib.ValType
+pub impl Encode for @representation.AccessFacts
+pub impl Encode for @representation.AccessSiteFacts
+pub impl Encode for @representation.AliasSource
+pub impl Encode for @representation.AllocationFacts
+pub impl Encode for @representation.AllocationFieldFacts
+pub impl Encode for @representation.AllocationKind
 pub impl Encode for @representation.AllocationSiteFacts
+pub impl Encode for @representation.ArrayElementFacts
 pub impl Encode for @representation.BranchFacts
 pub impl Encode for @representation.BranchProfile
 pub impl Encode for @representation.CallProfile
 pub impl Encode for @representation.CallSiteFacts
+pub impl Encode for @representation.ClosedAliasSet
 pub impl Encode for @representation.ClosedFunctionSet
 pub impl Encode for @representation.ClosedGlobalSet
+pub impl Encode for @representation.ClosedHeapTypeSet
 pub impl Encode for @representation.ClosedMemorySet
 pub impl Encode for @representation.ClosedTableSet
 pub impl Encode for @representation.ClosedTypeViewSet
+pub impl Encode for @representation.ClosedValueSet
+pub impl Encode for @representation.CodeSite
 pub impl Encode for @representation.CompilerFactCustomSection
 pub impl Encode for @representation.EffectFacts
 pub impl Encode for @representation.EffectMask
 pub impl Encode for @representation.EscapeSinkMask
 pub impl Encode for @representation.ExpressionFact
-pub impl Encode for @representation.Fact
-pub impl Encode for @representation.FactRelation
-pub impl Encode for @representation.FactSiteRef
+pub impl Encode for @representation.FactHeapType
+pub impl Encode for @representation.FactOperand
+pub impl Encode for @representation.FactValue
+pub impl Encode for @representation.FieldFacts
+pub impl Encode for @representation.FieldUsageFacts
+pub impl Encode for @representation.FloatClassMask
+pub impl Encode for @representation.FloatFacts
+pub impl Encode for @representation.FloatWidth
 pub impl Encode for @representation.FunctionBodyFacts
 pub impl Encode for @representation.FunctionBoundaryFacts
 pub impl Encode for @representation.FunctionFacts
 pub impl Encode for @representation.FunctionProfile
+pub impl Encode for @representation.FunctionResultRef
+pub impl Encode for @representation.GlobalFacts
+pub impl Encode for @representation.HeapDomain
+pub impl Encode for @representation.HintTarget
+pub impl Encode for @representation.IndexedValueFacts
 pub impl Encode for @representation.InlinePolicy
+pub impl Encode for @representation.IntConstant
+pub impl Encode for @representation.IntWidth
+pub impl Encode for @representation.IntegerFacts
+pub impl Encode for @representation.KnownBits
+pub impl Encode for @representation.KnownV128Bits
 pub impl Encode for @representation.LoopFacts
 pub impl Encode for @representation.LoopProfile
+pub impl Encode for @representation.MutationFacts
+pub impl Encode for @representation.MutationPhase
+pub impl Encode for @representation.NullabilityFacts
+pub impl Encode for @representation.NumericOperationFacts
+pub impl Encode for @representation.NumericOperationSiteFacts
 pub impl Encode for @representation.OptimizationFactsSec
+pub impl Encode for @representation.OptimizationGoal
+pub impl Encode for @representation.OptimizationHint
 pub impl Encode for @representation.ParameterFacts
+pub impl Encode for @representation.ParameterRef
 pub impl Encode for @representation.ParameterUseMask
+pub impl Encode for @representation.ProducerInfo
+pub impl Encode for @representation.ReferenceFacts
+pub impl Encode for @representation.RelationKind
 pub impl Encode for @representation.ResultFacts
 pub impl Encode for @representation.ResultIdentityFacts
+pub impl Encode for @representation.ScopedRelationFacts
+pub impl Encode for @representation.SignatureFacts
 pub impl Encode for @representation.SignedRange
+pub impl Encode for @representation.SourceProvenance
+pub impl Encode for @representation.TableEntryFacts
+pub impl Encode for @representation.TableFacts
 pub impl Encode for @representation.TemperatureHint
+pub impl Encode for @representation.TypeFacts
+pub impl Encode for @representation.TypePopulation
+pub impl Encode for @representation.TypeView
 pub impl Encode for @representation.UnsignedRange
+pub impl Encode for @representation.V128Bits
 pub impl Encode for @representation.ValueFacts
+pub impl Encode for @representation.ValueRef
+pub impl Encode for @representation.ValueSite
+pub impl Encode for @representation.VectorFacts
+pub impl Encode for @representation.VectorLaneShape
+pub impl Encode for @representation.WorldFacts
+pub impl Encode for @representation.WorldMode
+pub impl Encode for @representation.WriteFacts
 pub impl[T : Encode] Encode for Array[T]
 pub impl[T : Encode] Encode for @list.List[T]
 

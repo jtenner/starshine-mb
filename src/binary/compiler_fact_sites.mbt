@@ -176,6 +176,62 @@ pub fn compiler_fact_opcode_offsets(
 }
 
 ///|
+fn compiler_fact_collect_instructions(
+  instructions : Array[Instruction],
+  out : Array[Instruction],
+) -> Unit {
+  for instruction in instructions {
+    out.push(instruction)
+    match instruction {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        compiler_fact_collect_instructions(body, out)
+      If(_, then_body, else_body) => {
+        compiler_fact_collect_instructions(then_body, out)
+        match else_body {
+          Some(body) => compiler_fact_collect_instructions(body, out)
+          None => ()
+        }
+      }
+      Try(_, Expr(body), catches, _) => {
+        compiler_fact_collect_instructions(body, out)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, Expr(catch_body))
+            | @lib.LegacyCatchAll(Expr(catch_body)) =>
+              compiler_fact_collect_instructions(catch_body, out)
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+/// Pair canonical opcode offsets with the exact source instructions in preorder.
+/// Delimiters remain excluded, and offsets come only from the production encoder.
+pub fn compiler_fact_opcode_sites(
+  expression : Expr,
+  stringrefs? : Array[Bytes]? = None,
+) -> Result[Array[(UInt, Instruction)], BinaryEncodeError] {
+  let offsets = match compiler_fact_opcode_offsets(expression, stringrefs~) {
+    Ok(offsets) => offsets
+    Err(err) => return Err(err)
+  }
+  let Expr(instructions) = expression
+  let flattened : Array[Instruction] = []
+  compiler_fact_collect_instructions(instructions, flattened)
+  if offsets.length() != flattened.length() {
+    return Err(BinaryEncodeError::InvalidLegacyTryShape)
+  }
+  let sites : Array[(UInt, Instruction)] = []
+  for i = 0; i < offsets.length(); i = i + 1 {
+    sites.push((offsets[i], flattened[i]))
+  }
+  Ok(sites)
+}
+
+///|
 /// Return canonical instruction-opcode offsets for every defined function body
 /// using the same synthesized string-reference pool as module encoding.
 pub fn compiler_fact_module_opcode_offsets(
@@ -201,4 +257,26 @@ pub fn compiler_fact_module_opcode_offsets(
     }
     Ok(indexed)
   })
+}
+
+///|
+/// Return canonical `(offset, instruction)` maps for every defined function.
+pub fn compiler_fact_module_opcode_sites(
+  module_ : Module,
+) -> Result[Array[Array[(UInt, Instruction)]], BinaryEncodeError] {
+  let stringrefs = encode_module_stringrefs(module_)
+  let context = if stringrefs.is_empty() { None } else { Some(stringrefs) }
+  let functions = match module_.code_sec {
+    Some(CodeSec(functions)) => functions
+    None => []
+  }
+  let indexed : Array[Array[(UInt, Instruction)]] = []
+  for function in functions {
+    let Func(_, expression) = function
+    match compiler_fact_opcode_sites(expression, stringrefs=context) {
+      Ok(sites) => indexed.push(sites)
+      Err(err) => return Err(err)
+    }
+  }
+  Ok(indexed)
 }

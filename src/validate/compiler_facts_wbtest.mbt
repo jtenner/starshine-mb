@@ -26,12 +26,22 @@ fn[T : Validate] compiler_facts_assert_invalid(
 fn compiler_facts_test_env() -> Env {
   empty_env()
   .with_types([
-    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
-    SubType::comp_type(CompType::struct_([])),
+    SubType::comp_type(
+      CompType::func([ValType::i32()], [ValType::i32(), ValType::i64()]),
+    ),
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Mut::var_()),
+      ]),
+    ),
+    SubType::comp_type(
+      CompType::array(
+        FieldType::new(StorageType::val_type(ValType::i32()), Mut::var_()),
+      ),
+    ),
   ])
   .with_funcs([
-    FuncType::new([ValType::i32()], [ValType::i32()]),
-    FuncType::new([ValType::i32()], [ValType::i32()]),
+    FuncType::new([ValType::i32()], [ValType::i32(), ValType::i64()]),
   ])
   .with_globals([GlobalType::new(ValType::i32(), false)])
   .with_mems([MemType::new(Limits::i32(1U, None))])
@@ -44,323 +54,87 @@ fn compiler_facts_test_env() -> Env {
 }
 
 ///|
-fn compiler_facts_test_populated() -> @representation.CompilerFactCustomSection {
-  let value = @representation.ValueFacts::new(
-    non_null=true,
-    exact_heap_type=Some(1U),
-    exact_call_target=Some(1U),
-    signed_range=Some(@representation.SignedRange::new(-1L, 2L)),
-    unsigned_range=Some(@representation.UnsignedRange::new(3UL, 4UL)),
-    does_not_escape=true,
-    identity_not_observed=true,
+test "Validate covers final compiler facts scalar domains directly" {
+  let env = compiler_facts_test_env()
+  compiler_facts_assert_valid(
+    @representation.IntConstant::new(@representation.IntWidth::i8(), 255UL),
+    env,
   )
-  let effects = @representation.EffectFacts::new(
-    @representation.EffectMask::control()
-    .union(@representation.EffectMask::call())
-    .union(@representation.EffectMask::global_state())
-    .union(@representation.EffectMask::memory_read())
-    .union(@representation.EffectMask::memory_write())
-    .union(@representation.EffectMask::table_read())
-    .union(@representation.EffectMask::table_write())
-    .union(@representation.EffectMask::heap_read())
-    .union(@representation.EffectMask::heap_write()),
-    read_globals=Some(@representation.ClosedGlobalSet::new([0U])),
-    written_globals=Some(@representation.ClosedGlobalSet::new([0U])),
-    read_memories=Some(@representation.ClosedMemorySet::new([0U])),
-    written_memories=Some(@representation.ClosedMemorySet::new([0U])),
-    read_tables=Some(@representation.ClosedTableSet::new([0U])),
-    written_tables=Some(@representation.ClosedTableSet::new([0U])),
-    read_heap_types=Some(@representation.ClosedTypeViewSet::new([1U])),
-    written_heap_types=Some(@representation.ClosedTypeViewSet::new([1U])),
-    direct_callees=Some(@representation.ClosedFunctionSet::new([1U])),
+  compiler_facts_assert_invalid(
+    @representation.IntConstant::new(@representation.IntWidth::i8(), 256UL),
+    env,
+    "outside width",
   )
-  let function = @representation.FunctionFacts::new(
-    0U,
-    effects=Some(effects),
-    parameters=[
-      @representation.ParameterFacts::new(
-        0U,
-        value=Some(value),
-        uses=Some(@representation.ParameterUseMask::call_argument()),
-        escape_sinks=Some(@representation.EscapeSinkMask::call()),
-      ),
-    ],
-    results=[
-      @representation.ResultFacts::new(
-        0U,
-        value=Some(value),
-        identity=Some(
-          @representation.ResultIdentityFacts::same_as_parameter(0U),
-        ),
-      ),
-    ],
-    boundary=Some(@representation.FunctionBoundaryFacts::new(true, false, true)),
-    profile=Some(
-      @representation.FunctionProfile::new(
-        entry_count=Some(10UL),
-        temperature=Some(@representation.TemperatureHint::hot()),
-      ),
+  compiler_facts_assert_invalid(
+    @representation.KnownBits::new(1UL, 1UL),
+    env,
+    "same bit",
+  )
+  compiler_facts_assert_invalid(
+    @representation.IntegerFacts::new(
+      @representation.IntWidth::i8(),
+      unsigned_range=Some(@representation.UnsignedRange::new(0UL, 256UL)),
     ),
-    inline_policy=Some(@representation.InlinePolicy::prefer()),
-  )
-  let left = @representation.FactSiteRef::new(0U, 1U)
-  let right = @representation.FactSiteRef::new(1U, 2U)
-  let body = @representation.FunctionBodyFacts::new(
-    0U,
-    sites=[
-      @representation.ExpressionFact::new(0U, 1U, [
-        @representation.Fact::non_null(),
-        @representation.Fact::exact_heap_type(1U),
-        @representation.Fact::exact_call_target(1U),
-        @representation.Fact::signed_range(-1L, 1L),
-        @representation.Fact::unsigned_range(0UL, 2UL),
-        @representation.Fact::does_not_escape(),
-        @representation.Fact::identity_not_observed(),
-      ]),
-    ],
-    relations=[
-      @representation.FactRelation::same_value(left, right),
-      @representation.FactRelation::same_identity(left, right),
-      @representation.FactRelation::derived_from(left, right),
-    ],
-    calls=[
-      @representation.CallSiteFacts::new(
-        0U,
-        3U,
-        direct_target=Some(1U),
-        profile=Some(
-          @representation.CallProfile::new(
-            count=Some(5UL),
-            temperature=Some(@representation.TemperatureHint::normal()),
-          ),
-        ),
-        inline_policy=Some(@representation.InlinePolicy::always()),
-      ),
-    ],
-    branches=[
-      @representation.BranchFacts::new(
-        0U,
-        4U,
-        profile=Some(@representation.BranchProfile::new(4UL, 1UL)),
-        temperature=Some(@representation.TemperatureHint::hot()),
-      ),
-    ],
-    loops=[
-      @representation.LoopFacts::new(
-        0U,
-        5U,
-        profile=Some(
-          @representation.LoopProfile::new(
-            backedge_count=Some(9UL),
-            estimated_trip_count=Some(3UL),
-          ),
-        ),
-        temperature=Some(@representation.TemperatureHint::cold()),
-      ),
-    ],
-    allocations=[
-      @representation.AllocationSiteFacts::new(
-        0U,
-        6U,
-        heap_type=Some(1U),
-        does_not_escape=true,
-        identity_not_observed=true,
-      ),
-    ],
-  )
-  @representation.CompilerFactCustomSection::new(
-    @representation.OptimizationFactsSec::new(functions=[function], bodies=[
-      body,
-    ]),
-    module_fingerprint=Some(b"opaque"),
-  )
-}
-
-///|
-test "Validate covers every compiler facts representation type directly" {
-  let env = compiler_facts_test_env()
-  let section = compiler_facts_test_populated()
-  let function = section.facts.functions[0]
-  let body = section.facts.bodies[0]
-  compiler_facts_assert_valid(section, env)
-  compiler_facts_assert_valid(section.facts, env)
-  compiler_facts_assert_valid(function, env)
-  compiler_facts_assert_valid(function.effects.unwrap(), env)
-  compiler_facts_assert_valid(function.effects.unwrap().may, env)
-  compiler_facts_assert_valid(@representation.ClosedGlobalSet::new([0U]), env)
-  compiler_facts_assert_valid(@representation.ClosedMemorySet::new([0U]), env)
-  compiler_facts_assert_valid(@representation.ClosedTableSet::new([0U]), env)
-  compiler_facts_assert_valid(@representation.ClosedTypeViewSet::new([1U]), env)
-  compiler_facts_assert_valid(@representation.ClosedFunctionSet::new([1U]), env)
-  compiler_facts_assert_valid(function.parameters[0], env)
-  compiler_facts_assert_valid(function.parameters[0].uses.unwrap(), env)
-  compiler_facts_assert_valid(function.parameters[0].escape_sinks.unwrap(), env)
-  compiler_facts_assert_valid(function.results[0], env)
-  compiler_facts_assert_valid(function.results[0].identity.unwrap(), env)
-  compiler_facts_assert_valid(function.parameters[0].value.unwrap(), env)
-  compiler_facts_assert_valid(@representation.SignedRange::new(-1L, 1L), env)
-  compiler_facts_assert_valid(@representation.UnsignedRange::new(0UL, 1UL), env)
-  compiler_facts_assert_valid(function.boundary.unwrap(), env)
-  compiler_facts_assert_valid(function.profile.unwrap(), env)
-  compiler_facts_assert_valid(@representation.CallProfile::new(), env)
-  compiler_facts_assert_valid(@representation.BranchProfile::new(0UL, 0UL), env)
-  compiler_facts_assert_valid(@representation.LoopProfile::new(), env)
-  compiler_facts_assert_valid(@representation.TemperatureHint::normal(), env)
-  compiler_facts_assert_valid(@representation.InlinePolicy::default_(), env)
-  compiler_facts_assert_valid(body, env)
-  compiler_facts_assert_valid(body.sites[0], env)
-  for fact in body.sites[0].facts {
-    compiler_facts_assert_valid(fact, env)
-  }
-  compiler_facts_assert_valid(@representation.FactSiteRef::new(0U, 0U), env)
-  for relation in body.relations {
-    compiler_facts_assert_valid(relation, env)
-  }
-  compiler_facts_assert_valid(body.calls[0], env)
-  compiler_facts_assert_valid(body.branches[0], env)
-  compiler_facts_assert_valid(body.loops[0], env)
-  compiler_facts_assert_valid(body.allocations[0], env)
-}
-
-///|
-test "compiler facts validation rejects ranges and unknown mask bits" {
-  let env = compiler_facts_test_env()
-  compiler_facts_assert_invalid(
-    @representation.SignedRange::new(2L, 1L),
     env,
-    "signed range",
+    "exceeds integer width",
   )
   compiler_facts_assert_invalid(
-    @representation.UnsignedRange::new(2UL, 1UL),
+    @representation.FloatClassMask::from_bits(1U << 20),
     env,
-    "unsigned range",
+    "float class mask",
   )
   compiler_facts_assert_invalid(
-    @representation.EffectMask::from_bits(1UL << 20),
+    @representation.EffectMask::from_bits(1UL << 30),
     env,
     "effect mask",
   )
   compiler_facts_assert_invalid(
-    @representation.ParameterUseMask::from_bits(1UL << 20),
-    env,
-    "parameter use mask",
-  )
-  compiler_facts_assert_invalid(
-    @representation.EscapeSinkMask::from_bits(1UL << 20),
-    env,
-    "escape sink mask",
-  )
-}
-
-///|
-test "compiler facts validation rejects invalid indices in every index space" {
-  let env = compiler_facts_test_env()
-  compiler_facts_assert_invalid(
-    @representation.FunctionFacts::new(2U),
-    env,
-    "function index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.ValueFacts::new(exact_heap_type=Some(2U)),
-    env,
-    "type index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.ValueFacts::new(exact_call_target=Some(2U)),
-    env,
-    "function index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.EffectFacts::new(
-      @representation.EffectMask::empty(),
-      read_globals=Some(@representation.ClosedGlobalSet::new([1U])),
-    ),
-    env,
-    "global index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.EffectFacts::new(
-      @representation.EffectMask::empty(),
-      read_memories=Some(@representation.ClosedMemorySet::new([1U])),
-    ),
-    env,
-    "memory index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.EffectFacts::new(
-      @representation.EffectMask::empty(),
-      read_tables=Some(@representation.ClosedTableSet::new([1U])),
-    ),
-    env,
-    "table index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.EffectFacts::new(
-      @representation.EffectMask::empty(),
-      read_heap_types=Some(@representation.ClosedTypeViewSet::new([2U])),
-    ),
-    env,
-    "type index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.EffectFacts::new(
-      @representation.EffectMask::empty(),
-      direct_callees=Some(@representation.ClosedFunctionSet::new([2U])),
-    ),
-    env,
-    "function index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.CallSiteFacts::new(0U, 0U, direct_target=Some(2U)),
-    env,
-    "function index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.AllocationSiteFacts::new(0U, 0U, heap_type=Some(2U)),
-    env,
-    "type index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.FactSiteRef::new(2U, 0U),
-    env,
-    "function index",
-  )
-}
-
-///|
-test "function facts validation checks parameter result and identity indices" {
-  let env = compiler_facts_test_env()
-  compiler_facts_assert_invalid(
-    @representation.FunctionFacts::new(0U, parameters=[
-      @representation.ParameterFacts::new(1U),
-    ]),
-    env,
-    "parameter index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.FunctionFacts::new(0U, results=[
-      @representation.ResultFacts::new(1U),
-    ]),
-    env,
-    "result index",
-  )
-  compiler_facts_assert_invalid(
-    @representation.FunctionFacts::new(0U, results=[
-      @representation.ResultFacts::new(
-        0U,
-        identity=Some(
-          @representation.ResultIdentityFacts::same_as_parameter(1U),
+    @representation.ValueFacts::new(
+      possible_values=Some(
+        @representation.ClosedValueSet::new([
+          @representation.FactValue::integer(
+            @representation.IntConstant::new(
+              @representation.IntWidth::i32(),
+              0UL,
+            ),
+          ),
+        ]),
+      ),
+      integer=Some(
+        @representation.IntegerFacts::new(
+          @representation.IntWidth::i32(),
+          nonzero=true,
         ),
       ),
-    ]),
+    ),
     env,
-    "identity parameter index",
+    "contradicts nonzero",
   )
 }
 
 ///|
-test "optimization facts validation rejects duplicate function and body records" {
+test "Validate covers final compiler facts references aliases and top-level duplicates" {
   let env = compiler_facts_test_env()
+  compiler_facts_assert_invalid(
+    @representation.FactValue::ref_func(1U),
+    env,
+    "function index",
+  )
+  compiler_facts_assert_invalid(
+    @representation.FactHeapType::type_index(3U),
+    env,
+    "type index",
+  )
+  compiler_facts_assert_invalid(
+    @representation.ParameterRef::new(0U, 1U),
+    env,
+    "parameter reference",
+  )
+  compiler_facts_assert_invalid(
+    @representation.FunctionResultRef::new(0U, 2U),
+    env,
+    "result reference",
+  )
   compiler_facts_assert_invalid(
     @representation.OptimizationFactsSec::new(functions=[
       @representation.FunctionFacts::new(0U),
@@ -370,161 +144,155 @@ test "optimization facts validation rejects duplicate function and body records"
     "duplicate function facts",
   )
   compiler_facts_assert_invalid(
-    @representation.OptimizationFactsSec::new(bodies=[
-      @representation.FunctionBodyFacts::new(0U),
-      @representation.FunctionBodyFacts::new(0U),
+    @representation.OptimizationFactsSec::new(signatures=[
+      @representation.SignatureFacts::new(0U),
+      @representation.SignatureFacts::new(0U),
     ]),
     env,
-    "duplicate function body facts",
+    "duplicate signature facts",
   )
-}
-
-///|
-test "compiler facts validation rejects unsupported versions" {
   compiler_facts_assert_invalid(
-    @representation.CompilerFactCustomSection::new(
-      @representation.OptimizationFactsSec::new(),
-      version=2U,
+    @representation.OptimizationHint::likely_call_target(
+      @representation.CodeSite::new(0U, 0U),
+      0U,
+      65536U,
     ),
-    compiler_facts_test_env(),
-    "version",
+    env,
+    "confidence",
   )
 }
 
 ///|
-fn compiler_facts_test_module() -> Module {
-  let type_sec = TypeSec::new([
-    RecType::new(
-      SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
-    ),
-    RecType::new(SubType::comp_type(CompType::struct_([]))),
-  ])
-  let table_type = TableType::new(
-    RefType::new(true, HeapType::abs(AbsHeapType::func())),
-    Limits::i32(1U, None),
-  )
-  let body = fn() {
-    Func::new(
-      Locals::empty(),
-      Expr::new([
-        Instruction::nop(),
-        Instruction::nop(),
-        Instruction::nop(),
-        Instruction::nop(),
-        Instruction::nop(),
-        Instruction::nop(),
-        Instruction::nop(),
-        Instruction::local_get(LocalIdx::new(0U)),
-      ]),
-    )
-  }
-  Module::new()
-  .with_type_sec(type_sec)
-  .with_import_sec(
-    ImportSec::new([
-      Import::new(
-        Name::new("m"),
-        Name::new("g"),
-        ExternType::global(GlobalType::new(ValType::i32(), false)),
-      ),
-      Import::new(
-        Name::new("m"),
-        Name::new("mem"),
-        ExternType::mem(MemType::new(Limits::i32(1U, None))),
-      ),
-      Import::new(
-        Name::new("m"),
-        Name::new("table"),
-        ExternType::table(table_type),
-      ),
-    ]),
-  )
-  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
-  .with_code_sec(CodeSec::new([body(), body()]))
-}
-
-///|
-fn compiler_facts_body_site_test_module(
-  body : @representation.FunctionBodyFacts,
-) -> Module {
-  Module::new()
-  .with_type_sec(
-    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
-  )
-  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-  .with_code_sec(
-    CodeSec::new([Func::new(Locals::empty(), Expr::new([Instruction::nop()]))]),
-  )
-  .with_compiler_fact_custom_section(
-    @representation.CompilerFactCustomSection::new(
-      @representation.OptimizationFactsSec::new(bodies=[body]),
-    ),
-  )
-}
-
-///|
-fn compiler_facts_site_test_module(offset : UInt) -> Module {
-  compiler_facts_body_site_test_module(
-    @representation.FunctionBodyFacts::new(0U, sites=[
-      @representation.ExpressionFact::new(0U, offset, [
-        @representation.Fact::non_null(),
-      ]),
-    ]),
-  )
-}
-
-///|
-test "compiler facts validation requires offsets to name instruction opcodes" {
-  match validate_module(compiler_facts_site_test_module(0U)) {
-    Ok(_) => ()
-    Err(err) => fail("opcode offset zero unexpectedly failed: \{err}")
-  }
-  match validate_module(compiler_facts_site_test_module(1U)) {
-    Ok(_) => fail("expected expression terminator offset to be rejected")
-    Err(err) =>
-      assert_true(
-        validation_error_message(err).contains(
-          "instruction site does not exist",
+test "Validate checks type field array and allocation shapes" {
+  let env = compiler_facts_test_env()
+  compiler_facts_assert_valid(
+    @representation.FieldFacts::new(
+      @representation.TypeView::exact(1U),
+      0U,
+      stored_contents=Some(
+        @representation.ValueFacts::exact_value(
+          @representation.FactValue::integer(
+            @representation.IntConstant::new(
+              @representation.IntWidth::i32(),
+              1UL,
+            ),
+          ),
         ),
-        msg=validation_error_message(err),
-      )
-  }
+      ),
+    ),
+    env,
+  )
+  compiler_facts_assert_invalid(
+    @representation.FieldFacts::new(@representation.TypeView::exact(2U), 0U),
+    env,
+    "struct type",
+  )
+  compiler_facts_assert_valid(
+    @representation.ArrayElementFacts::new(@representation.TypeView::exact(2U)),
+    env,
+  )
+  compiler_facts_assert_invalid(
+    @representation.AllocationFacts::new(
+      @representation.AllocationKind::struct_(1U),
+      length=Some(
+        @representation.IntegerFacts::new(@representation.IntWidth::i32()),
+      ),
+    ),
+    env,
+    "only valid for array",
+  )
 }
 
 ///|
-test "compiler facts site validation uses synthesized stringref encoding" {
-  let with_offset = fn(offset : UInt) {
-    Module::new()
-    .with_type_sec(
-      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
-    )
+fn compiler_facts_multivalue_module(
+  site_result : UInt,
+  site_offset? : UInt? = None,
+) -> Module {
+  let type_ = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
+  )
+  let base = Module::new()
+    .with_type_sec(TypeSec::new([type_]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(
       CodeSec::new([
         Func::new(
           Locals::empty(),
-          Expr::new([Instruction::string_const(b"site"), Instruction::drop()]),
+          Expr::new([
+            Instruction::block(
+              BlockType::type_idx(TypeIdx::new(0U)),
+              Expr::new([
+                Instruction::i32_const(I32(1)),
+                Instruction::i64_const(I64(2L)),
+              ]),
+            ),
+          ]),
         ),
       ]),
     )
-    .with_compiler_fact_custom_section(
-      @representation.CompilerFactCustomSection::new(
-        @representation.OptimizationFactsSec::new(bodies=[
-          @representation.FunctionBodyFacts::new(0U, sites=[
-            @representation.ExpressionFact::new(0U, offset, [
-              @representation.Fact::non_null(),
-            ]),
-          ]),
+  let offset = match site_offset {
+    Some(value) => value
+    None => @binary.compiler_fact_module_opcode_sites(base).unwrap()[0][0].0
+  }
+  base.with_compiler_fact_custom_section(
+    @representation.CompilerFactCustomSection::new(
+      @representation.OptimizationFactsSec::new(bodies=[
+        @representation.FunctionBodyFacts::new(0U, sites=[
+          @representation.ExpressionFact::new(
+            @representation.ValueSite::new(
+              @representation.CodeSite::new(0U, offset),
+              result=site_result,
+            ),
+            @representation.ValueFacts::unknown(),
+          ),
         ]),
-      ),
-    )
-  }
-  match validate_module(with_offset(4U)) {
+      ]),
+    ),
+  )
+}
+
+///|
+test "module compiler facts validation uses instruction result arity" {
+  match validate_module(compiler_facts_multivalue_module(1U)) {
     Ok(_) => ()
-    Err(err) => fail("canonical string.const successor site failed: \{err}")
+    Err(err) => fail("expected second block result site to validate: \{err}")
   }
-  match validate_module(with_offset(3U)) {
-    Ok(_) => fail("expected string.const immediate offset to be rejected")
+  match validate_module(compiler_facts_multivalue_module(2U)) {
+    Ok(_) => fail("expected out-of-range instruction result index")
+    Err(err) =>
+      assert_true(
+        validation_error_message(err).contains("result index out of range"),
+        msg=validation_error_message(err),
+      )
+  }
+}
+
+///|
+test "module compiler facts validation rejects wrong opcode families and delimiters" {
+  let base = compiler_facts_multivalue_module(0U)
+  let bad_call = base.with_compiler_fact_custom_section(
+    @representation.CompilerFactCustomSection::new(
+      @representation.OptimizationFactsSec::new(bodies=[
+        @representation.FunctionBodyFacts::new(0U, calls=[
+          @representation.CallSiteFacts::new(
+            @representation.CodeSite::new(0U, 0U),
+            direct_target=Some(0U),
+          ),
+        ]),
+      ]),
+    ),
+  )
+  match validate_module(bad_call) {
+    Ok(_) => fail("expected non-call attachment rejection")
+    Err(err) =>
+      assert_true(
+        validation_error_message(err).contains("non-call opcode"),
+        msg=validation_error_message(err),
+      )
+  }
+  let delimiter = compiler_facts_multivalue_module(0U, site_offset=Some(5U))
+  match validate_module(delimiter) {
+    Ok(_) => fail("expected delimiter offset rejection")
     Err(err) =>
       assert_true(
         validation_error_message(err).contains(
@@ -536,121 +304,20 @@ test "compiler facts site validation uses synthesized stringref encoding" {
 }
 
 ///|
-test "compiler facts validation checks every site-bearing record" {
-  let existing = @representation.FactSiteRef::new(0U, 0U)
-  let missing = @representation.FactSiteRef::new(0U, 1U)
-  let cases : Array[(@representation.FunctionBodyFacts, String)] = [
-    (
-      @representation.FunctionBodyFacts::new(0U, relations=[
-        @representation.FactRelation::same_value(missing, existing),
-      ]),
-      "relation-left",
-    ),
-    (
-      @representation.FunctionBodyFacts::new(0U, relations=[
-        @representation.FactRelation::same_value(existing, missing),
-      ]),
-      "relation-right",
-    ),
-    (
-      @representation.FunctionBodyFacts::new(0U, calls=[
-        @representation.CallSiteFacts::new(0U, 1U),
-      ]),
-      "kind=call",
-    ),
-    (
-      @representation.FunctionBodyFacts::new(0U, branches=[
-        @representation.BranchFacts::new(0U, 1U),
-      ]),
-      "kind=branch",
-    ),
-    (
-      @representation.FunctionBodyFacts::new(0U, loops=[
-        @representation.LoopFacts::new(0U, 1U),
-      ]),
-      "kind=loop",
-    ),
-    (
-      @representation.FunctionBodyFacts::new(0U, allocations=[
-        @representation.AllocationSiteFacts::new(0U, 1U),
-      ]),
-      "kind=allocation",
-    ),
-  ]
-  for case in cases {
-    let (body, expected) = case
-    match validate_module(compiler_facts_body_site_test_module(body)) {
-      Ok(_) => fail("expected missing compiler facts site: \{expected}")
-      Err(err) => {
-        let message = validation_error_message(err)
-        assert_true(message.contains(expected), msg=message)
-      }
-    }
-  }
-}
-
-///|
-test "compiler facts body records require defined function bodies" {
-  let module_ = Module::new()
-    .with_type_sec(
-      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
-    )
-    .with_import_sec(
-      ImportSec::new([
-        Import::new(
-          Name::new("m"),
-          Name::new("f"),
-          ExternType::func(TypeIdx::new(0U)),
-        ),
-      ]),
-    )
-    .with_compiler_fact_custom_section(
-      @representation.CompilerFactCustomSection::new(
-        @representation.OptimizationFactsSec::new(bodies=[
-          @representation.FunctionBodyFacts::new(0U),
-        ]),
-      ),
-    )
-  match validate_module(module_) {
-    Ok(_) => fail("expected imported function body facts to be rejected")
-    Err(err) =>
-      assert_true(
-        validation_error_message(err).contains("no defined function body"),
-        msg=validation_error_message(err),
-      )
-  }
-}
-
-///|
-test "validate_module integrates explicit compiler facts and leaves ordinary modules unchanged" {
-  let base = compiler_facts_test_module()
-  match validate_module(base) {
-    Ok(_) => ()
-    Err(err) => fail("ordinary module unexpectedly failed: \{err}")
-  }
-  let with_facts = base.with_compiler_fact_custom_section(
-    compiler_facts_test_populated(),
-  )
-  match validate_module(with_facts) {
-    Ok(_) => ()
-    Err(err) => fail("valid compiler facts unexpectedly failed: \{err}")
-  }
-  let invalid = base.with_compiler_fact_custom_section(
+test "producer identity never changes structural validation" {
+  let module_ = compiler_facts_multivalue_module(0U)
+  let section = module_.compiler_fact_custom_section.unwrap()
+  let forged = module_.with_compiler_fact_custom_section(
     @representation.CompilerFactCustomSection::new(
-      @representation.OptimizationFactsSec::new(functions=[
-        @representation.FunctionFacts::new(2U),
-      ]),
+      @representation.OptimizationFactsSec::new(
+        producer=Some(@representation.ProducerInfo::new("dewdrop", "forged")),
+        bodies=section.facts.bodies,
+      ),
     ),
   )
-  match validate_module(invalid) {
-    Ok(_) => fail("expected module compiler facts validation failure")
-    Err(err) => {
-      let diagnostic = validation_error_diagnostic(err)
-      match diagnostic.issue {
-        ValidationIssue::CompilerFactsSection(message) =>
-          assert_true(message.contains("function index"), msg=message)
-        _ => fail("expected compiler facts validation diagnostic")
-      }
-    }
+  match validate_module(forged) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("producer provenance should remain structurally opaque: \{err}")
   }
 }

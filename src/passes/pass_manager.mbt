@@ -27,6 +27,7 @@ pub struct HotPipelineOptions {
   traps_never_happen : Bool
   ignore_implicit_traps : Bool
   zero_filled_memory : Bool
+  compiler_fact_policy : CompilerFactUsePolicy
   optimize_level : Int
   shrink_level : Int
   inlining_always_inline_max_size : Int
@@ -49,6 +50,7 @@ pub fn HotPipelineOptions::new(
   traps_never_happen? : Bool = false,
   ignore_implicit_traps? : Bool = false,
   zero_filled_memory? : Bool = false,
+  compiler_fact_policy? : CompilerFactUsePolicy = CompilerFactUsePolicy::ignore(),
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
   inlining_always_inline_max_size? : Int = 2,
@@ -68,6 +70,7 @@ pub fn HotPipelineOptions::new(
     traps_never_happen,
     ignore_implicit_traps,
     zero_filled_memory,
+    compiler_fact_policy,
     optimize_level,
     shrink_level,
     inlining_always_inline_max_size,
@@ -78910,6 +78913,7 @@ fn run_hot_pipeline_apply_hot_pass(
           traps_never_happen: options.traps_never_happen,
           ignore_implicit_traps: options.ignore_implicit_traps,
           zero_filled_memory: options.zero_filled_memory,
+          compiler_fact_policy: options.compiler_fact_policy,
           optimize_level: options.optimize_level,
           shrink_level: options.shrink_level,
           inlining_always_inline_max_size: options.inlining_always_inline_max_size,
@@ -90458,6 +90462,11 @@ fn run_hot_pipeline_apply_module_pass(
           match entry.name {
             "string-gathering" => string_gathering_run_module_pass(mod_)
             "reorder-globals" => reorder_globals_run_module_pass(mod_)
+            "apply-compiler-facts" =>
+              match apply_compiler_facts(mod_, options.compiler_fact_policy) {
+                Ok(result) => result.module_
+                Err(err) => return Err(err)
+              }
             "directize" => directize_run_module_pass(mod_)
             _ => return Err("unsupported module pass \{entry.name}")
           }

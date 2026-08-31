@@ -1,252 +1,208 @@
 ///|
-test "compiler fact constructors cover defaults and populated values" {
-  let empty = OptimizationFactsSec::new()
-  @debug.assert_eq(empty.functions, [])
-  @debug.assert_eq(empty.bodies, [])
-  let section = CompilerFactCustomSection::new(empty)
-  @debug.assert_eq(section.version, 1U)
-  @debug.assert_eq(section.module_fingerprint, None)
-  @debug.assert_eq(section.facts, empty)
+test "compiler facts v1 value domains construct and normalize canonically" {
+  @debug.assert_eq(IntWidth::i8(), Int8)
+  @debug.assert_eq(IntWidth::i16(), Int16)
+  @debug.assert_eq(IntWidth::i32(), Int32)
+  @debug.assert_eq(IntWidth::i64(), Int64)
+  @debug.assert_eq(FloatWidth::f32(), Float32)
+  @debug.assert_eq(FloatWidth::f64(), Float64)
 
-  let value = ValueFacts::new(
-    non_null=true,
-    exact_heap_type=Some(2U),
-    exact_call_target=Some(3U),
-    signed_range=Some(SignedRange::new(-4L, 5L)),
-    unsigned_range=Some(UnsignedRange::new(6UL, 7UL)),
-    does_not_escape=true,
-    identity_not_observed=true,
-  )
-  let parameter = ParameterFacts::new(
-    0U,
-    value=Some(value),
-    uses=Some(
-      ParameterUseMask::direct_computation().union(ParameterUseMask::return_()),
-    ),
-    escape_sinks=Some(
-      EscapeSinkMask::call().union(EscapeSinkMask::host_unknown()),
-    ),
-  )
-  let result = ResultFacts::new(
-    0U,
-    value=Some(value),
-    identity=Some(ResultIdentityFacts::same_as_parameter(0U)),
-  )
-  let effects = EffectFacts::new(
-    EffectMask::control().union(EffectMask::allocation()),
-    read_globals=Some(ClosedGlobalSet::new([2U, 1U, 2U])),
-    written_globals=Some(ClosedGlobalSet::new([])),
-    read_memories=Some(ClosedMemorySet::new([0U])),
-    written_memories=Some(ClosedMemorySet::new([1U])),
-    read_tables=Some(ClosedTableSet::new([0U])),
-    written_tables=Some(ClosedTableSet::new([1U])),
-    read_heap_types=Some(ClosedTypeViewSet::new([3U, 2U])),
-    written_heap_types=Some(ClosedTypeViewSet::new([4U])),
-    direct_callees=Some(ClosedFunctionSet::new([1U, 0U, 1U])),
-  )
-  @debug.assert_eq(effects.read_globals, Some(ClosedGlobalSet::new([1U, 2U])))
+  let zero = FactValue::integer(IntConstant::new(IntWidth::i32(), 0UL))
+  let one = FactValue::integer(IntConstant::new(IntWidth::i32(), 1UL))
+  let function = FactValue::ref_func(7U)
   @debug.assert_eq(
-    effects.direct_callees,
-    Some(ClosedFunctionSet::new([0U, 1U])),
+    ClosedValueSet::new([function, one, zero, one]),
+    ClosedValueSet([zero, one, function]),
+  )
+  @debug.assert_eq(
+    ClosedHeapTypeSet::new([
+      FactHeapType::func(),
+      FactHeapType::type_index(2U),
+      FactHeapType::func(),
+    ]),
+    ClosedHeapTypeSet([FactHeapType::type_index(2U), FactHeapType::func()]),
+  )
+  @debug.assert_eq(
+    ClosedAliasSet::new([
+      AliasSource::parameter(2U),
+      AliasSource::parameter(1U),
+      AliasSource::parameter(2U),
+    ]),
+    ClosedAliasSet([AliasSource::parameter(1U), AliasSource::parameter(2U)]),
   )
 
-  let function = FunctionFacts::new(
-    0U,
-    effects=Some(effects),
-    parameters=[parameter],
-    results=[result],
-    boundary=Some(FunctionBoundaryFacts::new(true, false, true)),
-    profile=Some(
-      FunctionProfile::new(
-        entry_count=Some(9UL),
-        temperature=Some(TemperatureHint::hot()),
+  let classes = FloatClassMask::positive_zero()
+    .union(FloatClassMask::positive_normal())
+    .union(FloatClassMask::nan())
+  assert_true(classes.contains(FloatClassMask::nan()))
+  let values = ValueFacts::new(
+    possible_values=Some(ClosedValueSet::new([one])),
+    integer=Some(
+      IntegerFacts::new(
+        IntWidth::i32(),
+        unsigned_range=Some(UnsignedRange::new(1UL, 1UL)),
+        known_bits=Some(KnownBits::new(0UL, 1UL)),
+        nonzero=true,
       ),
     ),
-    inline_policy=Some(InlinePolicy::prefer()),
-  )
-  @debug.assert_eq(function.function, 0U)
-  @debug.assert_eq(function.parameters, [parameter])
-  @debug.assert_eq(function.results, [result])
-
-  let site0 = FactSiteRef::new(0U, 10U)
-  let site1 = FactSiteRef::new(0U, 11U)
-  let expression = ExpressionFact::new(0U, 10U, [
-    Fact::non_null(),
-    Fact::exact_heap_type(2U),
-    Fact::exact_call_target(1U),
-    Fact::signed_range(-2L, 3L),
-    Fact::unsigned_range(4UL, 5UL),
-    Fact::does_not_escape(),
-    Fact::identity_not_observed(),
-  ])
-  let body = FunctionBodyFacts::new(
-    0U,
-    sites=[expression],
-    relations=[
-      FactRelation::same_value(site0, site1),
-      FactRelation::same_identity(site0, site1),
-      FactRelation::derived_from(site1, site0),
-    ],
-    calls=[
-      CallSiteFacts::new(
-        0U,
-        12U,
-        direct_target=Some(1U),
-        profile=Some(
-          CallProfile::new(
-            count=Some(7UL),
-            temperature=Some(TemperatureHint::normal()),
-          ),
+    float_=Some(FloatFacts::new(FloatWidth::f32(), classes)),
+    vector=Some(
+      VectorFacts::new(
+        known_bits=Some(
+          KnownV128Bits::new(V128Bits::new(0UL, 0UL), V128Bits::new(1UL, 0UL)),
         ),
-        inline_policy=Some(InlinePolicy::always()),
+        splat=Some(one),
+        lane_shape=Some(VectorLaneShape::i32x4()),
       ),
-    ],
-    branches=[
-      BranchFacts::new(
-        0U,
-        13U,
-        profile=Some(BranchProfile::new(8UL, 2UL)),
-        temperature=Some(TemperatureHint::hot()),
+    ),
+    reference=Some(
+      ReferenceFacts::new(
+        nullability=Some(NullabilityFacts::non_null()),
+        heap=Some(HeapDomain::exact_runtime_type(FactHeapType::func())),
+        function_targets=Some(ClosedFunctionSet::new([7U])),
       ),
-    ],
-    loops=[
-      LoopFacts::new(
-        0U,
-        14U,
-        profile=Some(
-          LoopProfile::new(
-            backedge_count=Some(6UL),
-            estimated_trip_count=Some(3UL),
-          ),
-        ),
-        temperature=Some(TemperatureHint::cold()),
-      ),
-    ],
-    allocations=[
-      AllocationSiteFacts::new(
-        0U,
-        15U,
-        heap_type=Some(2U),
-        does_not_escape=true,
-        identity_not_observed=true,
-      ),
-    ],
+    ),
   )
-  let facts = OptimizationFactsSec::new(functions=[function], bodies=[body])
-  let populated = CompilerFactCustomSection::new(
-    facts,
-    version=1U,
-    module_fingerprint=Some(b"opaque"),
+  @debug.assert_eq(
+    ValueFacts::impossible().possible_values,
+    Some(ClosedValueSet::new([])),
   )
-  @debug.assert_eq(populated.facts, facts)
-  @debug.assert_eq(populated.module_fingerprint, Some(b"opaque"))
+  @debug.assert_eq(
+    ValueFacts::exact_value(one).possible_values,
+    Some(ClosedValueSet::new([one])),
+  )
+  @debug.assert_eq(
+    ValueFacts::nonnull().reference.unwrap().nullability,
+    Some(NonNull),
+  )
+  @debug.assert_eq(
+    ValueFacts::exact_ref_func(7U).reference.unwrap().function_targets,
+    Some(ClosedFunctionSet::new([7U])),
+  )
+  assert_true(values.integer.unwrap().nonzero)
 }
 
 ///|
-test "compiler fact enum constructors cover every variant" {
-  @debug.assert_eq(ResultIdentityFacts::fresh(), FreshIdentity)
+test "compiler facts v1 sites references aliases and provenance are result-aware" {
+  let code = CodeSite::new(3U, 11U)
+  let value = ValueSite::new(code, result=2U)
+  @debug.assert_eq(value.site, code)
+  @debug.assert_eq(value.result, 2U)
+  @debug.assert_eq(ParameterRef::new(3U, 1U).parameter, 1U)
+  @debug.assert_eq(FunctionResultRef::new(3U, 4U).result, 4U)
+  @debug.assert_eq(ValueRef::site(value), SiteValue(value))
   @debug.assert_eq(
-    ResultIdentityFacts::same_as_parameter(4U),
-    SameAsParameter(4U),
-  )
-  @debug.assert_eq(TemperatureHint::cold(), Cold)
-  @debug.assert_eq(TemperatureHint::normal(), Normal)
-  @debug.assert_eq(TemperatureHint::hot(), Hot)
-  @debug.assert_eq(InlinePolicy::default_(), DefaultInlinePolicy)
-  @debug.assert_eq(InlinePolicy::never(), NeverInline)
-  @debug.assert_eq(InlinePolicy::prefer(), PreferInline)
-  @debug.assert_eq(InlinePolicy::always(), AlwaysInline)
-}
-
-///|
-test "compiler fact masks assign distinct stable bits and compose" {
-  let effects = [
-    EffectMask::control(),
-    EffectMask::call(),
-    EffectMask::throw_(),
-    EffectMask::trap(),
-    EffectMask::local_state(),
-    EffectMask::global_state(),
-    EffectMask::memory_read(),
-    EffectMask::memory_write(),
-    EffectMask::table_read(),
-    EffectMask::table_write(),
-    EffectMask::heap_read(),
-    EffectMask::heap_write(),
-    EffectMask::allocation(),
-  ]
-  let mut effect_union = EffectMask::empty()
-  for mask in effects {
-    assert_false(effect_union.contains(mask))
-    effect_union = effect_union.union(mask)
-    assert_true(effect_union.contains(mask))
-  }
-  @debug.assert_eq(effect_union.bits(), 0x1FFFUL)
-
-  let uses = [
-    ParameterUseMask::direct_computation(),
-    ParameterUseMask::control(),
-    ParameterUseMask::address_index(),
-    ParameterUseMask::call_argument(),
-    ParameterUseMask::stored_value(),
-    ParameterUseMask::return_(),
-    ParameterUseMask::identity_observing(),
-  ]
-  let mut use_union = ParameterUseMask::empty()
-  for mask in uses {
-    assert_false(use_union.contains(mask))
-    use_union = use_union.union(mask)
-  }
-  @debug.assert_eq(use_union.bits(), 0x7FUL)
-
-  let sinks = [
-    EscapeSinkMask::return_(),
-    EscapeSinkMask::call(),
-    EscapeSinkMask::global(),
-    EscapeSinkMask::memory(),
-    EscapeSinkMask::table(),
-    EscapeSinkMask::heap(),
-    EscapeSinkMask::throw_(),
-    EscapeSinkMask::host_unknown(),
-  ]
-  let mut sink_union = EscapeSinkMask::empty()
-  for mask in sinks {
-    assert_false(sink_union.contains(mask))
-    sink_union = sink_union.union(mask)
-  }
-  @debug.assert_eq(sink_union.bits(), 0xFFUL)
-}
-
-///|
-test "closed set constructors sort and remove duplicates" {
-  @debug.assert_eq(
-    ClosedGlobalSet::new([3U, 1U, 3U, 2U]),
-    ClosedGlobalSet([1U, 2U, 3U]),
+    ValueRef::parameter(ParameterRef::new(3U, 1U)),
+    ParameterValue(ParameterRef::new(3U, 1U)),
   )
   @debug.assert_eq(
-    ClosedMemorySet::new([2U, 2U, 0U]),
-    ClosedMemorySet([0U, 2U]),
+    ValueRef::function_result(FunctionResultRef::new(3U, 0U)),
+    FunctionResultValue(FunctionResultRef::new(3U, 0U)),
   )
-  @debug.assert_eq(ClosedTableSet::new([]), ClosedTableSet([]))
-  @debug.assert_eq(
-    ClosedTypeViewSet::new([9U, 4U, 4U]),
-    ClosedTypeViewSet([4U, 9U]),
+  @debug.assert_eq(ValueRef::global(9U), GlobalValue(9U))
+
+  let provenance = SourceProvenance::new(
+    module_id=Some(1UL),
+    declaration_id=Some(2UL),
+    body_id=Some(3UL),
+    expression_id=Some(4UL),
+    source_offset=Some(5UL),
+    specialization_id=Some(6UL),
   )
+  let expression = ExpressionFact::new(
+    value,
+    ValueFacts::nonnull(),
+    provenance=Some(provenance),
+  )
+  @debug.assert_eq(expression.value, value)
+  @debug.assert_eq(expression.provenance, Some(provenance))
   @debug.assert_eq(
-    ClosedFunctionSet::new([1U, 0U, 1U]),
-    ClosedFunctionSet([0U, 1U]),
+    ResultIdentityFacts::closed_aliases(
+      ClosedAliasSet::new([AliasSource::site(value), AliasSource::global(1U)]),
+    ),
+    ClosedAliases(
+      ClosedAliasSet::new([AliasSource::global(1U), AliasSource::site(value)]),
+    ),
   )
 }
 
 ///|
-test "optimization facts builder accumulates immutable output" {
-  let builder = OptimizationFactsBuilder::new()
+test "compiler facts v1 top-level builder covers every collection" {
+  let producer = ProducerInfo::new("dewdrop", "test", build_id=Some("build"))
+  let world = WorldFacts::closed_program(
+    host_can_call_exports=true,
+    host_can_mutate_exported_state=false,
+  )
   let function = FunctionFacts::new(0U)
+  let signature = SignatureFacts::new(0U, call_sites_complete=true)
+  let type_ = TypeFacts::new(1U)
+  let global = GlobalFacts::new(0U)
+  let table = TableFacts::new(0U)
   let body = FunctionBodyFacts::new(0U)
+  let hint = OptimizationHint::goal(
+    HintTarget::function(0U),
+    OptimizationGoal::balanced(),
+  )
+  let builder = OptimizationFactsBuilder::new()
+  builder.set_producer(producer)
+  builder.set_world(world)
   builder.add_function(function)
+  builder.add_signature(signature)
+  builder.add_type(type_)
+  builder.add_global(global)
+  builder.add_table(table)
   builder.add_body(body)
+  builder.add_hint(hint)
   @debug.assert_eq(
     builder.finish(),
-    OptimizationFactsSec::new(functions=[function], bodies=[body]),
+    OptimizationFactsSec::new(
+      producer=Some(producer),
+      world=Some(world),
+      functions=[function],
+      signatures=[signature],
+      types=[type_],
+      globals=[global],
+      tables=[table],
+      bodies=[body],
+      hints=[hint],
+    ),
   )
+}
+
+///|
+test "compiler facts v1 masks use distinct frozen bits" {
+  let effects = [
+    EffectMask::may_trap(),
+    EffectMask::may_throw(),
+    EffectMask::may_diverge(),
+    EffectMask::may_call_unknown_code(),
+    EffectMask::may_call_host_code(),
+    EffectMask::may_reenter(),
+    EffectMask::may_suspend(),
+    EffectMask::may_allocate_gc(),
+    EffectMask::may_observe_reference_identity(),
+    EffectMask::may_produce_nondeterministic_results(),
+    EffectMask::may_read_global(),
+    EffectMask::may_write_global(),
+    EffectMask::may_read_memory(),
+    EffectMask::may_write_memory(),
+    EffectMask::may_grow_memory(),
+    EffectMask::may_read_table(),
+    EffectMask::may_write_table(),
+    EffectMask::may_grow_table(),
+    EffectMask::may_read_gc_heap(),
+    EffectMask::may_write_gc_heap(),
+    EffectMask::may_synchronize(),
+    EffectMask::may_wait_or_notify(),
+    EffectMask::local_state(),
+  ]
+  let mut union = EffectMask::empty()
+  for effect in effects {
+    assert_false(union.contains(effect))
+    union = union.union(effect)
+  }
+  @debug.assert_eq(union.bits(), 0x7F_FFFFUL)
+  @debug.assert_eq(ParameterUseMask::all_known().bits(), 0x7FUL)
+  @debug.assert_eq(EscapeSinkMask::all_known().bits(), 0xFFUL)
+  @debug.assert_eq(FloatClassMask::all().bits(), 0x1FFU)
 }

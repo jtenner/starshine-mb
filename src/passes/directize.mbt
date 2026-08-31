@@ -1629,6 +1629,39 @@ fn directize_append_block_types(
 }
 
 ///|
+/// Shared final lowering for an independently proven exact `call_ref` target.
+/// The explicit reference operand is always evaluated and dropped before the
+/// direct call, preserving its effects, traps, exceptions, and evaluation order.
+fn directize_exact_ref_call_replacement(
+  env : @validate.Env,
+  instr : @lib.Instruction,
+  target : @lib.FuncIdx,
+) -> Array[@lib.Instruction]? {
+  let call_type = match instr {
+    @lib.CallRef(type_) | @lib.ReturnCallRef(type_) => type_
+    _ => return None
+  }
+  let target_type = match env.get_functypeidx_by_funcidx(target) {
+    Some(type_) => type_
+    None => return None
+  }
+  if !@validate.Match::matches(
+      @lib.ExternType::func(target_type),
+      @lib.ExternType::func(call_type),
+      env,
+    ) {
+    return None
+  }
+  Some([
+    @lib.Instruction::drop(),
+    match instr {
+      @lib.ReturnCallRef(_) => @lib.Instruction::return_call(target)
+      _ => @lib.Instruction::call(target)
+    },
+  ])
+}
+
+///|
 fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs

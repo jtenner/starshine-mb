@@ -7902,8 +7902,23 @@ test "config and optimize option construction preserve Binaryen inlining tuning"
   @debug.assert_eq(parsed.inlining_allow_functions_with_loops, Some(true))
   @debug.assert_eq(parsed.inlining_partial_inlining_ifs, Some(4))
   let options = make_optimize_options(
-    3, 0, false, false, 5, 3, -1, 31, 500000, true, 4, false, false, false, 1024UL,
+    3,
+    0,
     false,
+    false,
+    5,
+    3,
+    -1,
+    31,
+    500000,
+    true,
+    4,
+    false,
+    false,
+    false,
+    1024UL,
+    false,
+    @passes.CompilerFactUsePolicy::ignore(),
   )
   @debug.assert_eq(options.inlining.always_inline_max_size, 3)
   @debug.assert_eq(options.inlining.one_caller_inline_max_size, -1)

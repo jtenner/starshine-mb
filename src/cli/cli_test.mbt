@@ -424,12 +424,21 @@ test "parse_cli_args rejects invalid Binaryen inlining tuning values" {
 test "parse_cli_args accepts named optimization option flags" {
   let parsed = parse_ok([
     "--monomorphize-min-benefit", "9", "--low-memory-unused", "--low-memory-bound",
-    "2048", "--no-low-memory-unused", "--closed-world", "--no-closed-world",
+    "2048", "--no-low-memory-unused", "--closed-world", "--no-closed-world", "--compiler-facts=trust",
   ])
   @debug.assert_eq(parsed.monomorphize_min_benefit, Some(9))
   @debug.assert_eq(parsed.low_memory_bound, Some(2048UL))
   @debug.assert_eq(parsed.low_memory_unused, Some(false))
   @debug.assert_eq(parsed.closed_world, Some(false))
+  @debug.assert_eq(parsed.compiler_facts_policy, Some("trust"))
+}
+
+///|
+test "parse_cli_args rejects invalid compiler facts policy" {
+  @debug.assert_eq(
+    parse_err(["--compiler-facts=producer-name"]),
+    CliParseError::invalid_optimization_flag("--compiler-facts"),
+  )
 }
 
 ///|

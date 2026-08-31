@@ -117,9 +117,10 @@ pub struct CliParseResult {
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
   mut closed_world : Bool?
+  mut compiler_facts_policy : String?
   mut tracing : CliTracingLevel?
 } derive(Eq, @debug.Debug)
-pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], glob_enabled? : Bool, help_requested? : Bool, version_requested? : Bool, debug_serial_passes? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, ignore_implicit_traps? : Bool, monomorphize_min_benefit? : Int?, inlining_always_inline_max_size? : Int?, inlining_one_caller_inline_max_size? : Int?, inlining_flexible_inline_max_size? : Int?, inlining_max_combined_binary_size? : Int?, inlining_allow_functions_with_loops? : Bool?, inlining_partial_inlining_ifs? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?, closed_world? : Bool?, tracing? : CliTracingLevel?) -> Self
+pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], glob_enabled? : Bool, help_requested? : Bool, version_requested? : Bool, debug_serial_passes? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, ignore_implicit_traps? : Bool, monomorphize_min_benefit? : Int?, inlining_always_inline_max_size? : Int?, inlining_one_caller_inline_max_size? : Int?, inlining_flexible_inline_max_size? : Int?, inlining_max_combined_binary_size? : Int?, inlining_allow_functions_with_loops? : Bool?, inlining_partial_inlining_ifs? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?, closed_world? : Bool?, compiler_facts_policy? : String?, tracing? : CliTracingLevel?) -> Self
 pub impl Show for CliParseResult
 
 pub enum CliTracingLevel {
