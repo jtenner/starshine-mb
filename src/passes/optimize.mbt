@@ -1284,7 +1284,8 @@ pub fn run_hot_pipeline(
   }
   if prepared.stats.fact_sections_seen > 0 {
     (options.trace)(
-      "pass[apply-compiler-facts]:summary sections=\{prepared.stats.fact_sections_seen} exact_seen=\{prepared.stats.exact_call_target_facts_seen} exact_accepted=\{prepared.stats.exact_call_target_facts_accepted} call_ref=\{prepared.stats.call_ref_converted} return_call_ref=\{prepared.stats.return_call_ref_converted} rejected=\{prepared.stats.structurally_incompatible_rejected} ignored=\{prepared.stats.ignored_untrusted_assertions}",
+      "pass[apply-compiler-facts]:summary " +
+      compiler_fact_stats_summary(prepared.stats),
     )
   }
   let mut current = prepared.module_

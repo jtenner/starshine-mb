@@ -90464,7 +90464,15 @@ fn run_hot_pipeline_apply_module_pass(
             "reorder-globals" => reorder_globals_run_module_pass(mod_)
             "apply-compiler-facts" =>
               match apply_compiler_facts(mod_, options.compiler_fact_policy) {
-                Ok(result) => result.module_
+                Ok(result) => {
+                  if result.stats.fact_sections_seen > 0 {
+                    (options.trace)(
+                      "pass[apply-compiler-facts]:summary " +
+                      compiler_fact_stats_summary(result.stats),
+                    )
+                  }
+                  result.module_
+                }
                 Err(err) => return Err(err)
               }
             "directize" => directize_run_module_pass(mod_)
