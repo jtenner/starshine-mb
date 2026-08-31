@@ -56,7 +56,7 @@ describe("core IR binding generation", () => {
     );
 
     expect(generated.resourceCount).toBe(88);
-    expect(generated.constructorCount).toBe(851);
+    expect(generated.constructorCount).toBe(852);
     expect(generated.wit).toContain("resource module {");
     expect(generated.wit).toContain("resource instruction {");
     expect(generated.wit).toContain("i32-add: static func() -> instruction;");
@@ -111,6 +111,21 @@ describe("core IR binding generation", () => {
     expect(generated.implementation).toContain(
       "@lib.Module::with_type_sec(core_ir_module_get(p0), core_ir_type_sec_get(p1))",
     );
+  });
+
+  test("omits package-qualified optional labels and methods outside the lib graph", () => {
+    const externalFixture = fixture.replace(
+      "pub fn Module::new(type_sec? : TypeSec?, body? : Expr?) -> Self",
+      "pub fn Module::new(type_sec? : TypeSec?, body? : Expr?, compiler_facts? : @representation.CompilerFacts?) -> Self\npub fn Module::with_compiler_facts(Self, @representation.CompilerFacts) -> Self",
+    );
+    const generated = generateCoreIrBindings(externalFixture);
+
+    expect(generated.constructorCount).toBe(14);
+    expect(generated.wit).toContain(
+      "create: static func(type-sec: option<borrow<type-sec>>, body: option<borrow<expr>>) -> module;",
+    );
+    expect(generated.wit).not.toContain("compiler-facts");
+    expect(generated.implementation).not.toContain("@representation");
   });
 
   test("rejects constructor parameter shapes that cannot be represented", () => {

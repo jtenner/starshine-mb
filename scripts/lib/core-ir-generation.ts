@@ -215,6 +215,15 @@ function conversion(type: CoreIrType, expression: string, resourceNames: Set<str
   return expression;
 }
 
+function packageQualifiedParam(source: string): { optionalLabel: boolean } | null {
+  const labeled = source.match(/^([A-Za-z][A-Za-z0-9_]*)\?\s*:\s*(.+)$/);
+  const typeSource = (labeled?.[2] ?? source).trim();
+  if (!/(?:^|\[)@[A-Za-z][A-Za-z0-9_]*\.[A-Za-z][A-Za-z0-9_]*/.test(typeSource)) {
+    return null;
+  }
+  return { optionalLabel: labeled !== null };
+}
+
 function parseMethods(mbti: string): { typeNames: Set<string>; methods: Map<string, CoreIrMethod[]> } {
   const typeNames = new Set(
     [...mbti.matchAll(/^pub(?:\(all\))? (?:enum|struct|type) ([A-Za-z0-9_]+)/gm)].map(
@@ -228,9 +237,19 @@ function parseMethods(mbti: string): { typeNames: Set<string>; methods: Map<stri
     const [, owner, name, rawParams] = match;
     if (!typeNames.has(owner)) continue;
     if (owner === "Name" && name === "new" && rawParams === "StringView") continue;
-    const params = splitTopLevel(rawParams)
-      .map(parseParam)
-      .map((param) => ({ ...param, type: replaceSelfType(param.type, owner) }));
+    const params: CoreIrParam[] = [];
+    let skipMethod = false;
+    for (const [index, source] of splitTopLevel(rawParams).entries()) {
+      const external = packageQualifiedParam(source);
+      if (external) {
+        if (external.optionalLabel) continue;
+        skipMethod = true;
+        break;
+      }
+      const param = parseParam(source, index);
+      params.push({ ...param, type: replaceSelfType(param.type, owner) });
+    }
+    if (skipMethod) continue;
     const entries = methods.get(owner) ?? [];
     entries.push({ owner, name, params });
     methods.set(owner, entries);

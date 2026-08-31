@@ -9578,6 +9578,13 @@ pub fn Module::with_type_sec(
 }
 
 ///|
+pub fn Module::without_compiler_fact_custom_section(
+  p0 : Module
+) -> Module {
+  core_ir_module_store(@lib.Module::without_compiler_fact_custom_section(core_ir_module_get(p0)))
+}
+
+///|
 pub fn Module::without_name_sec(
   p0 : Module
 ) -> Module {

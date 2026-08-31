@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-15
+last_reviewed: 2026-08-30
 sources:
   - https://nodejs.org/api/wasi.html
   - https://github.com/WebAssembly/WASI
@@ -133,7 +133,7 @@ The checked-in WIT package is `jtenner:starshine-component@0.1.1`, world `starsh
 
 - `metadata` exports the Starshine version, implementation target, and capability descriptions.
 - `modules` exchanges only portable WIT values: strings, `list<u8>`, records, enums, and `result` diagnostics.
-- `core-ir` uses WIT resources as portable opaque handles to recursive Core Wasm values stored inside the component. Its generated contract currently contains 88 resources and 851 typed constructors reachable from `@lib.Module`.
+- `core-ir` uses WIT resources as portable opaque handles to recursive Core Wasm values stored inside the component. Its generated contract currently contains 88 resources and 852 typed constructors reachable from `@lib.Module`. Package-qualified representation-owned parameters are omitted from the `@lib`-rooted constructor graph, so the component does not construct `compiler.facts` records directly.
 - `core-ir.empty-module`, section/type/index/instruction constructors, and immutable `module.with-*` methods build arbitrary Core modules from scratch; `parse-module` and `decode-module` enter the same resource model from existing inputs, while `validate-module` and `encode-module` produce checked output.
 - `modules.available-generator-profiles` exposes every canonical Starshine GenValid profile name.
 - `modules.generate-valid-wasm` accepts a profile plus `u64` seed, deterministically resolves aggregate profiles to a leaf, generates and validates a Core module, and returns encoded bytes plus resolved-profile and attempt metadata.

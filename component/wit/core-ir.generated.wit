@@ -956,6 +956,7 @@ interface core-ir {
     with-table-sec: static func(p0: borrow<module>, p1: borrow<table-sec>) -> module;
     with-tag-sec: static func(p0: borrow<module>, p1: borrow<tag-sec>) -> module;
     with-type-sec: static func(p0: borrow<module>, p1: borrow<type-sec>) -> module;
+    without-compiler-fact-custom-section: static func(p0: borrow<module>) -> module;
     without-name-sec: static func(p0: borrow<module>) -> module;
   }
 

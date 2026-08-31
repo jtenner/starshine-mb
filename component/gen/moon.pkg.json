@@ -876,6 +876,7 @@
                   "wasmExportStaticModuleWithTableSec:jtenner:starshine-component/core-ir@0.1.1#[static]module.with-table-sec",
                   "wasmExportStaticModuleWithTagSec:jtenner:starshine-component/core-ir@0.1.1#[static]module.with-tag-sec",
                   "wasmExportStaticModuleWithTypeSec:jtenner:starshine-component/core-ir@0.1.1#[static]module.with-type-sec",
+                  "wasmExportStaticModuleWithoutCompilerFactCustomSection:jtenner:starshine-component/core-ir@0.1.1#[static]module.without-compiler-fact-custom-section",
                   "wasmExportStaticModuleWithoutNameSec:jtenner:starshine-component/core-ir@0.1.1#[static]module.without-name-sec",
                   "wasmExportStaticMutConst:jtenner:starshine-component/core-ir@0.1.1#[static]mut.const",
                   "wasmExportStaticMutVar:jtenner:starshine-component/core-ir@0.1.1#[static]mut.var",

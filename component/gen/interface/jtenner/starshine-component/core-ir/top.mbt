@@ -3750,6 +3750,8 @@ declare pub fn Module::with_tag_sec(p0 : Module, p1 : TagSec) -> Module
 ///|
 declare pub fn Module::with_type_sec(p0 : Module, p1 : TypeSec) -> Module
 ///|
+declare pub fn Module::without_compiler_fact_custom_section(p0 : Module) -> Module
+///|
 declare pub fn Module::without_name_sec(p0 : Module) -> Module
 ///|
 declare pub fn Mut::const_() -> Mut

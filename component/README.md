@@ -48,7 +48,7 @@ This generates **Core WebAssembly modules**, not Component Model components. The
 
 ## Full Core IR Construction
 
-[`wit/core-ir.generated.wit`](./wit/core-ir.generated.wit) is generated from [`../src/lib/pkg.generated.mbti`](../src/lib/pkg.generated.mbti). The current contract contains **88 resource types and 851 typed constructors** reachable from `Module`. It covers module sections, indices, recursive type groups, imports and exports, functions and locals, globals, tables, memories, tags, elements, data segments, names/custom metadata, expressions, and the complete public instruction-constructor surface.
+[`wit/core-ir.generated.wit`](./wit/core-ir.generated.wit) is generated from [`../src/lib/pkg.generated.mbti`](../src/lib/pkg.generated.mbti). The current contract contains **88 resource types and 852 typed constructors** reachable from `Module`. Package-qualified representation-owned parameters are intentionally omitted from this `@lib`-rooted facade, so compiler facts enter through binary decode rather than component constructors. It covers module sections, indices, recursive type groups, imports and exports, functions and locals, globals, tables, memories, tags, elements, data segments, names/custom metadata, expressions, and the complete public instruction-constructor surface.
 
 The top-level operations are:
 
