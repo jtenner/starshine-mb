@@ -816,4 +816,3 @@ pub fn WriteFacts::no_writes() -> Self
 // Type aliases
 
 // Traits
-
