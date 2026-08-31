@@ -1,5 +1,6 @@
 import {
   "jtenner/starshine/binary",
+  "jtenner/starshine/binary_fuzz",
   "jtenner/starshine/bitset",
   "moonbitlang/core/buffer",
   "moonbitlang/core/builtin",
@@ -12,6 +13,7 @@ import {
   "jtenner/starshine/passes",
   "jtenner/starshine/passes_perf_long",
   "moonbitlang/core/quickcheck",
+  "jtenner/starshine/representation",
   "jtenner/starshine/rume",
   "moonbitlang/core/quickcheck/splitmix",
   "jtenner/starshine/validate",

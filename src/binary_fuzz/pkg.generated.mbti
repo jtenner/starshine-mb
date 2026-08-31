@@ -32,3 +32,4 @@ pub struct BinaryRoundtripFuzzStats {
 // Type aliases
 
 // Traits
+
