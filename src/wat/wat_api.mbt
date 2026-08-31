@@ -116,6 +116,7 @@ fn lib_module_has_unsupported_sections(mod : @lib.Module) -> Bool {
   if mod.custom_secs.length() > 0 ||
     mod.name_sec is Some(_) ||
     mod.raw_name_sec_payload is Some(_) ||
+    mod.compiler_fact_custom_section is Some(_) ||
     mod.func_annotation_sec is Some(_) ||
     mod.start_sec is Some(_) ||
     mod.data_cnt_sec is Some(_) {

@@ -4184,6 +4184,7 @@ fn cmd_strip_empty_data_sections_for_encoding(mod : Module) -> Module {
       data_sec=None,
       name_sec=mod.name_sec,
       raw_name_sec_payload=mod.raw_name_sec_payload,
+      compiler_fact_custom_section=mod.compiler_fact_custom_section,
     )
   } else {
     mod
@@ -4210,7 +4211,10 @@ fn cmd_strip_type_only_empty_module_for_encoding(mod : Module) -> Module {
       mod.data_sec is None &&
       mod.name_sec is None &&
       mod.raw_name_sec_payload is None =>
-      Module::new(custom_secs=mod.custom_secs)
+      Module::new(
+        custom_secs=mod.custom_secs,
+        compiler_fact_custom_section=mod.compiler_fact_custom_section,
+      )
     _ => mod
   }
 }

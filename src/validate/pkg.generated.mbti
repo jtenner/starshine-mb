@@ -3,6 +3,7 @@ package "jtenner/starshine/validate"
 
 import {
   "jtenner/starshine/lib",
+  "jtenner/starshine/representation",
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck/splitmix",
 }
@@ -2191,6 +2192,7 @@ pub enum ValidationIssue {
   ExportSection(String)
   CodeSection(String)
   NameSection(String)
+  CompilerFactsSection(String)
   FunctionBody(String)
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidationIssue
@@ -2210,6 +2212,7 @@ pub enum ValidationIssueFamily {
   ExportSectionFamily
   CodeSectionFamily
   NameSectionFamily
+  CompilerFactsSectionFamily
   FunctionBodyFamily
 } derive(Eq, @debug.Debug)
 
@@ -2283,6 +2286,40 @@ pub impl Validate for @lib.TagSec
 pub impl Validate for @lib.TagType
 pub impl Validate for @lib.TypeIdx
 pub impl Validate for @lib.ValType
+pub impl Validate for @representation.AllocationSiteFacts
+pub impl Validate for @representation.BranchFacts
+pub impl Validate for @representation.BranchProfile
+pub impl Validate for @representation.CallProfile
+pub impl Validate for @representation.CallSiteFacts
+pub impl Validate for @representation.ClosedFunctionSet
+pub impl Validate for @representation.ClosedGlobalSet
+pub impl Validate for @representation.ClosedMemorySet
+pub impl Validate for @representation.ClosedTableSet
+pub impl Validate for @representation.ClosedTypeViewSet
+pub impl Validate for @representation.CompilerFactCustomSection
+pub impl Validate for @representation.EffectFacts
+pub impl Validate for @representation.EffectMask
+pub impl Validate for @representation.EscapeSinkMask
+pub impl Validate for @representation.ExpressionFact
+pub impl Validate for @representation.Fact
+pub impl Validate for @representation.FactRelation
+pub impl Validate for @representation.FactSiteRef
+pub impl Validate for @representation.FunctionBodyFacts
+pub impl Validate for @representation.FunctionBoundaryFacts
+pub impl Validate for @representation.FunctionFacts
+pub impl Validate for @representation.FunctionProfile
+pub impl Validate for @representation.InlinePolicy
+pub impl Validate for @representation.LoopFacts
+pub impl Validate for @representation.LoopProfile
+pub impl Validate for @representation.OptimizationFactsSec
+pub impl Validate for @representation.ParameterFacts
+pub impl Validate for @representation.ParameterUseMask
+pub impl Validate for @representation.ResultFacts
+pub impl Validate for @representation.ResultIdentityFacts
+pub impl Validate for @representation.SignedRange
+pub impl Validate for @representation.TemperatureHint
+pub impl Validate for @representation.UnsignedRange
+pub impl Validate for @representation.ValueFacts
 pub impl[T : Validate] Validate for Array[T]
 
 pub trait ValidateMax {

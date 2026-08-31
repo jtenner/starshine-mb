@@ -2687,6 +2687,7 @@ pub impl Show for Module with fn output(self, logger) {
     custom_secs: customs,
     name_sec,
     raw_name_sec_payload,
+    compiler_fact_custom_section,
     type_sec,
     import_sec,
     func_annotation_sec,
@@ -2712,6 +2713,9 @@ pub impl Show for Module with fn output(self, logger) {
   logger.write_char('\n')
   logger.write_string("raw_name_sec_payload: ")
   logger.write_string(@debug.to_string(raw_name_sec_payload))
+  logger.write_char('\n')
+  logger.write_string("compiler_fact_custom_section: ")
+  logger.write_string(@debug.to_string(compiler_fact_custom_section))
   logger.write_char('\n')
   logger.write_string("type_sec: ")
   logger.write_string(@debug.to_string(type_sec))

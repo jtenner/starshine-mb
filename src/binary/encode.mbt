@@ -16,6 +16,8 @@ pub suberror BinaryEncodeError {
   InvalidTypedFunctionLocals
   InvalidNameMapOrder
   RawNameCustomSectionUnsupported
+  ReservedCompilerFactsCustomSection
+  UnsupportedCompilerFactsVersion
   CannotEncodeStringConstWithoutModuleContext
   StringConstLiteralMissingFromSection
   UnsupportedBackingArrayMemoryOp
@@ -53,6 +55,10 @@ pub impl Show for BinaryEncodeError with fn output(self, logger) {
     InvalidNameMapOrder => logger.write_string("InvalidNameMapOrder")
     RawNameCustomSectionUnsupported =>
       logger.write_string("RawNameCustomSectionUnsupported")
+    ReservedCompilerFactsCustomSection =>
+      logger.write_string("ReservedCompilerFactsCustomSection")
+    UnsupportedCompilerFactsVersion =>
+      logger.write_string("UnsupportedCompilerFactsVersion")
     CannotEncodeStringConstWithoutModuleContext =>
       logger.write_string("CannotEncodeStringConstWithoutModuleContext")
     StringConstLiteralMissingFromSection =>
@@ -990,217 +996,6 @@ fn encode_raw_name_sec_payload_as_custom_section(
 }
 
 ///|
-fn binary_encode_block_param_count(
-  bt : BlockType,
-  subtypes : Array[SubType],
-) -> Int {
-  match bt {
-    VoidBlockType | ValTypeBlockType(_) => 0
-    TypeIdxBlockType(TypeIdx(raw)) | TypeIdxBlockType(RecIdx(raw)) =>
-      match subtypes.get(raw.reinterpret_as_int()) {
-        Some(subtype) =>
-          match subtype.get_comptype() {
-            FuncCompType(params, _) => params.length()
-            _ => 0
-          }
-        None => 0
-      }
-  }
-}
-
-///|
-fn binary_encode_take_value_prefix(
-  instrs : Array[Instruction],
-  count : Int,
-  env : Env,
-) -> (Array[Instruction], Array[Instruction]) {
-  if count <= 0 {
-    return ([], instrs)
-  }
-  let prefix : Array[Instruction] = []
-  let mut i = 0
-  while i < instrs.length() {
-    prefix.push(instrs[i])
-    let init_state = make_state(env, [])
-    match @validate.Typecheck::typecheck(Expr::new(prefix), init_state) {
-      Ok(state) => {
-        let produced = state.stack.length()
-        if produced == count {
-          let rest : Array[Instruction] = []
-          let mut j = i + 1
-          while j < instrs.length() {
-            rest.push(instrs[j])
-            j += 1
-          }
-          return (prefix, rest)
-        }
-        if produced > count {
-          return ([], instrs)
-        }
-      }
-      Err(_) => ()
-    }
-    i += 1
-  }
-  ([], instrs)
-}
-
-///|
-fn binary_encode_rewrite_instr_array(
-  instrs : Array[Instruction],
-  subtypes : Array[SubType],
-  env : Env,
-) -> Array[Instruction] {
-  let out : Array[Instruction] = []
-  for instr in instrs {
-    binary_encode_rewrite_instruction(instr, out, subtypes, env)
-  }
-  out
-}
-
-///|
-fn binary_encode_rewrite_instruction(
-  instr : Instruction,
-  out : Array[Instruction],
-  subtypes : Array[SubType],
-  env : Env,
-) -> Unit {
-  match instr {
-    Block(bt, body) => {
-      let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
-        body, subtypes, env,
-      )
-      let (prefix, next_body) = binary_encode_take_value_prefix(
-        body_instrs,
-        binary_encode_block_param_count(bt, subtypes),
-        env,
-      )
-      for seed in prefix {
-        out.push(seed)
-      }
-      out.push(Instruction::block(bt, Expr::new(next_body)))
-    }
-    Loop(bt, body) => {
-      let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
-        body, subtypes, env,
-      )
-      let (prefix, next_body) = binary_encode_take_value_prefix(
-        body_instrs,
-        binary_encode_block_param_count(bt, subtypes),
-        env,
-      )
-      for seed in prefix {
-        out.push(seed)
-      }
-      out.push(Instruction::loop_(bt, Expr::new(next_body)))
-    }
-    If(bt, then_instrs, else_instrs_opt) => {
-      let rewritten_then = binary_encode_rewrite_instr_array(
-        then_instrs, subtypes, env,
-      )
-      let rewritten_else = match else_instrs_opt {
-        Some(instrs) =>
-          Some(binary_encode_rewrite_instr_array(instrs, subtypes, env))
-        None => None
-      }
-      let param_count = binary_encode_block_param_count(bt, subtypes)
-      let (prefix, next_then, next_else) = match rewritten_else {
-        Some(else_instrs) => {
-          let (then_prefix, then_rest) = binary_encode_take_value_prefix(
-            rewritten_then, param_count, env,
-          )
-          let (else_prefix, else_rest) = binary_encode_take_value_prefix(
-            else_instrs, param_count, env,
-          )
-          if then_prefix.length() > 0 && then_prefix == else_prefix {
-            (then_prefix, then_rest, Some(else_rest))
-          } else {
-            ([], rewritten_then, Some(else_instrs))
-          }
-        }
-        None => {
-          let (then_prefix, then_rest) = binary_encode_take_value_prefix(
-            rewritten_then, param_count, env,
-          )
-          if then_prefix.length() > 0 {
-            (then_prefix, then_rest, None)
-          } else {
-            ([], rewritten_then, None)
-          }
-        }
-      }
-      for seed in prefix {
-        out.push(seed)
-      }
-      out.push(Instruction::if_(bt, next_then, next_else))
-    }
-    Try(bt, body, catches, delegate) => {
-      let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
-        body, subtypes, env,
-      )
-      let (prefix, next_body) = binary_encode_take_value_prefix(
-        body_instrs,
-        binary_encode_block_param_count(bt, subtypes),
-        env,
-      )
-      let next_catches : Array[@lib.LegacyCatch] = []
-      for catch_ in catches {
-        match catch_ {
-          @lib.LegacyCatch(tag, catch_body) =>
-            next_catches.push(
-              @lib.LegacyCatch::tagged(
-                tag,
-                binary_encode_rewrite_typed_expr_to_raw(
-                  catch_body, subtypes, env,
-                ),
-              ),
-            )
-          @lib.LegacyCatchAll(catch_body) =>
-            next_catches.push(
-              @lib.LegacyCatch::all(
-                binary_encode_rewrite_typed_expr_to_raw(
-                  catch_body, subtypes, env,
-                ),
-              ),
-            )
-        }
-      }
-      for seed in prefix {
-        out.push(seed)
-      }
-      out.push(
-        Instruction::try_(bt, Expr::new(next_body), next_catches, delegate~),
-      )
-    }
-    TryTable(bt, catches, body) => {
-      let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
-        body, subtypes, env,
-      )
-      let (prefix, next_body) = binary_encode_take_value_prefix(
-        body_instrs,
-        binary_encode_block_param_count(bt, subtypes),
-        env,
-      )
-      for seed in prefix {
-        out.push(seed)
-      }
-      out.push(Instruction::try_table(bt, catches, Expr::new(next_body)))
-    }
-    _ => out.push(instr)
-  }
-}
-
-///|
-fn binary_encode_rewrite_typed_expr_to_raw(
-  expr : Expr,
-  subtypes : Array[SubType],
-  env : Env,
-) -> Expr {
-  let Expr(instrs) = expr
-  Expr::new(binary_encode_rewrite_instr_array(instrs, subtypes, env))
-}
-
-///|
 pub impl Encode for CustomSec with fn encode(val, buf) {
   let CustomSec(name, bytes) = val
   write_section(0, buf, fn(payload) {
@@ -1739,9 +1534,19 @@ pub impl Encode for Module with fn encode(val, buf) {
     if name == Name::new("name") {
       return Err(BinaryEncodeError::RawNameCustomSectionUnsupported)
     }
+    if name == Name::new("compiler.facts") {
+      return Err(BinaryEncodeError::ReservedCompilerFactsCustomSection)
+    }
     if Encode::encode(sec, buf) is Err(t) {
       return Err(t)
     }
+  }
+  match val.compiler_fact_custom_section {
+    Some(section) =>
+      if encode_compiler_facts_as_custom_section(section, buf) is Err(t) {
+        return Err(t)
+      }
+    None => ()
   }
   if Encode::encode(val.type_sec, buf) is Err(t) {
     return Err(t)

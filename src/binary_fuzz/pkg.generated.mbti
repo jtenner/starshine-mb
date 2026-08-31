@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/binary_fuzz"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn run_binary_roundtrip_fuzz(String, UInt64) -> Result[BinaryRoundtripFuzzStats, String]
+
+// Errors
+
+// Types and methods
+pub struct BinaryRoundtripFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  arbitrary_roundtrips : Int
+  gen_valid_modules : Int
+  gen_valid_validated : Int
+  byte_fuzz_cases : Int
+  byte_fuzz_decode_rejections : Int
+  byte_fuzz_decode_accepts : Int
+  byte_fuzz_validate_rejections : Int
+  byte_fuzz_stable_roundtrips : Int
+  boundary_roundtrips : Int
+  instruction_roundtrips : Int
+  section_roundtrips : Int
+  immediate_roundtrips : Int
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

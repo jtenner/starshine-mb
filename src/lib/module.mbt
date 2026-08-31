@@ -25,13 +25,37 @@ pub fn Module::with_raw_name_sec_payload(
 }
 
 ///|
+pub fn Module::with_compiler_fact_custom_section(
+  self : Module,
+  compiler_fact_custom_section : @representation.CompilerFactCustomSection,
+) -> Module {
+  Module::{
+    ..self,
+    compiler_fact_custom_section: Some(compiler_fact_custom_section),
+  }
+}
+
+///|
+pub fn Module::without_compiler_fact_custom_section(self : Module) -> Module {
+  Module::{ ..self, compiler_fact_custom_section: None }
+}
+
+///|
 pub fn Module::with_type_sec(self : Module, type_sec : TypeSec) -> Module {
-  Module::{ ..self, type_sec: Some(type_sec) }
+  Module::{
+    ..self,
+    type_sec: Some(type_sec),
+    compiler_fact_custom_section: None,
+  }
 }
 
 ///|
 pub fn Module::with_import_sec(self : Module, import_sec : ImportSec) -> Module {
-  Module::{ ..self, import_sec: Some(import_sec) }
+  Module::{
+    ..self,
+    import_sec: Some(import_sec),
+    compiler_fact_custom_section: None,
+  }
 }
 
 ///|
@@ -44,17 +68,25 @@ pub fn Module::with_func_annotation_sec(
 
 ///|
 pub fn Module::with_func_sec(self : Module, func_sec : FuncSec) -> Module {
-  Module::{ ..self, func_sec: Some(func_sec) }
+  Module::{
+    ..self,
+    func_sec: Some(func_sec),
+    compiler_fact_custom_section: None,
+  }
 }
 
 ///|
 pub fn Module::with_table_sec(self : Module, table_sec : TableSec) -> Module {
-  Module::{ ..self, table_sec: Some(table_sec) }
+  Module::{
+    ..self,
+    table_sec: Some(table_sec),
+    compiler_fact_custom_section: None,
+  }
 }
 
 ///|
 pub fn Module::with_mem_sec(self : Module, mem_sec : MemSec) -> Module {
-  Module::{ ..self, mem_sec: Some(mem_sec) }
+  Module::{ ..self, mem_sec: Some(mem_sec), compiler_fact_custom_section: None }
 }
 
 ///|
@@ -67,12 +99,20 @@ pub fn Module::with_stringrefs_sec(
   self : Module,
   stringrefs_sec : StringRefsSec,
 ) -> Module {
-  Module::{ ..self, stringrefs_sec: Some(stringrefs_sec) }
+  Module::{
+    ..self,
+    stringrefs_sec: Some(stringrefs_sec),
+    compiler_fact_custom_section: None,
+  }
 }
 
 ///|
 pub fn Module::with_global_sec(self : Module, global_sec : GlobalSec) -> Module {
-  Module::{ ..self, global_sec: Some(global_sec) }
+  Module::{
+    ..self,
+    global_sec: Some(global_sec),
+    compiler_fact_custom_section: None,
+  }
 }
 
 ///|
@@ -100,7 +140,11 @@ pub fn Module::with_data_cnt_sec(
 
 ///|
 pub fn Module::with_code_sec(self : Module, code_sec : CodeSec) -> Module {
-  Module::{ ..self, code_sec: Some(code_sec) }
+  Module::{
+    ..self,
+    code_sec: Some(code_sec),
+    compiler_fact_custom_section: None,
+  }
 }
 
 ///|

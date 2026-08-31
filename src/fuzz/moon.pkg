@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/debug",
   "jtenner/starshine/binary",
+  "jtenner/starshine/binary_fuzz",
   "jtenner/starshine/passes",
   "jtenner/starshine/lib",
   "jtenner/starshine/fs",

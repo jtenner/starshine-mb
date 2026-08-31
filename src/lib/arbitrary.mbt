@@ -1739,6 +1739,7 @@ pub impl @quickcheck.Arbitrary for Module with fn arbitrary(t, state) {
     custom_secs: array_of_arbitrary(5, t, state),
     name_sec: None,
     raw_name_sec_payload: None,
+    compiler_fact_custom_section: None,
     type_sec: if state.next_positive_int() % 2 == 0 {
       Some(@quickcheck.Arbitrary::arbitrary(t, state))
     } else {

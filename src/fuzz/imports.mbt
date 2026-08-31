@@ -1,11 +1,8 @@
 ///|
-using @binary {
-  type BinaryRoundtripFuzzStats,
-  decode_module,
-  decode_module_with_detail,
-  encode_module,
-  run_binary_roundtrip_fuzz,
-}
+using @binary {decode_module, decode_module_with_detail, encode_module}
+
+///|
+using @binary_fuzz {type BinaryRoundtripFuzzStats, run_binary_roundtrip_fuzz}
 
 ///|
 using @lib {trace_elapsed_ms, trace_now_ms, trace_now_us}

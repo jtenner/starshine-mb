@@ -1,10 +1,15 @@
 import {
   "moonbitlang/core/debug",
   "jtenner/starshine/lib",
-  "jtenner/starshine/validate",
+  "jtenner/starshine/representation",
   "moonbitlang/core/buffer",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/list",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
 }
+
+import {
+  "jtenner/starshine/binary_fuzz",
+  "jtenner/starshine/validate",
+} for "wbtest"

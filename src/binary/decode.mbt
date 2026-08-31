@@ -30,6 +30,12 @@ pub suberror BinaryDecodeError {
   SectionPayloadLengthOutOfRange
   InvalidSectionPayloadTrailingBytes
   DuplicateNameSection
+  DuplicateCompilerFactsSection
+  InvalidCompilerFactsEnumTag
+  InvalidCompilerFactsOptionTag
+  TruncatedCompilerFactsPayload
+  CompilerFactsTrailingBytes
+  UnsupportedCompilerFactsVersion
   InvalidNameSubsectionId
   InvalidNameSubsectionOrder
   InvalidNameMapOrder
@@ -97,6 +103,18 @@ pub impl Show for BinaryDecodeError with fn output(self, logger) {
     InvalidSectionPayloadTrailingBytes =>
       logger.write_string("InvalidSectionPayloadTrailingBytes")
     DuplicateNameSection => logger.write_string("DuplicateNameSection")
+    DuplicateCompilerFactsSection =>
+      logger.write_string("DuplicateCompilerFactsSection")
+    InvalidCompilerFactsEnumTag =>
+      logger.write_string("InvalidCompilerFactsEnumTag")
+    InvalidCompilerFactsOptionTag =>
+      logger.write_string("InvalidCompilerFactsOptionTag")
+    TruncatedCompilerFactsPayload =>
+      logger.write_string("TruncatedCompilerFactsPayload")
+    CompilerFactsTrailingBytes =>
+      logger.write_string("CompilerFactsTrailingBytes")
+    UnsupportedCompilerFactsVersion =>
+      logger.write_string("UnsupportedCompilerFactsVersion")
     InvalidNameSubsectionId => logger.write_string("InvalidNameSubsectionId")
     InvalidNameSubsectionOrder =>
       logger.write_string("InvalidNameSubsectionOrder")
@@ -1285,6 +1303,44 @@ fn decode_custom_sections_with_detail(
             Err(err) =>
               return Err(module_section_decode_error(bytes, section_start, err))
           }
+        } else if name == Name::new("compiler.facts") {
+          if out.any(fn(section) {
+              let CustomSec(existing_name, _) = section
+              existing_name == Name::new("compiler.facts")
+            }) {
+            return Err(
+              module_section_decode_error(
+                bytes,
+                section_start,
+                BinaryDecodeError::DuplicateCompilerFactsSection,
+              ),
+            )
+          }
+          match
+            (
+              Decode::decode(payload, 0) :
+              Result[(CompilerFactCustomSection, Int), BinaryDecodeError]) {
+            Ok((_, consumed)) => {
+              if consumed != payload.length() {
+                return Err(
+                  module_section_decode_error(
+                    bytes,
+                    section_start,
+                    BinaryDecodeError::CompilerFactsTrailingBytes,
+                  ),
+                )
+              }
+              out.push(CustomSec::new(name, payload))
+            }
+            Err(err) =>
+              return Err(
+                module_section_decode_error(
+                  bytes,
+                  section_start,
+                  compiler_facts_payload_error(err),
+                ),
+              )
+          }
         } else {
           out.push(CustomSec::new(name, payload))
         }
@@ -1620,7 +1676,22 @@ pub fn decode_module_with_detail(
   mod = tail_mod
   i = tail_i
 
-  mod = mod.with_custom_secs(custom)
+  let ordinary_custom : Array[CustomSec] = []
+  for section in custom {
+    let CustomSec(name, payload) = section
+    if name == Name::new("compiler.facts") {
+      match
+        (
+          Decode::decode(payload, 0) :
+          Result[(CompilerFactCustomSection, Int), BinaryDecodeError]) {
+        Ok((facts, _)) => mod = mod.with_compiler_fact_custom_section(facts)
+        Err(err) => return Err(module_decode_error(err))
+      }
+    } else {
+      ordinary_custom.push(section)
+    }
+  }
+  mod = mod.with_custom_secs(ordinary_custom)
   match name_secs.get(0) {
     Some(name_sec) => {
       mod = mod.with_name_sec(name_sec)

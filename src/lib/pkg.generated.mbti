@@ -2,6 +2,7 @@
 package "jtenner/starshine/lib"
 
 import {
+  "jtenner/starshine/representation",
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
@@ -2315,6 +2316,7 @@ pub struct Module {
   custom_secs : Array[CustomSec]
   name_sec : NameSec?
   raw_name_sec_payload : Bytes?
+  compiler_fact_custom_section : @representation.CompilerFactCustomSection?
   type_sec : TypeSec?
   import_sec : ImportSec?
   func_annotation_sec : FuncAnnotationSec?
@@ -2331,10 +2333,11 @@ pub struct Module {
   code_sec : CodeSec?
   data_sec : DataSec?
 } derive(Hash, @debug.Debug)
-pub fn Module::new(custom_secs? : Array[CustomSec], type_sec? : TypeSec?, import_sec? : ImportSec?, func_annotation_sec? : FuncAnnotationSec?, func_sec? : FuncSec?, table_sec? : TableSec?, mem_sec? : MemSec?, tag_sec? : TagSec?, stringrefs_sec? : StringRefsSec?, global_sec? : GlobalSec?, export_sec? : ExportSec?, start_sec? : StartSec?, elem_sec? : ElemSec?, data_cnt_sec? : DataCntSec?, code_sec? : CodeSec?, data_sec? : DataSec?, name_sec? : NameSec?, raw_name_sec_payload? : Bytes?) -> Self
+pub fn Module::new(custom_secs? : Array[CustomSec], type_sec? : TypeSec?, import_sec? : ImportSec?, func_annotation_sec? : FuncAnnotationSec?, func_sec? : FuncSec?, table_sec? : TableSec?, mem_sec? : MemSec?, tag_sec? : TagSec?, stringrefs_sec? : StringRefsSec?, global_sec? : GlobalSec?, export_sec? : ExportSec?, start_sec? : StartSec?, elem_sec? : ElemSec?, data_cnt_sec? : DataCntSec?, code_sec? : CodeSec?, data_sec? : DataSec?, name_sec? : NameSec?, raw_name_sec_payload? : Bytes?, compiler_fact_custom_section? : @representation.CompilerFactCustomSection?) -> Self
 pub fn Module::pretty_print_defined_func(Self, UInt) -> String
 pub fn Module::pretty_print_func(Self, FuncIdx) -> String
 pub fn Module::with_code_sec(Self, CodeSec) -> Self
+pub fn Module::with_compiler_fact_custom_section(Self, @representation.CompilerFactCustomSection) -> Self
 pub fn Module::with_custom_secs(Self, Array[CustomSec]) -> Self
 pub fn Module::with_data_cnt_sec(Self, DataCntSec) -> Self
 pub fn Module::with_data_sec(Self, DataSec) -> Self
@@ -2352,6 +2355,7 @@ pub fn Module::with_stringrefs_sec(Self, StringRefsSec) -> Self
 pub fn Module::with_table_sec(Self, TableSec) -> Self
 pub fn Module::with_tag_sec(Self, TagSec) -> Self
 pub fn Module::with_type_sec(Self, TypeSec) -> Self
+pub fn Module::without_compiler_fact_custom_section(Self) -> Self
 pub fn Module::without_name_sec(Self) -> Self
 pub impl PrettyPrint for Module
 pub impl Eq for Module

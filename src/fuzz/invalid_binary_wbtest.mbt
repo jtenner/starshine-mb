@@ -17,6 +17,7 @@ fn invalid_binary_test_validation_family_label(
     ExportSectionFamily => "export"
     CodeSectionFamily => "code"
     NameSectionFamily => "name"
+    CompilerFactsSectionFamily => "compiler-facts"
     FunctionBodyFamily => "function-body"
   }
 }

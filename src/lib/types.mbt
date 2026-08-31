@@ -357,6 +357,7 @@ pub struct Module {
   custom_secs : Array[CustomSec]
   name_sec : NameSec?
   raw_name_sec_payload : Bytes?
+  compiler_fact_custom_section : @representation.CompilerFactCustomSection?
   type_sec : TypeSec?
   import_sec : ImportSec?
   func_annotation_sec : FuncAnnotationSec?
@@ -394,11 +395,13 @@ pub fn Module::new(
   data_sec? : DataSec? = None,
   name_sec? : NameSec? = None,
   raw_name_sec_payload? : Bytes? = None,
+  compiler_fact_custom_section? : @representation.CompilerFactCustomSection? = None,
 ) -> Module {
   Module::{
     custom_secs,
     name_sec,
     raw_name_sec_payload,
+    compiler_fact_custom_section,
     type_sec,
     import_sec,
     func_annotation_sec,

@@ -3,19 +3,22 @@ package "jtenner/starshine/binary"
 
 import {
   "jtenner/starshine/lib",
+  "jtenner/starshine/representation",
   "moonbitlang/core/buffer",
   "moonbitlang/core/debug",
   "moonbitlang/core/list",
 }
 
 // Values
+pub fn compiler_fact_module_opcode_offsets(@lib.Module) -> Result[Array[Array[UInt]], BinaryEncodeError]
+
+pub fn compiler_fact_opcode_offsets(@lib.Expr, stringrefs? : Array[Bytes]?) -> Result[Array[UInt], BinaryEncodeError]
+
 pub fn decode_module(Bytes) -> Result[@lib.Module, DecodeError]
 
 pub fn decode_module_with_detail(Bytes, Int) -> Result[(@lib.Module, Int), ModuleDecodeErrorDetail]
 
 pub fn encode_module(@lib.Module) -> Result[Bytes, EncodeError]
-
-pub fn run_binary_roundtrip_fuzz(String, UInt64) -> Result[BinaryRoundtripFuzzStats, String]
 
 pub fn size_signed(Int64, Int) -> Result[Int, BinaryEncodeError]
 
@@ -53,6 +56,12 @@ pub suberror BinaryDecodeError {
   SectionPayloadLengthOutOfRange
   InvalidSectionPayloadTrailingBytes
   DuplicateNameSection
+  DuplicateCompilerFactsSection
+  InvalidCompilerFactsEnumTag
+  InvalidCompilerFactsOptionTag
+  TruncatedCompilerFactsPayload
+  CompilerFactsTrailingBytes
+  UnsupportedCompilerFactsVersion
   InvalidNameSubsectionId
   InvalidNameSubsectionOrder
   InvalidNameMapOrder
@@ -96,6 +105,8 @@ pub suberror BinaryEncodeError {
   InvalidTypedFunctionLocals
   InvalidNameMapOrder
   RawNameCustomSectionUnsupported
+  ReservedCompilerFactsCustomSection
+  UnsupportedCompilerFactsVersion
   CannotEncodeStringConstWithoutModuleContext
   StringConstLiteralMissingFromSection
   UnsupportedBackingArrayMemoryOp
@@ -116,24 +127,6 @@ pub suberror EncodeError {
 pub impl Show for EncodeError
 
 // Types and methods
-pub struct BinaryRoundtripFuzzStats {
-  profile : String
-  seed : UInt64
-  attempts : Int
-  arbitrary_roundtrips : Int
-  gen_valid_modules : Int
-  gen_valid_validated : Int
-  byte_fuzz_cases : Int
-  byte_fuzz_decode_rejections : Int
-  byte_fuzz_decode_accepts : Int
-  byte_fuzz_validate_rejections : Int
-  byte_fuzz_stable_roundtrips : Int
-  boundary_roundtrips : Int
-  instruction_roundtrips : Int
-  section_roundtrips : Int
-  immediate_roundtrips : Int
-} derive(Eq, @debug.Debug)
-
 pub struct ModuleDecodeErrorDetail {
   err : BinaryDecodeError
   section_id : Int?
@@ -227,6 +220,40 @@ pub impl Decode for @lib.TypeSec
 pub impl Decode for @lib.U32
 pub impl Decode for @lib.U64
 pub impl Decode for @lib.ValType
+pub impl Decode for @representation.AllocationSiteFacts
+pub impl Decode for @representation.BranchFacts
+pub impl Decode for @representation.BranchProfile
+pub impl Decode for @representation.CallProfile
+pub impl Decode for @representation.CallSiteFacts
+pub impl Decode for @representation.ClosedFunctionSet
+pub impl Decode for @representation.ClosedGlobalSet
+pub impl Decode for @representation.ClosedMemorySet
+pub impl Decode for @representation.ClosedTableSet
+pub impl Decode for @representation.ClosedTypeViewSet
+pub impl Decode for @representation.CompilerFactCustomSection
+pub impl Decode for @representation.EffectFacts
+pub impl Decode for @representation.EffectMask
+pub impl Decode for @representation.EscapeSinkMask
+pub impl Decode for @representation.ExpressionFact
+pub impl Decode for @representation.Fact
+pub impl Decode for @representation.FactRelation
+pub impl Decode for @representation.FactSiteRef
+pub impl Decode for @representation.FunctionBodyFacts
+pub impl Decode for @representation.FunctionBoundaryFacts
+pub impl Decode for @representation.FunctionFacts
+pub impl Decode for @representation.FunctionProfile
+pub impl Decode for @representation.InlinePolicy
+pub impl Decode for @representation.LoopFacts
+pub impl Decode for @representation.LoopProfile
+pub impl Decode for @representation.OptimizationFactsSec
+pub impl Decode for @representation.ParameterFacts
+pub impl Decode for @representation.ParameterUseMask
+pub impl Decode for @representation.ResultFacts
+pub impl Decode for @representation.ResultIdentityFacts
+pub impl Decode for @representation.SignedRange
+pub impl Decode for @representation.TemperatureHint
+pub impl Decode for @representation.UnsignedRange
+pub impl Decode for @representation.ValueFacts
 pub impl[T : Decode] Decode for Array[T]
 pub impl[T : Decode] Decode for @list.List[T]
 
@@ -312,6 +339,40 @@ pub impl Encode for @lib.TypeSec
 pub impl Encode for @lib.U32
 pub impl Encode for @lib.U64
 pub impl Encode for @lib.ValType
+pub impl Encode for @representation.AllocationSiteFacts
+pub impl Encode for @representation.BranchFacts
+pub impl Encode for @representation.BranchProfile
+pub impl Encode for @representation.CallProfile
+pub impl Encode for @representation.CallSiteFacts
+pub impl Encode for @representation.ClosedFunctionSet
+pub impl Encode for @representation.ClosedGlobalSet
+pub impl Encode for @representation.ClosedMemorySet
+pub impl Encode for @representation.ClosedTableSet
+pub impl Encode for @representation.ClosedTypeViewSet
+pub impl Encode for @representation.CompilerFactCustomSection
+pub impl Encode for @representation.EffectFacts
+pub impl Encode for @representation.EffectMask
+pub impl Encode for @representation.EscapeSinkMask
+pub impl Encode for @representation.ExpressionFact
+pub impl Encode for @representation.Fact
+pub impl Encode for @representation.FactRelation
+pub impl Encode for @representation.FactSiteRef
+pub impl Encode for @representation.FunctionBodyFacts
+pub impl Encode for @representation.FunctionBoundaryFacts
+pub impl Encode for @representation.FunctionFacts
+pub impl Encode for @representation.FunctionProfile
+pub impl Encode for @representation.InlinePolicy
+pub impl Encode for @representation.LoopFacts
+pub impl Encode for @representation.LoopProfile
+pub impl Encode for @representation.OptimizationFactsSec
+pub impl Encode for @representation.ParameterFacts
+pub impl Encode for @representation.ParameterUseMask
+pub impl Encode for @representation.ResultFacts
+pub impl Encode for @representation.ResultIdentityFacts
+pub impl Encode for @representation.SignedRange
+pub impl Encode for @representation.TemperatureHint
+pub impl Encode for @representation.UnsignedRange
+pub impl Encode for @representation.ValueFacts
 pub impl[T : Encode] Encode for Array[T]
 pub impl[T : Encode] Encode for @list.List[T]
 

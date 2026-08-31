@@ -1,17 +1,22 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-30
 sources:
   - https://webassembly.github.io/spec/core/appendix/custom.html
   - https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
   - ../wasm-compilation-hints-boundary.md
   - ../tooling/cli-command-and-dispatcher.md
+  - ../../../src/representation/compiler_facts.mbt
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
+  - ../../../src/binary/compiler_facts_decode.mbt
+  - ../../../src/binary/compiler_facts_encode.mbt
+  - ../../../src/binary/compiler_fact_sites.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
+  - ../../../src/validate/compiler_facts.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/cmd/cmd.mbt
   - ../../../src/cmd/cmd_wbtest.mbt
@@ -48,11 +53,12 @@ Starshine deliberately does **not** keep arbitrary custom sections and the `name
 
 The in-memory module shape in [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt) splits metadata into:
 
-- `Module.custom_secs : Array[CustomSec]` for non-`name` custom sections;
-- `Module.name_sec : NameSec?` for a parsed structured name section; and
-- `Module.raw_name_sec_payload : Bytes?` for preserving the original decoded name payload when no structured rewrite has invalidated it.
+- `Module.custom_secs : Array[CustomSec]` for ordinary opaque custom sections;
+- `Module.name_sec : NameSec?` for a parsed structured name section;
+- `Module.raw_name_sec_payload : Bytes?` for preserving the original decoded name payload when no structured rewrite has invalidated it; and
+- `Module.compiler_fact_custom_section : @representation.CompilerFactCustomSection?` for the reserved `compiler.facts` payload.
 
-This gives validators and mutating passes a typed view of debug names while still preserving unknown custom payloads. The tradeoff is that Starshine normalizes section placement on encode: non-`name` custom sections are emitted before standard sections, and the `name` custom section is emitted after the data section.
+This gives validators and mutating passes typed views of debug names and advisory compiler facts while still preserving unknown custom payloads. Starshine normalizes placement on encode: ordinary `custom_secs` and the explicit `compiler.facts` section are emitted before standard sections, while `name` is emitted after data. Neither `name` nor `compiler.facts` is retained in `custom_secs` after decode.
 
 ## Common Metadata Section Routing
 
@@ -61,7 +67,8 @@ This gives validators and mutating passes a typed view of debug names while stil
 | `name` custom section | Standard name-section metadata for debug names. | Parsed into `Module.name_sec` plus optional `raw_name_sec_payload`; raw `CustomSec("name", ...)` is rejected on encode/validation. | Rewrite or clear structured maps after index-space rewrites; do not keep stale raw name bytes after structural changes. |
 | `producers` custom section | WebAssembly tool-conventions provenance for language, tool, and SDK name-version pairs. | Opaque `CustomSec("producers", payload)` like any other non-`name` custom section. | Preserve by default, but never use it to infer pass legality, optimization hints, feature use, or Binaryen parity. |
 | `target_features` custom section | WebAssembly linking-convention metadata: a prefixed feature-name vector constraining linker compatibility. Binaryen's `strip-target-features` / `emit-target-features` toggles whether output has this metadata. | Opaque `CustomSec("target_features", payload)` if decoded; no first-class feature metadata model or local pass today. | Only a deliberately named metadata policy should remove/suppress it; deleting it changes downstream compatibility information but does not lower feature-using code, make unsupported instructions valid, or prove that Core validation examined the payload. |
-| `metadata.code.*` custom sections | Code-metadata payloads such as finished branch hints or active-proposal Compilation Hints. | Opaque non-`name` `CustomSec` unless/until a focused metadata model decodes a named payload. | Preserving bytes is not payload support; route branch hints through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md) and compilation-priority / instruction-frequency / call-target hints through [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md). |
+| `compiler.facts` custom section | Starshine versioned advisory facts for functions, values, effects, profiles, expression sites, relations, calls, branches, loops, and allocations. | Decoded into `Module.compiler_fact_custom_section`; never retained as `CustomSec`. Version 1 uses explicit LEB/scalar/array/option/enum fields from `src/representation`. | Validate structure and indices, but never treat claims as WebAssembly semantics. Drop facts when a rewrite changes referenced index spaces or encoded body offsets unless a correct mapping is already available. |
+| `metadata.code.*` custom sections | Code-metadata payloads such as finished branch hints or active-proposal Compilation Hints. | Opaque non-`name` `CustomSec` unless/until a focused metadata model decodes a named payload. `compiler.facts` is a separate Starshine format, not an implementation of those proposal names. | Preserving bytes is not payload support; route branch hints through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md) and compilation-priority / instruction-frequency / call-target hints through [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md). |
 | `FuncAnnotationSec` | Starshine-local function/import annotations lowered from the current WAST `(@...)` lane. | Separate `Module.func_annotation_sec`, not a binary custom section today. | Remap with absolute function indices; route code-metadata and branch-hint claims through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md). |
 | Unknown custom names | Non-semantic custom payloads that the core spec allows tools to ignore. | Opaque `CustomSec(name, payload)`. | Preserve unless a page and tests name the exact metadata policy; do not implement generic custom-section stripping by accident. |
 
@@ -101,6 +108,17 @@ payload = name:string + raw payload bytes
 
 Starshine stores this as [`CustomSec(Name, Bytes)`](../../../src/lib/types.mbt). Decode keeps the payload bytes after the custom-section name; encode reconstructs the section wrapper in [`src/binary/encode.mbt`](../../../src/binary/encode.mbt).
 
+### Compiler facts section
+
+```text
+section id = 0
+section name = "compiler.facts"
+payload = CompilerFactCustomSection
+CompilerFactCustomSection = version:u32 + fingerprint:option<bytes> + facts:OptimizationFactsSec
+```
+
+Version 1 encodes booleans as `00`/`01`, enums as one-byte stable discriminators plus payload, raw `UInt`/`UInt64`/`Int64` with the existing unsigned/signed LEB128 primitives, arrays as `u32 length + elements`, options as `00` or `01 + value`, and bytes as `u32 length + raw bytes`. There is no compression, string table, field directory, TLV layer, field numbering, or delta encoding. `ExpressionFact.offset` and other site offsets are byte offsets in Starshine's canonical binary encoding, measured from the first instruction opcode after the local-declaration vector; offset zero names the first opcode. Structured delimiters such as `else`, `catch`, and `end` are not instruction sites.
+
 ### Structured name section
 
 ```text
@@ -121,15 +139,19 @@ The official text `(@custom "name" ... "payload")` annotation is a placement-awa
 
 | Stage | Starshine behavior | Evidence |
 | --- | --- | --- |
-| Decode custom gaps | [`decode_custom_sections_with_detail(...)`](../../../src/binary/decode.mbt) consumes custom sections before each standard section and at the tail. Non-`name` sections become `CustomSec`; the first `name` section becomes `NameSec` plus `raw_name_sec_payload`; a second `name` section is a decode error. | `src/binary/decode.mbt`, `src/binary/tests.mbt` malformed custom and name-section tests. |
+| Decode custom gaps | [`decode_custom_sections_with_detail(...)`](../../../src/binary/decode.mbt) consumes custom sections before each standard section and at the tail. Ordinary names become `CustomSec`; `name` becomes `NameSec` plus `raw_name_sec_payload`; `compiler.facts` becomes `CompilerFactCustomSection`. Duplicate special sections are errors. | `src/binary/decode.mbt`, `src/binary/compiler_facts_decode.mbt`, and focused malformed/roundtrip tests. |
 | Decode name payload | [`Decode for NameSec`](../../../src/binary/decode.mbt) enforces strictly increasing subsection ids and rejects ids outside `0..11`. Ids `3` and `5..9` are proposal-facing/Starshine-local name maps, not current official WebAssembly 3.0 name subsections. | `InvalidNameSubsectionOrder`, `InvalidNameSubsectionId` in `src/binary/decode.mbt`; current custom/name refresh plus the focused Extended Name Section boundary. |
-| Encode custom sections | [`Encode for Module`](../../../src/binary/encode.mbt) emits `custom_secs` first and rejects `CustomSec` entries named `name`. | `RawNameCustomSectionUnsupported` in `src/binary/encode.mbt`. |
+| Encode custom sections | [`Encode for Module`](../../../src/binary/encode.mbt) emits ordinary `custom_secs`, then exactly one explicit `compiler.facts` section when present. Generic entries named `name` or `compiler.facts` are rejected. | `RawNameCustomSectionUnsupported`, `ReservedCompilerFactsCustomSection`, and compiler-facts module roundtrip/conflict tests. |
 | Encode name section | If `raw_name_sec_payload` is present, encode reuses that payload; otherwise it serializes structured `NameSec` subsections. | `encode_raw_name_sec_payload_as_custom_section(...)`, `encode_name_sec_as_custom_section(...)`. |
 | Structured rewrite | [`Module::with_name_sec(...)`](../../../src/lib/module.mbt) and [`Module::without_name_sec(...)`](../../../src/lib/module.mbt) clear the raw payload so stale byte-level names are not re-emitted after structured changes. | `src/lib/module.mbt`. |
 
 ## Validation Contract
 
-[`validate_name_sec(...)`](../../../src/validate/validate.mbt) makes name-section metadata locally useful instead of treating it as inert bytes; it runs in the final `namesec` phase documented by [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md):
+[`validate_name_sec(...)`](../../../src/validate/validate.mbt) makes name-section metadata locally useful instead of treating it as inert bytes; it runs in the final `namesec` phase documented by [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md). The following `compiler_facts` phase validates the explicit advisory section through direct `Validate` implementations for every representation type.
+
+Compiler-facts validation checks version 1, recursive nested structure, all referenced function/type/global/memory/table indices, parameter/result arity, direct targets, exact heap types, range order, closed-set normalization and members, defined mask bits, duplicate function/body records, and site-containing function consistency. At module scope, every `FunctionBodyFacts` record must target a defined function body, and every expression, relation endpoint, call, branch, loop, and allocation offset must equal an actual instruction-opcode start in that body's canonical encoding. [`compiler_fact_opcode_offsets(...)`](../../../src/binary/compiler_fact_sites.mbt) uses the production instruction encoder so multi-byte immediates, nested control bodies, and string-reference indices stay aligned; structural delimiter bytes are rejected as sites. Fingerprints remain opaque bytes with no fixed width. Validation does not attempt to prove advisory claims true and ordinary Wasm validation never depends on them.
+
+Name validation rules remain:
 
 - raw `CustomSec("name", ...)` entries are rejected; use `Module.name_sec`;
 - function, type, tag, and the local Starshine label, table, memory, global, element, and data name maps must point at existing indices;
@@ -142,6 +164,8 @@ This is stricter than the core semantic rule that custom sections are ignored, a
 ## Pass And Tooling Implications
 
 ### Index-rewriting passes
+
+`Module` helpers that replace type, import, function, table, memory, global, stringrefs, or code sections conservatively clear `compiler_fact_custom_section`. This covers indexed references and body-relative byte offsets without introducing a general remapping framework. Reconstruction-heavy module passes also omit the field by default, so index-changing rewrites drop stale facts unless a future pass explicitly supplies a proven mapping. Unrelated custom/name/export metadata helpers preserve the field.
 
 Passes that remove or reorder index spaces must rewrite or clear affected name maps:
 
@@ -172,7 +196,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 ## Edge Cases And Invariants
 
 - **Placement is not preserved.** Decode accepts custom sections at every spec-allowed gap, but encode currently emits all non-`name` custom sections before standard sections. If exact placement matters, add a placement-bearing representation rather than relying on `custom_secs` order alone.
-- **Only one `name` section is accepted.** Duplicate `name` custom sections are rejected during module decode.
+- **Only one `name` and one `compiler.facts` section are accepted.** Duplicate special custom sections are rejected during module decode, and trailing bytes inside `compiler.facts` are errors.
 - **Raw name payload reuse is conditional.** Preserve it only when no pass or API call has structurally rewritten names or referenced index spaces.
 - **The official subsection set is smaller than Starshine's local/proposal-facing map.** Current Core 3.0 primary sources standardize `0`, `1`, `2`, `4`, `10`, and `11`; active Extended Name Section proposal evidence covers id `3` for label names and ids `5` through `9` for table, memory, global, element, and data names. Do not add new subsection ids, claim Core support for the extended ids, or remove the proposal/local caveat without refreshing primary sources and extending decode/encode/validation tests plus any affected `--print-*` selector expectations together.
 - **Official `@name` and `@custom` text annotations are not the same as `FuncAnnotationSec`.** If a test needs portable name annotation or custom-section placement behavior, add explicit WAST parser/lowerer/printer coverage for those official forms instead of relying on Starshine's existing function/import annotation parser.
@@ -181,7 +205,8 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **Function annotations are not binary name sections.** `FuncAnnotationSec` is a Starshine WAST/in-memory metadata lane today; the binary codec does not encode or decode it. Route code-metadata, inline-hint, branch-hint, and no-inline-marker details through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
 - **`producers` is provenance, not policy.** Preserve it by default, but do not read it as an optimizer, feature, or pass-scheduling input.
 - **`target_features` is linker metadata, not lowering.** Its convention payload distinguishes used (`+`) and disallowed (`-`) feature names, but Core validation may ignore the custom bytes. A future `strip-target-features` port may remove or suppress the named metadata section; the executable feature surface must still be lowered, validated, or rejected by the actual instruction/type/section owners, and a future `emit-target-features` port still needs a feature-fact derivation/output policy.
-- **`metadata.code.*` names need focused ownership.** Branch hints, Binaryen inline examples, and Compilation Hints proposal payloads share a naming family but have different status and local support. Preserve unknown payloads opaquely unless a named metadata policy owns them.
+- **Compiler facts are advisory.** Consumers may ignore them completely; no optimizer consumes them today. Unknown information stays distinct from negative information, and an absent closed set never means an empty complete set.
+- **`metadata.code.*` names need focused ownership.** Branch hints, Binaryen inline examples, and Compilation Hints proposal payloads share a naming family but have different status and local support. The Starshine-specific `compiler.facts` format does not imply proposal support. Preserve unknown payloads opaquely unless a named metadata policy owns them.
 - **Function names depend on absolute function-index stability.** See [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) for the imported-prefix `FuncIdx` model that function name maps describe.
 - **Type/table/memory/global/tag names depend on imported-prefix or definition-order stability.** See [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the shared type and module resource index-space contract.
 - **Element/data names depend on segment-index stability.** See [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) for the canonical segment model that those name maps describe.
@@ -196,8 +221,9 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - Compilation Hints boundary: [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md) and its cited official proposal sources.
 - Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
 - CLI print-utility routing audit: [research note 0711](../tooling/cli-command-and-dispatcher.md)
+- Compiler-facts representation: [`../../../src/representation/compiler_facts.mbt`](../../../src/representation/compiler_facts.mbt)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
-- Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
-- Validation and invalid generation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
+- Decode and encode: [`../../../src/binary/compiler_facts_decode.mbt`](../../../src/binary/compiler_facts_decode.mbt), [`../../../src/binary/compiler_facts_encode.mbt`](../../../src/binary/compiler_facts_encode.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/compiler_facts_wbtest.mbt`](../../../src/binary/compiler_facts_wbtest.mbt)
+- Validation and invalid generation: [`../../../src/validate/compiler_facts.mbt`](../../../src/validate/compiler_facts.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - CLI print selector implementation and tests: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../tooling/cli-command-and-dispatcher.md`](../tooling/cli-command-and-dispatcher.md)
 - Related docs: [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md`](../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md)

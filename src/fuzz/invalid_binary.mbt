@@ -822,6 +822,7 @@ fn validate_invalid_binary_validation_family_label(
     ExportSectionFamily => "export"
     CodeSectionFamily => "code"
     NameSectionFamily => "name"
+    CompilerFactsSectionFamily => "compiler-facts"
     FunctionBodyFamily => "function-body"
   }
 }

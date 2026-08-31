@@ -14,6 +14,7 @@ pub enum ValidationIssueFamily {
   ExportSectionFamily
   CodeSectionFamily
   NameSectionFamily
+  CompilerFactsSectionFamily
   FunctionBodyFamily
 } derive(Eq, Debug)
 
@@ -36,6 +37,7 @@ pub fn validation_issue_family(
     ExportSection(_) => ExportSectionFamily
     CodeSection(_) => CodeSectionFamily
     NameSection(_) => NameSectionFamily
+    CompilerFactsSection(_) => CompilerFactsSectionFamily
     FunctionBody(_) => FunctionBodyFamily
   }
 }
@@ -57,6 +59,7 @@ fn validation_issue_family_label(family : ValidationIssueFamily) -> String {
     ExportSectionFamily => "export"
     CodeSectionFamily => "code"
     NameSectionFamily => "name"
+    CompilerFactsSectionFamily => "compiler-facts"
     FunctionBodyFamily => "function-body"
   }
 }

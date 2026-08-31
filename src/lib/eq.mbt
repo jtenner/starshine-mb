@@ -17,6 +17,7 @@ pub impl Eq for Module with fn equal(l, r) {
   }
   l.type_sec == r.type_sec &&
   l.name_sec == r.name_sec &&
+  l.compiler_fact_custom_section == r.compiler_fact_custom_section &&
   l.import_sec == r.import_sec &&
   l.func_annotation_sec == r.func_annotation_sec &&
   l.func_sec == r.func_sec &&

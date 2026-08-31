@@ -92,6 +92,44 @@ using @lib {
 }
 
 ///|
+using @representation {
+  type AllocationSiteFacts,
+  type BranchFacts,
+  type BranchProfile,
+  type CallProfile,
+  type CallSiteFacts,
+  type ClosedFunctionSet,
+  type ClosedGlobalSet,
+  type ClosedMemorySet,
+  type ClosedTableSet,
+  type ClosedTypeViewSet,
+  type CompilerFactCustomSection,
+  type EffectFacts,
+  type EffectMask,
+  type EscapeSinkMask,
+  type ExpressionFact,
+  type Fact,
+  type FactRelation,
+  type FactSiteRef,
+  type FunctionBodyFacts,
+  type FunctionBoundaryFacts,
+  type FunctionFacts,
+  type FunctionProfile,
+  type InlinePolicy,
+  type LoopFacts,
+  type LoopProfile,
+  type OptimizationFactsSec,
+  type ParameterFacts,
+  type ParameterUseMask,
+  type ResultFacts,
+  type ResultIdentityFacts,
+  type SignedRange,
+  type TemperatureHint,
+  type UnsignedRange,
+  type ValueFacts,
+}
+
+///|
 using @splitmix {type RandomState}
 
 ///|

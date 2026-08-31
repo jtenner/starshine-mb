@@ -1,0 +1,306 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/representation"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct AllocationSiteFacts {
+  function : UInt
+  offset : UInt
+  heap_type : UInt?
+  does_not_escape : Bool
+  identity_not_observed : Bool
+} derive(Eq, Hash, @debug.Debug)
+pub fn AllocationSiteFacts::new(UInt, UInt, heap_type? : UInt?, does_not_escape? : Bool, identity_not_observed? : Bool) -> Self
+
+pub struct BranchFacts {
+  function : UInt
+  offset : UInt
+  profile : BranchProfile?
+  temperature : TemperatureHint?
+} derive(Eq, Hash, @debug.Debug)
+pub fn BranchFacts::new(UInt, UInt, profile? : BranchProfile?, temperature? : TemperatureHint?) -> Self
+
+pub struct BranchProfile {
+  taken : UInt64
+  not_taken : UInt64
+} derive(Eq, Hash, @debug.Debug)
+pub fn BranchProfile::new(UInt64, UInt64) -> Self
+
+pub struct CallProfile {
+  count : UInt64?
+  temperature : TemperatureHint?
+} derive(Eq, Hash, @debug.Debug)
+pub fn CallProfile::new(count? : UInt64?, temperature? : TemperatureHint?) -> Self
+
+pub struct CallSiteFacts {
+  function : UInt
+  offset : UInt
+  direct_target : UInt?
+  profile : CallProfile?
+  inline_policy : InlinePolicy?
+} derive(Eq, Hash, @debug.Debug)
+pub fn CallSiteFacts::new(UInt, UInt, direct_target? : UInt?, profile? : CallProfile?, inline_policy? : InlinePolicy?) -> Self
+
+pub struct ClosedFunctionSet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedFunctionSet::new(Array[UInt]) -> Self
+
+pub struct ClosedGlobalSet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedGlobalSet::new(Array[UInt]) -> Self
+
+pub struct ClosedMemorySet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedMemorySet::new(Array[UInt]) -> Self
+
+pub struct ClosedTableSet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedTableSet::new(Array[UInt]) -> Self
+
+pub struct ClosedTypeViewSet(Array[UInt]) derive(Eq, Hash, @debug.Debug)
+pub fn ClosedTypeViewSet::new(Array[UInt]) -> Self
+
+pub struct CompilerFactCustomSection {
+  version : UInt
+  module_fingerprint : Bytes?
+  facts : OptimizationFactsSec
+} derive(Eq, Hash, @debug.Debug)
+pub fn CompilerFactCustomSection::new(OptimizationFactsSec, version? : UInt, module_fingerprint? : Bytes?) -> Self
+
+pub struct EffectFacts {
+  may : EffectMask
+  read_globals : ClosedGlobalSet?
+  written_globals : ClosedGlobalSet?
+  read_memories : ClosedMemorySet?
+  written_memories : ClosedMemorySet?
+  read_tables : ClosedTableSet?
+  written_tables : ClosedTableSet?
+  read_heap_types : ClosedTypeViewSet?
+  written_heap_types : ClosedTypeViewSet?
+  direct_callees : ClosedFunctionSet?
+} derive(Eq, Hash, @debug.Debug)
+pub fn EffectFacts::new(EffectMask, read_globals? : ClosedGlobalSet?, written_globals? : ClosedGlobalSet?, read_memories? : ClosedMemorySet?, written_memories? : ClosedMemorySet?, read_tables? : ClosedTableSet?, written_tables? : ClosedTableSet?, read_heap_types? : ClosedTypeViewSet?, written_heap_types? : ClosedTypeViewSet?, direct_callees? : ClosedFunctionSet?) -> Self
+
+pub struct EffectMask(UInt64) derive(Eq, Hash, @debug.Debug)
+pub fn EffectMask::allocation() -> Self
+pub fn EffectMask::bits(Self) -> UInt64
+pub fn EffectMask::call() -> Self
+pub fn EffectMask::contains(Self, Self) -> Bool
+pub fn EffectMask::control() -> Self
+pub fn EffectMask::empty() -> Self
+pub fn EffectMask::from_bits(UInt64) -> Self
+pub fn EffectMask::global_state() -> Self
+pub fn EffectMask::heap_read() -> Self
+pub fn EffectMask::heap_write() -> Self
+pub fn EffectMask::local_state() -> Self
+pub fn EffectMask::memory_read() -> Self
+pub fn EffectMask::memory_write() -> Self
+pub fn EffectMask::table_read() -> Self
+pub fn EffectMask::table_write() -> Self
+pub fn EffectMask::throw_() -> Self
+pub fn EffectMask::trap() -> Self
+pub fn EffectMask::union(Self, Self) -> Self
+
+pub struct EscapeSinkMask(UInt64) derive(Eq, Hash, @debug.Debug)
+pub fn EscapeSinkMask::bits(Self) -> UInt64
+pub fn EscapeSinkMask::call() -> Self
+pub fn EscapeSinkMask::contains(Self, Self) -> Bool
+pub fn EscapeSinkMask::empty() -> Self
+pub fn EscapeSinkMask::from_bits(UInt64) -> Self
+pub fn EscapeSinkMask::global() -> Self
+pub fn EscapeSinkMask::heap() -> Self
+pub fn EscapeSinkMask::host_unknown() -> Self
+pub fn EscapeSinkMask::memory() -> Self
+pub fn EscapeSinkMask::return_() -> Self
+pub fn EscapeSinkMask::table() -> Self
+pub fn EscapeSinkMask::throw_() -> Self
+pub fn EscapeSinkMask::union(Self, Self) -> Self
+
+pub struct ExpressionFact {
+  function : UInt
+  offset : UInt
+  facts : Array[Fact]
+} derive(Eq, Hash, @debug.Debug)
+pub fn ExpressionFact::new(UInt, UInt, Array[Fact]) -> Self
+
+pub enum Fact {
+  NonNull
+  ExactHeapType(UInt)
+  ExactCallTarget(UInt)
+  SignedRangeFact(Int64, Int64)
+  UnsignedRangeFact(UInt64, UInt64)
+  DoesNotEscape
+  IdentityNotObserved
+} derive(Eq, Hash, @debug.Debug)
+pub fn Fact::does_not_escape() -> Self
+pub fn Fact::exact_call_target(UInt) -> Self
+pub fn Fact::exact_heap_type(UInt) -> Self
+pub fn Fact::identity_not_observed() -> Self
+pub fn Fact::non_null() -> Self
+pub fn Fact::signed_range(Int64, Int64) -> Self
+pub fn Fact::unsigned_range(UInt64, UInt64) -> Self
+
+pub enum FactRelation {
+  SameValue(FactSiteRef, FactSiteRef)
+  SameIdentity(FactSiteRef, FactSiteRef)
+  DerivedFrom(FactSiteRef, FactSiteRef)
+} derive(Eq, Hash, @debug.Debug)
+pub fn FactRelation::derived_from(FactSiteRef, FactSiteRef) -> Self
+pub fn FactRelation::same_identity(FactSiteRef, FactSiteRef) -> Self
+pub fn FactRelation::same_value(FactSiteRef, FactSiteRef) -> Self
+
+pub struct FactSiteRef {
+  function : UInt
+  offset : UInt
+} derive(Eq, Hash, @debug.Debug)
+pub fn FactSiteRef::new(UInt, UInt) -> Self
+
+pub struct FunctionBodyFacts {
+  function : UInt
+  sites : Array[ExpressionFact]
+  relations : Array[FactRelation]
+  calls : Array[CallSiteFacts]
+  branches : Array[BranchFacts]
+  loops : Array[LoopFacts]
+  allocations : Array[AllocationSiteFacts]
+} derive(Eq, Hash, @debug.Debug)
+pub fn FunctionBodyFacts::new(UInt, sites? : Array[ExpressionFact], relations? : Array[FactRelation], calls? : Array[CallSiteFacts], branches? : Array[BranchFacts], loops? : Array[LoopFacts], allocations? : Array[AllocationSiteFacts]) -> Self
+
+pub struct FunctionBoundaryFacts {
+  all_call_sites_known : Bool
+  address_taken : Bool
+  host_callable : Bool
+} derive(Eq, Hash, @debug.Debug)
+pub fn FunctionBoundaryFacts::new(Bool, Bool, Bool) -> Self
+
+pub struct FunctionFacts {
+  function : UInt
+  effects : EffectFacts?
+  parameters : Array[ParameterFacts]
+  results : Array[ResultFacts]
+  boundary : FunctionBoundaryFacts?
+  profile : FunctionProfile?
+  inline_policy : InlinePolicy?
+} derive(Eq, Hash, @debug.Debug)
+pub fn FunctionFacts::new(UInt, effects? : EffectFacts?, parameters? : Array[ParameterFacts], results? : Array[ResultFacts], boundary? : FunctionBoundaryFacts?, profile? : FunctionProfile?, inline_policy? : InlinePolicy?) -> Self
+
+pub struct FunctionProfile {
+  entry_count : UInt64?
+  temperature : TemperatureHint?
+} derive(Eq, Hash, @debug.Debug)
+pub fn FunctionProfile::new(entry_count? : UInt64?, temperature? : TemperatureHint?) -> Self
+
+pub enum InlinePolicy {
+  DefaultInlinePolicy
+  NeverInline
+  PreferInline
+  AlwaysInline
+} derive(Eq, Hash, @debug.Debug)
+pub fn InlinePolicy::always() -> Self
+pub fn InlinePolicy::default_() -> Self
+pub fn InlinePolicy::never() -> Self
+pub fn InlinePolicy::prefer() -> Self
+
+pub struct LoopFacts {
+  function : UInt
+  offset : UInt
+  profile : LoopProfile?
+  temperature : TemperatureHint?
+} derive(Eq, Hash, @debug.Debug)
+pub fn LoopFacts::new(UInt, UInt, profile? : LoopProfile?, temperature? : TemperatureHint?) -> Self
+
+pub struct LoopProfile {
+  backedge_count : UInt64?
+  estimated_trip_count : UInt64?
+} derive(Eq, Hash, @debug.Debug)
+pub fn LoopProfile::new(backedge_count? : UInt64?, estimated_trip_count? : UInt64?) -> Self
+
+pub struct OptimizationFactsBuilder {
+  functions : Array[FunctionFacts]
+  bodies : Array[FunctionBodyFacts]
+} derive(Eq, Hash, @debug.Debug)
+pub fn OptimizationFactsBuilder::add_body(Self, FunctionBodyFacts) -> Unit
+pub fn OptimizationFactsBuilder::add_function(Self, FunctionFacts) -> Unit
+pub fn OptimizationFactsBuilder::finish(Self) -> OptimizationFactsSec
+pub fn OptimizationFactsBuilder::new() -> Self
+
+pub struct OptimizationFactsSec {
+  functions : Array[FunctionFacts]
+  bodies : Array[FunctionBodyFacts]
+} derive(Eq, Hash, @debug.Debug)
+pub fn OptimizationFactsSec::new(functions? : Array[FunctionFacts], bodies? : Array[FunctionBodyFacts]) -> Self
+
+pub struct ParameterFacts {
+  parameter : UInt
+  value : ValueFacts?
+  uses : ParameterUseMask?
+  escape_sinks : EscapeSinkMask?
+} derive(Eq, Hash, @debug.Debug)
+pub fn ParameterFacts::new(UInt, value? : ValueFacts?, uses? : ParameterUseMask?, escape_sinks? : EscapeSinkMask?) -> Self
+
+pub struct ParameterUseMask(UInt64) derive(Eq, Hash, @debug.Debug)
+pub fn ParameterUseMask::address_index() -> Self
+pub fn ParameterUseMask::bits(Self) -> UInt64
+pub fn ParameterUseMask::call_argument() -> Self
+pub fn ParameterUseMask::contains(Self, Self) -> Bool
+pub fn ParameterUseMask::control() -> Self
+pub fn ParameterUseMask::direct_computation() -> Self
+pub fn ParameterUseMask::empty() -> Self
+pub fn ParameterUseMask::from_bits(UInt64) -> Self
+pub fn ParameterUseMask::identity_observing() -> Self
+pub fn ParameterUseMask::return_() -> Self
+pub fn ParameterUseMask::stored_value() -> Self
+pub fn ParameterUseMask::union(Self, Self) -> Self
+
+pub struct ResultFacts {
+  result : UInt
+  value : ValueFacts?
+  identity : ResultIdentityFacts?
+} derive(Eq, Hash, @debug.Debug)
+pub fn ResultFacts::new(UInt, value? : ValueFacts?, identity? : ResultIdentityFacts?) -> Self
+
+pub enum ResultIdentityFacts {
+  FreshIdentity
+  SameAsParameter(UInt)
+} derive(Eq, Hash, @debug.Debug)
+pub fn ResultIdentityFacts::fresh() -> Self
+pub fn ResultIdentityFacts::same_as_parameter(UInt) -> Self
+
+pub struct SignedRange {
+  min : Int64
+  max : Int64
+} derive(Eq, Hash, @debug.Debug)
+pub fn SignedRange::new(Int64, Int64) -> Self
+
+pub enum TemperatureHint {
+  Cold
+  Normal
+  Hot
+} derive(Eq, Hash, @debug.Debug)
+pub fn TemperatureHint::cold() -> Self
+pub fn TemperatureHint::hot() -> Self
+pub fn TemperatureHint::normal() -> Self
+
+pub struct UnsignedRange {
+  min : UInt64
+  max : UInt64
+} derive(Eq, Hash, @debug.Debug)
+pub fn UnsignedRange::new(UInt64, UInt64) -> Self
+
+pub struct ValueFacts {
+  non_null : Bool
+  exact_heap_type : UInt?
+  exact_call_target : UInt?
+  signed_range : SignedRange?
+  unsigned_range : UnsignedRange?
+  does_not_escape : Bool
+  identity_not_observed : Bool
+} derive(Eq, Hash, @debug.Debug)
+pub fn ValueFacts::new(non_null? : Bool, exact_heap_type? : UInt?, exact_call_target? : UInt?, signed_range? : SignedRange?, unsigned_range? : UnsignedRange?, does_not_escape? : Bool, identity_not_observed? : Bool) -> Self
+
+// Type aliases
+
+// Traits

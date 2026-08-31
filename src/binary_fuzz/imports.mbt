@@ -1,0 +1,61 @@
+///|
+using @binary {
+  trait Decode,
+  trait Encode,
+  type BinaryDecodeError,
+  type BinaryEncodeError,
+  decode_module,
+  encode_module,
+}
+
+///|
+using @lib {
+  type BlockType,
+  type CodeSec,
+  type CompType,
+  type CustomSec,
+  type Data,
+  type DataCntSec,
+  type DataSec,
+  type Elem,
+  type ElemSec,
+  type ExportSec,
+  type ExternType,
+  type F32,
+  type F64,
+  type Func,
+  type FuncIdx,
+  type FuncSec,
+  type GlobalSec,
+  type I64,
+  type ImportSec,
+  type Instruction,
+  type LaneIdx,
+  type LocalIdx,
+  type MemArg,
+  type MemIdx,
+  type MemSec,
+  type MemType,
+  type Module,
+  type Name,
+  type RecType,
+  type RefType,
+  type StartSec,
+  type StorageType,
+  type SubType,
+  type TableSec,
+  type TableType,
+  type TagSec,
+  type TagType,
+  type TypeIdx,
+  type TypeSec,
+  type ValType,
+}
+
+///|
+using @validate {
+  type GenValidConfig,
+  gen_valid_module_result,
+  validate_module,
+  validation_error_message,
+}

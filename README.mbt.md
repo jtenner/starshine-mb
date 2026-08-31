@@ -37,6 +37,8 @@ For JavaScript/npm usage, see [node/README.md](./node/README.md).
 | `jtenner/starshine/wat` | Text-format wasm helpers. |
 | `jtenner/starshine/validate` | Validation, type matching, and valid-module generation helpers. |
 | `jtenner/starshine/binary` | Binary encoding/decoding + LEB128 helpers. |
+| `jtenner/starshine/binary_fuzz` | Shared binary roundtrip, GenValid, corruption, and boundary fuzz harness. |
+| `jtenner/starshine/representation` | Dependency-root data models for advisory compiler facts. |
 | `jtenner/starshine/lib` | Core Wasm types and constructors. |
 | `jtenner/starshine/ir` | `HotFunc` hot function IR, architecture contracts, and lift/lower helpers. |
 | `jtenner/starshine/passes` | Hot and module pass registry, pass manager, and preset pipeline orchestration. |

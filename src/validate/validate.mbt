@@ -25,6 +25,7 @@ pub enum ValidationIssue {
   ExportSection(String)
   CodeSection(String)
   NameSection(String)
+  CompilerFactsSection(String)
   FunctionBody(String)
 } derive(Eq, Debug)
 
@@ -58,6 +59,7 @@ pub fn validation_issue_message(issue : ValidationIssue) -> String {
     | StartSection(msg)
     | ExportSection(msg)
     | NameSection(msg)
+    | CompilerFactsSection(msg)
     | CodeSection(msg)
     | FunctionBody(msg) => msg
   }
@@ -3330,6 +3332,26 @@ fn validate_module_impl(
         ValidationDiagnostic::new(ValidationIssue::NameSection(t)),
         trace_enabled,
       )
+  }
+  if module_has_compiler_fact_metadata(m) {
+    let compiler_facts_start_ms = validate_trace_phase_start(
+      trace, "compiler_facts", trace_enabled,
+    )
+    match validate_compiler_fact_module_section(m, env, imported_func_count) {
+      Ok(_) =>
+        validate_trace_phase_done(
+          trace, "compiler_facts", compiler_facts_start_ms, trace_enabled,
+        )
+      Err(t) =>
+        return validate_trace_module_error(
+          trace,
+          validate_start_ms,
+          "compiler_facts",
+          compiler_facts_start_ms,
+          ValidationDiagnostic::new(ValidationIssue::CompilerFactsSection(t)),
+          trace_enabled,
+        )
+    }
   }
   if trace_enabled {
     validate_trace_emit_totals(trace)
