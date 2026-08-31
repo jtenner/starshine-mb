@@ -251,7 +251,7 @@ Keep these non-goals explicit:
 
 ## Starshine mapping note
 
-Starshine **does** expose `ssa`, but only as an active partial direct pass: `src/passes/ssa.mbt` delegates non-merge families to the local no-merge rewrite and returns unchanged when LocalGraph finds a merge read. It does not yet implement Binaryen's public merge-local + incoming-`tee` + parameter-prepend contract. The active sibling `ssa-nomerge` remains the preset pass and uses Starshine's HOT SSA overlay/destruction machinery. See [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and the planned-only [`./fuzzing.md`](./fuzzing.md) admission boundary.
+Starshine exposes a complete direct `ssa` implementation of this v131 contract. `src/passes/ssa.mbt` performs write freshening, single-source/default handling, merge-local allocation, incoming tees, and parameter prepends from full-flow LocalGraph facts; `src/passes/pass_manager.mbt` commits the plan through raw stack-machine writeback with batched rollback. The active sibling `ssa-nomerge` remains the preset pass. See [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and [`./fuzzing.md`](./fuzzing.md).
 
 ## Bottom line
 

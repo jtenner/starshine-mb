@@ -1,190 +1,159 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-30
 sources:
-  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
-  - ./index.md
-  - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../src/cmd/cmd.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SSAify.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/LocalGraph.cpp
   - ../../../../../src/passes/ssa.mbt
   - ../../../../../src/passes/ssa_test.mbt
-  - ../../../../../src/passes/ssa_nomerge.mbt
-  - ../../../../../src/passes/ssa_nomerge_test.mbt
+  - ../../../../../src/passes/ssa_wbtest.mbt
   - ../../../../../src/ir/local_graph.mbt
-  - ../../../../../src/passes/pass_common.mbt
-  - ../../../../../src/ir/ssa_policy.mbt
-  - ../../../../../src/ir/ssa_local.mbt
-  - ../../../../../src/ir/ssa_destroy.mbt
-  - ../../../../../src/ir/analysis_cache.mbt
-  - ../../../../../agent-todo.md
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/pass_manager_wbtest.mbt
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_ssa.mbt
+  - ../../../../../src/validate/gen_valid_ssa_full_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
-  - ./implementation-structure-and-tests.md
   - ./merge-locals-entry-prepends-and-default-values.md
   - ./wat-shapes.md
   - ./starshine-port-readiness-and-validation.md
-  - ../ssa-nomerge/starshine-hot-ir-strategy.md
+  - ./fuzzing.md
   - ../ssa-nomerge/index.md
-  - ../tracker.md
 ---
 
-# Starshine status and port strategy for full `ssa`
+# Starshine full `ssa` strategy
 
-This page describes the **current local Starshine status** for upstream Binaryen's public full `ssa` pass.
+## Current status
 
-The short version:
+Starshine implements full public `ssa` as an active hot-pass registry name and direct CLI pass.
 
-- Starshine now records full `ssa` as an active hot-pass name for the direct non-merge families from Binaryen's `ssa.wast`: repeated parameter overwrites and default/null replacements.
-- Starshine keeps full-`ssa` merge families fail-closed until `[SSA-FULL]002C` through `[SSA-FULL]002E` implement Binaryen-shaped merge-local mutation, entry prepends, and loop handling.
-- Starshine has a full-`ssa` merge planner in `src/passes/ssa.mbt` that consumes LocalGraph reaching sources and records Binaryen-shaped merge-local inputs; 002B uses the planner only as a merge-family boundary, not as a merge-local mutator.
-- Starshine still exposes and actively runs the sibling [`ssa-nomerge`](../ssa-nomerge/index.md); presets continue to use that sibling, not full `ssa`.
+The implementation covers the complete Binaryen v131 source-level contract:
 
-## Current local registry status
+- fresh local allocation for every write whose original local is not already SSA;
+- single-source get retargeting;
+- parameter-entry preservation;
+- explicit numeric, vector, and nullable-reference defaults;
+- fresh merge local per multi-source get;
+- explicit incoming `local.tee` writes;
+- parameter-entry prepends;
+- ordinary default-entry no-prepend behavior;
+- shared predecessor sets feeding multiple merge gets;
+- loops, direct branches, `br_if`, `br_table`, typed loop control, nested value blocks, and explicit exceptional predecessors.
 
-`src/passes/optimize.mbt` is the source of truth for pass names.
+`ssa-nomerge` remains a separate sibling and remains the pass used by presets. Full `ssa` is direct-only unless a future scheduler decision explicitly changes that.
 
-Current facts:
+## Execution architecture
 
-- `ssa-nomerge` is an active hot-pass registry entry.
-- `ssa` is now an active hot-pass registry entry for safe non-merge families only.
-- direct `--ssa` CLI requests parse as registry-owned pass flags and execute the staged full-SSA runner.
-- the staged runner reuses existing non-merge rewrite machinery for functions with no LocalGraph merge reads, rewrites no-write default local reads through the raw default materializer, and returns unchanged for merge reads until merge-local materialization lands.
-- the public `optimize` and `shrink` presets contain `ssa-nomerge`, not full `ssa`.
+The public pass has three layers.
 
-That means an explicit local `--ssa` request is no longer boundary-only, but it is still intentionally partial. This status prevents silent aliasing to `ssa-nomerge` while allowing the official non-merge lit families to execute under the public full-SSA name.
+### 1. Full-flow LocalGraph
 
-## Why the active partial pass still needs broader SSA machinery
+`src/ir/local_graph.mbt` exposes `local_graph_build_full_flow(...)` for full `ssa`.
 
-An active partial public `ssa` pass does not mean the repo already has Binaryen-compatible full-SSA mutation.
+It uses Binaryen-style reverse flow rather than the older all-local fixed-point matrix:
 
-Starshine's local HOT pipeline has an SSA overlay model used by the active sibling and by other analyses:
+- record local get/set/tee actions per CFG block;
+- scan backward inside the current block first;
+- flow unresolved reads through predecessor blocks;
+- include exceptional predecessors for the full pass;
+- cache block-entry source queries by block and local;
+- reconstruct set-to-get influence lists and already-SSA local facts.
 
-- `src/ir/ssa_policy.mbt`
-  - owns the local SSA vocabulary: value origins, phi definitions, phi inputs, use origins, rename/destruction policy names, and explicit excluded-feature labels.
-- `src/ir/ssa_local.mbt`
-  - builds a `HotLocalSsa` overlay using CFG, dominance, liveness, and use-def analysis.
-  - seeds entry definitions for params and ordinary locals.
-  - places block phis and records predecessor inputs.
-- `src/ir/ssa_destroy.mbt`
-  - maps SSA values back to concrete locals.
-  - appends extra locals when needed.
-  - rewrites local gets/sets/tees onto chosen concrete locals.
-  - inserts predecessor copies for phis.
-  - removes dead local definitions when safe.
-- `src/passes/pass_common.mbt`
-  - exposes cached SSA construction through `pass_require_ssa(...)`.
-- `src/ir/analysis_cache.mbt`
-  - stores `HotLocalSsa` in the per-function analysis cache.
+The ordinary `local_graph_build(...)` API keeps its existing normal-flow behavior for `ssa-nomerge` and other users.
 
-So the local infrastructure is real and important. The missing piece is the **merge-owning part** of a public pass whose contract matches Binaryen full `ssa`: merge locals, incoming tees, parameter prepends, and broader control-flow handling.
+### 2. Transactional rewrite plan
 
-For first-slice implementation order and validation, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That page keeps registry honesty, source classification, merge-local rewriting, and sibling-stability tests together.
+`src/passes/ssa.mbt` builds one immutable `SsaFullRewritePlan` before mutation.
 
-## Exact local code map
+The plan contains:
 
-Use this map when following along in-tree:
+- ordered write decisions: `Freshen` or `KeepCanonical`;
+- ordered get decisions: `Retarget`, `MaterializeDefault`, `Merge`, or `KeepCanonical`;
+- merge-get records with explicit-write, parameter-entry, and default-entry inputs.
 
-- `src/passes/optimize.mbt`
-  - owns pass categories, presets, and request lookup.
-  - active entries start with `ssa-nomerge`; sibling `ssa` is now an active hot pass for non-merge families only and remains out of presets.
-  - `optimize` and `shrink` presets both include `ssa-nomerge` in the early hot-pass slot.
-- `src/passes/ssa.mbt`
-  - full-`ssa` descriptor/summary and staged runner surface for `[SSA-FULL]002B`.
-  - `SsaFullRewritePlan` records merge-get rewrites; each rewrite names the original get/local, the future fresh merge-local id, and input actions for explicit writes, parameter entries, and default entries.
-  - nondefaultable body-default entries fail closed, so later mutation slices cannot accidentally create an impossible fresh merge local.
-  - `ssa_full_run(...)` executes only when LocalGraph finds no merge reads; merge families return unchanged until merge-local materialization lands.
-- `src/passes/ssa_test.mbt`
-  - planner fixtures for explicit diamond writes, parameter-entry merges, default-entry merges, nondefaultable fail-closed behavior, and single-source no-merge contrast.
-  - active public-pass fixtures for repeated parameter overwrite freshening, default exact-ref replacement with validation/type repair, and merge-family fail-closed behavior.
-- `src/passes/ssa_nomerge.mbt`
-  - descriptor for the active sibling, including broad invalidation of CFG, dominance, liveness, use-def, effects, loop info, and SSA.
-  - runner requires CFG + local SSA and delegates to `@ir.ssa_destroy_into_hot(...)`.
-- `src/ir/ssa_policy.mbt`
-  - `HotSsaValueOrigin` distinguishes entry params, entry default inits, local-set defs, local-tee defs, and phi defs.
-  - `HotSsaPhi` models local-specific block phis in the overlay.
-  - `HotSsaExcludedFeature` records current v1 limits: exceptional edges, persistent HOT phi nodes, IR-owned SSA bodies, and non-local values.
-- `src/ir/ssa_local.mbt`
-  - `ssa_build_local(...)` seeds entry definitions, places phis, visits the dominator tree, records uses, and sorts phi inputs.
-- `src/ir/ssa_destroy.mbt`
-  - `ssa_assign_concrete_locals(...)` chooses existing or fresh locals for SSA values.
-  - `ssa_insert_predecessor_copies(...)` inserts explicit predecessor copies.
-  - `ssa_destroy_into_hot(...)` performs the local SSA destruction used by `ssa-nomerge`.
-- `src/passes/pass_common.mbt`
-  - `pass_require_ssa(...)` builds/caches the local SSA analysis for hot passes.
-- `src/passes/ssa_nomerge_test.mbt`
-  - branch-join coverage for the active local sibling's predecessor-copy style.
-- `src/passes/registry_test.mbt`
-  - registry test coverage for the active `ssa-nomerge` descriptor and the active partial full `ssa` sibling.
-- `src/cmd/cmd.mbt` / `src/cmd/cmd_wbtest.mbt`
-  - CLI pass-flag parsing admits `ssa` as a registry-owned active pass flag so direct `--ssa` can rewrite non-merge fixtures and produce a validated output.
-- `agent-todo.md`
-  - `[O4Z-AUDIT-SSA]` tracks both active `ssa-nomerge` parity slices and separate full-`ssa` sibling slices; `[SSA-FULL]001` was the boundary-only registry decision, `[SSA-FULL]002A` was the merge planner, `[SSA-FULL]002B` activates direct non-merge rewrites, and `[SSA-FULL]002C` through `[SSA-FULL]002E` still own merge-local materialization, entry-source handling, loops, and closeout signoff.
+Fresh write locals are allocated before merge locals, matching Binaryen v131's `createNewIndexes(...)` then `computeGetsAndPhis(...)` phase order.
 
-## Current behavior versus Binaryen full `ssa`
+The plan is validated before HOT mutation. Stale node ids, wrong local ids, wrong node kinds, bad child arity, nonsequential local ids, illegal defaults, or malformed merge inputs leave the function unchanged.
 
-`ssa` is active for the left table's non-merge rows, but it is not currently compare-pass-admitted: [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) allows `--ssa-nomerge` and omits `--ssa`. A generic `compare-pass --pass ssa` request is therefore an admission failure, not a parity result. See [`./fuzzing.md`](./fuzzing.md).
+### 3. Raw stack-machine writeback
 
-| Topic | Binaryen full `ssa` | Current Starshine |
-| --- | --- | --- |
-| Public pass name | `ssa` registered in Binaryen `pass.cpp` | active partial `ssa` hot-pass entry for non-merge families |
-| Default no-DWARF sibling | Binaryen's canonical path here uses `ssa-nomerge`, not full `ssa` | Starshine presets also use `ssa-nomerge` |
-| Merge handling | create a merge local for a multi-source get | planner records future merge locals for multi-source gets; active `ssa` returns unchanged on merge gets until later slices |
-| Explicit incoming sets | rewrite values through `local.tee mergeLocal` | planner records explicit-write inputs; no `local.tee` mutation yet |
-| Parameter-entry merge input | function-entry prepend into merge local | planner records parameter-entry inputs for later prepends; no public prepend mutation yet |
-| Default-entry merge input | rely on fresh merge local's default | planner records defaultable body-entry inputs and skips nondefaultable body entries; no public merge-local mutation yet |
-| Implementation owner | Binaryen `SSAify.cpp` plus `LocalGraph` | Starshine `ssa_nomerge.mbt`, `ssa_local.mbt`, and `ssa_destroy.mbt` for the sibling/infrastructure |
+The dispatcher uses the full-flow HOT graph for analysis, then applies the plan directly to the original `@lib` instruction stream.
 
-The main caution is that both systems use words like SSA, phi, entry, and predecessor, but the encoded rewrite shapes differ.
+This preserves source stack order and avoids broad HOT lowering:
 
-## What a faithful Starshine full-`ssa` port would need
+- rewrite local write indexes in raw instruction order;
+- insert `local.tee merge` immediately before the source `local.set` / `local.tee`;
+- retarget local gets by ordered plan cursor;
+- replace legal entry reads with exact default instructions;
+- prepend parameter copies as `local.get param; local.set merge`;
+- append fresh local declarations in write-then-merge order.
 
-A faithful local port should not be introduced as a tiny alias for `ssa-nomerge`.
+A direct HOT mutator remains in `ssa.mbt` for focused unit coverage and helper use, but the public module pipeline commits through the raw plan.
 
-It would need to decide whether to reproduce Binaryen's exact surface or expose a Starshine-specific sibling. For Binaryen parity, the important requirements are:
+## Validation and rollback
 
-1. Keep the known active registry name for `ssa` in `src/passes/optimize.mbt` honest about its partial scope.
-2. Keep it out of public presets unless a Binaryen parity path really needs it; current presets should remain on `ssa-nomerge`.
-3. Build or reuse an analysis that can answer Binaryen's LocalGraph-style question for each `local.get`: which sets and entry values reach it? The first no-mutation planner slice now does this for merge gets through LocalGraph.
-4. For multi-source gets, materialize a fresh merge local rather than only destroying existing overlay phis.
-5. Rewrite explicit incoming set values through `local.tee` into that merge local.
-6. Add function-entry prepends only for parameter-entry incoming sources.
-7. Preserve the ordinary defaultable-local no-prepend rule.
-8. Preserve the narrow typed repair story for default ref/null replacement.
-9. Add dedicated tests that separate direct Binaryen-lit families from source-derived merge-local families.
+Full `ssa` shares the batched SSA writeback repair with `ssa-nomerge`.
 
-## Validation plan for a future port
+After all changed definitions are produced:
 
-Minimum local test coverage should include:
+1. validate the complete changed-definition batch against the module;
+2. restore only invalid changed functions;
+3. validate the repaired module;
+4. roll back the whole pass only if batch repair itself cannot complete.
 
-- direct repeated-param overwrite splitting,
-- default reference replacement that requires validation after rewriting,
-- tuple default replacement,
-- two explicit branch writes feeding one merge local,
-- one-arm parameter overwrite requiring an entry prepend,
-- one-arm ordinary local overwrite with no default prepend,
-- nondefaultable entry cases left untouched when no default is sound,
-- sibling contrast tests proving `ssa-nomerge` still keeps its local contract.
+This repaired a production artifact stack-underflow found in absolute function 2848 without paying repeated full-module validation per changed function.
 
-For parity signoff, compare explicit `--pass ssa` output against Binaryen on targeted WAT fixtures first. Do not infer full-`ssa` parity from the current `ssa-nomerge` green tests.
+## Tests
 
-## Current non-goals
+`src/passes/ssa_test.mbt` covers:
 
-Do not claim any of these today:
+- explicit-write planner inputs;
+- parameter/default entry classification;
+- nondefaultable entry rejection;
+- repeated parameter writes;
+- exact nullable-reference defaults;
+- already-SSA body-local reads;
+- explicit, parameter-entry, default-entry, and shared-set merges;
+- loop backedges;
+- branch and `br_table` joins;
+- typed loop control;
+- exceptional predecessors.
 
-- Starshine implements all of upstream Binaryen full `ssa`.
-- `ssa` handles merge-local materialization, parameter-entry prepends, or loop merge closeout.
-- the local `ssa-nomerge` predecessor-copy output is Binaryen full `ssa`'s merge-local + incoming-tee output.
-- the default `optimize` / `shrink` presets are missing full `ssa`.
+`src/passes/ssa_wbtest.mbt` locks no-partial-mutation validation.
 
-## Bottom line
+`src/passes/pass_manager_wbtest.mbt` locks batched rollback for both public SSA variants.
 
-The Starshine codebase has useful SSA infrastructure, but the pass surface remains sibling-specific:
+`src/validate/gen_valid_ssa_full_wbtest.mbt` locks all fifteen singleton profiles, `ssa-all` aggregate sampling, labels, and generated feature facts.
 
-- `ssa-nomerge` is active and documented as a local HOT-SSA roundtrip/destruction strategy.
-- full `ssa` is active only for direct non-merge lit-compatible families today.
-- the current full-`ssa` merge code is still planner/fail-closed only.
-- future full-`ssa` slices must consciously bridge from Starshine's overlay/predecessor-copy model and the newer LocalGraph merge/source facts to Binaryen's merge-local/`local.tee`/entry-prepend contract.
+## Output-shape differences
+
+Two residual families are intentionally retained as measured Starshine wins:
+
+- empty-arm `nop` cleanup: Starshine is canonically smaller and the symmetric `local-cleanup-debris` normalizer proves the difference is only removable cleanup;
+- typed-loop stack carriers: Starshine lowers the same local merge behavior with fewer locals/operations and four fewer canonical bytes per dedicated case.
+
+The typed family has separate `1,000/1,000` all-equal Node execution evidence. No typed case is equal-sized or larger.
+
+Unreachable declaration-only differences are handled by the symmetric `ssa-local-allocation-debris` normalizer in the dedicated aggregate.
+
+## Performance
+
+The transform avoids the original quadratic LocalGraph fixed point and broad HOT lowering. On the 4,977,401-byte canonical artifact, Starshine emits a canonical result 5,424 bytes smaller than Binaryen v131.
+
+Whole-command timing is not at parity:
+
+- Starshine no-trace: about `4.024s`;
+- Binaryen: about `1.202s`;
+- Starshine raw owner: about `3.247s`;
+- Binaryen pass timer: about `0.655s`.
+
+The direct HOT pass timer is zero because the active implementation runs in raw preprocessing. Keep the remaining serial function-envelope/raw-owner gap under `[WALL]001`; do not describe it as achieved wall parity.
+
+## Scheduler boundary
+
+`optimize` and `shrink` continue to schedule `ssa-nomerge`, matching the documented Binaryen default sibling split. Full `ssa` is public and fully runnable, but remains out of presets.

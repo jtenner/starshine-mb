@@ -200,7 +200,7 @@ That distinction should stay visible so the dossier is confident without pretend
 
 ## Starshine status caveat
 
-Starshine now exposes an active partial direct `ssa` pass for non-merge families, but it returns merge reads unchanged. Its active `ssa-nomerge` sibling can lower HOT overlay phis through predecessor copies; neither fact implements this Binaryen full-`ssa` merge-local contract. Local status lives in [`./starshine-strategy.md`](./starshine-strategy.md), future mutation sequencing in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and current harness non-admission in [`./fuzzing.md`](./fuzzing.md).
+Starshine now implements this Binaryen full-`ssa` merge-local contract directly: fresh merge locals, explicit incoming tees, parameter-entry prepends, and ordinary-default no-prepend behavior. The active `ssa-nomerge` sibling retains its separate no-merge contract. Local architecture lives in [`./starshine-strategy.md`](./starshine-strategy.md), invariants in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and final comparison evidence in [`./fuzzing.md`](./fuzzing.md).
 
 ## Why `ssa-nomerge` is smaller
 

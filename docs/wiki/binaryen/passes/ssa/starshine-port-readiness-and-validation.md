@@ -1,212 +1,124 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-08-30
 sources:
-  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
-  - ./index.md
-  - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../src/cmd/cmd.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SSAify.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/LocalGraph.cpp
   - ../../../../../src/passes/ssa.mbt
   - ../../../../../src/passes/ssa_test.mbt
-  - ../../../../../src/passes/ssa_nomerge.mbt
-  - ../../../../../src/passes/ssa_nomerge_test.mbt
+  - ../../../../../src/passes/ssa_wbtest.mbt
   - ../../../../../src/ir/local_graph.mbt
-  - ../../../../../src/ir/ssa_policy.mbt
-  - ../../../../../src/ir/ssa_local.mbt
-  - ../../../../../src/ir/ssa_destroy.mbt
-  - ../../../../../src/passes/pass_common.mbt
-  - ../../../../../src/ir/analysis_cache.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/pass_manager_wbtest.mbt
+  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/validate/gen_valid_ssa_full_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
-  - ./implementation-structure-and-tests.md
-  - ./merge-locals-entry-prepends-and-default-values.md
-  - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./fuzzing.md
   - ../ssa-nomerge/index.md
-  - ../ssa-nomerge/starshine-hot-ir-strategy.md
-  - ../tracker.md
 ---
 
-# Starshine port readiness and validation for full `ssa`
+# Starshine full `ssa` implementation and validation contract
 
-This page is the implementation-readiness bridge for upstream Binaryen's public full `ssa` pass.
+## Status
 
-It does **not** say Starshine should prioritize full `ssa` now. It says that if Starshine ever adds the public sibling, the implementation must preserve the specific Binaryen merge-local contract rather than becoming an alias for the already implemented [`ssa-nomerge`](../ssa-nomerge/index.md).
+The full public `ssa` port is implemented and admitted.
 
-## Current status in one paragraph
+Completed surfaces:
 
-Starshine currently has active hot passes named `ssa-nomerge` and `ssa`. The `ssa` entry is deliberately partial: it runs direct lit-compatible non-merge families, including repeated parameter overwrites and no-write default/null replacement, while returning unchanged on LocalGraph merge reads until merge-local mutation lands. The local SSA infrastructure is real: it builds a HOT-local SSA overlay, represents phi-like values, chooses concrete locals, and inserts predecessor copies while destroying the overlay. The newer `LocalGraph` analysis also exposes parameter/default entry sources, merge gets, influenced writes, already-SSA local classification, no-merge freshening eligibility, and defaultability facts. `[SSA-FULL]002A` added a full-`ssa` planner in `src/passes/ssa.mbt`: it records which merge gets would need fresh merge locals, explicit incoming write tees, parameter-entry prepends, and default-entry no-prepend inputs, while skipping nondefaultable default-entry merges. `[SSA-FULL]002B` activates the public direct pass for no-merge families and uses the planner/LocalGraph as a merge-family fail-closed boundary. Binaryen full `ssa` still encodes merges through actual mutation: it creates fresh merge locals, wraps explicit incoming definitions with `local.tee`, and prepends parameter-entry copies. Those user-visible merge rewrite shapes under `wasm-opt --ssa` are not active locally yet, so faithful full-`ssa` parity still needs the remaining merge-local, entry-source, and loop slices.
+- active hot-pass registry and CLI name `ssa`;
+- truthful CFG requirement and broad invalidation metadata;
+- Binaryen v131 write-first then get/merge planning order;
+- explicit/default/parameter source classification;
+- fresh definitions, default materialization, merge locals, incoming tees, and entry prepends;
+- normal, branch, loop, typed-control, nested-value, and exceptional predecessor coverage;
+- raw stack-machine writeback;
+- batched changed-definition validation and rollback;
+- compare-pass admission to Binaryen `--ssa`;
+- fifteen singleton GenValid profiles plus `ssa-all`;
+- required four-lane fuzz closeout.
 
-## Why full `ssa` is not just `ssa-nomerge` plus more cleanup
+Presets remain intentionally unchanged and continue to use `ssa-nomerge`.
 
-Binaryen's shared `SSAify.cpp` engine has one decisive policy flag:
+## Required invariants
 
-- `ssa-nomerge`: do not materialize merge locals;
-- `ssa`: materialize merge locals for multi-source gets.
+### Phase order
 
-For full `ssa`, a read with more than one reaching source becomes a fresh merge-local read. Each explicit incoming set feeds the merge local at the original definition point by wrapping the set value in `local.tee mergeLocal ...`. Parameter-entry incoming sources get function-entry `local.set mergeLocal (local.get param)` prepends. Ordinary defaultable local-entry sources do **not** need prepends because a fresh local already starts at the same default value.
+Allocate fresh write locals before merge locals. This is observable in local numbering and shared-set nested tee order.
 
-Starshine's `ssa_destroy_into_hot(...)` has a different encoding goal: lower overlay phis through predecessor `local.set` copies and concrete local assignment. That is a valid local sibling strategy for `ssa-nomerge`, but it is not Binaryen full `ssa`'s public shape contract.
+### Single-source reads
 
-## First safe Starshine slice
+- explicit write: retarget to that write's final local;
+- parameter entry: keep the parameter slot;
+- legal ordinary default entry: materialize the exact default;
+- nondefaultable entry: keep the read;
+- zero sources: keep unreachable noise unchanged.
 
-A safe future port should be staged in small, reviewable slices.
+### Multi-source reads
 
-### Slice 0: registry honesty
+- allocate one merge local per get;
+- tee every explicit incoming value into that merge local;
+- prepend a parameter copy only for parameter entry;
+- rely on fresh-local initialization for ordinary default entry;
+- when multiple gets share writes, nest tees in get order.
 
-Status: done for `[SSA-FULL]001` on 2026-06-13.
+### Typed and exceptional control
 
-Before rewriting anything, the public request behavior was made explicit:
+Full-flow LocalGraph includes exceptional predecessor edges. Typed loop stack values remain separate from body-local source analysis; Starshine's lowerer may use fewer stack-carrier locals than Binaryen, but body-local merge semantics must remain identical.
 
-- `ssa` was a known boundary-only registry entry.
-- direct CLI `--ssa` requests were registry-owned and rejected with the boundary-only full-SSA message.
-- `ssa` remained out of `optimize` and `shrink`; those presets kept the Binaryen no-DWARF sibling `ssa-nomerge` slot.
+### Transactionality
 
-Do **not** silently treat `--pass ssa` as `ssa-nomerge`. That would teach the wrong upstream contract and make Binaryen-oracle diffs confusing. `[SSA-FULL]002B` supersedes only the boundary-only rejection by activating direct non-merge rewrites; it does not supersede this anti-alias rule or the preset boundary.
+No partial mutation is allowed. Validate the complete plan before HOT mutation, and validate changed raw definitions in one batch before module commit.
 
-Relevant local surface:
+## Test ladder
 
-- `src/passes/optimize.mbt` owns active hot passes, module passes, boundary-only names, removed names, and presets.
-- `src/passes/registry_test.mbt` now locks the active partial full `ssa` registry and pipeline behavior.
-- `src/cmd/cmd.mbt` / `src/cmd/cmd_wbtest.mbt` lock direct CLI `--ssa` request behavior.
-- Today `ssa-nomerge` is active and appears in both `optimize` and `shrink` presets.
-- Today `ssa` is active only for direct non-merge families.
+1. Planner and mutation tests in `src/passes/ssa_test.mbt`.
+2. Stale/malformed plan rollback in `src/passes/ssa_wbtest.mbt`.
+3. Registry/descriptor tests in `src/passes/registry_test.mbt`.
+4. Public dispatcher and batched writeback tests in `src/passes/pass_manager_wbtest.mbt`.
+5. Profile registry/generation tests in `src/validate/gen_valid_ssa_full_wbtest.mbt`.
+6. `moon info`.
+7. `moon fmt`.
+8. `moon test`.
+9. Fresh native release build.
+10. Explicit Binaryen-v131 four-lane compare matrix from [`./fuzzing.md`](./fuzzing.md).
+11. Focused typed-control runtime execution.
+12. Production artifact timing and validity.
 
-### Slice 1: analyzer / no-rewrite classifier
+## Final correctness evidence
 
-Status: done for `[SSA-FULL]002A` on 2026-06-13.
+Final Moon suite: `10,825 / 10,825`.
 
-The first no-rewrite analyzer classifies merge `local.get`s by reaching sources in the Binaryen-relevant categories:
+Final compare matrix, native SHA-256 `a130c0c5f9f9bb3fcc1ad265dfc14e414d2f3184c9df1df01c0686774ee62b66`:
 
-| Source class | Needed full-`ssa` behavior |
-| --- | --- |
-| one explicit write | retarget get to that write's fresh local |
-| one parameter entry | keep parameter slot for the single-source case |
-| one ordinary default entry | materialize default value when sound |
-| multiple explicit writes | create merge local and tee each explicit incoming value |
-| explicit write + parameter entry | create merge local, tee explicit write, prepend parameter copy |
-| explicit write + ordinary default entry | create merge local, tee explicit write, no default prepend |
-| nondefaultable entry where no default can be materialized | leave the unsafe case untouched |
+- regular GenValid: `100,000 / 100,000`, zero residuals/failures after source-backed cleanup normalization;
+- wasm-smith: `9,956` comparable and matched, with `44` Binaryen-only parser/tool failures;
+- `ssa-all`: all `10,000` valid and compared, with only `647` typed-control canonical-smaller residuals;
+- random-all: all `10,000` valid and compared, with only `84` pre-existing canonical-smaller RemoveUnusedBrs cleanup/control residuals;
+- typed-control runtime: `1,000 / 1,000` all-equal.
 
-The implemented planner surface is:
+No Starshine validation, generator, property, or command failure remains in the four required lanes.
 
-- `src/passes/ssa.mbt`
-  - `SsaFullRewritePlan`
-  - `SsaFullMergeGetRewrite`
-  - `SsaFullMergeInput`
-  - `ssa_full_build_merge_rewrite_plan(...)`
-- `src/passes/ssa_test.mbt`
-  - explicit diamond writes;
-  - explicit write plus parameter entry;
-  - explicit write plus defaultable body-local entry;
-  - nondefaultable default-entry fail-closed behavior;
-  - single-source no-merge contrast.
+## Performance status
 
-Local infrastructure already has useful raw material:
+Feature and correctness closeout are complete, but whole-command parity is not.
 
-- `src/ir/local_graph.mbt` now exposes the Binaryen-facing reaching-source facts needed by the next slices: parameter/default entry classification, single-source versus merge gets, explicit write kind/local id, influenced gets, already-SSA local classification, no-merge freshening eligibility, and legal-default entry facts.
-- `src/ir/ssa_policy.mbt` has value-origin vocabulary for entry params, entry defaults, local-set defs, local-tee defs, and phis.
-- `src/ir/ssa_local.mbt` seeds entry params/defaults and places block phis.
-- `src/passes/pass_common.mbt` and `src/ir/analysis_cache.mbt` can cache the HOT SSA overlay.
+The active raw implementation avoids broad HOT lowering and emits a smaller production artifact, but the serial raw LocalGraph/function envelope remains around `3.35x` Binaryen direct wall time on the canonical artifact. Keep that under `[WALL]001`; do not reopen semantic slices merely to disguise shared command overhead.
 
-The first planner drives from `LocalGraph` directly. The remaining design choice is how mutation should consume the plan: direct HOT mutation, raw instruction rewriting, or a bridge through existing `HotLocalSsa` destruction. The validation requirement is the same either way: mutation must distinguish parameter entry from ordinary default entry and preserve exceptional-edge boundaries.
+## Reopening criteria
 
-### Slice 2: direct lit-compatible families
+Reopen full `ssa` correctness work for any of:
 
-Status: done for `[SSA-FULL]002B` on 2026-06-13.
+- a Starshine validation or command failure on a Binaryen-v131-valid input;
+- a true semantic mismatch;
+- a canonical size loss not justified by required behavior;
+- missing source family in `ssa-all`;
+- parameter/default prepend regression;
+- incorrect shared-set tee order;
+- exceptional predecessor omission;
+- preset accidentally switching from `ssa-nomerge` to full `ssa`.
 
-The first active public `ssa` slice starts with shapes directly backed by Binaryen's `test/lit/passes/ssa.wast`:
-
-- repeated parameter overwrites split into one-assignment locals;
-- default ref/null replacement with validation after parent-type sharpening;
-- tuple/default replacement where Starshine has a representable WebAssembly local default.
-
-The local implementation keeps this scope narrow:
-
-- `ssa_full_descriptor()` registers `ssa` as an active hot pass;
-- `ssa_full_run(...)` first fails closed on unsupported exceptional, typed-loop, branch-heavy, nested-CFG, and LocalGraph merge-read families;
-- no-write default reads reuse the existing raw typed-default materializer, so exact nullable refs still validate after parent type repair;
-- functions with LocalGraph merge reads return unchanged until the merge-local slices land;
-- presets still use `ssa-nomerge`, not `ssa`.
-
-These tests prove the non-merge half of the pass before the new merge-local behavior lands.
-
-### Slice 3: merge-local materialization
-
-Add source-derived tests for the behavior the small official lit file does not isolate:
-
-1. two explicit predecessor writes feeding one read;
-2. one-arm parameter overwrite feeding a later read;
-3. one-arm ordinary defaultable local overwrite feeding a later read;
-4. mixed explicit/default cases with nondefaultable local types left untouched when no valid default exists.
-
-The expected Binaryen-compatible shapes are:
-
-- fresh merge local per merged read;
-- `local.tee` around explicit incoming set values;
-- parameter-entry prepend only for parameter entries;
-- no synthetic zero/null prepend for ordinary defaultable locals.
-
-### Slice 4: sibling stability
-
-After every full-`ssa` slice, keep [`ssa-nomerge`](../ssa-nomerge/index.md) stable:
-
-- existing branch-join predecessor-copy tests in `src/passes/ssa_nomerge_test.mbt` should keep passing;
-- `optimize` / `shrink` presets should still name `ssa-nomerge`, not full `ssa`, unless a separate parity decision changes the default pipeline;
-- docs should continue to present the two public contracts as siblings, not phases of one local pass.
-
-## Validation ladder
-
-Use this order for future implementation:
-
-1. Unit tests for registry/request behavior. Done for boundary-only `[SSA-FULL]001` and revised for active partial `[SSA-FULL]002B`.
-2. Planner tests for LocalGraph-backed merge-source classification. Done for `[SSA-FULL]002A`.
-3. Focused local tests for direct `ssa.wast` non-merge families. Done for `[SSA-FULL]002B` for repeated parameter overwrite and default exact-ref replacement; tuple/default replacement remains limited to locally representable WebAssembly locals.
-4. Focused local tests for source-derived merge-local families.
-5. Sibling regression tests for `ssa-nomerge` predecessor-copy lowering.
-6. `moon test` for local correctness.
-7. Pass-targeted Binaryen oracle comparison with `wasm-opt --ssa` for active public mutation; classify remaining merge-family mismatches as open `[SSA-FULL]002C`/`002D`/`002E` work, not safe drift.
-8. A small generated corpus before any preset scheduling is considered.
-
-Do not add full `ssa` to presets as part of the first implementation. Binaryen's no-DWARF path documented for this repo uses `ssa-nomerge`, and Starshine should keep that scheduler story stable unless a later pipeline audit says otherwise.
-
-## Code locations to read before implementing
-
-- `src/passes/optimize.mbt`
-  - registry categories, active `ssa-nomerge` entry, active partial `ssa` entry, and preset expansion.
-- `src/passes/registry_test.mbt` and `src/cmd/cmd_wbtest.mbt`
-  - request-behavior tests proving full `ssa` is an active direct pass for non-merge inputs.
-- `src/passes/ssa_nomerge.mbt`
-  - current sibling runner: requires CFG + SSA and delegates to `ssa_destroy_into_hot(...)`.
-- `src/ir/ssa_policy.mbt`
-  - SSA value-origin, phi, input, and excluded-feature vocabulary.
-- `src/ir/ssa_local.mbt`
-  - entry-definition seeding, phi placement, use recording, and phi-input sorting.
-- `src/ir/ssa_destroy.mbt`
-  - concrete-local assignment, local-use rewrites, predecessor-copy insertion, dead-def cleanup, and the current `ssa_destroy_into_hot(...)` lowering.
-- `src/passes/pass_common.mbt`
-  - `pass_require_ssa(...)` cache access for hot passes.
-- `src/ir/analysis_cache.mbt`
-  - storage for `HotLocalSsa`.
-- `src/ir/local_graph.mbt`
-  - Binaryen-facing source/merge/defaultability facts that future full-`ssa` rewrite planning should consume or shadow.
-- `src/passes/ssa_nomerge_test.mbt`
-  - sibling regression cases that must stay stable.
-
-## Non-goals
-
-A first faithful port should not:
-
-- alias `ssa` to `ssa-nomerge`;
-- add full `ssa` to `optimize` or `shrink` presets;
-- rewrite arbitrary value flow outside locals;
-- invent defaults for nondefaultable locals;
-- replace Binaryen's merge-local / incoming-tee shape with predecessor copies if the goal is oracle parity for `--ssa`.
-
-## Uncertainty
-
-The main unresolved design question is merge-local representation, not semantics: should the implementation adapt the existing `HotLocalSsa` overlay, drive directly from `LocalGraph`, or bridge both? The current active `ssa` runner consumes LocalGraph only as a merge-read boundary; no mutation consumes the merge plan yet. The required public contract remains the Binaryen shape mapping above.
+Reopen performance work separately for a raw-owner or whole-command optimization that preserves the final output/fuzz matrix.

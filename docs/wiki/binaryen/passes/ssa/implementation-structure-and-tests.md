@@ -163,15 +163,15 @@ The Starshine source map is intentionally separate from the upstream file map be
 Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code locations. The shortest current version is:
 
 - `src/passes/optimize.mbt` registers both `ssa-nomerge` and `ssa` as hot-pass names.
-- `src/passes/ssa.mbt` owns the active partial full-`ssa` descriptor, summary, analysis-only merge-local planner, and fail-closed dispatcher for merge families.
-- `src/passes/ssa_test.mbt` proves the full-`ssa` planner table, public non-merge freshening/default behavior, and the current fail-closed merge-family boundary.
+- `src/passes/ssa.mbt` owns the complete full-`ssa` descriptor, ordered write/get/merge plan, direct HOT mutator, and raw stack-machine writeback.
+- `src/passes/ssa_test.mbt` proves write freshening, default handling, explicit/parameter/default/shared merges, loops, branches, typed control, nested value blocks, EH, and already-SSA read preservation.
 - `src/ir/ssa_policy.mbt`, `src/ir/ssa_local.mbt`, and `src/ir/ssa_destroy.mbt` implement the HOT SSA overlay/destruction layer reused by the active sibling work.
 - `src/passes/ssa_nomerge.mbt` remains the no-merge sibling owner; full `ssa` may reuse its non-merge rewrite path, but merge-local materialization belongs to `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]`, not `SSANM`.
-- No local owner currently implements Binaryen full `ssa`'s merge-local + incoming-`tee` + entry-prepend contract for public merge families; those are the open `[SSA-FULL-002C]` through `[SSA-FULL-003]` slices.
+- The public local owner now implements Binaryen full `ssa`'s merge-local + incoming-`tee` + entry-prepend contract. `src/ir/local_graph.mbt` supplies full-flow normal/exceptional reaching sources, and `src/passes/pass_manager.mbt` supplies batched invalid-lowering rollback.
 
 ## 2026-07-21 transactional merge-plan correction
 
-The simple explicit-write merge-local path now validates the get, every reaching write, original local, child arity, and next local id before appending a local or retargeting a node. A malformed or stale plan therefore returns unchanged without leaving a partially rewritten function. `ssa_wbtest.mbt` locks this no-partial-mutation contract.
+The complete plan validates every write/get/merge node, original local, child arity, legal entry source, and sequential fresh-local id before mutation. A malformed or stale plan therefore returns unchanged without leaving a partial rewrite. `ssa_wbtest.mbt` locks this contract, while `pass_manager_wbtest.mbt` locks batched restoration of invalid lowered definitions.
 
 ## Current-main freshness and admission note
 

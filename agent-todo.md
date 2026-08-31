@@ -210,12 +210,6 @@ The measurements below are whole-command medians on the 4,977,401-byte canonical
 
 ## v0.1.1 Optimizer Follow-ups
 
-### [SSA-FULL]001 - Complete public full `ssa`
-
-- **Priority:** not an O4z blocker; O4z uses `ssa-nomerge`.
-- **Active work:** simple explicit-write merge locals; parameter/default entry inputs and prepend ordering; loop/branch/EH/typed-control classification; harness admission; dedicated profile; direct closeout.
-- **Exit criteria:** the public pass is admitted, source/test-audited, covered by a dedicated profile, and green on the required four-lane matrix.
-
 ### [AUDIT]006 - Function `TypeIdx` / `RecIdx` invariant documentation
 
 - Finish wiki, inline, and test documentation that function-section references are global `TypeIdx`, while `RecIdx` is rec-group-local and impossible in validated function-section positions.

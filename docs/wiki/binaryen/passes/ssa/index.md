@@ -1,27 +1,20 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+starshine_status: active
+last_reviewed: 2026-08-30
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp
-  - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../src/cmd/cmd.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SSAify.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/local-graph.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/LocalGraph.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/ssa.wast
   - ../../../../../src/passes/ssa.mbt
   - ../../../../../src/passes/ssa_test.mbt
-  - ../../../../../src/passes/ssa_nomerge.mbt
-  - ../../../../../src/ir/ssa_local.mbt
-  - ../../../../../src/ir/ssa_destroy.mbt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/LocalGraph.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/ReFinalize.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/ssa.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/gtest/local-graph.cpp
-  - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast
+  - ../../../../../src/ir/local_graph.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_ssa.mbt
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -29,6 +22,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../ssa-nomerge/index.md
   - ../tracker.md
 ---
@@ -37,113 +31,88 @@ related:
 
 ## Role
 
-- `ssa` is a real public upstream Binaryen pass.
-- It is part of the local Starshine pass registry as an **active partial** hot-pass name for non-merge families plus the first simple explicit-write merge-local slice.
-- Starshine now has an active partial full-`ssa` hot pass for direct lit-compatible non-merge families and simple explicit-write merge locals; parameter-entry/default-entry merge materialization remains fail-closed.
-- It is worth tracking here because the repo already has a deep dossier for the implemented sibling [`ssa-nomerge`](../ssa-nomerge/index.md), and that dossier repeatedly depends on a correct explanation of what full `ssa` would do differently.
+`ssa` is Binaryen's full local SSA pass and an active Starshine direct pass.
 
-The beginner summary is:
+Both systems implement the same source-level intent:
 
-- Binaryen analyzes local get/set flow for a whole function,
-- gives non-SSA writes fresh locals,
-- and when a read has multiple incoming sources, full `ssa` creates a fresh **merge local** and writes each incoming value into that local.
+1. analyze which local definitions or entry values can reach each local read;
+2. give non-SSA writes fresh locals;
+3. retarget single-source reads or materialize legal defaults;
+4. create a fresh merge local for each multi-source read;
+5. tee explicit incoming values into that merge local;
+6. prepend parameter-entry copies when a parameter entry reaches a merge;
+7. rely on fresh-local defaults for ordinary body-local entry values.
 
-That last step is the big difference from `ssa-nomerge`.
+The defining distinction from [`ssa-nomerge`](../ssa-nomerge/index.md) is merge ownership. Full `ssa` materializes the join; `ssa-nomerge` preserves canonical merge traffic.
 
-## Why this folder exists
+## Starshine status
 
-The tracker's earlier obvious gaps are mostly closed.
-So this folder is an explicit justified expansion, not a forgotten parity-queue pass.
+Starshine's `ssa` implementation is complete for the Binaryen v131 source contract:
 
-Why the expansion is worth it:
+- active registry and CLI name;
+- fresh set/tee definitions;
+- parameter and default entries;
+- explicit, parameter-entry, default-entry, and shared-set merge locals;
+- loop, branch, `br_table`, typed-control, nested-value, and EH families;
+- transactional raw writeback with batch validation and rollback;
+- compare-pass admission to Binaryen `--ssa`;
+- fifteen singleton GenValid profiles and `ssa-all`.
 
-- `ssa` is publicly registered in upstream `pass.cpp`
-- it shares the exact same owning implementation file as `ssa-nomerge`
-- the one policy difference between the siblings is important enough to deserve its own home
-- without a dedicated folder, full-`ssa` merge-local behavior stays scattered across `ssa-nomerge` caveats and is easy to mis-teach
+The default `optimize` / `shrink` scheduler remains on `ssa-nomerge`, matching the documented upstream sibling split.
 
-## What the pass is and is not
+## Implementation map
 
-## What it is
+- [`../../../../../src/passes/ssa.mbt`](../../../../../src/passes/ssa.mbt)
+  - descriptor, plan types, source classification, direct HOT mutation, raw stack-machine rewrite.
+- [`../../../../../src/ir/local_graph.mbt`](../../../../../src/ir/local_graph.mbt)
+  - full-flow reverse LocalGraph with exceptional predecessors and block/local caching.
+- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+  - public raw execution path and shared SSA batch rollback.
+- [`../../../../../src/passes/ssa_test.mbt`](../../../../../src/passes/ssa_test.mbt)
+  - planner, default, merge, branch, loop, typed, nested, EH, and regression coverage.
+- [`../../../../../src/validate/gen_valid_ssa_full_wbtest.mbt`](../../../../../src/validate/gen_valid_ssa_full_wbtest.mbt)
+  - singleton profile and aggregate contracts.
+- [`./fuzzing.md`](./fuzzing.md)
+  - exact final commands, counts, cache identity, mismatch classification, runtime, and performance evidence.
 
-- a function-parallel local-flow rewrite in shared `SSAify.cpp`
-- a sibling of `ssa-nomerge`
-- a pass that uses ordinary locals, `local.tee`, and function-entry prepends to model phi-like joins
-- a small public pass you run explicitly, not part of the default no-DWARF `-O` / `-Os` path documented for this repo
+## Final evidence
 
-## What it is not
+Final native SHA-256: `a130c0c5f9f9bb3fcc1ad265dfc14e414d2f3184c9df1df01c0686774ee62b66`.
 
-- not a separate codebase from `ssa-nomerge`
-- not a proper AST phi-node pass
-- not a generic value-propagation or copy-elimination pass
-- not the pass Binaryen uses in the default early optimize slot here
+Pinned oracle: Binaryen v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
 
-## Biggest durable takeaway
+- Moon: `10,825 / 10,825`.
+- Regular GenValid: `100,000 / 100,000`, zero residuals/failures.
+- wasm-smith: `9,956` comparable matches, `44` Binaryen-only parser/tool failures.
+- `ssa-all`: `10,000 / 10,000`, only `647` typed-control outputs that are each four canonical bytes smaller in Starshine.
+- Random all-profiles: `10,000 / 10,000`, only `84` pre-existing canonical-smaller cleanup/control residuals.
+- Typed runtime: `1,000 / 1,000` all-equal.
 
-The safe mental model is:
+## Intentional output wins
 
-- `ssa-nomerge` renames only single-source regions and leaves merge reads on canonical slots
-- full `ssa` does the same initial analysis **and then also materializes merge locals**
+Starshine retains two measured differences instead of adding size-losing parity scaffolding:
 
-That means full `ssa` is not merely "more aggressive renaming."
-It has a real extra rewrite surface:
+- empty-arm nops are omitted;
+- typed loop stack carriers use fewer locals/operations.
 
-- new merge locals
-- `local.tee` inserted on explicit incoming sets
-- prepended function-entry `local.set`s for parameter inputs
+Both families are externally valid and canonically smaller; typed control also has direct all-equal runtime evidence.
 
-## Scheduler note
+## Performance
 
-Upstream `pass.cpp` registers both passes:
+The transform is valid and feature-complete, but direct whole-command parity is still open under `[WALL]001`:
 
-- `ssa`
-- `ssa-nomerge`
+- Starshine no-trace direct command: about `4.024s`;
+- Binaryen v131 direct command: about `1.202s`;
+- Starshine output is `5,424` canonical bytes smaller on the measured artifact.
 
-But the default no-DWARF function pipeline used in this repo adds only `ssa-nomerge` in the early slot.
-So this dossier is primarily here to make the sibling split teachable, not to claim that the local parity path is secretly missing a default `ssa` step.
-
-## Agent-todo note
-
-`agent-todo.md` now tracks dedicated full-`ssa` slices under sibling `[O4Z-AUDIT-SSA-FULL]`, split out from the `SSANM` no-merge backlog by `[SSANM-007c]`. `[SSA-FULL-001]` first made full `ssa` known but boundary-only, `[SSA-FULL-002A]` added the merge-local planner, `[SSA-FULL-002B]` activated direct non-merge rewrite families without aliasing the registry entry to `ssa-nomerge`, and `[SSA-FULL-002C]` now covers the first simple explicit-write merge-local mutation. The remaining `[SSA-FULL-002D]` through `[SSA-FULL-003]` slices still own parameter-entry/default-entry merge handling, loop/branch/EH/typed-control boundaries, and direct `--pass ssa` closeout signoff.
+Do not conflate this shared serial raw/function-envelope gap with a missing SSA transformation family.
 
 ## Page map
 
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Real `version_129` algorithm structure, scheduler placement, LocalGraph role, and the exact full-`ssa` merge policy.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  - Upstream owner-file and test map, plus the current-main freshness check.
-- [`./merge-locals-entry-prepends-and-default-values.md`](./merge-locals-entry-prepends-and-default-values.md)
-  - Focused guide to the full-`ssa`-only behavior: merge locals, incoming `tee`s, parameter entry prepends, and default-value handling.
-- [`./wat-shapes.md`](./wat-shapes.md)
-  - Beginner-friendly shape catalog, with direct `ssa.wast` positives clearly separated from source-derived merge-local families.
-- [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Current Starshine status and port map: active partial local `ssa` registry entry with simple explicit-write merge-local support, active `ssa-nomerge` sibling, reusable HOT SSA overlay/destruction infrastructure plus LocalGraph facts, and the exact code locations the remaining entry/default/control slices must bridge.
-- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  - Future implementation bridge: registry honesty, source classifier requirements, merge-local rewrite order, `ssa-nomerge` sibling-stability checks, and validation ladder.
-- [`./fuzzing.md`](./fuzzing.md)
-  - Current compare-pass admission boundary: `ssa` is locally active-partial but absent from the harness allowlist, so this is planned-only rather than a runnable parity command.
-
-## Freshness and admission note
-
-The 2026-07-11 current-main recheck reread `SSAify.cpp`, `pass.cpp`, and `ssa.wast`. The shared full-SSA/no-merge algorithm and the default-pipeline split remain as documented: full `ssa` owns merge-local materialization, while only `ssa-nomerge` occupies the early default function slot. This is a dated source reading, not a byte-for-byte current-main versus `version_130` comparison; the official [`SSAify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and [`ssa.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast) define its reviewed scope.
-
-The same recheck corrects the local status: Starshine exposes `ssa` as an **active partial** direct pass for non-merge families plus the first simple explicit-write merge-local slice, but the compare-pass harness does not admit `--ssa`. Thus a rejected `compare-pass --pass ssa` request proves only harness admission, not pass parity. Keep `version_129` / `version_130` as the released upstream oracle provenance, and use the living Starshine pages for the active-subset boundary.
-
-## Sources
-
-- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp>
-- research note 0402
-- research note 0321
-- research note 0207 (historical; superseded for raw-source provenance and local Starshine status)
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/LocalGraph.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/ReFinalize.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/ssa.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/gtest/local-graph.cpp>
-- Narrow freshness check:
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast>
+- [`./binaryen-strategy.md`](./binaryen-strategy.md): exact upstream v131 algorithm.
+- [`./merge-locals-entry-prepends-and-default-values.md`](./merge-locals-entry-prepends-and-default-values.md): merge-local semantics.
+- [`./wat-shapes.md`](./wat-shapes.md): concrete source/output shapes.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md): source and test ownership.
+- [`./starshine-strategy.md`](./starshine-strategy.md): current local architecture.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): final invariants and reopening criteria.
+- [`./fuzzing.md`](./fuzzing.md): final fuzz/performance evidence.

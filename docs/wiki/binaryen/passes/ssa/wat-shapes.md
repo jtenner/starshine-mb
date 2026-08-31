@@ -242,7 +242,7 @@ That is the main sibling difference this folder exists to keep visible.
 
 ## Starshine shape caveat
 
-Current Starshine exposes `ssa` only for direct **non-merge** families. Its tests cover repeated parameter overwrites and legal default exact-reference replacement; a multi-source merge remains intentionally unchanged. Therefore Shapes 1–3 can guide active local-subset fixtures, while Shapes 4–6 remain Binaryen oracle shapes rather than current local-output guarantees. Starshine's `ssa-nomerge` sibling uses HOT SSA destruction and predecessor copies, which must not be mistaken for full-`ssa` merge-local behavior. See [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and the planned-only [`./fuzzing.md`](./fuzzing.md).
+Starshine now implements Shapes 1–8 as direct public `ssa` behavior. Focused tests cover repeated writes, exact nullable-reference defaults, explicit/parameter/default/shared merge locals, loop and branch joins, typed control, nested value blocks, and EH predecessors. The `ssa-nomerge` sibling still uses its separate no-merge contract and must not be mistaken for full-`ssa` merge ownership. See [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and [`./fuzzing.md`](./fuzzing.md).
 
 ## Practical rules a future reader should keep
 
