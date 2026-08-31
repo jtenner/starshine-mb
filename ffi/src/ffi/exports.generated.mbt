@@ -769,6 +769,15 @@ pub fn ffi_ffi_bridge_module_with_default_memory(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_module_with_dewdrop_compiler_facts")
+pub fn ffi_ffi_bridge_module_with_dewdrop_compiler_facts(
+  value0 : @lib.Module,
+) -> @lib.Module {
+  @ffi_bridge.module_with_dewdrop_compiler_facts(value0)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_module_with_globals")
 pub fn ffi_ffi_bridge_module_with_globals(
   value0 : @lib.Module,

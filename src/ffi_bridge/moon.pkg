@@ -1,6 +1,7 @@
 import {
   "jtenner/starshine/binary",
   "jtenner/starshine/lib",
+  "jtenner/starshine/representation",
   "jtenner/starshine/validate",
   "moonbitlang/core/buffer",
 }

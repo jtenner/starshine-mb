@@ -53,6 +53,8 @@ pub fn module_with_declarative_functions(@lib.Module, FunctionReferenceBuilder) 
 
 pub fn module_with_default_memory(@lib.Module) -> @lib.Module
 
+pub fn module_with_dewdrop_compiler_facts(@lib.Module) -> @lib.Module
+
 pub fn module_with_globals(@lib.Module, GlobalBuilder) -> @lib.Module
 
 pub fn module_with_start_function(@lib.Module, Int) -> @lib.Module

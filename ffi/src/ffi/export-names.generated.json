@@ -82,6 +82,7 @@
   "ffi_ffi_bridge_module_with_compiler_exports": "ffi_bridge::module_with_compiler_exports",
   "ffi_ffi_bridge_module_with_declarative_functions": "ffi_bridge::module_with_declarative_functions",
   "ffi_ffi_bridge_module_with_default_memory": "ffi_bridge::module_with_default_memory",
+  "ffi_ffi_bridge_module_with_dewdrop_compiler_facts": "ffi_bridge::module_with_dewdrop_compiler_facts",
   "ffi_ffi_bridge_module_with_globals": "ffi_bridge::module_with_globals",
   "ffi_ffi_bridge_module_with_start_function": "ffi_bridge::module_with_start_function",
   "ffi_ffi_bridge_nominal_ref_type": "ffi_bridge::nominal_ref_type",
