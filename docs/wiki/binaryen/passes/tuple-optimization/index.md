@@ -1,12 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-01
 sources:
   - ../../release-horizon-and-oracles.md
   - ../code-pushing/index.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
+  - ../../../../../src/ir/hot_lower.mbt
+  - ../../../../../src/ir/hot_lower_wbtest.mbt
+  - ../../../../../src/passes_perf_long/tuple_optimization_perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -33,6 +36,14 @@ related:
 ---
 
 # `tuple-optimization`
+
+## 2026-09-01 Moon component benchmark and shared HOT lower suffix index
+
+A reusable native-release benchmark now reconstructs the established candidate-heavy contract as one function with 2,000 independent two-lane type-indexed pure/drop-only spills. It separately measures HOT lift, lowering after TupleOptimization, and the registry-dispatched pipeline. Across five matched clean-`04adcce0e`/current runs, median mean lift is neutral (`39.14ms -> 39.18ms`), HOT lower improves `467.70ms -> 11.41ms` (`-97.560%`, `40.990x`), and the complete pass pipeline improves `522.63ms -> 88.72ms` (`-83.024%`, `5.891x`).
+
+The lowerer owner was the future-root dependency proof: every local-reading root could rescan all later roots even when no later root contained an effectful value created before the current root. Large regions now build one memoized minimum dependency id per node and one suffix minimum over region roots. The minimum deliberately traverses beneath later impure parents because the original threshold-sensitive collector does so when the parent itself is not old enough; regions below 64 roots retain the original exact scan. Red-first white-box coverage locks pure roots, direct earlier effects, nested earlier effects beneath later impure parents, and the region local-read gate. The first incomplete fallback experiment changed call order on the production artifact and was rejected; the final optional-index fallback restores exact bytes.
+
+This is a synthetic shared-lowerer win, not a production-artifact speedup. Final one-warmup/three-pair production medians preserve the 4,976,841-byte raw output at SHA-256 `4b616a392d85a2c2dbf52ea08b27ad99cc07351a166838c0eaab2d9d6733d172`: clean/current no-trace is `1945.067ms -> 1955.632ms`, pass-local `268.023ms -> 272.397ms`, lift `568.033ms -> 575.643ms`, and lower `9.572ms -> 9.675ms`, all neutral host noise. Paired Binaryen v131 is `510.266ms` process / `3.713ms` pass-local, so `[P0-WALL-TUPLE]` remains open. Regular explicit-v131 GenValid is `10000/10000` normalized with zero failures and equal canonical bytes; the shared RUB recheck is `278` normalized plus `9722` cleanup-normalized with zero residual mismatches or failures.
 
 ## Binaryen v131 renewal status
 

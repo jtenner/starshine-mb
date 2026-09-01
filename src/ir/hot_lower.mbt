@@ -53,6 +53,7 @@ priv struct HotLowerLabelFrames {
   legacy_rethrow_locals : Array[LocalIdx?]
   used_labels : @bitset.BitSet
   local_read_cache : Array[Int]
+  preceding_dependency_min_cache : Array[Int]
 }
 
 ///|
@@ -63,6 +64,7 @@ fn hot_lower_impl_new_label_frames(func : HotFunc) -> HotLowerLabelFrames {
     legacy_rethrow_locals: [],
     used_labels: hot_lower_impl_build_used_labels(func),
     local_read_cache: Array::make(hot_node_count(func), -1),
+    preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
   }
 }
 
@@ -713,6 +715,64 @@ fn hot_lower_impl_mark_local_writes(
 }
 
 ///|
+fn hot_lower_impl_preceding_dependency_min_node(
+  func : HotFunc,
+  node_id : NodeId,
+  cache : Array[Int],
+) -> Int {
+  let none = hot_node_count(func)
+  if node_id < 0 ||
+    node_id >= cache.length() ||
+    !hot_node_is_live(func, node_id) {
+    return none
+  }
+  if cache[node_id] != -2 {
+    return cache[node_id]
+  }
+  let mut minimum = if hot_node_result_arity(func, node_id) > 0 &&
+    !effects_is_pure(effects_for_node(func, node_id)) {
+    node_id
+  } else {
+    none
+  }
+  for input_id in hot_lower_impl_input_info(func, node_id).nodes {
+    let input_minimum = hot_lower_impl_preceding_dependency_min_node(
+      func, input_id, cache,
+    )
+    if input_minimum < minimum {
+      minimum = input_minimum
+    }
+  }
+  cache[node_id] = minimum
+  minimum
+}
+
+///|
+fn hot_lower_impl_build_preceding_dependency_suffix_minima(
+  func : HotFunc,
+  roots : Array[NodeId],
+  cache : Array[Int],
+) -> Array[Int] {
+  let none = hot_node_count(func)
+  let suffix_minima = Array::make(roots.length() + 1, none)
+  let mut idx = roots.length() - 1
+  while idx >= 0 {
+    let root_minimum = hot_lower_impl_preceding_dependency_min_node(
+      func,
+      roots[idx],
+      cache,
+    )
+    suffix_minima[idx] = if root_minimum < suffix_minima[idx + 1] {
+      root_minimum
+    } else {
+      suffix_minima[idx + 1]
+    }
+    idx -= 1
+  }
+  suffix_minima
+}
+
+///|
 fn hot_lower_impl_node_reads_local(
   func : HotFunc,
   node_id : NodeId,
@@ -741,6 +801,50 @@ fn hot_lower_impl_node_reads_local(
     }
   }
   false
+}
+
+///|
+fn hot_lower_impl_roots_may_need_future_dependencies(
+  func : HotFunc,
+  roots : Array[NodeId],
+  local_read_cache : Array[Int],
+) -> Bool {
+  for root_id in roots {
+    if hot_node_result_arity(func, root_id) == 0 &&
+      (match hot_query_op(func, root_id) {
+        HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => true
+        _ => false
+      }) {
+      return true
+    }
+    if hot_lower_impl_node_reads_local(func, root_id, local_read_cache) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_lower_impl_future_dependency_suffix_minima(
+  func : HotFunc,
+  roots : Array[NodeId],
+  label_frames : HotLowerLabelFrames,
+) -> Array[Int]? {
+  if roots.length() < 64 ||
+    !hot_lower_impl_roots_may_need_future_dependencies(
+      func,
+      roots,
+      label_frames.local_read_cache,
+    ) {
+    return None
+  }
+  Some(
+    hot_lower_impl_build_preceding_dependency_suffix_minima(
+      func,
+      roots,
+      label_frames.preceding_dependency_min_cache,
+    ),
+  )
 }
 
 ///|
@@ -802,6 +906,7 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   current_root : NodeId,
   future_roots : Array[NodeId],
   future_start : Int,
+  future_dependency_suffix_minima : Array[Int]?,
   use_def : HotUseDef,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
@@ -822,6 +927,15 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
       label_frames.local_read_cache,
     ) {
     return
+  }
+  match future_dependency_suffix_minima {
+    Some(suffix_minima) =>
+      if future_start < 0 ||
+        future_start >= suffix_minima.length() ||
+        suffix_minima[future_start] >= current_root {
+        return
+      }
+    None => ()
   }
   let seen = Array::make(hot_node_count(func), false)
   let carried : Array[NodeId] = []
@@ -920,6 +1034,9 @@ fn hot_lower_impl_body_items(
   let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
     func, use_def, root_ids, region_keep_count,
   )
+  let future_dependency_suffix_minima = hot_lower_impl_future_dependency_suffix_minima(
+    func, root_ids, label_frames,
+  )
   let mut root_idx = 0
   for i = body_base; i < node.child_count; i = i + 1 {
     let child = func.children[node.child_base + i]
@@ -934,6 +1051,7 @@ fn hot_lower_impl_body_items(
         child,
         root_ids,
         root_idx + 1,
+        future_dependency_suffix_minima,
         use_def,
         label_frames,
         next_stack,
@@ -4997,6 +5115,9 @@ fn hot_lower_body_with_extras_unverified_with_options(
     root_ids,
     hot_type_result_arity(func, hot_body_result_type(func)),
   )
+  let future_dependency_suffix_minima = hot_lower_impl_future_dependency_suffix_minima(
+    func, root_ids, label_frames,
+  )
   for i = 0; i < hot_root_count(func); i = i + 1 {
     let root_id = root_ids[i]
     hot_lower_impl_emit_preceding_future_dependencies(
@@ -5004,6 +5125,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
       root_id,
       root_ids,
       i + 1,
+      future_dependency_suffix_minima,
       use_def,
       label_frames,
       -1,

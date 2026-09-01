@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-01
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -11,6 +11,12 @@ sources:
 ---
 
 # `tuple-optimization` Fuzzing Profile
+
+## 2026-09-01 shared HOT lower renewal
+
+The rebuilt explicit current native binary and `.tmp/binaryen-version-131-bin/bin/wasm-opt` compared `10000/10000` regular GenValid cases at seed `0x5eed` with `--jobs auto`, `--max-subprocesses 8`, and `--max-mismatch-artifacts 20`. All 10,000 are normalized matches with zero mismatches, validation failures, property failures, generator failures, or command failures. Raw totals are `42,190,083` Starshine versus `42,157,334` Binaryen bytes (`2,967` equal and `7,033` Starshine-larger spelling cases), while canonical totals are exactly equal at `42,157,334` bytes in every case. Binaryen cache is `2/9998` hits/misses. Evidence: `.tmp/pass-fuzz-tuple-hot-lower-suffix-20260901/`.
+
+This lane validates the shared future-dependency suffix index used by HOT lowering. It does not change the dedicated pure/drop-only scalar-spelling classification below and does not close `[P0-WALL-TUPLE]`; the production artifact remains byte-identical and timing-neutral.
 
 ## Binaryen v131 spot renewal
 
