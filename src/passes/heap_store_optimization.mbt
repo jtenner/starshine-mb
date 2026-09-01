@@ -568,6 +568,29 @@ fn hso_node_may_trap(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn hso_effects_without_descendant_trap(
+  func : @ir.HotFunc,
+  node_id : Int,
+  mask : UInt,
+) -> UInt {
+  let descendants_checked_separately = match
+    @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Drop
+    | @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => false
+  }
+  if descendants_checked_separately {
+    mask ^ (mask & @ir.EFFECT_MASK_TRAP)
+  } else {
+    mask
+  }
+}
+
+///|
 fn hso_effects_for_node(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
@@ -1634,7 +1657,11 @@ fn hso_compute_subtree_is_trapless_readonly(
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
-  let mask = hso_reorder_effect_mask(cache, func, node_masks, node_id)
+  let mask = hso_effects_without_descendant_trap(
+    func,
+    node_id,
+    hso_reorder_effect_mask(cache, func, node_masks, node_id),
+  )
   let allowed_effects = @ir.EFFECT_MASK_LOCAL_STATE |
     @ir.EFFECT_MASK_GLOBAL_STATE |
     @ir.EFFECT_MASK_MEMORY_READ |
@@ -1782,7 +1809,11 @@ fn hso_subtree_is_trapless_reorderable(
     hso_branch_escapes_active_owners(func, active_owners, node_id) {
     return false
   }
-  let mask = hso_effects_for_node(func, node_masks, node_id)
+  let mask = hso_effects_without_descendant_trap(
+    func,
+    node_id,
+    hso_effects_for_node(func, node_masks, node_id),
+  )
   let allowed_effects = @ir.EFFECT_MASK_CONTROL |
     @ir.EFFECT_MASK_LOCAL_STATE |
     @ir.EFFECT_MASK_GLOBAL_STATE |
@@ -1943,7 +1974,11 @@ fn hso_subtree_is_trapless_readonly_contained_control(
     hso_branch_escapes_active_owners(func, active_owners, node_id) {
     return false
   }
-  let mask = hso_reorder_effect_mask(cache, func, node_masks, node_id)
+  let mask = hso_effects_without_descendant_trap(
+    func,
+    node_id,
+    hso_reorder_effect_mask(cache, func, node_masks, node_id),
+  )
   let allowed_effects = @ir.EFFECT_MASK_CONTROL |
     @ir.EFFECT_MASK_LOCAL_STATE |
     @ir.EFFECT_MASK_GLOBAL_STATE |

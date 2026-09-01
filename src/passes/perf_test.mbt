@@ -6981,7 +6981,7 @@ test "heap-store-optimization skips raw lift when the original function has no H
 }
 
 ///|
-test "heap-store-optimization skips raw lift when struct allocations cannot feed struct.set" {
+test "heap-store-optimization lifts allocation-only local sets for possible sinking" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -6993,19 +6993,18 @@ test "heap-store-optimization skips raw lift when struct allocations cannot feed
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
     ) {
     Ok(_) => ()
-    Err(err) =>
-      fail("expected allocation-only raw-skip HSO success, got \{err}")
+    Err(err) => fail("expected allocation-only HSO success, got \{err}")
   }
 
   let text = perf_test_join_lines(lines)
-  assert_true(
+  assert_false(
     text.contains(
       "pass[heap-store-optimization]:skip-raw reason=no-heap-store-candidates",
     ),
   )
-  assert_false(text.contains("perf:timer name=lift"))
-  assert_false(text.contains("perf:timer name=analysis:module-context"))
-  assert_false(text.contains("perf:timer name=analysis:effects"))
+  assert_true(text.contains("perf:timer name=lift"))
+  assert_true(text.contains("perf:timer name=analysis:module-context"))
+  assert_true(text.contains("perf:timer name=analysis:effects"))
 }
 
 ///|

@@ -17561,6 +17561,128 @@ test "heap-store-optimization keeps call_indirect old fields before unrelated gr
 }
 
 ///|
+test "heap-store-optimization sinks allocation-only local sets across reorderable roots" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $pair (struct (field (mut i32))))
+        #|  (func (local anyref)
+        #|    (local.set 0 (struct.new_default $pair))
+        #|    (drop
+        #|      (if (result anyref) (i32.const 1)
+        #|        (then (ref.i31 (i32.const 0)))
+        #|        (else (ref.i31 (i32.const 1)))))
+        #|    (drop
+        #|      (block $out (result anyref)
+        #|        (br $out (ref.i31 (i32.const 0)))))
+        #|    (drop (local.get 0))))
+        #|
+      ),
+      ["heap-store-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected allocation-only HSO success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let if_idx = match hso_test_index_of(pretty, "(if") {
+    Some(idx) => idx
+    None => fail("expected if root in allocation-only HSO output: \{pretty}")
+  }
+  let block_idx = match hso_test_index_of(pretty, "(block") {
+    Some(idx) => idx
+    None => fail("expected block root in allocation-only HSO output: \{pretty}")
+  }
+  let alloc_idx = match hso_test_index_of(pretty, "struct.new_default") {
+    Some(idx) => idx
+    None => fail("expected allocation in allocation-only HSO output: \{pretty}")
+  }
+  let get_idx = match hso_test_index_of(pretty, "local.get") {
+    Some(idx) => idx
+    None => fail("expected local.get in allocation-only HSO output: \{pretty}")
+  }
+  assert_true(if_idx < block_idx, msg=pretty)
+  assert_true(block_idx < alloc_idx, msg=pretty)
+  assert_true(alloc_idx < get_idx, msg=pretty)
+}
+
+///|
+test "heap-store-optimization discards safe block-wrapped old-field division" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_global_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(36)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::i32_div_s(),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(41)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected safe block-wrapped old-field HSO success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.div_s"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("I32(41)"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization preserves trapping block-wrapped old-field division" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_global_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_div_s(),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(41)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected trapping block-wrapped old-field HSO success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("I32(41)"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds safe i32 signed division by negative one before unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

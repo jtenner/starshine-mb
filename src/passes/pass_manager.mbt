@@ -43951,10 +43951,10 @@ fn run_hot_pipeline_raw_heap_store_optimization(
       })
     None => ()
   }
-  let (has_local_writes, has_struct_alloc, has_struct_set) = run_hot_pipeline_hso_candidate_scan(
+  let (has_local_writes, has_struct_alloc, _) = run_hot_pipeline_hso_candidate_scan(
     instrs,
   )
-  if has_local_writes && has_struct_alloc && has_struct_set {
+  if has_local_writes && has_struct_alloc {
     return None
   }
   let (cleaned_body, cleanup_changed) = pass_raw_remove_dropped_unreachable_debris(
