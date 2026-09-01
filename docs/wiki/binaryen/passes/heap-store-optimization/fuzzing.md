@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-01
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -11,6 +11,16 @@ sources:
 ---
 
 # `heap-store-optimization` Fuzzing Profile
+
+## 2026-09-01 ordered-path performance renewal
+
+The rebuilt current native binary and explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt` (`--require-binaryen-version 131`) compared the regular GenValid lane at seed `0x5eed`: `10000/10000` normalized, zero mismatches, validation failures, property failures, generator failures, or command failures. Raw totals are `42,190,083` Starshine versus `42,157,334` Binaryen bytes (`2967` equal and `7033` Starshine-larger spelling cases), while canonical totals are exactly equal at `42,157,334` bytes in all cases. Binaryen cache is `2/9998` hits/misses. Evidence: `.tmp/pass-fuzz-hso-external-roots-v131-regular-20260901/`.
+
+The dedicated nine-leaf aggregate currently compares `10000/10000` but yields `2155` normalized, `6777` `local-cleanup-debris` matches, and `1068` residual mismatches with zero validation/property/generator/command failures. Every residual is selected from `heap-store-optimization-side-effects`; all other leaves remain normalized or cleanup-normalized. Canonical totals are `2,719,437` Starshine versus `2,723,733` Binaryen bytes, distributed as `6777` Starshine-smaller, `2155` equal, and `1068` Starshine-larger cases. The first inspected residual has Binaryen remove a proven nontrapping `drop(i32.div_s(const, const))` while Starshine retains it. Agent classification is a size-losing behavior-parity gap, not a proven safe or intentional Starshine divergence. Evidence: `.tmp/pass-fuzz-hso-external-roots-v131-dedicated-20260901/`.
+
+A clean `85ef1c902` native binary reproduces the exact same aggregate counts and all 20 persisted baseline/current Starshine raw, canonical, and WAT artifacts are byte-identical. The gap therefore predates the zero-copy external-root and bounded scratch optimization. Keep the dedicated generated-profile closeout open until the side-effects leaf is aligned or source-backed evidence justifies a narrower classification. Baseline evidence: `.tmp/pass-fuzz-hso-external-roots-v131-baseline-dedicated-20260901/`.
+
+An initial diagnostic accidentally resolved PATH `wasm-opt version 116` and produced `10000` Binaryen command failures in each lane. Those runs are tool failures only and are not parity evidence; the explicit-v131 reruns above supersede them.
 
 ## Binaryen v131 spot renewal
 

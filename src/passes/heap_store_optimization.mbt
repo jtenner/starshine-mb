@@ -52,6 +52,12 @@ priv struct HsoPredicateCache {
 }
 
 ///|
+priv struct HsoExternalRoots {
+  root_arrays : Array[Array[Int]]
+  starts : Array[Int]
+}
+
+///|
 fn hso_new_order_effects() -> HsoOrderEffects {
   {
     shared_memory_read: false,
@@ -670,14 +676,41 @@ fn hso_mask_is_pure(mask : UInt) -> Bool {
 }
 
 ///|
-fn hso_roots_touch_local(
-  func : @ir.HotFunc,
+fn hso_new_external_roots() -> HsoExternalRoots {
+  { root_arrays: [], starts: [] }
+}
+
+///|
+fn hso_external_roots_push(
+  external_roots : HsoExternalRoots,
   roots : Array[Int],
+  start : Int,
+) -> Unit {
+  external_roots.root_arrays.push(roots)
+  external_roots.starts.push(start)
+}
+
+///|
+fn hso_external_roots_pop(external_roots : HsoExternalRoots) -> Unit {
+  ignore(external_roots.root_arrays.pop())
+  ignore(external_roots.starts.pop())
+}
+
+///|
+fn hso_external_roots_touch_local(
+  func : @ir.HotFunc,
+  external_roots : HsoExternalRoots,
   local_id : Int,
 ) -> Bool {
-  for root_id in roots {
-    if hso_subtree_touches_local(func, root_id, local_id) {
-      return true
+  for segment_idx = 0
+      segment_idx < external_roots.root_arrays.length()
+      segment_idx = segment_idx + 1 {
+    let roots = external_roots.root_arrays[segment_idx]
+    let start = external_roots.starts[segment_idx]
+    for root_idx = start; root_idx < roots.length(); root_idx = root_idx + 1 {
+      if hso_subtree_touches_local(func, roots[root_idx], local_id) {
+        return true
+      }
     }
   }
   false
@@ -3818,7 +3851,7 @@ fn hso_try_fold_into_struct_new(
   local_id : Int,
   active_catch_depth : Int,
   skip_owner_id : Int?,
-  external_roots : Array[Int],
+  external_roots : HsoExternalRoots,
 ) -> Array[Int]? {
   let (new_type_idx, field_count, desc_id, needs_default_materialization) = match
     hso_supported_struct_new(type_cache, func, module_ctx, struct_new_id) {
@@ -3868,7 +3901,7 @@ fn hso_try_fold_into_struct_new(
     hso_subtree_may_skip_local_set(cache, func, value_id) {
     let skip_is_safe = match skip_owner_id {
       Some(_) =>
-        !hso_roots_touch_local(func, external_roots, local_id) &&
+        !hso_external_roots_touch_local(func, external_roots, local_id) &&
         hso_subtree_skip_is_branch_only(func, value_id)
       None => false
     }
@@ -4040,7 +4073,7 @@ fn hso_try_fold_tee_wrapped_struct_set(
       ref_node.imm0,
       active_catch_depth,
       None,
-      [],
+      hso_new_external_roots(),
     ) {
     Some(roots) => roots
     None => return None
@@ -4158,7 +4191,7 @@ fn hso_process_node_regions(
   node_masks : Array[UInt],
   node_id : Int,
   active_catch_depth : Int,
-  external_roots : Array[Int],
+  external_roots : HsoExternalRoots,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -4555,6 +4588,15 @@ fn hso_try_fold_tiny_pure_plain_region(
 }
 
 ///|
+fn hso_chain_scratch_capacity(remaining_root_count : Int) -> Int {
+  if remaining_root_count <= 8 {
+    remaining_root_count
+  } else {
+    8
+  }
+}
+
+///|
 fn hso_process_local_set_chain(
   cache : HsoPredicateCache,
   type_cache : HsoTypeCache,
@@ -4569,7 +4611,7 @@ fn hso_process_local_set_chain(
   type_idx : @lib.TypeIdx,
   active_catch_depth : Int,
   owner_id : Int?,
-  external_roots : Array[Int],
+  external_roots : HsoExternalRoots,
 ) -> (Array[Int], Int, Bool) {
   match
     hso_try_fold_pure_plain_struct_set_chain(
@@ -4586,11 +4628,10 @@ fn hso_process_local_set_chain(
     Some((segment_roots, next_idx)) => return (segment_roots, next_idx, true)
     None => ()
   }
-  let segment_roots : Array[Int] = Array::new(capacity=roots.length() - idx)
+  let scratch_capacity = hso_chain_scratch_capacity(roots.length() - idx)
+  let segment_roots : Array[Int] = Array::new(capacity=scratch_capacity)
   segment_roots.push(root_id)
-  let swapped_prefix_roots : Array[Int] = Array::new(
-    capacity=roots.length() - idx,
-  )
+  let swapped_prefix_roots : Array[Int] = Array::new(capacity=scratch_capacity)
   let mut segment_local_set_idx = 0
   let mut segment_has_swapped_prefix = false
   let mut changed = false
@@ -4647,7 +4688,7 @@ fn hso_process_local_set_chain(
         Some(_) =>
           hso_subtree_skip_is_branch_only(func, roots[next_idx]) &&
           !hso_subtree_has_catchable_try_table_escape(func, roots[next_idx]) &&
-          !hso_roots_touch_local(func, external_roots, local_id)
+          !hso_external_roots_touch_local(func, external_roots, local_id)
         None => false
       }
       let next_is_matching_set = match
@@ -4733,7 +4774,7 @@ fn hso_process_region(
   region_ref : @ir.HotRegionRef,
   active_catch_depth : Int,
   owner_id : Int?,
-  external_roots : Array[Int],
+  external_roots : HsoExternalRoots,
 ) -> Bool {
   if hso_try_fold_tiny_pure_plain_region(func, region_ref) {
     return true
@@ -4750,29 +4791,13 @@ fn hso_process_region(
         @ir.EFFECT_MASK_CONTROL
       ) !=
       0U {
-      let child_external_count = roots.length() -
-        idx -
-        1 +
-        external_roots.length()
-      let child_external_roots : Array[Int] = Array::make(
-        child_external_count, 0,
-      )
-      let mut child_external_idx = 0
-      for suffix_idx = idx + 1
-          suffix_idx < roots.length()
-          suffix_idx = suffix_idx + 1 {
-        child_external_roots[child_external_idx] = roots[suffix_idx]
-        child_external_idx = child_external_idx + 1
-      }
-      for external_root_id in external_roots {
-        child_external_roots[child_external_idx] = external_root_id
-        child_external_idx = child_external_idx + 1
-      }
+      hso_external_roots_push(external_roots, roots, idx + 1)
       changed = hso_process_node_regions(
           cache, type_cache, func, module_ctx, node_masks, root_id, active_catch_depth,
-          child_external_roots,
+          external_roots,
         ) ||
         changed
+      hso_external_roots_pop(external_roots)
     }
   }
 
@@ -4886,7 +4911,7 @@ fn heap_store_optimization_run(
       @ir.HotRegionRef::root(),
       0,
       None,
-      [],
+      hso_new_external_roots(),
     ) {
     pass_mark_mutated(ctx, func)
     HotPassResult::changed()
