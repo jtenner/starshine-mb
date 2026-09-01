@@ -176,11 +176,11 @@ The measurements below are whole-command medians on the 4,977,401-byte canonical
 - **Work:** continue with propagation setup and shared command validation/encoding rather than the evaluator itself. Preserve the new one-batch validation path, attribute local/call ownership scans and argument-release checks, and stop immediately when no committed substitution occurred.
 - **Exit criteria:** direct production time is below 1.25 seconds while preserving all call/local-tee, structured lifetime, multivalue, argument-order, and parameter-read-before-write regressions.
 
-### [PERF-RUB]001 - Reduce RemoveUnusedBrs control scanning
+### [PERF-RUB]001 - Reduce RemoveUnusedBrs control scanning (closed)
 
-- **Evidence:** median 3.170 seconds versus verified-v131 0.566 seconds; incremental costs are about 2.555 versus 0.051 seconds.
-- **Work:** profile label-use inventory, recursive control traversal, repeated branch-target rewriting, fixpoint convergence, and unchanged-function emission. Cache stable label facts per mutation round.
-- **Exit criteria:** direct production time is below 1.25 seconds while preserving all three locked O4z slots, direct behavior, validation, and runtime correctness.
+- **Evidence:** one warmup plus three measured production pairs on the 4,977,401-byte canonical artifact give Starshine `1127.151ms` no-trace command / `132.625ms` pass-local versus verified-v131 `825.015ms` process / `303.228ms` pass-local (`1.366x` command, `0.437x` pass). Output is unchanged at SHA-256 `95de90458d3d8e72d0736b98489d67a8d16ccbdc4a9736c53ea2103d803b2145`. The new 3,000-block Moon component lane separately exposes a synthetic shared-lowerer owner: clean-HEAD/current five-run medians improve HOT lower `1120.00ms -> 10.38ms` (`107.900x`) and end-to-end RUB `1260.00ms -> 22.10ms` (`57.014x`).
+- **Work:** complete. HOT lowering builds label-use facts once, memoizes local-read presence, and avoids future-root discovery when neither call ordering nor a local-write/read conflict can require an earlier carried producer. The production artifact itself is timing-neutral before/after, so the shared optimization is recorded without claiming it caused the production close.
+- **Exit criteria:** met. Direct production time is below 1.25 seconds; all three O4z slots remain locked, the full Moon suite and focused IR tests are green, and regular RemoveUnusedBrs GenValid is `10000/10000` compare-normalized with zero failures.
 
 ### [SIZE]001 - Match or beat Binaryen output size
 

@@ -56,3 +56,44 @@ test "control slot metadata stays explicit for current control families" {
     _ => fail("expected try_table catch-list slot")
   }
 }
+
+///|
+test "hot lower used-label index covers direct table delegate and catch targets" {
+  let func = HotFunc::new()
+  let blocks : Array[NodeId] = []
+  let labels : Array[LabelId] = []
+  for _ in 0..<6 {
+    let block = hot_build_block(func, @lib.BlockType::void_(), [
+      hot_build_nop(func),
+    ])
+    blocks.push(block)
+    labels.push(hot_control_node_label(func, block))
+  }
+  ignore(hot_build_br(func, labels[0]))
+  ignore(
+    hot_build_br_if(func, labels[1], hot_build_const_i32(func, @lib.I32(1))),
+  )
+  ignore(
+    hot_build_br_table(
+      func,
+      [labels[2]],
+      labels[3],
+      hot_build_const_i32(func, @lib.I32(0)),
+    ),
+  )
+  ignore(hot_build_delegate(func, labels[4]))
+  ignore(
+    hot_build_try_table(
+      func,
+      @lib.BlockType::void_(),
+      [HotCatchArm::all(labels[0])],
+      [hot_build_nop(func)],
+    ),
+  )
+
+  let used = hot_lower_impl_build_used_labels(func)
+  for label in labels[:5] {
+    assert_true(used[label], msg="expected label \{label} to be indexed")
+  }
+  assert_false(used[labels[5]])
+}

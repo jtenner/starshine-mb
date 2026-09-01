@@ -184,3 +184,24 @@ test "heap-store-optimization ordered perf lane measures repeated subtree summar
     msg="expected ordered HSO stress fixture to stay under 5s, got \{median_us}us",
   )
 }
+
+///|
+test "bench heap-store-optimization ordered candidates=192" (it : @bench.T) {
+  let fixture = hso_ordered_perf_module(192)
+  match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "heap-store-optimization",
+    ]) {
+    Ok(_) => ()
+    Err(err) =>
+      abort("expected ordered HSO benchmark fixture success, got \{err}")
+  }
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match
+      @passes.run_hot_pipeline(fixture, options, ["heap-store-optimization"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected ordered HSO benchmark success, got \{err}")
+    }
+  })
+}

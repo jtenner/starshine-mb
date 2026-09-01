@@ -81,6 +81,35 @@ test "remove-unused-brs long perf lane measures literal multivalue use accountin
 }
 
 ///|
+test "bench HOT lift remove-unused-brs literal multivalue blocks=3000" (
+  it : @bench.T,
+) {
+  let fixture = rub_perf_literal_multivalue_module(3000)
+  let preflight = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
+  assert_true(@ir.hot_node_count(preflight) > 0)
+  it.bench(fn() {
+    let lifted = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
+    ignore(@ir.hot_node_count(lifted))
+  })
+}
+
+///|
+test "bench HOT lower remove-unused-brs literal multivalue blocks=3000" (
+  it : @bench.T,
+) {
+  let fixture = rub_perf_literal_multivalue_module(3000)
+  let lifted = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
+  let preflight = @ir.hot_lower_func_unverified(lifted)
+  let @lib.Func(_, @lib.Expr(preflight_body)) = preflight
+  assert_true(preflight_body.length() > 0)
+  it.bench(fn() {
+    let lowered = @ir.hot_lower_func_unverified(lifted)
+    let @lib.Func(_, @lib.Expr(body)) = lowered
+    ignore(body.length())
+  })
+}
+
+///|
 test "bench remove-unused-brs pass literal multivalue blocks=3000" (
   it : @bench.T,
 ) {
