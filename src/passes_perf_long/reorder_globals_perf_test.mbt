@@ -120,3 +120,27 @@ test "reorder-globals perf lane bounds unconstrained and dependency-heavy orderi
     msg="expected dependency-heavy ordering below 20ms, got \{dependency_median_us}us",
   )
 }
+
+///|
+test "bench reorder-globals pass imported globals=2000 uses=20000" (
+  it : @bench.T,
+) {
+  let fixture = rg_perf_import_heavy_module(2000, 20000)
+  ignore(@passes.reorder_globals_run_module_pass(fixture))
+  it.bench(fn() {
+    let optimized = @passes.reorder_globals_run_module_pass(fixture)
+    ignore(optimized.global_sec)
+  })
+}
+
+///|
+test "bench reorder-globals pass dependency chain globals=2000 uses=20000" (
+  it : @bench.T,
+) {
+  let fixture = rg_perf_dependency_heavy_module(2000, 20000)
+  ignore(@passes.reorder_globals_run_module_pass(fixture))
+  it.bench(fn() {
+    let optimized = @passes.reorder_globals_run_module_pass(fixture)
+    ignore(optimized.global_sec)
+  })
+}

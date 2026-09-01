@@ -1,10 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-27
+last_reviewed: 2026-08-31
 sources:
   - ../../../src/cmd/cmd.mbt
   - ../../../src/passes/perf.mbt
+  - ../../../src/passes_perf_long/moon.pkg
+  - ../../../src/passes_perf_long/directize_perf_test.mbt
+  - ../../../src/passes_perf_long/merge_blocks_perf_test.mbt
+  - ../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
+  - ../../../src/passes_perf_long/reorder_globals_perf_test.mbt
   - ../../../src/validate_trace/main.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/lib/util.mbt
@@ -23,19 +28,21 @@ related:
 
 ## Overview
 
-Starshine has two trace-like surfaces that serve different jobs:
+Starshine has three performance-observation surfaces that serve different jobs:
 
 1. **Command / optimizer tracing** from the runtime CLI: `starshine --tracing <pass|phase|helper> ...`, `STARSHINE_TRACING`, or config `tracing` enable stderr lines prefixed with `[trace]`. This surface explains what the command read, which pass/debug steps it scheduled, what optimizer segment ran, and selected optimizer performance counters.
-2. **Validator trace benchmarking** from `bun validate trace-benchmark ...` / `moon run src/validate_trace -- ...`. This surface runs fixed in-repo validator corpora and prints `phase_totals`, `helper_totals`, and `hotspots` blocks for regression triage.
+2. **Moon pass microbenchmarks** from `moon bench --release --target native src/passes_perf_long`. This surface uses MoonBit's calibrated `@bench.T` interface for stable synthetic pass workloads without putting long timing loops in `moon test`.
+3. **Validator trace benchmarking** from `bun validate trace-benchmark ...` / `moon run src/validate_trace -- ...`. This surface runs fixed in-repo validator corpora and prints `phase_totals`, `helper_totals`, and `hotspots` blocks for regression triage.
 
-Current tracing and benchmark ownership is grounded in the local command, optimizer-perf, validator-trace, wrapper, and test sources listed below. Use [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md) for runtime CLI precedence and debug-limit behavior, [`validation-gates.md`](./validation-gates.md) for `bun validate trace-benchmark` command syntax, and [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for the fixed benchmark corpus map and baseline policy.
+Current tracing and benchmark ownership is grounded in the local command, optimizer-perf, Moon benchmark, validator-trace, wrapper, and test sources listed below. Use [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md) for runtime CLI precedence and debug-limit behavior, [`validation-gates.md`](./validation-gates.md) for `bun validate trace-benchmark` command syntax, and [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for the fixed validator corpus map and baseline policy.
 
 ## Durable Rules
 
 - Tracing must stay cheap when disabled. Timing reads, counters, dumps, and per-function trace setup stay behind local gates.
 - Trace output is diagnostic evidence, not a stable public API. Keep it compact and machine-scannable, but do not promise exact wording beyond tests that intentionally pin command or pass contracts.
 - Prefer `key=value` fields and short typed prefixes over prose. Existing prefixes include command/input lines, `pass[...]` lifecycle lines, `perf:*` optimizer lines, and validator `phase_totals` / `helper_totals` / `hotspots` lines.
-- Wall-clock timings are host-local. Durable docs should cite phase movement, call counts, helper buckets, corpus shape, or pass-local comparisons before citing raw elapsed time.
+- Wall-clock timings are host-local. Durable docs should cite phase movement, call counts, helper buckets, corpus shape, or pass-local comparisons before citing raw elapsed time; recorded Moon benchmark deltas must include the fixture shape, release target, Moon version, and host CPU.
+- Build benchmark fixtures outside `it.bench(...)`, validate one preflight result, and prove the fixture remains reusable. A pass-local benchmark may disable repeated final-module validation only when its name and docs say so.
 - Do not add telemetry-only tests. If trace shape matters, extend an existing command, pass, benchmark, or golden-contract test that already proves behavior.
 - Suppress or bound repeated failures instead of flooding output; trace should make repros easier to isolate, not hide the first useful signal.
 
@@ -101,6 +108,26 @@ The attribution hierarchy is nested. **Do not sum parents and children together.
 
 Aggregate `stage:hot-pass:pre-pass` and `stage:hot-pass:post-pass` lines use cumulative `total_us`; the parser consumes the latest total rather than summing repeated cumulative lines. Disabled tracing still avoids clock reads because command and optimizer timer starts remain behind existing trace/perf gates.
 
+## Moon Pass Microbenchmark Surface
+
+Run the dedicated long-performance package in native release mode:
+
+```text
+moon bench --release --target native src/passes_perf_long
+```
+
+For iteration speed, select one file:
+
+```text
+moon bench --release --target native \
+  --package jtenner/starshine/passes_perf_long \
+  --file directize_perf_test.mbt
+```
+
+The benchmark block receives `it : @bench.T` and calls `it.bench(fn() { ... })`. Setup outside that closure owns fixture construction and one validated trigger check. Current pass-local cases reuse immutable fixtures and disable only repeated final-module validation; they still execute registry dispatch and the pass implementation. The initial suite covers Directize select lowering, MergeBlocks multivalue drop-parent indexing, RemoveUnusedBrs literal multivalue accounting, and imported/dependency-chain ReorderGlobals ordering.
+
+These synthetic cases answer whether a specific algorithmic path improved. They do not replace the production-artifact/Binaryen wall-attribution lane, semantic parity, external validation, or runtime evidence. Keep benchmarks in `src/passes_perf_long`, not the default suite, and prefer framework statistics over handwritten warmup/median loops for new lanes.
+
 ## Validator Trace Benchmark Surface
 
 The validation benchmark command is documented in [`validation-gates.md`](./validation-gates.md):
@@ -130,7 +157,7 @@ Interpret `elapsed_ms` as operator context. Treat `phase_totals`, `helper_totals
 
 When tracing changes:
 
-1. Identify the lane: runtime CLI/optimizer trace, validator trace benchmark, or both.
+1. Identify the lane: runtime CLI/optimizer trace, Moon pass microbenchmark, validator trace benchmark, or a deliberate combination.
 2. Update source owners first: `src/cmd/cmd.mbt`, `src/passes/perf.mbt`, `src/validate_trace/main.mbt`, `src/validate/validate.mbt`, and wrapper tests as applicable.
 3. Keep trace lines compact and grep-friendly; add new prefixes only when an existing one cannot carry the signal.
 4. If the benchmark output contract changes, update [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), and [`validation-gates.md`](./validation-gates.md) together.
@@ -142,5 +169,6 @@ When tracing changes:
 - Archived tracing research: research note 0001
 - Runtime command tracing: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
 - Optimizer perf tracing: [`../../../src/passes/perf.mbt`](../../../src/passes/perf.mbt), [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
+- Moon pass benchmarks: [`../../../src/passes_perf_long/moon.pkg`](../../../src/passes_perf_long/moon.pkg), [`../../../src/passes_perf_long/directize_perf_test.mbt`](../../../src/passes_perf_long/directize_perf_test.mbt), [`../../../src/passes_perf_long/merge_blocks_perf_test.mbt`](../../../src/passes_perf_long/merge_blocks_perf_test.mbt), [`../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt`](../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt), [`../../../src/passes_perf_long/reorder_globals_perf_test.mbt`](../../../src/passes_perf_long/reorder_globals_perf_test.mbt)
 - Validator benchmark tracing: [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)
 - Shared timing helpers: [`../../../src/lib/util.mbt`](../../../src/lib/util.mbt)

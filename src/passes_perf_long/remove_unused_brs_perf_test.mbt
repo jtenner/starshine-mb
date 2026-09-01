@@ -79,3 +79,24 @@ test "remove-unused-brs long perf lane measures literal multivalue use accountin
     "remove_unused_brs literal_multivalue_blocks=\{block_count} median_us=\{rub_perf_median_us(samples)} samples=\{samples}",
   )
 }
+
+///|
+test "bench remove-unused-brs pass literal multivalue blocks=3000" (
+  it : @bench.T,
+) {
+  let fixture = rub_perf_literal_multivalue_module(3000)
+  match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "remove-unused-brs",
+    ]) {
+    Ok(_) => ()
+    Err(err) => abort("expected RUB benchmark fixture success, got \{err}")
+  }
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match @passes.run_hot_pipeline(fixture, options, ["remove-unused-brs"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected RUB benchmark success, got \{err}")
+    }
+  })
+}

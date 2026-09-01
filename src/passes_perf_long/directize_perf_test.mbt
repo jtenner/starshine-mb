@@ -130,3 +130,33 @@ test "directize perf lane bounds trigger-bearing long select discovery" {
     msg="expected trigger-bearing select discovery below 22ms, got \{median_us}us",
   )
 }
+
+///|
+test "bench directize pass select calls=256 depth=64" (it : @bench.T) {
+  let call_count = 256
+  let depth = 64
+  let fixture = directize_perf_module(call_count, depth)
+  let optimized = match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "directize",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort("expected directize benchmark fixture success, got \{err}")
+  }
+  if optimized
+    .pretty_print_func(@lib.FuncIdx::new(2U))
+    .contains("call_indirect") {
+    abort("directize benchmark fixture must trigger")
+  }
+  if !fixture.pretty_print_func(@lib.FuncIdx::new(2U)).contains("call_indirect") {
+    abort("directize benchmark fixture must remain reusable")
+  }
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match @passes.run_hot_pipeline(fixture, options, ["directize"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected directize benchmark success, got \{err}")
+    }
+  })
+}
