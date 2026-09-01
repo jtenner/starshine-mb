@@ -15195,6 +15195,94 @@ fn run_hot_pipeline_hso_raw_simple_value(
 }
 
 ///|
+fn run_hot_pipeline_hso_raw_i31_value(instrs : Array[@lib.Instruction]) -> Bool {
+  if instrs.length() != 2 {
+    return false
+  }
+  match (instrs[0], instrs[1]) {
+    (@lib.I32Const(_), @lib.RefI31) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_hso_raw_contained_i31_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      if block_type != @lib.BlockType::val_type(@lib.ValType::anyref()) ||
+        body.length() != 3 {
+        return false
+      }
+      match (body[0], body[1], body[2]) {
+        (@lib.I32Const(_), @lib.RefI31, @lib.Br(label_idx)) =>
+          label_idx == @lib.LabelIdx::new(0U)
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_heap_store_optimization_allocation_sink(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool)? {
+  // Binaryen's optimizeBlock pushes a fresh constructor local.set toward later
+  // roots even when no struct.set is found. Keep this raw path exact: the whole
+  // function must be repeated proven-pure i31 windows, or general HOT owns it.
+  if instrs.is_empty() || instrs.length() % 9 != 0 {
+    return None
+  }
+  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let mut idx = 0
+  while idx < instrs.length() {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+        instrs[idx + 5],
+        instrs[idx + 6],
+        instrs[idx + 7],
+        instrs[idx + 8],
+      ) {
+      (
+        @lib.StructNewDefault(_) as struct_new,
+        @lib.LocalSet(set_local) as local_set,
+        @lib.I32Const(_) as condition,
+        @lib.If(if_type, then_body, Some(else_body)) as if_instr,
+        @lib.Drop as if_drop,
+        block_instr,
+        @lib.Drop as block_drop,
+        @lib.LocalGet(get_local) as local_get,
+        @lib.Drop as local_drop,
+      ) if set_local == get_local &&
+        if_type == @lib.BlockType::val_type(@lib.ValType::anyref()) &&
+        run_hot_pipeline_hso_raw_i31_value(then_body) &&
+        run_hot_pipeline_hso_raw_i31_value(else_body) &&
+        run_hot_pipeline_hso_raw_contained_i31_block(block_instr) => {
+        rewritten.push(condition)
+        rewritten.push(if_instr)
+        rewritten.push(if_drop)
+        rewritten.push(block_instr)
+        rewritten.push(block_drop)
+        rewritten.push(struct_new)
+        rewritten.push(local_set)
+        rewritten.push(local_get)
+        rewritten.push(local_drop)
+        idx = idx + 9
+      }
+      _ => return None
+    }
+  }
+  Some((rewritten, true))
+}
+
+///|
 fn run_hot_pipeline_raw_heap_store_optimization_plain_struct_new_chain(
   mod_ : @lib.Module,
   instrs : Array[@lib.Instruction],
@@ -43945,6 +44033,16 @@ fn run_hot_pipeline_raw_heap_store_optimization(
     Some((rewritten, changed)) =>
       return Some({
         reason: "raw-complete-default-heap-store-chain",
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+        unchanged_original: !changed,
+        trace_skip_raw: true,
+      })
+    None => ()
+  }
+  match run_hot_pipeline_raw_heap_store_optimization_allocation_sink(instrs) {
+    Some((rewritten, changed)) =>
+      return Some({
+        reason: "raw-allocation-only-struct-new-sink",
         func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
         unchanged_original: !changed,
         trace_skip_raw: true,

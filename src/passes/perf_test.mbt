@@ -7008,6 +7008,47 @@ test "heap-store-optimization lifts allocation-only local sets for possible sink
 }
 
 ///|
+test "heap-store-optimization raw-sinks allocation-only local sets across pure control" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (type $pair (struct (field (mut i32))))
+    #|   (func (local anyref)
+    #|     (local.set 0 (struct.new_default $pair))
+    #|     (drop
+    #|       (if (result anyref) (i32.const 1)
+    #|         (then (ref.i31 (i32.const 0)))
+    #|         (else (ref.i31 (i32.const 1)))))
+    #|     (drop
+    #|       (block $out (result anyref)
+    #|         (br $out (ref.i31 (i32.const 0)))))
+    #|     (drop (local.get 0))))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["heap-store-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected raw allocation-sinking HSO success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[heap-store-optimization]:skip-raw reason=raw-allocation-only-struct-new-sink",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=analysis:module-context"))
+  assert_false(text.contains("perf:timer name=analysis:effects"))
+}
+
+///|
 test "heap-store-optimization aggregates identical raw-skip trace lines across functions" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

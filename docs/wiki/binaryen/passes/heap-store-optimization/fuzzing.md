@@ -27,6 +27,8 @@ Final explicit-v131 matrix evidence uses `_build/native/release/build/cmd/cmd.ex
 
 The ordered 1,024-candidate fail-closed benchmark remains valid after the parity fix: its zero-copy external-root stack and bounded eight-slot scratch arrays are unchanged. The matched native-release medians remain lift plus pass `26.41ms -> 20.66ms` and registry pipeline `25.03ms -> 18.84ms`; those are synthetic ordered-path measurements, not production-artifact claims.
 
+After adding the exact raw allocation-only sink, the complete matrix was rerun with the rebuilt native CLI. Results are unchanged: regular GenValid `100000/100000` normalized; wasm-smith `9956/10000` normalized plus the same `44` Binaryen-v131 oracle failures; dedicated HSO `2155 + 7845` cleanup-normalized with zero residuals; and broad random-all `9748` normalized plus the same `252` classified output-shape residuals. The targeted `local-subtyping-control-refinalize` lane expands to `10000/10000` normalized with zero failures, directly exercising allocation sinking. Evidence: `.tmp/pass-fuzz-hso-raw-sink-final-genvalid-100000-20260901/`, `.tmp/pass-fuzz-hso-raw-sink-final-wasm-smith-10000-20260901/`, `.tmp/pass-fuzz-hso-raw-sink-final-dedicated-10000-20260901/`, `.tmp/pass-fuzz-hso-raw-sink-final-random-all-10000-20260901/`, and `.tmp/pass-fuzz-hso-raw-allocation-sink-local-subtyping-10000-20260901/`.
+
 An initial diagnostic accidentally resolved PATH `wasm-opt version 116` and produced `10000` Binaryen command failures in each lane. Those runs are tool failures only and are superseded by all explicit-v131 evidence above.
 
 ## Binaryen v131 spot renewal

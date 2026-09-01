@@ -17608,6 +17608,55 @@ test "heap-store-optimization sinks allocation-only local sets across reorderabl
 }
 
 ///|
+test "heap-store-optimization raw sink falls back on a trapping if arm" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $pair (struct (field (mut i32))))
+        #|  (func (local anyref)
+        #|    (local.set 0 (struct.new_default $pair))
+        #|    (drop
+        #|      (if (result anyref) (i32.const 1)
+        #|        (then
+        #|          (drop (i32.div_s (i32.const 1) (i32.const 0)))
+        #|          (ref.i31 (i32.const 0)))
+        #|        (else (ref.i31 (i32.const 1)))))
+        #|    (drop
+        #|      (block $out (result anyref)
+        #|        (br $out (ref.i31 (i32.const 0)))))
+        #|    (drop (local.get 0))))
+        #|
+      ),
+      ["heap-store-optimization"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected trapping allocation-only HSO success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let alloc_idx = match hso_test_index_of(pretty, "struct.new_default") {
+    Some(idx) => idx
+    None => fail("expected allocation in trapping HSO output: \{pretty}")
+  }
+  let if_idx = match hso_test_index_of(pretty, "(if") {
+    Some(idx) => idx
+    None => fail("expected if in trapping HSO output: \{pretty}")
+  }
+  assert_true(if_idx < alloc_idx, msg=pretty)
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("reason=raw-allocation-only-struct-new-sink")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "heap-store-optimization discards safe block-wrapped old-field division" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
