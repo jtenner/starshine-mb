@@ -45,14 +45,6 @@
 - **Invariants:** the original is primary; Binaryen agreement never excuses Starshine; incomplete observation is blocked; structural idempotence/composition and v1 readers keep their meanings; preset order and Binaryen v131 stay locked; long randomized lanes remain outside default `moon test`.
 - **Exit criteria:** all machine-readable reports have one MoonBit source of truth where applicable, generated semantic profiles meet their feature floors, replay/reduction preserves fingerprints, CI smoke/profile lanes are green, and required deterministic campaigns report zero true semantic mismatches with explicit blocked/tool counts.
 
-### [FUZZ-META]001 - Reduce deterministic metamorphic-valid CI abort
-
-- **Goal:** make `validate-valid-metamorphic` report a replayable failing transform instead of aborting with only `RuntimeError: unreachable`, then repair the underlying generator, transform, validator, or report path.
-- **Evidence:** `moon run --target wasm-gc src/fuzz -- validate-valid-metamorphic ci --seed 0x1a05d7c5def43f5` deterministically aborts at `src/fuzz/main.mbt:6971` on both clean `50079813c` and current source. All preceding CI suites pass with the same seed; a fresh full-gate seed `0x1a05d84f9f2520d` passes the metamorphic suite and complete `bun validate full --profile ci --target wasm-gc`.
-- **Work:** isolate the failing metamorphic attempt and transform id, preserve a minimal replay artifact, replace opaque abort propagation with actionable context where appropriate, and fix the actual validity or metamorphic invariant failure.
-- **Invariants:** original-primary semantic evidence remains authoritative; do not skip the seed, weaken validation, lower CI attempts, or classify an opaque abort as harmless.
-- **Exit criteria:** the exact seed completes with a structured pass/failure report, the reduced reproducer is covered by a focused test, and the full CI-profile validation gate passes.
-
 ### [REVIEW-20260822]001 - Refresh final22 after correctness and compile-time repairs
 
 - **Implemented:** the ifs streaming XOR fold now requires the complete `i32.const 1; i32.and; i32.const 1; i32.xor` suffix, with masks `2`, `3`, `-1`, dynamic-RHS, and evaluated-result regressions. Constant-expression validation now uses one WebAssembly-3.0-derived default-deny allowlist in globals, optional table initializers, active data/element offsets, and element payloads. O4z finish reuse consumes an explicit byte-stable canonicalizer changed bit instead of NaN-sensitive structural equality; f32/f64 NaN payload tests count zero duplicate finish invocations.

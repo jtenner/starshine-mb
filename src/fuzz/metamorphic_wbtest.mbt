@@ -1160,6 +1160,107 @@ test "metamorphic duplicate equivalent imported memory64 transform appends unuse
 }
 
 ///|
+test "metamorphic duplicate imported memory64 avoids defined-memory index shifts" {
+  let empty_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let memory64_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("memory64"),
+    @lib.mem_extern_type(@lib.MemType::new(@lib.Limits::i64(1UL, Some(1UL)))),
+  )
+  let defined_memory = @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)))
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_store(
+      @lib.MemArg::new(2U, Some(@lib.MemIdx::new(1U)), 0UL),
+    ),
+  ])
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([empty_type]))
+    .with_import_sec(@lib.ImportSec::new([memory64_import]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(@lib.MemSec::new([defined_memory]))
+    .with_code_sec(
+      @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), body)]),
+    )
+  match assert_metamorphic_roundtrip_valid(base) {
+    Ok(_) => ()
+    Err(msg) => fail("expected valid mixed-memory base: \{msg}")
+  }
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImportedMemory64) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      @debug.assert_eq(imports, [memory64_import])
+    None => fail("expected original memory64 import")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate imported memory transforms no-op with defined memories" {
+  let imports = [
+    @lib.Import::new(
+      @lib.Name::new("env"),
+      @lib.Name::new("memory32"),
+      @lib.mem_extern_type(@lib.MemType::new(@lib.Limits::i32(1U, Some(1U)))),
+    ),
+    @lib.Import::new(
+      @lib.Name::new("env"),
+      @lib.Name::new("memory64"),
+      @lib.mem_extern_type(@lib.MemType::new(@lib.Limits::i64(1UL, Some(1UL)))),
+    ),
+    @lib.Import::new(
+      @lib.Name::new("env"),
+      @lib.Name::new("shared32"),
+      @lib.mem_extern_type(
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ),
+    ),
+    @lib.Import::new(
+      @lib.Name::new("env"),
+      @lib.Name::new("shared64"),
+      @lib.mem_extern_type(
+        @lib.MemType::new(@lib.Limits::i64(1UL, Some(1UL)), shared=true),
+      ),
+    ),
+  ]
+  let base = @lib.Module::new()
+    .with_import_sec(@lib.ImportSec::new(imports))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, Some(1U)))]),
+    )
+  for
+    transform in [
+      AddDuplicateEquivalentImportedMemory,
+      AddDuplicateEquivalentImportedMemory64,
+      AddDuplicateEquivalentImportedSharedMemory,
+      AddDuplicateEquivalentImportedSharedMemory64,
+    ] {
+    let transformed = match metamorphic_apply_transform(base, transform) {
+      Ok(v) => v.wasm_module
+      Err(msg) => fail(msg)
+    }
+    match transformed.import_sec {
+      Some(@lib.ImportSec(actual)) => @debug.assert_eq(actual, imports)
+      None => fail("expected original memory imports")
+    }
+    match assert_metamorphic_roundtrip_valid(transformed) {
+      Ok(_) => ()
+      Err(msg) => fail(msg)
+    }
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent imported shared memory transform appends unused matching import" {
   let original_import = @lib.Import::new(
     @lib.Name::new("env"),
