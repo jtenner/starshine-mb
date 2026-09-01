@@ -69211,6 +69211,33 @@ fn run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_deep_singleton_call_leaf(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let mut current = instrs
+  let mut depth = 0
+  while current.length() == 1 {
+    match current[0] {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+        current = body
+        depth += 1
+      }
+      _ => break
+    }
+  }
+  // Binaryen flattens these transparent void wrappers. The exact leaf has no
+  // branch target or structured owner to rebase; every nearby shape stays on
+  // generic preclean, where the complete artifact-specific guards still run.
+  if depth < 64 {
+    return None
+  }
+  match current {
+    [@lib.I32Const(_), @lib.LocalSet(_), @lib.Call(_)] => Some(current)
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -69223,6 +69250,18 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  match run_hot_pipeline_raw_vacuum_deep_singleton_call_leaf(instrs) {
+    Some(leaf) =>
+      return Some({
+        reason: "raw-vacuum-deep-singleton-call-leaf",
+        func: run_hot_pipeline_raw_vacuum_finalize_precleaned_func(
+          mod_, func_idx, module_state, options, locals, leaf,
+        ),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    None => ()
+  }
   let has_dropped_typeidx_block = run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(
     instrs,
   )

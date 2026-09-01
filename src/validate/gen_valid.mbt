@@ -23668,7 +23668,8 @@ fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig 
     },
     max_locals: if profile == VacuumHazardBoundaryProfile ||
       profile == VacuumCallPrefixContinuationProfile ||
-      profile == VacuumLocalsetPrefixPreserveProfile {
+      profile == VacuumLocalsetPrefixPreserveProfile ||
+      profile == VacuumStructuralWrappersProfile {
       1
     } else {
       0
@@ -23687,7 +23688,8 @@ fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig 
       allow_datas: false,
       allow_calls: profile == VacuumHazardBoundaryProfile ||
       profile == VacuumCallPrefixContinuationProfile ||
-      profile == VacuumLocalsetPrefixPreserveProfile,
+      profile == VacuumLocalsetPrefixPreserveProfile ||
+      profile == VacuumStructuralWrappersProfile,
       allow_call_indirect: false,
       allow_tail_calls: false,
       allow_v128: false,
@@ -23842,6 +23844,19 @@ fn gen_valid_vacuum_structural_wrappers_body() -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_vacuum_deep_singleton_call_leaf_body() -> Array[Instruction] {
+  let mut body : Array[Instruction] = [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::call(FuncIdx::new(0U)),
+  ]
+  for level = 0; level < 64; level = level + 1 {
+    body = [Instruction::block(BlockType::void_(), Expr::new(body))]
+  }
+  body
+}
+
+///|
 fn gen_valid_vacuum_core_profile_module() -> Module {
   let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
@@ -23882,12 +23897,16 @@ fn gen_valid_vacuum_structural_wrappers_profile_module() -> Module {
   let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   Module::new()
   .with_type_sec(TypeSec::new([void_func_type]))
-  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
   .with_code_sec(
     CodeSec::new([
       Func::new(
         Locals::empty(),
         Expr::new(gen_valid_vacuum_structural_wrappers_body()),
+      ),
+      Func::new(
+        Locals::single(1U, ValType::i32()),
+        Expr::new(gen_valid_vacuum_deep_singleton_call_leaf_body()),
       ),
     ]),
   )

@@ -101,6 +101,24 @@ The raw preclean admission path now computes its already-required instruction an
 
 A controlled primes A/B reduces aggregate raw-preclean time 39.701 → 36.876 ms (-7.12%) and direct level-correct Vacuum 12.176 → 11.779 ms (-3.27%) with byte-identical direct output. Regular explicit-v131 smoke is 1,000/1,000 normalized. The pass-owned aggregate's 301 smaller residuals are byte-identical under isolated pre-change and final binaries, so this is an execution-order performance improvement rather than a direct behavior change.
 
+## 2026-09-01 deep singleton-wrapper benchmark and exact raw flatten
+
+The calibrated native-release suite now includes seven Vacuum lanes: flat guarded-hazard HOT lift, direct pass, lower, and raw registry dispatch; nested HOT lift at depth 512; and raw registry dispatch at depths 512 and 1024. The nested cases are fail-closed: the source is a chain of singleton void blocks ending in exactly `i32.const; local.set; call`, preflight requires the named raw reason, all leaf operations remain, and the optimized body must have block depth zero.
+
+Generic raw preclean scaled superlinearly because every wrapper entered the complete artifact-shape matcher chain before recursive reconstruction. An allocation-free depth walk now admits only at least 64 singleton void blocks with that exact three-instruction leaf and returns the leaf directly. Nearby depth-63, extra-debris, and loop-wrapper shapes remain on the old path.
+
+Five matched clean-`ef85aa1a8`/current native-release medians on AMD Ryzen 7 8845HS with MoonBit `0.1.20260713` are:
+
+- depth 512 raw registry: `3.680ms -> 16.89us` (`217.880x`, `-99.541%`);
+- depth 1024 raw registry: `12.150ms -> 21.71us` (`559.650x`, `-99.821%`);
+- flat lift/pass/lower/raw lanes remain approximately neutral and prove the optimization is limited to the deep exact family.
+
+On the exact 3,140-byte depth-1024 wasm fixture, 11-sample command medians move Starshine `10.800ms -> 1.660ms` (`6.506x`, `-84.630%`) versus Binaryen v131 `2.601ms`. Baseline Starshine retained all 1,024 wrappers. Current Starshine emits 66 raw bytes because it preserves the import name section; after `--strip-debug`, current and Binaryen are byte-identical at 48 bytes with SHA-256 `cc435f18e75f3b2e0730373100929101de3b5824cb18200496bc3dfe71e1de18`.
+
+The canonical production debug-WASI Vacuum attribution reports **zero** `raw-vacuum-deep-singleton-call-leaf` hits. Therefore this closes one synthetic size-losing/parity family and removes its superlinear path, but does not close `[P0-WALL-VACUUM]`; production raw preprocessing and writeback remain the owners.
+
+The existing `vacuum-structural-wrappers` GenValid leaf now includes the depth-64 defined-call fixture. Explicit-v131 targeted comparison is `10000/10000` normalized with equal raw/canonical totals. Regular GenValid is also `10000/10000` normalized. The refreshed aggregate is `7175` normalized plus `2825` pre-existing canonically smaller Starshine residuals and zero failures; all 20 persisted current/baseline residual artifacts are byte-identical, so no aggregate drift is attributed to this change.
+
 ## Beginner warning: what the name hides
 
 The easy wrong mental model is:
