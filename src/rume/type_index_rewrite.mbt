@@ -1343,8 +1343,6 @@ fn dfe_rewrite_data_type_idxs(
 }
 
 ///|
-
-///|
 fn dfe_rewrite_module_type_idxs(
   mod_ : @lib.Module,
   remap : Map[UInt, UInt],
