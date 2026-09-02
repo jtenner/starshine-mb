@@ -579,26 +579,26 @@ fn typecheck_global_set(st : TcState, idx : GlobalIdx) -> TcResult {
   }
 }
 
-// table.get x : [i32] -> [t]
+// table.get x : [at] -> [t]
 
 ///|
 fn typecheck_table_get(st : TcState, idx : TableIdx) -> TcResult {
-  let TableType(rt, _) = match st.env.get_table_type(idx) {
+  let TableType(rt, limits) = match st.env.get_table_type(idx) {
     None => return Err("invalid table index")
     Some(tt) => tt
   }
-  let st1 = match st.pop_expect(ValType::i32()) {
+  let st1 = match st.pop_expect(limits.addr_valtype()) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
   Ok(st1.push1(ValType::ref_type(rt)))
 }
 
-// table.set x : [i32, t] -> []
+// table.set x : [at, t] -> []
 
 ///|
 fn typecheck_table_set(st : TcState, idx : TableIdx) -> TcResult {
-  let TableType(rt, _) = match st.env.get_table_type(idx) {
+  let TableType(rt, limits) = match st.env.get_table_type(idx) {
     None => return Err("invalid table index")
     Some(tt) => tt
   }
@@ -609,35 +609,35 @@ fn typecheck_table_set(st : TcState, idx : TableIdx) -> TcResult {
     Ok(s) => s
   }
 
-  // pop index (i32)
-  let st2 = match st1.pop_expect(ValType::i32()) {
+  // pop index (the table's address type)
+  let st2 = match st1.pop_expect(limits.addr_valtype()) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
   Ok(st2)
 }
 
-// table.size x : [] -> [i32]
+// table.size x : [] -> [at]
 
 ///|
 fn typecheck_table_size(st : TcState, idx : TableIdx) -> TcResult {
   match st.env.get_table_type(idx) {
     None => Err("invalid table index")
-    Some(_) => Ok(st.push1(ValType::i32()))
+    Some(TableType(_, limits)) => Ok(st.push1(limits.addr_valtype()))
   }
 }
 
-// table.grow x : [t, i32] -> [i32]
+// table.grow x : [t, at] -> [at]
 
 ///|
 fn typecheck_table_grow(st : TcState, idx : TableIdx) -> TcResult {
-  let TableType(rt, _) = match st.env.get_table_type(idx) {
+  let TableType(rt, limits) = match st.env.get_table_type(idx) {
     None => return Err("invalid table index")
     Some(tt) => tt
   }
 
-  // pop delta (i32) — top of stack
-  let st1 = match st.pop_expect(ValType::i32()) {
+  // pop delta (the table's address type) — top of stack
+  let st1 = match st.pop_expect(limits.addr_valtype()) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -647,7 +647,7 @@ fn typecheck_table_grow(st : TcState, idx : TableIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  Ok(st2.push1(ValType::i32()))
+  Ok(st2.push1(limits.addr_valtype()))
 }
 
 ///|

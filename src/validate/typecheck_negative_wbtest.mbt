@@ -430,6 +430,67 @@ test "Typecheck CallIndirect rejects an i32 index for table64" {
 }
 
 ///|
+test "Typecheck table64 operations use the i64 address type" {
+  let element = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let env = Env::{
+    ..empty_env(),
+    tables: [
+      TableType::new(
+        RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        Limits::i64(1UL, None),
+      ),
+    ],
+  }
+  let cases : Array[(Instruction, Array[ValType], Array[ValType])] = [
+    (Instruction::table_get(TableIdx::new(0)), [ValType::i64()], [element]),
+    (Instruction::table_set(TableIdx::new(0)), [ValType::i64(), element], []),
+    (Instruction::table_size(TableIdx::new(0)), [], [ValType::i64()]),
+    (
+      Instruction::table_grow(TableIdx::new(0)),
+      [element, ValType::i64()],
+      [ValType::i64()],
+    ),
+  ]
+  for item in cases {
+    let (instruction, before, after) = item
+    match Typecheck::typecheck(instruction, tcneg_make_state(env, before)) {
+      Ok(next) => assert_stack(next, after)
+      Err(err) => fail("expected table64 operation to validate, got \{err}")
+    }
+  }
+}
+
+///|
+test "Typecheck table64 operations reject i32 addresses" {
+  let element = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let env = Env::{
+    ..empty_env(),
+    tables: [
+      TableType::new(
+        RefType::new(true, HeapType::abs(AbsHeapType::func())),
+        Limits::i64(1UL, None),
+      ),
+    ],
+  }
+  for
+    item in [
+      (Instruction::table_get(TableIdx::new(0)), [ValType::i32()]),
+      (Instruction::table_set(TableIdx::new(0)), [ValType::i32(), element]),
+      (Instruction::table_grow(TableIdx::new(0)), [element, ValType::i32()]),
+    ] {
+    let (instruction, stack) = item
+    tcneg_assert_err_contains(
+      Typecheck::typecheck(instruction, tcneg_make_state(env, stack)),
+      "type mismatch",
+    )
+  }
+}
+
+///|
 test "Typecheck CallIndirect rejects invalid table index" {
   let func_type = tcneg_single_functype_subtype([ValType::i32()], [
     ValType::i64(),
