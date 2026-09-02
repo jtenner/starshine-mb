@@ -55,7 +55,7 @@ priv struct HotLowerLabelFrames {
 
 ///|
 fn hot_lower_impl_new_label_frames() -> HotLowerLabelFrames {
-  { active: [], depths: [], legacy_rethrow_locals: [] }
+  { active: [], depths: [], legacy_rethrow_locals: [], }
 }
 
 ///|
@@ -246,7 +246,7 @@ fn hot_lower_impl_input_info(func : HotFunc, id : NodeId) -> HotLowerInputs {
     | HotOp::TableSize
     | HotOp::DataDrop
     | HotOp::ElemDrop
-    | HotOp::RefFunc => { nodes: [], pop_count: 0 }
+    | HotOp::RefFunc => { nodes: [], pop_count: 0, }
     HotOp::Loop => {
       let out : Array[NodeId] = []
       let input_count = hot_label_branch_arity(
@@ -256,9 +256,9 @@ fn hot_lower_impl_input_info(func : HotFunc, id : NodeId) -> HotLowerInputs {
       for i = 0; i < input_count; i = i + 1 {
         out.push(func.children[node.child_base + i])
       }
-      { nodes: out, pop_count: input_count }
+      { nodes: out, pop_count: input_count, }
     }
-    HotOp::If => { nodes: [func.children[node.child_base]], pop_count: 1 }
+    HotOp::If => { nodes: [func.children[node.child_base]], pop_count: 1, }
     _ => {
       let out : Array[NodeId] = []
       for i = 0; i < node.child_count; i = i + 1 {
@@ -277,7 +277,7 @@ fn hot_lower_impl_input_info(func : HotFunc, id : NodeId) -> HotLowerInputs {
           }
         _ => out.length()
       }
-      { nodes: out, pop_count }
+      { nodes: out, pop_count, }
     }
   }
 }
@@ -307,7 +307,7 @@ fn hot_lower_impl_push_results(
   stack : Array[HotLowerStackValue],
 ) -> Unit {
   for val_type in hot_type_results(func, hot_node_type(func, id)) {
-    stack.push({ node_id: id, val_type })
+    stack.push({ node_id: id, val_type, })
   }
 }
 
@@ -843,7 +843,7 @@ fn hot_lower_impl_body_items(
       }
     }
     if occurrence < input_types.length() {
-      value_stack.push({ node_id: input_id, val_type: input_types[occurrence] })
+      value_stack.push({ node_id: input_id, val_type: input_types[occurrence], })
     }
     if existing >= 0 {
       input_occurrences[existing] = occurrence + 1
@@ -2375,7 +2375,7 @@ fn hot_lower_impl_emit_root(
               stack_idx < stack.length()
               stack_idx = stack_idx + 1 {
             let value = stack[stack_idx]
-            stack[stack_idx] = { node_id: id, val_type: value.val_type }
+            stack[stack_idx] = { node_id: id, val_type: value.val_type, }
           }
           return
         }

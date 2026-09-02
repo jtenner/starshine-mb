@@ -15,7 +15,7 @@ pub fn DifferentialAdapters::new(
   },
   per_case_timeout_ms? : Int? = None,
 ) -> DifferentialAdapters {
-  { wasm_tools_validate, binaryen_validate, per_case_timeout_ms }
+  { wasm_tools_validate, binaryen_validate, per_case_timeout_ms, }
 }
 
 ///|
@@ -596,7 +596,7 @@ pub enum BinaryDifferentialClassification {
 pub fn BinaryDifferentialAdapterResult::valid(
   adapter_name : String,
 ) -> BinaryDifferentialAdapterResult {
-  { adapter_name, outcome: BinaryValid, message: None }
+  { adapter_name, outcome: BinaryValid, message: None, }
 }
 
 ///|
@@ -604,7 +604,7 @@ pub fn BinaryDifferentialAdapterResult::invalid_decode(
   adapter_name : String,
   message : String,
 ) -> BinaryDifferentialAdapterResult {
-  { adapter_name, outcome: BinaryInvalidDecode, message: Some(message) }
+  { adapter_name, outcome: BinaryInvalidDecode, message: Some(message), }
 }
 
 ///|
@@ -612,7 +612,7 @@ pub fn BinaryDifferentialAdapterResult::invalid_validate(
   adapter_name : String,
   message : String,
 ) -> BinaryDifferentialAdapterResult {
-  { adapter_name, outcome: BinaryInvalidValidate, message: Some(message) }
+  { adapter_name, outcome: BinaryInvalidValidate, message: Some(message), }
 }
 
 ///|
@@ -620,7 +620,7 @@ pub fn BinaryDifferentialAdapterResult::tool_failure(
   adapter_name : String,
   message : String,
 ) -> BinaryDifferentialAdapterResult {
-  { adapter_name, outcome: BinaryToolFailure, message: Some(message) }
+  { adapter_name, outcome: BinaryToolFailure, message: Some(message), }
 }
 
 ///|
@@ -628,7 +628,7 @@ pub fn BinaryDifferentialAdapterResult::unsupported_feature(
   adapter_name : String,
   message : String,
 ) -> BinaryDifferentialAdapterResult {
-  { adapter_name, outcome: BinaryUnsupportedFeature, message: Some(message) }
+  { adapter_name, outcome: BinaryUnsupportedFeature, message: Some(message), }
 }
 
 ///|
@@ -636,7 +636,7 @@ pub fn BinaryDifferentialAdapterResult::adapter_unavailable(
   adapter_name : String,
   message : String,
 ) -> BinaryDifferentialAdapterResult {
-  { adapter_name, outcome: BinaryAdapterUnavailable, message: Some(message) }
+  { adapter_name, outcome: BinaryAdapterUnavailable, message: Some(message), }
 }
 
 ///|
@@ -770,7 +770,7 @@ pub fn BinaryDifferentialSmokeAdapter::new(
   adapter_name : String,
   run : (Bytes) -> BinaryDifferentialAdapterResult,
 ) -> BinaryDifferentialSmokeAdapter {
-  { adapter_name, run }
+  { adapter_name, run, }
 }
 
 ///|
@@ -1427,7 +1427,7 @@ pub fn FuzzCorpusSource::new(
   pass_profile : String,
   stage : String,
 ) -> FuzzCorpusSource {
-  { seed, attempt, generator_profile, pass_profile, stage }
+  { seed, attempt, generator_profile, pass_profile, stage, }
 }
 
 ///|
@@ -1459,7 +1459,7 @@ pub struct FuzzCorpusDedupIndex {
 
 ///|
 pub fn FuzzCorpusDedupIndex::new() -> FuzzCorpusDedupIndex {
-  { entries: [], positions: @hashmap.new(capacity=64) }
+  { entries: [], positions: @hashmap.new(capacity=64), }
 }
 
 ///|
@@ -1525,7 +1525,7 @@ pub fn FuzzFailurePersistIO::new(
     Err("write_file not configured: \{path}")
   },
 ) -> FuzzFailurePersistIO {
-  { ensure_dir, write_file }
+  { ensure_dir, write_file, }
 }
 
 ///|
@@ -2085,15 +2085,19 @@ pub fn FuzzCorpusDedupIndex::record(
   match self.positions.get(hash) {
     Some(pos) => {
       let canonical_seed = self.entries[pos].canonical_seed
-      self.entries[pos].sources.push({ source, duplicate: true, canonical_seed })
-      { hash, duplicate: true, canonical_seed: Some(canonical_seed) }
+      self.entries[pos].sources.push({
+        source,
+        duplicate: true,
+        canonical_seed,
+      })
+      { hash, duplicate: true, canonical_seed: Some(canonical_seed), }
     }
     None => {
       let canonical_seed = source.seed
-      let sources = [{ source, duplicate: false, canonical_seed }]
+      let sources = [{ source, duplicate: false, canonical_seed, }]
       self.positions.set(hash, self.entries.length())
-      self.entries.push({ hash, canonical_seed, sources })
-      { hash, duplicate: false, canonical_seed: Some(canonical_seed) }
+      self.entries.push({ hash, canonical_seed, sources, })
+      { hash, duplicate: false, canonical_seed: Some(canonical_seed), }
     }
   }
 }

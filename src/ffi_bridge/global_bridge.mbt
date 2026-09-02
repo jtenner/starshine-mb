@@ -5,7 +5,7 @@ pub(all) struct GlobalBuilder {
 
 ///|
 pub fn global_builder_new() -> GlobalBuilder {
-  { globals: [] }
+  { globals: [], }
 }
 
 ///|
@@ -23,16 +23,14 @@ pub fn GlobalBuilder::push(self : GlobalBuilder, carrier : Int) -> Unit {
     1 => [@lib.Instruction::i64_const(@lib.I64::new(0L))]
     2 => [@lib.Instruction::f32_const(@lib.F32::new(0.0))]
     3 => [@lib.Instruction::f64_const(@lib.F64::new(0.0))]
-    4 => [
-      @lib.Instruction::v128_const(
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      ),
-    ]
-    _ => [
-      @lib.Instruction::ref_null(
-        @lib.HeapType::abs(@lib.AbsHeapType::none()),
-      ),
-    ]
+    4 =>
+      [
+        @lib.Instruction::v128_const(
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ),
+      ]
+    _ =>
+      [@lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none()))]
   }
   self.globals.push(
     @lib.Global::new(
@@ -60,9 +58,7 @@ pub fn module_with_start_function(
   function_index : Int,
 ) -> @lib.Module {
   module_.with_start_sec(
-    @lib.StartSec::new(
-      @lib.FuncIdx::new(function_index.reinterpret_as_uint()),
-    ),
+    @lib.StartSec::new(@lib.FuncIdx::new(function_index.reinterpret_as_uint())),
   )
 }
 

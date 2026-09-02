@@ -6,7 +6,11 @@ import {
   standardTraitInterfaces,
   type FfiInterfaceInput,
 } from "./ffi-generation";
-import { listWasmExportNames, rewriteWasmExportNames } from "./wasm-export-renaming";
+import {
+  listWasmExportNames,
+  rewriteWasmExportNames,
+  stripWasmCustomSection,
+} from "./wasm-export-renaming";
 import { fail, resolveMoonBin, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 
 export type FfiCommand = "generate" | "check" | "build";
@@ -127,9 +131,12 @@ export function runFfi(command: FfiCommand, repoRoot = resolveWorkspaceRoot()): 
       fail(`WasmGC linker dropped ${missing.length} generated FFI exports; first missing: ${missing[0]}`);
     }
     const renamed = rewriteWasmExportNames(linked, new Map(Object.entries(generated.exportNames)));
+    // The MoonBit linker can emit name subsections in a noncanonical order.
+    // The name section is not semantic. Remove it before another compiler reads this module.
+    const portable = stripWasmCustomSection(renamed, "name");
     const distPath = path.join(repoRoot, "dist", "ffi", "starshine-ffi.wasm");
     fs.mkdirSync(path.dirname(distPath), { recursive: true });
-    fs.writeFileSync(distPath, renamed);
+    fs.writeFileSync(distPath, portable);
     process.stdout.write(`WasmGC FFI module: ${path.relative(repoRoot, distPath)}\n`);
   }
   process.stdout.write(

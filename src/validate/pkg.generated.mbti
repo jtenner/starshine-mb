@@ -2379,4 +2379,3 @@ pub trait ValidateMax {
   fn validate_max(Self, Env, UInt64) -> Result[Unit, String]
 }
 pub impl ValidateMax for @lib.Limits
-

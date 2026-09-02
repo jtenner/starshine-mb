@@ -18140,7 +18140,7 @@ fn pass_manager_test_run_hot_pipeline_func(
     func_idx,
     descriptor,
     HotPipelineModuleState::new(),
-    { next_type_sec: mod_.type_sec, type_sec_changed: false },
+    { next_type_sec: mod_.type_sec, type_sec_changed: false, },
     options,
   )
 }
@@ -18159,7 +18159,7 @@ fn pass_manager_test_run_hot_pipeline_func_with_module_state(
     func_idx,
     descriptor,
     module_state,
-    { next_type_sec: mod_.type_sec, type_sec_changed: false },
+    { next_type_sec: mod_.type_sec, type_sec_changed: false, },
     options,
   )
 }
@@ -18321,13 +18321,13 @@ fn pass_manager_test_try_rewrite_exact_literal_candidate(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let callee_abs = imported + def_idx
   let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(ft) => ft
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.FuncType(params, _) = func_type
   let @lib.Func(locals, _) = funcs[def_idx]
@@ -25055,7 +25055,7 @@ test "dae optimizing worth ownership remains per definition across mixed produce
   base.result_changed[0] = true
   base.result_removed[0] = true
   base.caller_drop_removed[2] = true
-  let effects = { ..base, invalidation_domains: [DaeInvalidateResult] }
+  let effects = { ..base, invalidation_domains: [DaeInvalidateResult], }
   let worth = run_hot_pipeline_dae_worth_optimizing_touched(
     before,
     after,

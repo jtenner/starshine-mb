@@ -16,7 +16,7 @@ test "liveness update_block_words computes in-place live-in and live-out" {
   ignore(bitset_set(live_in, 9))
 
   let (out_changed, in_changed) = liveness_update_block_words(
-    [{ kind: CfgEdgeKind::FallthroughEdge, block: 0 }],
+    [{ kind: CfgEdgeKind::FallthroughEdge, block: 0, }],
     [succ_live_in],
     defs,
     uses,

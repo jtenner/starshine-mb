@@ -93,7 +93,7 @@ fn dead_code_elimination_ensure_first_unreachable_cache_capacity(
 
 ///|
 fn DeadCodeEliminationBranchUserCache::new() -> DeadCodeEliminationBranchUserCache {
-  { has_any_branch: None, has_incoming_by_label: None, by_label: None }
+  { has_any_branch: None, has_incoming_by_label: None, by_label: None, }
 }
 
 ///|
@@ -111,7 +111,7 @@ fn dead_code_elimination_new_fallthrough_cache(
 ) -> DeadCodeEliminationFallthroughCache {
   let revision = Array::make(@ir.hot_node_count(func), -1)
   let result = @bitset.BitSet::new(@ir.hot_node_count(func))
-  { revision, result }
+  { revision, result, }
 }
 
 ///|
@@ -131,7 +131,7 @@ fn dead_code_elimination_new_purity_cache(
 ) -> DeadCodeEliminationPurityCache {
   let revision = Array::make(@ir.hot_node_count(func), -1)
   let result = @bitset.BitSet::new(@ir.hot_node_count(func))
-  { revision, result }
+  { revision, result, }
 }
 
 ///|
@@ -906,7 +906,7 @@ fn DeadCodeEliminationStackedForwarderTail::new(
   rewrite_region : @ir.HotRegionRef,
   rewrite_idx : Int,
 ) -> DeadCodeEliminationStackedForwarderTail {
-  { payload_if, rewrite_region, rewrite_idx }
+  { payload_if, rewrite_region, rewrite_idx, }
 }
 
 ///|
@@ -2257,7 +2257,7 @@ fn DeadCodeEliminationPreservedCleanupRoot::new(
   node_id : Int,
   needs_drop : Bool,
 ) -> DeadCodeEliminationPreservedCleanupRoot {
-  { node_id, needs_drop }
+  { node_id, needs_drop, }
 }
 
 ///|

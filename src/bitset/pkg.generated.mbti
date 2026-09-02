@@ -30,4 +30,3 @@ pub fn BitSet::set(Self, Int, Bool) -> Unit
 // Type aliases
 
 // Traits
-

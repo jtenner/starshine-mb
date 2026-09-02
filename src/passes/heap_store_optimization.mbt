@@ -428,7 +428,11 @@ fn hso_new_predicate_cache() -> HsoPredicateCache {
 
 ///|
 fn hso_new_type_cache() -> HsoTypeCache {
-  { struct_field_counts: [], default_field_counts: [], default_field_types: [] }
+  {
+    struct_field_counts: [],
+    default_field_counts: [],
+    default_field_types: [],
+  }
 }
 
 ///|

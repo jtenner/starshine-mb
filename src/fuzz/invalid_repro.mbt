@@ -260,7 +260,7 @@ pub fn FuzzReductionPredicate::new(
   expected_family? : String? = None,
   property? : String? = None,
 ) -> FuzzReductionPredicate {
-  { kind, expected_stage, expected_family, property }
+  { kind, expected_stage, expected_family, property, }
 }
 
 ///|
@@ -278,7 +278,7 @@ pub fn FuzzReductionReplayResult::new(
   property? : String? = None,
   message? : String? = None,
 ) -> FuzzReductionReplayResult {
-  { stage, family, property, message }
+  { stage, family, property, message, }
 }
 
 ///|
@@ -368,7 +368,7 @@ pub fn InvalidFuzzArtifact::new(
   file_name : String,
   bytes : Bytes,
 ) -> InvalidFuzzArtifact {
-  { label, file_name, bytes }
+  { label, file_name, bytes, }
 }
 
 ///|
@@ -388,7 +388,7 @@ pub fn InvalidFuzzReductionStep::new(
   before_size : Int,
   after_size : Int,
 ) -> InvalidFuzzReductionStep {
-  { kind, start, len, before_size, after_size }
+  { kind, start, len, before_size, after_size, }
 }
 
 ///|
@@ -575,7 +575,7 @@ pub fn InvalidFuzzReplayResult::new(
   diagnostic_location? : String? = None,
   message? : String? = None,
 ) -> InvalidFuzzReplayResult {
-  { stage, diagnostic_family, diagnostic_location, message }
+  { stage, diagnostic_family, diagnostic_location, message, }
 }
 
 ///|
@@ -593,7 +593,7 @@ pub fn InvalidFuzzPersistIO::new(
     Err("write_file not configured: \{path}")
   },
 ) -> InvalidFuzzPersistIO {
-  { ensure_dir, write_file }
+  { ensure_dir, write_file, }
 }
 
 ///|

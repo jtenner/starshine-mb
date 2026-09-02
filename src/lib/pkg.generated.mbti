@@ -3018,4 +3018,3 @@ pub type ResultType = Array[ValType]
 pub(open) trait PrettyPrint {
   fn pretty_print(Self, PrettyPrintContext) -> String
 }
-

@@ -438,7 +438,7 @@ fn gsi_build_closed_world_facts(
       gsi_propagate_closed_world_subtype_facts(
         env, poisoned_type_slots, candidate_globals_by_type_slot,
       )
-      return { poisoned_type_slots, candidate_globals_by_type_slot }
+      return { poisoned_type_slots, candidate_globals_by_type_slot, }
     }
   }
   let total_globals = env.globals.length()
@@ -474,7 +474,7 @@ fn gsi_build_closed_world_facts(
   gsi_propagate_closed_world_subtype_facts(
     env, poisoned_type_slots, candidate_globals_by_type_slot,
   )
-  { poisoned_type_slots, candidate_globals_by_type_slot }
+  { poisoned_type_slots, candidate_globals_by_type_slot, }
 }
 
 ///|
@@ -933,14 +933,14 @@ fn gsi_collect_unnest_read_requests_instrs(
         @lib.GlobalGet(global_idx) =>
           match gsi_instr_field_read_type_and_index(instrs[idx + 1]) {
             Some((type_idx, field_idx)) =>
-              requests.direct_reads.push({ global_idx, type_idx, field_idx })
+              requests.direct_reads.push({ global_idx, type_idx, field_idx, })
             None => ()
           }
         @lib.LocalGet(_) =>
           if closed_world {
             match gsi_instr_field_read_type_and_index(instrs[idx + 1]) {
               Some((type_idx, field_idx)) =>
-                requests.typed_reads.push({ type_idx, field_idx })
+                requests.typed_reads.push({ type_idx, field_idx, })
               None => ()
             }
           }
@@ -975,7 +975,7 @@ fn gsi_collect_unnest_read_requests(
   mod_ : @lib.Module,
   closed_world : Bool,
 ) -> GsiUnnestReadRequests {
-  let requests : GsiUnnestReadRequests = { direct_reads: [], typed_reads: [] }
+  let requests : GsiUnnestReadRequests = { direct_reads: [], typed_reads: [], }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
@@ -2038,7 +2038,7 @@ fn gsi_two_value_descriptor_singleton_select_block(
       if groups.length() >= 2 {
         return None
       }
-      groups.push({ value, globals: [candidate] })
+      groups.push({ value, globals: [candidate], })
     }
   }
   if groups.length() != 2 {
@@ -2130,7 +2130,7 @@ fn gsi_two_value_singleton_select_block(
       if groups.length() >= 2 {
         return None
       }
-      groups.push({ value, globals: [candidate] })
+      groups.push({ value, globals: [candidate], })
     }
   }
   if groups.length() != 2 {

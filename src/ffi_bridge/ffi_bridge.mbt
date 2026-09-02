@@ -50,40 +50,27 @@ pub fn field_types_push(
 }
 
 ///|
-pub fn instruction_ref_test_nominal(
-  type_index : Int,
-) -> @lib.Instruction {
+pub fn instruction_ref_test_nominal(type_index : Int) -> @lib.Instruction {
   @lib.Instruction::ref_test(
     false,
-    @lib.HeapType::new(
-      @lib.TypeIdx::new(type_index.reinterpret_as_uint()),
-    ),
+    @lib.HeapType::new(@lib.TypeIdx::new(type_index.reinterpret_as_uint())),
   )
 }
 
 ///|
-pub fn instruction_ref_cast_nominal(
-  type_index : Int,
-) -> @lib.Instruction {
+pub fn instruction_ref_cast_nominal(type_index : Int) -> @lib.Instruction {
   @lib.Instruction::ref_cast(
     false,
-    @lib.HeapType::new(
-      @lib.TypeIdx::new(type_index.reinterpret_as_uint()),
-    ),
+    @lib.HeapType::new(@lib.TypeIdx::new(type_index.reinterpret_as_uint())),
   )
 }
 
 ///|
-pub fn nominal_ref_type(
-  type_index : Int,
-  nullable : Bool,
-) -> @lib.ValType {
+pub fn nominal_ref_type(type_index : Int, nullable : Bool) -> @lib.ValType {
   @lib.ValType::ref_type(
     @lib.RefType::new(
       nullable,
-      @lib.HeapType::new(
-        @lib.TypeIdx::new(type_index.reinterpret_as_uint()),
-      ),
+      @lib.HeapType::new(@lib.TypeIdx::new(type_index.reinterpret_as_uint())),
     ),
   )
 }
@@ -150,7 +137,7 @@ pub struct ImportBuilder {
 
 ///|
 pub fn import_builder_new(type_index : Int) -> ImportBuilder {
-  { module_name: [], field_name: [], type_index }
+  { module_name: [], field_name: [], type_index, }
 }
 
 ///|
@@ -245,31 +232,35 @@ pub fn funcs_push_runtime(
   builder : RuntimeFunctionBuilder,
 ) -> Bool {
   let name = Bytes::from_array(builder.name)
-  let generated = match emit_starshine_text_runtime_function(
-    name,
-    builder.base,
-    builder.utf8_validator_function_index,
-    builder.wasi_fd_write_function_index,
-    builder.wasi_fd_read_function_index,
-  ) {
-    Some(value) => Some(value)
-    None => match emit_bridge_array_runtime_function(
+  let generated = match
+    emit_starshine_text_runtime_function(
       name,
-      builder.base + 6,
-      builder.carrier,
-      builder.option_none_type,
-      builder.option_some_type,
+      builder.base,
+      builder.utf8_validator_function_index,
+      builder.wasi_fd_write_function_index,
+      builder.wasi_fd_read_function_index,
     ) {
-      Some(value) => Some(value)
-      None => emit_bridge_map_runtime_function(
-        name,
-        builder.base + 6,
-        builder.carrier,
-        builder.second_carrier,
-        builder.option_none_type,
-        builder.option_some_type,
-      )
-    }
+    Some(value) => Some(value)
+    None =>
+      match
+        emit_bridge_array_runtime_function(
+          name,
+          builder.base + 6,
+          builder.carrier,
+          builder.option_none_type,
+          builder.option_some_type,
+        ) {
+        Some(value) => Some(value)
+        None =>
+          emit_bridge_map_runtime_function(
+            name,
+            builder.base + 6,
+            builder.carrier,
+            builder.second_carrier,
+            builder.option_none_type,
+            builder.option_some_type,
+          )
+      }
   }
   match generated {
     Some(value) => {
@@ -298,9 +289,7 @@ pub fn module_new() -> @lib.Module {
 ///|
 pub fn module_with_default_memory(module_ : @lib.Module) -> @lib.Module {
   module_.with_mem_sec(
-    @lib.MemSec::new([
-      @lib.MemType::new(@lib.Limits::i32(1U, None)),
-    ]),
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
   )
 }
 
@@ -344,8 +333,8 @@ pub fn validation_error_function_index() -> Int {
 ///|
 pub fn encode_module(module_ : @lib.Module) -> EncodedModule {
   match @binary.encode_module(module_) {
-    Ok(bytes) => { bytes: Some(bytes) }
-    Err(_) => { bytes: None }
+    Ok(bytes) => { bytes: Some(bytes), }
+    Err(_) => { bytes: None, }
   }
 }
 

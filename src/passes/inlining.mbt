@@ -59,7 +59,7 @@ fn InlCowInstrOutput::new(
   original : Array[@lib.Instruction],
   allocations? : Array[Int]? = None,
 ) -> InlCowInstrOutput {
-  { original, rewritten: None, index: 0, allocations }
+  { original, rewritten: None, index: 0, allocations, }
 }
 
 ///|
@@ -1356,7 +1356,7 @@ fn inl_partial_pattern_a(body : Array[@lib.Instruction]) -> InlPartialPatternA? 
           idx += 1
         }
         if suffix.length() > 0 {
-          return Some({ condition, suffix })
+          return Some({ condition, suffix, })
         }
         return None
       }
@@ -1563,7 +1563,7 @@ fn inl_partial_pattern_b(
       condition.push(body[idx])
       idx += 1
     }
-    arms.push({ condition, body: then_body, terminal_exit })
+    arms.push({ condition, body: then_body, terminal_exit, })
     inl_partial_collect_local_sets(then_body, written)
     start = if_idx + 1
   }
@@ -1598,7 +1598,7 @@ fn inl_partial_pattern_b(
   if inl_partial_simple_expr_reads_written_local(final_item, written) {
     return None
   }
-  Some({ arms, final_item })
+  Some({ arms, final_item, })
 }
 
 ///|
@@ -4079,7 +4079,7 @@ fn inl_rewrite_all_calls(
     }
     None => mod_
   }
-  { mod_out: next_mod, touched, inlined_from, changed }
+  { mod_out: next_mod, touched, inlined_from, changed, }
 }
 
 ///|
@@ -4725,7 +4725,11 @@ fn inl_remove_dead_inlined_helpers(
     def_idx += 1
   }
   if !any_removed {
-    return { mod_out: mod_, touched, original_abs: inl_identity_abs_map(total) }
+    return {
+      mod_out: mod_,
+      touched,
+      original_abs: inl_identity_abs_map(total),
+    }
   }
   let remap = Array::make(total, 0U)
   let mut i = 0
@@ -7598,7 +7602,7 @@ fn inl_collect_dead_suffix_targets(func : @lib.Func) -> InlDeadSuffixTargets {
       _ => ()
     }
   }
-  { has_any: total_count > 0, total_count, targets, counts }
+  { has_any: total_count > 0, total_count, targets, counts, }
 }
 
 ///|
@@ -7631,7 +7635,7 @@ fn inl_build_dead_suffix_preserve_facts(
   for func in funcs {
     dead_suffix_targets.push(inl_collect_dead_suffix_targets(func))
   }
-  { imports, defined: funcs.length(), used, signatures, dead_suffix_targets }
+  { imports, defined: funcs.length(), used, signatures, dead_suffix_targets, }
 }
 
 ///|

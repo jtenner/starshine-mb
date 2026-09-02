@@ -17,7 +17,7 @@ priv struct HotLiftLabelFrames {
 
 ///|
 fn hot_lift_impl_new_label_frames() -> HotLiftLabelFrames {
-  { active: [], legacy_catch_depth: 0 }
+  { active: [], legacy_catch_depth: 0, }
 }
 
 ///|
@@ -410,7 +410,7 @@ fn hot_lift_impl_make_region(
     id,
     result_arity,
   )
-  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
   id
 }
 
@@ -1821,7 +1821,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
       }
       ignore(hot_replace_child_span(func, id, body_roots))
-      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
       hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }
@@ -1894,7 +1894,7 @@ fn hot_lift_impl_lift_control(
         loop_children.push(body_root)
       }
       ignore(hot_replace_child_span(func, id, loop_children))
-      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
       hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }
@@ -2036,7 +2036,7 @@ fn hot_lift_impl_lift_control(
       ignore(
         hot_replace_child_span(func, id, [condition, then_region, else_region]),
       )
-      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
       hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }

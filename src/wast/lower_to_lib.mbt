@@ -1441,7 +1441,7 @@ fn wt_index_text(idx : Index) -> String {
 
 ///|
 fn wt_default_legacy_ctx() -> WTLegacyCtx {
-  { catch_depth: 0U, enclosing_try_count: 0U, try_labels: [] }
+  { catch_depth: 0U, enclosing_try_count: 0U, try_labels: [], }
 }
 
 ///|
@@ -2984,7 +2984,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         for inline_export in f.exports {
           match inline_export {
             Export(name) =>
-              export_defs.push({ name, desc: ExportDesc::Func(Num(func_idx)) })
+              export_defs.push({ name, desc: ExportDesc::Func(Num(func_idx)), })
           }
         }
         let ti = match wt_resolve_type_use(ctx, f.type_use) {
@@ -3004,7 +3004,10 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         for inline_export in t.exports {
           match inline_export {
             Export(name) =>
-              export_defs.push({ name, desc: ExportDesc::Table(Num(table_idx)) })
+              export_defs.push({
+                name,
+                desc: ExportDesc::Table(Num(table_idx)),
+              })
           }
         }
         match t.elem_init {
@@ -3051,7 +3054,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         for inline_export in m.exports {
           match inline_export {
             Export(name) =>
-              export_defs.push({ name, desc: ExportDesc::Memory(Num(mem_idx)) })
+              export_defs.push({ name, desc: ExportDesc::Memory(Num(mem_idx)), })
           }
         }
         mem_defs_raw.push(m)
@@ -3088,7 +3091,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
         for inline_export in t.exports {
           match inline_export {
             Export(name) =>
-              export_defs.push({ name, desc: ExportDesc::Tag(Num(tag_idx)) })
+              export_defs.push({ name, desc: ExportDesc::Tag(Num(tag_idx)), })
           }
         }
         tag_defs_raw.push((t, ti))

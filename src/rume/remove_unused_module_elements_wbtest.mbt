@@ -165,3 +165,48 @@ test "RUME closes type dependencies with one visit per type" {
   @debug.assert_eq(dependency_visits[0], type_count)
   @debug.assert_eq(rume_all_true(used_types), true)
 }
+
+///|
+test "RUME remaps a kept subtype after an unused sibling" {
+  let base = @lib.CompType::func([], [])
+  let child = @lib.CompType::func([], [])
+  let module_ = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      @lib.RecType::new(@lib.SubType::new(false, [], base)),
+      @lib.RecType::new(@lib.SubType::new(true, [@lib.TypeIdx::new(2U)], child)),
+      @lib.RecType::new(@lib.SubType::new(true, [@lib.TypeIdx::new(2U)], child)),
+    ]),
+  )
+  let used_types = @bitset.BitSet::new(5)
+  used_types[0] = true
+  used_types[2] = true
+  used_types[4] = true
+  let remap = rume_build_type_remap(used_types)
+  // This check proves that the dense map moves old type 2 to new type 1.
+  @debug.assert_eq(remap.get(2U), Some(1U))
+  // This check proves that the shared rewrite helper uses the dense map.
+  @debug.assert_eq(
+    dfe_rewrite_type_idx(@lib.TypeIdx::new(2U), remap),
+    @lib.TypeIdx::new(1U),
+  )
+  let compacted = rume_compact_type_sec(
+    module_,
+    precomputed_used_types=Some(used_types),
+  )
+  match compacted.type_sec {
+    Some(
+      @lib.TypeSec(
+        [
+          _,
+          _,
+          @lib.SingleRecType(@lib.SubType(_, [@lib.TypeIdx(super_type)], _, _)),
+        ]
+      )
+    ) =>
+      // This check proves that type-section rebuild uses rewritten types.
+      @debug.assert_eq(super_type, 1U)
+    _ => fail("expected one remapped kept subtype")
+  }
+}

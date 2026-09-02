@@ -239,7 +239,7 @@ fn rume_build_flat_table_infos(
   let infos : Array[RumeFlatTableInfo] = []
   let mut table_idx = 0
   while table_idx < table_count {
-    infos.push({ all_elems: [], may_overlap: false, has_init: false })
+    infos.push({ all_elems: [], may_overlap: false, has_init: false, })
     table_idx += 1
   }
   let table_imports = rume_imported_table_count(mod_)
@@ -5163,7 +5163,8 @@ fn rume_compact_type_sec(
   }
   let type_remap = rume_build_type_remap(used_types)
   let rewritten = dfe_rewrite_module_type_idxs(mod_, type_remap)
-  match mod_.type_sec {
+  // Rebuild from the rewritten types. The original types still use old indices.
+  match rewritten.type_sec {
     Some(type_sec) =>
       rume_set_type_sec(rewritten, rume_rebuild_type_sec(type_sec, used_types))
     None => rewritten

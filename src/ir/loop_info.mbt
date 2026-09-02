@@ -116,13 +116,13 @@ fn loop_info_build_one(
       if bitset_contains(block_bits, edge.block) {
         continue
       }
-      let exit = { from: block_id, edge }
+      let exit = { from: block_id, edge, }
       if !loop_info_contains_exit(exits, exit) {
         exits.push(exit)
       }
     }
   }
-  { header, block_bits, blocks, latches, exits }
+  { header, block_bits, blocks, latches, exits, }
 }
 
 ///|
@@ -259,7 +259,7 @@ pub fn loop_info_build(cfg : HotCfg, dom : HotDominators) -> HotLoopInfo {
     temps,
     depths,
   )
-  { loops, block_to_loop, block_depth }
+  { loops, block_to_loop, block_depth, }
 }
 
 ///|

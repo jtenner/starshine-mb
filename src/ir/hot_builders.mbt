@@ -799,7 +799,7 @@ pub fn hot_build_block(
     id,
     hot_type_result_arity(func, ty),
   )
-  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
   id
 }
 
@@ -822,7 +822,7 @@ pub fn hot_build_resolved_block(
     id,
     results.length(),
   )
-  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
   id
 }
 
@@ -841,7 +841,7 @@ pub fn hot_build_loop(
     id,
     hot_type_result_arity(func, ty),
   )
-  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
   id
 }
 
@@ -875,7 +875,7 @@ pub fn hot_build_if(
     id,
     result_arity,
   )
-  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
   id
 }
 
@@ -901,7 +901,7 @@ pub fn hot_build_try(
     id,
     result_arity,
   )
-  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
   id
 }
 
@@ -933,6 +933,6 @@ pub fn hot_build_try_table(
     id,
     result_arity,
   )
-  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
   id
 }

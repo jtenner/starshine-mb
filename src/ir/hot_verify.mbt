@@ -758,7 +758,7 @@ fn hot_verify_region_root_is_valid(
       return false
     }
     match hot_node_get(func, entry.region_holder).op {
-      HotOp::Block | HotOp::Loop => { holder: entry.region_holder }
+      HotOp::Block | HotOp::Loop => { holder: entry.region_holder, }
       _ => return false
     }
   }

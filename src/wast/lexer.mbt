@@ -156,7 +156,7 @@ fn WastLexer::get_text(self : WastLexer, offset : Int) -> String {
 
 ///|
 fn WastLexer::bare_token(self : WastLexer, token_type : TokenType) -> Token {
-  { location: self.get_location(), token_type, value: None }
+  { location: self.get_location(), token_type, value: None, }
 }
 
 ///|
@@ -169,7 +169,7 @@ fn WastLexer::literal_token(
   {
     location: self.get_location(),
     token_type,
-    value: Literal({ literal_type, text }),
+    value: Literal({ literal_type, text, }),
   }
 }
 
@@ -188,7 +188,7 @@ fn WastLexer::text_token(
 
 ///|
 fn WastLexer::error(self : WastLexer, message : String) -> Unit {
-  self.errors.push({ level: Error, location: self.get_location(), message })
+  self.errors.push({ level: Error, location: self.get_location(), message, })
 }
 
 // ============================================================================
@@ -417,7 +417,7 @@ fn WastLexer::get_string_token(self : WastLexer) -> Token {
   }
   self.token_start = saved_token_start
   if has_error {
-    return { location: self.get_location(), token_type: Invalid, value: None }
+    return { location: self.get_location(), token_type: Invalid, value: None, }
   }
   self.text_token(Text, 0)
 }

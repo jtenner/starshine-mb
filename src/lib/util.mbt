@@ -7,14 +7,14 @@ fn locals_run_length(run : LocalRun) -> Int {
 fn locals_normalize_runs(runs : Array[LocalRun]) -> Array[LocalRun] {
   let out : Array[LocalRun] = []
   for run in runs {
-    let { count, vt } = run
+    let { count, vt, } = run
     if count == 0U {
       continue
     }
     match out.last() {
       Some(last) if last.vt == vt =>
-        out[out.length() - 1] = { count: last.count + count, vt }
-      _ => out.push({ count, vt })
+        out[out.length() - 1] = { count: last.count + count, vt, }
+      _ => out.push({ count, vt, })
     }
   }
   out
@@ -225,7 +225,7 @@ pub fn Locals::without_prefix(self : Locals, count : Int) -> Locals {
       continue
     }
     if remaining > 0 {
-      out.push({ count: (len - remaining).reinterpret_as_uint(), vt: run.vt })
+      out.push({ count: (len - remaining).reinterpret_as_uint(), vt: run.vt, })
       remaining = 0
     } else {
       out.push(run)
@@ -312,11 +312,11 @@ pub fn Locals::set(self : Locals, idx : Int, vt : ValType) -> Bool {
     let left_len = idx - start
     let right_len = end_ - idx - 1
     if left_len > 0 {
-      next.push({ count: left_len.reinterpret_as_uint(), vt: run.vt })
+      next.push({ count: left_len.reinterpret_as_uint(), vt: run.vt, })
     }
-    next.push({ count: 1U, vt })
+    next.push({ count: 1U, vt, })
     if right_len > 0 {
-      next.push({ count: right_len.reinterpret_as_uint(), vt: run.vt })
+      next.push({ count: right_len.reinterpret_as_uint(), vt: run.vt, })
     }
     found = true
     start = end_
@@ -457,7 +457,7 @@ pub fn FunctionLocals::new(
 ) -> FunctionLocals {
   let all_locals = Locals::from_types(params)
   all_locals.append(body_locals)
-  { params: params.copy(), body_locals: body_locals.copy(), all_locals }
+  { params: params.copy(), body_locals: body_locals.copy(), all_locals, }
 }
 
 ///|

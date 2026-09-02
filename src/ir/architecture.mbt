@@ -67,7 +67,7 @@ pub fn HotPassDescriptor::new(
   requires? : Array[HotAnalysis] = [],
   invalidates? : Array[HotAnalysis] = [],
 ) -> HotPassDescriptor {
-  { name, requires, invalidates }
+  { name, requires, invalidates, }
 }
 
 ///|

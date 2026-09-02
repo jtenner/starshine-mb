@@ -19,7 +19,7 @@ priv struct SgRewritePlan {
 
 ///|
 fn SgStringSet::new() -> SgStringSet {
-  { strings: [] }
+  { strings: [], }
 }
 
 ///|
@@ -231,7 +231,7 @@ fn sg_remap_existing_global_idx(
 ///|
 fn sg_string_global_idx(plan : SgRewritePlan, bytes : Bytes) -> @lib.GlobalIdx {
   let idx = match
-    sg_string_index(SgStringSet::{ strings: plan.strings }, bytes) {
+    sg_string_index(SgStringSet::{ strings: plan.strings, }, bytes) {
     Some(idx) => idx
     None => abort("string-gathering rewrite saw uncollected string constant")
   }
@@ -493,7 +493,8 @@ fn sg_rewrite_global_sec(
       let @lib.Global(global_type, init) = globals[value]
       let rewritten_init = match sg_direct_string_init(globals[value]) {
         Some(bytes) =>
-          match sg_string_index(SgStringSet::{ strings: plan.strings }, bytes) {
+          match
+            sg_string_index(SgStringSet::{ strings: plan.strings, }, bytes) {
             Some(string_idx) =>
               if plan.string_global_abs[string_idx] ==
                 imported_globals + entry_idx {

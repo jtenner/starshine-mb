@@ -132,7 +132,7 @@ fn CodeFoldingTerminatingFacts::next_mark_epoch(
 
 ///|
 fn code_folding_label_map_new() -> CodeFoldingLabelMap {
-  { left_labels: [], right_labels: [] }
+  { left_labels: [], right_labels: [], }
 }
 
 ///|
@@ -2929,7 +2929,7 @@ fn code_folding_index_block_exit_node(
       if final_region_root && node.child_count == 0 && region_idx > 0 {
         match region_ref {
           Some(ref_) =>
-            index.add_tail(node.imm0, { region_ref: ref_, end_idx: region_idx })
+            index.add_tail(node.imm0, { region_ref: ref_, end_idx: region_idx, })
           None => index.mark_unoptimizable(node.imm0)
         }
       } else {
@@ -3193,7 +3193,7 @@ fn code_folding_collect_block_exit_tails(
           if node.child_count != 0 || idx == 0 {
             return false
           }
-          tails.push({ region_ref, end_idx: idx })
+          tails.push({ region_ref, end_idx: idx, })
         } else if idx == @ir.hot_region_root_count(func, region_ref) - 1 {
           for slot = 0; slot < node.child_count; slot = slot + 1 {
             let child_id = @ir.hot_child_get(func, node_id, slot)
@@ -3404,7 +3404,7 @@ fn code_folding_try_fold_block_exit_at_region(
   if !code_folding_node_prevents_fallthrough_with_index(
       func, last_root, exit_index,
     ) {
-    tails.push({ region_ref: body_ref, end_idx: body_count })
+    tails.push({ region_ref: body_ref, end_idx: body_count, })
   }
   if tails.length() < 2 || !code_folding_exit_tail_regions_are_unique(tails) {
     return false
@@ -3715,7 +3715,7 @@ fn code_folding_terminating_tail(
   end_idx : Int,
   terminal_kind : Int,
 ) -> CodeFoldingTerminatingTail {
-  { region_ref, end_idx, terminal_kind, suffix_len: 0, profitability: 0 }
+  { region_ref, end_idx, terminal_kind, suffix_len: 0, profitability: 0, }
 }
 
 ///|

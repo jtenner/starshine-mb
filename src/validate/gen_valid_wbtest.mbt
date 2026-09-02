@@ -81,7 +81,7 @@ test "gen-valid start profiles cover absent imported and defined starts" {
       ..base.section_bias,
       imports_percent: 0,
     },
-    features: GenValidFeatureToggles::{ ..base.features, allow_imports: false },
+    features: GenValidFeatureToggles::{ ..base.features, allow_imports: false, },
   }
   let defined_start = match
     gen_valid_module_result_from_seed(0x51039A1UL, defined_start_config) {
@@ -731,7 +731,7 @@ test "gen-valid shared const-expression context gates match matrix rows" {
 ///|
 test "gen-valid shared const-expression contexts select allowed op families" {
   let ctx = GenValidContext::new_streamed(0x1037AUL, {
-    ..GenValidConfig::coverage_forced_default()
+    ..GenValidConfig::coverage_forced_default(),
   })
   let numeric = gen_valid_const_expr_from_context(
     ctx,
@@ -766,7 +766,7 @@ test "gen-valid shared const-expression contexts select allowed op families" {
     ctx,
     GlobalStream,
     ValType::funcref(),
-    { ..GenValidConstExprContext::numeric_only(), allow_ref_func: true },
+    { ..GenValidConstExprContext::numeric_only(), allow_ref_func: true, },
     [],
     Some(FuncIdx::new(7U)),
   )
@@ -779,7 +779,7 @@ test "gen-valid shared const-expression contexts select allowed op families" {
     ctx,
     GlobalStream,
     ValType::externref(),
-    { ..GenValidConstExprContext::numeric_only(), allow_ref_null: true },
+    { ..GenValidConstExprContext::numeric_only(), allow_ref_null: true, },
     [],
     None,
   )
@@ -792,7 +792,7 @@ test "gen-valid shared const-expression contexts select allowed op families" {
     ctx,
     GlobalStream,
     ValType::ref_type(RefType::abs(AbsHeapType::i31())),
-    { ..GenValidConstExprContext::numeric_only(), allow_ref_i31: true },
+    { ..GenValidConstExprContext::numeric_only(), allow_ref_i31: true, },
     [],
     None,
   )
@@ -805,7 +805,7 @@ test "gen-valid shared const-expression contexts select allowed op families" {
 ///|
 test "gen-valid global initializer uses ref.i31 const expression when allowed" {
   let ctx = GenValidContext::new_streamed(0x1037BUL, {
-    ..GenValidConfig::coverage_forced_default()
+    ..GenValidConfig::coverage_forced_default(),
   })
   let i31_global = gen_valid_const_expr_for_global(
     ctx,
@@ -823,7 +823,7 @@ test "gen-valid global initializer uses ref.i31 const expression when allowed" {
 ///|
 test "gen-valid global initializer can read imported immutable reference global" {
   let ctx = GenValidContext::new_streamed(0x1037CUL, {
-    ..GenValidConfig::coverage_forced_default()
+    ..GenValidConfig::coverage_forced_default(),
   })
   let externref_global = gen_valid_const_expr_for_global(
     ctx,
@@ -843,7 +843,7 @@ test "gen-valid global initializer can build descriptor-bearing structs from des
   let described_idx = TypeIdx::new(0U)
   let descriptor_idx = TypeIdx::new(1U)
   let ctx = GenValidContext::new_streamed(0x1037D3UL, {
-    ..GenValidConfig::coverage_forced_default()
+    ..GenValidConfig::coverage_forced_default(),
   })
   let described_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(described_idx), exact=true),
@@ -897,7 +897,7 @@ test "gen-valid proposal feature-gate matrix maps central gates to toggles" {
   assert_true(gen_valid_proposal_feature_enabled(all, ExceptionsFeature))
   assert_true(gen_valid_proposal_feature_enabled(all, SimdFeature))
   assert_false(gen_valid_proposal_feature_enabled(all, RelaxedSimdFeature))
-  let relaxed = GenValidFeatureToggles::{ ..all, allow_relaxed_simd: true }
+  let relaxed = GenValidFeatureToggles::{ ..all, allow_relaxed_simd: true, }
   assert_true(gen_valid_proposal_feature_enabled(relaxed, RelaxedSimdFeature))
   assert_true(gen_valid_proposal_feature_enabled(all, AtomicsFeature))
   assert_true(gen_valid_proposal_feature_enabled(all, BulkMemoryFeature))
@@ -1379,7 +1379,7 @@ test "streamed gen-valid keeps type choices stable when body budget changes" {
     max_results: 2,
     max_body_statements: 1,
   }
-  let bigger_body_config = { ..base_config, max_body_statements: 6 }
+  let bigger_body_config = { ..base_config, max_body_statements: 6, }
   let left = match gen_valid_module_result_from_seed(0x51034UL, base_config) {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
@@ -1430,7 +1430,7 @@ test "streamed gen-valid keeps function-local shapes stable when metadata budget
       globals_percent: 100,
     },
   }
-  let metadata_heavy_config = { ..base_config, max_globals: 4 }
+  let metadata_heavy_config = { ..base_config, max_globals: 4, }
   let mut checked = 0
   for offset in 0..<64 {
     let seed = 0x51134UL + offset.to_uint64()
@@ -9274,7 +9274,10 @@ test "gen_valid_module_result reports instruction budget stop diagnostics" {
 ///|
 test "gen_valid_module_result reports expression depth budget stop diagnostics" {
   let base = GenValidConfig::for_profile(NaturalSmallProfile)
-  let config = GenValidConfig::{ ..base, max_expression_depth_budget: Some(-1) }
+  let config = GenValidConfig::{
+    ..base,
+    max_expression_depth_budget: Some(-1),
+  }
   match gen_valid_module_result(@splitmix.new(seed=0xf352UL), config) {
     Ok(_) =>
       fail(
@@ -9294,7 +9297,10 @@ test "gen_valid_module_result reports expression depth budget stop diagnostics" 
 ///|
 test "gen_valid_module_result reports byte-size budget stop diagnostics" {
   let base = GenValidConfig::for_profile(NaturalSmallProfile)
-  let config = GenValidConfig::{ ..base, max_module_byte_size_budget: Some(-1) }
+  let config = GenValidConfig::{
+    ..base,
+    max_module_byte_size_budget: Some(-1),
+  }
   match gen_valid_module_result(@splitmix.new(seed=0xf353UL), config) {
     Ok(_) =>
       fail("expected negative byte-size budget to reject every candidate")
@@ -9310,7 +9316,7 @@ test "gen_valid_module_result reports byte-size budget stop diagnostics" {
 ///|
 test "gen_valid_module_result reports rec-group budget stop diagnostics" {
   let base = GenValidConfig::for_profile(NaturalSmallProfile)
-  let config = GenValidConfig::{ ..base, max_rec_group_size_budget: Some(-1) }
+  let config = GenValidConfig::{ ..base, max_rec_group_size_budget: Some(-1), }
   match gen_valid_module_result(@splitmix.new(seed=0xf355UL), config) {
     Ok(_) =>
       fail("expected negative rec-group budget to reject every candidate")
@@ -9326,7 +9332,7 @@ test "gen_valid_module_result reports rec-group budget stop diagnostics" {
 ///|
 test "gen_valid_module_result reports section-count budget stop diagnostics" {
   let base = GenValidConfig::for_profile(NaturalSmallProfile)
-  let config = GenValidConfig::{ ..base, max_section_count_budget: Some(-1) }
+  let config = GenValidConfig::{ ..base, max_section_count_budget: Some(-1), }
   match gen_valid_module_result(@splitmix.new(seed=0xf356UL), config) {
     Ok(_) =>
       fail("expected negative section-count budget to reject every candidate")
@@ -9344,7 +9350,7 @@ test "gen_valid_module_result reports section-count budget stop diagnostics" {
 ///|
 test "gen_valid segment payload cap bounds generated data payloads" {
   let base = GenValidConfig::for_profile(MemoryHeavyProfile)
-  let config = GenValidConfig::{ ..base, max_segment_payload_size: 3 }
+  let config = GenValidConfig::{ ..base, max_segment_payload_size: 3, }
   let generated = match
     gen_valid_module_result(@splitmix.new(seed=0xf354UL), config) {
     Ok(generated) => generated
@@ -14625,7 +14631,7 @@ test "coverage-forced GenValid emits standard SIMD representative exact opcode c
 ///|
 test "SIMD-heavy profile emits SIMD memory coverage over nonzero memory indices" {
   let base = GenValidConfig::for_profile(SimdHeavyProfile)
-  let config = GenValidConfig::{ ..base, max_mems: 4 }
+  let config = GenValidConfig::{ ..base, max_mems: 4, }
   let generated = match
     gen_valid_module_result(@splitmix.new(seed=0xf71011UL), config) {
     Ok(v) => v

@@ -12,7 +12,7 @@ priv struct MpRange {
 
 ///|
 fn MpRange::new(is_zero : Bool, start : Int, end_ : Int) -> MpRange {
-  { is_zero, start, end_ }
+  { is_zero, start, end_, }
 }
 
 ///|
@@ -24,7 +24,7 @@ priv struct MpSpan {
 
 ///|
 fn MpSpan::new(start : UInt64, end_ : UInt64, end_at_limit : Bool) -> MpSpan {
-  { start, end_, end_at_limit }
+  { start, end_, end_at_limit, }
 }
 
 ///|
@@ -110,7 +110,7 @@ priv struct MpDataUsage {
 
 ///|
 fn MpDataUsage::new(has_non_drop : Bool, has_drop : Bool) -> MpDataUsage {
-  { has_non_drop, has_drop }
+  { has_non_drop, has_drop, }
 }
 
 ///|
@@ -776,7 +776,7 @@ priv struct MpSplitPart {
 
 ///|
 fn MpSplitPart::new(start : Int, end_ : Int, data_idx : Int) -> MpSplitPart {
-  { start, end_, data_idx }
+  { start, end_, data_idx, }
 }
 
 ///|
@@ -798,7 +798,7 @@ fn MpSegmentPlan::new(
   needs_drop_state : Bool,
   data_size : Int,
 ) -> MpSegmentPlan {
-  { remap, split_parts, is_active, was_split, needs_drop_state, data_size }
+  { remap, split_parts, is_active, was_split, needs_drop_state, data_size, }
 }
 
 ///|
@@ -1490,7 +1490,7 @@ fn MpMemoryInitOperands::new(
   src_instr : @lib.Instruction,
   size_instr : @lib.Instruction,
 ) -> MpMemoryInitOperands {
-  { dest_instrs, src_instr, size_instr }
+  { dest_instrs, src_instr, size_instr, }
 }
 
 ///|
@@ -1789,7 +1789,7 @@ fn MpSegmentOpPreflight::new(
   rewritable? : Bool = true,
   has_data_ops? : Bool = false,
 ) -> MpSegmentOpPreflight {
-  { rewritable, has_data_ops }
+  { rewritable, has_data_ops, }
 }
 
 ///|

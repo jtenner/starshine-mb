@@ -5597,7 +5597,7 @@ fn sgo_rewrite_expr(
   remove_sets : Array[Bool],
   rewrite_sets : Bool,
 ) -> (@lib.Expr, Bool) {
-  let state = { consts, aliases, remove_sets, changed: false }
+  let state = { consts, aliases, remove_sets, changed: false, }
   let rewritten = sgo_rewrite_expr_with_state(expr, state, rewrite_sets)
   (rewritten, state.changed)
 }
@@ -5712,7 +5712,7 @@ fn sgo_rewrite_global_init_expr(
   aliases : Array[@lib.GlobalIdx?],
   inlines : Array[@lib.Expr?],
 ) -> (@lib.Expr, Bool) {
-  let state = { consts, aliases, inlines, changed: false }
+  let state = { consts, aliases, inlines, changed: false, }
   let rewritten = sgo_rewrite_global_init_expr_with_state(expr, state)
   (rewritten, state.changed)
 }
@@ -9539,7 +9539,7 @@ fn sgo_run_core(
       Some(@lib.CodeSec(funcs)) => Array::make(funcs.length(), false)
       None => []
     }
-    return { mod_out: mod_, touched }
+    return { mod_out: mod_, touched, }
   }
   let collect_start_us = perf_start_timer_opt(
     perf, "detail:sgo:collect-global-infos",
@@ -9603,7 +9603,7 @@ fn sgo_run_core(
     )
   }
   if !changed {
-    return { mod_out: mod_, touched }
+    return { mod_out: mod_, touched, }
   }
   {
     mod_out: sgo_build_module(

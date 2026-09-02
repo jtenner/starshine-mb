@@ -23,7 +23,7 @@ pub fn hot_label_alloc(
   branch_arity : Int,
 ) -> LabelId {
   let id = func.labels.length()
-  func.labels.push({ kind, result_type, owner, branch_arity })
+  func.labels.push({ kind, result_type, owner, branch_arity, })
   id
 }
 
@@ -75,7 +75,7 @@ fn hot_control_slot(
   role : HotControlRegionRole,
   required : Bool,
 ) -> HotControlRegionSlotInfo {
-  { slot, role, required }
+  { slot, role, required, }
 }
 
 ///|

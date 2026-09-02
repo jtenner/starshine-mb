@@ -148,7 +148,7 @@ pub fn cache_get_or_build_cfg(
     return cache_entry_value(cache.cfg)
   }
   let value = cfg_build(func)
-  cache.cfg = Some({ built_at_revision: revision, value })
+  cache.cfg = Some({ built_at_revision: revision, value, })
   value
 }
 
@@ -175,7 +175,7 @@ pub fn cache_get_or_build_orders(
     ),
     worklist_seed: cfg_block_worklist_seed(cfg),
   }
-  cache.orders = Some({ built_at_revision: revision, value })
+  cache.orders = Some({ built_at_revision: revision, value, })
   value
 }
 
@@ -189,7 +189,7 @@ pub fn cache_get_or_build_dom(
     return cache_entry_value(cache.dom)
   }
   let value = dom_build(cache_get_or_build_cfg(cache, func))
-  cache.dom = Some({ built_at_revision: revision, value })
+  cache.dom = Some({ built_at_revision: revision, value, })
   value
 }
 
@@ -203,7 +203,7 @@ pub fn cache_get_or_build_postdom(
     return cache_entry_value(cache.postdom)
   }
   let value = postdom_build(cache_get_or_build_cfg(cache, func))
-  cache.postdom = Some({ built_at_revision: revision, value })
+  cache.postdom = Some({ built_at_revision: revision, value, })
   value
 }
 
@@ -219,7 +219,7 @@ pub fn cache_get_or_build_loop_info(
   let cfg = cache_get_or_build_cfg(cache, func)
   let dom = cache_get_or_build_dom(cache, func)
   let value = loop_info_build(cfg, dom)
-  cache.loop_info = Some({ built_at_revision: revision, value })
+  cache.loop_info = Some({ built_at_revision: revision, value, })
   value
 }
 
@@ -233,7 +233,7 @@ pub fn cache_get_or_build_use_def(
     return cache_entry_value(cache.use_def)
   }
   let value = use_def_build(func, cfg=Some(cache_get_or_build_cfg(cache, func)))
-  cache.use_def = Some({ built_at_revision: revision, value })
+  cache.use_def = Some({ built_at_revision: revision, value, })
   value
 }
 
@@ -248,7 +248,7 @@ pub fn cache_get_or_build_liveness(
   }
   let cfg = cache_get_or_build_cfg(cache, func)
   let value = liveness_build(cfg, cache_get_or_build_use_def(cache, func))
-  cache.liveness = Some({ built_at_revision: revision, value })
+  cache.liveness = Some({ built_at_revision: revision, value, })
   value
 }
 
@@ -262,7 +262,7 @@ pub fn cache_get_or_build_effects(
     return cache_entry_value(cache.effects)
   }
   let value = cache_effects_build(func, cache_get_or_build_cfg(cache, func))
-  cache.effects = Some({ built_at_revision: revision, value })
+  cache.effects = Some({ built_at_revision: revision, value, })
   value
 }
 
@@ -280,6 +280,6 @@ pub fn cache_get_or_build_ssa(
   let use_def = cache_get_or_build_use_def(cache, func)
   let liveness = cache_get_or_build_liveness(cache, func)
   let value = ssa_build_local(func, cfg, dom, liveness, use_def)
-  cache.ssa = Some({ built_at_revision: revision, value })
+  cache.ssa = Some({ built_at_revision: revision, value, })
   value
 }

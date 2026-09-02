@@ -629,7 +629,7 @@ priv struct MergeBlocksDropParentIndex {
 
 ///|
 fn MergeBlocksDropParentIndex::new() -> MergeBlocksDropParentIndex {
-  { uses: [], live_nodes_scanned: 0, drop_child_slots: 0 }
+  { uses: [], live_nodes_scanned: 0, drop_child_slots: 0, }
 }
 
 ///|

@@ -55,7 +55,7 @@ priv struct OiSignExtLocalStateFact {
 
 ///|
 fn OiSignExtLocalStateFact::unknown() -> OiSignExtLocalStateFact {
-  { kind: UnknownSignExtLocalState, bits: 0 }
+  { kind: UnknownSignExtLocalState, bits: 0, }
 }
 
 ///|
@@ -63,9 +63,9 @@ fn OiSignExtLocalStateFact::from_assignment_bits(
   bits : Int,
 ) -> OiSignExtLocalStateFact {
   if bits > 0 {
-    { kind: KnownSignExtLocalState, bits }
+    { kind: KnownSignExtLocalState, bits, }
   } else {
-    { kind: ConflictingSignExtLocalState, bits: 0 }
+    { kind: ConflictingSignExtLocalState, bits: 0, }
   }
 }
 
@@ -80,7 +80,7 @@ fn OiSignExtLocalStateFact::merge_assignment_bits(
     KnownSignExtLocalState =>
       match candidate.kind {
         KnownSignExtLocalState if self.bits == candidate.bits => self
-        _ => { kind: ConflictingSignExtLocalState, bits: 0 }
+        _ => { kind: ConflictingSignExtLocalState, bits: 0, }
       }
     ConflictingSignExtLocalState => self
   }
@@ -115,12 +115,12 @@ priv struct OiI32UnsignedMaxLocalStateFact {
 
 ///|
 fn OiI32UnsignedMaxLocalStateFact::unknown() -> OiI32UnsignedMaxLocalStateFact {
-  { max_value: None }
+  { max_value: None, }
 }
 
 ///|
 fn OiI32UnsignedMaxLocalStateFact::zero() -> OiI32UnsignedMaxLocalStateFact {
-  { max_value: Some(0) }
+  { max_value: Some(0), }
 }
 
 ///|
@@ -130,7 +130,7 @@ fn OiI32UnsignedMaxLocalStateFact::merge_assignment_max(
 ) -> OiI32UnsignedMaxLocalStateFact {
   match (self.max_value, max_value) {
     (Some(current), Some(value)) if value >= 0 =>
-      { max_value: Some(if value > current { value } else { current }) }
+      { max_value: Some(if value > current { value } else { current }), }
     _ => OiI32UnsignedMaxLocalStateFact::unknown()
   }
 }
@@ -144,12 +144,12 @@ priv struct OiI64UnsignedMaxLocalStateFact {
 
 ///|
 fn OiI64UnsignedMaxLocalStateFact::unknown() -> OiI64UnsignedMaxLocalStateFact {
-  { max_value: None }
+  { max_value: None, }
 }
 
 ///|
 fn OiI64UnsignedMaxLocalStateFact::zero() -> OiI64UnsignedMaxLocalStateFact {
-  { max_value: Some(0L) }
+  { max_value: Some(0L), }
 }
 
 ///|
@@ -159,7 +159,7 @@ fn OiI64UnsignedMaxLocalStateFact::merge_assignment_max(
 ) -> OiI64UnsignedMaxLocalStateFact {
   match (self.max_value, max_value) {
     (Some(current), Some(value)) if value >= 0L =>
-      { max_value: Some(if value > current { value } else { current }) }
+      { max_value: Some(if value > current { value } else { current }), }
     _ => OiI64UnsignedMaxLocalStateFact::unknown()
   }
 }
@@ -320,7 +320,7 @@ fn OptimizeInstructionsLocalFacts::merge_i64_unsigned_max_for_local(
 
 ///|
 fn OiLocalAssignmentFact::empty() -> OiLocalAssignmentFact {
-  { payload: None }
+  { payload: None, }
 }
 
 ///|
@@ -407,7 +407,7 @@ priv struct OiRefNullabilityFact {
 
 ///|
 fn OiRefNullabilityFact::unknown() -> OiRefNullabilityFact {
-  { kind: UnknownRefNullability }
+  { kind: UnknownRefNullability, }
 }
 
 ///|
@@ -472,7 +472,7 @@ priv struct OiRefFact {
 
 ///|
 fn OiRefFact::unknown() -> OiRefFact {
-  { ref_type: None, nullability_fact: OiRefNullabilityFact::unknown() }
+  { ref_type: None, nullability_fact: OiRefNullabilityFact::unknown(), }
 }
 
 ///|
@@ -659,7 +659,7 @@ fn OiRefIsNullSkipCastFact::from_fact(
     break
   }
   if changed {
-    Some({ replacement_operand_id: current_id })
+    Some({ replacement_operand_id: current_id, })
   } else {
     None
   }
@@ -828,12 +828,12 @@ priv struct OiRefLiteralFact {
 
 ///|
 fn OiRefLiteralFact::none() -> OiRefLiteralFact {
-  { kind: NoRefLiteral }
+  { kind: NoRefLiteral, }
 }
 
 ///|
 fn OiRefLiteralFact::i31() -> OiRefLiteralFact {
-  { kind: I31RefLiteral }
+  { kind: I31RefLiteral, }
 }
 
 ///|
@@ -1051,10 +1051,10 @@ fn OiRegionFallthroughExitFact::from_region(
     Some(tail_id) =>
       match @ir.hot_node_get(func, tail_id).op {
         @ir.HotOp::Unreachable =>
-          { kind: RegionExplicitUnreachableTail, tail_id: Some(tail_id) }
-        _ => { kind: RegionMayFallThrough, tail_id: Some(tail_id) }
+          { kind: RegionExplicitUnreachableTail, tail_id: Some(tail_id), }
+        _ => { kind: RegionMayFallThrough, tail_id: Some(tail_id), }
       }
-    None => { kind: RegionMayFallThrough, tail_id: None }
+    None => { kind: RegionMayFallThrough, tail_id: None, }
   }
 }
 
@@ -1105,7 +1105,7 @@ fn OiIfOneSidedFallthroughRegionFact::from_regions(
   } else {
     (IfNoOneSidedFallthroughRegion, None)
   }
-  { kind, then_exit, else_exit, fallthrough_region }
+  { kind, then_exit, else_exit, fallthrough_region, }
 }
 
 ///|
@@ -1135,7 +1135,7 @@ priv struct OiFallthroughTailFact {
 
 ///|
 fn OiFallthroughTailFact::empty() -> OiFallthroughTailFact {
-  { kind: FallthroughTailNoProof }
+  { kind: FallthroughTailNoProof, }
 }
 
 ///|
@@ -1223,7 +1223,7 @@ fn OiRefFallthroughTailUseFact::from_facts(
   } else {
     BranchControlBlockedRefFallthroughTail
   }
-  { kind, region_branch_control, prefix_branch_control, tail_fact }
+  { kind, region_branch_control, prefix_branch_control, tail_fact, }
 }
 
 ///|
@@ -1291,7 +1291,7 @@ fn OiRefFallthroughRegionFact::from_region(
   } else {
     None
   }
-  { root_count, tail_id: Some(tail_id), tail_use, ref_type }
+  { root_count, tail_id: Some(tail_id), tail_use, ref_type, }
 }
 
 ///|
@@ -1345,11 +1345,11 @@ fn OiHeapSubtypeFact::from_heaps(
   // outcomes explicit so strict-subtype payloads do not depend on one raw
   // `known` boolean.
   if source == target {
-    return { kind: HeapSubtypeSameHeap }
+    return { kind: HeapSubtypeSameHeap, }
   }
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
-    None => return { kind: HeapSubtypeNoModuleContext }
+    None => return { kind: HeapSubtypeNoModuleContext, }
   }
   let kind = if OiHeapSubtypeFact::proves_subtype_with_fuel(
       module_ctx, source, target, 64,
@@ -1684,7 +1684,7 @@ fn OiModuleHeapSubtypeTargetFact::from_subtype(
   fuel : Int,
 ) -> OiModuleHeapSubtypeTargetFact {
   if fuel <= 0 {
-    return { kind: ModuleHeapSubtypeTargetNoMatch }
+    return { kind: ModuleHeapSubtypeTargetNoMatch, }
   }
   let (_, supers, comp) = match subtype {
     @lib.CompTypeSubType(_, comp) => (false, [], comp)
@@ -1693,7 +1693,7 @@ fn OiModuleHeapSubtypeTargetFact::from_subtype(
   match target {
     @lib.HeapType::AbsHeapTypeHeapType(abs) =>
       if OiConcreteCompAbsTargetFact::from_comp_abs(comp, abs).proves_match_target() {
-        return { kind: ModuleHeapSubtypeTargetConcreteCompAbs }
+        return { kind: ModuleHeapSubtypeTargetConcreteCompAbs, }
       }
     _ => ()
   }
@@ -1704,10 +1704,10 @@ fn OiModuleHeapSubtypeTargetFact::from_subtype(
         target,
         fuel - 1,
       ).proves_match_target() {
-      return { kind: ModuleHeapSubtypeTargetSupertypeWalk }
+      return { kind: ModuleHeapSubtypeTargetSupertypeWalk, }
     }
   }
-  { kind: ModuleHeapSubtypeTargetNoMatch }
+  { kind: ModuleHeapSubtypeTargetNoMatch, }
 }
 
 ///|
@@ -1764,10 +1764,12 @@ fn OiModuleHeapTargetFact::from_heaps(
   // abstract-heap lattice facts first, then bounded module subtype traversal.
   let source_fact = OiModuleHeapSourceFact::from_heaps(source, target)
   if source == target {
-    return { evidence: { kind: ModuleHeapTargetSameHeap, source: source_fact } }
+    return {
+      evidence: { kind: ModuleHeapTargetSameHeap, source: source_fact, },
+    }
   }
   if fuel <= 0 {
-    return { evidence: { kind: ModuleHeapTargetNoFuel, source: source_fact } }
+    return { evidence: { kind: ModuleHeapTargetNoFuel, source: source_fact, }, }
   }
   let kind = match (source, target) {
     (
@@ -1809,7 +1811,7 @@ fn OiModuleHeapTargetFact::from_heaps(
       }
     _ => ModuleHeapTargetNoKnownMatch
   }
-  { evidence: { kind, source: source_fact } }
+  { evidence: { kind, source: source_fact, }, }
 }
 
 ///|
@@ -1853,24 +1855,24 @@ fn OiConcreteSourceTargetOverlapFact::from_heaps(
   // caller-owned subtype scanner.
   let ctx = match module_ctx {
     Some(ctx) => ctx
-    None => return { kind: ConcreteSourceTargetOverlapUnknownNoModule }
+    None => return { kind: ConcreteSourceTargetOverlapUnknownNoModule, }
   }
   match source {
     @lib.HeapType::HeapType(_) => ()
-    _ => return { kind: ConcreteSourceTargetOverlapUnknownNonConcreteSource }
+    _ => return { kind: ConcreteSourceTargetOverlapUnknownNonConcreteSource, }
   }
   if OiModuleHeapTargetFact::from_heaps(ctx, source, target, 512).proves_match_target() {
-    return { kind: ConcreteSourceTargetOverlapKnownSourceTargetMatch }
+    return { kind: ConcreteSourceTargetOverlapKnownSourceTargetMatch, }
   }
   let subtype_count = @ir.hot_module_subtype_count(ctx)
   for i = 0; i < subtype_count; i = i + 1 {
     let heap = @lib.HeapType::new(@lib.TypeIdx::new(i.reinterpret_as_uint()))
     if OiModuleHeapTargetFact::from_heaps(ctx, heap, source, 512).proves_match_target() &&
       OiModuleHeapTargetFact::from_heaps(ctx, heap, target, 512).proves_match_target() {
-      return { kind: ConcreteSourceTargetOverlapKnownSharedSubtype }
+      return { kind: ConcreteSourceTargetOverlapKnownSharedSubtype, }
     }
   }
-  { kind: ConcreteSourceTargetOverlapNoTargetOverlap }
+  { kind: ConcreteSourceTargetOverlapNoTargetOverlap, }
 }
 
 ///|
@@ -2264,22 +2266,22 @@ fn OiHeapSubtypeTargetPayloadFact::from_heap_relation(
   if relation.proves_same_heap() {
     {
       kind: SameHeapSubtypeTargetPayload,
-      nullability_fact: { nullable: source_nullable },
-      exactness_fact: { exact: source_exact },
+      nullability_fact: { nullable: source_nullable, },
+      exactness_fact: { exact: source_exact, },
     }
   } else if relation.proves_both_concrete_heaps() &&
     !relation.proves_same_heap() &&
     relation.proves_known_subtype() {
     {
       kind: StrictConcreteSubtypeTargetPayload,
-      nullability_fact: { nullable: source_nullable },
-      exactness_fact: { exact: false },
+      nullability_fact: { nullable: source_nullable, },
+      exactness_fact: { exact: false, },
     }
   } else {
     {
       kind: UnknownHeapSubtypeTargetPayload,
-      nullability_fact: { nullable: false },
-      exactness_fact: { exact: false },
+      nullability_fact: { nullable: false, },
+      exactness_fact: { exact: false, },
     }
   }
 }
@@ -2341,7 +2343,7 @@ fn OiHeapStrictConcreteTargetMatchFact::from_heap_relation(
       evidence_fact: Some({ relation, }),
     }
   } else {
-    { kind: UnknownStrictConcreteTargetMatch, evidence_fact: None }
+    { kind: UnknownStrictConcreteTargetMatch, evidence_fact: None, }
   }
 }
 
@@ -2407,9 +2409,9 @@ fn OiHeapNullableExactOnlyNullTargetFact::from_heap_relation(
   // instead of collapsing the proof to a direct boolean.
   let evidence_fact = {
     relation,
-    source_nullability_fact: { nullable: source_nullable },
-    source_exactness_fact: { exact: source_exact },
-    target_nullability_fact: { nullable: target_nullable },
+    source_nullability_fact: { nullable: source_nullable, },
+    source_exactness_fact: { exact: source_exact, },
+    target_nullability_fact: { nullable: target_nullable, },
   }
   if target_nullable &&
     source_nullable &&
@@ -2421,7 +2423,7 @@ fn OiHeapNullableExactOnlyNullTargetFact::from_heap_relation(
       evidence_fact: Some(evidence_fact),
     }
   } else {
-    { kind: UnknownNullableExactOnlyNullTargetMatch, evidence_fact: None }
+    { kind: UnknownNullableExactOnlyNullTargetMatch, evidence_fact: None, }
   }
 }
 
@@ -2480,7 +2482,7 @@ fn OiRefFallthroughFact::from_node(
   node_id : Int,
 ) -> OiRefFallthroughFact {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return { ref_type: None }
+    return { ref_type: None, }
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -2494,7 +2496,7 @@ fn OiRefFallthroughFact::from_node(
         (Some(outer), Some(inner)) =>
           match
             optimize_instructions_ref_fallthrough_lower_bound(ctx, outer, inner) {
-            Some(ref_type) => return { ref_type: Some(ref_type) }
+            Some(ref_type) => return { ref_type: Some(ref_type), }
             None => ()
           }
         _ => ()
@@ -2514,7 +2516,7 @@ fn OiRefFallthroughFact::from_node(
                 optimize_instructions_ref_fallthrough_lower_bound(
                   ctx, outer, inner,
                 ) {
-                Some(ref_type) => return { ref_type: Some(ref_type) }
+                Some(ref_type) => return { ref_type: Some(ref_type), }
                 None => ()
               }
             _ => ()
@@ -2525,7 +2527,7 @@ fn OiRefFallthroughFact::from_node(
     @ir.HotOp::LocalTee if node.child_count == 1 => {
       let child_id = @ir.hot_child_get(func, node_id, 0)
       match OiRefFallthroughFact::from_node(ctx, func, child_id).ref_type {
-        Some(ref_type) => return { ref_type: Some(ref_type) }
+        Some(ref_type) => return { ref_type: Some(ref_type), }
         None => ()
       }
     }
@@ -2542,7 +2544,7 @@ fn OiRefFallthroughFact::from_node(
         (Some(outer), Some(inner)) =>
           match
             optimize_instructions_ref_fallthrough_lower_bound(ctx, outer, inner) {
-            Some(ref_type) => return { ref_type: Some(ref_type) }
+            Some(ref_type) => return { ref_type: Some(ref_type), }
             None => ()
           }
         _ => ()
@@ -2552,7 +2554,7 @@ fn OiRefFallthroughFact::from_node(
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       match
         OiRefFallthroughRegionFact::from_region(ctx, func, body_ref).proven_ref_type() {
-        Some(ref_type) => return { ref_type: Some(ref_type) }
+        Some(ref_type) => return { ref_type: Some(ref_type), }
         None => ()
       }
     }
@@ -2567,7 +2569,7 @@ fn OiRefFallthroughFact::from_node(
             Some(region_ref) =>
               match
                 OiRefFallthroughRegionFact::from_region(ctx, func, region_ref).proven_ref_type() {
-                Some(ref_type) => return { ref_type: Some(ref_type) }
+                Some(ref_type) => return { ref_type: Some(ref_type), }
                 None => ()
               }
             None => ()
@@ -2577,7 +2579,7 @@ fn OiRefFallthroughFact::from_node(
       }
     _ => ()
   }
-  { ref_type: optimize_instructions_node_ref_result_type(func, node_id) }
+  { ref_type: optimize_instructions_node_ref_result_type(func, node_id), }
 }
 
 ///|
@@ -2655,7 +2657,7 @@ priv struct OiRefProducerSubtypeRelationFact {
 
 ///|
 fn OiRefProducerSubtypeRelationFact::unknown() -> OiRefProducerSubtypeRelationFact {
-  { kind: UnknownRefProducerSubtypeRelation, payload: None }
+  { kind: UnknownRefProducerSubtypeRelation, payload: None, }
 }
 
 ///|
@@ -2676,8 +2678,8 @@ fn OiRefProducerSubtypeRelationFact::from_heap_relation(
     {
       kind: MatchesOrStrictSubtypesRefProducerTargetHeap,
       payload: Some({
-        nullability_fact: { nullable: payload_fact.proven_nullable() },
-        exactness_fact: { exact: payload_fact.proven_exact() },
+        nullability_fact: { nullable: payload_fact.proven_nullable(), },
+        exactness_fact: { exact: payload_fact.proven_exact(), },
       }),
     }
   } else {
@@ -3118,16 +3120,16 @@ fn OiDescriptorTypeFact::from_node(
 ) -> OiDescriptorTypeFact {
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
-    None => return { exact_described_heap: None }
+    None => return { exact_described_heap: None, }
   }
   let descriptor_idx = match
     OiRefProducerFact::from_node(ctx, func, node_id).ref_type {
     Some(ref_type) if ref_type.is_non_nullable() && ref_type.is_exact() =>
       match ref_type.get_heap_type() {
         @lib.HeapType(descriptor_idx) => descriptor_idx
-        _ => return { exact_described_heap: None }
+        _ => return { exact_described_heap: None, }
       }
-    _ => return { exact_described_heap: None }
+    _ => return { exact_described_heap: None, }
   }
   let exact_described_heap = match
     @ir.hot_module_resolve_subtype(module_ctx, descriptor_idx) {
@@ -3204,7 +3206,7 @@ fn OiDescriptorExactnessDropFact::from_operand(
         func, node_id, node_id,
       )
       if branch_control_fact.proves_has_escaping_branch_control() {
-        Some({ get_desc_fact, branch_control_fact })
+        Some({ get_desc_fact, branch_control_fact, })
       } else {
         None
       }
@@ -3215,7 +3217,7 @@ fn OiDescriptorExactnessDropFact::from_operand(
     Some(_) => DescriptorExactnessDropEscapingRefGetDesc
     None => DescriptorExactnessPreserved
   }
-  { kind, escaping_ref_get_desc_fact }
+  { kind, escaping_ref_get_desc_fact, }
 }
 
 ///|
@@ -3317,7 +3319,7 @@ fn OiRefGetDescTrapFact::from_node(
   let get_desc_fact = match OiRefGetDescFact::from_node(func, node_id) {
     Some(fact) => fact
     None =>
-      return { kind: RefGetDescTrapNone, explicit_known_null_child_fact: None }
+      return { kind: RefGetDescTrapNone, explicit_known_null_child_fact: None, }
   }
   if get_desc_fact.child_is_unreachable(func) {
     return {
@@ -3331,11 +3333,11 @@ fn OiRefGetDescTrapFact::from_node(
         @ir.HotOp::RefNull =>
           {
             kind: RefGetDescTrapExplicitKnownNullChild,
-            explicit_known_null_child_fact: Some({ child_id: nullable_child }),
+            explicit_known_null_child_fact: Some({ child_id: nullable_child, }),
           }
-        _ => { kind: RefGetDescTrapNone, explicit_known_null_child_fact: None }
+        _ => { kind: RefGetDescTrapNone, explicit_known_null_child_fact: None, }
       }
-    None => { kind: RefGetDescTrapNone, explicit_known_null_child_fact: None }
+    None => { kind: RefGetDescTrapNone, explicit_known_null_child_fact: None, }
   }
 }
 
@@ -3403,7 +3405,7 @@ fn OiDescriptorOperandTrapFact::from_operand(
     (None, Some(_)) => DescriptorOperandTrapRefGetDesc
     _ => DescriptorOperandTrapNone
   }
-  { kind, direct_unreachable_fact, ref_get_desc_trap_fact }
+  { kind, direct_unreachable_fact, ref_get_desc_trap_fact, }
 }
 
 ///|
@@ -3480,12 +3482,12 @@ priv struct OiRefTestStyleFact {
 
 ///|
 fn OiRefTestStyleFact::ordinary() -> OiRefTestStyleFact {
-  { kind: RefTestOrdinaryStyle }
+  { kind: RefTestOrdinaryStyle, }
 }
 
 ///|
 fn OiRefTestStyleFact::descriptor() -> OiRefTestStyleFact {
-  { kind: RefTestDescriptorStyle }
+  { kind: RefTestDescriptorStyle, }
 }
 
 ///|
@@ -3598,7 +3600,7 @@ fn OiDescriptorRefTestTighteningFact::from_test(
   // named fact so descriptor tightening can be reopened here with valid fixtures
   // instead of living as an implicit style escape in the ordinary ref-test path.
   if test_fact.style_fact.proves_descriptor_style() {
-    Some({ boundary_only: true })
+    Some({ boundary_only: true, })
   } else {
     None
   }
@@ -3625,7 +3627,7 @@ fn OiRefTestTighteningFact::from_test(
     return None
   }
   match OiOrdinaryRefTestTighteningFact::from_test(ctx, func, test_fact) {
-    Some(fact) => Some({ narrowed_ref_type: fact.narrowed_ref_type })
+    Some(fact) => Some({ narrowed_ref_type: fact.narrowed_ref_type, })
     None => None
   }
 }
@@ -3789,7 +3791,7 @@ fn OiRefTestSourceTargetRelationFact::from_operand(
     }
     None =>
       {
-        identity_fact: { exact_heap_fact: None, final_heap_fact: None },
+        identity_fact: { exact_heap_fact: None, final_heap_fact: None, },
         match_fact: {
           nullable_match_fact: None,
           non_null_match_fact: OiRefTargetMatchProofFact::when_proven(
@@ -4085,7 +4087,7 @@ fn OiDescriptorRefTestMissFact::from_operand(
     None => false
   }
   if candidate_miss {
-    Some({ boundary_only: true })
+    Some({ boundary_only: true, })
   } else {
     None
   }
@@ -4176,18 +4178,18 @@ fn OiRefTestEvaluationFact::from_test(
     ctx, operand_fact, target, nullable,
   )
   if relation_fact.proves_success_only_if_non_null(nullable, exact) {
-    return { kind: RefTestSuccessOnlyIfNonNull }
+    return { kind: RefTestSuccessOnlyIfNonNull, }
   }
   if relation_fact.proves_success_only_if_null(exact) {
-    return { kind: RefTestSuccessOnlyIfNull }
+    return { kind: RefTestSuccessOnlyIfNull, }
   }
   if relation_fact.proves_known_success(nullable, exact) {
-    return { kind: RefTestSuccess }
+    return { kind: RefTestSuccess, }
   }
   if relation_fact.proves_known_failure(nullable, exact) {
-    return { kind: RefTestFailure }
+    return { kind: RefTestFailure, }
   }
-  { kind: RefTestUnknown }
+  { kind: RefTestUnknown, }
 }
 
 ///|
@@ -4210,14 +4212,14 @@ fn OiRefTestResultFact::from_evaluation(
 ) -> OiRefTestResultFact {
   match evaluation.kind {
     RefTestSuccess =>
-      { kind: RefTestResultConst, const_result: Some(@lib.I32(1)) }
+      { kind: RefTestResultConst, const_result: Some(@lib.I32(1)), }
     RefTestFailure =>
-      { kind: RefTestResultConst, const_result: Some(@lib.I32(0)) }
+      { kind: RefTestResultConst, const_result: Some(@lib.I32(0)), }
     RefTestSuccessOnlyIfNull =>
-      { kind: RefTestResultRefIsNull, const_result: None }
+      { kind: RefTestResultRefIsNull, const_result: None, }
     RefTestSuccessOnlyIfNonNull =>
-      { kind: RefTestResultRefIsNonNull, const_result: None }
-    RefTestUnknown => { kind: RefTestResultUnknown, const_result: None }
+      { kind: RefTestResultRefIsNonNull, const_result: None, }
+    RefTestUnknown => { kind: RefTestResultUnknown, const_result: None, }
   }
 }
 
@@ -4251,7 +4253,7 @@ fn OiRefTestConstOperandPreservationFact::from_operand(
   // effect fallback: even direct ref.null and local.get operands remain
   // explicit. Keep that unconditional preservation decision in one typed fact
   // so candidate discovery and generic purity facts cannot erase the operand.
-  { kind: RefTestConstPreserveOperandWithDrop, operand_id }
+  { kind: RefTestConstPreserveOperandWithDrop, operand_id, }
 }
 
 ///|
@@ -4569,8 +4571,8 @@ priv struct OiRefCastLocalTargetRelationFact {
 ///|
 fn OiRefCastLocalTargetRelationFact::empty() -> OiRefCastLocalTargetRelationFact {
   {
-    match_fact: { non_null_match_fact: None, nullable_match_fact: None },
-    miss_fact: { target_miss_fact: None, non_null_target_miss_fact: None },
+    match_fact: { non_null_match_fact: None, nullable_match_fact: None, },
+    miss_fact: { target_miss_fact: None, non_null_target_miss_fact: None, },
   }
 }
 
@@ -5070,17 +5072,17 @@ fn OiRefCastOperandRewriteFact::from_operand_fact(
   if !nullable &&
     (!exact || relation.proves_exact_target_heap()) &&
     relation.proves_nullable_exact_target_type() {
-    return Some({ kind: RefCastOperandAsNonNull })
+    return Some({ kind: RefCastOperandAsNonNull, })
   }
   if exact && relation.proves_nullable_exact_target_only_as_null() {
-    return Some({ kind: RefCastOperandNullrefCast })
+    return Some({ kind: RefCastOperandNullrefCast, })
   }
   if (!exact || relation.proves_exact_target_heap()) &&
     (
       relation.proves_known_match_target() ||
       (nullable && relation.proves_nullable_matches_target())
     ) {
-    return Some({ kind: RefCastOperandForward })
+    return Some({ kind: RefCastOperandForward, })
   }
   let traps = relation.proves_known_miss_target() ||
     (exact && operand_fact.proves_exact_target_miss()) ||
@@ -5169,7 +5171,7 @@ fn OiRefCastChildSubtypeFact::from_types(
   // fact with explicit nullable/exact/heap mismatch outcomes instead of a
   // helper-style subtype predicate hidden under the child-cast rewrite.
   if child_ref_type.is_non_nullable() && parent_ref_type.is_nullable() {
-    return { kind: RefCastChildSubtypeNullableMismatch }
+    return { kind: RefCastChildSubtypeNullableMismatch, }
   }
   let parent_heap = parent_ref_type.get_heap_type()
   let child_heap = child_ref_type.get_heap_type()
@@ -5241,7 +5243,7 @@ fn OiRefCastChildCastFact::from_cast(
     ctx, parent_type, child_type,
   )
   if subtype_fact.proves_parent_subtypes_child() {
-    Some({ replacement_operand_id: child_fact.operand_id })
+    Some({ replacement_operand_id: child_fact.operand_id, })
   } else {
     None
   }
@@ -5302,7 +5304,7 @@ priv struct OiRefCastRewritePayloadFact {
 
 ///|
 fn OiRefCastRewritePayloadFact::empty() -> OiRefCastRewritePayloadFact {
-  { replacement_operand_id: None, narrowed_ref_type: None }
+  { replacement_operand_id: None, narrowed_ref_type: None, }
 }
 
 ///|
@@ -5589,8 +5591,8 @@ fn OiDescriptorCastTighteningOperandFact::from_operand(
   // of carrying a direct non-null boolean on the aggregate tightening record.
   match OiRefFallthroughFact::from_node(ctx, func, operand_id).ref_type {
     Some(ref_type) if ref_type.is_non_nullable() =>
-      { kind: DescriptorCastTighteningOperandFallthroughNonNull }
-    _ => { kind: DescriptorCastTighteningOperandUnknown }
+      { kind: DescriptorCastTighteningOperandFallthroughNonNull, }
+    _ => { kind: DescriptorCastTighteningOperandUnknown, }
   }
 }
 
@@ -6057,9 +6059,9 @@ fn OiDescriptorExactMissTrapModeFact::from_context(
   // so it is only represented in normal trapping mode. Keep this mode gate
   // separate from source/target proofs and source-order preservation outcomes.
   if ctx.traps_never_happen || ctx.ignore_implicit_traps {
-    { kind: DescriptorExactMissTrapModeDisablesCleanup }
+    { kind: DescriptorExactMissTrapModeDisablesCleanup, }
   } else {
-    { kind: DescriptorExactMissTrapModeAllowsCleanup }
+    { kind: DescriptorExactMissTrapModeAllowsCleanup, }
   }
 }
 
@@ -6083,12 +6085,12 @@ fn OiDescriptorExactMissTargetEvidenceFact::from_miss(
   // descriptor-equality cast proof: the descriptor must exactly describe the
   // target, and the reference operand must be known to miss that exact target.
   if !miss_fact.descriptor_relation.proves_exactly_describes_target() {
-    return { kind: DescriptorExactMissDescriptorNotExactTarget }
+    return { kind: DescriptorExactMissDescriptorNotExactTarget, }
   }
   if !miss_fact.operand_relation.proves_exact_target_miss() {
-    return { kind: DescriptorExactMissOperandNotMissTarget }
+    return { kind: DescriptorExactMissOperandNotMissTarget, }
   }
-  { kind: DescriptorExactMissTargetEvidenceSatisfied }
+  { kind: DescriptorExactMissTargetEvidenceSatisfied, }
 }
 
 ///|
@@ -6131,7 +6133,7 @@ fn OiDescriptorExactMissPreconditionFact::from_miss(
           DescriptorExactMissOperandPreconditionFailed
       }
   }
-  { kind, trap_mode_fact, target_evidence_fact }
+  { kind, trap_mode_fact, target_evidence_fact, }
 }
 
 ///|
@@ -6187,7 +6189,7 @@ fn OiDescriptorExactMissRewritePlanFact::from_miss(
     DescriptorExactMissPreserveBothDrop =>
       DescriptorExactMissDropBothThenUnreachable
   }
-  Some({ kind, miss_fact })
+  Some({ kind, miss_fact, })
 }
 
 ///|
@@ -6341,16 +6343,16 @@ fn OiDescriptorTnhSkipTargetCompatibilityFact::from_skip(
   // Keep those target-side blockers as their own fact before descriptor
   // exactness preservation is considered.
   if !skip_fact.operand_relation.proves_matches_or_subtypes_target() {
-    return { kind: DescriptorTnhSkipOperandMissesTarget }
+    return { kind: DescriptorTnhSkipOperandMissesTarget, }
   }
   let cast_fact = skip_fact.cast_fact
   if !cast_fact.nullable && skip_fact.operand_relation.proves_nullable_target() {
-    return { kind: DescriptorTnhSkipTargetNullabilityMismatch }
+    return { kind: DescriptorTnhSkipTargetNullabilityMismatch, }
   }
   if cast_fact.exact && !skip_fact.operand_relation.proves_exact_target() {
-    return { kind: DescriptorTnhSkipTargetExactnessMismatch }
+    return { kind: DescriptorTnhSkipTargetExactnessMismatch, }
   }
-  { kind: DescriptorTnhSkipTargetCompatible }
+  { kind: DescriptorTnhSkipTargetCompatible, }
 }
 
 ///|
@@ -6393,7 +6395,7 @@ fn OiDescriptorTnhSkipDescriptorExactnessFact::from_skip(
   match skip_fact.descriptor_fact.type_fact.exact_described_heap {
     Some(described_heap) => {
       if !OiHeapRelationFact::from_heaps(ctx, described_heap, cast_fact.target).proves_known_subtype() {
-        return { kind: DescriptorTnhSkipExactDescriptorNotSubtypePayload }
+        return { kind: DescriptorTnhSkipExactDescriptorNotSubtypePayload, }
       }
       let described_relation = OiDescriptorOperandTargetRelationFact::from_operand(
         ctx,
@@ -6403,14 +6405,14 @@ fn OiDescriptorTnhSkipDescriptorExactnessFact::from_skip(
         false,
       )
       if described_relation.proves_exact_heap_target() {
-        return { kind: DescriptorTnhSkipExactDescriptorAlreadyExactTarget }
+        return { kind: DescriptorTnhSkipExactDescriptorAlreadyExactTarget, }
       }
       if skip_fact.descriptor_fact.proves_may_drop_exactness_for_tnh_escaping_ref_get_desc() {
-        return { kind: DescriptorTnhSkipExactnessMayDropForEscapingRefGetDesc }
+        return { kind: DescriptorTnhSkipExactnessMayDropForEscapingRefGetDesc, }
       }
-      { kind: DescriptorTnhSkipDescriptorExactnessPreserved }
+      { kind: DescriptorTnhSkipDescriptorExactnessPreserved, }
     }
-    None => { kind: DescriptorTnhSkipNoExactDescriptorPayload }
+    None => { kind: DescriptorTnhSkipNoExactDescriptorPayload, }
   }
 }
 
@@ -6550,7 +6552,7 @@ fn OiDescriptorTnhSkipRewritePlanFact::from_skip(
   } else {
     DescriptorTnhSkipDropDescriptorThenOperand
   }
-  Some({ kind, skip_fact })
+  Some({ kind, skip_fact, })
 }
 
 ///|
@@ -6636,9 +6638,9 @@ fn OiDescriptorNullCastOperandFact::from_cast(
   // Keep that source proof as a payload fact instead of a direct visitor-local
   // predicate so later null-cast rewrite facts consume explicit evidence.
   if OiRefFact::from_node(func, cast_fact.operand_id).proves_known_null() {
-    { kind: DescriptorNullCastOperandKnownNull }
+    { kind: DescriptorNullCastOperandKnownNull, }
   } else {
-    { kind: DescriptorNullCastOperandNotKnownNull }
+    { kind: DescriptorNullCastOperandNotKnownNull, }
   }
 }
 
@@ -6711,14 +6713,14 @@ fn OiDescriptorNullCastRewriteScopeFact::descriptor_trap_scope() -> OiDescriptor
   // descriptor operand itself traps, the whole descriptor cast can become
   // unreachable, but nullable typed-null materialization belongs to the full
   // known-null cast visitor below.
-  { kind: DescriptorNullCastDescriptorTrapScope }
+  { kind: DescriptorNullCastDescriptorTrapScope, }
 }
 
 ///|
 fn OiDescriptorNullCastRewriteScopeFact::full_known_null_scope() -> OiDescriptorNullCastRewriteScopeFact {
   // The ordinary descriptor known-null cast visitor may produce either typed
   // nulls or unreachable replacements after descriptor effects are preserved.
-  { kind: DescriptorNullCastFullKnownNullScope }
+  { kind: DescriptorNullCastFullKnownNullScope, }
 }
 
 ///|
@@ -6754,7 +6756,7 @@ fn OiDescriptorNullCastRewritePlanFact::from_null_cast(
   }
   let descriptor_fact = null_fact.descriptor_fact
   if descriptor_fact.proves_traps_without_effects() {
-    return Some({ kind: DescriptorNullCastUnreachable, null_fact })
+    return Some({ kind: DescriptorNullCastUnreachable, null_fact, })
   }
   if scope_fact.proves_descriptor_trap_scope() {
     return None
@@ -6770,7 +6772,7 @@ fn OiDescriptorNullCastRewritePlanFact::from_null_cast(
   } else {
     DescriptorNullCastDropDescriptorThenUnreachable
   }
-  Some({ kind, null_fact })
+  Some({ kind, null_fact, })
 }
 
 ///|
@@ -6841,12 +6843,12 @@ fn OiDescriptorExactSuccessTargetFact::from_cast(
   // target precondition as a source-shaped payload instead of parallel nullable
   // and exactness blockers in the exact-success aggregate precondition.
   if cast_fact.nullable {
-    return { kind: DescriptorExactSuccessTargetNullable }
+    return { kind: DescriptorExactSuccessTargetNullable, }
   }
   if !cast_fact.exact {
-    return { kind: DescriptorExactSuccessTargetInexact }
+    return { kind: DescriptorExactSuccessTargetInexact, }
   }
-  { kind: DescriptorExactSuccessTargetExactNonNull }
+  { kind: DescriptorExactSuccessTargetExactNonNull, }
 }
 
 ///|
@@ -7041,7 +7043,7 @@ fn OiDescriptorExactSuccessSourcePreconditionFact::from_success(
   } else {
     DescriptorExactSuccessSourceAllowed
   }
-  { operand_fact, descriptor_relation, kind }
+  { operand_fact, descriptor_relation, kind, }
 }
 
 ///|
@@ -7105,7 +7107,7 @@ fn OiDescriptorExactSuccessPreconditionFact::from_success(
         }
     }
   }
-  { trap_mode_fact, target_fact, source_precondition, kind }
+  { trap_mode_fact, target_fact, source_precondition, kind, }
 }
 
 ///|
@@ -7202,8 +7204,8 @@ fn OiDescriptorDescribedSubtypeFact::from_exact_described_heap(
     Some(described_heap) if OiHeapRelationFact::from_heaps(
         ctx, described_heap, target,
       ).proves_known_subtype() =>
-      { kind: DescriptorDescribedHeapSubtypesTarget }
-    _ => { kind: DescriptorDescribedSubtypeUnknown }
+      { kind: DescriptorDescribedHeapSubtypesTarget, }
+    _ => { kind: DescriptorDescribedSubtypeUnknown, }
   }
 }
 
@@ -7237,9 +7239,9 @@ fn OiDescriptorDescribedExactTargetFact::from_type_fact(
   // the cast target even if no narrower heap is selected. Carry that exact-target
   // relation as its own source fact.
   if descriptor_type_fact.exactly_describes(target) {
-    { kind: DescriptorExactlyDescribesTarget }
+    { kind: DescriptorExactlyDescribesTarget, }
   } else {
-    { kind: DescriptorDescribedExactTargetUnknown }
+    { kind: DescriptorDescribedExactTargetUnknown, }
   }
 }
 
@@ -7327,9 +7329,9 @@ fn OiDescriptorNarrowedTargetFact::from_cast(
   // nullability and exactness so the narrowed result is built from source facts.
   let target = descriptor_relation.select_narrowed_target(cast_fact.target)
   if target == cast_fact.target {
-    { kind: DescriptorNarrowedTargetOriginal, target }
+    { kind: DescriptorNarrowedTargetOriginal, target, }
   } else {
-    { kind: DescriptorNarrowedTargetDescribedHeap, target }
+    { kind: DescriptorNarrowedTargetDescribedHeap, target, }
   }
 }
 
@@ -7358,15 +7360,15 @@ fn OiDescriptorNarrowedNullabilityFact::from_cast(
   // relation when the original descriptor cast is nullable. Keep those cases as
   // selected facts instead of computing a bare conjunction in the result fact.
   if force_non_null {
-    return { kind: DescriptorNarrowedForcedNonNull, nullable: false }
+    return { kind: DescriptorNarrowedForcedNonNull, nullable: false, }
   }
   if !cast_fact.nullable {
-    return { kind: DescriptorNarrowedNonNullableCast, nullable: false }
+    return { kind: DescriptorNarrowedNonNullableCast, nullable: false, }
   }
   if operand_relation.proves_nullable_target() {
-    { kind: DescriptorNarrowedNullableOperand, nullable: true }
+    { kind: DescriptorNarrowedNullableOperand, nullable: true, }
   } else {
-    { kind: DescriptorNarrowedNonNullableOperand, nullable: false }
+    { kind: DescriptorNarrowedNonNullableOperand, nullable: false, }
   }
 }
 
@@ -7393,15 +7395,15 @@ fn OiDescriptorNarrowedExactnessFact::from_cast(
   // descriptor relation that proves the narrowed target is exact. Keep the two
   // source paths distinct before the final result type is assembled.
   if cast_fact.exact {
-    return { kind: DescriptorNarrowedExactCast, exact: true }
+    return { kind: DescriptorNarrowedExactCast, exact: true, }
   }
   if descriptor_relation.proves_descriptor_exact_result(
       cast_fact.target,
       target_fact.target,
     ) {
-    { kind: DescriptorNarrowedExactDescriptorResult, exact: true }
+    { kind: DescriptorNarrowedExactDescriptorResult, exact: true, }
   } else {
-    { kind: DescriptorNarrowedInexactResult, exact: false }
+    { kind: DescriptorNarrowedInexactResult, exact: false, }
   }
 }
 
@@ -7431,7 +7433,7 @@ fn OiDescriptorNarrowedResultFact::from_cast(
   let exactness_fact = OiDescriptorNarrowedExactnessFact::from_cast(
     cast_fact, target_fact, descriptor_relation,
   )
-  { target_fact, nullability_fact, exactness_fact }
+  { target_fact, nullability_fact, exactness_fact, }
 }
 
 ///|
@@ -7491,9 +7493,9 @@ fn OiDescriptorResultNarrowingControlFact::from_descriptor(
   if OiDescriptorBranchControlFact::from_node(
       func, descriptor_id, descriptor_id,
     ).proves_has_escaping_branch_control() {
-    { kind: DescriptorResultNarrowingDescriptorControlEscapes }
+    { kind: DescriptorResultNarrowingDescriptorControlEscapes, }
   } else {
-    { kind: DescriptorResultNarrowingDescriptorControlSafe }
+    { kind: DescriptorResultNarrowingDescriptorControlSafe, }
   }
 }
 
@@ -7648,9 +7650,9 @@ fn OiDescriptorResultNarrowingChangeFact::from_narrowing(
   // useful-type-info path only rebuilds the descriptor cast when the descriptor
   // and operand facts produce a strictly narrower result type.
   if narrowing_fact.changes_result_type() {
-    { kind: DescriptorResultNarrowingChangesResult }
+    { kind: DescriptorResultNarrowingChangesResult, }
   } else {
-    { kind: DescriptorResultNarrowingUnchangedResult }
+    { kind: DescriptorResultNarrowingUnchangedResult, }
   }
 }
 
@@ -7748,9 +7750,9 @@ fn OiDescriptorRefAsNonNullMoveNullabilityFact::from_narrowing(
   narrowing_fact : OiDescriptorResultNarrowingFact,
 ) -> OiDescriptorRefAsNonNullMoveNullabilityFact {
   if narrowing_fact.cast_fact.nullable {
-    { kind: DescriptorRefAsNonNullMoveNullableCast }
+    { kind: DescriptorRefAsNonNullMoveNullableCast, }
   } else {
-    { kind: DescriptorRefAsNonNullMoveNonNullableCast }
+    { kind: DescriptorRefAsNonNullMoveNonNullableCast, }
   }
 }
 
@@ -7853,7 +7855,7 @@ fn OiDescriptorResultNarrowingRewritePlanFact::from_cast_root(
   if !precondition_fact.proves_result_narrowing_allowed() {
     return None
   }
-  Some({ kind: DescriptorResultNarrowCastRoot, narrowing_fact })
+  Some({ kind: DescriptorResultNarrowCastRoot, narrowing_fact, })
 }
 
 ///|
@@ -7866,7 +7868,7 @@ fn OiDescriptorResultNarrowingRewritePlanFact::from_ref_as_non_null_root(
   if !precondition_fact.proves_ref_as_non_null_move_allowed() {
     return None
   }
-  Some({ kind: DescriptorResultNarrowRefAsNonNullRoot, narrowing_fact })
+  Some({ kind: DescriptorResultNarrowRefAsNonNullRoot, narrowing_fact, })
 }
 
 ///|
@@ -7968,9 +7970,9 @@ fn OiDescriptorCallRefDirectizationFact::from_cast_fact(
         second_child_fact: Some(descriptor_fact),
       })
     (Some(operand_fact), None) =>
-      Some({ first_child_fact: operand_fact, second_child_fact: None })
+      Some({ first_child_fact: operand_fact, second_child_fact: None, })
     (None, Some(descriptor_fact)) =>
-      Some({ first_child_fact: descriptor_fact, second_child_fact: None })
+      Some({ first_child_fact: descriptor_fact, second_child_fact: None, })
     (None, None) => None
   }
 }
@@ -8049,7 +8051,7 @@ fn OiDescriptorOperandSimplificationFact::from_node(
         return None
       }
   }
-  Some({ cast_fact, directization_fact, kind })
+  Some({ cast_fact, directization_fact, kind, })
 }
 
 ///|
@@ -8142,10 +8144,10 @@ fn OiRefGetDescFact::from_node(
   let explicit_nullable_child_fact : OiRefGetDescExplicitNullableChildFact? = match
     @ir.hot_node_exact_instr(func, child_id) {
     Some(@lib.Instruction::RefAsNonNull) if @ir.hot_child_count(func, child_id) ==
-      1 => Some({ child_id: @ir.hot_child_get(func, child_id, 0) })
+      1 => Some({ child_id: @ir.hot_child_get(func, child_id, 0), })
     _ => None
   }
-  Some({ child_id, explicit_nullable_child_fact })
+  Some({ child_id, explicit_nullable_child_fact, })
 }
 
 ///|
@@ -8203,7 +8205,7 @@ fn OiRefGetDescKnownNullChildFact::from_get_desc(
         Some({
           kind: RefGetDescKnownNullPreserveChild,
           get_desc_fact,
-          preserve_child_fact: Some({ child_id: nullable_child }),
+          preserve_child_fact: Some({ child_id: nullable_child, }),
         })
       } else {
         None
@@ -8215,7 +8217,7 @@ fn OiRefGetDescKnownNullChildFact::from_get_desc(
         Some({
           kind: RefGetDescKnownNullPreserveChild,
           get_desc_fact,
-          preserve_child_fact: Some({ child_id: nullable_child }),
+          preserve_child_fact: Some({ child_id: nullable_child, }),
         })
       } else {
         None
@@ -8449,7 +8451,7 @@ fn OiRefGetDescNullCheckMoveFact::from_get_desc(
   if !allowed {
     return None
   }
-  Some({ kind, get_desc_fact, nullable_child_id: nullable_child })
+  Some({ kind, get_desc_fact, nullable_child_id: nullable_child, })
 }
 
 ///|
@@ -8943,8 +8945,8 @@ fn OiI32UnsignedLoadMaxBitsFact::from_instr(
   // of loaded bits. Keep width-specific leaf producer facts explicit so load
   // knowledge does not remain as an unsigned-max query-local opcode whitelist.
   match instr {
-    @lib.Instruction::I32Load8U(_) => Some({ value_id, max_value: 255 })
-    @lib.Instruction::I32Load16U(_) => Some({ value_id, max_value: 65535 })
+    @lib.Instruction::I32Load8U(_) => Some({ value_id, max_value: 255, })
+    @lib.Instruction::I32Load16U(_) => Some({ value_id, max_value: 65535, })
     _ => None
   }
 }
@@ -8956,10 +8958,10 @@ fn OiI64UnsignedLoadMaxBitsFact::from_instr(
 ) -> OiI64UnsignedLoadMaxBitsFact? {
   // Same Binaryen v130 unsigned-load maxBits leaf facts for i64 loads.
   match instr {
-    @lib.Instruction::I64Load8U(_) => Some({ value_id, max_value: 255L })
-    @lib.Instruction::I64Load16U(_) => Some({ value_id, max_value: 65535L })
+    @lib.Instruction::I64Load8U(_) => Some({ value_id, max_value: 255L, })
+    @lib.Instruction::I64Load16U(_) => Some({ value_id, max_value: 65535L, })
     @lib.Instruction::I64Load32U(_) =>
-      Some({ value_id, max_value: 4294967295L })
+      Some({ value_id, max_value: 4294967295L, })
     _ => None
   }
 }
@@ -8986,7 +8988,7 @@ fn OiI32UnsignedConstMaxValueFact::from_node(
   // high bit is set in the corresponding wasm integer width.
   match @ir.hot_const_get(func, @ir.hot_node_get(func, node_id).imm0) {
     @ir.HotConstPayload::I32Const(@lib.I32(raw)) if raw >= 0 =>
-      Some({ value_id: node_id, max_value: raw })
+      Some({ value_id: node_id, max_value: raw, })
     _ => None
   }
 }
@@ -8999,7 +9001,7 @@ fn OiI64UnsignedConstMaxValueFact::from_node(
   // Same exact unsigned maximum fact for nonnegative i64 constants.
   match @ir.hot_const_get(func, @ir.hot_node_get(func, node_id).imm0) {
     @ir.HotConstPayload::I64Const(@lib.I64(raw)) if raw >= 0L =>
-      Some({ value_id: node_id, max_value: raw })
+      Some({ value_id: node_id, max_value: raw, })
     _ => None
   }
 }
@@ -9027,7 +9029,7 @@ fn OiI32LocalUnsignedMaxValueFact::from_get(
   match local_facts {
     Some(facts) =>
       match facts.i32_unsigned_max_for_get(local_id) {
-        Some(max_value) => Some({ local_id, max_value })
+        Some(max_value) => Some({ local_id, max_value, })
         None => None
       }
     None => None
@@ -9043,7 +9045,7 @@ fn OiI64LocalUnsignedMaxValueFact::from_get(
   match local_facts {
     Some(facts) =>
       match facts.i64_unsigned_max_for_get(local_id) {
-        Some(max_value) => Some({ local_id, max_value })
+        Some(max_value) => Some({ local_id, max_value, })
         None => None
       }
     None => None
@@ -9079,7 +9081,7 @@ fn OiI32ConvertMaxBitsFact::from_convert(
           func, dead, local_facts, operand_id,
         ) {
         Some(max_value) if max_value <= 2147483647L =>
-          Some({ operand_id, max_value: max_value.to_int() })
+          Some({ operand_id, max_value: max_value.to_int(), })
         _ => None
       }
     _ => None
@@ -9107,14 +9109,14 @@ fn OiI64ConvertMaxBitsFact::from_convert(
         Some(value) => value.to_int64()
         None => 4294967295L
       }
-      Some({ operand_id, max_value })
+      Some({ operand_id, max_value, })
     }
     _ =>
       match
         OiUnsignedMaxValueFact::i32_max_for_node(
           func, dead, local_facts, operand_id,
         ) {
-        Some(value) => Some({ operand_id, max_value: value.to_int64() })
+        Some(value) => Some({ operand_id, max_value: value.to_int64(), })
         None => None
       }
   }
@@ -9221,7 +9223,7 @@ fn OiI32EffectiveShiftAmountFact::from_const_operand(
   // amount as an explicit width-specific fact so shl/shr_s/shr_u maxBits
   // producers share one source rule without a generic width field.
   match optimize_instructions_i32_const(func, dead, rhs_id) {
-    Some(@lib.I32(raw)) => Some({ amount: raw & 31 })
+    Some(@lib.I32(raw)) => Some({ amount: raw & 31, })
     None => None
   }
 }
@@ -9235,7 +9237,7 @@ fn OiI64EffectiveShiftAmountFact::from_const_operand(
   // Same Binaryen v130 effective-shift fact for i64 shifts, using the low 6 bits
   // of the i64 constant operand and keeping the i64 lane explicit in the type.
   match optimize_instructions_i64_const(func, dead, rhs_id) {
-    Some(@lib.I64(raw)) => Some({ amount: (raw & 63L).to_int() })
+    Some(@lib.I64(raw)) => Some({ amount: (raw & 63L).to_int(), })
     None => None
   }
 }
@@ -9488,13 +9490,13 @@ fn OiMaxBitsBlockPrefixFact::from_root(
   // table.grow and memory.grow, and global write roots so branch, control, and
   // generalized localization remain out of this fact.
   if OiSideEffectFreeExpressionFact::proves_node_free(func, dead, root_id) {
-    return Some({ kind: MaxBitsBlockPrefixPure, root_id })
+    return Some({ kind: MaxBitsBlockPrefixPure, root_id, })
   }
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::LocalSet if @ir.hot_child_count(func, root_id) == 1 =>
-      Some({ kind: MaxBitsBlockPrefixLocalSet, root_id })
+      Some({ kind: MaxBitsBlockPrefixLocalSet, root_id, })
     @ir.HotOp::Store if @ir.hot_child_count(func, root_id) == 2 =>
-      Some({ kind: MaxBitsBlockPrefixStore, root_id })
+      Some({ kind: MaxBitsBlockPrefixStore, root_id, })
     @ir.HotOp::Atomic if @ir.hot_child_count(func, root_id) == 2 =>
       match @ir.hot_node_exact_instr(func, root_id) {
         Some(
@@ -9505,23 +9507,23 @@ fn OiMaxBitsBlockPrefixFact::from_root(
           | @lib.Instruction::I64AtomicStore8(_, _)
           | @lib.Instruction::I64AtomicStore16(_, _)
           | @lib.Instruction::I64AtomicStore32(_, _)
-        ) => Some({ kind: MaxBitsBlockPrefixAtomicStore, root_id })
+        ) => Some({ kind: MaxBitsBlockPrefixAtomicStore, root_id, })
         _ => None
       }
-    @ir.HotOp::Call => Some({ kind: MaxBitsBlockPrefixCall, root_id })
+    @ir.HotOp::Call => Some({ kind: MaxBitsBlockPrefixCall, root_id, })
     @ir.HotOp::CallIndirect =>
-      Some({ kind: MaxBitsBlockPrefixCallIndirect, root_id })
-    @ir.HotOp::CallRef => Some({ kind: MaxBitsBlockPrefixCallRef, root_id })
+      Some({ kind: MaxBitsBlockPrefixCallIndirect, root_id, })
+    @ir.HotOp::CallRef => Some({ kind: MaxBitsBlockPrefixCallRef, root_id, })
     @ir.HotOp::GlobalSet if @ir.hot_child_count(func, root_id) == 1 =>
-      Some({ kind: MaxBitsBlockPrefixGlobalSet, root_id })
+      Some({ kind: MaxBitsBlockPrefixGlobalSet, root_id, })
     @ir.HotOp::TableSet if @ir.hot_child_count(func, root_id) == 2 =>
-      Some({ kind: MaxBitsBlockPrefixTableSet, root_id })
+      Some({ kind: MaxBitsBlockPrefixTableSet, root_id, })
     @ir.HotOp::TableFill if @ir.hot_child_count(func, root_id) == 3 =>
-      Some({ kind: MaxBitsBlockPrefixTableFill, root_id })
+      Some({ kind: MaxBitsBlockPrefixTableFill, root_id, })
     @ir.HotOp::TableCopy if @ir.hot_child_count(func, root_id) == 3 =>
-      Some({ kind: MaxBitsBlockPrefixTableCopy, root_id })
+      Some({ kind: MaxBitsBlockPrefixTableCopy, root_id, })
     @ir.HotOp::TableInit if @ir.hot_child_count(func, root_id) == 3 =>
-      Some({ kind: MaxBitsBlockPrefixTableInit, root_id })
+      Some({ kind: MaxBitsBlockPrefixTableInit, root_id, })
     @ir.HotOp::Drop if @ir.hot_child_count(func, root_id) == 1 => {
       let child_id = @ir.hot_child_get(func, root_id, 0)
       match @ir.hot_node_get(func, child_id).op {
@@ -9535,38 +9537,38 @@ fn OiMaxBitsBlockPrefixFact::from_root(
               | @lib.Instruction::I64AtomicLoad8U(_, _)
               | @lib.Instruction::I64AtomicLoad16U(_, _)
               | @lib.Instruction::I64AtomicLoad32U(_, _)
-            ) => Some({ kind: MaxBitsBlockPrefixDropAtomicLoad, root_id })
+            ) => Some({ kind: MaxBitsBlockPrefixDropAtomicLoad, root_id, })
             Some(
               @lib.Instruction::StructAtomicGet(_, _, _)
               | @lib.Instruction::StructAtomicGetS(_, _, _)
               | @lib.Instruction::StructAtomicGetU(_, _, _)
-            ) => Some({ kind: MaxBitsBlockPrefixDropStructAtomicGet, root_id })
+            ) => Some({ kind: MaxBitsBlockPrefixDropStructAtomicGet, root_id, })
             _ => None
           }
         @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 2 =>
           match @ir.hot_node_exact_instr(func, child_id) {
             Some(@lib.Instruction::AtomicRmw(_, _, _)) =>
-              Some({ kind: MaxBitsBlockPrefixDropAtomicRmw, root_id })
+              Some({ kind: MaxBitsBlockPrefixDropAtomicRmw, root_id, })
             Some(@lib.Instruction::MemoryAtomicNotify(_)) =>
-              Some({ kind: MaxBitsBlockPrefixDropAtomicNotify, root_id })
+              Some({ kind: MaxBitsBlockPrefixDropAtomicNotify, root_id, })
             _ => None
           }
         @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 3 =>
           match @ir.hot_node_exact_instr(func, child_id) {
             Some(@lib.Instruction::AtomicCmpxchg(_, _, _)) =>
-              Some({ kind: MaxBitsBlockPrefixDropAtomicCmpxchg, root_id })
+              Some({ kind: MaxBitsBlockPrefixDropAtomicCmpxchg, root_id, })
             Some(@lib.Instruction::ArrayAtomicRmw(_, _, _)) =>
-              Some({ kind: MaxBitsBlockPrefixDropArrayAtomicRmw, root_id })
+              Some({ kind: MaxBitsBlockPrefixDropArrayAtomicRmw, root_id, })
             Some(
               @lib.Instruction::MemoryAtomicWait32(_)
               | @lib.Instruction::MemoryAtomicWait64(_)
-            ) => Some({ kind: MaxBitsBlockPrefixDropAtomicWait, root_id })
+            ) => Some({ kind: MaxBitsBlockPrefixDropAtomicWait, root_id, })
             _ => None
           }
         @ir.HotOp::Atomic if @ir.hot_child_count(func, child_id) == 4 =>
           match @ir.hot_node_exact_instr(func, child_id) {
             Some(@lib.Instruction::ArrayAtomicCmpxchg(_)) =>
-              Some({ kind: MaxBitsBlockPrefixDropArrayAtomicCmpxchg, root_id })
+              Some({ kind: MaxBitsBlockPrefixDropArrayAtomicCmpxchg, root_id, })
             _ => None
           }
         @ir.HotOp::Block =>
@@ -9592,26 +9594,26 @@ fn OiMaxBitsBlockPrefixFact::from_root(
                 _ => None
               }
           }
-        @ir.HotOp::Call => Some({ kind: MaxBitsBlockPrefixDropCall, root_id })
+        @ir.HotOp::Call => Some({ kind: MaxBitsBlockPrefixDropCall, root_id, })
         @ir.HotOp::CallIndirect =>
-          Some({ kind: MaxBitsBlockPrefixDropCallIndirect, root_id })
+          Some({ kind: MaxBitsBlockPrefixDropCallIndirect, root_id, })
         @ir.HotOp::CallRef =>
-          Some({ kind: MaxBitsBlockPrefixDropCallRef, root_id })
+          Some({ kind: MaxBitsBlockPrefixDropCallRef, root_id, })
         @ir.HotOp::TableGrow if @ir.hot_child_count(func, child_id) == 2 =>
-          Some({ kind: MaxBitsBlockPrefixDropTableGrow, root_id })
+          Some({ kind: MaxBitsBlockPrefixDropTableGrow, root_id, })
         @ir.HotOp::MemoryGrow if @ir.hot_child_count(func, child_id) == 1 =>
-          Some({ kind: MaxBitsBlockPrefixDropMemoryGrow, root_id })
+          Some({ kind: MaxBitsBlockPrefixDropMemoryGrow, root_id, })
         _ => None
       }
     }
-    @ir.HotOp::DataDrop => Some({ kind: MaxBitsBlockPrefixDataDrop, root_id })
-    @ir.HotOp::ElemDrop => Some({ kind: MaxBitsBlockPrefixElemDrop, root_id })
+    @ir.HotOp::DataDrop => Some({ kind: MaxBitsBlockPrefixDataDrop, root_id, })
+    @ir.HotOp::ElemDrop => Some({ kind: MaxBitsBlockPrefixElemDrop, root_id, })
     @ir.HotOp::MemoryInit if @ir.hot_child_count(func, root_id) == 3 =>
-      Some({ kind: MaxBitsBlockPrefixMemoryInit, root_id })
+      Some({ kind: MaxBitsBlockPrefixMemoryInit, root_id, })
     @ir.HotOp::MemoryCopy if @ir.hot_child_count(func, root_id) == 3 =>
-      Some({ kind: MaxBitsBlockPrefixMemoryCopy, root_id })
+      Some({ kind: MaxBitsBlockPrefixMemoryCopy, root_id, })
     @ir.HotOp::MemoryFill if @ir.hot_child_count(func, root_id) == 3 =>
-      Some({ kind: MaxBitsBlockPrefixMemoryFill, root_id })
+      Some({ kind: MaxBitsBlockPrefixMemoryFill, root_id, })
     _ => None
   }
 }
@@ -9677,7 +9679,7 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block if node.child_count == 1 =>
-      Some({ value_id: func.children[node.child_base] })
+      Some({ value_id: func.children[node.child_base], })
     @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       let root_count = @ir.hot_region_root_count(func, body_ref)
@@ -9691,7 +9693,7 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
           _ => return None
         }
       }
-      Some({ value_id: @ir.hot_region_get(func, body_ref, root_count - 1) })
+      Some({ value_id: @ir.hot_region_get(func, body_ref, root_count - 1), })
     }
     _ => None
   }
@@ -9708,7 +9710,7 @@ fn OiMaxBitsFallthroughFact::from_local_tee(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalTee if node.child_count == 1 =>
-      Some({ value_id: func.children[node.child_base] })
+      Some({ value_id: func.children[node.child_base], })
     _ => None
   }
 }
@@ -9741,14 +9743,15 @@ fn OiAssignedMaxBitsFallthroughFact::from_node(
     @ir.HotOp::Loop => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       match optimize_instructions_region_tail_id(func, body_ref) {
-        Some(tail_id) => { kind: AssignedMaxBitsLoopTail, value_id: tail_id }
-        None => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+        Some(tail_id) => { kind: AssignedMaxBitsLoopTail, value_id: tail_id, }
+        None => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id, }
       }
     }
     @ir.HotOp::If => {
       let else_ref = match @ir.hot_region_else_ref(func, node_id) {
         Some(region) => region
-        None => return { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+        None =>
+          return { kind: AssignedMaxBitsNoFallthrough, value_id: node_id, }
       }
       let then_ref = @ir.hot_region_then_ref(func, node_id)
       let one_sided = OiIfOneSidedFallthroughRegionFact::from_regions(
@@ -9756,15 +9759,16 @@ fn OiAssignedMaxBitsFallthroughFact::from_node(
       )
       let fallthrough_region = match one_sided.proven_fallthrough_region() {
         Some(region) => region
-        None => return { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+        None =>
+          return { kind: AssignedMaxBitsNoFallthrough, value_id: node_id, }
       }
       match optimize_instructions_region_tail_id(func, fallthrough_region) {
         Some(tail_id) =>
-          { kind: AssignedMaxBitsIfOneSidedArmTail, value_id: tail_id }
-        None => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+          { kind: AssignedMaxBitsIfOneSidedArmTail, value_id: tail_id, }
+        None => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id, }
       }
     }
-    _ => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id }
+    _ => { kind: AssignedMaxBitsNoFallthrough, value_id: node_id, }
   }
 }
 
@@ -9805,7 +9809,7 @@ fn OiCombinedShiftZeroBitsFact::from_i32_shr_u(
   }
   match OiUnsignedMaxValueFact::i32_max_for_node(func, dead, None, lhs_id) {
     Some(max_value) if OiUnsignedMaxValueFact::i32_bits_for_max(max_value) <=
-      amount => Some({ kind: CombinedShiftZeroI32 })
+      amount => Some({ kind: CombinedShiftZeroI32, })
     _ => None
   }
 }
@@ -9823,7 +9827,7 @@ fn OiCombinedShiftZeroBitsFact::from_i64_shr_u(
   }
   match OiUnsignedMaxValueFact::i64_max_for_node(func, dead, None, lhs_id) {
     Some(max_value) if OiUnsignedMaxValueFact::i64_bits_for_max(max_value) <=
-      amount => Some({ kind: CombinedShiftZeroI64 })
+      amount => Some({ kind: CombinedShiftZeroI64, })
     _ => None
   }
 }
@@ -9896,7 +9900,7 @@ fn OiI32AddMaxBitsFact::from_bits(
   // Binaryen v130 add maxBits is one more than the widest operand, capped to the
   // i32 lane width.
   let operand_bits = if left_bits > right_bits { left_bits } else { right_bits }
-  { max_bits: optimize_instructions_max_bits_cap(32, operand_bits + 1) }
+  { max_bits: optimize_instructions_max_bits_cap(32, operand_bits + 1), }
 }
 
 ///|
@@ -9906,7 +9910,7 @@ fn OiI64AddMaxBitsFact::from_bits(
 ) -> OiI64AddMaxBitsFact {
   // Same Binaryen v130 add formula for the i64 lane.
   let operand_bits = if left_bits > right_bits { left_bits } else { right_bits }
-  { max_bits: optimize_instructions_max_bits_cap(64, operand_bits + 1) }
+  { max_bits: optimize_instructions_max_bits_cap(64, operand_bits + 1), }
 }
 
 ///|
@@ -9926,7 +9930,7 @@ fn OiI32MulMaxBitsFact::from_bits(
 ) -> OiI32MulMaxBitsFact {
   // Binaryen v130 multiply maxBits sums operand max-bit counts, capped to the
   // i32 lane width.
-  { max_bits: optimize_instructions_max_bits_cap(32, left_bits + right_bits) }
+  { max_bits: optimize_instructions_max_bits_cap(32, left_bits + right_bits), }
 }
 
 ///|
@@ -9935,7 +9939,7 @@ fn OiI64MulMaxBitsFact::from_bits(
   right_bits : Int,
 ) -> OiI64MulMaxBitsFact {
   // Same Binaryen v130 multiply formula for the i64 lane.
-  { max_bits: optimize_instructions_max_bits_cap(64, left_bits + right_bits) }
+  { max_bits: optimize_instructions_max_bits_cap(64, left_bits + right_bits), }
 }
 
 ///|
@@ -9960,7 +9964,7 @@ fn OiI32DivMaxBitsFact::from_bits(
   if right_bits == 0 {
     None
   } else if left_bits < right_bits {
-    Some({ max_bits: left_bits })
+    Some({ max_bits: left_bits, })
   } else {
     let quotient_bits = left_bits - right_bits + 1
     Some({
@@ -9983,7 +9987,7 @@ fn OiI64DivMaxBitsFact::from_bits(
   if right_bits == 0 {
     None
   } else if left_bits < right_bits {
-    Some({ max_bits: left_bits })
+    Some({ max_bits: left_bits, })
   } else {
     let quotient_bits = left_bits - right_bits + 1
     Some({
@@ -10085,7 +10089,7 @@ fn OiI32ArithmeticShiftMaxBitsFact::from_shr_s(
   match OiI32EffectiveShiftAmountFact::from_const_operand(func, dead, rhs_id) {
     Some(fact) if lhs_bits < 32 => {
       let shifts = if fact.amount < lhs_bits { fact.amount } else { lhs_bits }
-      Some({ amount: fact.amount, max_bits: lhs_bits - shifts })
+      Some({ amount: fact.amount, max_bits: lhs_bits - shifts, })
     }
     _ => None
   }
@@ -10118,7 +10122,7 @@ fn OiI64ArithmeticShiftMaxBitsFact::from_shr_s(
   match OiI64EffectiveShiftAmountFact::from_const_operand(func, dead, rhs_id) {
     Some(fact) if lhs_bits < 64 => {
       let shifts = if fact.amount < lhs_bits { fact.amount } else { lhs_bits }
-      Some({ amount: fact.amount, max_bits: lhs_bits - shifts })
+      Some({ amount: fact.amount, max_bits: lhs_bits - shifts, })
     }
     _ => None
   }
@@ -10131,7 +10135,7 @@ fn OiI32ArithmeticMaxBitsFact::from_max_bits(
   rhs_id : Int,
   max_bits : Int,
 ) -> OiI32ArithmeticMaxBitsFact {
-  { value_id, lhs_id, rhs_id, max_bits }
+  { value_id, lhs_id, rhs_id, max_bits, }
 }
 
 ///|
@@ -10141,7 +10145,7 @@ fn OiI64ArithmeticMaxBitsFact::from_max_bits(
   rhs_id : Int,
   max_bits : Int,
 ) -> OiI64ArithmeticMaxBitsFact {
-  { value_id, lhs_id, rhs_id, max_bits }
+  { value_id, lhs_id, rhs_id, max_bits, }
 }
 
 ///|
@@ -10327,14 +10331,14 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
 fn OiUnsignedMaxValueFact::from_i32_max(
   max_value : Int?,
 ) -> OiUnsignedMaxValueFact {
-  { i32_max: max_value, i64_max: None }
+  { i32_max: max_value, i64_max: None, }
 }
 
 ///|
 fn OiUnsignedMaxValueFact::from_i64_max(
   max_value : Int64?,
 ) -> OiUnsignedMaxValueFact {
-  { i32_max: None, i64_max: max_value }
+  { i32_max: None, i64_max: max_value, }
 }
 
 ///|
@@ -10530,11 +10534,11 @@ fn OiBooleanI32MaxBitsFact::from_node(
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::Compare => Some({ value_id: node_id })
+    @ir.HotOp::Compare => Some({ value_id: node_id, })
     @ir.HotOp::Unary =>
       match @ir.hot_node_exact_instr(func, node_id) {
         Some(@lib.Instruction::I32Eqz) | Some(@lib.Instruction::I64Eqz) =>
-          Some({ value_id: node_id })
+          Some({ value_id: node_id, })
         _ => None
       }
     _ => None
@@ -10543,7 +10547,7 @@ fn OiBooleanI32MaxBitsFact::from_node(
 
 ///|
 fn OiDroppedChildrenReplacementFact::empty() -> OiDroppedChildrenReplacementFact {
-  { drop_ids: [] }
+  { drop_ids: [], }
 }
 
 ///|
@@ -10774,7 +10778,11 @@ fn OiBooleanMaxBitsBinaryRewriteFact::from_i32_binary(
       })
     (@lib.Instruction::I32Ne, Some(@lib.I32(1)))
     | (@lib.Instruction::I32Xor, Some(@lib.I32(1))) =>
-      Some({ kind: BooleanMaxBitsEqzLeftI32, left_id: lhs_id, dropped_children })
+      Some({
+        kind: BooleanMaxBitsEqzLeftI32,
+        left_id: lhs_id,
+        dropped_children,
+      })
     (@lib.Instruction::I32Or, Some(@lib.I32(1))) =>
       Some({
         kind: BooleanMaxBitsConstI32One,
@@ -10824,7 +10832,11 @@ fn OiBooleanMaxBitsBinaryRewriteFact::from_i64_binary(
         dropped_children,
       })
     (@lib.Instruction::I64Ne, Some(@lib.I64(1L))) =>
-      Some({ kind: BooleanMaxBitsEqzLeftI32, left_id: lhs_id, dropped_children })
+      Some({
+        kind: BooleanMaxBitsEqzLeftI32,
+        left_id: lhs_id,
+        dropped_children,
+      })
     (@lib.Instruction::I64Xor, Some(@lib.I64(1L))) =>
       Some({
         kind: BooleanMaxBitsEqzLeftI64ExtendU,
@@ -10989,7 +11001,7 @@ fn OiI32BinaryMaxBitsProducerFact::from_binary(
           }
       }
   }
-  Some({ value_id: node_id, lhs_id, rhs_id, max_value })
+  Some({ value_id: node_id, lhs_id, rhs_id, max_value, })
 }
 
 ///|
@@ -11029,7 +11041,7 @@ fn OiI64BinaryMaxBitsProducerFact::from_binary(
           }
       }
   }
-  Some({ value_id: node_id, lhs_id, rhs_id, max_value })
+  Some({ value_id: node_id, lhs_id, rhs_id, max_value, })
 }
 
 ///|
@@ -11065,7 +11077,7 @@ fn OiI32MaxBitsProducerFact::from_node(
       match OiI32UnsignedLoadMaxBitsFact::from_instr(instr, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
-          return Some({ value_id: node_id, max_value: Some(fact.max_value) })
+          return Some({ value_id: node_id, max_value: Some(fact.max_value), })
         }
         None => ()
       }
@@ -11074,7 +11086,7 @@ fn OiI32MaxBitsProducerFact::from_node(
   match OiBooleanI32MaxBitsFact::from_node(func, dead, node_id) {
     Some(fact) => {
       ignore(fact.value_id)
-      return Some({ value_id: node_id, max_value: Some(1) })
+      return Some({ value_id: node_id, max_value: Some(1), })
     }
     None => ()
   }
@@ -11157,7 +11169,7 @@ fn OiI32MaxBitsProducerFact::from_node(
       }
     _ => return None
   }
-  Some({ value_id: node_id, max_value })
+  Some({ value_id: node_id, max_value, })
 }
 
 ///|
@@ -11179,7 +11191,7 @@ fn OiI64MaxBitsProducerFact::from_node(
       match OiI64UnsignedLoadMaxBitsFact::from_instr(instr, node_id) {
         Some(fact) => {
           ignore(fact.value_id)
-          return Some({ value_id: node_id, max_value: Some(fact.max_value) })
+          return Some({ value_id: node_id, max_value: Some(fact.max_value), })
         }
         None => ()
       }
@@ -11264,7 +11276,7 @@ fn OiI64MaxBitsProducerFact::from_node(
       }
     _ => return None
   }
-  Some({ value_id: node_id, max_value })
+  Some({ value_id: node_id, max_value, })
 }
 
 ///|
@@ -11457,13 +11469,13 @@ fn OiZeroBitsReplacementFact::from_node(
     [value_type] if value_type == @lib.ValType::i32() =>
       match
         OiUnsignedMaxValueFact::from_i32_value(func, dead, scratch, node_id).i32_max {
-        Some(0) => Some({ kind: ZeroBitsI32, dropped_children })
+        Some(0) => Some({ kind: ZeroBitsI32, dropped_children, })
         _ => None
       }
     [value_type] if value_type == @lib.ValType::i64() =>
       match
         OiUnsignedMaxValueFact::from_i64_value(func, dead, scratch, node_id).i64_max {
-        Some(0L) => Some({ kind: ZeroBitsI64, dropped_children })
+        Some(0L) => Some({ kind: ZeroBitsI64, dropped_children, })
         _ => None
       }
     _ => None
@@ -11984,7 +11996,7 @@ priv struct OiCallRefFallthroughTargetFact {
 
 ///|
 fn OiCallRefFallthroughTargetFact::unknown() -> OiCallRefFallthroughTargetFact {
-  { direct_fact: None }
+  { direct_fact: None, }
 }
 
 ///|
@@ -12133,7 +12145,7 @@ fn OiCallRefFallthroughTargetFact::from_node(
       {
         direct_fact: Some({
           function_fact: {
-            index_fact: { direct_func: node.imm0 },
+            index_fact: { direct_func: node.imm0, },
             ref_func_heap,
           },
         }),
@@ -12223,8 +12235,8 @@ fn OiCallRefWrappedFallthroughTargetFact::from_wrapper_target(
     child_id,
     depth=depth + 1,
   )
-  let wrapper_child_fact = { kind, wrapper_id: node_id, child_id }
-  Some({ wrapper_child_fact, child_fact })
+  let wrapper_child_fact = { kind, wrapper_id: node_id, child_id, }
+  Some({ wrapper_child_fact, child_fact, })
 }
 
 ///|
@@ -12288,7 +12300,7 @@ fn OiCallRefBlockFallthroughTargetFact::from_block_target(
     block_id: node_id,
     tail_id,
   }
-  Some({ block_tail_fact, tail_fact })
+  Some({ block_tail_fact, tail_fact, })
 }
 
 ///|
@@ -12339,8 +12351,8 @@ fn OiCallRefBrOnFallthroughTargetFact::from_br_on_target(
     Some(fact) => fact
     None => return None
   }
-  let branch_target_fact = { branch_target_id: node.imm0 }
-  Some({ kind, branch_target_fact, ref_child_fact })
+  let branch_target_fact = { branch_target_id: node.imm0, }
+  Some({ kind, branch_target_fact, ref_child_fact, })
 }
 
 ///|
@@ -12377,7 +12389,7 @@ fn OiCallRefBrOnRefChildFact::from_br_on_target(
     ref_id,
     depth=depth + 1,
   )
-  Some({ kind: CallRefBrOnRefFinalChild, ref_id, ref_fact })
+  Some({ kind: CallRefBrOnRefFinalChild, ref_id, ref_fact, })
 }
 
 ///|
@@ -12442,8 +12454,8 @@ fn OiCallRefLoopFallthroughTargetFact::from_loop_target(
     body_id,
     depth=depth + 1,
   )
-  let body_tail_fact = { kind: CallRefLoopBodyFinalRoot, body_id }
-  Some({ body_tail_fact, body_fact })
+  let body_tail_fact = { kind: CallRefLoopBodyFinalRoot, body_id, }
+  Some({ body_tail_fact, body_fact, })
 }
 
 ///|
@@ -12498,7 +12510,7 @@ fn OiCallRefIfFallthroughArmChoiceFact::from_regions(
     _ => return None
   }
   let arm_tail_fact = { fallthrough_arm_id, }
-  Some({ kind, arm_tail_fact })
+  Some({ kind, arm_tail_fact, })
 }
 
 ///|
@@ -12553,7 +12565,7 @@ fn OiCallRefIfFallthroughTargetFact::from_if_target(
     arm_choice_fact.arm_tail_fact.fallthrough_arm_id,
     depth=depth + 1,
   )
-  Some({ arm_choice_fact, arm_fact })
+  Some({ arm_choice_fact, arm_fact, })
 }
 
 ///|
@@ -12602,7 +12614,7 @@ fn OiCallRefFallthroughTypeFact::from_target(
   }
   let heap_match_fact = match (target_heap, fallthrough_heap) {
     (Some(target), Some(fallthrough)) if target == fallthrough =>
-      Some({ target_heap: target, fallthrough_heap: fallthrough })
+      Some({ target_heap: target, fallthrough_heap: fallthrough, })
     _ => None
   }
   { heap_match_fact, }
@@ -12685,7 +12697,9 @@ fn OiCallRefTargetSkipNonNullFact::from_call_ref_target(
           let order_fact = OiCallRefTargetSkipNonNullOrderFact::from_final_target_child(
             optimize_instructions_node_ref_result_type(func, child_id),
           )
-          Some({ skipped_fact: { replacement_target_id: child_id, order_fact } })
+          Some({
+            skipped_fact: { replacement_target_id: child_id, order_fact, },
+          })
         }
         _ => None
       }
@@ -12704,8 +12718,8 @@ fn OiCallRefTargetSkipNonNullOrderFact::from_final_target_child(
   // longer carries a direct boolean that merely says "this is the final child".
   match child_static_ref_type {
     Some(ref_type) if ref_type.is_non_nullable() =>
-      { kind: CallRefSkipNonNullAlreadyNonNullChild, child_static_ref_type }
-    _ => { kind: CallRefSkipNonNullFinalTargetSlot, child_static_ref_type }
+      { kind: CallRefSkipNonNullAlreadyNonNullChild, child_static_ref_type, }
+    _ => { kind: CallRefSkipNonNullFinalTargetSlot, child_static_ref_type, }
   }
 }
 
@@ -12785,7 +12799,7 @@ priv struct OiCallRefKnownNullBlockFallthroughFact {
 
 ///|
 fn OiCallRefKnownNullTargetEffectFact::elidable() -> OiCallRefKnownNullTargetEffectFact {
-  { kind: CallRefKnownNullTargetEffectsElidable, preserve_fact: None }
+  { kind: CallRefKnownNullTargetEffectsElidable, preserve_fact: None, }
 }
 
 ///|
@@ -12905,7 +12919,7 @@ fn OiCallRefKnownNullTargetFact::from_target(
       } else {
         match OiCallRefKnownNullTargetEffectFact::preserve_by_drop(target_id) {
           Some(target_effect_fact) =>
-            Some({ target_id, fallthrough_null_id, target_effect_fact })
+            Some({ target_id, fallthrough_null_id, target_effect_fact, })
           None => None
         }
       }
@@ -13017,7 +13031,7 @@ fn OiCallRefNullTrapPlanFact::from_child_layout(
     Some(fact) if fact.proves_elidable_known_null_fallthrough() => fact
     _ => return None
   }
-  Some({ target_fact, child_layout_fact })
+  Some({ target_fact, child_layout_fact, })
 }
 
 ///|
@@ -13275,14 +13289,14 @@ fn OiCallRefDirectTargetFact::from_target(
   match target.op {
     @ir.HotOp::RefFunc => {
       let direct_func_fact : OiCallRefDirectFunctionFact = {
-        index_fact: { direct_func: target.imm0 },
+        index_fact: { direct_func: target.imm0, },
         ref_func_heap: match
           optimize_instructions_node_ref_result_type(func, target_id) {
           Some(ref_type) => Some(ref_type.get_heap_type())
           None => None
         },
       }
-      Some({ target_id, direct_func_fact })
+      Some({ target_id, direct_func_fact, })
     }
     _ => None
   }
@@ -13346,14 +13360,14 @@ fn OiCallRefTableTargetFact::from_target(
     @ir.HotOp::TableGet if target.child_count == 1 => {
       let table_index_id = @ir.hot_child_get(func, target_id, 0)
       let table_index_fact : OiCallRefTableIndexFact = {
-        table_fact: { table_idx: target.imm0 },
+        table_fact: { table_idx: target.imm0, },
         index_operand_fact: {
           table_index_id,
           index_live_fact: OiLiveNodeFact::from_node(func, dead, table_index_id),
         },
       }
       if table_index_fact.proves_live_table_index() {
-        Some({ target_id, table_index_fact })
+        Some({ target_id, table_index_fact, })
       } else {
         None
       }
@@ -13470,7 +13484,7 @@ fn OiCallRefFallthroughDirectTargetFact::proves_fallthrough_ref_func(
 fn OiCallRefTargetClassificationFact::unknown(
   target_id : Int,
 ) -> OiCallRefTargetClassificationFact {
-  { target_id, classified_target_fact: OiCallRefTargetFact::unknown() }
+  { target_id, classified_target_fact: OiCallRefTargetFact::unknown(), }
 }
 
 ///|
@@ -13562,7 +13576,7 @@ priv struct OiCallRefSelectArmFact {
 
 ///|
 fn OiCallRefSelectArmFact::unknown() -> OiCallRefSelectArmFact {
-  { direct_fact: None }
+  { direct_fact: None, }
 }
 
 ///|
@@ -13701,10 +13715,10 @@ fn OiCallRefSelectArmCastFact::from_cast_arm(
   }
   let heap_match_fact = match child_direct_fact.ref_func_heap {
     Some(ref_func_heap) if ref_func_heap == cast_heap =>
-      Some({ cast_heap, ref_func_heap })
+      Some({ cast_heap, ref_func_heap, })
     _ => None
   }
-  Some({ child_direct_fact, heap_match_fact })
+  Some({ child_direct_fact, heap_match_fact, })
 }
 
 ///|
@@ -13834,7 +13848,7 @@ priv struct OiCallRefSelectConditionFact {
 
 ///|
 fn OiCallRefSelectConditionEffectFact::elidable() -> OiCallRefSelectConditionEffectFact {
-  { kind: CallRefSelectConditionEffectsElidable, preserve_fact: None }
+  { kind: CallRefSelectConditionEffectsElidable, preserve_fact: None, }
 }
 
 ///|
@@ -13912,7 +13926,7 @@ fn OiCallRefSelectConditionFact::from_select_condition(
       None => return None
     }
   }
-  Some({ condition_id, type_fact, effect_fact })
+  Some({ condition_id, type_fact, effect_fact, })
 }
 
 ///|
@@ -13941,7 +13955,7 @@ fn OiCallRefSelectDirectArmsFact::from_arm_facts(
     Some(fact) => fact
     None => return None
   }
-  Some({ true_fact: true_direct_fact, false_fact: false_direct_fact })
+  Some({ true_fact: true_direct_fact, false_fact: false_direct_fact, })
 }
 
 ///|
@@ -13980,7 +13994,7 @@ fn OiCallRefSelectTargetFact::from_direct_arms(
   if !condition_fact.proves_i32_condition() {
     return None
   }
-  Some({ direct_arms_fact, condition_fact, residue_arm_fact })
+  Some({ direct_arms_fact, condition_fact, residue_arm_fact, })
 }
 
 ///|
@@ -14040,7 +14054,7 @@ fn OiCallRefDirectFuncPlanFact::from_target_fact(
   // target record.
   match target_fact.direct_target() {
     Some(fact) if fact.proves_direct_ref_func() =>
-      Some({ direct_func: fact.direct_func_fact.function_index() })
+      Some({ direct_func: fact.direct_func_fact.function_index(), })
     _ => None
   }
 }
@@ -14071,7 +14085,7 @@ fn OiCallRefFallthroughFuncPlanFact::from_target_fact(
   // plan fact so fallthrough calls do not depend on generic sentinel fields.
   match target_fact.fallthrough_direct_target() {
     Some(fact) if fact.proves_fallthrough_ref_func() =>
-      Some({ direct_func: fact.function_fact.function_index() })
+      Some({ direct_func: fact.function_fact.function_index(), })
     _ => None
   }
 }
@@ -14176,9 +14190,9 @@ fn OiCallRefOperandFact::from_args(
       return None
     }
     fact_args.push(arg)
-    type_facts.push({ arg_id: arg, arg_type: arg_results[0] })
+    type_facts.push({ arg_id: arg, arg_type: arg_results[0], })
   }
-  Some({ args: fact_args, type_facts })
+  Some({ args: fact_args, type_facts, })
 }
 
 ///|
@@ -14230,7 +14244,7 @@ fn OiCallRefOperandFact::localize_all(
     prefix.push(@ir.hot_build_local_set(func, local_id, self.args[i]))
     local_ids.push(local_id)
   }
-  { prefix, local_ids }
+  { prefix, local_ids, }
 }
 
 ///|
@@ -14478,13 +14492,15 @@ fn OiCallRefResultBlockTypeFact::from_call_ref(
   // dropped target before the direct call. Keep the single-result/multivalue
   // boundary as a fact instead of a generic helper hidden in replacement code.
   let results = @ir.hot_type_results(func, node.ty)
-  let arity_fact : OiCallRefResultArityFact = { result_count: results.length() }
+  let arity_fact : OiCallRefResultArityFact = {
+    result_count: results.length(),
+  }
   let block_type = match arity_fact.result_count {
     0 => Some(@lib.BlockType::void_())
     1 => Some(@lib.BlockType::val_type(results[0]))
     _ => None
   }
-  { arity_fact, block_type }
+  { arity_fact, block_type, }
 }
 
 ///|
@@ -14545,12 +14561,12 @@ fn OiCallRefDirectizePlanFact::from_target(
   // an ad hoc branch cascade inside the pass visitor.
   match OiCallRefDirectFuncPlanFact::from_target_fact(target_fact) {
     Some(_) =>
-      return Some({ kind: CallRefDirectFunc, target_fact, operand_fact: None })
+      return Some({ kind: CallRefDirectFunc, target_fact, operand_fact: None, })
     None => ()
   }
   match OiCallRefTableTargetPlanFact::from_target_fact(target_fact) {
     Some(_) =>
-      return Some({ kind: CallRefTableTarget, target_fact, operand_fact: None })
+      return Some({ kind: CallRefTableTarget, target_fact, operand_fact: None, })
     None => ()
   }
   match OiCallRefFallthroughFuncPlanFact::from_target_fact(target_fact) {
@@ -15036,7 +15052,7 @@ fn OiCallRefChildLayoutFact::from_call_ref(
     effective_target_id: effective_callee_ref_id,
   }
   let argument_list_fact : OiCallRefArgumentListFact = { args, }
-  Some({ target_slot_fact, argument_list_fact })
+  Some({ target_slot_fact, argument_list_fact, })
 }
 
 ///|
@@ -15068,7 +15084,7 @@ fn OiCallRefInvocationFact::from_child_layout(
     dead,
     child_layout_fact.target_slot_fact.effective_target_id,
   )
-  { child_layout_fact, target_classification_fact }
+  { child_layout_fact, target_classification_fact, }
 }
 
 ///|
@@ -15092,7 +15108,7 @@ fn OiCallRefDirectizationFact::from_invocation(
     Some(fact) => fact
     None => return None
   }
-  Some({ invocation_fact, plan_fact })
+  Some({ invocation_fact, plan_fact, })
 }
 
 ///|
@@ -15874,20 +15890,20 @@ fn OiI32SignedToUnsignedOpcodeFact::from_instr(
   // domain. Keep this table as a fact instead of a naked opcode whitelist.
   match instr {
     @lib.Instruction::I32LtS =>
-      { unsigned_instr: Some(@lib.Instruction::i32_lt_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_lt_u()), }
     @lib.Instruction::I32GtS =>
-      { unsigned_instr: Some(@lib.Instruction::i32_gt_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_gt_u()), }
     @lib.Instruction::I32LeS =>
-      { unsigned_instr: Some(@lib.Instruction::i32_le_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_le_u()), }
     @lib.Instruction::I32GeS =>
-      { unsigned_instr: Some(@lib.Instruction::i32_ge_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_ge_u()), }
     @lib.Instruction::I32DivS =>
-      { unsigned_instr: Some(@lib.Instruction::i32_div_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_div_u()), }
     @lib.Instruction::I32RemS =>
-      { unsigned_instr: Some(@lib.Instruction::i32_rem_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i32_rem_u()), }
     @lib.Instruction::I32ShrS =>
-      { unsigned_instr: Some(@lib.Instruction::i32_shr_u()) }
-    _ => { unsigned_instr: None }
+      { unsigned_instr: Some(@lib.Instruction::i32_shr_u()), }
+    _ => { unsigned_instr: None, }
   }
 }
 
@@ -15897,20 +15913,20 @@ fn OiI64SignedToUnsignedOpcodeFact::from_instr(
 ) -> OiI64SignedToUnsignedOpcodeFact {
   match instr {
     @lib.Instruction::I64LtS =>
-      { unsigned_instr: Some(@lib.Instruction::i64_lt_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i64_lt_u()), }
     @lib.Instruction::I64GtS =>
-      { unsigned_instr: Some(@lib.Instruction::i64_gt_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i64_gt_u()), }
     @lib.Instruction::I64LeS =>
-      { unsigned_instr: Some(@lib.Instruction::i64_le_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i64_le_u()), }
     @lib.Instruction::I64GeS =>
-      { unsigned_instr: Some(@lib.Instruction::i64_ge_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i64_ge_u()), }
     @lib.Instruction::I64DivS =>
-      { unsigned_instr: Some(@lib.Instruction::i64_div_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i64_div_u()), }
     @lib.Instruction::I64RemS =>
-      { unsigned_instr: Some(@lib.Instruction::i64_rem_u()) }
+      { unsigned_instr: Some(@lib.Instruction::i64_rem_u()), }
     @lib.Instruction::I64ShrS =>
-      { unsigned_instr: Some(@lib.Instruction::i64_shr_u()) }
-    _ => { unsigned_instr: None }
+      { unsigned_instr: Some(@lib.Instruction::i64_shr_u()), }
+    _ => { unsigned_instr: None, }
   }
 }
 
@@ -15981,7 +15997,7 @@ fn OiI32SignedConstUnsignedCanonicalizationFact::from_binary(
   if !lhs_fact.proves_non_negative() {
     return None
   }
-  Some({ opcode_fact, lhs_fact, rhs_fact })
+  Some({ opcode_fact, lhs_fact, rhs_fact, })
 }
 
 ///|
@@ -16008,7 +16024,7 @@ fn OiI64SignedConstUnsignedCanonicalizationFact::from_binary(
   if !lhs_fact.proves_non_negative() {
     return None
   }
-  Some({ opcode_fact, lhs_fact, rhs_fact })
+  Some({ opcode_fact, lhs_fact, rhs_fact, })
 }
 
 ///|
@@ -16150,7 +16166,7 @@ priv struct OiI32LowOnesMaskFact {
 
 ///|
 fn OiI32LowOnesMaskFact::from_raw(raw : Int) -> OiI32LowOnesMaskFact {
-  { low_ones: raw >= 0 && (raw & (raw + 1)) == 0 }
+  { low_ones: raw >= 0 && (raw & (raw + 1)) == 0, }
 }
 
 ///|
@@ -16252,7 +16268,7 @@ fn OiLocalGetLeafFact::from_node(
   node_id : Int,
 ) -> OiLocalGetLeafFact {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
-    return { local_id: None }
+    return { local_id: None, }
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
@@ -16287,7 +16303,7 @@ fn OiConstlikeLeafFact::from_node(
   node_id : Int,
 ) -> OiConstlikeLeafFact {
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
-    return { kind: ConstlikeLeafNoProof }
+    return { kind: ConstlikeLeafNoProof, }
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
@@ -16339,7 +16355,7 @@ fn OiSharedCrossSafeLeafFact::from_node(
   // relational canonicalization, and identical-select cleanup share facts
   // instead of each owning an opcode whitelist.
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
-    return { kind: SharedCrossSafeLeafNoProof }
+    return { kind: SharedCrossSafeLeafNoProof, }
   }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
@@ -16383,7 +16399,7 @@ priv struct OiLocalGetCrossingChildTraversalFact {
 
 ///|
 fn OiLocalGetCrossingChildTraversalFact::skipped() -> OiLocalGetCrossingChildTraversalFact {
-  { kind: OiLocalGetCrossingChildTraversalSkipped }
+  { kind: OiLocalGetCrossingChildTraversalSkipped, }
 }
 
 ///|
@@ -16413,10 +16429,10 @@ fn OiLocalGetCrossingChildTraversalFact::from_children(
         seen_stamps,
         seen_stamp,
       ).proves_crossing_allowed() {
-      return { kind: OiLocalGetCrossingBlockedChild }
+      return { kind: OiLocalGetCrossingBlockedChild, }
     }
   }
-  { kind: OiLocalGetCrossingAllChildrenClear }
+  { kind: OiLocalGetCrossingAllChildrenClear, }
 }
 
 ///|
@@ -16605,22 +16621,23 @@ fn OiCommutativeOperandClassFact::from_node(
   }
   match node.op {
     @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
-      { kind: OiCommutativeOperandCallLike, local_index: None }
+      { kind: OiCommutativeOperandCallLike, local_index: None, }
     @ir.HotOp::LocalGet =>
-      { kind: OiCommutativeOperandLocalGet, local_index: Some(node.imm0) }
+      { kind: OiCommutativeOperandLocalGet, local_index: Some(node.imm0), }
     @ir.HotOp::LocalTee =>
-      { kind: OiCommutativeOperandLocalTee, local_index: None }
+      { kind: OiCommutativeOperandLocalTee, local_index: None, }
     @ir.HotOp::GlobalGet =>
-      { kind: OiCommutativeOperandGlobalGet, local_index: None }
-    @ir.HotOp::Load => { kind: OiCommutativeOperandLoad, local_index: None }
+      { kind: OiCommutativeOperandGlobalGet, local_index: None, }
+    @ir.HotOp::Load => { kind: OiCommutativeOperandLoad, local_index: None, }
     @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc =>
-      { kind: OiCommutativeOperandLeafLiteral, local_index: None }
+      { kind: OiCommutativeOperandLeafLiteral, local_index: None, }
     @ir.HotOp::Unary | @ir.HotOp::Convert =>
-      { kind: OiCommutativeOperandUnaryLike, local_index: None }
-    @ir.HotOp::Binary => { kind: OiCommutativeOperandBinary, local_index: None }
+      { kind: OiCommutativeOperandUnaryLike, local_index: None, }
+    @ir.HotOp::Binary =>
+      { kind: OiCommutativeOperandBinary, local_index: None, }
     @ir.HotOp::Compare =>
-      { kind: OiCommutativeOperandCompare, local_index: None }
-    _ => { kind: OiCommutativeOperandUnsupported, local_index: None }
+      { kind: OiCommutativeOperandCompare, local_index: None, }
+    _ => { kind: OiCommutativeOperandUnsupported, local_index: None, }
   }
 }
 
@@ -16664,24 +16681,24 @@ fn OiCommutativeOperandSwapFact::from_operands(
 ) -> OiCommutativeOperandSwapFact {
   if !OiLiveNodeFact::proves_node_live(func, dead, lhs_id) ||
     !OiLiveNodeFact::proves_node_live(func, dead, rhs_id) {
-    return { kind: OiCommutativeOperandSwapUnsupported }
+    return { kind: OiCommutativeOperandSwapUnsupported, }
   }
   let lhs_fact = OiCommutativeOperandClassFact::from_node(func, lhs_id)
   let rhs_fact = OiCommutativeOperandClassFact::from_node(func, rhs_id)
   match (lhs_fact.order_index(), rhs_fact.order_index()) {
     (Some(lhs_order), Some(rhs_order)) =>
       if lhs_order > rhs_order {
-        { kind: OiCommutativeOperandSwapByClassOrder }
+        { kind: OiCommutativeOperandSwapByClassOrder, }
       } else if lhs_order < rhs_order {
-        { kind: OiCommutativeOperandAlreadyCanonical }
+        { kind: OiCommutativeOperandAlreadyCanonical, }
       } else {
         match (lhs_fact.local_index, rhs_fact.local_index) {
           (Some(lhs_local), Some(rhs_local)) if lhs_local > rhs_local =>
-            { kind: OiCommutativeOperandSwapByLocalGetIndex }
-          _ => { kind: OiCommutativeOperandAlreadyCanonical }
+            { kind: OiCommutativeOperandSwapByLocalGetIndex, }
+          _ => { kind: OiCommutativeOperandAlreadyCanonical, }
         }
       }
-    _ => { kind: OiCommutativeOperandSwapUnsupported }
+    _ => { kind: OiCommutativeOperandSwapUnsupported, }
   }
 }
 
@@ -16999,7 +17016,7 @@ fn OiSideEffectFreeInstructionFact::from_instruction(
 ) -> OiSideEffectFreeInstructionFact {
   match instr {
     @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-      { kind: SideEffectFreeV128ConstLeafInstruction }
+      { kind: SideEffectFreeV128ConstLeafInstruction, }
     _ =>
       if instr == @lib.Instruction::i8x16_splat() ||
         instr == @lib.Instruction::i16x8_splat() ||
@@ -17007,9 +17024,9 @@ fn OiSideEffectFreeInstructionFact::from_instruction(
         instr == @lib.Instruction::i64x2_splat() ||
         instr == @lib.Instruction::f32x4_splat() ||
         instr == @lib.Instruction::f64x2_splat() {
-        { kind: SideEffectFreeSimdSplatPayloadInstruction }
+        { kind: SideEffectFreeSimdSplatPayloadInstruction, }
       } else {
-        { kind: SideEffectFreeInstructionNoProof }
+        { kind: SideEffectFreeInstructionNoProof, }
       }
   }
 }
@@ -17039,7 +17056,7 @@ priv struct OiSideEffectFreeExpressionFact {
 fn OiSideEffectFreeExpressionFact::empty() -> OiSideEffectFreeExpressionFact {
   {
     kind: SideEffectFreeExpressionNoProof,
-    trivial_leaf: { kind: TriviallyPureOperandNoProof },
+    trivial_leaf: { kind: TriviallyPureOperandNoProof, },
     children_effect_free: false,
   }
 }
@@ -17306,7 +17323,7 @@ priv struct OiBooleanConstantLeafFact {
 
 ///|
 fn OiBooleanConstantLeafFact::empty() -> OiBooleanConstantLeafFact {
-  { kind: BooleanConstantLeafNoProof }
+  { kind: BooleanConstantLeafNoProof, }
 }
 
 ///|
@@ -17354,7 +17371,7 @@ priv struct OiBooleanConstantIfPayloadFact {
 
 ///|
 fn OiBooleanConstantIfPayloadFact::empty() -> OiBooleanConstantIfPayloadFact {
-  { kind: BooleanConstantIfPayloadNoProof }
+  { kind: BooleanConstantIfPayloadNoProof, }
 }
 
 ///|
@@ -17420,7 +17437,7 @@ fn OiBooleanConstantTreeFact::from_node(
       return {
         live: true,
         leaf_fact: empty_leaf,
-        if_payload: { kind: BooleanConstantIfMissingElse },
+        if_payload: { kind: BooleanConstantIfMissingElse, },
       }
   }
   let single_result_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
@@ -17429,7 +17446,7 @@ fn OiBooleanConstantTreeFact::from_node(
     return {
       live: true,
       leaf_fact: empty_leaf,
-      if_payload: { kind: BooleanConstantIfMultiResultArms },
+      if_payload: { kind: BooleanConstantIfMultiResultArms, },
     }
   }
   let then_fact = OiBooleanConstantTreeFact::from_node(
@@ -17448,7 +17465,7 @@ fn OiBooleanConstantTreeFact::from_node(
   } else {
     BooleanConstantIfNonBooleanArm
   }
-  { live: true, leaf_fact: empty_leaf, if_payload: { kind, } }
+  { live: true, leaf_fact: empty_leaf, if_payload: { kind, }, }
 }
 
 ///|
@@ -17486,7 +17503,7 @@ priv struct OiBooleanTreeLeafFact {
 
 ///|
 fn OiBooleanTreeLeafFact::empty() -> OiBooleanTreeLeafFact {
-  { kind: BooleanTreeLeafNoProof }
+  { kind: BooleanTreeLeafNoProof, }
 }
 
 ///|
@@ -17540,7 +17557,7 @@ priv struct OiBooleanTreeIfPayloadFact {
 
 ///|
 fn OiBooleanTreeIfPayloadFact::empty() -> OiBooleanTreeIfPayloadFact {
-  { kind: BooleanTreeIfPayloadNoProof }
+  { kind: BooleanTreeIfPayloadNoProof, }
 }
 
 ///|
@@ -17595,7 +17612,7 @@ fn OiBooleanTreeUnsharedFact::from_node(
     return {
       live: true,
       leaf_fact: empty_leaf,
-      if_payload: { kind: BooleanTreeIfShared },
+      if_payload: { kind: BooleanTreeIfShared, },
     }
   }
   match @ir.hot_node_get(func, node_id).op {
@@ -17614,7 +17631,7 @@ fn OiBooleanTreeUnsharedFact::from_node(
       return {
         live: true,
         leaf_fact: empty_leaf,
-        if_payload: { kind: BooleanTreeIfMissingElse },
+        if_payload: { kind: BooleanTreeIfMissingElse, },
       }
   }
   let single_result_arms = @ir.hot_region_root_count(func, then_region) == 1 &&
@@ -17623,7 +17640,7 @@ fn OiBooleanTreeUnsharedFact::from_node(
     return {
       live: true,
       leaf_fact: empty_leaf,
-      if_payload: { kind: BooleanTreeIfMultiResultArms },
+      if_payload: { kind: BooleanTreeIfMultiResultArms, },
     }
   }
   let then_fact = OiBooleanTreeUnsharedFact::from_node(
@@ -17644,7 +17661,7 @@ fn OiBooleanTreeUnsharedFact::from_node(
   } else {
     BooleanTreeIfNonBooleanArm
   }
-  { live: true, leaf_fact: empty_leaf, if_payload: { kind, } }
+  { live: true, leaf_fact: empty_leaf, if_payload: { kind, }, }
 }
 
 ///|
@@ -17687,7 +17704,7 @@ fn OiDirectBranchRootFact::from_node(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Br =>
-      Some({ node_id, label_id: node.imm0, value_count: node.child_count })
+      Some({ node_id, label_id: node.imm0, value_count: node.child_count, })
     _ => None
   }
 }
@@ -17745,7 +17762,7 @@ fn OiBranchShapeFact::from_pair(
       }
     _ => BranchPairMissingDirectBranch
   }
-  { lhs_branch, rhs_branch, relation }
+  { lhs_branch, rhs_branch, relation, }
 }
 
 ///|
@@ -18038,13 +18055,13 @@ fn OiBranchTableTargetFact::from_table(
     func, table_id, label_id,
   )
   if !default_target_fact.proves_targets_label() {
-    return { all_targets_fact: None }
+    return { all_targets_fact: None, }
   }
   let explicit_targets_fact = OiBranchTableExplicitTargetsFact::from_table(
     func, table_id, label_id,
   )
   let all_targets_fact = if explicit_targets_fact.proves_all_targets_label() {
-    Some({ default_target_fact, explicit_targets_fact })
+    Some({ default_target_fact, explicit_targets_fact, })
   } else {
     None
   }
@@ -18119,7 +18136,7 @@ priv struct OiControlExitFact {
 
 ///|
 fn OiControlDirectExitFact::fallthrough() -> OiControlDirectExitFact {
-  { kind: ControlDirectMayFallThrough }
+  { kind: ControlDirectMayFallThrough, }
 }
 
 ///|
@@ -18325,7 +18342,7 @@ fn OiControlExitFact::from_node(
       return {
         live: true,
         direct_fact: OiControlDirectExitFact::fallthrough(),
-        if_fact: Some({ then_fact, else_fact }),
+        if_fact: Some({ then_fact, else_fact, }),
         block_fact: None,
       }
     }
@@ -18510,13 +18527,13 @@ fn OiControlExitRegionFact::from_region(
     }
     let root_fact = OiControlExitFact::from_node(func, dead, root, label_id)
     if root_fact.proves_exits_via_nonbranch_terminal() {
-      return { kind: ControlExitRegionNonbranchTerminalPrefix, tail_fact }
+      return { kind: ControlExitRegionNonbranchTerminalPrefix, tail_fact, }
     }
     if root_fact.proves_never_falls_through() {
-      return { kind: ControlExitRegionNeverFallthroughPrefix, tail_fact }
+      return { kind: ControlExitRegionNeverFallthroughPrefix, tail_fact, }
     }
   }
-  { kind: ControlExitRegionTailSummary, tail_fact }
+  { kind: ControlExitRegionTailSummary, tail_fact, }
 }
 
 ///|
@@ -18613,30 +18630,30 @@ fn OiRegionHolderDropFlowFact::from_region(
   // Keep the local writeback/root-use sentinel and traversal-limit outcomes as
   // an explicit fact so the cleanup no longer owns a raw use-def scanner.
   if region_ref == @ir.HotRegionRef::root() {
-    return { kind: RegionHolderDropFlowRootRegion }
+    return { kind: RegionHolderDropFlowRootRegion, }
   }
   let use_def = pass_require_use_def(ctx, func)
   let mut current = region_ref.holder
   for hops = 0; hops < 64; hops = hops + 1 {
     if @ir.node_use_count(use_def, current) != 1 {
-      return { kind: RegionHolderDropFlowSharedHolder }
+      return { kind: RegionHolderDropFlowSharedHolder, }
     }
     let sites = @ir.node_use_sites_borrowed(use_def, current)
     let site = sites[0]
     if site.user == -1 {
-      return { kind: RegionHolderDropFlowRootUseSentinel }
+      return { kind: RegionHolderDropFlowRootUseSentinel, }
     }
     let user = @ir.hot_node_get(func, site.user)
     match site.kind {
       @ir.HotUseSlotKind::ChildUseSlot =>
         match user.op {
-          @ir.HotOp::Drop => return { kind: RegionHolderDropFlowChildDrop }
-          _ => return { kind: RegionHolderDropFlowChildNonDrop }
+          @ir.HotOp::Drop => return { kind: RegionHolderDropFlowChildDrop, }
+          _ => return { kind: RegionHolderDropFlowChildNonDrop, }
         }
       @ir.HotUseSlotKind::RootUseSlot => current = site.user
     }
   }
-  { kind: RegionHolderDropFlowTraversalLimit }
+  { kind: RegionHolderDropFlowTraversalLimit, }
 }
 
 ///|
@@ -19650,7 +19667,7 @@ priv struct OiConsecutiveInputEqualityFact {
 
 ///|
 fn OiStateWriteSetFact::empty() -> OiStateWriteSetFact {
-  { local_writes: [], global_writes: [] }
+  { local_writes: [], global_writes: [], }
 }
 
 ///|
@@ -19763,7 +19780,7 @@ fn OiNodeEffectPurityFact::from_mask(mask : UInt) -> OiNodeEffectPurityFact {
   } else {
     NodeEffectImpureMask
   }
-  { effect_mask: mask, kind }
+  { effect_mask: mask, kind, }
 }
 
 ///|
@@ -19772,7 +19789,7 @@ fn OiNodeEffectPurityFact::from_node_masks(
   node_id : Int,
 ) -> OiNodeEffectPurityFact {
   if node_id < 0 || node_id >= node_masks.length() {
-    { effect_mask: 0U, kind: NodeEffectMissingMask }
+    { effect_mask: 0U, kind: NodeEffectMissingMask, }
   } else {
     OiNodeEffectPurityFact::from_mask(node_masks[node_id])
   }
@@ -19919,8 +19936,8 @@ fn OiPureScalarEqualTreeShellFact::from_op(
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
     | @ir.HotOp::Convert
-    | @ir.HotOp::Select => { branchless_scalar_shell: true }
-    _ => { branchless_scalar_shell: false }
+    | @ir.HotOp::Select => { branchless_scalar_shell: true, }
+    _ => { branchless_scalar_shell: false, }
   }
 }
 
@@ -19973,14 +19990,14 @@ fn OiStableStateReadEqualityFact::from_nodes(
     (@ir.HotOp::MemorySize, @ir.HotOp::MemorySize) =>
       {
         kind: StableStateReadMemorySize,
-        index_relation: Some({ left_index: left.imm0, right_index: right.imm0 }),
+        index_relation: Some({ left_index: left.imm0, right_index: right.imm0, }),
       }
     (@ir.HotOp::TableSize, @ir.HotOp::TableSize) =>
       {
         kind: StableStateReadTableSize,
-        index_relation: Some({ left_index: left.imm0, right_index: right.imm0 }),
+        index_relation: Some({ left_index: left.imm0, right_index: right.imm0, }),
       }
-    _ => { kind: StableStateReadUnsupported, index_relation: None }
+    _ => { kind: StableStateReadUnsupported, index_relation: None, }
   }
 }
 
@@ -20052,12 +20069,12 @@ fn OiScalarTreeLeafEqualityFact::from_nodes(
 ) -> OiScalarTreeLeafEqualityFact? {
   match (left.op, right.op) {
     (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) if left.imm0 == right.imm0 =>
-      return Some({ kind: ScalarTreeLeafLocalGet, stable_state_fact: None })
+      return Some({ kind: ScalarTreeLeafLocalGet, stable_state_fact: None, })
     (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) if left.imm0 == right.imm0 =>
-      return Some({ kind: ScalarTreeLeafGlobalGet, stable_state_fact: None })
+      return Some({ kind: ScalarTreeLeafGlobalGet, stable_state_fact: None, })
     (@ir.HotOp::Const, @ir.HotOp::Const) if @ir.hot_const_get(func, left.imm0) ==
       @ir.hot_const_get(func, right.imm0) =>
-      return Some({ kind: ScalarTreeLeafConst, stable_state_fact: None })
+      return Some({ kind: ScalarTreeLeafConst, stable_state_fact: None, })
     _ => ()
   }
   match
@@ -20226,7 +20243,7 @@ fn OiScalarTreeEqualityFact::from_nodes(
     kind: ScalarTreeEqualityBranchlessShell,
     leaf_fact: None,
     shell_fact: Some(OiPureScalarEqualTreeShellFact::from_op(left.op)),
-    child_fact: Some({ children_equal, includes_stable_state_read }),
+    child_fact: Some({ children_equal, includes_stable_state_read, }),
   }
 }
 
@@ -20391,7 +20408,7 @@ fn OiStableMemoryReadEqualityFact::from_nodes(
         StableMemoryReadLoad | StableMemoryReadAtomicLoad =>
           {
             kind,
-            instruction_relation: Some({ left_instr, right_instr }),
+            instruction_relation: Some({ left_instr, right_instr, }),
             address_fact: OiScalarTreeEqualityFact::from_nodes(
               func,
               @ir.hot_child_get(func, left_id, 0),
@@ -20705,7 +20722,7 @@ fn OiRightLocalTeeFallthroughValueFact::from_node(
   let right = @ir.hot_node_get(func, right_id)
   match right.op {
     @ir.HotOp::LocalTee if right.child_count == 1 =>
-      Some({ value_id: @ir.hot_child_get(func, right_id, 0) })
+      Some({ value_id: @ir.hot_child_get(func, right_id, 0), })
     _ => None
   }
 }
@@ -20742,7 +20759,7 @@ fn OiRightLocalTeeFallthroughEqualityFact::from_nodes(
           ),
         ),
       }
-    None => { value_fact: None, equality_fact: None }
+    None => { value_fact: None, equality_fact: None, }
   }
 }
 
@@ -21269,7 +21286,7 @@ fn OiTinyMemoryFillFact::from_repeated_byte(
     _ => false
   }
   if may_lower {
-    Some({ size, store_fact, value_fact: RepeatedByte(byte) })
+    Some({ size, store_fact, value_fact: RepeatedByte(byte), })
   } else {
     None
   }
@@ -21290,7 +21307,7 @@ fn OiTinyMemoryFillFact::from_size_and_value(
     }
     None =>
       if size == 1 {
-        Some({ size, store_fact: Store8, value_fact: OriginalI32Value })
+        Some({ size, store_fact: Store8, value_fact: OriginalI32Value, })
       } else {
         None
       }
@@ -21416,7 +21433,7 @@ fn OiMemoryAccessFact::from_instr(
     | @lib.Instruction::I64Store8(_)
     | @lib.Instruction::I64Store16(_)
     | @lib.Instruction::I64Store32(_) =>
-      Some({ instr, load_result_type, store_value_bits, store_value_is_i64 })
+      Some({ instr, load_result_type, store_value_bits, store_value_is_i64, })
     _ => None
   }
 }
@@ -21545,7 +21562,7 @@ fn OiStoredValueTruncatedConstFact::from_stored_value(
     }
     @ir.hot_build_const_i32(func, @lib.I32(truncated))
   }
-  Some({ stored_fact, new_value_id })
+  Some({ stored_fact, new_value_id, })
 }
 
 ///|
@@ -21601,7 +21618,7 @@ fn OiStoredValueLowBitMaskFact::from_stored_value(
   if mask != required_mask {
     return None
   }
-  Some({ stored_fact, unmasked_value_id })
+  Some({ stored_fact, unmasked_value_id, })
 }
 
 ///|
@@ -21909,7 +21926,7 @@ fn OiLoadResultReinterpretFact::from_load_result(
       @lib.Instruction::i64_load(memarg)
     _ => return None
   }
-  Some({ load_fact, new_instr })
+  Some({ load_fact, new_instr, })
 }
 
 ///|
@@ -21947,7 +21964,7 @@ fn OiLoadResultI64ExtendI32Fact::from_load_result(
       @lib.Instruction::i64_load16s(memarg)
     _ => return None
   }
-  Some({ load_fact, new_instr })
+  Some({ load_fact, new_instr, })
 }
 
 ///|
@@ -22245,7 +22262,7 @@ fn OiMemoryOffsetFoldAtomicFact::from_offset(
     Some(instr) => instr
     None => return None
   }
-  Some({ new_address_id, new_instr })
+  Some({ new_address_id, new_instr, })
 }
 
 ///|
@@ -22268,7 +22285,7 @@ fn OiMemoryOffsetFoldLoadFact::from_offset(
     Some(instr) => instr
     None => return None
   }
-  Some({ offset_fact, new_address_id, new_instr, result_type })
+  Some({ offset_fact, new_address_id, new_instr, result_type, })
 }
 
 ///|
@@ -22587,9 +22604,9 @@ fn OiStructAtomicIdentityOperatorFact::from_op(
     | @lib.AggregateAtomicRmwSub
     | @lib.AggregateAtomicRmwOr
     | @lib.AggregateAtomicRmwXor =>
-      Some({ literal_kind: ZeroStructAtomicIdentityLiteral })
+      Some({ literal_kind: ZeroStructAtomicIdentityLiteral, })
     @lib.AggregateAtomicRmwAnd =>
-      Some({ literal_kind: AllOnesStructAtomicIdentityLiteral })
+      Some({ literal_kind: AllOnesStructAtomicIdentityLiteral, })
     _ => None
   }
 }
@@ -22657,7 +22674,7 @@ fn OiStructAtomicFieldFact::from_index(
   // lowering surface and leaving packed/ref fields to documented reopeners.
   match
     optimize_instructions_struct_atomic_field_type(ctx, type_idx, field_idx) {
-    Some(value_type) => Some({ type_idx, field_idx, value_type })
+    Some(value_type) => Some({ type_idx, field_idx, value_type, })
     None => None
   }
 }
@@ -22701,7 +22718,7 @@ fn OiStructAtomicIdentityOperandFact::from_rmw(
   // width-literal facts rather than ad hoc expected-value parameters.
   let operator_fact = OiStructAtomicIdentityOperatorFact::from_op(op)
   match operator_fact {
-    Some({ literal_kind }) => {
+    Some({ literal_kind, }) => {
       let identity_value_id = if field_fact.value_type == @lib.ValType::i32() {
         match
           OiStructAtomicI32IdentityValueFact::from_value(
@@ -22720,7 +22737,7 @@ fn OiStructAtomicIdentityOperandFact::from_rmw(
         }
       }
       match identity_value_id {
-        Some(id) => Some({ value_id: id })
+        Some(id) => Some({ value_id: id, })
         None => None
       }
     }
@@ -22753,7 +22770,7 @@ fn OiStructAtomicCmpxchgSameValueFact::from_operands(
     ctx, func, expected_id, replacement_id,
   )
   if equality_fact.proves_equal(func) {
-    Some({ expected_id, replacement_id })
+    Some({ expected_id, replacement_id, })
   } else {
     None
   }
@@ -23212,17 +23229,17 @@ fn OiTupleLaneLocalizeChildTraversalFact::from_region(
   // blockers are not encoded as an inline tuple-lane scanner loop.
   let root_count = @ir.hot_region_root_count(func, region)
   if root_count == 0 {
-    return { kind: TupleLaneLocalizeNoChildTraversal }
+    return { kind: TupleLaneLocalizeNoChildTraversal, }
   }
   for i = 0; i < root_count; i = i + 1 {
     if !OiTupleLaneLocalizeFact::from_node(
         func,
         @ir.hot_region_get(func, region, i),
       ).allows_direct() {
-      return { kind: TupleLaneLocalizeChildControlBoundary }
+      return { kind: TupleLaneLocalizeChildControlBoundary, }
     }
   }
-  { kind: TupleLaneLocalizeChildrenDirect }
+  { kind: TupleLaneLocalizeChildrenDirect, }
 }
 
 ///|
@@ -23232,16 +23249,16 @@ fn OiTupleLaneLocalizeChildTraversalFact::from_node_children(
 ) -> OiTupleLaneLocalizeChildTraversalFact {
   let node = @ir.hot_node_get(func, node_id)
   if node.child_count == 0 {
-    return { kind: TupleLaneLocalizeNoChildTraversal }
+    return { kind: TupleLaneLocalizeNoChildTraversal, }
   }
   for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
     let child_id = @ir.hot_child_get(func, node_id, child_idx)
     if child_id >= 0 &&
       !OiTupleLaneLocalizeFact::from_node(func, child_id).allows_direct() {
-      return { kind: TupleLaneLocalizeChildControlBoundary }
+      return { kind: TupleLaneLocalizeChildControlBoundary, }
     }
   }
-  { kind: TupleLaneLocalizeChildrenDirect }
+  { kind: TupleLaneLocalizeChildrenDirect, }
 }
 
 ///|
@@ -23339,16 +23356,16 @@ fn OiTupleLaneTrapChildTraversalFact::from_node_children(
   // pure trap.
   let node = @ir.hot_node_get(func, node_id)
   if node.child_count == 0 {
-    return { kind: TupleLaneTrapNoChildTraversal }
+    return { kind: TupleLaneTrapNoChildTraversal, }
   }
   for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
     let child_id = @ir.hot_child_get(func, node_id, child_idx)
     if child_id >= 0 &&
       OiTupleLaneTrapFact::from_node(func, child_id).may_trap() {
-      return { kind: TupleLaneTrapChildMayTrapWithoutEffectMask }
+      return { kind: TupleLaneTrapChildMayTrapWithoutEffectMask, }
     }
   }
-  { kind: TupleLaneTrapChildrenNoKnownTrap }
+  { kind: TupleLaneTrapChildrenNoKnownTrap, }
 }
 
 ///|
@@ -23603,23 +23620,27 @@ fn OiTupleExtractStructuralFact::from_extract(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::TupleExtract if node.child_count == 1 => ()
-    _ => return { kind: TupleExtractUnsupportedRoot, tuple_make_payload: None }
+    _ => return { kind: TupleExtractUnsupportedRoot, tuple_make_payload: None, }
   }
   let tuple_id = @ir.hot_child_get(func, node_id, 0)
   if !OiLiveNodeFact::proves_node_live(func, dead, tuple_id) ||
     pass_node_use_count(ctx, func, tuple_id) != 1 {
-    return { kind: TupleExtractDeadOrSharedTuple, tuple_make_payload: None }
+    return { kind: TupleExtractDeadOrSharedTuple, tuple_make_payload: None, }
   }
   let tuple = @ir.hot_node_get(func, tuple_id)
   match tuple.op {
     @ir.HotOp::TupleMake => ()
-    _ => return { kind: TupleExtractMissingTupleMake, tuple_make_payload: None }
+    _ =>
+      return { kind: TupleExtractMissingTupleMake, tuple_make_payload: None, }
   }
   let index = node.imm0
   if index < 0 {
-    return { kind: TupleExtractUnsupportedIndex, tuple_make_payload: None }
+    return { kind: TupleExtractUnsupportedIndex, tuple_make_payload: None, }
   }
-  { kind: TupleExtractTupleMake, tuple_make_payload: Some({ tuple_id, index }) }
+  {
+    kind: TupleExtractTupleMake,
+    tuple_make_payload: Some({ tuple_id, index, }),
+  }
 }
 
 ///|
@@ -23652,7 +23673,7 @@ fn OiTupleSiblingEffectFact::from_lanes(
       }
     }
   }
-  { has_preserved_sibling, has_later_preserved_sibling }
+  { has_preserved_sibling, has_later_preserved_sibling, }
 }
 
 ///|
@@ -24438,7 +24459,7 @@ fn OiArrayDefaultFallthroughTraversalFact::from_kind(
   fallthrough_id : Int,
   kind : OiArrayDefaultFallthroughKind,
 ) -> OiArrayDefaultFallthroughTraversalFact {
-  { fallthrough_id, kind }
+  { fallthrough_id, kind, }
 }
 
 ///|
@@ -24712,7 +24733,7 @@ fn OiArrayDefaultFallthroughFact::fallthrough_id(
 
 ///|
 fn OiChildLocalizationPlanFact::empty() -> OiChildLocalizationPlanFact {
-  { source_ids: [], drop_ids: [] }
+  { source_ids: [], drop_ids: [], }
 }
 
 ///|
@@ -24735,7 +24756,7 @@ fn OiChildLocalizationPlanFact::from_repeated_array_new_fixed_non_default(
       source_ids.push(child_id)
     }
   }
-  { source_ids, drop_ids: [] }
+  { source_ids, drop_ids: [], }
 }
 
 ///|
@@ -24761,7 +24782,7 @@ fn OiChildLocalizationPlanFact::from_array_default_fallthrough(
   if OiArrayDefaultPreservationFact::from_value(
       func, node_masks, value_id, fallthrough_id,
     ).proves_preserve_needed() {
-    { source_ids: [], drop_ids: [value_id] }
+    { source_ids: [], drop_ids: [value_id], }
   } else {
     OiChildLocalizationPlanFact::empty()
   }
@@ -24775,7 +24796,7 @@ fn OiChildLocalizationPlanFact::from_array_new_default_initializer(
   // converted `array.new_default`, even when the fallthrough default itself is
   // pure. Keep that separate from the fixed-array default plan, where
   // `getDroppedChildrenAndAppend` can erase pure duplicate default operands.
-  { source_ids: [], drop_ids: [value_id] }
+  { source_ids: [], drop_ids: [value_id], }
 }
 
 ///|
@@ -24824,7 +24845,7 @@ fn OiArrayDefaultValueFact::from_kind(
   kind : OiArrayDefaultValueKind,
   preservation_plan? : OiChildLocalizationPlanFact = OiChildLocalizationPlanFact::empty(),
 ) -> OiArrayDefaultValueFact {
-  { kind, preservation_plan }
+  { kind, preservation_plan, }
 }
 
 ///|
@@ -24848,7 +24869,7 @@ fn OiArrayNewFixedRepresentativeDefaultFact::from_default_value_fact(
   } else {
     ArrayNewFixedRepresentativeNonDefaultValue
   }
-  { kind, default_value_fact }
+  { kind, default_value_fact, }
 }
 
 ///|
@@ -25227,7 +25248,7 @@ fn OiArrayNewSingleFixedFact::from_node(
       }
     _ => return None
   }
-  Some({ node_id, type_idx, init_id: @ir.hot_child_get(func, node_id, 0) })
+  Some({ node_id, type_idx, init_id: @ir.hot_child_get(func, node_id, 0), })
 }
 
 ///|
@@ -25627,12 +25648,12 @@ fn OiDeadShellRewritePlanFact::from_node(
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::MemoryCopy =>
       match OiBulkMemoryRewritePlanFact::from_copy(ctx, func, dead, node_id) {
-        Some(bulk_plan) => Some({ kind: DeadShellBulkMemoryCopy, bulk_plan })
+        Some(bulk_plan) => Some({ kind: DeadShellBulkMemoryCopy, bulk_plan, })
         None => None
       }
     @ir.HotOp::MemoryFill =>
       match OiBulkMemoryRewritePlanFact::from_fill(ctx, func, dead, node_id) {
-        Some(bulk_plan) => Some({ kind: DeadShellBulkMemoryFill, bulk_plan })
+        Some(bulk_plan) => Some({ kind: DeadShellBulkMemoryFill, bulk_plan, })
         None => None
       }
     _ => None
@@ -25924,7 +25945,7 @@ fn OiOrderedBinaryLocalConstEqualityFact::from_nodes(
     }
     _ => ()
   }
-  { instr, kind }
+  { instr, kind, }
 }
 
 ///|
@@ -26488,54 +26509,54 @@ fn OiNontrappingReorderableExpressionEqualityFact::from_select_arms(
   // safely be re-evaluated after the dropped condition instead of leaving them
   // as a visitor-local opcode cascade or parallel match booleans.
   if OiRefI31PayloadEqualityFact::from_nodes(func, dead, if_true, if_false).proves_nontrapping_reorderable() {
-    return { kind: NontrappingReorderableRefI31PayloadMatch }
+    return { kind: NontrappingReorderableRefI31PayloadMatch, }
   }
   let ordered_binary_local_local = OiOrderedBinaryLocalLocalEqualityFact::from_nodes(
     func, dead, if_true, if_false,
   )
   if ordered_binary_local_local.proves_i32_nontrapping_scalar() {
-    return { kind: NontrappingReorderableI32LocalLocalScalarMatch }
+    return { kind: NontrappingReorderableI32LocalLocalScalarMatch, }
   }
   if ordered_binary_local_local.proves_i64_nontrapping_scalar() {
-    return { kind: NontrappingReorderableI64LocalLocalScalarMatch }
+    return { kind: NontrappingReorderableI64LocalLocalScalarMatch, }
   }
   let ordered_binary_local_const = OiOrderedBinaryLocalConstEqualityFact::from_nodes(
     func, dead, if_true, if_false,
   )
   if ordered_binary_local_const.proves_i32_nontrapping_scalar() {
-    return { kind: NontrappingReorderableI32LocalConstScalarMatch }
+    return { kind: NontrappingReorderableI32LocalConstScalarMatch, }
   }
   if ordered_binary_local_const.proves_i64_nontrapping_scalar() {
-    return { kind: NontrappingReorderableI64LocalConstScalarMatch }
+    return { kind: NontrappingReorderableI64LocalConstScalarMatch, }
   }
   let unary_local = OiUnaryLocalEqualityFact::from_nodes(
     func, dead, if_true, if_false,
   )
   if unary_local.proves_i32_nontrapping_scalar() {
-    return { kind: NontrappingReorderableI32UnaryLocalScalarMatch }
+    return { kind: NontrappingReorderableI32UnaryLocalScalarMatch, }
   }
   if unary_local.proves_i64_nontrapping_scalar() {
-    return { kind: NontrappingReorderableI64UnaryLocalScalarMatch }
+    return { kind: NontrappingReorderableI64UnaryLocalScalarMatch, }
   }
   if ordered_binary_local_local.proves_f32_nontrapping_scalar() {
-    return { kind: NontrappingReorderableF32LocalLocalScalarMatch }
+    return { kind: NontrappingReorderableF32LocalLocalScalarMatch, }
   }
   if unary_local.proves_f32_nontrapping_scalar() {
-    return { kind: NontrappingReorderableF32UnaryLocalScalarMatch }
+    return { kind: NontrappingReorderableF32UnaryLocalScalarMatch, }
   }
   if ordered_binary_local_const.proves_f32_nontrapping_scalar() {
-    return { kind: NontrappingReorderableF32LocalConstScalarMatch }
+    return { kind: NontrappingReorderableF32LocalConstScalarMatch, }
   }
   if ordered_binary_local_local.proves_f64_nontrapping_scalar() {
-    return { kind: NontrappingReorderableF64LocalLocalScalarMatch }
+    return { kind: NontrappingReorderableF64LocalLocalScalarMatch, }
   }
   if unary_local.proves_f64_nontrapping_scalar() {
-    return { kind: NontrappingReorderableF64UnaryLocalScalarMatch }
+    return { kind: NontrappingReorderableF64UnaryLocalScalarMatch, }
   }
   if ordered_binary_local_const.proves_f64_nontrapping_scalar() {
-    return { kind: NontrappingReorderableF64LocalConstScalarMatch }
+    return { kind: NontrappingReorderableF64LocalConstScalarMatch, }
   }
-  { kind: NontrappingReorderableNoMatch }
+  { kind: NontrappingReorderableNoMatch, }
 }
 
 ///|
@@ -26607,12 +26628,12 @@ fn OiReferenceLeafEqualityFact::from_nodes(
     (
       { op: @ir.HotOp::RefNull, ty: lhs_ty, .. },
       { op: @ir.HotOp::RefNull, ty: rhs_ty, .. },
-    ) if lhs_ty == rhs_ty => { kind: ReferenceLeafRefNullMatch }
+    ) if lhs_ty == rhs_ty => { kind: ReferenceLeafRefNullMatch, }
     (
       { op: @ir.HotOp::RefFunc, ty: lhs_ty, imm0: lhs_func, .. },
       { op: @ir.HotOp::RefFunc, ty: rhs_ty, imm0: rhs_func, .. },
     ) if lhs_ty == rhs_ty && lhs_func == rhs_func =>
-      { kind: ReferenceLeafRefFuncMatch }
+      { kind: ReferenceLeafRefFuncMatch, }
     _ =>
       match
         (
@@ -26622,12 +26643,12 @@ fn OiReferenceLeafEqualityFact::from_nodes(
         (
           Some(@lib.Instruction::RefNull(lhs)),
           Some(@lib.Instruction::RefNull(rhs)),
-        ) if lhs == rhs => { kind: ReferenceLeafRefNullMatch }
+        ) if lhs == rhs => { kind: ReferenceLeafRefNullMatch, }
         (
           Some(@lib.Instruction::RefFunc(lhs)),
           Some(@lib.Instruction::RefFunc(rhs)),
-        ) if lhs == rhs => { kind: ReferenceLeafRefFuncMatch }
-        _ => { kind: ReferenceLeafNoMatch }
+        ) if lhs == rhs => { kind: ReferenceLeafRefFuncMatch, }
+        _ => { kind: ReferenceLeafNoMatch, }
       }
   }
 }
@@ -26660,11 +26681,11 @@ fn OiLocalConstSelectScalarTreeFact::from_node(
   // or tables: local/const leaves plus branchless select shells whose arms and
   // condition recursively have the same property.
   if depth > 16 {
-    return { nontrapping_reorderable: false }
+    return { nontrapping_reorderable: false, }
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::LocalGet | @ir.HotOp::Const => { nontrapping_reorderable: true }
+    @ir.HotOp::LocalGet | @ir.HotOp::Const => { nontrapping_reorderable: true, }
     @ir.HotOp::Select => {
       for slot = 0; slot < node.child_count; slot = slot + 1 {
         if !OiLocalConstSelectScalarTreeFact::from_node(
@@ -26672,12 +26693,12 @@ fn OiLocalConstSelectScalarTreeFact::from_node(
             @ir.hot_child_get(func, node_id, slot),
             depth=depth + 1,
           ).proves_nontrapping_reorderable() {
-          return { nontrapping_reorderable: false }
+          return { nontrapping_reorderable: false, }
         }
       }
-      { nontrapping_reorderable: true }
+      { nontrapping_reorderable: true, }
     }
-    _ => { nontrapping_reorderable: false }
+    _ => { nontrapping_reorderable: false, }
   }
 }
 
@@ -26727,15 +26748,15 @@ fn OiRefI31ScalarTreeEqualityFact::from_nodes(
         if OiScalarTreeEqualityFact::from_nodes(func, lhs_payload, rhs_payload).proves_pure_equal() {
           if OiLocalConstSelectScalarTreeFact::from_node(func, lhs_payload).proves_nontrapping_reorderable() &&
             OiLocalConstSelectScalarTreeFact::from_node(func, rhs_payload).proves_nontrapping_reorderable() {
-            return { kind: RefI31ScalarTreePayloadNontrappingReorderableMatch }
+            return { kind: RefI31ScalarTreePayloadNontrappingReorderableMatch, }
           }
-          return { kind: RefI31ScalarTreePayloadPureMatch }
+          return { kind: RefI31ScalarTreePayloadPureMatch, }
         }
       }
       _ => ()
     }
   }
-  { kind: RefI31ScalarTreeNoMatch }
+  { kind: RefI31ScalarTreeNoMatch, }
 }
 
 ///|
@@ -26811,36 +26832,36 @@ fn OiIdenticalPureExpressionFact::from_select_arms(
     OiSideEffectFreeExpressionFact::proves_node_free(func, dead, if_false)
   }
   if !effect_safe {
-    return { kind: IdenticalPureEffectUnsafe }
+    return { kind: IdenticalPureEffectUnsafe, }
   }
   if ref_i31_nontrapping_local_scalar_tree {
-    return { kind: IdenticalPureRefI31NontrappingLocalScalarTreeMatch }
+    return { kind: IdenticalPureRefI31NontrappingLocalScalarTreeMatch, }
   }
   if simd_leaf.proves_v128_const_leaf() {
-    return { kind: IdenticalPureV128ConstLeafMatch }
+    return { kind: IdenticalPureV128ConstLeafMatch, }
   }
   if simd_leaf.proves_v128_local_splat() {
-    return { kind: IdenticalPureV128LocalSplatMatch }
+    return { kind: IdenticalPureV128LocalSplatMatch, }
   }
   if nontrapping_reorderable_scalar_tree {
-    return { kind: IdenticalPureNontrappingReorderableScalarTreeMatch }
+    return { kind: IdenticalPureNontrappingReorderableScalarTreeMatch, }
   }
   if scalar_tree {
-    return { kind: IdenticalPureScalarTreeMatch }
+    return { kind: IdenticalPureScalarTreeMatch, }
   }
   if state_read {
-    return { kind: IdenticalPureStableStateReadMatch }
+    return { kind: IdenticalPureStableStateReadMatch, }
   }
   if state_scalar_tree {
-    return { kind: IdenticalPureStableStateScalarTreeMatch }
+    return { kind: IdenticalPureStableStateScalarTreeMatch, }
   }
   if reference_leaf {
-    return { kind: IdenticalPureReferenceLeafMatch }
+    return { kind: IdenticalPureReferenceLeafMatch, }
   }
   if ref_i31_scalar_tree {
-    return { kind: IdenticalPureRefI31ScalarTreeMatch }
+    return { kind: IdenticalPureRefI31ScalarTreeMatch, }
   }
-  { kind: IdenticalPureNoMatch }
+  { kind: IdenticalPureNoMatch, }
 }
 
 ///|
@@ -26940,7 +26961,7 @@ priv struct OiIdempotentCallOperandTreeFact {
 
 ///|
 fn OiIdempotentCallOperandTreeFact::empty() -> OiIdempotentCallOperandTreeFact {
-  { kind: IdempotentCallOperandTreeUnsupported, children_foldable: false }
+  { kind: IdempotentCallOperandTreeUnsupported, children_foldable: false, }
 }
 
 ///|
@@ -27168,7 +27189,7 @@ fn OiIdempotentCallFact::from_node(
   Some({
     call_id: node_id,
     func_idx,
-    operand_fact: { kind, operand_ids, tree_facts },
+    operand_fact: { kind, operand_ids, tree_facts, },
   })
 }
 
@@ -27247,7 +27268,7 @@ fn OiIdempotentCallEqualityFact::from_nodes(
       left.operand_fact.proves_equal(func, right.operand_fact)
     _ => false
   }
-  { left_fact, right_fact, same_call }
+  { left_fact, right_fact, same_call, }
 }
 
 ///|
@@ -27295,7 +27316,7 @@ fn OiConsecutiveInputFoldabilityFact::from_right(
       _ => ConsecutiveInputNotFoldable
     }
   }
-  { right_id, kind }
+  { right_id, kind, }
 }
 
 ///|
@@ -27363,7 +27384,7 @@ fn OiConsecutiveSelfSelectFact::from_select(
   if !equality_fact.proves_equal(func) || !foldability_fact.proves_foldable() {
     return None
   }
-  Some({ kind, selected_id, zero_id, equality_fact, foldability_fact })
+  Some({ kind, selected_id, zero_id, equality_fact, foldability_fact, })
 }
 
 ///|
@@ -27611,7 +27632,7 @@ fn OiSynthesizedI32BinaryFact::new(
   left_id : Int,
   right_id : Int,
 ) -> OiSynthesizedI32BinaryFact {
-  { instr, left_id, right_id }
+  { instr, left_id, right_id, }
 }
 
 ///|
@@ -27713,7 +27734,7 @@ fn OiBooleanSelectAlgebraFact::from_select(
     Some(fact) => fact
     None => return None
   }
-  Some({ kind, condition_fact, if_true_fact, if_false_fact })
+  Some({ kind, condition_fact, if_true_fact, if_false_fact, })
 }
 
 ///|
@@ -27763,8 +27784,8 @@ fn OiEqzSelectArmFact::from_node(
   }
   let inner_id = @ir.hot_child_get(func, node_id, 0)
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::I32Eqz) => Some({ kind: EqzSelectArmI32, inner_id })
-    Some(@lib.Instruction::I64Eqz) => Some({ kind: EqzSelectArmI64, inner_id })
+    Some(@lib.Instruction::I32Eqz) => Some({ kind: EqzSelectArmI32, inner_id, })
+    Some(@lib.Instruction::I64Eqz) => Some({ kind: EqzSelectArmI64, inner_id, })
     _ => None
   }
 }
@@ -27784,8 +27805,8 @@ fn OiTernaryBooleanConstFact::from_node(
   // Binaryen's `bval` matcher accepts exactly i32 zero or one here, then flips
   // the value before changing it to the hoisted eqz input type.
   match optimize_instructions_i32_const(func, dead, node_id) {
-    Some(@lib.I32(0)) => Some({ node_id, flipped_value: 1 })
-    Some(@lib.I32(1)) => Some({ node_id, flipped_value: 0 })
+    Some(@lib.I32(0)) => Some({ node_id, flipped_value: 1, })
+    Some(@lib.I32(1)) => Some({ node_id, flipped_value: 0, })
     _ => None
   }
 }
@@ -28366,7 +28387,7 @@ fn OiMatchingUnarySelectArmFact::from_node(
     [actual_child] if actual_child == child_type => ()
     _ => return None
   }
-  Some({ kind, instr, result_type, child_type, child_id })
+  Some({ kind, instr, result_type, child_type, child_id, })
 }
 
 ///|
@@ -28726,7 +28747,7 @@ fn OiMatchingReferenceSelectArmFact::from_node(
     [result] => result
     _ => return None
   }
-  Some({ kind, shell_id: node_id, instr, child_type, child_id })
+  Some({ kind, shell_id: node_id, instr, child_type, child_id, })
 }
 
 ///|
@@ -29022,9 +29043,9 @@ fn OiI32BooleanSelectArmFact::from_select_arms(
       optimize_instructions_i32_const(func, dead, if_false),
     ) {
     (Some(@lib.I32(1)), Some(@lib.I32(0))) =>
-      Some({ kind: I32BooleanSelectTrueFalse })
+      Some({ kind: I32BooleanSelectTrueFalse, })
     (Some(@lib.I32(0)), Some(@lib.I32(1))) =>
-      Some({ kind: I32BooleanSelectFalseTrue })
+      Some({ kind: I32BooleanSelectFalseTrue, })
     _ => None
   }
 }
@@ -29079,7 +29100,7 @@ fn OiEqzConditionSelectFact::simple(
   if_false_id : Int,
   kind : OiEqzConditionSelectRewriteKind,
 ) -> OiEqzConditionSelectFact {
-  { inner_condition_id, if_true_id, if_false_id, compare_fact: None, kind }
+  { inner_condition_id, if_true_id, if_false_id, compare_fact: None, kind, }
 }
 
 ///|
@@ -29096,7 +29117,7 @@ fn OiEqzConditionSelectFact::compare(
     inner_condition_id,
     if_true_id,
     if_false_id,
-    compare_fact: Some({ lhs_id, rhs_id, replacement_instr }),
+    compare_fact: Some({ lhs_id, rhs_id, replacement_instr, }),
     kind,
   }
 }
@@ -29421,7 +29442,7 @@ fn OiZeroCompareConditionCompareFact::from_condition(
             Some(@lib.Instruction::I32Ne) => ZeroCompareConditionI32NeZero
             _ => return None
           }
-          Some({ inner_condition_id, kind })
+          Some({ inner_condition_id, kind, })
         }
         _ => None
       }
@@ -29448,7 +29469,7 @@ fn OiZeroCompareConditionCompareFact::from_condition(
             Some(@lib.Instruction::I64Ne) => ZeroCompareConditionI64NeZero
             _ => return None
           }
-          Some({ inner_condition_id, kind })
+          Some({ inner_condition_id, kind, })
         }
         _ => None
       }
@@ -29514,7 +29535,7 @@ fn OiZeroCompareConditionSelectFact::simple(
   if_false_id : Int,
   kind : OiZeroCompareConditionSelectRewriteKind,
 ) -> OiZeroCompareConditionSelectFact {
-  { compare_fact, if_true_id, if_false_id, kind }
+  { compare_fact, if_true_id, if_false_id, kind, }
 }
 
 ///|
@@ -29727,7 +29748,7 @@ fn OiIntegerEqualityConditionSelectFact::invert_compare(
 ) -> OiIntegerEqualityConditionSelectFact {
   {
     condition_id,
-    inverted_compare_fact: Some({ lhs_id, rhs_id, inverted_instr }),
+    inverted_compare_fact: Some({ lhs_id, rhs_id, inverted_instr, }),
     kind: IntegerEqualityConditionSelectInvertCompare,
   }
 }
@@ -29892,7 +29913,7 @@ fn OiDirectCompareConditionSelectFact::invert_compare(
 ) -> OiDirectCompareConditionSelectFact {
   {
     condition_id,
-    inverted_compare_fact: Some({ lhs_id, rhs_id, inverted_instr }),
+    inverted_compare_fact: Some({ lhs_id, rhs_id, inverted_instr, }),
     kind: DirectCompareConditionSelectInvertCompare,
   }
 }
@@ -30028,9 +30049,9 @@ fn OiBooleanConstSelectFact::from_select_arms(
     Some(boolean_arm_fact) =>
       match boolean_arm_fact.kind {
         I32BooleanSelectTrueFalse =>
-          Some({ condition_id, kind: BooleanConstSelectConditionNonzero })
+          Some({ condition_id, kind: BooleanConstSelectConditionNonzero, })
         I32BooleanSelectFalseTrue =>
-          Some({ condition_id, kind: BooleanConstSelectConditionEqz })
+          Some({ condition_id, kind: BooleanConstSelectConditionEqz, })
       }
     None => None
   }
@@ -30397,7 +30418,7 @@ fn OiDeMorganAndEqzFact::from_binary(
     !OiLiveNodeFact::proves_node_live(func, dead, rhs_operand_id) {
     return None
   }
-  Some({ lhs_operand_id, rhs_operand_id })
+  Some({ lhs_operand_id, rhs_operand_id, })
 }
 
 ///|
@@ -30505,7 +30526,11 @@ fn OiNestedEqzRewriteFact::from_operand(
           Some(if raw == 0 { @lib.I32(0) } else { @lib.I32(1) })
         None => None
       }
-      Some({ inner_instr: @lib.Instruction::i32_eqz(), value_id, folded_result })
+      Some({
+        inner_instr: @lib.Instruction::i32_eqz(),
+        value_id,
+        folded_result,
+      })
     }
     (@ir.HotOp::Unary, Some(@lib.Instruction::I64Eqz)) => {
       let value_id = @ir.hot_child_get(func, operand_id, 0)
@@ -30518,7 +30543,11 @@ fn OiNestedEqzRewriteFact::from_operand(
           Some(if raw == 0L { @lib.I32(0) } else { @lib.I32(1) })
         None => None
       }
-      Some({ inner_instr: @lib.Instruction::i64_eqz(), value_id, folded_result })
+      Some({
+        inner_instr: @lib.Instruction::i64_eqz(),
+        value_id,
+        folded_result,
+      })
     }
     _ => None
   }
@@ -30599,9 +30628,9 @@ fn OiEqzZeroCompareFact::from_operand(
           optimize_instructions_i32_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I32(raw)), _) if raw == 0 =>
-          Some({ kind: EqzZeroCompareToI32Eqz, value_id: rhs_id })
+          Some({ kind: EqzZeroCompareToI32Eqz, value_id: rhs_id, })
         (_, Some(@lib.I32(raw))) if raw == 0 =>
-          Some({ kind: EqzZeroCompareToI32Eqz, value_id: lhs_id })
+          Some({ kind: EqzZeroCompareToI32Eqz, value_id: lhs_id, })
         _ => None
       }
     }
@@ -30614,9 +30643,9 @@ fn OiEqzZeroCompareFact::from_operand(
           optimize_instructions_i64_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I64(raw)), _) if raw == 0L =>
-          Some({ kind: EqzZeroCompareToI64Eqz, value_id: rhs_id })
+          Some({ kind: EqzZeroCompareToI64Eqz, value_id: rhs_id, })
         (_, Some(@lib.I64(raw))) if raw == 0L =>
-          Some({ kind: EqzZeroCompareToI64Eqz, value_id: lhs_id })
+          Some({ kind: EqzZeroCompareToI64Eqz, value_id: lhs_id, })
         _ => None
       }
     }
@@ -30629,9 +30658,9 @@ fn OiEqzZeroCompareFact::from_operand(
           optimize_instructions_i32_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I32(raw)), _) if raw == 0 =>
-          Some({ kind: EqzZeroCompareToI32NeZero, value_id: rhs_id })
+          Some({ kind: EqzZeroCompareToI32NeZero, value_id: rhs_id, })
         (_, Some(@lib.I32(raw))) if raw == 0 =>
-          Some({ kind: EqzZeroCompareToI32NeZero, value_id: lhs_id })
+          Some({ kind: EqzZeroCompareToI32NeZero, value_id: lhs_id, })
         _ => None
       }
     }
@@ -30644,9 +30673,9 @@ fn OiEqzZeroCompareFact::from_operand(
           optimize_instructions_i64_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I64(raw)), _) if raw == 0L =>
-          Some({ kind: EqzZeroCompareToI64NeZero, value_id: rhs_id })
+          Some({ kind: EqzZeroCompareToI64NeZero, value_id: rhs_id, })
         (_, Some(@lib.I64(raw))) if raw == 0L =>
-          Some({ kind: EqzZeroCompareToI64NeZero, value_id: lhs_id })
+          Some({ kind: EqzZeroCompareToI64NeZero, value_id: lhs_id, })
         _ => None
       }
     }
@@ -30838,9 +30867,9 @@ fn OiI32EqzAddConstCompareFact::from_operand(
           optimize_instructions_i32_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I32(raw)), _) =>
-          Some({ value_id: rhs_id, negated_const: @lib.I32(-raw) })
+          Some({ value_id: rhs_id, negated_const: @lib.I32(-raw), })
         (_, Some(@lib.I32(raw))) =>
-          Some({ value_id: lhs_id, negated_const: @lib.I32(-raw) })
+          Some({ value_id: lhs_id, negated_const: @lib.I32(-raw), })
         _ => None
       }
     }
@@ -30896,9 +30925,9 @@ fn OiI64EqzAddConstCompareFact::from_operand(
           optimize_instructions_i64_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I64(raw)), _) =>
-          Some({ value_id: rhs_id, negated_const: @lib.I64(-raw) })
+          Some({ value_id: rhs_id, negated_const: @lib.I64(-raw), })
         (_, Some(@lib.I64(raw))) =>
-          Some({ value_id: lhs_id, negated_const: @lib.I64(-raw) })
+          Some({ value_id: lhs_id, negated_const: @lib.I64(-raw), })
         _ => None
       }
     }
@@ -31227,8 +31256,10 @@ fn OiI32BinaryIdentityOperandFact::from_operands(
       optimize_instructions_i32_const(func, dead, lhs_id),
       optimize_instructions_i32_const(func, dead, rhs_id),
     ) {
-    (Some(@lib.I32(raw)), _) if raw == identity => Some({ retained_id: rhs_id })
-    (_, Some(@lib.I32(raw))) if raw == identity => Some({ retained_id: lhs_id })
+    (Some(@lib.I32(raw)), _) if raw == identity =>
+      Some({ retained_id: rhs_id, })
+    (_, Some(@lib.I32(raw))) if raw == identity =>
+      Some({ retained_id: lhs_id, })
     _ => None
   }
 }
@@ -31247,8 +31278,10 @@ fn OiI64BinaryIdentityOperandFact::from_operands(
       optimize_instructions_i64_const(func, dead, lhs_id),
       optimize_instructions_i64_const(func, dead, rhs_id),
     ) {
-    (Some(@lib.I64(raw)), _) if raw == identity => Some({ retained_id: rhs_id })
-    (_, Some(@lib.I64(raw))) if raw == identity => Some({ retained_id: lhs_id })
+    (Some(@lib.I64(raw)), _) if raw == identity =>
+      Some({ retained_id: rhs_id, })
+    (_, Some(@lib.I64(raw))) if raw == identity =>
+      Some({ retained_id: lhs_id, })
     _ => None
   }
 }
@@ -31264,7 +31297,7 @@ fn OiI32BinaryIdentityOperandFact::from_right_operand(
   // Noncommutative identity rewrites are one-sided: `x - 0`, `x / 1`, and
   // rotates by zero retain only the left operand. Keep that asymmetry explicit.
   match optimize_instructions_i32_const(func, dead, rhs_id) {
-    Some(@lib.I32(raw)) if raw == identity => Some({ retained_id: lhs_id })
+    Some(@lib.I32(raw)) if raw == identity => Some({ retained_id: lhs_id, })
     _ => None
   }
 }
@@ -31279,7 +31312,7 @@ fn OiI64BinaryIdentityOperandFact::from_right_operand(
 ) -> OiI64BinaryIdentityOperandFact? {
   // Same one-sided noncommutative identity proof for the i64 lane.
   match optimize_instructions_i64_const(func, dead, rhs_id) {
-    Some(@lib.I64(raw)) if raw == identity => Some({ retained_id: lhs_id })
+    Some(@lib.I64(raw)) if raw == identity => Some({ retained_id: lhs_id, })
     _ => None
   }
 }
@@ -31307,7 +31340,7 @@ fn OiI32RemainderOneFact::from_operands(
   match optimize_instructions_i32_const(func, dead, rhs_id) {
     Some(@lib.I32(1)) if OiSideEffectFreeExpressionFact::proves_node_free(
         func, dead, lhs_id,
-      ) => Some({ replacement: @lib.I32(0) })
+      ) => Some({ replacement: @lib.I32(0), })
     _ => None
   }
 }
@@ -31323,7 +31356,7 @@ fn OiI64RemainderOneFact::from_operands(
   match optimize_instructions_i64_const(func, dead, rhs_id) {
     Some(@lib.I64(1L)) if OiSideEffectFreeExpressionFact::proves_node_free(
         func, dead, lhs_id,
-      ) => Some({ replacement: @lib.I64(0L) })
+      ) => Some({ replacement: @lib.I64(0L), })
     _ => None
   }
 }
@@ -31560,7 +31593,7 @@ fn OiI32AbsorbingZeroFact::from_operands(
     zero_on_lhs && zero_on_rhs
   }
   if pure_other {
-    Some({ replacement: @lib.I32(0) })
+    Some({ replacement: @lib.I32(0), })
   } else {
     None
   }
@@ -31590,7 +31623,7 @@ fn OiI64AbsorbingZeroFact::from_operands(
     zero_on_lhs && zero_on_rhs
   }
   if pure_other {
-    Some({ replacement: @lib.I64(0L) })
+    Some({ replacement: @lib.I64(0L), })
   } else {
     None
   }
@@ -31676,7 +31709,7 @@ fn OiI32AbsorbingAllOnesOrFact::from_operands(
   } else {
     None
   }
-  Some({ replacement: @lib.I32(-1), drop_id })
+  Some({ replacement: @lib.I32(-1), drop_id, })
 }
 
 ///|
@@ -31715,7 +31748,7 @@ fn OiI64AbsorbingAllOnesOrFact::from_operands(
   } else {
     None
   }
-  Some({ replacement: @lib.I64(-1L), drop_id })
+  Some({ replacement: @lib.I64(-1L), drop_id, })
 }
 
 ///|
@@ -31793,7 +31826,7 @@ fn OiI32RemainderNegOneFact::from_operands(
   match optimize_instructions_i32_const(func, dead, rhs_id) {
     Some(@lib.I32(-1)) if OiSideEffectFreeExpressionFact::proves_node_free(
         func, dead, lhs_id,
-      ) => Some({ replacement: @lib.I32(0) })
+      ) => Some({ replacement: @lib.I32(0), })
     _ => None
   }
 }
@@ -31809,7 +31842,7 @@ fn OiI64RemainderNegOneFact::from_operands(
   match optimize_instructions_i64_const(func, dead, rhs_id) {
     Some(@lib.I64(-1L)) if OiSideEffectFreeExpressionFact::proves_node_free(
         func, dead, lhs_id,
-      ) => Some({ replacement: @lib.I64(0L) })
+      ) => Some({ replacement: @lib.I64(0L), })
     _ => None
   }
 }
@@ -32292,7 +32325,7 @@ fn OiLeadingOperandSwapFact::from_operands(
   } else {
     OiSubtreeReorderEffectFact::empty()
   }
-  { left_in_bounds, right_in_bounds, left_effects, right_effects }
+  { left_in_bounds, right_in_bounds, left_effects, right_effects, }
 }
 
 ///|
@@ -33137,14 +33170,14 @@ fn OiRemainderInstructionFact::from_node(
   // fact data so compare-to-zero cleanup does not own a bespoke recursive scan.
   let live = OiLiveNodeFact::proves_node_live(func, dead, node_id)
   if !live {
-    return { live, exact_instr: None }
+    return { live, exact_instr: None, }
   }
   let exact_id = match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::LocalTee if @ir.hot_child_count(func, node_id) == 1 =>
       @ir.hot_child_get(func, node_id, 0)
     _ => node_id
   }
-  { live, exact_instr: @ir.hot_node_exact_instr(func, exact_id) }
+  { live, exact_instr: @ir.hot_node_exact_instr(func, exact_id), }
 }
 
 ///|
@@ -33918,7 +33951,7 @@ priv struct OiDescriptorInternalLabelFact {
 
 ///|
 fn OiDescriptorContainmentFact::empty() -> OiDescriptorContainmentFact {
-  { kind: DescriptorContainmentAbsent }
+  { kind: DescriptorContainmentAbsent, }
 }
 
 ///|
@@ -33932,7 +33965,7 @@ fn OiDescriptorContainmentFact::from_node(
   // localized. Keep that subtree proof as selected root/child/region facts
   // rather than a helper recursively scanning child and control regions.
   if root_id == target_id {
-    return { kind: DescriptorContainmentRootTarget }
+    return { kind: DescriptorContainmentRootTarget, }
   }
   if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
     return OiDescriptorContainmentFact::empty()
@@ -33948,7 +33981,7 @@ fn OiDescriptorContainmentFact::from_node(
       ).proves_contains_target()
   }
   if child_contains_target {
-    return { kind: DescriptorContainmentChildTarget }
+    return { kind: DescriptorContainmentChildTarget, }
   }
   let region_contains_target = match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
@@ -33975,7 +34008,7 @@ fn OiDescriptorContainmentFact::from_node(
     _ => false
   }
   if region_contains_target {
-    { kind: DescriptorContainmentRegionTarget }
+    { kind: DescriptorContainmentRegionTarget, }
   } else {
     OiDescriptorContainmentFact::empty()
   }
@@ -34012,7 +34045,7 @@ fn OiDescriptorContainmentRegionFact::from_region(
   {
     root_count,
     target_fact: if contains_target {
-      Some({ region_root_count: root_count })
+      Some({ region_root_count: root_count, })
     } else {
       None
     },
@@ -34043,9 +34076,9 @@ fn OiDescriptorLabelValidityFact::from_label_id(
   label_id : Int,
 ) -> OiDescriptorLabelValidityFact {
   if label_id < 0 || label_id >= func.labels.length() {
-    { kind: DescriptorLabelInvalid }
+    { kind: DescriptorLabelInvalid, }
   } else {
-    { kind: DescriptorLabelValid }
+    { kind: DescriptorLabelValid, }
   }
 }
 
@@ -34136,7 +34169,7 @@ fn OiDescriptorBranchControlSummaryFact::from_flags(
 
 ///|
 fn OiDescriptorBranchControlSummaryFact::empty() -> OiDescriptorBranchControlSummaryFact {
-  { kind: DescriptorBranchControlAbsent }
+  { kind: DescriptorBranchControlAbsent, }
 }
 
 ///|
@@ -34392,7 +34425,10 @@ fn OiDescriptorBranchControlRegionFact::from_region_range(
 
 ///|
 fn OiDescriptorBranchControlRegionFact::empty() -> OiDescriptorBranchControlRegionFact {
-  { root_count: 0, control_fact: OiDescriptorBranchControlSummaryFact::empty() }
+  {
+    root_count: 0,
+    control_fact: OiDescriptorBranchControlSummaryFact::empty(),
+  }
 }
 
 ///|
@@ -34411,7 +34447,7 @@ fn OiDescriptorBranchControlRegionFact::proves_has_escaping_branch_control(
 
 ///|
 fn OiDescriptorSkipOrderFact::empty() -> OiDescriptorSkipOrderFact {
-  { live: false, effect_fact: None }
+  { live: false, effect_fact: None, }
 }
 
 ///|
@@ -34466,7 +34502,7 @@ fn OiDescriptorSkipOrderFact::from_node(
   if direct_order_sensitive_effect {
     return {
       live: true,
-      effect_fact: Some({ kind: DescriptorSkipOrderDirectEffect }),
+      effect_fact: Some({ kind: DescriptorSkipOrderDirectEffect, }),
     }
   }
   let region_order_sensitive_effect = match node.op {
@@ -34492,7 +34528,7 @@ fn OiDescriptorSkipOrderFact::from_node(
   if region_order_sensitive_effect {
     return {
       live: true,
-      effect_fact: Some({ kind: DescriptorSkipOrderRegionEffect }),
+      effect_fact: Some({ kind: DescriptorSkipOrderRegionEffect, }),
     }
   }
   let mut child_order_sensitive_effect = false
@@ -34506,7 +34542,7 @@ fn OiDescriptorSkipOrderFact::from_node(
   {
     live: true,
     effect_fact: if child_order_sensitive_effect {
-      Some({ kind: DescriptorSkipOrderChildEffect })
+      Some({ kind: DescriptorSkipOrderChildEffect, })
     } else {
       None
     },
@@ -34541,7 +34577,7 @@ fn OiDescriptorSkipOrderRegionFact::from_region(
   {
     root_count,
     effect_fact: if has_order_sensitive_effect {
-      Some({ kind: DescriptorSkipOrderRegionEffect })
+      Some({ kind: DescriptorSkipOrderRegionEffect, })
     } else {
       None
     },
@@ -34948,7 +34984,7 @@ fn OiStandaloneRefGetDescLeafFact::from_node(
       }
     _ => None
   }
-  { known_null_leaf, nullable_leaf_move, nontrapping_operand_leaf }
+  { known_null_leaf, nullable_leaf_move, nontrapping_operand_leaf, }
 }
 
 ///|
@@ -34998,7 +35034,7 @@ priv struct OiStandaloneRefGetDescLocalTeeChildFact {
 
 ///|
 fn OiStandaloneRefGetDescLocalTeeChildFact::empty() -> OiStandaloneRefGetDescLocalTeeChildFact {
-  { live: false, leaf_fact: OiStandaloneRefGetDescLeafFact::empty() }
+  { live: false, leaf_fact: OiStandaloneRefGetDescLeafFact::empty(), }
 }
 
 ///|
@@ -35227,7 +35263,7 @@ fn OiStandaloneRefGetDescLabelOwnerFact::from_label(
   let valid_label = label_id >= 0 && label_id < func.labels.length()
   let owner_matches = valid_label &&
     @ir.hot_label_owner(func, label_id) == owner_id
-  { valid_label, owner_matches }
+  { valid_label, owner_matches, }
 }
 
 ///|
@@ -35502,7 +35538,7 @@ priv struct OiStandaloneRefGetDescBlockMovePrefixPayloadFact {
 
 ///|
 fn OiStandaloneRefGetDescBlockMovePrefixPayloadFact::empty() -> OiStandaloneRefGetDescBlockMovePrefixPayloadFact {
-  { roots_allowed: false, saw_internal_ref_branch: false }
+  { roots_allowed: false, saw_internal_ref_branch: false, }
 }
 
 ///|
@@ -35535,7 +35571,7 @@ fn OiStandaloneRefGetDescBlockMovePrefixPayloadFact::from_region_prefix(
       saw_internal_ref_branch = true
     }
   }
-  { roots_allowed, saw_internal_ref_branch }
+  { roots_allowed, saw_internal_ref_branch, }
 }
 
 ///|
@@ -35545,7 +35581,7 @@ priv struct OiStandaloneRefGetDescBlockMoveFinalPayloadFact {
 
 ///|
 fn OiStandaloneRefGetDescBlockMoveFinalPayloadFact::empty() -> OiStandaloneRefGetDescBlockMoveFinalPayloadFact {
-  { root_allowed: false }
+  { root_allowed: false, }
 }
 
 ///|
@@ -35613,12 +35649,12 @@ fn OiStandaloneRefGetDescBlockMoveFact::from_block(
   }
   let single_nullable_ref_result = OiResultShapeFact::from_node(func, block_id).proves_single_nullable_ref_result()
   if !single_nullable_ref_result {
-    return { ..empty, live: true }
+    return { ..empty, live: true, }
   }
   let body = @ir.hot_region_body_ref(func, block_id)
   let root_count = @ir.hot_region_root_count(func, body)
   if root_count == 0 {
-    return { ..empty, live: true, single_nullable_ref_result }
+    return { ..empty, live: true, single_nullable_ref_result, }
   }
   let prefix_payload = OiStandaloneRefGetDescBlockMovePrefixPayloadFact::from_region_prefix(
     func, block_id, body, root_count,
@@ -35655,7 +35691,7 @@ priv struct OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact {
 
 ///|
 fn OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact::empty() -> OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact {
-  { branch_free_roots: false, roots_void_control_allowed: false }
+  { branch_free_roots: false, roots_void_control_allowed: false, }
 }
 
 ///|
@@ -35691,7 +35727,7 @@ fn OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact::from_region_prefix(
       roots_void_control_allowed = false
     }
   }
-  { branch_free_roots, roots_void_control_allowed }
+  { branch_free_roots, roots_void_control_allowed, }
 }
 
 ///|
@@ -35702,7 +35738,7 @@ priv struct OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact {
 
 ///|
 fn OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact::empty() -> OiStandaloneRefGetDescKnownNullBlockFinalPayloadFact {
-  { known_null_ref_null_leaf: false, control_allowed: false }
+  { known_null_ref_null_leaf: false, control_allowed: false, }
 }
 
 ///|
@@ -35759,12 +35795,12 @@ fn OiStandaloneRefGetDescKnownNullBlockFact::from_block(
   }
   let single_nullable_ref_result = OiResultShapeFact::from_node(func, block_id).proves_single_nullable_ref_result()
   if !single_nullable_ref_result {
-    return { ..empty, live: true }
+    return { ..empty, live: true, }
   }
   let body = @ir.hot_region_body_ref(func, block_id)
   let root_count = @ir.hot_region_root_count(func, body)
   if root_count == 0 {
-    return { ..empty, live: true, single_nullable_ref_result }
+    return { ..empty, live: true, single_nullable_ref_result, }
   }
   let prefix_payload = OiStandaloneRefGetDescKnownNullBlockPrefixPayloadFact::from_region_prefix(
     func, block_id, body, root_count,
@@ -35802,7 +35838,7 @@ priv struct OiStandaloneRefGetDescCallOperandLeafFact {
 
 ///|
 fn OiStandaloneRefGetDescCallOperandLeafFact::empty() -> OiStandaloneRefGetDescCallOperandLeafFact {
-  { all_nontrapping_leaves: false }
+  { all_nontrapping_leaves: false, }
 }
 
 ///|
@@ -35862,7 +35898,7 @@ fn OiStandaloneRefGetDescCallMoveFact::from_call(
   }
   let single_ref_result = OiResultShapeFact::from_node(func, call_id).proves_single_ref_result()
   if !single_ref_result {
-    return { ..empty, live: true }
+    return { ..empty, live: true, }
   }
   {
     live: true,
@@ -36067,7 +36103,7 @@ fn OiDescriptorAllocationEraseFact::from_node(
   } else {
     DescriptorAllocationMustPreserve
   }
-  { live: true, struct_new_default, kind }
+  { live: true, struct_new_default, kind, }
 }
 
 ///|
@@ -36856,7 +36892,7 @@ fn OiRefEqLocalTypeFact::from_node(
 
 ///|
 fn OiRefEqNonNullLocalFact::none() -> OiRefEqNonNullLocalFact {
-  { local_index: None, trap_id: None }
+  { local_index: None, trap_id: None, }
 }
 
 ///|
@@ -36870,7 +36906,10 @@ fn OiRefEqNonNullLocalFact::from_node(
   // than pairing the local with a sentinel trap id in the relation decision.
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::LocalGet =>
-      { local_index: Some(@ir.hot_node_get(func, node_id).imm0), trap_id: None }
+      {
+        local_index: Some(@ir.hot_node_get(func, node_id).imm0),
+        trap_id: None,
+      }
     _ =>
       match @ir.hot_node_exact_instr(func, node_id) {
         Some(@lib.Instruction::RefAsNonNull) => {
@@ -36968,7 +37007,7 @@ fn OiRefEqI31SourceFact::from_node(
   // under the wider i31 operand fact so later non-null/disjoint proofs do not
   // duplicate child-shape parsing.
   if @ir.hot_child_count(func, node_id) != 1 {
-    return { local_index: None, const_value: None }
+    return { local_index: None, const_value: None, }
   }
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefI31) => {
@@ -36982,7 +37021,7 @@ fn OiRefEqI31SourceFact::from_node(
         const_value: optimize_instructions_i32_const(func, dead, child_id),
       }
     }
-    _ => { local_index: None, const_value: None }
+    _ => { local_index: None, const_value: None, }
   }
 }
 
@@ -37006,7 +37045,7 @@ fn OiRefEqI31Fact::from_node(
   let disjoint_target_fact = OiRefEqI31DisjointTargetFact::from_ref_type(
     local_ref_type,
   )
-  { source_fact, non_null_fact, disjoint_target_fact }
+  { source_fact, non_null_fact, disjoint_target_fact, }
 }
 
 ///|
@@ -37152,7 +37191,7 @@ fn OiRefEqNullableEqRequirementFact::from_node(
       ref_type.get_heap_type(),
       @lib.HeapType::abs(@lib.AbsHeapType::eq()),
     ).known_match_target() {
-    Some({ child_id: node_id })
+    Some({ child_id: node_id, })
   } else {
     None
   }
@@ -37180,7 +37219,7 @@ fn OiRefEqSkipCastStepFact::from_node(
     Some(fact) => fact
     None => return None
   }
-  Some({ shell_fact, requirement_fact })
+  Some({ shell_fact, requirement_fact, })
 }
 
 ///|
@@ -37208,7 +37247,7 @@ fn OiRefEqSkipCastOperandFact::from_node(
   // shell and nullable-eq child-requirement facts so unsupported wrappers simply
   // stop the chain instead of flowing through a sentinel child id.
   if !ctx.traps_never_happen {
-    return { replacement_id: node_id, changed: false }
+    return { replacement_id: node_id, changed: false, }
   }
   let mut current_id = node_id
   let mut changed = false
@@ -37221,7 +37260,7 @@ fn OiRefEqSkipCastOperandFact::from_node(
     current_id = step_fact.replacement_child_id()
     changed = true
   }
-  { replacement_id: current_id, changed }
+  { replacement_id: current_id, changed, }
 }
 
 ///|
@@ -37469,7 +37508,7 @@ fn OiRefEqImpossibleFact::from_relation(
       relation.rhs.i31_fact.proves_known_non_null() &&
       relation.lhs.i31_fact.proves_cannot_match_target()
     ) {
-    return Some({ kind: RefEqI31AgainstDisjointHeap })
+    return Some({ kind: RefEqI31AgainstDisjointHeap, })
   }
   match
     (
@@ -37482,7 +37521,7 @@ fn OiRefEqImpossibleFact::from_relation(
         lhs.get_heap_type(),
         rhs.get_heap_type(),
       ).known_abs_struct_array_disjoint() =>
-      Some({ kind: RefEqDisjointLocalHeapTypes })
+      Some({ kind: RefEqDisjointLocalHeapTypes, })
     _ => None
   }
 }
@@ -37948,7 +37987,7 @@ fn OiRefEqOperandErasabilityFact::from_operand(
     Some(@lib.Instruction::RefAsNonNull)
     | Some(@lib.Instruction::RefCast(_, _, _)) => {
       if !ctx.traps_never_happen && !ctx.ignore_implicit_traps {
-        return { kind: RefEqOperandPreserveReferenceTrap, foldability_fact }
+        return { kind: RefEqOperandPreserveReferenceTrap, foldability_fact, }
       }
       if @ir.hot_child_count(func, operand_id) == 1 &&
         OiSideEffectFreeExpressionFact::proves_node_free(
@@ -37956,7 +37995,7 @@ fn OiRefEqOperandErasabilityFact::from_operand(
           dead,
           @ir.hot_child_get(func, operand_id, 0),
         ) {
-        return { kind: RefEqOperandErasable, foldability_fact }
+        return { kind: RefEqOperandErasable, foldability_fact, }
       }
     }
     _ => ()
@@ -37966,7 +38005,7 @@ fn OiRefEqOperandErasabilityFact::from_operand(
   } else {
     RefEqOperandNotFoldable
   }
-  { kind, foldability_fact }
+  { kind, foldability_fact, }
 }
 
 ///|
@@ -38410,17 +38449,17 @@ fn OiSignedDomainEdgeCompareFact::from_operands(
   if rhs_is_signed_min {
     match instr {
       @lib.Instruction::I32LtS | @lib.Instruction::I64LtS =>
-        Some({ edge: DomainLowerEdge, result: @lib.I32(0) })
+        Some({ edge: DomainLowerEdge, result: @lib.I32(0), })
       @lib.Instruction::I32GeS | @lib.Instruction::I64GeS =>
-        Some({ edge: DomainLowerEdge, result: @lib.I32(1) })
+        Some({ edge: DomainLowerEdge, result: @lib.I32(1), })
       _ => None
     }
   } else if rhs_is_signed_max {
     match instr {
       @lib.Instruction::I32GtS | @lib.Instruction::I64GtS =>
-        Some({ edge: DomainUpperEdge, result: @lib.I32(0) })
+        Some({ edge: DomainUpperEdge, result: @lib.I32(0), })
       @lib.Instruction::I32LeS | @lib.Instruction::I64LeS =>
-        Some({ edge: DomainUpperEdge, result: @lib.I32(1) })
+        Some({ edge: DomainUpperEdge, result: @lib.I32(1), })
       _ => None
     }
   } else {
@@ -38642,7 +38681,7 @@ fn OiSameLocalIntegerBinaryFact::from_operands(
       OiSameLocalIntegerBinaryRewriteKind::SameLocalBinaryRetainLeft
     _ => return None
   }
-  Some({ kind, retained_id: lhs_id })
+  Some({ kind, retained_id: lhs_id, })
 }
 
 ///|
@@ -38728,9 +38767,9 @@ fn OiI32SignExtensionRangeFact::from_node(
   let child_id = @ir.hot_child_get(func, node_id, 0)
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32Extend8S) =>
-      Some({ child_id, min_value: -128, max_value: 127, mask_value: 255 })
+      Some({ child_id, min_value: -128, max_value: 127, mask_value: 255, })
     Some(@lib.Instruction::I32Extend16S) =>
-      Some({ child_id, min_value: -32768, max_value: 32767, mask_value: 65535 })
+      Some({ child_id, min_value: -32768, max_value: 32767, mask_value: 65535, })
     _ => None
   }
 }
@@ -38799,7 +38838,7 @@ fn OiI32SignExtensionEqualityFoldFact::from_compare(
     @lib.Instruction::I32Ne => @lib.I32(1)
     _ => return None
   }
-  Some({ compare_id, sign_ext_fact, result })
+  Some({ compare_id, sign_ext_fact, result, })
 }
 
 ///|
@@ -38859,7 +38898,7 @@ fn OiI32SignExtensionUnsignedTopCompareFact::from_compare(
     @lib.Instruction::I32GeU => @lib.Instruction::i32_eq()
     _ => return None
   }
-  Some({ compare_id, sign_ext_fact, replacement_instr })
+  Some({ compare_id, sign_ext_fact, replacement_instr, })
 }
 
 ///|
@@ -38916,7 +38955,7 @@ fn OiI64SignExtensionUnsignedTopCompareFact::from_compare(
     @lib.Instruction::I64GeU => @lib.Instruction::i64_eq()
     _ => return None
   }
-  Some({ compare_id, sign_ext_fact, replacement_instr })
+  Some({ compare_id, sign_ext_fact, replacement_instr, })
 }
 
 ///|
@@ -39285,7 +39324,7 @@ fn OiEqzBooleanCompareOperandFact::from_pair(
   if !OiLiveNodeFact::proves_node_live(func, dead, operand_id) {
     return None
   }
-  Some({ eqz_id, operand_id, const_value, width })
+  Some({ eqz_id, operand_id, const_value, width, })
 }
 
 ///|
@@ -39321,7 +39360,7 @@ fn OiEqzBooleanCompareFact::from_operands(
       EqzBooleanCompareKeepEqz
     _ => EqzBooleanCompareInvertToNeZero
   }
-  Some({ operand_fact, rewrite })
+  Some({ operand_fact, rewrite, })
 }
 
 ///|
@@ -39542,7 +39581,7 @@ fn OiBooleanTryRegionThrowFact::from_region(
       _ => return None
     }
   }
-  Some({ kind: BooleanTryRegionProvenNonThrowing })
+  Some({ kind: BooleanTryRegionProvenNonThrowing, })
 }
 
 ///|
@@ -39562,7 +39601,7 @@ fn OiBooleanTryExpressionThrowFact::from_node(
     return None
   }
   match states[node_id] {
-    2 => return Some({ kind: BooleanTryOrdinaryExpressionProvenNonThrowing })
+    2 => return Some({ kind: BooleanTryOrdinaryExpressionProvenNonThrowing, })
     1 => return None
     _ => states[node_id] = 1
   }
@@ -39760,7 +39799,7 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
         IfElseStopsThenFallsThroughRegion => BooleanEqzFallthroughIfThenArmTail
         IfNoOneSidedFallthroughRegion => return None
       }
-      Some({ kind, value_id })
+      Some({ kind, value_id, })
     }
     @ir.HotOp::Try =>
       match OiBooleanTryBodyThrowFact::from_try_operand(func, operand_id) {
@@ -39865,7 +39904,7 @@ fn OiBooleanEqzFallthroughChainFact::from_operand(
       func, value_id, expected_type,
     ) {
     Some(_) => None
-    None => Some({ value_id, preservation })
+    None => Some({ value_id, preservation, })
   }
 }
 
@@ -39912,7 +39951,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
     Some(@lib.I32(_)) => 0
     None => return None
   }
-  Some({ operand_id, folded_value, preservation: fallthrough.preservation })
+  Some({ operand_id, folded_value, preservation: fallthrough.preservation, })
 }
 
 ///|
@@ -39948,7 +39987,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
     Some(@lib.I64(_)) => 0
     None => return None
   }
-  Some({ operand_id, folded_value, preservation: fallthrough.preservation })
+  Some({ operand_id, folded_value, preservation: fallthrough.preservation, })
 }
 
 ///|
@@ -39974,11 +40013,11 @@ fn OiBooleanSignedRemainderMaskFact::from_operands(
     None => return None
   }
   if divisor == -2147483648 {
-    return Some({ value_id, mask_value: 2147483647 })
+    return Some({ value_id, mask_value: 2147483647, })
   }
   let magnitude = if divisor < 0 { -divisor } else { divisor }
   match optimize_instructions_i32_power_of_two_shift(magnitude) {
-    Some(_) => Some({ value_id, mask_value: magnitude - 1 })
+    Some(_) => Some({ value_id, mask_value: magnitude - 1, })
     None => None
   }
 }
@@ -40047,7 +40086,7 @@ fn OiBooleanContextLeafRewriteFact::from_node(
             kind: BooleanContextLeafForwardI32NeZero,
             node_id,
             eqz_fallthrough_const_fact: None,
-            forward_fact: Some({ replacement_id: lhs_id }),
+            forward_fact: Some({ replacement_id: lhs_id, }),
             remainder_mask_fact: None,
           }
         _ => no_rewrite
@@ -40059,7 +40098,7 @@ fn OiBooleanContextLeafRewriteFact::from_node(
             kind: BooleanContextLeafForwardI32ZeroMinus,
             node_id,
             eqz_fallthrough_const_fact: None,
-            forward_fact: Some({ replacement_id: rhs_id }),
+            forward_fact: Some({ replacement_id: rhs_id, }),
             remainder_mask_fact: None,
           }
         _ => no_rewrite
@@ -40296,7 +40335,7 @@ fn OiBooleanIfArmsContextFact::from_condition(
     Some(fact) => fact
     None => return None
   }
-  Some({ if_id: condition_id, then_arm, else_arm })
+  Some({ if_id: condition_id, then_arm, else_arm, })
 }
 
 ///|
@@ -40335,7 +40374,7 @@ fn OiBooleanTryContextFact::from_condition(
     Some(region) => OiBooleanIfArmContextFact::from_region(func, region)
     None => None
   }
-  Some({ try_id: condition_id, body_arm, catch_arm })
+  Some({ try_id: condition_id, body_arm, catch_arm, })
 }
 
 ///|
@@ -40348,7 +40387,7 @@ priv struct OiBooleanContextRewriteOutcome {
 fn OiBooleanContextRewriteOutcome::unchanged(
   node_id : Int,
 ) -> OiBooleanContextRewriteOutcome {
-  { result_id: node_id, changed: false }
+  { result_id: node_id, changed: false, }
 }
 
 ///|
@@ -40366,7 +40405,7 @@ fn optimize_instructions_rewrite_boolean_context_node(
     OiBooleanContextLeafRewriteFact::from_node(func, dead, node_id).apply_selected_rewrite(
       func,
     ) {
-    Some(replacement_id) => return { result_id: replacement_id, changed: true }
+    Some(replacement_id) => return { result_id: replacement_id, changed: true, }
     None => ()
   }
   match OiBooleanOrOperandsContextFact::from_node(func, node_id) {
@@ -40387,7 +40426,7 @@ fn optimize_instructions_rewrite_boolean_context_node(
       if right.result_id != fact.right_id {
         @ir.hot_child_set(func, fact.or_id, 1, right.result_id)
       }
-      return { result_id: fact.or_id, changed: left.changed || right.changed }
+      return { result_id: fact.or_id, changed: left.changed || right.changed, }
     }
     None => ()
   }
@@ -40408,7 +40447,7 @@ fn optimize_instructions_rewrite_boolean_context_node(
           ),
         )
       }
-      return { result_id: fact.block_id, changed: tail.changed }
+      return { result_id: fact.block_id, changed: tail.changed, }
     }
     None => ()
   }
@@ -41234,12 +41273,12 @@ fn OiUnsupportedAggregateAtomicReceiverFact::from_func(
       Some(@lib.Instruction::StructAtomicRmw(_, _, _, _))
       | Some(@lib.Instruction::StructAtomicCmpxchg(_, _, _)) =>
         if @ir.hot_child_count(func, node_id) == 0 {
-          return { found_unsupported_receiver: true }
+          return { found_unsupported_receiver: true, }
         }
       _ => ()
     }
   }
-  { found_unsupported_receiver: false }
+  { found_unsupported_receiver: false, }
 }
 
 ///|

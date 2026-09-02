@@ -91,7 +91,7 @@ fn wast_roundtrip_valid_only_module(st : RandomState) -> Module {
         exports: [Export("valid0")],
         type_use: {
           type_index: None,
-          func_type: { params: [], results: [I32] },
+          func_type: { params: [], results: [I32], },
           param_ids: [],
         },
         locals: [],
@@ -115,7 +115,7 @@ fn wast_roundtrip_static_assertion_script(st : RandomState) -> WastScript {
               field_name: "missing\{import_idx}",
               desc: ImportDesc::Func({
                 type_index: None,
-                func_type: { params: [], results: [] },
+                func_type: { params: [], results: [], },
                 param_ids: [],
               }),
               id: Some("$imp"),
@@ -282,7 +282,7 @@ test "wast module conversion basic roundtrip" {
     Ok(m) => m
     Err(msg) => {
       assert_true(false, msg~)
-      { id: None, fields: [] }
+      { id: None, fields: [], }
     }
   }
   let text1 = module_to_wast(mod1).unwrap()

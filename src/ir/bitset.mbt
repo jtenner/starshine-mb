@@ -80,7 +80,7 @@ fn bitset_word_bit_mask(idx : Int) -> UInt64 {
 ///|
 pub fn bitset_new(size : Int) -> Bitset {
   bitset_require_size(size)
-  { size, words: Array::make(bitset_word_count(size), 0UL) }
+  { size, words: Array::make(bitset_word_count(size), 0UL), }
 }
 
 ///|

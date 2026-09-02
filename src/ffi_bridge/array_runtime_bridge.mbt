@@ -90,13 +90,7 @@ pub fn instructions_push_array_push(
 ) -> Unit {
   if carrier >= 6 {
     let pair = carrier - 6
-    bridge_instructions_push_map_set(
-      values,
-      base,
-      pair / 6,
-      pair % 6,
-      scratch,
-    )
+    bridge_instructions_push_map_set(values, base, pair / 6, pair % 6, scratch)
     return
   }
   let wrapper = scratch
@@ -108,15 +102,50 @@ pub fn instructions_push_array_push(
   values.push(@lib.Instruction::local_set(bridge_array_local(item)))
   values.push(@lib.Instruction::local_set(bridge_array_local(wrapper)))
   bridge_map_append_from_locals(
-    values,
-    base,
-    carrier,
-    wrapper,
-    item,
-    backing,
-    length,
-    capacity,
-    new_backing,
+    values, base, carrier, wrapper, item, backing, length, capacity, new_backing,
+  )
+}
+
+///|
+/// Append one carrier-specific Array pop operation.
+/// The caller must prove that carrier is in the range 0 through 5.
+pub fn instructions_push_array_pop(
+  values : Array[@lib.Instruction],
+  base : Int,
+  carrier : Int,
+  scratch : Int,
+) -> Unit {
+  let wrapper_type = bridge_array_wrapper_type(base)
+  let array_type = bridge_array_type(base, carrier)
+  let none_type = @lib.TypeIdx::new((base + 10).reinterpret_as_uint())
+  let some_type = @lib.TypeIdx::new((base + 11 + carrier).reinterpret_as_uint())
+  let wrapper = scratch
+  let length = scratch + 8
+  values.push(@lib.Instruction::local_set(bridge_array_local(wrapper)))
+  bridge_array_wrapper_get(values, wrapper_type, wrapper, 1U)
+  values.push(@lib.Instruction::local_set(bridge_array_local(length)))
+  values.push(@lib.Instruction::local_get(bridge_array_local(length)))
+  values.push(@lib.Instruction::i32_eqz())
+  let success : Array[@lib.Instruction] = [
+    @lib.Instruction::local_get(bridge_array_local(length)),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::i32_sub(),
+    @lib.Instruction::local_set(bridge_array_local(length)),
+  ]
+  bridge_array_wrapper_set_prefix(success, wrapper_type, wrapper)
+  success.push(@lib.Instruction::local_get(bridge_array_local(length)))
+  success.push(@lib.Instruction::struct_set(wrapper_type, 1U))
+  bridge_array_wrapper_get(success, wrapper_type, wrapper, 0U)
+  success.push(bridge_array_ref_cast(array_type))
+  success.push(@lib.Instruction::local_get(bridge_array_local(length)))
+  success.push(@lib.Instruction::array_get(array_type))
+  success.push(@lib.Instruction::struct_new(some_type))
+  values.push(
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::eqref_null()),
+      [@lib.Instruction::struct_new(none_type)],
+      Some(success),
+    ),
   )
 }
 
@@ -171,9 +200,7 @@ fn bridge_array_push_body(base : Int, carrier : Int) -> @lib.Func {
     @lib.Instruction::local_get(bridge_array_local(length)),
     @lib.Instruction::array_copy(array_type, array_type),
   ]
-  grow.push(
-    @lib.Instruction::if_(@lib.BlockType::void_(), [], Some(copy)),
-  )
+  grow.push(@lib.Instruction::if_(@lib.BlockType::void_(), [], Some(copy)))
   bridge_array_wrapper_set_prefix(grow, wrapper_type, 0)
   grow.push(@lib.Instruction::local_get(bridge_array_local(new_backing)))
   grow.push(@lib.Instruction::struct_set(wrapper_type, 0U))
@@ -438,9 +465,7 @@ fn bridge_array_truncate_body(base : Int) -> @lib.Func {
   bridge_array_wrapper_set_prefix(truncate, wrapper_type, 0)
   truncate.push(@lib.Instruction::local_get(bridge_array_local(1)))
   truncate.push(@lib.Instruction::struct_set(wrapper_type, 1U))
-  body.push(
-    @lib.Instruction::if_(@lib.BlockType::void_(), truncate, None),
-  )
+  body.push(@lib.Instruction::if_(@lib.BlockType::void_(), truncate, None))
   @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body))
 }
 

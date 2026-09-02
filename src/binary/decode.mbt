@@ -1243,7 +1243,7 @@ fn module_decode_error(
   section_len? : Int? = None,
   trailing_offset? : Int? = None,
 ) -> ModuleDecodeErrorDetail {
-  { err, section_id, section_offset, section_len, trailing_offset }
+  { err, section_id, section_offset, section_len, trailing_offset, }
 }
 
 ///|

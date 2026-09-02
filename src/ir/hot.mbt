@@ -110,7 +110,7 @@ fn hot_wrap_region(
     id,
     hot_region_body(func, expr, label_stack, result_arity),
   )
-  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
   id
 }
 
@@ -318,7 +318,7 @@ fn hot_lift_instruction(
         id,
         hot_region_body(func, expr, next_stack, result_arity),
       )
-      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
       if result_arity > 0 {
         values.push(id)
       } else {
@@ -351,7 +351,7 @@ fn hot_lift_instruction(
         id,
         hot_region_body(func, expr, next_stack, result_arity),
       )
-      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
       if result_arity > 0 {
         values.push(id)
       } else {
@@ -395,7 +395,7 @@ fn hot_lift_instruction(
         then_region,
         else_region,
       ])
-      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
       if result_arity > 0 {
         values.push(id)
       } else {

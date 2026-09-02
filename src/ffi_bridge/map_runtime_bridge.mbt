@@ -163,31 +163,20 @@ fn bridge_instructions_push_map_set(
   bridge_map_get_field(output, base, map_local, 1U)
   output.push(@lib.Instruction::local_set(bridge_array_local(values)))
   bridge_map_append_from_locals(
-    output,
-    base,
-    key_carrier,
-    keys,
-    key_local,
-    backing,
-    length,
-    capacity,
-    new_backing,
+    output, base, key_carrier, keys, key_local, backing, length, capacity, new_backing,
   )
   bridge_map_append_from_locals(
-    output,
-    base,
-    value_carrier,
-    values,
-    value_local,
-    backing,
-    length,
-    capacity,
+    output, base, value_carrier, values, value_local, backing, length, capacity,
     new_backing,
   )
 }
 
 ///|
-fn bridge_map_set_body(base : Int, key_carrier : Int, value_carrier : Int) -> @lib.Func {
+fn bridge_map_set_body(
+  base : Int,
+  key_carrier : Int,
+  value_carrier : Int,
+) -> @lib.Func {
   let keys = 3
   let values = 4
   let backing = 5
@@ -279,7 +268,10 @@ fn bridge_map_lookup_body(
     @lib.Instruction::block(
       @lib.BlockType::void_(),
       @lib.Expr::new([
-        @lib.Instruction::loop_(@lib.BlockType::void_(), @lib.Expr::new(loop_body)),
+        @lib.Instruction::loop_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new(loop_body),
+        ),
       ]),
     ),
   )
@@ -316,11 +308,23 @@ fn emit_bridge_map_runtime_function(
   } else if name == b"dew_map_set" || name == b"dew_map_insert" {
     Some(bridge_map_set_body(base, key_carrier, value_carrier))
   } else if name == b"dew_map_get_unchecked" {
-    Some(bridge_map_lookup_body(base, key_carrier, value_carrier, 0, none_type, some_type))
+    Some(
+      bridge_map_lookup_body(
+        base, key_carrier, value_carrier, 0, none_type, some_type,
+      ),
+    )
   } else if name == b"dew_map_get" {
-    Some(bridge_map_lookup_body(base, key_carrier, value_carrier, 1, none_type, some_type))
+    Some(
+      bridge_map_lookup_body(
+        base, key_carrier, value_carrier, 1, none_type, some_type,
+      ),
+    )
   } else if name == b"dew_map_contains_key" {
-    Some(bridge_map_lookup_body(base, key_carrier, value_carrier, 2, none_type, some_type))
+    Some(
+      bridge_map_lookup_body(
+        base, key_carrier, value_carrier, 2, none_type, some_type,
+      ),
+    )
   } else {
     None
   }

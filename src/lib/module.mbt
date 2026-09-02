@@ -8,12 +8,12 @@ pub fn Module::with_custom_secs(
 
 ///|
 pub fn Module::with_name_sec(self : Module, name_sec : NameSec) -> Module {
-  Module::{ ..self, name_sec: Some(name_sec), raw_name_sec_payload: None }
+  Module::{ ..self, name_sec: Some(name_sec), raw_name_sec_payload: None, }
 }
 
 ///|
 pub fn Module::without_name_sec(self : Module) -> Module {
-  Module::{ ..self, name_sec: None, raw_name_sec_payload: None }
+  Module::{ ..self, name_sec: None, raw_name_sec_payload: None, }
 }
 
 ///|
@@ -21,7 +21,7 @@ pub fn Module::with_raw_name_sec_payload(
   self : Module,
   payload : Bytes,
 ) -> Module {
-  Module::{ ..self, raw_name_sec_payload: Some(payload) }
+  Module::{ ..self, raw_name_sec_payload: Some(payload), }
 }
 
 ///|
@@ -37,7 +37,7 @@ pub fn Module::with_compiler_fact_custom_section(
 
 ///|
 pub fn Module::without_compiler_fact_custom_section(self : Module) -> Module {
-  Module::{ ..self, compiler_fact_custom_section: None }
+  Module::{ ..self, compiler_fact_custom_section: None, }
 }
 
 ///|
@@ -63,7 +63,7 @@ pub fn Module::with_func_annotation_sec(
   self : Module,
   func_annotation_sec : FuncAnnotationSec,
 ) -> Module {
-  Module::{ ..self, func_annotation_sec: Some(func_annotation_sec) }
+  Module::{ ..self, func_annotation_sec: Some(func_annotation_sec), }
 }
 
 ///|
@@ -86,12 +86,16 @@ pub fn Module::with_table_sec(self : Module, table_sec : TableSec) -> Module {
 
 ///|
 pub fn Module::with_mem_sec(self : Module, mem_sec : MemSec) -> Module {
-  Module::{ ..self, mem_sec: Some(mem_sec), compiler_fact_custom_section: None }
+  Module::{
+    ..self,
+    mem_sec: Some(mem_sec),
+    compiler_fact_custom_section: None,
+  }
 }
 
 ///|
 pub fn Module::with_tag_sec(self : Module, tag_sec : TagSec) -> Module {
-  Module::{ ..self, tag_sec: Some(tag_sec) }
+  Module::{ ..self, tag_sec: Some(tag_sec), }
 }
 
 ///|
@@ -117,17 +121,17 @@ pub fn Module::with_global_sec(self : Module, global_sec : GlobalSec) -> Module 
 
 ///|
 pub fn Module::with_export_sec(self : Module, export_sec : ExportSec) -> Module {
-  Module::{ ..self, export_sec: Some(export_sec) }
+  Module::{ ..self, export_sec: Some(export_sec), }
 }
 
 ///|
 pub fn Module::with_start_sec(self : Module, start_sec : StartSec) -> Module {
-  Module::{ ..self, start_sec: Some(start_sec) }
+  Module::{ ..self, start_sec: Some(start_sec), }
 }
 
 ///|
 pub fn Module::with_elem_sec(self : Module, elem_sec : ElemSec) -> Module {
-  Module::{ ..self, elem_sec: Some(elem_sec) }
+  Module::{ ..self, elem_sec: Some(elem_sec), }
 }
 
 ///|
@@ -135,7 +139,7 @@ pub fn Module::with_data_cnt_sec(
   self : Module,
   data_cnt_sec : DataCntSec,
 ) -> Module {
-  Module::{ ..self, data_cnt_sec: Some(data_cnt_sec) }
+  Module::{ ..self, data_cnt_sec: Some(data_cnt_sec), }
 }
 
 ///|
@@ -149,7 +153,7 @@ pub fn Module::with_code_sec(self : Module, code_sec : CodeSec) -> Module {
 
 ///|
 pub fn Module::with_data_sec(self : Module, data_sec : DataSec) -> Module {
-  Module::{ ..self, data_sec: Some(data_sec) }
+  Module::{ ..self, data_sec: Some(data_sec), }
 }
 
 ///|

@@ -40,7 +40,7 @@ pub fn ValidationDiagnostic::new(
   issue : ValidationIssue,
   func_idx? : FuncIdx? = None,
 ) -> ValidationDiagnostic {
-  ValidationDiagnostic::{ issue, func_idx }
+  ValidationDiagnostic::{ issue, func_idx, }
 }
 
 ///|
@@ -292,7 +292,7 @@ fn validate_helper_timing_snapshot() -> ValidateHelperTimingSnapshot {
 
 ///|
 fn validate_helper_timing_zero() -> ValidateHelperTimingSnapshot {
-  { validate_func_body_us: 0UL, validate_func_body_calls: 0 }
+  { validate_func_body_us: 0UL, validate_func_body_calls: 0, }
 }
 
 ///|
@@ -364,7 +364,7 @@ fn validate_hotspot_record(
   top_instrs : Int,
 ) -> Unit {
   let entries = validate_hotspot_entries.val
-  entries.push({ ordinal, body_ticks, locals, top_instrs })
+  entries.push({ ordinal, body_ticks, locals, top_instrs, })
   if entries.length() <= VALIDATE_HOTSPOT_SUMMARY_LIMIT {
     validate_hotspot_entries.val = entries
     return
@@ -456,7 +456,16 @@ pub impl Validate for TypeIdx with fn validate(self, env) {
   if env.resolve_typeidx_subtype(self) is Some(_) {
     Ok(())
   } else {
-    Err("No type exists for TypeIdx")
+    match self {
+      TypeIdx(raw) =>
+        Err(
+          "No type exists for TypeIdx \{raw}; global type count is \{env.global_types.length()}",
+        )
+      RecIdx(raw) =>
+        Err(
+          "No type exists for RecIdx \{raw}; recursive group depth is \{env.rec_stack.length()}",
+        )
+    }
   }
 }
 
@@ -1240,7 +1249,7 @@ pub fn validate_tablesec(
 ///|
 fn validate_locals_decls(env : Env, decls : Locals) -> Result[Unit, String] {
   for d in decls.runs() {
-    let { count, vt } = d
+    let { count, vt, } = d
     if Validate::validate(vt, env) is Err(e) {
       return Err(e)
     }
@@ -1542,7 +1551,7 @@ pub fn validate_funcsec(funcsec : FuncSec?, env0 : Env) -> Result[Env, String] {
         }
         funcs.push(ft)
         func_type_idxs.push(Some(tidx))
-        env = Env::{ ..env, funcs, func_type_idxs }
+        env = Env::{ ..env, funcs, func_type_idxs, }
       }
       Ok(env)
     }
@@ -1839,7 +1848,15 @@ pub fn validate_importsec(
           GlobalExternType(gt) => globals.push(gt)
           TagExternType(tt) => tags.push(tt)
         }
-        env = Env::{ ..env, funcs, func_type_idxs, tables, mems, globals, tags }
+        env = Env::{
+          ..env,
+          funcs,
+          func_type_idxs,
+          tables,
+          mems,
+          globals,
+          tags,
+        }
       }
       Ok(env)
     }
@@ -2972,7 +2989,7 @@ fn validate_module_impl(
     data_cnt_sec: datacntsec_opt,
     code_sec: codesec_opt,
     data_sec: datasec_opt,
-    ..,
+    ..
   } = m
 
   let declared_funcs = match funcsec_opt {
@@ -3762,7 +3779,7 @@ pub fn validate_valid_feature_floor(
   key : ValidateValidFeatureKey,
   min_count : Int,
 ) -> ValidateValidFeatureFloor {
-  { key, min_count }
+  { key, min_count, }
 }
 
 ///|
@@ -4065,7 +4082,11 @@ pub fn check_validate_valid_feature_floors(
   for floor in floors {
     let actual_count = validate_valid_feature_actual_count(stats, floor.key)
     if actual_count < floor.min_count {
-      failures.push({ key: floor.key, min_count: floor.min_count, actual_count })
+      failures.push({
+        key: floor.key,
+        min_count: floor.min_count,
+        actual_count,
+      })
     }
   }
   failures
@@ -4836,21 +4857,21 @@ fn gen_valid_coverage_surface_facts_instr(
       facts
     }
     MemoryInit(_, _) =>
-      { ..gen_valid_coverage_surface_facts_empty(), has_memory_init: true }
+      { ..gen_valid_coverage_surface_facts_empty(), has_memory_init: true, }
     DataDrop(_) =>
-      { ..gen_valid_coverage_surface_facts_empty(), has_data_drop: true }
+      { ..gen_valid_coverage_surface_facts_empty(), has_data_drop: true, }
     MemoryCopy(_, _) =>
-      { ..gen_valid_coverage_surface_facts_empty(), has_memory_copy: true }
+      { ..gen_valid_coverage_surface_facts_empty(), has_memory_copy: true, }
     MemoryFill(_) =>
-      { ..gen_valid_coverage_surface_facts_empty(), has_memory_fill: true }
+      { ..gen_valid_coverage_surface_facts_empty(), has_memory_fill: true, }
     TableInit(_, _) =>
-      { ..gen_valid_coverage_surface_facts_empty(), has_table_init: true }
+      { ..gen_valid_coverage_surface_facts_empty(), has_table_init: true, }
     ElemDrop(_) =>
-      { ..gen_valid_coverage_surface_facts_empty(), has_elem_drop: true }
+      { ..gen_valid_coverage_surface_facts_empty(), has_elem_drop: true, }
     TableCopy(_, _) =>
-      { ..gen_valid_coverage_surface_facts_empty(), has_table_copy: true }
+      { ..gen_valid_coverage_surface_facts_empty(), has_table_copy: true, }
     TableFill(_) =>
-      { ..gen_valid_coverage_surface_facts_empty(), has_table_fill: true }
+      { ..gen_valid_coverage_surface_facts_empty(), has_table_fill: true, }
     _ => gen_valid_coverage_surface_facts_empty()
   }
 }
@@ -4883,15 +4904,15 @@ fn gen_valid_coverage_surface_facts_module(
           facts,
           match extern_type {
             FuncExternType(_) =>
-              { ..gen_valid_coverage_surface_facts_empty(), import_funcs: 1 }
+              { ..gen_valid_coverage_surface_facts_empty(), import_funcs: 1, }
             TableExternType(_) =>
-              { ..gen_valid_coverage_surface_facts_empty(), import_tables: 1 }
+              { ..gen_valid_coverage_surface_facts_empty(), import_tables: 1, }
             MemExternType(_) =>
-              { ..gen_valid_coverage_surface_facts_empty(), import_mems: 1 }
+              { ..gen_valid_coverage_surface_facts_empty(), import_mems: 1, }
             GlobalExternType(_) =>
-              { ..gen_valid_coverage_surface_facts_empty(), import_globals: 1 }
+              { ..gen_valid_coverage_surface_facts_empty(), import_globals: 1, }
             TagExternType(_) =>
-              { ..gen_valid_coverage_surface_facts_empty(), import_tags: 1 }
+              { ..gen_valid_coverage_surface_facts_empty(), import_tags: 1, }
           },
         )
       }
@@ -4905,7 +4926,7 @@ fn gen_valid_coverage_surface_facts_module(
           facts,
           match mode {
             Passive =>
-              { ..gen_valid_coverage_surface_facts_empty(), passive_elems: 1 }
+              { ..gen_valid_coverage_surface_facts_empty(), passive_elems: 1, }
             Declarative =>
               {
                 ..gen_valid_coverage_surface_facts_empty(),
@@ -4925,7 +4946,7 @@ fn gen_valid_coverage_surface_facts_module(
           facts,
           match mode {
             Passive =>
-              { ..gen_valid_coverage_surface_facts_empty(), passive_datas: 1 }
+              { ..gen_valid_coverage_surface_facts_empty(), passive_datas: 1, }
             Active(_, expr) => gen_valid_coverage_surface_facts_expr(expr)
           },
         )
@@ -5197,7 +5218,11 @@ fn gen_valid_gc_surface_facts_sub_type(
         descriptor_types,
       }
     ArrayCompType(_) =>
-      { ..gen_valid_gc_surface_facts_empty(), array_types: 1, descriptor_types }
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        array_types: 1,
+        descriptor_types,
+      }
     _ => { ..gen_valid_gc_surface_facts_empty(), descriptor_types, }
   }
 }
@@ -5209,7 +5234,7 @@ fn gen_valid_gc_surface_facts_rec_type(
   match rec_type {
     SingleRecType(subtype) => gen_valid_gc_surface_facts_sub_type(subtype)
     GroupRecType(group) => {
-      let mut facts = { ..gen_valid_gc_surface_facts_empty(), rec_groups: 1 }
+      let mut facts = { ..gen_valid_gc_surface_facts_empty(), rec_groups: 1, }
       for subtype in group {
         facts = gen_valid_gc_surface_facts_merge(
           facts,
@@ -5252,20 +5277,20 @@ fn gen_valid_gc_surface_facts_instr(
         has_try_table: true,
       }
     }
-    Throw(_) => { ..gen_valid_gc_surface_facts_empty(), has_throw: true }
-    ThrowRef => { ..gen_valid_gc_surface_facts_empty(), has_throw_ref: true }
+    Throw(_) => { ..gen_valid_gc_surface_facts_empty(), has_throw: true, }
+    ThrowRef => { ..gen_valid_gc_surface_facts_empty(), has_throw_ref: true, }
     StructNew(_)
     | StructNewDefault(_)
     | StructNewDesc(_)
     | StructNewDefaultDesc(_) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_struct_new: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_struct_new: true, }
     StructGet(_, _)
     | StructGetS(_, _)
     | StructGetU(_, _)
     | StructAtomicGet(_, _, _)
     | StructAtomicGetS(_, _, _)
     | StructAtomicGetU(_, _, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_struct_get: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_struct_get: true, }
     StructAtomicRmw(_, _, _, _) | StructAtomicCmpxchg(_, _, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
@@ -5273,9 +5298,9 @@ fn gen_valid_gc_surface_facts_instr(
         has_struct_set: true,
       }
     StructSet(_, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_struct_set: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_struct_set: true, }
     ArrayNew(_) | ArrayNewDefault(_) | ArrayNewFixed(_, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_array_new: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_array_new: true, }
     ArrayNewData(_, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
@@ -5303,7 +5328,7 @@ fn gen_valid_gc_surface_facts_instr(
     | ArrayAtomicGet(_, _)
     | ArrayAtomicGetS(_, _)
     | ArrayAtomicGetU(_, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_array_get: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_array_get: true, }
     ArrayAtomicRmw(_, _, _) | ArrayAtomicCmpxchg(_, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
@@ -5311,7 +5336,7 @@ fn gen_valid_gc_surface_facts_instr(
         has_array_set: true,
       }
     ArraySet(_) | ArrayFill(_) | ArrayCopy(_, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_array_set: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_array_set: true, }
     ArrayInitData(_, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
@@ -5333,18 +5358,18 @@ fn gen_valid_gc_surface_facts_instr(
         has_array_set: true,
         has_string_encode: true,
       }
-    ArrayLen => { ..gen_valid_gc_surface_facts_empty(), has_array_len: true }
+    ArrayLen => { ..gen_valid_gc_surface_facts_empty(), has_array_len: true, }
     RefNull(rt) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
         has_exact_ref_null: rt.is_exact(),
       }
     StringConst(_) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_string_const: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_string_const: true, }
     RefGetDesc(_) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_ref_get_desc: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_get_desc: true, }
     RefTest(_, _, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_ref_test: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_test: true, }
     RefTestDesc(_, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
@@ -5352,26 +5377,26 @@ fn gen_valid_gc_surface_facts_instr(
         has_ref_test_desc: true,
       }
     RefCast(_, _, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_ref_cast: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_cast: true, }
     RefCastDescEq(_, _, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
         has_ref_cast: true,
         has_ref_cast_desc_eq: true,
       }
-    RefEq => { ..gen_valid_gc_surface_facts_empty(), has_ref_eq: true }
+    RefEq => { ..gen_valid_gc_surface_facts_empty(), has_ref_eq: true, }
     RefAsNonNull =>
-      { ..gen_valid_gc_surface_facts_empty(), has_ref_as_non_null: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_as_non_null: true, }
     CallRef(_) | ReturnCallRef(_) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_call_ref: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_call_ref: true, }
     BrOnNull(_) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_br_on_null: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_br_on_null: true, }
     BrOnNonNull(_) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_br_on_non_null: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_br_on_non_null: true, }
     BrOnCast(_, _, _, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_br_on_cast: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_br_on_cast: true, }
     BrOnCastFail(_, _, _, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_br_on_cast_fail: true }
+      { ..gen_valid_gc_surface_facts_empty(), has_br_on_cast_fail: true, }
     _ => gen_valid_gc_surface_facts_empty()
   }
 }
@@ -5486,7 +5511,7 @@ fn gen_valid_gc_surface_facts_module(mod : Module) -> GenValidGcSurfaceFacts {
       for func in funcs {
         let Func(locals, body) = func
         for run in locals.runs() {
-          let { count, vt } = run
+          let { count, vt, } = run
           ignore(count)
           facts = gen_valid_gc_surface_facts_merge(facts, {
             ..gen_valid_gc_surface_facts_empty(),
@@ -5585,10 +5610,10 @@ test "validate_valid_run_config retunes FZG feature floors by profile" {
 ///|
 test "check_validate_valid_feature_floors reports unmet minimums" {
   let floors = [
-    { key: Imports, min_count: 2 },
-    { key: FuncExports, min_count: 4 },
-    { key: Calls, min_count: 1 },
-    { key: BranchHeavyControl, min_count: 3 },
+    { key: Imports, min_count: 2, },
+    { key: FuncExports, min_count: 4, },
+    { key: Calls, min_count: 1, },
+    { key: BranchHeavyControl, min_count: 3, },
   ]
   let stats = {
     ..GenValidFeatureStats::empty(Natural),
@@ -5599,14 +5624,18 @@ test "check_validate_valid_feature_floors reports unmet minimums" {
     branch_heavy_control: 0,
   }
   @debug.assert_eq(check_validate_valid_feature_floors(stats, floors), [
-    { key: Imports, min_count: 2, actual_count: 1 },
-    { key: BranchHeavyControl, min_count: 3, actual_count: 0 },
+    { key: Imports, min_count: 2, actual_count: 1, },
+    { key: BranchHeavyControl, min_count: 3, actual_count: 0, },
   ])
 }
 
 ///|
 test "validate_valid_feature_ledger reports optional missing FZG surfaces" {
-  let stats = { ..GenValidFeatureStats::empty(Natural), modules: 2, imports: 1 }
+  let stats = {
+    ..GenValidFeatureStats::empty(Natural),
+    modules: 2,
+    imports: 1,
+  }
   let ledger = validate_valid_feature_ledger(stats, [])
   let mut saw_imports = false
   let mut saw_numeric_full_ops = false
@@ -5642,9 +5671,9 @@ test "check_validate_valid_feature_floors fails future FZG surfaces only when re
   @debug.assert_eq(check_validate_valid_feature_floors(stats, []), [])
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: NumericFullOps, min_count: 1 },
+      { key: NumericFullOps, min_count: 1, },
     ]),
-    [{ key: NumericFullOps, min_count: 1, actual_count: 0 }],
+    [{ key: NumericFullOps, min_count: 1, actual_count: 0, }],
   )
 }
 
@@ -5662,7 +5691,7 @@ test "gen_valid coverage-forced emits expanded scalar numeric surface" {
   assert_true(validate_valid_feature_actual_count(stats, NumericFullOps) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: NumericFullOps, min_count: 1 },
+      { key: NumericFullOps, min_count: 1, },
     ]),
     [],
   )
@@ -5687,10 +5716,10 @@ test "gen_valid coverage-forced emits core control surface" {
   assert_true(validate_valid_feature_actual_count(stats, TypedSelect) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: BrTable, min_count: 1 },
-      { key: StandaloneUnreachable, min_count: 1 },
-      { key: LocalTee, min_count: 1 },
-      { key: TypedSelect, min_count: 1 },
+      { key: BrTable, min_count: 1, },
+      { key: StandaloneUnreachable, min_count: 1, },
+      { key: LocalTee, min_count: 1, },
+      { key: TypedSelect, min_count: 1, },
     ]),
     [],
   )
@@ -5786,7 +5815,7 @@ test "gen_valid coverage-forced emits tail-call surface" {
   assert_true(validate_valid_feature_actual_count(stats, TailCalls) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: TailCalls, min_count: 1 },
+      { key: TailCalls, min_count: 1, },
     ]),
     [],
   )
@@ -6122,8 +6151,8 @@ test "gen_valid coverage-forced emits scalar memory widths and memarg variation"
   assert_true(validate_valid_feature_actual_count(stats, NonzeroMemarg) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: ScalarMemoryWidths, min_count: 1 },
-      { key: NonzeroMemarg, min_count: 1 },
+      { key: ScalarMemoryWidths, min_count: 1, },
+      { key: NonzeroMemarg, min_count: 1, },
     ]),
     [],
   )
@@ -6217,7 +6246,7 @@ test "gen_valid coverage-forced emits memory limit and proposal variants" {
   )
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: MemoryLimitVariants, min_count: 1 },
+      { key: MemoryLimitVariants, min_count: 1, },
     ]),
     [],
   )
@@ -6339,7 +6368,7 @@ fn validate_test_table_limit_forms_module(
         let Elem(mode, _) = elem
         match mode {
           Active(TableIdx(table_idx), _) if table_idx.reinterpret_as_int() > 0 =>
-            forms = { ..forms, nonzero_active_elem_table: true }
+            forms = { ..forms, nonzero_active_elem_table: true, }
           _ => ()
         }
       }
@@ -6371,7 +6400,7 @@ test "gen_valid coverage-forced emits table limit and initializer variants" {
   )
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: TableLimitVariants, min_count: 1 },
+      { key: TableLimitVariants, min_count: 1, },
     ]),
     [],
   )
@@ -6701,7 +6730,7 @@ test "gen_valid coverage-forced emits const-expression variants" {
   assert_true(validate_valid_feature_actual_count(stats, ConstExprVariants) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: ConstExprVariants, min_count: 1 },
+      { key: ConstExprVariants, min_count: 1, },
     ]),
     [],
   )
@@ -6774,11 +6803,11 @@ fn validate_test_basic_ref_forms_ref_null(
 ) -> ValidateTestBasicRefForms {
   match rt.get_heap_type() {
     AbsHeapTypeHeapType(NoneAbsHeapType) =>
-      { ..validate_test_basic_ref_forms_empty(), ref_null_none: true }
+      { ..validate_test_basic_ref_forms_empty(), ref_null_none: true, }
     AbsHeapTypeHeapType(NoFuncAbsHeapType) =>
-      { ..validate_test_basic_ref_forms_empty(), ref_null_nofunc: true }
+      { ..validate_test_basic_ref_forms_empty(), ref_null_nofunc: true, }
     AbsHeapTypeHeapType(NoExternAbsHeapType) =>
-      { ..validate_test_basic_ref_forms_empty(), ref_null_noextern: true }
+      { ..validate_test_basic_ref_forms_empty(), ref_null_noextern: true, }
     _ => validate_test_basic_ref_forms_empty()
   }
 }
@@ -6801,7 +6830,7 @@ fn validate_test_basic_ref_forms_instr(
   instr : Instruction,
 ) -> ValidateTestBasicRefForms {
   match instr {
-    RefIsNull => { ..validate_test_basic_ref_forms_empty(), ref_is_null: true }
+    RefIsNull => { ..validate_test_basic_ref_forms_empty(), ref_is_null: true, }
     RefNull(rt) => validate_test_basic_ref_forms_ref_null(rt)
     RefTest(nullable, _, _) =>
       {
@@ -6893,7 +6922,7 @@ test "gen_valid coverage-forced emits basic ref instruction surface" {
   )
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: BasicRefInstructions, min_count: 1 },
+      { key: BasicRefInstructions, min_count: 1, },
     ]),
     [],
   )
@@ -6953,13 +6982,13 @@ fn validate_test_i31_extern_forms_instr(
   instr : Instruction,
 ) -> ValidateTestI31ExternForms {
   match instr {
-    RefI31 => { ..validate_test_i31_extern_forms_empty(), ref_i31: true }
-    I31GetS => { ..validate_test_i31_extern_forms_empty(), i31_get_s: true }
-    I31GetU => { ..validate_test_i31_extern_forms_empty(), i31_get_u: true }
+    RefI31 => { ..validate_test_i31_extern_forms_empty(), ref_i31: true, }
+    I31GetS => { ..validate_test_i31_extern_forms_empty(), i31_get_s: true, }
+    I31GetU => { ..validate_test_i31_extern_forms_empty(), i31_get_u: true, }
     AnyConvertExtern =>
-      { ..validate_test_i31_extern_forms_empty(), any_convert_extern: true }
+      { ..validate_test_i31_extern_forms_empty(), any_convert_extern: true, }
     ExternConvertAny =>
-      { ..validate_test_i31_extern_forms_empty(), extern_convert_any: true }
+      { ..validate_test_i31_extern_forms_empty(), extern_convert_any: true, }
     Block(_, body) | Loop(_, body) => validate_test_i31_extern_forms_expr(body)
     If(_, then_body, else_body) => {
       let mut forms = validate_test_i31_extern_forms_expr(Expr::new(then_body))
@@ -7019,7 +7048,7 @@ test "gen_valid coverage-forced emits i31 and extern conversion surface" {
   )
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: I31ExternConversions, min_count: 1 },
+      { key: I31ExternConversions, min_count: 1, },
     ]),
     [],
   )
@@ -7084,7 +7113,7 @@ fn validate_test_simd_phase1_forms_instr(
     | I32x4Splat
     | I64x2Splat
     | F32x4Splat
-    | F64x2Splat => { ..validate_test_simd_phase1_forms_empty(), splat: true }
+    | F64x2Splat => { ..validate_test_simd_phase1_forms_empty(), splat: true, }
     I8x16ExtractLaneS(_)
     | I8x16ExtractLaneU(_)
     | I16x8ExtractLaneS(_)
@@ -7093,17 +7122,18 @@ fn validate_test_simd_phase1_forms_instr(
     | I64x2ExtractLane(_)
     | F32x4ExtractLane(_)
     | F64x2ExtractLane(_) =>
-      { ..validate_test_simd_phase1_forms_empty(), extract_lane: true }
+      { ..validate_test_simd_phase1_forms_empty(), extract_lane: true, }
     I8x16ReplaceLane(_)
     | I16x8ReplaceLane(_)
     | I32x4ReplaceLane(_)
     | I64x2ReplaceLane(_)
     | F32x4ReplaceLane(_)
     | F64x2ReplaceLane(_) =>
-      { ..validate_test_simd_phase1_forms_empty(), replace_lane: true }
+      { ..validate_test_simd_phase1_forms_empty(), replace_lane: true, }
     V128Not | V128And | V128Andnot | V128Or | V128Xor | V128Bitselect =>
-      { ..validate_test_simd_phase1_forms_empty(), bitwise: true }
-    V128AnyTrue => { ..validate_test_simd_phase1_forms_empty(), any_true: true }
+      { ..validate_test_simd_phase1_forms_empty(), bitwise: true, }
+    V128AnyTrue =>
+      { ..validate_test_simd_phase1_forms_empty(), any_true: true, }
     Block(_, body) | Loop(_, body) => validate_test_simd_phase1_forms_expr(body)
     If(_, then_body, else_body) => {
       let mut forms = validate_test_simd_phase1_forms_expr(Expr::new(then_body))
@@ -7174,7 +7204,7 @@ test "gen_valid coverage-forced emits simd phase 1 surface" {
   assert_true(validate_valid_feature_actual_count(stats, SimdPhase1) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: SimdPhase1, min_count: 1 },
+      { key: SimdPhase1, min_count: 1, },
     ]),
     [],
   )
@@ -7223,9 +7253,9 @@ fn validate_test_simd_phase2_forms_instr(
 ) -> ValidateTestSimdPhase2Forms {
   match instr {
     I8x16Eq | I16x8LtS | I32x4GtU | I64x2GeS | F32x4Lt | F64x2Ge =>
-      { ..validate_test_simd_phase2_forms_empty(), comparison: true }
+      { ..validate_test_simd_phase2_forms_empty(), comparison: true, }
     I8x16AllTrue | I16x8Bitmask | I32x4AllTrue | I64x2Bitmask =>
-      { ..validate_test_simd_phase2_forms_empty(), all_true_or_bitmask: true }
+      { ..validate_test_simd_phase2_forms_empty(), all_true_or_bitmask: true, }
     I8x16Add
     | I16x8Mul
     | I32x4Add
@@ -7236,9 +7266,9 @@ fn validate_test_simd_phase2_forms_instr(
     | F32x4Div
     | F64x2Add
     | F64x2Div =>
-      { ..validate_test_simd_phase2_forms_empty(), arithmetic: true }
+      { ..validate_test_simd_phase2_forms_empty(), arithmetic: true, }
     I8x16AddSatS | I8x16SubSatU | I16x8AddSatU | I16x8SubSatS =>
-      { ..validate_test_simd_phase2_forms_empty(), saturating: true }
+      { ..validate_test_simd_phase2_forms_empty(), saturating: true, }
     I8x16MinS
     | I8x16MaxU
     | I8x16AvgrU
@@ -7251,7 +7281,7 @@ fn validate_test_simd_phase2_forms_instr(
     | F32x4Max
     | F64x2Min
     | F64x2Max =>
-      { ..validate_test_simd_phase2_forms_empty(), min_max_avgr: true }
+      { ..validate_test_simd_phase2_forms_empty(), min_max_avgr: true, }
     F32x4Ceil
     | F32x4Floor
     | F32x4Trunc
@@ -7260,7 +7290,7 @@ fn validate_test_simd_phase2_forms_instr(
     | F64x2Floor
     | F64x2Trunc
     | F64x2Nearest =>
-      { ..validate_test_simd_phase2_forms_empty(), rounding: true }
+      { ..validate_test_simd_phase2_forms_empty(), rounding: true, }
     Block(_, body) | Loop(_, body) => validate_test_simd_phase2_forms_expr(body)
     If(_, then_body, else_body) => {
       let mut forms = validate_test_simd_phase2_forms_expr(Expr::new(then_body))
@@ -7335,7 +7365,7 @@ test "gen_valid coverage-forced emits simd phase 2 surface" {
   assert_true(validate_valid_feature_actual_count(stats, SimdPhase2) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: SimdPhase2, min_count: 1 },
+      { key: SimdPhase2, min_count: 1, },
     ]),
     [],
   )
@@ -7401,10 +7431,10 @@ fn validate_test_simd_phase3_forms_instr(
     | V128Store64Lane(_, _)
     | V128Load32Zero(_)
     | V128Load64Zero(_) =>
-      { ..validate_test_simd_phase3_forms_empty(), memory: true }
+      { ..validate_test_simd_phase3_forms_empty(), memory: true, }
     I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
     | I8x16Swizzle =>
-      { ..validate_test_simd_phase3_forms_empty(), shuffle_swizzle: true }
+      { ..validate_test_simd_phase3_forms_empty(), shuffle_swizzle: true, }
     I8x16NarrowI16x8S
     | I8x16NarrowI16x8U
     | I16x8NarrowI32x4S
@@ -7419,7 +7449,7 @@ fn validate_test_simd_phase3_forms_instr(
         narrow_widen_dot_pairwise: true,
       }
     F32x4DemoteF64x2Zero | F64x2PromoteLowF32x4 =>
-      { ..validate_test_simd_phase3_forms_empty(), float_demote_promote: true }
+      { ..validate_test_simd_phase3_forms_empty(), float_demote_promote: true, }
     Block(_, body) | Loop(_, body) => validate_test_simd_phase3_forms_expr(body)
     If(_, then_body, else_body) => {
       let mut forms = validate_test_simd_phase3_forms_expr(Expr::new(then_body))
@@ -7656,7 +7686,7 @@ test "gen_valid coverage-forced emits atomic instruction surface" {
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, Atomics) > 0)
   @debug.assert_eq(
-    check_validate_valid_feature_floors(stats, [{ key: Atomics, min_count: 1 }]),
+    check_validate_valid_feature_floors(stats, [{ key: Atomics, min_count: 1, }]),
     [],
   )
 }
@@ -7681,7 +7711,7 @@ test "gen_valid coverage-forced emits simd phase 3 surface" {
   assert_true(validate_valid_feature_actual_count(stats, SimdPhase3) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: SimdPhase3, min_count: 1 },
+      { key: SimdPhase3, min_count: 1, },
     ]),
     [],
   )
@@ -7759,7 +7789,10 @@ fn validate_test_gc_constructor_accessor_forms_instr(
         struct_new: true,
       }
     ArrayNew(_) =>
-      { ..validate_test_gc_constructor_accessor_forms_empty(), array_new: true }
+      {
+        ..validate_test_gc_constructor_accessor_forms_empty(),
+        array_new: true,
+      }
     ArrayNewFixed(_, _) =>
       {
         ..validate_test_gc_constructor_accessor_forms_empty(),
@@ -7865,9 +7898,9 @@ test "gen_valid coverage-forced emits gc constructor and accessor surface" {
   assert_true(validate_valid_feature_actual_count(stats, StringOps) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: GcConstructors, min_count: 1 },
-      { key: GcAccessors, min_count: 1 },
-      { key: StringOps, min_count: 1 },
+      { key: GcConstructors, min_count: 1, },
+      { key: GcAccessors, min_count: 1, },
+      { key: StringOps, min_count: 1, },
     ]),
     [],
   )
@@ -7890,7 +7923,7 @@ test "gen_valid coverage-forced emits subtyping topology surface" {
   assert_true(validate_valid_feature_actual_count(stats, SubtypingTopology) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: SubtypingTopology, min_count: 1 },
+      { key: SubtypingTopology, min_count: 1, },
     ]),
     [],
   )
@@ -7914,7 +7947,7 @@ test "gen_valid coverage-forced emits rich GC field plans" {
   assert_true(validate_valid_feature_actual_count(stats, RichGcFieldPlans) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: RichGcFieldPlans, min_count: 1 },
+      { key: RichGcFieldPlans, min_count: 1, },
     ]),
     [],
   )
@@ -8193,7 +8226,7 @@ fn validate_test_exception_matrix_facts_module(
         let Import(_, _, extern_type) = import_
         match extern_type {
           TagExternType(_) =>
-            facts = { ..facts, imported_tags: facts.imported_tags + 1 }
+            facts = { ..facts, imported_tags: facts.imported_tags + 1, }
           _ => ()
         }
       }
@@ -8202,7 +8235,7 @@ fn validate_test_exception_matrix_facts_module(
   let mut tag_types : Array[TagType] = []
   match mod.tag_sec {
     Some(TagSec(tags)) => {
-      facts = { ..facts, defined_tags: tags.length() }
+      facts = { ..facts, defined_tags: tags.length(), }
       tag_types = tags.copy()
     }
     None => ()
@@ -8218,7 +8251,7 @@ fn validate_test_exception_matrix_facts_module(
           Some(SubType(_, _, _, FuncCompType(params, _)))
           | Some(CompTypeSubType(_, FuncCompType(params, _))) =>
             if !params.is_empty() {
-              facts = { ..facts, param_tag_types: facts.param_tag_types + 1 }
+              facts = { ..facts, param_tag_types: facts.param_tag_types + 1, }
             }
           _ => ()
         }
@@ -8256,7 +8289,7 @@ test "gen_valid coverage-forced emits exception try_table matrix surface" {
   )
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: ExceptionTryTableMatrix, min_count: 1 },
+      { key: ExceptionTryTableMatrix, min_count: 1, },
     ]),
     [],
   )
@@ -8297,7 +8330,7 @@ test "gen_valid coverage-forced emits import/export topology surface" {
   )
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: ImportExportTopology, min_count: 1 },
+      { key: ImportExportTopology, min_count: 1, },
     ]),
     [],
   )
@@ -8319,7 +8352,7 @@ test "gen_valid coverage-forced emits element segment range surface" {
   )
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: ElementSegmentRange, min_count: 1 },
+      { key: ElementSegmentRange, min_count: 1, },
     ]),
     [],
   )
@@ -8340,7 +8373,7 @@ test "gen_valid coverage-forced emits data segment range surface" {
   assert_true(validate_valid_feature_actual_count(stats, DataSegmentRange) > 0)
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: DataSegmentRange, min_count: 1 },
+      { key: DataSegmentRange, min_count: 1, },
     ]),
     [],
   )
@@ -8394,7 +8427,7 @@ test "gen_valid coverage-forced emits name and custom section surface" {
   )
   @debug.assert_eq(
     check_validate_valid_feature_floors(stats, [
-      { key: NameCustomSections, min_count: 1 },
+      { key: NameCustomSections, min_count: 1, },
     ]),
     [],
   )
@@ -8553,7 +8586,7 @@ test "gen_valid_tfunc returns exact refs through a real natural local flow" {
   let Func(locals, Expr(instrs)) = func
   let mut has_exact_local = false
   for run in locals.runs() {
-    let { count, vt } = run
+    let { count, vt, } = run
     ignore(count)
     if vt == exact_vt {
       has_exact_local = true
@@ -8616,7 +8649,7 @@ test "gen_valid_build_func reuses an exact param for natural exact-result return
   )
   let Func(locals, Expr(instrs)) = func
   for run in locals.runs() {
-    let { count, vt } = run
+    let { count, vt, } = run
     ignore(count)
     assert_false(vt == exact_vt)
   }
@@ -8683,7 +8716,7 @@ test "gen_valid_build_func can return exact refs through a natural direct call p
   )
   let Func(locals, Expr(instrs)) = func
   for run in locals.runs() {
-    let { count, vt } = run
+    let { count, vt, } = run
     ignore(count)
     assert_false(vt == exact_vt)
   }
@@ -8765,7 +8798,7 @@ test "gen_valid_build_func can return exact refs through a natural call_ref path
   )
   let Func(locals, Expr(instrs)) = caller
   for run in locals.runs() {
-    let { count, vt } = run
+    let { count, vt, } = run
     ignore(count)
     assert_false(vt == exact_vt)
   }
@@ -11419,7 +11452,7 @@ test "HeapType with invalid TypeIdx fails" {
   let ht = HeapType::new(TypeIdx::new(0))
   @debug.assert_eq(
     Validate::validate(ht, env),
-    Err("No type exists for TypeIdx"),
+    Err("No type exists for TypeIdx 0; global type count is 0"),
   )
 }
 
@@ -11496,7 +11529,7 @@ test "TypeIdx fails when type does not exist" {
   let tidx = TypeIdx::new(0)
   @debug.assert_eq(
     Validate::validate(tidx, env),
-    Err("No type exists for TypeIdx"),
+    Err("No type exists for TypeIdx 0; global type count is 0"),
   )
 }
 
@@ -11507,7 +11540,7 @@ test "TypeIdx fails with out of bounds index" {
   let tidx = TypeIdx::new(5)
   @debug.assert_eq(
     Validate::validate(tidx, env),
-    Err("No type exists for TypeIdx"),
+    Err("No type exists for TypeIdx 5; global type count is 1"),
   )
 }
 

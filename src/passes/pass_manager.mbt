@@ -355,12 +355,12 @@ pub struct HotPassResult {
 
 ///|
 pub fn HotPassResult::unchanged() -> HotPassResult {
-  { changed: false }
+  { changed: false, }
 }
 
 ///|
 pub fn HotPassResult::changed() -> HotPassResult {
-  { changed: true }
+  { changed: true, }
 }
 
 ///|
@@ -25848,7 +25848,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_scan_one_arm_merge_control(
 fn run_hot_pipeline_raw_ssa_nomerge_one_arm_merge_supported_control(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  let state = { saw_missing_else: false }
+  let state = { saw_missing_else: false, }
   run_hot_pipeline_raw_ssa_nomerge_scan_one_arm_merge_control(instrs, state) &&
   state.saw_missing_else
 }
@@ -25950,7 +25950,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_mixed_structured_supported_control(
     ) {
     return false
   }
-  let state = { write_count: 0, tee_count: 0 }
+  let state = { write_count: 0, tee_count: 0, }
   if !run_hot_pipeline_raw_ssa_nomerge_scan_mixed_structured_control(
       instrs, state,
     ) {
@@ -26163,7 +26163,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_scan_loop_backedge_merge_control(
 fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_merge_supported_control(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  let state = { saw_loop_backedge_br_if: false }
+  let state = { saw_loop_backedge_br_if: false, }
   run_hot_pipeline_raw_ssa_nomerge_scan_loop_backedge_merge_control(
     instrs, state,
   ) &&
@@ -26613,7 +26613,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
   params : Array[@lib.ValType],
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
-  let changed = { get_cursor: 0, write_cursor: 0, changed: false }
+  let changed = { get_cursor: 0, write_cursor: 0, changed: false, }
   let written_locals = @bitset.BitSet::new(params.length() + locals.length())
   let rewritten_instrs = run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
     instrs, params, locals, written_locals, changed,
@@ -27261,7 +27261,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
     locals,
     plan,
     written_locals,
-    { cursor: 0 },
+    { cursor: 0, },
   )
   if !changed {
     (func, false)
@@ -27643,7 +27643,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_planned_structured(
   let base_local_count = params.length() + locals.length()
   let written_locals = @bitset.BitSet::new(base_local_count)
   run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(instrs, written_locals)
-  let cursor = { write_cursor: 0, get_cursor: 0, changed: false }
+  let cursor = { write_cursor: 0, get_cursor: 0, changed: false, }
   let fresh_aliases = Array::make(base_local_count, -1)
   let rewritten_instrs = run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
     instrs, params, locals, plan, written_locals, cursor, extra_local_types, base_local_count,
@@ -33170,17 +33170,17 @@ fn RawOiStackEffectBarrierFact::from_instr(
     | @lib.ArrayFill(_)
     | @lib.ArrayCopy(_, _)
     | @lib.ArrayInitData(_, _)
-    | @lib.ArrayInitElem(_, _) => Some({ result_count: 0 })
+    | @lib.ArrayInitElem(_, _) => Some({ result_count: 0, })
     @lib.Call(func_idx) =>
       match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
         Some(@lib.FuncType(_, results)) =>
-          Some({ result_count: results.length() })
+          Some({ result_count: results.length(), })
         None => None
       }
     @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
       match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
         Some(@lib.FuncType(_, results)) =>
-          Some({ result_count: results.length() })
+          Some({ result_count: results.length(), })
         None => None
       }
     @lib.TableGrow(_)
@@ -33196,7 +33196,7 @@ fn RawOiStackEffectBarrierFact::from_instr(
     | @lib.StringEncodeUtf8Array
     | @lib.StringEncodeWtf16Array
     | @lib.StringEncodeLossyUtf8Array
-    | @lib.StringEncodeWtf8Array => Some({ result_count: 1 })
+    | @lib.StringEncodeWtf8Array => Some({ result_count: 1, })
     _ => None
   }
 }
@@ -33338,7 +33338,7 @@ fn RawOiLocalLoadCallAddressUseFact::from_region_at(
       if base0 == base1 &&
         run_hot_pipeline_optimize_instructions_instr_is_plain_load(load) &&
         run_hot_pipeline_optimize_instructions_instr_is_call(call) {
-        Some({ start, end: start + 4, base: base0 })
+        Some({ start, end: start + 4, base: base0, })
       } else {
         None
       }
@@ -33368,13 +33368,13 @@ fn RawOiLocalLoadCallAddressRegionFact::from_index(
       match RawOiLocalLoadCallAddressUseFact::from_region_at(region, i) {
         Some(fact) =>
           if fact.has_stack_carried_address() {
-            return { has_blocking_use: true }
+            return { has_blocking_use: true, }
           }
         None => ()
       }
     }
   }
-  { has_blocking_use: false }
+  { has_blocking_use: false, }
 }
 
 ///|
@@ -33842,12 +33842,12 @@ fn RawOiBulkStackOperandAtomFact::from_instr(
   instr : @lib.Instruction,
 ) -> RawOiBulkStackOperandAtomFact? {
   match instr {
-    @lib.GlobalGet(_) => Some({ admits_bulk_stack_operand: true })
+    @lib.GlobalGet(_) => Some({ admits_bulk_stack_operand: true, })
     _ =>
       if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
           instr,
         ) {
-        Some({ admits_bulk_stack_operand: true })
+        Some({ admits_bulk_stack_operand: true, })
       } else {
         None
       }
@@ -33917,7 +33917,7 @@ fn RawOiBulkStackOperandFact::from_region(
     }
     call_pos = call_pos + 1
   }
-  Some({ start, end: start + 1, has_call: false, stack_argument_count: 0 })
+  Some({ start, end: start + 1, has_call: false, stack_argument_count: 0, })
 }
 
 ///|
@@ -33957,7 +33957,7 @@ fn RawOiBulkSizeFact::from_instr(instr : @lib.Instruction) -> RawOiBulkSizeFact 
         raw == 16L,
         is_byte_fill_size: raw == 1L,
       }
-    _ => { is_zero: false, is_tiny_copy_size: false, is_byte_fill_size: false }
+    _ => { is_zero: false, is_tiny_copy_size: false, is_byte_fill_size: false, }
   }
 }
 
@@ -34702,9 +34702,9 @@ fn RawOiFunctionRevisionFactIndex::collect_instr(
   admission_guards.record_instr(instr)
   match instr {
     @lib.Call(call_idx) =>
-      call_sites.push({ call_idx, call_ordinal: call_sites.length() })
+      call_sites.push({ call_idx, call_ordinal: call_sites.length(), })
     @lib.Select(_) =>
-      select_anchors.push({ select_ordinal: select_anchors.length() })
+      select_anchors.push({ select_ordinal: select_anchors.length(), })
     @lib.Block(_, @lib.Expr(body))
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -34956,7 +34956,7 @@ fn RawOiModuleFunctionRevisionFacts::from_index(
       constructor_operand_positions[root.position] = true
     }
   }
-  { index, constructor_operand_positions }
+  { index, constructor_operand_positions, }
 }
 
 ///|
@@ -35258,7 +35258,7 @@ fn RawOiFunctionStackValueTransferFacts::from_prefix_index(
       }
     }
   }
-  { steps, complete }
+  { steps, complete, }
 }
 
 ///|
@@ -35284,7 +35284,7 @@ fn RawOiFunctionStackValueTransferFacts::from_index(
     })
     state = next_state
   }
-  { steps, complete: true }
+  { steps, complete: true, }
 }
 
 ///|
@@ -35295,7 +35295,7 @@ fn RawOiStackCarriedEffectRegionFact::from_index(
 ) -> RawOiStackCarriedEffectRegionFact {
   ignore(transfers.complete)
   if RawOiLocalLoadCallAddressRegionFact::from_index(index).has_blocking_use {
-    return { has_blocking_effect: true }
+    return { has_blocking_effect: true, }
   }
   for root in index.top_level_roots {
     if root.position < 0 || root.position >= transfers.steps.length() {
@@ -35316,14 +35316,14 @@ fn RawOiStackCarriedEffectRegionFact::from_index(
           ) {
           Some(fact) =>
             if fact.is_stack_carried() {
-              return { has_blocking_effect: true }
+              return { has_blocking_effect: true, }
             }
           None => ()
         }
       None => ()
     }
   }
-  { has_blocking_effect: false }
+  { has_blocking_effect: false, }
 }
 
 ///|
@@ -35415,7 +35415,7 @@ fn RawOiRefFuncTargetFact::from_instr(
 ) -> RawOiRefFuncTargetFact? {
   match instr {
     @lib.Instruction::RefFunc(func_idx) =>
-      Some({ func_idx, is_direct_leaf: true, is_branch_free_block_tail: false })
+      Some({ func_idx, is_direct_leaf: true, is_branch_free_block_tail: false, })
     @lib.Instruction::Block(_, @lib.Expr(body)) if body.length() == 1 =>
       match body[0] {
         @lib.Instruction::RefFunc(func_idx) =>
@@ -36283,7 +36283,7 @@ fn RawOiWrapI64ConstFact::from_raw(value : Int64) -> RawOiWrapI64ConstFact {
   } else {
     @lib.I32(lower64.to_int())
   }
-  { source: value, wrapped }
+  { source: value, wrapped, }
 }
 
 ///|
@@ -36443,7 +36443,7 @@ fn RawOiF32SubNegatedConstFact::from_raw(
   if magnitude == 0U || (bits & 0x7F800000U) == 0x7F800000U {
     return None
   }
-  Some({ original: raw, negated: -raw })
+  Some({ original: raw, negated: -raw, })
 }
 
 ///|
@@ -36468,7 +36468,7 @@ fn RawOiF64SubNegatedConstFact::from_raw(
   if magnitude == 0UL || (bits & 0x7FF0000000000000UL) == 0x7FF0000000000000UL {
     return None
   }
-  Some({ original: raw, negated: -raw })
+  Some({ original: raw, negated: -raw, })
 }
 
 ///|
@@ -36500,7 +36500,7 @@ fn RawOiI32PowerOfTwoShiftFact::from_raw(
     value = value >> 1
     shift = shift + 1
   }
-  Some({ raw, shift })
+  Some({ raw, shift, })
 }
 
 ///|
@@ -36529,7 +36529,7 @@ fn RawOiI64PowerOfTwoShiftFact::from_raw(
     value = value >> 1
     shift = shift + 1L
   }
-  Some({ raw, shift })
+  Some({ raw, shift, })
 }
 
 ///|
@@ -36550,9 +36550,9 @@ fn RawOiScalarConstAtomFact::from_instr(
   instr : @lib.Instruction,
 ) -> RawOiScalarConstAtomFact {
   match instr {
-    @lib.I32Const(_) => { is_i32_const: true, is_i64_const: false }
-    @lib.I64Const(_) => { is_i32_const: false, is_i64_const: true }
-    _ => { is_i32_const: false, is_i64_const: false }
+    @lib.I32Const(_) => { is_i32_const: true, is_i64_const: false, }
+    @lib.I64Const(_) => { is_i32_const: false, is_i64_const: true, }
+    _ => { is_i32_const: false, is_i64_const: false, }
   }
 }
 
@@ -36575,9 +36575,9 @@ fn RawOiOrderedConstEqNeFact::from_i32(
   }
   match instr {
     @lib.I32Eq =>
-      Some({ result: @lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }) })
+      Some({ result: @lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }), })
     @lib.I32Ne =>
-      Some({ result: @lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }) })
+      Some({ result: @lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }), })
     _ => None
   }
 }
@@ -36593,9 +36593,9 @@ fn RawOiOrderedConstEqNeFact::from_i64(
   }
   match instr {
     @lib.I64Eq =>
-      Some({ result: @lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }) })
+      Some({ result: @lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }), })
     @lib.I64Ne =>
-      Some({ result: @lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }) })
+      Some({ result: @lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }), })
     _ => None
   }
 }
@@ -36615,7 +36615,7 @@ fn RawOiZeroOffsetMemargFact::from_mem_idx(
 ) -> RawOiZeroOffsetMemargFact {
   let @lib.MemIdx(raw_idx) = mem_idx
   let encoded_mem = if raw_idx == 0U { None } else { Some(mem_idx) }
-  { mem_idx, memarg: @lib.MemArg::new(@lib.U32(0), encoded_mem, @lib.U64(0)) }
+  { mem_idx, memarg: @lib.MemArg::new(@lib.U32(0), encoded_mem, @lib.U64(0)), }
 }
 
 ///|
@@ -36732,7 +36732,7 @@ fn RawOiMemoryAccessMemargFact::from_load_instr(
     | @lib.I64AtomicLoad8U(_, memarg)
     | @lib.I64AtomicLoad16U(_, memarg)
     | @lib.I64AtomicLoad32U(_, memarg) =>
-      Some({ memarg, is_load: true, is_store: false })
+      Some({ memarg, is_load: true, is_store: false, })
     _ => None
   }
 }
@@ -36758,7 +36758,7 @@ fn RawOiMemoryAccessMemargFact::from_store_instr(
     | @lib.I64AtomicStore8(_, memarg)
     | @lib.I64AtomicStore16(_, memarg)
     | @lib.I64AtomicStore32(_, memarg) =>
-      Some({ memarg, is_load: false, is_store: true })
+      Some({ memarg, is_load: false, is_store: true, })
     _ => None
   }
 }
@@ -36873,7 +36873,7 @@ fn RawOiI64ExtendLocalCommuteFact::from_parts(
       | @lib.I64And
       | @lib.I64Or
       | @lib.I64Xor,
-    ) => Some({ rewrite: [rhs, lhs, extend_instr, binop] })
+    ) => Some({ rewrite: [rhs, lhs, extend_instr, binop], })
     _ => None
   }
 }
@@ -37036,9 +37036,9 @@ fn RawOiBulkConstSizeFact::from_instr(
   instr : @lib.Instruction,
 ) -> RawOiBulkConstSizeFact? {
   match instr {
-    @lib.I32Const(@lib.I32(raw)) => Some({ size: raw })
+    @lib.I32Const(@lib.I32(raw)) => Some({ size: raw, })
     @lib.I64Const(@lib.I64(raw)) if raw >= 0L && raw <= 2147483647L =>
-      Some({ size: raw.to_int() })
+      Some({ size: raw.to_int(), })
     _ => None
   }
 }
@@ -37130,7 +37130,12 @@ fn RawOiAtomicLocalTeeAddressUseFact::from_region_at(
     match
       RawOiAtomicAccessFact::from_instr(region.roots[consumer_index].instr) {
       Some(access) if access.proves_address_localtee_boundary(operand_distance) =>
-        return Some({ localtee_index, consumer_index, operand_distance, access })
+        return Some({
+          localtee_index,
+          consumer_index,
+          operand_distance,
+          access,
+        })
       _ => ()
     }
   }
@@ -37159,12 +37164,12 @@ fn RawOiAtomicLocalTeeAddressRegionFact::from_index(
     for i = 0; i < region.roots.length(); i = i + 1 {
       match RawOiAtomicLocalTeeAddressUseFact::from_region_at(region, i) {
         Some(fact) if fact.proves_raw_gate_boundary() =>
-          return { has_blocking_use: true }
+          return { has_blocking_use: true, }
         _ => ()
       }
     }
   }
-  { has_blocking_use: false }
+  { has_blocking_use: false, }
 }
 
 ///|
@@ -37185,7 +37190,7 @@ fn RawOiMemoryAccessIndexFact::from_memarg(
     @lib.MemArg(_, Some(@lib.MemIdx(raw_idx)), _) => raw_idx != 0U
     _ => false
   }
-  { is_memory_access: true, is_nondefault_memory }
+  { is_memory_access: true, is_nondefault_memory, }
 }
 
 ///|
@@ -37216,7 +37221,7 @@ fn RawOiMemoryAccessIndexFact::from_instr(
     | @lib.I64Store8(memarg)
     | @lib.I64Store16(memarg)
     | @lib.I64Store32(memarg) => RawOiMemoryAccessIndexFact::from_memarg(memarg)
-    _ => { is_memory_access: false, is_nondefault_memory: false }
+    _ => { is_memory_access: false, is_nondefault_memory: false, }
   }
 }
 
@@ -37390,12 +37395,12 @@ fn RawOiMemoryLocalTeeRegionFact::from_index(
     for i = 0; i < region.roots.length(); i = i + 1 {
       match RawOiMemoryLocalTeeUseFact::from_region_at(region, i) {
         Some(fact) if fact.proves_raw_gate_boundary() =>
-          return { has_blocking_use: true }
+          return { has_blocking_use: true, }
         _ => ()
       }
     }
   }
-  { has_blocking_use: false }
+  { has_blocking_use: false, }
 }
 
 ///|
@@ -37412,11 +37417,11 @@ fn RawOiNarrowStoreAccessFact::from_instr(
   instr : @lib.Instruction,
 ) -> RawOiNarrowStoreAccessFact? {
   match instr {
-    @lib.I32Store8(_) => Some({ store_bits: 8, is_i64_store: false })
-    @lib.I64Store8(_) => Some({ store_bits: 8, is_i64_store: true })
-    @lib.I32Store16(_) => Some({ store_bits: 16, is_i64_store: false })
-    @lib.I64Store16(_) => Some({ store_bits: 16, is_i64_store: true })
-    @lib.I64Store32(_) => Some({ store_bits: 32, is_i64_store: true })
+    @lib.I32Store8(_) => Some({ store_bits: 8, is_i64_store: false, })
+    @lib.I64Store8(_) => Some({ store_bits: 8, is_i64_store: true, })
+    @lib.I32Store16(_) => Some({ store_bits: 16, is_i64_store: false, })
+    @lib.I64Store16(_) => Some({ store_bits: 16, is_i64_store: true, })
+    @lib.I64Store32(_) => Some({ store_bits: 32, is_i64_store: true, })
     _ => None
   }
 }
@@ -37637,7 +37642,7 @@ fn RawOiRepeatedFillValueFact::from_value_and_size(
   size : Int,
 ) -> RawOiRepeatedFillValueFact? {
   match size {
-    1 => Some({ size, byte: 0U, value })
+    1 => Some({ size, byte: 0U, value, })
     2 | 4 | 8 | 16 =>
       match value {
         @lib.I32Const(@lib.I32(raw)) => {
@@ -37678,7 +37683,7 @@ fn RawOiRepeatedFillValueFact::from_value_and_size(
             }
             _ => return None
           }
-          Some({ size, byte, value: repeated })
+          Some({ size, byte, value: repeated, })
         }
         _ => None
       }
@@ -37755,7 +37760,7 @@ fn RawOiBulkCopyLoadStoreFact::from_parts(
       )
     _ => return None
   }
-  Some({ size, src_mem, dst_mem, load, store })
+  Some({ size, src_mem, dst_mem, load, store, })
 }
 
 ///|
@@ -37798,7 +37803,7 @@ fn RawOiBulkFillStoreFact::from_parts(
     16 => @lib.Instruction::v128_store(memarg)
     _ => return None
   }
-  Some({ size, mem, store })
+  Some({ size, mem, store, })
 }
 
 ///|
@@ -37863,7 +37868,7 @@ fn RawOiMemorySizePageAddressFact::from_region(
   let third = region.roots[start + 2].instr
   match (first, second, third) {
     (@lib.MemorySize(mem), @lib.I32Const(@lib.I32(15)), @lib.I32Shl) =>
-      Some({ end: start + 3, mem, rewrite: [first, second, third] })
+      Some({ end: start + 3, mem, rewrite: [first, second, third], })
     (@lib.MemorySize(mem), @lib.I32Const(@lib.I32(32768)), @lib.I32Mul) =>
       Some({
         end: start + 3,
@@ -37875,7 +37880,7 @@ fn RawOiMemorySizePageAddressFact::from_region(
         ],
       })
     (@lib.MemorySize(mem), @lib.I64Const(@lib.I64(15L)), @lib.I64Shl) =>
-      Some({ end: start + 3, mem, rewrite: [first, second, third] })
+      Some({ end: start + 3, mem, rewrite: [first, second, third], })
     (@lib.MemorySize(mem), @lib.I64Const(@lib.I64(32768L)), @lib.I64Mul) =>
       Some({
         end: start + 3,
@@ -37912,7 +37917,7 @@ fn RawOiI32ConstAddAddressFact::from_parts(
       let folded = @lib.I32(
         (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
       )
-      Some({ end, value: @lib.Instruction::i32_const(folded) })
+      Some({ end, value: @lib.Instruction::i32_const(folded), })
     }
     _ => None
   }
@@ -39269,7 +39274,7 @@ fn RawOiDescriptorPrefixLabelFact::from_label(
 ) -> RawOiDescriptorPrefixLabelFact {
   let @lib.LabelIdx(raw) = label_idx
   let target_depth = raw.reinterpret_as_int()
-  { depth, target_depth, is_local_to_prefix: target_depth < depth }
+  { depth, target_depth, is_local_to_prefix: target_depth < depth, }
 }
 
 ///|
@@ -39311,7 +39316,7 @@ fn RawOiDescriptorPrefixValueGraphFact::from_body(
   depth : Int,
 ) -> RawOiDescriptorPrefixValueGraphFact {
   let prefixes : Array[RawOiDescriptorPrefixBodyFact] = [
-    { depth, end: 0, can_hoist: true, has_blocking_boundary: false },
+    { depth, end: 0, can_hoist: true, has_blocking_boundary: false, },
   ]
   let mut can_hoist = true
   let mut has_blocking_boundary = false
@@ -39321,9 +39326,9 @@ fn RawOiDescriptorPrefixValueGraphFact::from_body(
     has_blocking_boundary = has_blocking_boundary ||
       fact.has_blocking_boundary ||
       (fact.has_nested_control && !fact.can_hoist && !fact.is_plain_instruction)
-    prefixes.push({ depth, end: idx + 1, can_hoist, has_blocking_boundary })
+    prefixes.push({ depth, end: idx + 1, can_hoist, has_blocking_boundary, })
   }
-  { body_len: instrs.length(), prefixes }
+  { body_len: instrs.length(), prefixes, }
 }
 
 ///|
@@ -39461,7 +39466,7 @@ fn RawOiDescriptorPrefixValueGraphFact::prefix_hoist(
   }
   let body = self.prefixes[prefix_len]
   if body.can_hoist {
-    Some({ prefix_len, body })
+    Some({ prefix_len, body, })
   } else {
     None
   }
@@ -39502,7 +39507,7 @@ fn RawOiDescriptorTargetFact::from_heap_type(
   target : @lib.HeapType,
 ) -> RawOiDescriptorTargetFact? {
   match target {
-    @lib.HeapType(target_idx) => Some({ target, target_idx })
+    @lib.HeapType(target_idx) => Some({ target, target_idx, })
     _ => None
   }
 }
@@ -39529,7 +39534,7 @@ fn RawOiDescriptorDescribesFact::from_descriptor_type(
   }
   match @ir.hot_module_resolve_subtype(module_ctx, descriptor_type) {
     Some(subtype) if subtype.describes_type() == Some(target_fact.target_idx) =>
-      Some({ kind, descriptor_type, target: target_fact, param_count })
+      Some({ kind, descriptor_type, target: target_fact, param_count, })
     _ => None
   }
 }
@@ -39938,7 +39943,7 @@ fn RawOiDescriptorCallArgBlockBodyFact::from_region(
   region : RawOiInstructionRegionFact,
 ) -> RawOiDescriptorCallArgBlockBodyFact {
   if region.roots.is_empty() {
-    return { has_value: false, branch_free: false, blocking_boundary_count: 0 }
+    return { has_value: false, branch_free: false, blocking_boundary_count: 0, }
   }
   let mut blocking_boundary_count = 0
   for root in region.roots {
@@ -40389,19 +40394,22 @@ fn RawOiDescriptorProducerEndpointFact::from_position(
     @lib.Call(_) if start + 1 < instrs.length() =>
       match instrs[start + 1] {
         @lib.RefCastDescEq(_, _, _) =>
-          Some({ kind: DescriptorProducerEndpointDirectCall, end: start + 2 })
+          Some({ kind: DescriptorProducerEndpointDirectCall, end: start + 2, })
         _ => None
       }
     @lib.RefFunc(_) if start + 2 < instrs.length() =>
       match (instrs[start + 1], instrs[start + 2]) {
         (@lib.CallRef(_), @lib.RefCastDescEq(_, _, _)) =>
-          Some({ kind: DescriptorProducerEndpointDirectCallRef, end: start + 3 })
+          Some({
+            kind: DescriptorProducerEndpointDirectCallRef,
+            end: start + 3,
+          })
         _ => None
       }
     @lib.TableGet(_) if start + 2 < instrs.length() =>
       match (instrs[start + 1], instrs[start + 2]) {
         (@lib.CallRef(_), @lib.RefCastDescEq(_, _, _)) =>
-          Some({ kind: DescriptorProducerEndpointTableCallRef, end: start + 3 })
+          Some({ kind: DescriptorProducerEndpointTableCallRef, end: start + 3, })
         _ => None
       }
     _ => None
@@ -41712,7 +41720,7 @@ fn RawOiDescriptorLocalDefaultMissFact::from_graph(
       ) &&
       RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
         module_ctx, params, locals, local_idx, target,
-      ) => Some({ end: start + 3, local_idx, descriptor_type, target })
+      ) => Some({ end: start + 3, local_idx, descriptor_type, target, })
     _ => None
   }
 }
@@ -41888,7 +41896,7 @@ fn RawOiDescriptorLocalCallOperandMissFact::from_graph(
       RawOiLocalReferenceFact::local_proves_non_null_strict_subtype(
         module_ctx, params, locals, local_idx, target,
       ) =>
-      Some({ end: desc_end + 2, local_idx, descriptor_func, target, desc_args })
+      Some({ end: desc_end + 2, local_idx, descriptor_func, target, desc_args, })
     _ => None
   }
 }
@@ -42120,7 +42128,7 @@ fn RawOiBottomNullDescriptorCastFact::from_region_at(
     (@lib.RefNull(_), descriptor, @lib.RefCastDescEq(nullable, exact, target)) =>
       match RawOiBottomNullDescriptorOperandFact::from_instr(descriptor) {
         Some(operand) if operand.is_represented_fold_operand() =>
-          Some({ end: start + 3, descriptor, operand, nullable, exact, target })
+          Some({ end: start + 3, descriptor, operand, nullable, exact, target, })
         _ => None
       }
     _ => None
@@ -42171,11 +42179,11 @@ fn RawOiBottomNullDescriptorCastRegionFact::from_index(
   let region = index.regions[0]
   for i = 0; i < region.roots.length(); i = i + 1 {
     match RawOiBottomNullDescriptorCastFact::from_region_at(region, i) {
-      Some(_) => return { has_fold: true }
+      Some(_) => return { has_fold: true, }
       None => ()
     }
   }
-  { has_fold: false }
+  { has_fold: false, }
 }
 
 ///|
@@ -42447,13 +42455,13 @@ fn RawOiFlatPureScalarLeafFact::from_instr(
 ) -> RawOiFlatPureScalarLeafFact? {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) =>
-      Some({ key: "local.get:\{raw.reinterpret_as_int()}" })
+      Some({ key: "local.get:\{raw.reinterpret_as_int()}", })
     @lib.GlobalGet(@lib.GlobalIdx(raw)) =>
-      Some({ key: "global.get:\{raw.reinterpret_as_int()}" })
-    @lib.I32Const(@lib.I32(raw)) => Some({ key: "i32.const:\{raw}" })
-    @lib.I64Const(@lib.I64(raw)) => Some({ key: "i64.const:\{raw}" })
-    @lib.F32Const(@lib.F32(raw)) => Some({ key: "f32.const:\{raw}" })
-    @lib.F64Const(@lib.F64(raw)) => Some({ key: "f64.const:\{raw}" })
+      Some({ key: "global.get:\{raw.reinterpret_as_int()}", })
+    @lib.I32Const(@lib.I32(raw)) => Some({ key: "i32.const:\{raw}", })
+    @lib.I64Const(@lib.I64(raw)) => Some({ key: "i64.const:\{raw}", })
+    @lib.F32Const(@lib.F32(raw)) => Some({ key: "f32.const:\{raw}", })
+    @lib.F64Const(@lib.F64(raw)) => Some({ key: "f64.const:\{raw}", })
     _ => None
   }
 }
@@ -42468,57 +42476,57 @@ fn RawOiFlatPureScalarUnaryOpFact::from_instr(
   instr : @lib.Instruction,
 ) -> RawOiFlatPureScalarUnaryOpFact? {
   match instr {
-    @lib.I32Eqz => Some({ key: "i32.eqz" })
-    @lib.I32Clz => Some({ key: "i32.clz" })
-    @lib.I32Ctz => Some({ key: "i32.ctz" })
-    @lib.I32Popcnt => Some({ key: "i32.popcnt" })
-    @lib.I64Clz => Some({ key: "i64.clz" })
-    @lib.I64Ctz => Some({ key: "i64.ctz" })
-    @lib.I64Popcnt => Some({ key: "i64.popcnt" })
-    @lib.F32Abs => Some({ key: "f32.abs" })
-    @lib.F32Neg => Some({ key: "f32.neg" })
-    @lib.F32Ceil => Some({ key: "f32.ceil" })
-    @lib.F32Floor => Some({ key: "f32.floor" })
-    @lib.F32Trunc => Some({ key: "f32.trunc" })
-    @lib.F32Nearest => Some({ key: "f32.nearest" })
-    @lib.F32Sqrt => Some({ key: "f32.sqrt" })
-    @lib.F64Abs => Some({ key: "f64.abs" })
-    @lib.F64Neg => Some({ key: "f64.neg" })
-    @lib.F64Ceil => Some({ key: "f64.ceil" })
-    @lib.F64Floor => Some({ key: "f64.floor" })
-    @lib.F64Trunc => Some({ key: "f64.trunc" })
-    @lib.F64Nearest => Some({ key: "f64.nearest" })
-    @lib.F64Sqrt => Some({ key: "f64.sqrt" })
-    @lib.I32WrapI64 => Some({ key: "i32.wrap_i64" })
-    @lib.I32TruncF32S => Some({ key: "i32.trunc_f32_s" })
-    @lib.I32TruncF32U => Some({ key: "i32.trunc_f32_u" })
-    @lib.I32TruncF64S => Some({ key: "i32.trunc_f64_s" })
-    @lib.I32TruncF64U => Some({ key: "i32.trunc_f64_u" })
-    @lib.I64ExtendI32S => Some({ key: "i64.extend_i32_s" })
-    @lib.I64ExtendI32U => Some({ key: "i64.extend_i32_u" })
-    @lib.I64TruncF32S => Some({ key: "i64.trunc_f32_s" })
-    @lib.I64TruncF32U => Some({ key: "i64.trunc_f32_u" })
-    @lib.I64TruncF64S => Some({ key: "i64.trunc_f64_s" })
-    @lib.I64TruncF64U => Some({ key: "i64.trunc_f64_u" })
-    @lib.F32ConvertI32S => Some({ key: "f32.convert_i32_s" })
-    @lib.F32ConvertI32U => Some({ key: "f32.convert_i32_u" })
-    @lib.F32ConvertI64S => Some({ key: "f32.convert_i64_s" })
-    @lib.F32ConvertI64U => Some({ key: "f32.convert_i64_u" })
-    @lib.F32DemoteF64 => Some({ key: "f32.demote_f64" })
-    @lib.F64ConvertI32S => Some({ key: "f64.convert_i32_s" })
-    @lib.F64ConvertI32U => Some({ key: "f64.convert_i32_u" })
-    @lib.F64ConvertI64S => Some({ key: "f64.convert_i64_s" })
-    @lib.F64ConvertI64U => Some({ key: "f64.convert_i64_u" })
-    @lib.F64PromoteF32 => Some({ key: "f64.promote_f32" })
-    @lib.I32ReinterpretF32 => Some({ key: "i32.reinterpret_f32" })
-    @lib.I64ReinterpretF64 => Some({ key: "i64.reinterpret_f64" })
-    @lib.F32ReinterpretI32 => Some({ key: "f32.reinterpret_i32" })
-    @lib.F64ReinterpretI64 => Some({ key: "f64.reinterpret_i64" })
-    @lib.I32Extend8S => Some({ key: "i32.extend8_s" })
-    @lib.I32Extend16S => Some({ key: "i32.extend16_s" })
-    @lib.I64Extend8S => Some({ key: "i64.extend8_s" })
-    @lib.I64Extend16S => Some({ key: "i64.extend16_s" })
-    @lib.I64Extend32S => Some({ key: "i64.extend32_s" })
+    @lib.I32Eqz => Some({ key: "i32.eqz", })
+    @lib.I32Clz => Some({ key: "i32.clz", })
+    @lib.I32Ctz => Some({ key: "i32.ctz", })
+    @lib.I32Popcnt => Some({ key: "i32.popcnt", })
+    @lib.I64Clz => Some({ key: "i64.clz", })
+    @lib.I64Ctz => Some({ key: "i64.ctz", })
+    @lib.I64Popcnt => Some({ key: "i64.popcnt", })
+    @lib.F32Abs => Some({ key: "f32.abs", })
+    @lib.F32Neg => Some({ key: "f32.neg", })
+    @lib.F32Ceil => Some({ key: "f32.ceil", })
+    @lib.F32Floor => Some({ key: "f32.floor", })
+    @lib.F32Trunc => Some({ key: "f32.trunc", })
+    @lib.F32Nearest => Some({ key: "f32.nearest", })
+    @lib.F32Sqrt => Some({ key: "f32.sqrt", })
+    @lib.F64Abs => Some({ key: "f64.abs", })
+    @lib.F64Neg => Some({ key: "f64.neg", })
+    @lib.F64Ceil => Some({ key: "f64.ceil", })
+    @lib.F64Floor => Some({ key: "f64.floor", })
+    @lib.F64Trunc => Some({ key: "f64.trunc", })
+    @lib.F64Nearest => Some({ key: "f64.nearest", })
+    @lib.F64Sqrt => Some({ key: "f64.sqrt", })
+    @lib.I32WrapI64 => Some({ key: "i32.wrap_i64", })
+    @lib.I32TruncF32S => Some({ key: "i32.trunc_f32_s", })
+    @lib.I32TruncF32U => Some({ key: "i32.trunc_f32_u", })
+    @lib.I32TruncF64S => Some({ key: "i32.trunc_f64_s", })
+    @lib.I32TruncF64U => Some({ key: "i32.trunc_f64_u", })
+    @lib.I64ExtendI32S => Some({ key: "i64.extend_i32_s", })
+    @lib.I64ExtendI32U => Some({ key: "i64.extend_i32_u", })
+    @lib.I64TruncF32S => Some({ key: "i64.trunc_f32_s", })
+    @lib.I64TruncF32U => Some({ key: "i64.trunc_f32_u", })
+    @lib.I64TruncF64S => Some({ key: "i64.trunc_f64_s", })
+    @lib.I64TruncF64U => Some({ key: "i64.trunc_f64_u", })
+    @lib.F32ConvertI32S => Some({ key: "f32.convert_i32_s", })
+    @lib.F32ConvertI32U => Some({ key: "f32.convert_i32_u", })
+    @lib.F32ConvertI64S => Some({ key: "f32.convert_i64_s", })
+    @lib.F32ConvertI64U => Some({ key: "f32.convert_i64_u", })
+    @lib.F32DemoteF64 => Some({ key: "f32.demote_f64", })
+    @lib.F64ConvertI32S => Some({ key: "f64.convert_i32_s", })
+    @lib.F64ConvertI32U => Some({ key: "f64.convert_i32_u", })
+    @lib.F64ConvertI64S => Some({ key: "f64.convert_i64_s", })
+    @lib.F64ConvertI64U => Some({ key: "f64.convert_i64_u", })
+    @lib.F64PromoteF32 => Some({ key: "f64.promote_f32", })
+    @lib.I32ReinterpretF32 => Some({ key: "i32.reinterpret_f32", })
+    @lib.I64ReinterpretF64 => Some({ key: "i64.reinterpret_f64", })
+    @lib.F32ReinterpretI32 => Some({ key: "f32.reinterpret_i32", })
+    @lib.F64ReinterpretI64 => Some({ key: "f64.reinterpret_i64", })
+    @lib.I32Extend8S => Some({ key: "i32.extend8_s", })
+    @lib.I32Extend16S => Some({ key: "i32.extend16_s", })
+    @lib.I64Extend8S => Some({ key: "i64.extend8_s", })
+    @lib.I64Extend16S => Some({ key: "i64.extend16_s", })
+    @lib.I64Extend32S => Some({ key: "i64.extend32_s", })
     _ => None
   }
 }
@@ -42534,82 +42542,82 @@ fn RawOiFlatPureScalarBinaryOpFact::from_instr(
   instr : @lib.Instruction,
 ) -> RawOiFlatPureScalarBinaryOpFact? {
   match instr {
-    @lib.I32Add => Some({ key: "i32.add", commutative: true })
-    @lib.I32Mul => Some({ key: "i32.mul", commutative: true })
-    @lib.I32And => Some({ key: "i32.and", commutative: true })
-    @lib.I32Or => Some({ key: "i32.or", commutative: true })
-    @lib.I32Xor => Some({ key: "i32.xor", commutative: true })
-    @lib.I32Eq => Some({ key: "i32.eq", commutative: true })
-    @lib.I32Ne => Some({ key: "i32.ne", commutative: true })
-    @lib.I32LtS => Some({ key: "i32.lt_s", commutative: false })
-    @lib.I32LtU => Some({ key: "i32.lt_u", commutative: false })
-    @lib.I32GtS => Some({ key: "i32.gt_s", commutative: false })
-    @lib.I32GtU => Some({ key: "i32.gt_u", commutative: false })
-    @lib.I32LeS => Some({ key: "i32.le_s", commutative: false })
-    @lib.I32LeU => Some({ key: "i32.le_u", commutative: false })
-    @lib.I32GeS => Some({ key: "i32.ge_s", commutative: false })
-    @lib.I32GeU => Some({ key: "i32.ge_u", commutative: false })
-    @lib.I32Sub => Some({ key: "i32.sub", commutative: false })
-    @lib.I32DivS => Some({ key: "i32.div_s", commutative: false })
-    @lib.I32DivU => Some({ key: "i32.div_u", commutative: false })
-    @lib.I32RemS => Some({ key: "i32.rem_s", commutative: false })
-    @lib.I32RemU => Some({ key: "i32.rem_u", commutative: false })
-    @lib.I32Shl => Some({ key: "i32.shl", commutative: false })
-    @lib.I32ShrS => Some({ key: "i32.shr_s", commutative: false })
-    @lib.I32ShrU => Some({ key: "i32.shr_u", commutative: false })
-    @lib.I32Rotl => Some({ key: "i32.rotl", commutative: false })
-    @lib.I32Rotr => Some({ key: "i32.rotr", commutative: false })
-    @lib.I64Add => Some({ key: "i64.add", commutative: true })
-    @lib.I64Mul => Some({ key: "i64.mul", commutative: true })
-    @lib.I64And => Some({ key: "i64.and", commutative: true })
-    @lib.I64Or => Some({ key: "i64.or", commutative: true })
-    @lib.I64Xor => Some({ key: "i64.xor", commutative: true })
-    @lib.I64Sub => Some({ key: "i64.sub", commutative: false })
-    @lib.I64DivS => Some({ key: "i64.div_s", commutative: false })
-    @lib.I64DivU => Some({ key: "i64.div_u", commutative: false })
-    @lib.I64RemS => Some({ key: "i64.rem_s", commutative: false })
-    @lib.I64RemU => Some({ key: "i64.rem_u", commutative: false })
-    @lib.I64Shl => Some({ key: "i64.shl", commutative: false })
-    @lib.I64ShrS => Some({ key: "i64.shr_s", commutative: false })
-    @lib.I64ShrU => Some({ key: "i64.shr_u", commutative: false })
-    @lib.I64Rotl => Some({ key: "i64.rotl", commutative: false })
-    @lib.I64Rotr => Some({ key: "i64.rotr", commutative: false })
-    @lib.I64Eq => Some({ key: "i64.eq", commutative: true })
-    @lib.I64Ne => Some({ key: "i64.ne", commutative: true })
-    @lib.I64LtS => Some({ key: "i64.lt_s", commutative: false })
-    @lib.I64LtU => Some({ key: "i64.lt_u", commutative: false })
-    @lib.I64GtS => Some({ key: "i64.gt_s", commutative: false })
-    @lib.I64GtU => Some({ key: "i64.gt_u", commutative: false })
-    @lib.I64LeS => Some({ key: "i64.le_s", commutative: false })
-    @lib.I64LeU => Some({ key: "i64.le_u", commutative: false })
-    @lib.I64GeS => Some({ key: "i64.ge_s", commutative: false })
-    @lib.I64GeU => Some({ key: "i64.ge_u", commutative: false })
-    @lib.F32Eq => Some({ key: "f32.eq", commutative: false })
-    @lib.F32Ne => Some({ key: "f32.ne", commutative: false })
-    @lib.F32Lt => Some({ key: "f32.lt", commutative: false })
-    @lib.F32Gt => Some({ key: "f32.gt", commutative: false })
-    @lib.F32Le => Some({ key: "f32.le", commutative: false })
-    @lib.F32Ge => Some({ key: "f32.ge", commutative: false })
-    @lib.F64Eq => Some({ key: "f64.eq", commutative: false })
-    @lib.F64Ne => Some({ key: "f64.ne", commutative: false })
-    @lib.F64Lt => Some({ key: "f64.lt", commutative: false })
-    @lib.F64Gt => Some({ key: "f64.gt", commutative: false })
-    @lib.F64Le => Some({ key: "f64.le", commutative: false })
-    @lib.F64Ge => Some({ key: "f64.ge", commutative: false })
-    @lib.F32Add => Some({ key: "f32.add", commutative: false })
-    @lib.F32Sub => Some({ key: "f32.sub", commutative: false })
-    @lib.F32Mul => Some({ key: "f32.mul", commutative: false })
-    @lib.F32Div => Some({ key: "f32.div", commutative: false })
-    @lib.F32Min => Some({ key: "f32.min", commutative: false })
-    @lib.F32Max => Some({ key: "f32.max", commutative: false })
-    @lib.F32Copysign => Some({ key: "f32.copysign", commutative: false })
-    @lib.F64Add => Some({ key: "f64.add", commutative: false })
-    @lib.F64Sub => Some({ key: "f64.sub", commutative: false })
-    @lib.F64Mul => Some({ key: "f64.mul", commutative: false })
-    @lib.F64Div => Some({ key: "f64.div", commutative: false })
-    @lib.F64Min => Some({ key: "f64.min", commutative: false })
-    @lib.F64Max => Some({ key: "f64.max", commutative: false })
-    @lib.F64Copysign => Some({ key: "f64.copysign", commutative: false })
+    @lib.I32Add => Some({ key: "i32.add", commutative: true, })
+    @lib.I32Mul => Some({ key: "i32.mul", commutative: true, })
+    @lib.I32And => Some({ key: "i32.and", commutative: true, })
+    @lib.I32Or => Some({ key: "i32.or", commutative: true, })
+    @lib.I32Xor => Some({ key: "i32.xor", commutative: true, })
+    @lib.I32Eq => Some({ key: "i32.eq", commutative: true, })
+    @lib.I32Ne => Some({ key: "i32.ne", commutative: true, })
+    @lib.I32LtS => Some({ key: "i32.lt_s", commutative: false, })
+    @lib.I32LtU => Some({ key: "i32.lt_u", commutative: false, })
+    @lib.I32GtS => Some({ key: "i32.gt_s", commutative: false, })
+    @lib.I32GtU => Some({ key: "i32.gt_u", commutative: false, })
+    @lib.I32LeS => Some({ key: "i32.le_s", commutative: false, })
+    @lib.I32LeU => Some({ key: "i32.le_u", commutative: false, })
+    @lib.I32GeS => Some({ key: "i32.ge_s", commutative: false, })
+    @lib.I32GeU => Some({ key: "i32.ge_u", commutative: false, })
+    @lib.I32Sub => Some({ key: "i32.sub", commutative: false, })
+    @lib.I32DivS => Some({ key: "i32.div_s", commutative: false, })
+    @lib.I32DivU => Some({ key: "i32.div_u", commutative: false, })
+    @lib.I32RemS => Some({ key: "i32.rem_s", commutative: false, })
+    @lib.I32RemU => Some({ key: "i32.rem_u", commutative: false, })
+    @lib.I32Shl => Some({ key: "i32.shl", commutative: false, })
+    @lib.I32ShrS => Some({ key: "i32.shr_s", commutative: false, })
+    @lib.I32ShrU => Some({ key: "i32.shr_u", commutative: false, })
+    @lib.I32Rotl => Some({ key: "i32.rotl", commutative: false, })
+    @lib.I32Rotr => Some({ key: "i32.rotr", commutative: false, })
+    @lib.I64Add => Some({ key: "i64.add", commutative: true, })
+    @lib.I64Mul => Some({ key: "i64.mul", commutative: true, })
+    @lib.I64And => Some({ key: "i64.and", commutative: true, })
+    @lib.I64Or => Some({ key: "i64.or", commutative: true, })
+    @lib.I64Xor => Some({ key: "i64.xor", commutative: true, })
+    @lib.I64Sub => Some({ key: "i64.sub", commutative: false, })
+    @lib.I64DivS => Some({ key: "i64.div_s", commutative: false, })
+    @lib.I64DivU => Some({ key: "i64.div_u", commutative: false, })
+    @lib.I64RemS => Some({ key: "i64.rem_s", commutative: false, })
+    @lib.I64RemU => Some({ key: "i64.rem_u", commutative: false, })
+    @lib.I64Shl => Some({ key: "i64.shl", commutative: false, })
+    @lib.I64ShrS => Some({ key: "i64.shr_s", commutative: false, })
+    @lib.I64ShrU => Some({ key: "i64.shr_u", commutative: false, })
+    @lib.I64Rotl => Some({ key: "i64.rotl", commutative: false, })
+    @lib.I64Rotr => Some({ key: "i64.rotr", commutative: false, })
+    @lib.I64Eq => Some({ key: "i64.eq", commutative: true, })
+    @lib.I64Ne => Some({ key: "i64.ne", commutative: true, })
+    @lib.I64LtS => Some({ key: "i64.lt_s", commutative: false, })
+    @lib.I64LtU => Some({ key: "i64.lt_u", commutative: false, })
+    @lib.I64GtS => Some({ key: "i64.gt_s", commutative: false, })
+    @lib.I64GtU => Some({ key: "i64.gt_u", commutative: false, })
+    @lib.I64LeS => Some({ key: "i64.le_s", commutative: false, })
+    @lib.I64LeU => Some({ key: "i64.le_u", commutative: false, })
+    @lib.I64GeS => Some({ key: "i64.ge_s", commutative: false, })
+    @lib.I64GeU => Some({ key: "i64.ge_u", commutative: false, })
+    @lib.F32Eq => Some({ key: "f32.eq", commutative: false, })
+    @lib.F32Ne => Some({ key: "f32.ne", commutative: false, })
+    @lib.F32Lt => Some({ key: "f32.lt", commutative: false, })
+    @lib.F32Gt => Some({ key: "f32.gt", commutative: false, })
+    @lib.F32Le => Some({ key: "f32.le", commutative: false, })
+    @lib.F32Ge => Some({ key: "f32.ge", commutative: false, })
+    @lib.F64Eq => Some({ key: "f64.eq", commutative: false, })
+    @lib.F64Ne => Some({ key: "f64.ne", commutative: false, })
+    @lib.F64Lt => Some({ key: "f64.lt", commutative: false, })
+    @lib.F64Gt => Some({ key: "f64.gt", commutative: false, })
+    @lib.F64Le => Some({ key: "f64.le", commutative: false, })
+    @lib.F64Ge => Some({ key: "f64.ge", commutative: false, })
+    @lib.F32Add => Some({ key: "f32.add", commutative: false, })
+    @lib.F32Sub => Some({ key: "f32.sub", commutative: false, })
+    @lib.F32Mul => Some({ key: "f32.mul", commutative: false, })
+    @lib.F32Div => Some({ key: "f32.div", commutative: false, })
+    @lib.F32Min => Some({ key: "f32.min", commutative: false, })
+    @lib.F32Max => Some({ key: "f32.max", commutative: false, })
+    @lib.F32Copysign => Some({ key: "f32.copysign", commutative: false, })
+    @lib.F64Add => Some({ key: "f64.add", commutative: false, })
+    @lib.F64Sub => Some({ key: "f64.sub", commutative: false, })
+    @lib.F64Mul => Some({ key: "f64.mul", commutative: false, })
+    @lib.F64Div => Some({ key: "f64.div", commutative: false, })
+    @lib.F64Min => Some({ key: "f64.min", commutative: false, })
+    @lib.F64Max => Some({ key: "f64.max", commutative: false, })
+    @lib.F64Copysign => Some({ key: "f64.copysign", commutative: false, })
     _ => None
   }
 }
@@ -42702,7 +42710,7 @@ fn RawOiFlatPureScalarBudgetFact::default() -> RawOiFlatPureScalarBudgetFact {
   // `ExpressionAnalyzer::equal` is tree-shaped and effect-aware; this raw
   // fallback only accepts small flat postfix scalar trees until the HOT fact
   // layer can replace it entirely.
-  { max_instrs: 32, max_stack: 8 }
+  { max_instrs: 32, max_stack: 8, }
 }
 
 ///|
@@ -42864,7 +42872,7 @@ fn RawOiSameFlatPureScalarMemoryCopyFact::from_address_facts(
   }
   match region.roots[copy_instr_idx].instr {
     @lib.MemoryCopy(dst_mem, src_mem) if dst_mem == src_mem =>
-      Some({ dst_fact, src_fact, size_instr_idx, copy_instr_idx })
+      Some({ dst_fact, src_fact, size_instr_idx, copy_instr_idx, })
     _ => None
   }
 }
@@ -43000,7 +43008,7 @@ fn RawOiSameFlatPureScalarMemoryCopyRegionFact::rewrite_body(
     changed = changed || instr_changed
     i = i + 1
   }
-  { rewritten: out, changed }
+  { rewritten: out, changed, }
 }
 
 ///|
@@ -66311,7 +66319,7 @@ fn o4z_size_outline_bulk_copy_fact(func : @lib.Func) -> O4zBulkCopyOutlineFact? 
       load_addr == dst =>
       match (memory_copy, load) {
         (@lib.MemoryCopy(_, _), @lib.I32Load8U(_)) =>
-          Some({ dst, src, length, memory_copy, load })
+          Some({ dst, src, length, memory_copy, load, })
         _ => None
       }
     _ => None
@@ -66356,7 +66364,7 @@ fn o4z_size_outline_bulk_fill_fact(func : @lib.Func) -> O4zBulkFillOutlineFact? 
       load_addr == dst =>
       match (memory_fill, load) {
         (@lib.MemoryFill(_), @lib.I32Load8U(_)) =>
-          Some({ dst, value, length, memory_fill, load })
+          Some({ dst, value, length, memory_fill, load, })
         _ => None
       }
     _ => None
@@ -73697,7 +73705,7 @@ fn RawOiEscapingLabelVecRetargetFact::from_labels(
       None => return None
     }
   }
-  Some({ original_count: labels.length(), retargeted, removed_block_depth: 1 })
+  Some({ original_count: labels.length(), retargeted, removed_block_depth: 1, })
 }
 
 ///|
@@ -73803,11 +73811,11 @@ fn RawOiEscapingRefGetDescCandidateFact::from_region_at(
     region.has_root_at(start + 2, RawOiRootKind::RefAsNonNull) &&
     region.has_root_at(start + 3, RawOiRootKind::RefGetDesc) &&
     region.has_root_at(start + 4, RawOiRootKind::RefCastDescEq) {
-    return Some({ start, end: start + 5, skips_explicit_null_check: true })
+    return Some({ start, end: start + 5, skips_explicit_null_check: true, })
   }
   if region.has_root_at(start + 2, RawOiRootKind::RefGetDesc) &&
     region.has_root_at(start + 3, RawOiRootKind::RefCastDescEq) {
-    return Some({ start, end: start + 4, skips_explicit_null_check: false })
+    return Some({ start, end: start + 4, skips_explicit_null_check: false, })
   }
   None
 }

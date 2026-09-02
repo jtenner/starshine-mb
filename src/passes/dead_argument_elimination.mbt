@@ -1582,7 +1582,7 @@ fn dae_commit_effects_with_structural_touched(
   effects : DaeCommitEffects,
   structurally_touched : Array[Bool],
 ) -> DaeCommitEffects {
-  { ..effects, structurally_touched: structurally_touched.copy() }
+  { ..effects, structurally_touched: structurally_touched.copy(), }
 }
 
 ///|
@@ -2635,7 +2635,7 @@ fn dae_make_call_boundary_facts(
   tail_calls : Array[Bool],
   direct_callers : Array[Array[Int]],
 ) -> DaeCallBoundaryFacts {
-  { escaped, tail_calls, direct_callers, direct_calls: [], dropped_calls: [] }
+  { escaped, tail_calls, direct_callers, direct_calls: [], dropped_calls: [], }
 }
 
 ///|
@@ -2741,7 +2741,7 @@ fn dae_make_function_epochs(
   let epochs : Array[DaeFunctionEpochs] = []
   let mut def_idx = 0
   while def_idx < count {
-    epochs.push({ signature_epoch, body_epoch })
+    epochs.push({ signature_epoch, body_epoch, })
     def_idx += 1
   }
   epochs
@@ -5782,7 +5782,7 @@ fn dae_target_callsite_evidence(
     return None
   }
   let make = fn(is_return_call : Bool) -> DaeTargetCallsiteEvidence? {
-    let evidence = { callee_abs, is_return_call }
+    let evidence = { callee_abs, is_return_call, }
     if dae_target_callsite_evidence_is_consistent(evidence, callee_abs, mode) {
       Some(evidence)
     } else {
@@ -6254,7 +6254,7 @@ fn dae_control_block_type_non_null_concrete_gc_result_from_signature_evidence(
   }
   let candidate = signature.results[result_index]
   if dae_val_type_is_non_null_concrete_gc_ref_candidate(candidate) {
-    Some({ signature, result_index, candidate })
+    Some({ signature, result_index, candidate, })
   } else {
     None
   }
@@ -7009,7 +7009,7 @@ fn dae_call_facts_from_function_infos(
     }
     callee_abs += 1
   }
-  { direct_calls, tail_calls, direct_callers, dropped_calls, escaped }
+  { direct_calls, tail_calls, direct_callers, dropped_calls, escaped, }
 }
 
 ///|
@@ -7118,7 +7118,7 @@ fn dae_collect_current_function_analysis(
   perf_stop_timer_opt(
     perf, "detail:dae:boundary-snapshot:call-facts", call_facts_start_us,
   )
-  { call_facts, function_infos, exposure, parameter_loop_free }
+  { call_facts, function_infos, exposure, parameter_loop_free, }
 }
 
 ///|
@@ -7150,7 +7150,7 @@ fn dae_adjacent_param_forward_evidence(
     }
     p += 1
   }
-  Some({ start, end: call_idx, param_count })
+  Some({ start, end: call_idx, param_count, })
 }
 
 ///|
@@ -8117,7 +8117,7 @@ fn dae_operand_rewrite_disposition(
     DaeLocalizeOperandAndRetry => DaeOperandRequiresLocalization
     DaeRejectEscapingOperandRewrite => DaeOperandContainsEscapingControl
   }
-  { operand, localization_available, has_escaping_branch, action, reason }
+  { operand, localization_available, has_escaping_branch, action, reason, }
 }
 
 ///|
@@ -8391,7 +8391,7 @@ fn dae_find_value_slice(
       if need <= entry_stack_values {
         return Some(
           (
-            { start: idx + 1, end, pure: false },
+            { start: idx + 1, end, pure: false, },
             idx + 1,
             entry_stack_values - need,
           ),
@@ -8416,7 +8416,7 @@ fn dae_find_value_slice(
     idx -= 1
   }
   if need <= entry_stack_values {
-    return Some(({ start: 0, end, pure: false }, 0, entry_stack_values - need))
+    return Some(({ start: 0, end, pure: false, }, 0, entry_stack_values - need))
   }
   None
 }
@@ -8682,7 +8682,7 @@ fn dae_value_slice_from_range(
 
 ///|
 fn dae_call_shape_from_value_slice(slice : DaeValueSlice) -> DaeCallShape {
-  { start: slice.start, end: slice.end, pure: slice.pure }
+  { start: slice.start, end: slice.end, pure: slice.pure, }
 }
 
 ///|
@@ -8743,7 +8743,7 @@ fn dae_find_select_value_slices(
       condition_start -= 1
       continue
     }
-    return Some({ left, right, condition, select_idx })
+    return Some({ left, right, condition, select_idx, })
   }
   None
 }
@@ -10138,7 +10138,13 @@ fn dae_callsite_value_slice_evidence(
       allow_stack_carried_void_effects~,
     ) {
     Some((slices, cursor)) => {
-      let evidence = { call_idx, arg_count, entry_stack_values, slices, cursor }
+      let evidence = {
+        call_idx,
+        arg_count,
+        entry_stack_values,
+        slices,
+        cursor,
+      }
       if dae_callsite_value_slice_evidence_is_consistent(
           evidence, call_idx, arg_count, entry_stack_values,
         ) {
@@ -10762,7 +10768,7 @@ fn dae_callsite_single_instruction_actual(
   }
   match dae_value_slice_single_instruction_index(evidence.slices[param_idx]) {
     Some(actual_idx) if actual_idx >= 0 && actual_idx < instrs.length() => {
-      let actual = { param_idx, actual_idx, instr: instrs[actual_idx] }
+      let actual = { param_idx, actual_idx, instr: instrs[actual_idx], }
       if dae_callsite_single_instruction_actual_is_consistent(
           actual, param_idx, instrs,
         ) {
@@ -10865,7 +10871,7 @@ fn dae_removed_param_local_projection_evidence(
     None
   }
   match body_local_type {
-    Some(_) => { valid: true, preserve_as_body_local: true, body_local_type }
+    Some(_) => { valid: true, preserve_as_body_local: true, body_local_type, }
     None =>
       {
         valid: !localized,
@@ -10984,7 +10990,7 @@ fn dae_removed_param_callee_rewrite_evidence(
   if !dae_local_indices_fit_instrs(body, kept_params.length() + locals.length()) {
     return None
   }
-  Some({ kept_params, locals, body })
+  Some({ kept_params, locals, body, })
 }
 
 ///|
@@ -11621,7 +11627,7 @@ fn dae_rewrite_calls_instrs(
             )
         }
         if !ok {
-          return { instrs: [], calls_rewritten: calls, ok: false }
+          return { instrs: [], calls_rewritten: calls, ok: false, }
         }
         current.clear()
         current.append(rewritten)
@@ -11652,7 +11658,7 @@ fn dae_rewrite_calls_instrs(
       }
     }
   }
-  { instrs: current, calls_rewritten: calls, ok: true }
+  { instrs: current, calls_rewritten: calls, ok: true, }
 }
 
 ///|
@@ -12366,7 +12372,7 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
         let actual = match direct_actual_start {
           Some(start) => {
             let actual_idx = start + p
-            Some({ param_idx: p, actual_idx, instr: scope[actual_idx] })
+            Some({ param_idx: p, actual_idx, instr: scope[actual_idx], })
           }
           None =>
             match evidence {
@@ -14546,7 +14552,7 @@ fn dae_gc_select_actual_value_slices_evidence(
   }
   Some({
     slices,
-    gc: { candidate, refined_candidate, left_rewrite, right_rewrite },
+    gc: { candidate, refined_candidate, left_rewrite, right_rewrite, },
   })
 }
 
@@ -14584,7 +14590,7 @@ fn dae_gc_actual_shape_discovery_evidence(
     _ if shape.start + 1 == shape.end => DaeDirectGcActualShape
     _ => return None
   }
-  Some({ start: shape.start, end: shape.end, kind })
+  Some({ start: shape.start, end: shape.end, kind, })
 }
 
 ///|
@@ -15142,7 +15148,7 @@ fn dae_single_result_control_pair_gc_evidence(
         Some(body) => body
         None => else_body
       }
-      Some({ candidate, rewritten_then_body, rewritten_else_body })
+      Some({ candidate, rewritten_then_body, rewritten_else_body, })
     }
     None => None
   }
@@ -15301,7 +15307,7 @@ fn dae_single_result_control_pair_repair_evidence(
     Some(result) => result
     None => return None
   }
-  let repair = { pair, application, rewritten }
+  let repair = { pair, application, rewritten, }
   if dae_single_result_control_pair_repair_evidence_is_consistent(
       repair, result_is_void,
     ) {
@@ -15317,11 +15323,11 @@ fn dae_single_body_control_shape_evidence(
 ) -> DaeSingleBodyControlShapeEvidence? {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) =>
-      Some({ control_kind: 0, block_type, catches: [], body })
+      Some({ control_kind: 0, block_type, catches: [], body, })
     @lib.Loop(block_type, @lib.Expr(body)) =>
-      Some({ control_kind: 1, block_type, catches: [], body })
+      Some({ control_kind: 1, block_type, catches: [], body, })
     @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-      Some({ control_kind: 2, block_type, catches, body })
+      Some({ control_kind: 2, block_type, catches, body, })
     _ => None
   }
 }
@@ -15336,7 +15342,7 @@ fn dae_single_body_control_rewrite_evidence(
     Some(rewritten_body) => (rewritten_body, true)
     None => (shape.body, false)
   }
-  { shape, replacement_block_type, rewritten_body, body_changed }
+  { shape, replacement_block_type, rewritten_body, body_changed, }
 }
 
 ///|
@@ -15546,7 +15552,7 @@ fn dae_single_result_control_gc_candidate_evidence(
         @lib.BlockType::val_type(candidate),
         rewritten_body_opt,
       )
-      Some({ candidate, rewrite })
+      Some({ candidate, rewrite, })
     }
     None => None
   }
@@ -15816,7 +15822,7 @@ fn dae_gc_result_slot_evidence(
   if require_refined && refined_candidate.is_none() {
     return None
   }
-  Some({ candidate, refined_candidate, rewrite })
+  Some({ candidate, refined_candidate, rewrite, })
 }
 
 ///|
@@ -16736,7 +16742,7 @@ fn dae_multi_result_if_pair_gc_refinement_evidence(
     else_slice.flattened ||
     pair.then_body_changed ||
     pair.else_body_changed
-  Some({ then_slice, else_slice, pair, if_body_changed })
+  Some({ then_slice, else_slice, pair, if_body_changed, })
 }
 
 ///|
@@ -17143,7 +17149,7 @@ fn dae_gc_select_value_slices_evidence(
   if require_refined && refined_candidate.is_none() {
     return None
   }
-  Some({ candidate, refined_candidate, left_rewrite, right_rewrite })
+  Some({ candidate, refined_candidate, left_rewrite, right_rewrite, })
 }
 
 ///|
@@ -17183,7 +17189,7 @@ fn dae_gc_select_value_slices_candidate_evidence(
       old_type,
       require_refined~,
     ) {
-    Some(gc) => Some({ slices, gc })
+    Some(gc) => Some({ slices, gc, })
     None => None
   }
 }
@@ -18024,7 +18030,7 @@ fn dae_apply_module_boundary_finalization(
   type_update_timer_name? : String = "",
 ) -> DaePassResult {
   if rewritten_funcs.length() != context.funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let type_update_start_us = if type_update_timer_name.length() > 0 {
     perf_start_timer_opt(perf, type_update_timer_name)
@@ -18080,7 +18086,7 @@ fn dae_try_update_signature_only(
     dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
     Some(context) => context
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   dae_apply_module_boundary_finalization(
     mod_,
@@ -18210,7 +18216,7 @@ fn dae_apply_typeidx_control_rewrite(
       @lib.Instruction::if_(block_type, plan.body, Some(else_body))
     _ => return None
   }
-  Some({ type_sec: next_type_sec, rewritten })
+  Some({ type_sec: next_type_sec, rewritten, })
 }
 
 ///|
@@ -18255,7 +18261,7 @@ fn dae_rebuild_typeidx_control_in_body(
   }
   let body = outer_body.copy()
   body[control_idx] = control_application.rewritten
-  Some({ type_sec: control_application.type_sec, body })
+  Some({ type_sec: control_application.type_sec, body, })
 }
 
 ///|
@@ -18290,7 +18296,7 @@ fn dae_dropped_operand_pair_skip_evidence(
       _ => break
     }
   }
-  let evidence = { start, end, next, skipped_pairs }
+  let evidence = { start, end, next, skipped_pairs, }
   if dae_dropped_operand_pair_skip_evidence_is_consistent(evidence) {
     Some(evidence)
   } else {
@@ -18415,7 +18421,7 @@ fn dae_multi_result_suffix_bounds_evidence(
     let mut suffix_start = 0
     while suffix_start <= max_start {
       if dae_trivially_dropped_prefix_evidence(body, suffix_start) is Some(_) {
-        out.push({ suffix_start, operand_end, has_terminal_return })
+        out.push({ suffix_start, operand_end, has_terminal_return, })
       }
       suffix_start += 1
     }
@@ -19095,7 +19101,7 @@ fn dae_apply_mixed_multi_result_return_arm_refinements(
     if evidence.control_result is Some(_) {
       return None
     }
-    return Some({ body: evidence.body, body_changed: false })
+    return Some({ body: evidence.body, body_changed: false, })
   }
   let control_result = match evidence.control_result {
     Some(control_result) => control_result
@@ -19321,7 +19327,7 @@ fn dae_apply_direct_caller_scope_rewrite(
       }
     }
   }
-  { funcs: rewritten_funcs, calls_rewritten, changed_defs, changed, ok: true }
+  { funcs: rewritten_funcs, calls_rewritten, changed_defs, changed, ok: true, }
 }
 
 ///|
@@ -19360,7 +19366,7 @@ fn dae_collect_gc_parameter_lub_actuals_for_callers(
   let mut calls_seen = 0
   for caller_def in direct_caller_defs {
     if caller_def < 0 || caller_def >= funcs.length() {
-      return { candidates, rejected, calls_seen, collect_ok: false }
+      return { candidates, rejected, calls_seen, collect_ok: false, }
     }
     let @lib.Func(caller_body_locals, @lib.Expr(caller_body)) = funcs[caller_def]
     let caller_func_locals = match
@@ -19375,10 +19381,10 @@ fn dae_collect_gc_parameter_lub_actuals_for_callers(
     )
     calls_seen += caller_calls
     if !ok {
-      return { candidates, rejected, calls_seen, collect_ok: false }
+      return { candidates, rejected, calls_seen, collect_ok: false, }
     }
   }
-  { candidates, rejected, calls_seen, collect_ok: true }
+  { candidates, rejected, calls_seen, collect_ok: true, }
 }
 
 ///|
@@ -19395,7 +19401,7 @@ fn dae_apply_gc_parameter_lub_evidence(
   if candidates.length() != params.length() ||
     rejected.length() != params.length() ||
     calls_seen != expected_call_count {
-    return { next_params, refined_params, complete: false, changed: false }
+    return { next_params, refined_params, complete: false, changed: false, }
   }
   let mut changed = false
   let mut param_idx = 0
@@ -19421,7 +19427,7 @@ fn dae_apply_gc_parameter_lub_evidence(
     }
     param_idx += 1
   }
-  { next_params, refined_params, complete: true, changed }
+  { next_params, refined_params, complete: true, changed, }
 }
 
 ///|
@@ -19585,7 +19591,7 @@ fn dae_try_refine_direct_gc_types(
   refine_results? : Bool = true,
 ) -> DaePassResult {
   if direct_call_count == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let imported = dae_imported_func_count(mod_)
   let def_idx = callee_abs - imported
@@ -19593,16 +19599,16 @@ fn dae_try_refine_direct_gc_types(
   let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(ft) => ft
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.FuncType(params, results) = func_type
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if def_idx < 0 || def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
   let local_use = dae_local_use_for_callee(
@@ -19666,7 +19672,7 @@ fn dae_try_refine_direct_gc_types(
         funcs, direct_caller_defs, rewrite_caller,
       )
       if !application.ok || application.calls_rewritten != direct_call_count {
-        return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+        return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
       }
       rewritten_funcs = application.funcs
       caller_body_changed = application.changed
@@ -19686,7 +19692,12 @@ fn dae_try_refine_direct_gc_types(
           param_fixup_body_changed = body_changed
         }
         None =>
-          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+          return {
+            mod_out: mod_,
+            touched: [],
+            changed: false,
+            primary_def: -1,
+          }
       }
     }
   }
@@ -20063,7 +20074,7 @@ fn dae_try_refine_direct_gc_types(
     }
   }
   if !changed {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let update_mod = match rewrite_type_sec {
     Some(type_sec) => mod_.with_type_sec(type_sec)
@@ -20106,7 +20117,7 @@ fn dae_try_refine_direct_gc_types_for_def_with_facts(
     dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
     Some(candidate) => candidate
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if !candidate.owned ||
     (
@@ -20116,7 +20127,7 @@ fn dae_try_refine_direct_gc_types_for_def_with_facts(
         !candidate.allows_nonself_direct_rewrite
       )
     ) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   dae_try_refine_direct_gc_types(
     mod_,
@@ -20241,18 +20252,18 @@ fn dae_try_rewrite_verified_materialized_const_suffix_candidate(
     expected_suffix.length() <= 0 ||
     expected_suffix.length() > params.length() ||
     expected_suffix.any(fn(instr) { !dae_instr_is_materializable_const(instr) }) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let graph = dae_current_boundary_graph_new(mod_)
   if callee_abs < 0 || callee_abs >= graph.snapshot.function_types.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let current_params = match graph.snapshot.function_types[callee_abs] {
     Some(@lib.FuncType(current_params, _)) => current_params
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if current_params != params {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let suffix_start = params.length() - expected_suffix.length()
   let remove = Array::make(params.length(), false)
@@ -20284,10 +20295,10 @@ fn dae_try_rewrite_verified_materialized_const_suffix_candidate(
       if application.applied {
         application.result
       } else {
-        { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+        { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
       }
     }
-    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
 
@@ -20412,26 +20423,26 @@ fn dae_try_apply_unread_param_batch(
   let mut type_sec = match mod_.type_sec {
     Some(type_sec) => type_sec
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let type_idxs = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.copy()
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let current_type_indices = snapshot.type_indices.copy()
   let type_lookup = dae_simple_func_type_lookup(type_sec)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if type_idxs.length() != funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let tail_boundary = dae_tail_call_boundary_evidence(funcs)
   if tail_boundary.blocks_direct_call_rewrite {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let plans : Array[DaeBoundaryParamBatchPlan] = []
   let candidate_start_us = perf_start_timer_opt(
@@ -20584,7 +20595,7 @@ fn dae_try_apply_unread_param_batch(
     perf, "detail:dae:parameter-batch:uniform-actuals", uniform_actual_us,
   )
   if plans.length() == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let commit_start_us = perf_start_timer_opt(
     perf, "detail:dae:parameter-batch:commit",
@@ -20726,7 +20737,7 @@ fn dae_try_apply_unread_param_batch(
     perf, "detail:dae:parameter-batch:commit", commit_start_us,
   )
   if applied == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   {
     mod_out: mod_
@@ -20923,19 +20934,19 @@ fn dae_try_apply_dropped_result_batch(
   let mut type_sec = match mod_.type_sec {
     Some(type_sec) => type_sec
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let type_idxs = match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.copy()
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let current_type_indices = snapshot.type_indices.copy()
   let type_lookup = dae_simple_func_type_lookup(type_sec)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let void_callers : Array[Bool] = []
   for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
@@ -20987,7 +20998,7 @@ fn dae_try_apply_dropped_result_batch(
     })
   }
   if plans.length() == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let rewritten_funcs = funcs.copy()
   let touched = Array::make(defined, false)
@@ -21078,7 +21089,7 @@ fn dae_try_apply_dropped_result_batch(
     applied += 1
   }
   if applied == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   topology_preserved_report.push(!topology_changed)
   {
@@ -21994,7 +22005,7 @@ fn dae_rewrite_plan_rejection(
   reason : DaeDecisionReason,
 ) -> DaeRewritePlanApplication {
   {
-    result: { mod_out: mod_, touched: [], changed: false, primary_def: -1 },
+    result: { mod_out: mod_, touched: [], changed: false, primary_def: -1, },
     applied: false,
     reason,
     effects: dae_commit_effects_empty(dae_defined_func_count(mod_)),
@@ -22016,11 +22027,11 @@ fn dae_rewrite_call_at_stable_path(
   allow_stack_carried_void_effects? : Bool = false,
 ) -> DaeRewriteResult {
   if path_idx < 0 || path_idx >= path.length() {
-    return { instrs: [], calls_rewritten: 0, ok: false }
+    return { instrs: [], calls_rewritten: 0, ok: false, }
   }
   let instr_idx = path[path_idx]
   if instr_idx < 0 || instr_idx >= instrs.length() {
-    return { instrs: [], calls_rewritten: 0, ok: false }
+    return { instrs: [], calls_rewritten: 0, ok: false, }
   }
   if path_idx + 1 == path.length() {
     match
@@ -22030,7 +22041,7 @@ fn dae_rewrite_call_at_stable_path(
         DaeTargetDirectOrReturnCall,
       ) {
       Some(_) => ()
-      None => return { instrs: [], calls_rewritten: 0, ok: false }
+      None => return { instrs: [], calls_rewritten: 0, ok: false, }
     }
     let evidence = match
       dae_rewrite_callsite_with_localization_at(
@@ -22047,7 +22058,7 @@ fn dae_rewrite_call_at_stable_path(
         traps_never_happen~,
       ) {
       Some(evidence) => evidence
-      None => return { instrs: [], calls_rewritten: 0, ok: false }
+      None => return { instrs: [], calls_rewritten: 0, ok: false, }
     }
     localization.scratch_local_types.clear()
     localization.scratch_local_types.append(evidence.scratch_local_types)
@@ -22058,25 +22069,25 @@ fn dae_rewrite_call_at_stable_path(
         evidence.localized_params[param_idx]
       param_idx += 1
     }
-    return { instrs: evidence.instrs, calls_rewritten: 1, ok: true }
+    return { instrs: evidence.instrs, calls_rewritten: 1, ok: true, }
   }
   if path_idx + 2 >= path.length() {
-    return { instrs: [], calls_rewritten: 0, ok: false }
+    return { instrs: [], calls_rewritten: 0, ok: false, }
   }
   let child_kind = path[path_idx + 1]
   let children = match
     dae_nested_control_children_evidence(instrs[instr_idx], mod_) {
     Some(children) => children
-    None => return { instrs: [], calls_rewritten: 0, ok: false }
+    None => return { instrs: [], calls_rewritten: 0, ok: false, }
   }
   let child_body = match child_kind {
     0 | 1 | 2 | 4 => children.primary_body
     3 =>
       match children.secondary_body {
         Some(body) => body
-        None => return { instrs: [], calls_rewritten: 0, ok: false }
+        None => return { instrs: [], calls_rewritten: 0, ok: false, }
       }
-    _ => return { instrs: [], calls_rewritten: 0, ok: false }
+    _ => return { instrs: [], calls_rewritten: 0, ok: false, }
   }
   let child_result = dae_rewrite_call_at_stable_path(
     child_body,
@@ -22112,11 +22123,15 @@ fn dae_rewrite_call_at_stable_path(
       rewritten_secondary,
     ) {
     Some(instr) => instr
-    None => return { instrs: [], calls_rewritten: 0, ok: false }
+    None => return { instrs: [], calls_rewritten: 0, ok: false, }
   }
   let rewritten = instrs.copy()
   rewritten[instr_idx] = rewritten_instr
-  { instrs: rewritten, calls_rewritten: child_result.calls_rewritten, ok: true }
+  {
+    instrs: rewritten,
+    calls_rewritten: child_result.calls_rewritten,
+    ok: true,
+  }
 }
 
 ///|
@@ -22179,7 +22194,7 @@ fn dae_rewrite_calls_from_stable_callsites(
     current = result.instrs
     calls_rewritten += result.calls_rewritten
   }
-  { instrs: current, calls_rewritten, ok: true }
+  { instrs: current, calls_rewritten, ok: true, }
 }
 
 ///|
@@ -22490,7 +22505,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
         ok: true,
       }
     } else {
-      { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
+      { func: caller_func, calls_rewritten: 0, changed: false, ok: true, }
     }
   }
   let caller_application = if materialized_suffix.length() > 0 {
@@ -22515,7 +22530,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
           ok: true,
         }
       } else {
-        { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
+        { func: caller_func, calls_rewritten: 0, changed: false, ok: true, }
       }
     }
     dae_apply_direct_caller_scope_rewrite(
@@ -23443,7 +23458,7 @@ fn dae_try_rewrite_candidate(
       allow_stack_carried_void_effects~,
     ) {
     Some(plan) => dae_apply_rewrite_plan(mod_, active_graph, plan).result
-    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
 
@@ -23462,11 +23477,11 @@ fn dae_try_rewrite_verified_uniform_const_candidate(
   if verified_calls <= 0 ||
     remove.length() != params.length() ||
     expected_const_params.length() != params.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let boundary_snapshot = dae_collect_module_boundary_snapshot(mod_)
   if callee_abs < 0 || callee_abs >= boundary_snapshot.total {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let manual_direct_callers = dae_make_direct_callers(boundary_snapshot.total)
   manual_direct_callers[callee_abs] = verified_callers
@@ -23485,7 +23500,7 @@ fn dae_try_rewrite_verified_uniform_const_candidate(
     ) {
     Some(values) => values
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let mut p = 0
   while p < params.length() {
@@ -23495,7 +23510,12 @@ fn dae_try_rewrite_verified_uniform_const_candidate(
             actual, expected,
           ) => ()
         _ =>
-          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+          return {
+            mod_out: mod_,
+            touched: [],
+            changed: false,
+            primary_def: -1,
+          }
       }
     }
     p += 1
@@ -23545,17 +23565,17 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
   graph? : DaeCurrentBoundaryGraph? = None,
 ) -> DaePassResult {
   if caller_defs.length() == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let candidates = Array::make(defined, false)
   for caller_def in caller_defs {
     if caller_def < 0 || caller_def >= funcs.length() {
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     let callees : Array[Int] = []
@@ -23648,10 +23668,10 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
         if plan_application.applied {
           plan_application.result
         } else {
-          { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+          { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
         }
       }
-      None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
     }
     if result.changed {
       if result.primary_def < 0 || result.primary_def >= result.touched.length() {
@@ -23700,7 +23720,7 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
       }
     }
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
 }
 
 ///|
@@ -23916,7 +23936,7 @@ fn dae_dead_suffix_evidence(
         suffix.push(instrs[suffix_idx])
         suffix_idx += 1
       }
-      return Some({ root_idx: idx, suffix_start: idx + 1, suffix })
+      return Some({ root_idx: idx, suffix_start: idx + 1, suffix, })
     }
     idx += 1
   }
@@ -24056,7 +24076,7 @@ fn dae_dropped_result_scope_from_optional(
   caller_defs : Array[Int]?,
 ) -> DaeDroppedResultScope {
   match caller_defs {
-    Some(callers) => { caller_defs: callers.copy() }
+    Some(callers) => { caller_defs: callers.copy(), }
     None => {
       let defs : Array[Int] = []
       let mut def_idx = 0
@@ -24064,7 +24084,7 @@ fn dae_dropped_result_scope_from_optional(
         defs.push(def_idx)
         def_idx += 1
       }
-      { caller_defs: defs }
+      { caller_defs: defs, }
     }
   }
 }
@@ -24491,7 +24511,7 @@ fn dae_dropped_result_module_context(
         callee_abs >= original.exposure.length() ||
         dae_function_exposure_blocks_boundary(original.exposure[callee_abs])
       if results.length() > 0 && original_exposure_blocks {
-        { ..scoped, blocks_result_removal: true }
+        { ..scoped, blocks_result_removal: true, }
       } else {
         scoped
       }
@@ -24933,10 +24953,10 @@ fn dae_finalize_module_code_rewrite(
     dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
     Some(context) => context
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if rewritten_funcs.length() != context.funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let plan = dae_module_code_finalization_plan(
     next_params, next_results, touched_policy,
@@ -24967,7 +24987,7 @@ fn dae_apply_dropped_result_callee_rewrite(
 ) -> DaePassResult {
   let def_idx = context.def_idx
   if def_idx < 0 || def_idx >= rewritten_funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let repair_start_us = if repair_timer_name.length() > 0 {
     perf_start_timer_opt(perf, repair_timer_name)
@@ -25159,7 +25179,7 @@ fn dae_try_remove_dropped_results(
   cached_precheck? : DaeDroppedResultCachedPrecheck? = None,
 ) -> DaePassResult {
   if direct_call_count == 0 || dropped_call_count != direct_call_count {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let context = match
     dae_dropped_result_module_context(
@@ -25173,7 +25193,7 @@ fn dae_try_remove_dropped_results(
     ) {
     Some(context) => context
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let imported = context.imported
   let def_idx = context.signature.def_idx
@@ -25181,12 +25201,12 @@ fn dae_try_remove_dropped_results(
   let params = context.params
   let results = context.results
   if results.length() != 1 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let funcs = context.signature.funcs
   let rewrite_scope = context.scope
   if dae_dropped_result_removal_legality_blocks(context.result_removal_legality) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let self_call_count_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:self-call-count",
@@ -25200,7 +25220,7 @@ fn dae_try_remove_dropped_results(
     self_call_count_start_us,
   )
   if direct_call_count == self_call_count {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let rewritten_funcs = funcs.copy()
   let rewrite_calls_start_us = perf_start_timer_opt(
@@ -25221,7 +25241,7 @@ fn dae_try_remove_dropped_results(
     rewrite_calls_start_us,
   )
   if rewritten_call_count != direct_call_count {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let repair_plan = dae_dropped_result_repair_plan(
     rewrite_scope,
@@ -25976,7 +25996,7 @@ fn dae_dead_suffix_direct_target_evidence(
         dropped_direct_targets,
         undropped_direct_targets,
       )
-      Some({ direct_targets, dropped_direct_targets, undropped_direct_targets })
+      Some({ direct_targets, dropped_direct_targets, undropped_direct_targets, })
     }
     None => None
   }
@@ -26149,7 +26169,7 @@ fn dae_stack_effect_evidence(
 ) -> DaeStackEffectEvidence? {
   match dae_instr_stack_effect(instr, mod_, func_type_indices) {
     Some((inputs, outputs)) => {
-      let evidence = { inputs, outputs }
+      let evidence = { inputs, outputs, }
       if dae_stack_effect_evidence_is_consistent(evidence) {
         Some(evidence)
       } else {
@@ -26268,7 +26288,7 @@ fn dae_stack_slice_transition_evidence(
       mod_, func_type_indices, body, start, end, initial_stack_values, instr_allowed,
     ) {
     Some(simulation) => {
-      let evidence = { simulation, expected_final_stack_values }
+      let evidence = { simulation, expected_final_stack_values, }
       if dae_stack_slice_transition_evidence_is_consistent(evidence) {
         Some(evidence)
       } else {
@@ -26594,19 +26614,19 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
   let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(ft) => ft
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.FuncType(params, results) = func_type
   if params.length() == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let source_funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if def_idx < 0 || def_idx >= source_funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let observed_current_calls_anywhere = if current_calls_anywhere >= 0 {
     current_calls_anywhere
@@ -26614,24 +26634,24 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
     dae_count_module_calls_anywhere_to(source_funcs, callee_abs)
   }
   if observed_current_calls_anywhere == 0 && original_call_count == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if observed_current_calls_anywhere == 0 &&
     dae_func_is_unreachable_only(source_funcs[def_idx]) &&
     !allow_unreachable_only_cleanup {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
     source_funcs[def_idx],
   )
   if !dae_func_is_unreachable_only(simplified) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let signature = match
     dae_module_signature_context(mod_, def_idx, copy_funcs=true) {
     Some(signature) => signature
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let funcs = signature.funcs.copy()
   let type_sec = signature.type_sec
@@ -26676,7 +26696,7 @@ fn dae_try_remove_unobserved_unreachable_function_with_facts(
   facts : DaeSpecializedResultFacts,
 ) -> DaePassResult {
   if dae_specialized_result_facts_block_change(facts) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let context = facts.context
   let def_idx = context.signature.def_idx
@@ -26689,17 +26709,17 @@ fn dae_try_remove_unobserved_unreachable_function_with_facts(
     facts.target_abs,
   )
   if rewrite_evidence.param_count == 0 && rewrite_evidence.result_count == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let module_calls_anywhere = dae_count_module_calls_anywhere_to(
     funcs,
     facts.target_abs,
   )
   if module_calls_anywhere == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if rewrite_evidence.blocks_result_removal {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if !rewrite_evidence.simplified_unreachable_only ||
     (
@@ -26708,7 +26728,7 @@ fn dae_try_remove_unobserved_unreachable_function_with_facts(
         rewrite_evidence,
       )
     ) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let plan = dae_dropped_result_unreachable_callee_rewrite_plan(
     context,
@@ -26729,7 +26749,7 @@ fn dae_try_remove_unobserved_unreachable_function(
   match dae_specialized_result_facts_new(original, graph, callee_abs) {
     Some(facts) =>
       dae_try_remove_unobserved_unreachable_function_with_facts(mod_, facts)
-    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
 
@@ -26739,7 +26759,7 @@ fn dae_try_remove_dead_self_suffix_result_with_facts(
   facts : DaeSpecializedResultFacts,
 ) -> DaePassResult {
   if dae_specialized_result_facts_block_change(facts) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let context = facts.context
   let def_idx = context.signature.def_idx
@@ -26752,14 +26772,14 @@ fn dae_try_remove_dead_self_suffix_result_with_facts(
     facts.target_abs,
   )
   if rewrite_evidence.param_count != 0 || rewrite_evidence.result_count != 1 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if rewrite_evidence.original_unreachable_only ||
     dae_dropped_result_callee_rewrite_missing_dropped_suffix(rewrite_evidence) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if rewrite_evidence.blocks_result_removal {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let plan = dae_dropped_result_unreachable_callee_rewrite_plan(
     context,
@@ -26780,7 +26800,7 @@ fn dae_try_remove_dead_self_suffix_result(
   match dae_specialized_result_facts_new(original, graph, callee_abs) {
     Some(facts) =>
       dae_try_remove_dead_self_suffix_result_with_facts(mod_, facts)
-    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
 
@@ -26790,7 +26810,7 @@ fn dae_try_remove_uncalled_results_with_facts(
   facts : DaeSpecializedResultFacts,
 ) -> DaePassResult {
   if dae_specialized_result_facts_block_change(facts) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let context = facts.context
   let def_idx = context.signature.def_idx
@@ -26803,13 +26823,13 @@ fn dae_try_remove_uncalled_results_with_facts(
     facts.target_abs,
   )
   if rewrite_evidence.param_count != 0 || rewrite_evidence.result_count == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if rewrite_evidence.blocks_result_removal {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if !rewrite_evidence.simplified_unreachable_only {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let plan = dae_dropped_result_unreachable_callee_rewrite_plan(
     context,
@@ -26829,7 +26849,7 @@ fn dae_try_remove_uncalled_results(
   let graph = dae_current_boundary_graph_new(mod_)
   match dae_specialized_result_facts_new(original, graph, callee_abs) {
     Some(facts) => dae_try_remove_uncalled_results_with_facts(mod_, facts)
-    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
 
@@ -27420,7 +27440,7 @@ fn dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
   let undropped_calls = Array::make(defined, false)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return { dropped_calls, undropped_calls }
+    None => return { dropped_calls, undropped_calls, }
   }
   let type_indices = dae_collect_func_type_indices(mod_)
   let mut def_idx = 0
@@ -27438,7 +27458,7 @@ fn dae_collect_original_dead_suffix_escaped_result_call_facts_with_escaped(
     }
     def_idx += 1
   }
-  { dropped_calls, undropped_calls }
+  { dropped_calls, undropped_calls, }
 }
 
 ///|
@@ -29942,7 +29962,7 @@ fn dae_run_core_once(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let original_result_preservation_context = dae_original_result_preservation_context(
     original_param_counts, original_call_counts, original_active_nonself_call_counts,
@@ -30835,7 +30855,7 @@ fn dae_run_core_once(
     }
     def_idx += 1
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
 }
 
 ///|
@@ -30883,7 +30903,7 @@ fn dae_try_rewrite_reverse_exact_literal_once(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let original_result_preservation_context = dae_original_result_preservation_context(
     original_param_counts, original_call_counts, original_active_nonself_call_counts,
@@ -31035,7 +31055,7 @@ fn dae_try_rewrite_reverse_exact_literal_once(
       def_idx += 1
     }
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
 }
 
 ///|
@@ -31199,24 +31219,24 @@ fn dae_try_apply_selected_def_func_rewrite_once(
   rewrite_func : (@lib.Func, @lib.TypeSec?) -> @lib.Func?,
 ) -> DaePassResult {
   if def_idx < 0 || def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let current_func = funcs[def_idx]
   let rewritten = match rewrite_func(current_func, mod_.type_sec) {
     Some(func) => func
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if rewritten == current_func {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let rewritten_funcs = funcs.copy()
   rewritten_funcs[def_idx] = rewritten
@@ -31297,7 +31317,7 @@ fn dae_apply_selected_typed_func_rewrites_to_fixpoint(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let rewritten_funcs = funcs.copy()
   let touched = Array::make(funcs.length(), false)
@@ -31333,7 +31353,7 @@ fn dae_apply_selected_typed_func_rewrites_to_fixpoint(
     def_idx += 1
   }
   if primary_def < 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   {
     mod_out: mod_
@@ -31353,30 +31373,30 @@ fn dae_try_apply_selected_def_funcsec_func_rewrite_once(
   rewrite_func : (@lib.Func, @lib.FuncType, @lib.TypeSec) -> @lib.Func?,
 ) -> DaePassResult {
   if def_idx < 0 || def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let (type_idxs, funcs, type_sec) = match
     (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
     (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
       (type_idxs, funcs, type_sec)
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if def_idx >= funcs.length() || def_idx >= type_idxs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let func_type = match dae_type_sec_func_type(type_sec, type_idxs[def_idx]) {
     Some(func_type) => func_type
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let current_func = funcs[def_idx]
   let rewritten = match rewrite_func(current_func, func_type, type_sec) {
     Some(func) => func
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if rewritten == current_func {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.FuncType(params, results) = func_type
   let canonical_type_idx = match
@@ -31410,7 +31430,7 @@ fn dae_try_apply_first_selected_func_rewrite_once(
   let defined = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs.length()
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let mut def_idx = 0
   while def_idx < defined && def_idx < selected_defs.length() {
@@ -31431,7 +31451,7 @@ fn dae_try_apply_first_selected_func_rewrite_once(
     }
     def_idx += 1
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
 }
 
 ///|
@@ -31875,7 +31895,7 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let selected_guard_facts = match (original, graph) {
     (Some(original), Some(graph)) =>
@@ -32038,7 +32058,7 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
     }
     def_idx += 1
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
 }
 
 ///|
@@ -34740,7 +34760,7 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let mut has_touch = false
   for touched in touched_defs {
@@ -34750,7 +34770,7 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
     }
   }
   if !has_touch {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let mut rewritten_funcs : Array[@lib.Func]? = None
   let mut primary_def = -1
@@ -34800,7 +34820,7 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
         changed: true,
         primary_def,
       }
-    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
 
@@ -35066,7 +35086,7 @@ fn dae_strip_module_root_return_suffix_once(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   ignore(touched_defs)
   let mut rewritten_funcs : Array[@lib.Func]? = None
@@ -35099,7 +35119,7 @@ fn dae_strip_module_root_return_suffix_once(
         changed: true,
         primary_def,
       }
-    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
 
@@ -35469,15 +35489,15 @@ fn dae_try_fold_selected_func237_default_carrier_to_local0_once(
 ) -> DaePassResult {
   let def_idx = 237
   if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
   let rewritten = match
@@ -35489,10 +35509,10 @@ fn dae_try_fold_selected_func237_default_carrier_to_local0_once(
     ) {
     Some(instrs) => instrs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if rewritten == body {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let rewritten_funcs = funcs.copy()
   rewritten_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
@@ -35673,7 +35693,7 @@ fn dae_stack_slice_localization_policy(
   depth : Int,
   instr_allowed : (@lib.Instruction) -> Bool,
 ) -> DaeStackSliceLocalizationPolicy {
-  { initial_stack_values, expected_final_stack_values, depth, instr_allowed }
+  { initial_stack_values, expected_final_stack_values, depth, instr_allowed, }
 }
 
 ///|
@@ -35849,7 +35869,7 @@ fn dae_no_escape_slice_evidence_from_branch(
     copied.push(instrs[idx])
     idx += 1
   }
-  let evidence = { branch, instrs: copied }
+  let evidence = { branch, instrs: copied, }
   if dae_no_escape_slice_evidence_is_consistent(evidence) {
     Some(evidence)
   } else {
@@ -35941,7 +35961,7 @@ fn dae_terminal_no_escape_prefix_evidence(
     Some(evidence) => evidence
     None => return None
   }
-  let evidence = { prefix, terminal: instrs[terminal_idx], terminal_idx }
+  let evidence = { prefix, terminal: instrs[terminal_idx], terminal_idx, }
   if dae_terminal_no_escape_prefix_evidence_is_consistent(evidence) {
     Some(evidence)
   } else {
@@ -35977,7 +35997,7 @@ fn dae_terminal_if_no_escape_carrier_evidence(
       }
     None => None
   }
-  Some({ condition_prefix, then_body, else_body })
+  Some({ condition_prefix, then_body, else_body, })
 }
 
 ///|
@@ -37993,7 +38013,7 @@ fn dae_try_spill_i32_param_loop_recursive_body_once(
 fn dae_empty_local_usage_evidence(
   target_local : @lib.LocalIdx,
 ) -> DaeLocalUsageEvidence {
-  { target_local, get_count: 0, write_count: 0, has_try_table: false }
+  { target_local, get_count: 0, write_count: 0, has_try_table: false, }
 }
 
 ///|
@@ -38018,13 +38038,13 @@ fn dae_local_usage_evidence_instr(
   match instr {
     @lib.LocalGet(idx) =>
       if dae_local_idx_equal(idx, target_local) {
-        { target_local, get_count: 1, write_count: 0, has_try_table: false }
+        { target_local, get_count: 1, write_count: 0, has_try_table: false, }
       } else {
         evidence
       }
     @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
       if dae_local_idx_equal(idx, target_local) {
-        { target_local, get_count: 0, write_count: 1, has_try_table: false }
+        { target_local, get_count: 0, write_count: 1, has_try_table: false, }
       } else {
         evidence
       }
@@ -38144,7 +38164,7 @@ fn dae_local_copy_target_evidence(
   target_local : @lib.LocalIdx,
   protected_local_slots : Int,
 ) -> DaeLocalCopyTargetEvidence? {
-  let evidence = { temp_local, target_local, protected_local_slots }
+  let evidence = { temp_local, target_local, protected_local_slots, }
   if dae_local_copy_target_evidence_is_consistent(
       evidence, temp_local, target_local, protected_local_slots,
     ) {
@@ -41414,7 +41434,7 @@ fn dae_try_rewrite_global_suffix_candidate_once(
   let type_indices = boundary_snapshot.type_indices
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) if def_idx < funcs.length() => funcs
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let call_facts = boundary_snapshot.call_facts
   if callee_abs >= call_facts.direct_calls.length() ||
@@ -41422,13 +41442,13 @@ fn dae_try_rewrite_global_suffix_candidate_once(
     call_facts.escaped[callee_abs] ||
     call_facts.tail_calls[callee_abs] ||
     call_facts.direct_callers[callee_abs].length() != 1 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let caller_def = call_facts.direct_callers[callee_abs][0]
   let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(func_type) => func_type
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.FuncType(params, results) = func_type
   if params.length() == 7 && results == [@lib.ValType::i32()] {
@@ -41458,12 +41478,12 @@ fn dae_try_rewrite_global_suffix_candidate_once(
     trace(
       "pass[dae-optimizing]:global-suffix skip=type def=\{def_idx} params=\{params.length()} results=\{results.length()}",
     )
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let mut p = 0
   while p < params.length() {
     if params[p] != @lib.ValType::i32() {
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
     }
     p += 1
   }
@@ -41476,7 +41496,7 @@ fn dae_try_rewrite_global_suffix_candidate_once(
   )
   if local_use.writes[7] || (params.length() == 9 && local_use.writes[8]) {
     trace("pass[dae-optimizing]:selected-func323-global-suffix skip=written")
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let remove = Array::make(params.length(), false)
   remove[7] = true
@@ -41511,7 +41531,7 @@ fn dae_try_rewrite_global_suffix_candidate_once(
       trace(
         "pass[dae-optimizing]:selected-func323-global-suffix skip=caller-suffix",
       )
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
     }
   }
   let rewritten_funcs = funcs.copy()
@@ -41527,7 +41547,7 @@ fn dae_try_rewrite_global_suffix_candidate_once(
     ) {
     Some(evidence) => evidence
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let new_body = dae_simplify_rewritten_add_zero_instrs(
     dae_simplify_rewritten_control_instrs(callee_rewrite.body, false),
@@ -41646,12 +41666,12 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   let original_funcs = match original.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: current, touched: [], changed: false, primary_def: -1, }
   }
   let current_funcs = match current.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: current, touched: [], changed: false, primary_def: -1, }
   }
   let mut def_idx = 0
   while def_idx < defined && def_idx < selected_defs.length() {
@@ -41693,7 +41713,7 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
     }
     def_idx += 1
   }
-  { mod_out: current, touched: [], changed: false, primary_def: -1 }
+  { mod_out: current, touched: [], changed: false, primary_def: -1, }
 }
 
 ///|
@@ -41840,7 +41860,7 @@ fn dae_try_simplify_selected_const_if_defs_once(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let mut rewritten_funcs : Array[@lib.Func]? = None
   let mut touched : Array[Bool]? = None
@@ -41885,7 +41905,7 @@ fn dae_try_simplify_selected_const_if_defs_once(
         changed: true,
         primary_def,
       }
-    _ => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    _ => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
 
@@ -42030,7 +42050,7 @@ fn dae_dropped_result_candidate_cached_precheck(
   if self_call_count == candidate.direct_call_count {
     return None
   }
-  Some({ result_removal_legality, self_call_count })
+  Some({ result_removal_legality, self_call_count, })
 }
 
 ///|
@@ -42056,19 +42076,19 @@ fn dae_try_remove_dropped_result_def_with_facts(
   if def_idx < 0 ||
     def_idx >= defined ||
     callee_abs >= call_facts.direct_calls.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let candidate = match
     dae_dropped_result_candidate_from_current_call_facts(call_facts, callee_abs) {
     Some(candidate) if candidate.owned_dropped_result_candidate => candidate
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let active_boundary_facts = match boundary_facts {
     Some(boundary_facts) => boundary_facts
     None => dae_boundary_facts_new(mod_)
   }
   if !dae_can_remove_function_result(active_boundary_facts, callee_abs) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let cached_precheck = match
     dae_dropped_result_candidate_cached_precheck(
@@ -42076,7 +42096,7 @@ fn dae_try_remove_dropped_result_def_with_facts(
     ) {
     Some(precheck) => precheck
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let result = dae_try_remove_dropped_results(
     mod_,
@@ -42105,7 +42125,7 @@ fn dae_try_remove_dropped_result_def_with_facts(
       primary_def: result.primary_def,
     }
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
 }
 
 ///|
@@ -42164,7 +42184,7 @@ fn dae_run_post_cleanup_boundary_revisit_worklist(
 ) -> DaePassResult {
   let defined = dae_defined_func_count(current)
   if touched.length() != defined {
-    return { mod_out: current, touched, changed: false, primary_def: -1 }
+    return { mod_out: current, touched, changed: false, primary_def: -1, }
   }
   let original = dae_collect_original_boundary_snapshot(current)
   let graph = dae_current_boundary_graph_new(current)
@@ -42203,9 +42223,9 @@ fn dae_run_post_cleanup_boundary_revisit_worklist(
     def_idx += 1
   }
   if !changed {
-    return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: current, touched: [], changed: false, primary_def: -1, }
   }
-  { mod_out, touched: touched_out, changed, primary_def }
+  { mod_out, touched: touched_out, changed, primary_def, }
 }
 
 ///|
@@ -42308,7 +42328,7 @@ fn dae_collect_dropped_result_payoff_chain_candidates(
     let @lib.Func(locals, @lib.Expr(callee_body)) = funcs[callee_def]
     let payoff = dae_dropped_result_payoff_instrs(callee_body)
     if locals.length() >= 128 && payoff >= 128 {
-      candidates.push({ wrapper_def, callee_def, payoff })
+      candidates.push({ wrapper_def, callee_def, payoff, })
     }
   }
   candidates
@@ -42732,31 +42752,31 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if def_idx < 0 || def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let callee_abs = imported + def_idx
   let boundary_candidate = match
     dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
     Some(candidate) => candidate
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if !boundary_candidate.owned ||
     boundary_candidate.has_self_direct_caller ||
     !boundary_candidate.allows_nonself_direct_rewrite {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(ft) => ft
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.FuncType(params, _) = func_type
   if params.length() == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.Func(locals, _) = funcs[def_idx]
   let local_use = dae_local_use_for_callee(
@@ -42801,7 +42821,7 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
     p += 1
   }
   if has_dead_param {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if any_const {
     match (original, graph) {
@@ -42837,10 +42857,10 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
           boundary_candidate.direct_callers,
         )
     }
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if !allow_immediate_i32_suffix_fallback {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   // A void effect can sit between older stack-carried arguments and a direct
   // call, making complete value-slice reconstruction intentionally fail even
@@ -42852,7 +42872,7 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
   if params[final_param] != @lib.ValType::i32() ||
     !local_use.gets[final_param] ||
     local_use.writes[final_param] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let expected = match
     dae_collect_uniform_immediate_i32_suffix_from_callers(
@@ -42863,7 +42883,7 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
     ) {
     Some(expected) => expected
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   match (original, graph) {
     (Some(original), Some(graph)) => {
@@ -42892,10 +42912,10 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
           if application.applied {
             application.result
           } else {
-            { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+            { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
           }
         }
-        None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+        None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
       }
     }
     _ =>
@@ -42924,10 +42944,10 @@ fn dae_try_rewrite_uniform_values_def_with_facts_once(
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if def_idx < 0 || def_idx >= funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let callee_abs = imported + def_idx
   let boundary_candidate = match
@@ -42938,20 +42958,20 @@ fn dae_try_rewrite_uniform_values_def_with_facts_once(
     ) {
     Some(candidate) => candidate
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if !boundary_candidate.owned ||
     boundary_candidate.has_self_direct_caller ||
     !boundary_candidate.allows_nonself_direct_rewrite {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let params = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(@lib.FuncType(params, _)) => params
     None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   if uniform_values.length() != params.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   let @lib.Func(locals, _) = funcs[def_idx]
   let local_use = dae_local_use_for_callee(
@@ -42981,7 +43001,7 @@ fn dae_try_rewrite_uniform_values_def_with_facts_once(
     param_idx += 1
   }
   if !any {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
   match
     dae_build_scalar_unused_param_rewrite_plan(
@@ -43000,10 +43020,10 @@ fn dae_try_rewrite_uniform_values_def_with_facts_once(
       if application.applied {
         application.result
       } else {
-        { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+        { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
       }
     }
-    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1, }
   }
 }
 
@@ -43346,7 +43366,7 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   let productive_defs : Array[Int] = []
   let mut effects = dae_commit_effects_empty(dae_defined_func_count(current))
   if !dae_candidate_worklist_requires_facts(candidate_defs) {
-    return { mod_out: current, touched, changed, productive_defs, effects }
+    return { mod_out: current, touched, changed, productive_defs, effects, }
   }
   let original = match original {
     Some(original) => original
@@ -43361,7 +43381,7 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
     None => dae_boundary_dependency_graph_new(active_graph)
   }
   let mut flow = if allow_immutable_global_get {
-    { facts: [] }
+    { facts: [], }
   } else {
     dae_solve_parameter_flow(
       active_graph,
@@ -43517,7 +43537,7 @@ fn dae_collect_broad_exact_param_adjacent_cleanup_candidates(
             candidate.first_def == first_def &&
             candidate.second_def == second_def
           }) {
-          candidates.push({ root_def, first_def, second_def, payoff })
+          candidates.push({ root_def, first_def, second_def, payoff, })
         }
       }
     }
@@ -43785,7 +43805,7 @@ fn dae_collect_forwarded_param_scc_node(
     return false
   }
   let node_idx = nodes.length()
-  nodes.push({ callee_abs, param_idx })
+  nodes.push({ callee_abs, param_idx, })
   states.push(1)
   let caller_defs = dae_call_boundary_direct_callers(boundary_facts, callee_abs)
   let seen_calls = [0]
@@ -43873,7 +43893,7 @@ fn dae_parameter_flow_record(
 ) -> Unit {
   let fact_idx = dae_parameter_flow_fact_index(facts, def_idx, param_idx)
   if fact_idx < 0 {
-    facts.push({ def_idx, param_idx, state })
+    facts.push({ def_idx, param_idx, state, })
     return
   }
   let existing = facts[fact_idx].state
@@ -43905,7 +43925,7 @@ fn dae_solve_parameter_flow(
 ) -> DaeParameterFlowSolution {
   for edge in dependencies.parameter_forwarding_edges {
     if !dae_parameter_flow_edge_epochs_are_current(graph, edge) {
-      return { facts: [] }
+      return { facts: [], }
     }
   }
   let facts : Array[DaeParameterFlowFact] = []
@@ -44480,7 +44500,7 @@ fn dae_collect_forwarded_param_component_node(
     return false
   }
   let node_idx = nodes.length()
-  nodes.push({ callee_abs, param_idx })
+  nodes.push({ callee_abs, param_idx, })
   states.push(1)
   if usage.get_count == 0 {
     if flags.length() > 1 {
@@ -44577,7 +44597,7 @@ fn dae_collect_forwarded_param_component_sources_instrs(
           @lib.LocalGet(local_idx) => {
             let local_slot = dae_local_idx_slot(local_idx)
             if local_slot >= 0 && local_slot < caller_param_count {
-              sources.push({ callee_abs: caller_abs, param_idx: local_slot })
+              sources.push({ callee_abs: caller_abs, param_idx: local_slot, })
             }
           }
           _ => ()
@@ -46003,7 +46023,7 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
         }
       None => ()
     }
-    return { mod_out: current, touched, candidate: best_candidate, effects }
+    return { mod_out: current, touched, candidate: best_candidate, effects, }
   }
   let root_application = dae_apply_exact_literal_family_once(
     candidate_source, current, best_root, touched, changed,
@@ -46072,7 +46092,7 @@ fn dae_run_direct_gc_result_refinement_dependency_closure(
   let mut touched_out = touched
   let mut changed_out = changed
   if !dae_candidate_worklist_requires_facts(seed_defs) {
-    return { mod_out: current, touched, changed, productive_defs, effects }
+    return { mod_out: current, touched, changed, productive_defs, effects, }
   }
   let original = dae_collect_original_boundary_snapshot(current)
   let graph = dae_current_boundary_graph_new(current)
@@ -47458,7 +47478,7 @@ fn dae_restore_dead_suffix_self_operand_params(
   let original_funcs = match original.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
-      return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: current, touched: [], changed: false, primary_def: -1, }
   }
   let original_type_indices = dae_collect_func_type_indices(original)
   let original_escaped = dae_collect_escapes(
@@ -47471,7 +47491,7 @@ fn dae_restore_dead_suffix_self_operand_params(
     (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
       (type_idxs.copy(), funcs, type_sec)
     _ =>
-      return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+      return { mod_out: current, touched: [], changed: false, primary_def: -1, }
   }
   let touched = Array::make(current_funcs.length(), false)
   let type_idxs = current_type_idxs
@@ -47524,7 +47544,7 @@ fn dae_restore_dead_suffix_self_operand_params(
     def_idx += 1
   }
   if !changed {
-    return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+    return { mod_out: current, touched: [], changed: false, primary_def: -1, }
   }
   {
     mod_out: current
@@ -47686,7 +47706,7 @@ fn dae_run_computed_unread_param_dependency_worklist(
       DaeWorkNoChange(_) | DaeWorkDeferred(_) => ()
     }
   }
-  { mod_out: current, touched, changed, applied, primary_def: -1, effects }
+  { mod_out: current, touched, changed, applied, primary_def: -1, effects, }
 }
 
 ///|

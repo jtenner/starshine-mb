@@ -824,7 +824,7 @@ fn gen_invalid_ast_generate_from_base(
       "gen-invalid mutation was not applicable after valid seed generation: strategy=\{gen_invalid_ast_strategy_label(params.strategy)}",
     )
   }
-  Ok({ base_module: base, mutation })
+  Ok({ base_module: base, mutation, })
 }
 
 ///|

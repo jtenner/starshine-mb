@@ -32,7 +32,7 @@ priv struct RseLabelScope {
 
 ///|
 fn RseLabelScope::new(label_id : Int, kind : RseLabelKind) -> RseLabelScope {
-  { label_id, kind, exits: [], has_loop_branch: false }
+  { label_id, kind, exits: [], has_loop_branch: false, }
 }
 
 ///|
@@ -576,7 +576,7 @@ priv struct RseRawLabelScope {
 
 ///|
 fn RseRawLabelScope::new(kind : RseRawLabelKind) -> RseRawLabelScope {
-  { kind, exits: [], has_loop_branch: false }
+  { kind, exits: [], has_loop_branch: false, }
 }
 
 ///|
@@ -587,7 +587,7 @@ priv struct RseRawInterner {
 
 ///|
 fn RseRawInterner::new(capacity : Int) -> RseRawInterner {
-  { ids: @hashmap.new(capacity~), next_value: 0 }
+  { ids: @hashmap.new(capacity~), next_value: 0, }
 }
 
 ///|
@@ -1828,7 +1828,7 @@ priv struct RseRawI32UnaryKey {
 
 ///|
 fn RseRawI32UnaryKey::new(tag : Int, value : Int) -> RseRawI32UnaryKey {
-  { tag, value }
+  { tag, value, }
 }
 
 ///|
@@ -2262,7 +2262,7 @@ fn RseRawI32LoopEntryAnalysis::new(
   summary : RseRawI32LoopSummary,
   stable_entry : Array[Bool],
 ) -> RseRawI32LoopEntryAnalysis {
-  { summary, stable_entry }
+  { summary, stable_entry, }
 }
 
 ///|

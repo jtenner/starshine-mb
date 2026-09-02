@@ -397,7 +397,7 @@ fn HotPassRegistryCache::new() -> HotPassRegistryCache {
     }
     idx += 1
   }
-  { entries, lookup, help_entries }
+  { entries, lookup, help_entries, }
 }
 
 ///|
@@ -598,9 +598,9 @@ fn hot_pipeline_record_comp_type_features(
 ) -> HotPipelineFeatureFacts {
   match comp_type {
     @lib.ArrayCompType(_) | @lib.StructCompType(_) =>
-      HotPipelineFeatureFacts::{ ..facts, has_gc: true }
+      HotPipelineFeatureFacts::{ ..facts, has_gc: true, }
     @lib.FuncCompType(_, results) if results.length() > 1 =>
-      HotPipelineFeatureFacts::{ ..facts, has_multivalue: true }
+      HotPipelineFeatureFacts::{ ..facts, has_multivalue: true, }
     _ => facts
   }
 }

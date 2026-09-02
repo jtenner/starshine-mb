@@ -479,7 +479,7 @@ fn msf_collect_sites(
   for instr in instrs {
     match msf_literal_type(instr) {
       Some(value_type) => {
-        sites.push({ value: instr, value_type, call_type: None })
+        sites.push({ value: instr, value_type, call_type: None, })
         continue
       }
       None => ()
@@ -1136,7 +1136,7 @@ fn msf_collect_classes(
         }
       }
       if !found {
-        group_classes.push({ members: [member_idx] })
+        group_classes.push({ members: [member_idx], })
       }
     }
     for class_ in group_classes {

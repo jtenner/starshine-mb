@@ -49,4 +49,3 @@ type CliPipelineSetupSummary derive(Eq, @debug.Debug)
 // Type aliases
 
 // Traits
-

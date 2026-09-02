@@ -619,7 +619,7 @@ fn h2l_collect_source_use(
         if writes.length() != 1 || writes[0] != site.user {
           return false
         }
-        copy_sites.push({ source_node_id, write_node_id: site.user })
+        copy_sites.push({ source_node_id, write_node_id: site.user, })
         if !family_locals.contains(target_local) {
           family_locals.push(target_local)
         }
@@ -723,7 +723,7 @@ fn h2l_find_candidate_for_local(
   if use_sites.is_empty() {
     return None
   }
-  Some({ write_node_id, init_node_id, fields, use_sites, copy_sites })
+  Some({ write_node_id, init_node_id, fields, use_sites, copy_sites, })
 }
 
 ///|
@@ -782,7 +782,7 @@ fn h2l_find_drop_only_struct_owner_candidate(
     read_node_ids.push(read_node_id)
     drop_node_ids.push(site.user)
   }
-  Some({ write_node_id, init_node_id, read_node_ids, drop_node_ids })
+  Some({ write_node_id, init_node_id, read_node_ids, drop_node_ids, })
 }
 
 ///|
@@ -988,7 +988,7 @@ fn h2l_collect_sequential_source_use(
     _ => return false
   }
   if site.slot == 0 && h2l_self_copy_write_matches(func, site.user, local_id) {
-    copy_sites.push({ source_node_id, write_node_id: site.user })
+    copy_sites.push({ source_node_id, write_node_id: site.user, })
     return true
   }
   let family_locals : Array[Int] = [local_id]
@@ -1422,7 +1422,7 @@ fn h2l_collect_sequential_array_source_use(
     _ => return false
   }
   if site.slot == 0 && h2l_self_copy_write_matches(func, site.user, local_id) {
-    copy_sites.push({ source_node_id, write_node_id: site.user })
+    copy_sites.push({ source_node_id, write_node_id: site.user, })
     return true
   }
   h2l_collect_array_use(
@@ -2498,7 +2498,7 @@ fn h2l_variant_struct_get_field(
   }
   let @lib.FieldType(storage, _) = fields[field_index]
   match storage {
-    @lib.ValTypeStorageType(type_) => Some({ index: field_index, type_ })
+    @lib.ValTypeStorageType(type_) => Some({ index: field_index, type_, })
     @lib.PackTypeStorageType(_) => None
   }
 }
@@ -2695,7 +2695,7 @@ fn h2l_find_variant_candidate(
     if !h2l_variant_add_field(fields, field) {
       return None
     }
-    uses.push({ user_node_id, field_index: field.index, source_path })
+    uses.push({ user_node_id, field_index: field.index, source_path, })
   }
   if !h2l_variant_alloc_supports_fields(
       func, module_ctx, then_alloc_node_id, fields,
@@ -2814,7 +2814,7 @@ fn h2l_find_variant_local_candidate(
     if !h2l_variant_add_field(fields, field) {
       return None
     }
-    uses.push({ user_node_id, field_index: field.index, source_path })
+    uses.push({ user_node_id, field_index: field.index, source_path, })
   }
   if uses.is_empty() {
     return None
@@ -2835,7 +2835,7 @@ fn h2l_find_variant_local_candidate(
       return None
     }
   }
-  Some({ owner_local, producers, fields, uses })
+  Some({ owner_local, producers, fields, uses, })
 }
 
 ///|

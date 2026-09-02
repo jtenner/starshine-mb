@@ -60,7 +60,7 @@ pub fn ir_test_build_hot_from_wat(
         Err(err) =>
           abort("unexpected lifted IR test fixture control failure: \{err}")
       }
-      { mod_, code_idx, hot_func }
+      { mod_, code_idx, hot_func, }
     }
     None => abort("IR test hot fixture requires a module with a code section")
   }

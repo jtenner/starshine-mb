@@ -701,11 +701,11 @@ test "simplify-locals bulk-clear gate follows active sinkable density" {
 
   assert_false(simplify_locals_sinkables_should_bulk_clear(sinkables))
 
-  simplify_locals_sinkables_set(sinkables, 1, { node_id: 1, effects })
-  simplify_locals_sinkables_set(sinkables, 2, { node_id: 2, effects })
+  simplify_locals_sinkables_set(sinkables, 1, { node_id: 1, effects, })
+  simplify_locals_sinkables_set(sinkables, 2, { node_id: 2, effects, })
   assert_false(simplify_locals_sinkables_should_bulk_clear(sinkables))
 
-  simplify_locals_sinkables_set(sinkables, 3, { node_id: 3, effects })
+  simplify_locals_sinkables_set(sinkables, 3, { node_id: 3, effects, })
   assert_true(simplify_locals_sinkables_should_bulk_clear(sinkables))
 
   simplify_locals_clear_sinkables(sinkables)

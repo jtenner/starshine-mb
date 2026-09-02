@@ -321,7 +321,7 @@ fn directize_disable_table(
   table_slot : Int,
 ) -> Unit {
   if table_slot >= 0 && table_slot < tables.length() {
-    tables[table_slot] = { ..tables[table_slot], can_optimize: false }
+    tables[table_slot] = { ..tables[table_slot], can_optimize: false, }
   }
 }
 
@@ -757,7 +757,7 @@ fn directize_blocktype_for_results(
         @lib.SubType::comp_type(@lib.CompType::func([], results)),
       ),
     )
-    info.block_signatures.push({ results, type_idx })
+    info.block_signatures.push({ results, type_idx, })
     @lib.BlockType::type_idx(type_idx)
   }
 }
@@ -1156,7 +1156,7 @@ fn directize_scan_producer_instr(
     ignore(values.pop())
   }
   for idx = prefix_len; idx < after.stack.length(); idx = idx + 1 {
-    values.push({ ty: after.stack[idx], start: producer_start })
+    values.push({ ty: after.stack[idx], start: producer_start, })
   }
   Some(after)
 }

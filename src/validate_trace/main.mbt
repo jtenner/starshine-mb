@@ -32,7 +32,7 @@ fn ValidateTraceCorpus::new(
   name : String,
   mod : @lib.Module,
 ) -> ValidateTraceCorpus {
-  { name, mod }
+  { name, mod, }
 }
 
 ///|
@@ -520,7 +520,7 @@ pub fn parse_validate_trace_cli_command(
     }
     abort(validate_trace_usage_text())
   }
-  ValidateTraceCliCommand::Run({ repeats, corpora })
+  ValidateTraceCliCommand::Run({ repeats, corpora, })
 }
 
 ///|

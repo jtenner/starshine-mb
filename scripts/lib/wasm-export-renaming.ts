@@ -100,6 +100,40 @@ function concatBytes(chunks: Uint8Array[]): Uint8Array {
   return output;
 }
 
+function customSectionName(payload: Uint8Array): string {
+  const length = decodeU32(payload, 0);
+  const nameEnd = length.next + length.value;
+  if (nameEnd > payload.length) throw new Error("truncated Wasm custom section name");
+  return new TextDecoder().decode(payload.subarray(length.next, nameEnd));
+}
+
+export function stripWasmCustomSection(wasm: Uint8Array, name: string): Uint8Array {
+  if (
+    wasm.length < 8 ||
+    wasm[0] !== 0x00 ||
+    wasm[1] !== 0x61 ||
+    wasm[2] !== 0x73 ||
+    wasm[3] !== 0x6d
+  ) {
+    throw new Error("input is not a WebAssembly binary");
+  }
+  const chunks: Uint8Array[] = [wasm.slice(0, 8)];
+  let cursor = 8;
+  while (cursor < wasm.length) {
+    const sectionStart = cursor;
+    const sectionId = wasm[cursor++];
+    const size = decodeU32(wasm, cursor);
+    const payloadStart = size.next;
+    const payloadEnd = payloadStart + size.value;
+    if (payloadEnd > wasm.length) throw new Error(`truncated Wasm section ${sectionId}`);
+    const remove =
+      sectionId === 0 && customSectionName(wasm.subarray(payloadStart, payloadEnd)) === name;
+    if (!remove) chunks.push(wasm.slice(sectionStart, payloadEnd));
+    cursor = payloadEnd;
+  }
+  return concatBytes(chunks);
+}
+
 export function rewriteWasmExportNames(
   wasm: Uint8Array,
   names: Map<string, string>,

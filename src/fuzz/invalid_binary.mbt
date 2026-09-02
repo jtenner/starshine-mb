@@ -5170,7 +5170,7 @@ fn ValidateInvalidBinaryRegistryCache::new() -> ValidateInvalidBinaryRegistryCac
     lookup.set(entry.stable_id, idx)
     idx += 1
   }
-  { entries, lookup }
+  { entries, lookup, }
 }
 
 ///|
@@ -5448,7 +5448,7 @@ fn validate_invalid_binary_scan_sections(
     if end > bytes.length() {
       return Err("section payload exceeds module length")
     }
-    spans.push({ id, header_start, payload_start, payload_len, end })
+    spans.push({ id, header_start, payload_start, payload_len, end, })
     cursor = end
   }
   if cursor != bytes.length() {
@@ -5527,7 +5527,7 @@ fn validate_invalid_binary_mutation(
   applicable : Bool,
   mutated_bytes : Bytes,
 ) -> ValidateInvalidBinaryMutation {
-  { strategy, applicable, expected_result, mutated_bytes }
+  { strategy, applicable, expected_result, mutated_bytes, }
 }
 
 ///|
@@ -19122,7 +19122,7 @@ pub fn gen_invalid_binary_generate(
       "gen-invalid-binary mutation was not applicable after valid seed generation: strategy=\{validate_invalid_binary_strategy_label(params.strategy)}",
     )
   }
-  Ok({ base_module: base, mutation })
+  Ok({ base_module: base, mutation, })
 }
 
 ///|

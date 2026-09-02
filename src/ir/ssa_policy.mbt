@@ -48,7 +48,7 @@ pub fn HotSsaPhi::new(block : BlockId, local_id : LocalId) -> HotSsaPhi {
   if local_id < 0 {
     abort("ssa phi local ids must be non-negative")
   }
-  { block, local_id }
+  { block, local_id, }
 }
 
 ///|
@@ -73,7 +73,7 @@ pub fn HotSsaPhiInput::new(
   if value_id < 0 {
     abort("ssa phi input values must be non-negative")
   }
-  { predecessor, value_id }
+  { predecessor, value_id, }
 }
 
 ///|

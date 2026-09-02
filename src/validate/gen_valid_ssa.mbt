@@ -687,7 +687,10 @@ fn gen_valid_ssa_condition_facts_from_window(
     }
   }
 
-  { has_condition_write: has_write, has_condition_value_block: has_value_block }
+  {
+    has_condition_write: has_write,
+    has_condition_value_block: has_value_block,
+  }
 }
 
 ///|
@@ -789,14 +792,14 @@ fn gen_valid_ssa_scan_dropped_result_if(
   match gen_valid_ssa_blocktype_scalar_result(bt) {
     None => facts
     Some(result_vt) => {
-      let mut out = { ..facts, has_ssa_nested_result_if_supported_shape: true }
+      let mut out = { ..facts, has_ssa_nested_result_if_supported_shape: true, }
       if result_vt != ValType::i32() {
-        out = { ..out, has_ssa_nested_result_if_scalar_result: true }
+        out = { ..out, has_ssa_nested_result_if_scalar_result: true, }
       }
       match gen_valid_ssa_find_supported_result_if_condition(instrs, if_idx) {
         Some((_, _, condition_facts)) => {
           if condition_facts.has_condition_write {
-            out = { ..out, has_ssa_nested_result_if_condition_write: true }
+            out = { ..out, has_ssa_nested_result_if_condition_write: true, }
           }
           if condition_facts.has_condition_value_block {
             out = {
@@ -809,11 +812,11 @@ fn gen_valid_ssa_scan_dropped_result_if(
       }
       if gen_valid_ssa_arm_is_single_value_block_supported(then_body, result_vt) ||
         gen_valid_ssa_arm_is_single_value_block_supported(else_body, result_vt) {
-        out = { ..out, has_ssa_nested_result_if_arm_value_block: true }
+        out = { ..out, has_ssa_nested_result_if_arm_value_block: true, }
       }
       if gen_valid_ssa_arm_is_mixed_value_block_supported(then_body, result_vt) ||
         gen_valid_ssa_arm_is_mixed_value_block_supported(else_body, result_vt) {
-        out = { ..out, has_ssa_nested_result_if_mixed_arm_value_block: true }
+        out = { ..out, has_ssa_nested_result_if_mixed_arm_value_block: true, }
       }
       out
     }
@@ -874,27 +877,27 @@ fn gen_valid_ssa_scan_linear(
           Some(slot) => {
             def_counts[slot] = def_counts[slot] + 1
             if def_counts[slot] >= 2 {
-              out = { ..out, has_ssa_multi_def_same_local: true }
+              out = { ..out, has_ssa_multi_def_same_local: true, }
             }
             if slot < param_count {
-              out = { ..out, has_ssa_param_write: true }
+              out = { ..out, has_ssa_param_write: true, }
             }
             last_def[slot] = true
             if instr is LocalTee(_) {
               last_tee[slot] = true
             }
             if saw_unreachable_prefix {
-              out = { ..out, has_ssa_unreachable_local_carrier: true }
+              out = { ..out, has_ssa_unreachable_local_carrier: true, }
             }
             if instr is LocalSet(_) {
               let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
               if !gen_valid_expr_local_has_read(tail, idx) {
-                out = { ..out, has_ssa_dead_local_set: true }
+                out = { ..out, has_ssa_dead_local_set: true, }
               }
               if slot >= param_count &&
                 saw_structured_control &&
                 gen_valid_ssa_tail_next_access_reads_local(instrs, i + 1, idx) {
-                out = { ..out, has_ssa_canonical_body_local_next_read: true }
+                out = { ..out, has_ssa_canonical_body_local_next_read: true, }
               }
             }
             if instr is LocalTee(_) {
@@ -902,17 +905,17 @@ fn gen_valid_ssa_scan_linear(
                 Some(Drop) => {
                   let tail = gen_valid_ssa_tail_expr(instrs, i + 2)
                   if gen_valid_expr_local_has_read(tail, idx) {
-                    out = { ..out, has_ssa_tee_freshen_candidate: true }
+                    out = { ..out, has_ssa_tee_freshen_candidate: true, }
                   } else {
-                    out = { ..out, has_ssa_dead_local_tee: true }
+                    out = { ..out, has_ssa_dead_local_tee: true, }
                   }
                 }
                 _ => {
                   let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
                   if gen_valid_expr_local_has_read(tail, idx) {
-                    out = { ..out, has_ssa_tee_freshen_candidate: true }
+                    out = { ..out, has_ssa_tee_freshen_candidate: true, }
                   }
-                  out = { ..out, has_ssa_tee_child_expression: true }
+                  out = { ..out, has_ssa_tee_child_expression: true, }
                 }
               }
             }
@@ -924,16 +927,16 @@ fn gen_valid_ssa_scan_linear(
         match gen_valid_ssa_local_slot(idx) {
           Some(slot) => {
             if last_def[slot] {
-              out = { ..out, has_ssa_straight_line_local_chain: true }
+              out = { ..out, has_ssa_straight_line_local_chain: true, }
             }
             if slot < param_count && def_counts[slot] == 0 {
-              out = { ..out, has_ssa_param_entry_read: true }
+              out = { ..out, has_ssa_param_entry_read: true, }
             }
             if last_tee[slot] {
-              out = { ..out, has_ssa_local_tee_def_use: true }
+              out = { ..out, has_ssa_local_tee_def_use: true, }
             }
             if saw_unreachable_prefix {
-              out = { ..out, has_ssa_unreachable_local_carrier: true }
+              out = { ..out, has_ssa_unreachable_local_carrier: true, }
             }
             if saw_branchy_control &&
               slot >= param_count &&
@@ -961,7 +964,7 @@ fn gen_valid_ssa_scan_linear(
             Block(ValTypeBlockType(_), body)
             | Block(TypeIdxBlockType(_), body) =>
               if gen_valid_ssa_func_has_local_write(body) {
-                out = { ..out, has_ssa_nested_cfg_fail_closed_shape: true }
+                out = { ..out, has_ssa_nested_cfg_fail_closed_shape: true, }
               }
             _ => ()
           }
@@ -971,15 +974,15 @@ fn gen_valid_ssa_scan_linear(
         let body_has_write = gen_valid_ssa_func_has_local_write(body)
         let tail_has_read = gen_valid_ssa_expr_has_local_read(tail)
         if body_has_write && tail_has_read && gen_valid_ssa_expr_has_br(body) {
-          out = { ..out, has_ssa_block_branch_merge_copy: true }
+          out = { ..out, has_ssa_block_branch_merge_copy: true, }
         }
         if body_has_write && tail_has_read && gen_valid_ssa_expr_has_br_if(body) {
-          out = { ..out, has_ssa_block_br_if_merge_copy: true }
+          out = { ..out, has_ssa_block_br_if_merge_copy: true, }
         }
         if body_has_write &&
           tail_has_read &&
           gen_valid_ssa_expr_has_immediate_local_set_br(body) {
-          out = { ..out, has_ssa_immediate_block_exit_canonical_set_br: true }
+          out = { ..out, has_ssa_immediate_block_exit_canonical_set_br: true, }
         }
         if body_has_write && tail_has_read {
           let Expr(body_instrs) = body
@@ -1023,7 +1026,7 @@ fn gen_valid_ssa_scan_linear(
         out = gen_valid_merge_ssa_func_facts(out, loop_facts)
         if gen_valid_ssa_expr_has_enclosing_exit(body) &&
           gen_valid_ssa_func_has_local_write(body) {
-          out = { ..out, has_ssa_nested_loop_target_boundary: true }
+          out = { ..out, has_ssa_nested_loop_target_boundary: true, }
         }
         if gen_valid_ssa_expr_has_branch_exit(body) {
           saw_branchy_control = true
@@ -1057,7 +1060,7 @@ fn gen_valid_ssa_scan_linear(
         if (then_writes || else_writes) &&
           has_arm_return &&
           gen_valid_ssa_expr_has_local_read(tail) {
-          out = { ..out, has_ssa_structured_early_return_local: true }
+          out = { ..out, has_ssa_structured_early_return_local: true, }
         }
         if then_writes || else_writes || then_exceptional || else_exceptional {
           has_local_write = has_local_write || then_writes || else_writes
@@ -1082,19 +1085,19 @@ fn gen_valid_ssa_scan_linear(
         if has_local_write &&
           i > 0 &&
           gen_valid_ssa_instr_is_local_branch_operand_source(instrs[i - 1]) {
-          out = { ..out, has_ssa_branch_operand_local_boundary: true }
+          out = { ..out, has_ssa_branch_operand_local_boundary: true, }
         }
         saw_branchy_control = true
       }
       BrTable(_, _) => {
         let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
         if has_local_write && gen_valid_ssa_expr_has_local_read(tail) {
-          out = { ..out, has_ssa_br_table_phi_candidate: true }
+          out = { ..out, has_ssa_br_table_phi_candidate: true, }
         }
         if has_local_write &&
           i > 0 &&
           gen_valid_ssa_instr_is_local_branch_operand_source(instrs[i - 1]) {
-          out = { ..out, has_ssa_branch_operand_local_boundary: true }
+          out = { ..out, has_ssa_branch_operand_local_boundary: true, }
         }
         saw_branchy_control = true
       }
@@ -1103,22 +1106,22 @@ fn gen_valid_ssa_scan_linear(
     if has_local_write && i + 3 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
         (LocalGet(_), I32Const(_), I32Add, Drop) =>
-          out = { ..out, has_ssa_dropped_increment_guard_shape: true }
+          out = { ..out, has_ssa_dropped_increment_guard_shape: true, }
         (I32Const(_), LocalGet(_), I32Add, Drop) =>
-          out = { ..out, has_ssa_dropped_increment_reversed_boundary: true }
+          out = { ..out, has_ssa_dropped_increment_reversed_boundary: true, }
         _ => ()
       }
     }
     i += 1
   }
   if has_exceptional && has_local_write {
-    out = { ..out, has_ssa_exceptional_fail_closed_shape: true }
+    out = { ..out, has_ssa_exceptional_fail_closed_shape: true, }
   }
   let whole_expr = Expr::new(instrs)
   if gen_valid_ssa_expr_local_write_count(whole_expr) >= 8 &&
     gen_valid_ssa_expr_structured_control_count(whole_expr) >= 3 &&
     gen_valid_ssa_expr_has_br_table(whole_expr) {
-    out = { ..out, has_ssa_large_structured_local_mix: true }
+    out = { ..out, has_ssa_large_structured_local_mix: true, }
   }
   out
 }
@@ -1471,8 +1474,8 @@ fn gen_valid_ssa_scan_enclosing_copy_before_exit(
           let idx = LocalIdx::new(slot.reinterpret_as_uint())
           if gen_valid_expr_local_has_read(tail, idx) &&
             gen_valid_ssa_after_if_has_exit_before_overwrite(instrs, i + 1, idx) {
-            out = { ..out, has_ssa_enclosing_label_copy_before_exit: true }
-            out = { ..out, has_ssa_branch_block_alias_copy: true }
+            out = { ..out, has_ssa_enclosing_label_copy_before_exit: true, }
+            out = { ..out, has_ssa_branch_block_alias_copy: true, }
             branch_carrier_read_count += 1
           }
           if gen_valid_expr_local_has_read(tail, idx) &&
@@ -1481,7 +1484,7 @@ fn gen_valid_ssa_scan_enclosing_copy_before_exit(
               i + 1,
               idx,
             ) {
-            out = { ..out, has_ssa_nested_enclosing_label_copy: true }
+            out = { ..out, has_ssa_nested_enclosing_label_copy: true, }
           }
           if gen_valid_expr_local_has_read(tail, idx) &&
             gen_valid_ssa_after_if_has_br_table_exit_before_overwrite(
@@ -1489,17 +1492,17 @@ fn gen_valid_ssa_scan_enclosing_copy_before_exit(
               i + 1,
               idx,
             ) {
-            out = { ..out, has_ssa_void_br_table_canonical_copies: true }
+            out = { ..out, has_ssa_void_br_table_canonical_copies: true, }
           }
         }
         if branch_carrier_read_count >= 2 {
-          out = { ..out, has_ssa_parallel_branch_carrier_copy: true }
+          out = { ..out, has_ssa_parallel_branch_carrier_copy: true, }
         }
         for slot in common_tees {
           let idx = LocalIdx::new(slot.reinterpret_as_uint())
           if gen_valid_expr_local_has_read(tail, idx) &&
             gen_valid_ssa_after_if_has_exit_before_overwrite(instrs, i + 1, idx) {
-            out = { ..out, has_ssa_tee_branch_carrier_copy: true }
+            out = { ..out, has_ssa_tee_branch_carrier_copy: true, }
           }
         }
       }
@@ -1668,25 +1671,25 @@ fn gen_valid_ssa_scan_if_join(
     let idx = LocalIdx::new(slot.reinterpret_as_uint())
     let in_else = else_writes.any(fn(other) { other == slot })
     if gen_valid_expr_local_has_read(tail, idx) {
-      out = { ..out, has_ssa_if_join_phi_candidate: true }
+      out = { ..out, has_ssa_if_join_phi_candidate: true, }
       if then_tees.any(fn(other) { other == slot }) {
-        out = { ..out, has_ssa_tee_merge_feeding_candidate: true }
+        out = { ..out, has_ssa_tee_merge_feeding_candidate: true, }
       }
       if slot < param_count {
-        out = { ..out, has_ssa_structured_param_merge: true }
+        out = { ..out, has_ssa_structured_param_merge: true, }
         if !in_else {
-          out = { ..out, has_ssa_one_arm_param_merge: true }
+          out = { ..out, has_ssa_one_arm_param_merge: true, }
         }
       } else if in_else {
-        out = { ..out, has_ssa_both_arm_local_merge: true }
+        out = { ..out, has_ssa_both_arm_local_merge: true, }
       } else {
-        out = { ..out, has_ssa_one_arm_default_merge: true }
+        out = { ..out, has_ssa_one_arm_default_merge: true, }
       }
       if def_counts[slot] >= 2 {
-        out = { ..out, has_ssa_mixed_fresh_canonical_writes: true }
+        out = { ..out, has_ssa_mixed_fresh_canonical_writes: true, }
       }
     } else {
-      out = { ..out, has_ssa_branch_local_not_read_later: true }
+      out = { ..out, has_ssa_branch_local_not_read_later: true, }
     }
     if in_else {
       both_arms_write = true
@@ -1697,25 +1700,25 @@ fn gen_valid_ssa_scan_if_join(
     let idx = LocalIdx::new(slot.reinterpret_as_uint())
     let in_then = then_writes.any(fn(other) { other == slot })
     if gen_valid_expr_local_has_read(tail, idx) {
-      out = { ..out, has_ssa_if_join_phi_candidate: true }
+      out = { ..out, has_ssa_if_join_phi_candidate: true, }
       if else_tees.any(fn(other) { other == slot }) {
-        out = { ..out, has_ssa_tee_merge_feeding_candidate: true }
+        out = { ..out, has_ssa_tee_merge_feeding_candidate: true, }
       }
       if slot < param_count {
-        out = { ..out, has_ssa_structured_param_merge: true }
+        out = { ..out, has_ssa_structured_param_merge: true, }
         if !in_then {
-          out = { ..out, has_ssa_one_arm_param_merge: true }
+          out = { ..out, has_ssa_one_arm_param_merge: true, }
         }
       } else if in_then {
-        out = { ..out, has_ssa_both_arm_local_merge: true }
+        out = { ..out, has_ssa_both_arm_local_merge: true, }
       } else {
-        out = { ..out, has_ssa_one_arm_default_merge: true }
+        out = { ..out, has_ssa_one_arm_default_merge: true, }
       }
       if def_counts[slot] >= 2 {
-        out = { ..out, has_ssa_mixed_fresh_canonical_writes: true }
+        out = { ..out, has_ssa_mixed_fresh_canonical_writes: true, }
       }
     } else {
-      out = { ..out, has_ssa_branch_local_not_read_later: true }
+      out = { ..out, has_ssa_branch_local_not_read_later: true, }
     }
   }
   if any_write {
@@ -1723,14 +1726,14 @@ fn gen_valid_ssa_scan_if_join(
       let idx = LocalIdx::new(slot.reinterpret_as_uint())
       let in_else = else_writes.any(fn(other) { other == slot })
       if !in_else && gen_valid_expr_local_has_read(tail, idx) {
-        out = { ..out, has_ssa_default_local_merge: true }
+        out = { ..out, has_ssa_default_local_merge: true, }
       }
     }
     for slot in else_writes {
       let idx = LocalIdx::new(slot.reinterpret_as_uint())
       let in_then = then_writes.any(fn(other) { other == slot })
       if !in_then && gen_valid_expr_local_has_read(tail, idx) {
-        out = { ..out, has_ssa_default_local_merge: true }
+        out = { ..out, has_ssa_default_local_merge: true, }
       }
     }
     if then_writes.length() >= 2 && else_writes.length() >= 2 {
@@ -1751,11 +1754,11 @@ fn gen_valid_ssa_scan_if_join(
         }
       }
       if read0 && read1 {
-        out = { ..out, has_ssa_parallel_copy_candidate: true }
+        out = { ..out, has_ssa_parallel_copy_candidate: true, }
       }
     }
     if both_arms_write && then_writes.length() >= 2 && else_writes.length() >= 2 {
-      out = { ..out, has_ssa_parallel_copy_cycle_candidate: true }
+      out = { ..out, has_ssa_parallel_copy_cycle_candidate: true, }
     }
   }
   out
@@ -1783,14 +1786,14 @@ fn gen_valid_ssa_scan_loop(
   let has_local_traffic = gen_valid_ssa_func_has_local_write(body) ||
     gen_valid_ssa_expr_has_local_read(body)
   if has_backedge && has_local_traffic {
-    out = { ..out, has_ssa_loop_backedge_phi_candidate: true }
+    out = { ..out, has_ssa_loop_backedge_phi_candidate: true, }
     if gen_valid_ssa_func_has_local_write(body) &&
       gen_valid_ssa_expr_has_local_read(body) {
-      out = { ..out, has_ssa_loop_carried_local_merge: true }
+      out = { ..out, has_ssa_loop_carried_local_merge: true, }
     }
   }
   if gen_valid_ssa_blocktype_is_typed_loop(bt) && has_local_traffic {
-    out = { ..out, has_ssa_typed_loop_param_fail_closed_shape: true }
+    out = { ..out, has_ssa_typed_loop_param_fail_closed_shape: true, }
   }
   out
 }
@@ -2044,16 +2047,16 @@ pub fn gen_valid_scan_func_ssa_facts(
   if gen_valid_ssa_expr_has_br_table(expr) &&
     gen_valid_ssa_func_has_local_write(expr) &&
     gen_valid_ssa_expr_has_local_read(expr) {
-    out = { ..out, has_ssa_br_table_phi_candidate: true }
+    out = { ..out, has_ssa_br_table_phi_candidate: true, }
   }
   if gen_valid_ssa_expr_has_unreachable(expr) &&
     gen_valid_ssa_func_has_local_write(expr) &&
     gen_valid_ssa_expr_has_local_read(expr) {
-    out = { ..out, has_ssa_unreachable_local_carrier: true }
+    out = { ..out, has_ssa_unreachable_local_carrier: true, }
   }
   for slot = param_count; slot < GEN_VALID_SSA_LOCAL_CAP; slot = slot + 1 {
     if write_counts[slot] == 1 && read_counts[slot] > 0 {
-      out = { ..out, has_ssa_already_ssa_local: true }
+      out = { ..out, has_ssa_already_ssa_local: true, }
     }
   }
   out

@@ -3,6 +3,13 @@
 /// Backed by `moonbitlang/x/fs`, so it works on native and wasm (WASI runtime).
 
 ///|
+fn fs_error_message(error : @xfs.IOError) -> String {
+  match error {
+    @xfs.IOError(message) => message
+  }
+}
+
+///|
 fn fs_normalize_path(path : String) -> String {
   let out = StringBuilder::new()
   for c in path {
@@ -65,7 +72,7 @@ fn fs_list_files_recursive_into(
   out : Array[String],
 ) -> Result[Unit, String] {
   let entries = @xfs.read_dir(root) catch {
-    e => return Err("read_dir failed for \{root}: \{e}")
+    e => return Err("read_dir failed for \{root}: \{fs_error_message(e)}")
   }
   fs_sort_strings(entries)
   for entry in entries {
@@ -74,7 +81,7 @@ fn fs_list_files_recursive_into(
     }
     let path = fs_join_path(root, entry)
     let is_dir = @xfs.is_dir(path) catch {
-      e => return Err("is_dir failed for \{path}: \{e}")
+      e => return Err("is_dir failed for \{path}: \{fs_error_message(e)}")
     }
     if is_dir {
       match fs_list_files_recursive_into(path, out) {
@@ -84,7 +91,7 @@ fn fs_list_files_recursive_into(
       continue
     }
     let is_file = @xfs.is_file(path) catch {
-      e => return Err("is_file failed for \{path}: \{e}")
+      e => return Err("is_file failed for \{path}: \{fs_error_message(e)}")
     }
     if is_file {
       out.push(path)
@@ -96,7 +103,7 @@ fn fs_list_files_recursive_into(
 ///|
 pub fn create_dir(path : String) -> Result[Unit, String] {
   @xfs.create_dir(path) catch {
-    e => return Err("create_dir failed for \{path}: \{e}")
+    e => return Err("create_dir failed for \{path}: \{fs_error_message(e)}")
   }
   Ok(())
 }
@@ -104,7 +111,7 @@ pub fn create_dir(path : String) -> Result[Unit, String] {
 ///|
 pub fn remove_dir(path : String) -> Result[Unit, String] {
   @xfs.remove_dir(path) catch {
-    e => return Err("remove_dir failed for \{path}: \{e}")
+    e => return Err("remove_dir failed for \{path}: \{fs_error_message(e)}")
   }
   Ok(())
 }
@@ -112,7 +119,7 @@ pub fn remove_dir(path : String) -> Result[Unit, String] {
 ///|
 pub fn remove_file(path : String) -> Result[Unit, String] {
   @xfs.remove_file(path) catch {
-    e => return Err("remove_file failed for \{path}: \{e}")
+    e => return Err("remove_file failed for \{path}: \{fs_error_message(e)}")
   }
   Ok(())
 }
@@ -120,7 +127,8 @@ pub fn remove_file(path : String) -> Result[Unit, String] {
 ///|
 pub fn write_file_bytes(path : String, bytes : Bytes) -> Result[Unit, String] {
   @xfs.write_bytes_to_file(path, bytes) catch {
-    e => return Err("write_file_bytes failed for \{path}: \{e}")
+    e =>
+      return Err("write_file_bytes failed for \{path}: \{fs_error_message(e)}")
   }
   Ok(())
 }
@@ -128,7 +136,8 @@ pub fn write_file_bytes(path : String, bytes : Bytes) -> Result[Unit, String] {
 ///|
 pub fn read_file_bytes(path : String) -> Result[Bytes, String] {
   let bytes = @xfs.read_file_to_bytes(path) catch {
-    e => return Err("read_file_bytes failed for \{path}: \{e}")
+    e =>
+      return Err("read_file_bytes failed for \{path}: \{fs_error_message(e)}")
   }
   Ok(bytes)
 }
@@ -137,11 +146,15 @@ pub fn read_file_bytes(path : String) -> Result[Bytes, String] {
 pub fn list_files_recursive(root : String) -> Result[Array[String], String] {
   let normalized_root = fs_normalize_path(root)
   let is_dir = @xfs.is_dir(normalized_root) catch {
-    e => return Err("is_dir failed for \{normalized_root}: \{e}")
+    e =>
+      return Err("is_dir failed for \{normalized_root}: \{fs_error_message(e)}")
   }
   if !is_dir {
     let is_file = @xfs.is_file(normalized_root) catch {
-      e => return Err("is_file failed for \{normalized_root}: \{e}")
+      e =>
+        return Err(
+          "is_file failed for \{normalized_root}: \{fs_error_message(e)}",
+        )
     }
     if is_file {
       return Ok([normalized_root])
@@ -158,7 +171,10 @@ pub fn list_files_recursive(root : String) -> Result[Array[String], String] {
 ///|
 pub fn read_file_sync(path : String) -> Result[String, String] {
   let bytes = @xfs.read_file_to_bytes(path) catch {
-    e => return Err("read_file_to_bytes failed for \{path}: \{e}")
+    e =>
+      return Err(
+        "read_file_to_bytes failed for \{path}: \{fs_error_message(e)}",
+      )
   }
   let text = @utf8.decode(bytes) catch {
     _ => return Err("read_file_to_bytes->utf8 failed for \{path}")

@@ -35,7 +35,7 @@ pub fn DiffOptions::new(
   ignore_case? : Bool = false,
   ignore_accents? : Bool = false,
 ) -> DiffOptions {
-  { compare, ignore_whitespace, ignore_case, ignore_accents }
+  { compare, ignore_whitespace, ignore_case, ignore_accents, }
 }
 
 ///|
@@ -53,7 +53,7 @@ pub fn DiffChange::new(
   rhs_at : Int,
   rhs_add : Int,
 ) -> DiffChange {
-  { lhs_at, lhs_del, rhs_at, rhs_add }
+  { lhs_at, lhs_del, rhs_at, rhs_add, }
 }
 
 ///|
@@ -66,7 +66,7 @@ priv struct MyersContext {
 ///|
 fn MyersContext::new(codes : Array[Int], parts : Array[String]) -> MyersContext {
   let modified = @bitset.BitSet::new(codes.length())
-  { codes, modified, parts }
+  { codes, modified, parts, }
 }
 
 ///|

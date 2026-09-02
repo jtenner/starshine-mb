@@ -140,7 +140,7 @@ fn SimplifyLocalsPolicy::new(
   allow_sink_tee : Bool,
   allow_nesting : Bool,
 ) -> SimplifyLocalsPolicy {
-  { allow_structure_rewrites, allow_sink_tee, allow_nesting }
+  { allow_structure_rewrites, allow_sink_tee, allow_nesting, }
 }
 
 ///|
@@ -1163,7 +1163,7 @@ fn simplify_locals_effects_for_pending_local_set(
     stamp,
     node.imm0,
   )
-  { ..effects, mask: value_mask | @ir.EFFECT_MASK_LOCAL_STATE }
+  { ..effects, mask: value_mask | @ir.EFFECT_MASK_LOCAL_STATE, }
 }
 
 ///|
@@ -1800,7 +1800,7 @@ fn simplify_locals_collect_block_return_candidates(
             }
           }
           if allowed {
-            candidates.push({ root_idx: idx, node_id, local_id, value_id })
+            candidates.push({ root_idx: idx, node_id, local_id, value_id, })
           }
           trailing_roots.push(node_id)
         }
@@ -1944,7 +1944,7 @@ fn SimplifyLocalsStackedForwarderTail::new(
   rewrite_region : @ir.HotRegionRef,
   rewrite_idx : Int,
 ) -> SimplifyLocalsStackedForwarderTail {
-  { payload_if, rewrite_region, rewrite_idx }
+  { payload_if, rewrite_region, rewrite_idx, }
 }
 
 ///|
@@ -5042,7 +5042,7 @@ fn simplify_locals_new_equivalences(
     rep_of_local[local_id] = local_id
     members_of_rep.push([local_id])
   }
-  { rep_of_local, members_of_rep }
+  { rep_of_local, members_of_rep, }
 }
 
 ///|
@@ -6121,7 +6121,10 @@ fn simplify_locals_run_dead_cleanup(
         if value_id >= 0 &&
           @ir.hot_node_is_live(func, value_id) &&
           @ir.hot_node_kind_is_control(func, value_id) {
-          rehomed_owners.push({ replacement_id: node_id, detached_id: value_id })
+          rehomed_owners.push({
+            replacement_id: node_id,
+            detached_id: value_id,
+          })
           @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, value_id))
           detached.push(value_id)
           changed = true

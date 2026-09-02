@@ -2761,7 +2761,7 @@ fn lcse_raw_rewrite_func(
     instrs,
   )
   if !has_repeated_candidate && !has_dropped_unreachable_debris {
-    return { func, changed: false }
+    return { func, changed: false, }
   }
   let local_types = cl_flatten_locals(locals, locals.length())
   let (rewritten, rewrite_changed) = if has_repeated_candidate {
@@ -2781,7 +2781,7 @@ fn lcse_raw_rewrite_func(
       changed: true,
     }
   } else {
-    { func, changed: false }
+    { func, changed: false, }
   }
 }
 
@@ -2876,7 +2876,7 @@ fn lcse_raw_module_call_infos(mod_ : @lib.Module) -> Array[LcseRawCallInfo] {
           ),
         })
       }
-      None => out.push({ params: [], result: None, idempotent: false })
+      None => out.push({ params: [], result: None, idempotent: false, })
     }
   }
   out
@@ -2937,7 +2937,7 @@ priv struct LcseState {
 
 ///|
 fn LcseState::new() -> LcseState {
-  { bindings: @hashmap.new(capacity=64) }
+  { bindings: @hashmap.new(capacity=64), }
 }
 
 ///|

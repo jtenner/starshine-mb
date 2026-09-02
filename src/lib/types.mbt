@@ -2910,7 +2910,7 @@ pub fn TypeMetadata::new(
   descriptor? : TypeIdx? = None,
   shared? : Bool = false,
 ) -> TypeMetadata {
-  { describes, descriptor, shared }
+  { describes, descriptor, shared, }
 }
 
 ///|
@@ -2923,7 +2923,7 @@ pub fn TypeMetadata::with_shared(
   self : TypeMetadata,
   shared : Bool,
 ) -> TypeMetadata {
-  { describes: self.describes, descriptor: self.descriptor, shared }
+  { describes: self.describes, descriptor: self.descriptor, shared, }
 }
 
 ///|
@@ -8578,7 +8578,7 @@ pub fn FuncAnnotation::new(
   name : String,
   args? : Array[String] = [],
 ) -> FuncAnnotation {
-  { name, args }
+  { name, args, }
 }
 
 ///|
@@ -8886,7 +8886,7 @@ pub fn Export::new(n : Name, ei : ExternIdx) -> Export {
 
 ///|
 pub fn LocalRun::new(count : UInt, vt : ValType) -> LocalRun {
-  { count, vt }
+  { count, vt, }
 }
 
 ///|
@@ -8901,14 +8901,14 @@ pub fn LocalRun::val_type(self : LocalRun) -> ValType {
 
 ///|
 pub fn Locals::new(runs : Array[LocalRun]) -> Locals {
-  { runs: locals_normalize_runs(runs), indices: None }
+  { runs: locals_normalize_runs(runs), indices: None, }
 }
 
 ///|
 pub fn Locals::from_decl_runs_preserving_groups(
   runs : Array[LocalRun],
 ) -> Locals {
-  { runs, indices: None }
+  { runs, indices: None, }
 }
 
 ///|

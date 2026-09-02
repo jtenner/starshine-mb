@@ -11,7 +11,7 @@ test "wast_to_module parse errors include filename line and column" {
 
 ///|
 test "script_to_wast escapes register names and can be parsed back" {
-  let script : WastScript = { commands: [Register("line\nbreak", None)] }
+  let script : WastScript = { commands: [Register("line\nbreak", None)], }
   let text = match script_to_wast(script) {
     Ok(t) => t
     Err(e) => fail("unexpected script_to_wast error: \{e}")
@@ -101,11 +101,11 @@ test "module_to_wast preserves function annotations" {
       match parsed.fields {
         [ImportField(im), FuncField(func)] => {
           @debug.assert_eq(im.annotations, [
-            { name: "binaryen.js.called", args: [] },
+            { name: "binaryen.js.called", args: [], },
           ])
           @debug.assert_eq(func.annotations, [
-            { name: "binaryen.idempotent", args: [] },
-            { name: "metadata.code.inline", args: ["\"\\00\""] },
+            { name: "binaryen.idempotent", args: [], },
+            { name: "metadata.code.inline", args: ["\"\\00\""], },
           ])
         }
         _ =>

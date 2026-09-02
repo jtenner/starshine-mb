@@ -24,7 +24,7 @@ pub impl Show for LabelStack with fn output(self, logger) {
 
 ///|
 pub fn LabelStack::new() -> LabelStack {
-  { values: [], parents: [], head: -1, len: 0 }
+  { values: [], parents: [], head: -1, len: 0, }
 }
 
 ///|
@@ -35,7 +35,7 @@ pub fn LabelStack::from_labels(labels : Array[Array[ValType]]) -> LabelStack {
     parents.push(head)
     head = idx
   }
-  { values: labels, parents, head, len: labels.length() }
+  { values: labels, parents, head, len: labels.length(), }
 }
 
 ///|
@@ -240,22 +240,22 @@ pub fn Env::get_table_type(env : Env, idx : TableIdx) -> TableType? {
 pub fn Env::with_label(env : Env, ts : Array[ValType]) -> Env {
   let ls = env.labels.copy()
   ls.push(ts)
-  Env::{ ..env, labels: ls }
+  Env::{ ..env, labels: ls, }
 }
 
 ///|
 pub fn Env::with_labels(env : Env, labels : Stack[Array[ValType]]) -> Env {
-  Env::{ ..env, labels: LabelStack::from_labels(labels) }
+  Env::{ ..env, labels: LabelStack::from_labels(labels), }
 }
 
 ///|
 pub fn Env::with_return_type(env : Env, rt : Array[ValType]?) -> Env {
-  Env::{ ..env, return_type: rt }
+  Env::{ ..env, return_type: rt, }
 }
 
 ///|
 pub fn Env::with_legacy_catch_depth(env : Env, depth : Int) -> Env {
-  Env::{ ..env, legacy_catch_depth: depth }
+  Env::{ ..env, legacy_catch_depth: depth, }
 }
 
 ///|
@@ -274,7 +274,7 @@ pub fn Env::with_rectype(env : Env, rt : RecType) -> Env {
       }
     }
   }
-  Env::{ ..env, rec_stack: rs, global_types: gs }
+  Env::{ ..env, rec_stack: rs, global_types: gs, }
 }
 
 ///|
@@ -301,7 +301,7 @@ fn Env::append_rectype_types_with_scope(
         gts.push(st)
       }
   }
-  Env::{ ..env, rec_stack, global_types: gts }
+  Env::{ ..env, rec_stack, global_types: gts, }
 }
 
 ///|
@@ -526,7 +526,7 @@ pub fn Env::push_func_with_typeidx(
   let func_type_idxs = env.func_type_idxs.copy()
   funcs.push(ft)
   func_type_idxs.push(type_idx)
-  Env::{ ..env, funcs, func_type_idxs }
+  Env::{ ..env, funcs, func_type_idxs, }
 }
 
 ///|
@@ -554,7 +554,7 @@ pub fn Env::with_funcs(env : Env, funcs : Array[FuncType]) -> Env {
   for _ in funcs {
     func_type_idxs.push(None)
   }
-  Env::{ ..env, funcs, func_type_idxs }
+  Env::{ ..env, funcs, func_type_idxs, }
 }
 
 ///|
@@ -563,7 +563,7 @@ pub fn Env::with_funcs_and_type_idxs(
   funcs : Array[FuncType],
   func_type_idxs : Array[TypeIdx?],
 ) -> Env {
-  Env::{ ..env, funcs, func_type_idxs }
+  Env::{ ..env, funcs, func_type_idxs, }
 }
 
 ///|
@@ -804,7 +804,7 @@ pub fn Env::with_module(self : Env, m : Module) -> Env {
     self.rec_stack,
     m,
   )
-  let type_env = Env::{ ..self, global_types, rec_stack }
+  let type_env = Env::{ ..self, global_types, rec_stack, }
 
   let funcs = self.funcs.copy()
   let func_type_idxs = self.func_type_idxs.copy()

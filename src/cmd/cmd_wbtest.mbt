@@ -236,7 +236,7 @@ fn module_name_section_order_error(mod : Module) -> String? {
         data_names,
         field_names,
         tag_names,
-        ..,
+        ..
       } = name_sec
       for
         check in [

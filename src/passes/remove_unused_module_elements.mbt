@@ -25,13 +25,7 @@ fn rume_rewrite_instruction(
   data_remap : Array[Int],
 ) -> @lib.Instruction {
   @rume.rume_rewrite_instruction(
-    instr,
-    func_remap,
-    global_remap,
-    table_remap,
-    mem_remap,
-    tag_remap,
-    elem_remap,
+    instr, func_remap, global_remap, table_remap, mem_remap, tag_remap, elem_remap,
     data_remap,
   )
 }
@@ -50,11 +44,7 @@ pub fn rume_run_module_pass(
   traps_never_happen? : Bool = false,
   closed_world? : Bool = false,
 ) -> @lib.Module {
-  @rume.rume_run_module_pass(
-    mod_,
-    traps_never_happen=traps_never_happen,
-    closed_world=closed_world,
-  )
+  @rume.rume_run_module_pass(mod_, traps_never_happen~, closed_world~)
 }
 
 ///|
@@ -65,7 +55,7 @@ pub fn rume_run_nonfunction_module_pass(
 ) -> @lib.Module {
   @rume.rume_run_nonfunction_module_pass(
     mod_,
-    traps_never_happen=traps_never_happen,
-    closed_world=closed_world,
+    traps_never_happen~,
+    closed_world~,
   )
 }

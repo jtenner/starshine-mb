@@ -2135,4 +2135,3 @@ pub struct WastValidateRoundtripFuzzStats {
 // Type aliases
 
 // Traits
-

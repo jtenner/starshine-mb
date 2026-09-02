@@ -975,7 +975,7 @@ fn LsFuncShape::new(
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
 ) -> LsFuncShape {
-  { params, results }
+  { params, results, }
 }
 
 ///|
@@ -1584,7 +1584,7 @@ fn LsDominanceScanResult::new(
   valid : Bool,
   propagates : Bool,
 ) -> LsDominanceScanResult {
-  { valid, propagates }
+  { valid, propagates, }
 }
 
 ///|

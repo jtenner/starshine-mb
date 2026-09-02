@@ -105,7 +105,7 @@ fn wast_arbitrary_count_instructions(
       | Return
       | Call(_)
       | CallIndirect(_, _) =>
-        { ..wast_arbitrary_empty_feature_stats(), control_ops: 1 }
+        { ..wast_arbitrary_empty_feature_stats(), control_ops: 1, }
       ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
         {
           ..wast_arbitrary_empty_feature_stats(),
@@ -123,11 +123,11 @@ fn wast_arbitrary_count_instructions(
           exception_ops: 1,
         }
       Drop | Select(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), parametric_ops: 1 }
+        { ..wast_arbitrary_empty_feature_stats(), parametric_ops: 1, }
       LocalGet(_) | LocalSet(_) | LocalTee(_) | GlobalGet(_) | GlobalSet(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), variable_ops: 1 }
+        { ..wast_arbitrary_empty_feature_stats(), variable_ops: 1, }
       TableGet(_) | TableSet(_) | TableSize(_) | TableGrow(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), table_ops: 1 }
+        { ..wast_arbitrary_empty_feature_stats(), table_ops: 1, }
       TableFill(_) | TableCopy(_, _) | TableInit(_, _) | ElemDrop(_) =>
         {
           ..wast_arbitrary_empty_feature_stats(),
@@ -135,7 +135,7 @@ fn wast_arbitrary_count_instructions(
           bulk_table_ops: 1,
         }
       Load(_, _) | Store(_, _) | MemorySize | MemoryGrow =>
-        { ..wast_arbitrary_empty_feature_stats(), memory_ops: 1 }
+        { ..wast_arbitrary_empty_feature_stats(), memory_ops: 1, }
       MemoryFill | MemoryCopy | MemoryInit(_) | DataDrop(_) =>
         {
           ..wast_arbitrary_empty_feature_stats(),
@@ -143,7 +143,7 @@ fn wast_arbitrary_count_instructions(
           bulk_memory_ops: 1,
         }
       Const(_, _) | Unary(_) | Binary(_) | Test(_) | Compare(_) | Convert(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), numeric_ops: 1 }
+        { ..wast_arbitrary_empty_feature_stats(), numeric_ops: 1, }
       RefNull(_)
       | RefIsNull
       | RefFunc(_)
@@ -177,7 +177,7 @@ fn wast_arbitrary_count_instructions(
       | StructNewDesc(_)
       | StructNewDefaultDesc(_)
       | RefGetDesc(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), reference_ops: 1 }
+        { ..wast_arbitrary_empty_feature_stats(), reference_ops: 1, }
       RefTestDesc(_, _) | RefCastDescEq(_, _) =>
         {
           ..wast_arbitrary_empty_feature_stats(),
@@ -242,7 +242,7 @@ fn wast_arbitrary_count_instructions(
       | SimdCompare(_)
       | SimdConvert(_)
       | SimdRelaxed(_) =>
-        { ..wast_arbitrary_empty_feature_stats(), simd_ops: 1 }
+        { ..wast_arbitrary_empty_feature_stats(), simd_ops: 1, }
     }
     stats = wast_arbitrary_add_feature_stats(stats, current)
     let nested = match instr {
@@ -268,7 +268,7 @@ pub fn wast_arbitrary_feature_stats(mod : Module) -> WastArbitraryFeatureStats {
       TypeField(t) =>
         match t.body {
           Struct(_) | Array(_) =>
-            { ..wast_arbitrary_empty_feature_stats(), gc_type_fields: 1 }
+            { ..wast_arbitrary_empty_feature_stats(), gc_type_fields: 1, }
           _ => wast_arbitrary_empty_feature_stats()
         }
       TagField(t) =>
@@ -464,7 +464,7 @@ fn gen_memarg(st : RandomState, natural_align : UInt64) -> MemArg {
       _ => natural_align
     }
   }
-  { align, offset: (st.next_uint() % 64).to_uint64() }
+  { align, offset: (st.next_uint() % 64).to_uint64(), }
 }
 
 ///|
@@ -497,7 +497,7 @@ fn gen_instruction(
         for _ in 0..<n {
           body.push(gen_instruction(next, st, func_bound))
         }
-        Block({ label: None, type_use: None }, body)
+        Block({ label: None, type_use: None, }, body)
       }
       1 => {
         let body : Array[Instruction] = []
@@ -505,7 +505,7 @@ fn gen_instruction(
         for _ in 0..<n {
           body.push(gen_instruction(next, st, func_bound))
         }
-        Loop({ label: None, type_use: None }, body)
+        Loop({ label: None, type_use: None, }, body)
       }
       2 => {
         let then_body : Array[Instruction] = []
@@ -518,7 +518,7 @@ fn gen_instruction(
         for _ in 0..<ne {
           else_body.push(gen_instruction(next, st, func_bound))
         }
-        If({ label: None, type_use: None }, then_body, else_body)
+        If({ label: None, type_use: None, }, then_body, else_body)
       }
       3 => Br(Num(st.next_uint() % 2))
       4 => BrIf(Num(st.next_uint() % 2))
@@ -528,7 +528,7 @@ fn gen_instruction(
       8 =>
         CallIndirect(Num(0), {
           type_index: Some(Num(0)),
-          func_type: { params: [], results: [] },
+          func_type: { params: [], results: [], },
           param_ids: [],
         })
       9 => Load(I32Load, gen_memarg(st, 4))
@@ -561,7 +561,7 @@ fn gen_func_type(st : RandomState) -> FuncType {
   for _ in 0..<rc.reinterpret_as_int() {
     results.push(pick_numeric_value_type(st))
   }
-  { params, results }
+  { params, results, }
 }
 
 ///|
@@ -569,7 +569,7 @@ fn gen_type_use(st : RandomState, type_count : UInt) -> TypeUse {
   if type_count > 0 && (st.next_uint() & 1) == 1 {
     {
       type_index: Some(Num(st.next_uint() % type_count)),
-      func_type: { params: [], results: [] },
+      func_type: { params: [], results: [], },
       param_ids: [],
     }
   } else {
@@ -578,7 +578,7 @@ fn gen_type_use(st : RandomState, type_count : UInt) -> TypeUse {
     for _ in func_type.params {
       param_ids.push(None)
     }
-    { type_index: None, func_type, param_ids }
+    { type_index: None, func_type, param_ids, }
   }
 }
 
@@ -590,10 +590,10 @@ fn append_wide_wast_surface(fields : Array[ModuleField]) -> Unit {
       is_sub: false,
       final_: false,
       supers: [],
-      metadata: { describes: None, descriptor: None },
+      metadata: { describes: None, descriptor: None, },
       body: TypeDefBody::Struct([
-        { storage: FieldStorage::Value(I32), mutable_: true },
-        { storage: FieldStorage::Value(TypedFuncRef(Struct)), mutable_: false },
+        { storage: FieldStorage::Value(I32), mutable_: true, },
+        { storage: FieldStorage::Value(TypedFuncRef(Struct)), mutable_: false, },
       ]),
     }),
   )
@@ -603,7 +603,7 @@ fn append_wide_wast_surface(fields : Array[ModuleField]) -> Unit {
       exports: [Export("tag0")],
       type_use: {
         type_index: None,
-        func_type: { params: [I32], results: [] },
+        func_type: { params: [I32], results: [], },
         param_ids: [None],
       },
     }),
@@ -615,7 +615,7 @@ fn append_wide_wast_surface(fields : Array[ModuleField]) -> Unit {
       exports: [Export("wide_wast_surface")],
       type_use: {
         type_index: None,
-        func_type: { params: [], results: [] },
+        func_type: { params: [], results: [], },
         param_ids: [],
       },
       locals: [],
@@ -652,23 +652,23 @@ fn append_wide_wast_surface(fields : Array[ModuleField]) -> Unit {
         Const(I32Const, "0"),
         TableInit(Num(0), Num(0)),
         ElemDrop(Num(0)),
-        V128Const({ shape: I32x4, values: ["0", "1", "2", "3"] }),
+        V128Const({ shape: I32x4, values: ["0", "1", "2", "3"], }),
         Drop,
         ReturnCall(Num(0)),
         ReturnCallIndirect(Num(0), {
           type_index: Some(Num(0)),
-          func_type: { params: [], results: [] },
+          func_type: { params: [], results: [], },
           param_ids: [],
         }),
         ReturnCallRef({
           type_index: Some(Num(0)),
-          func_type: { params: [], results: [] },
+          func_type: { params: [], results: [], },
           param_ids: [],
         }),
         Const(I32Const, "0"),
         Throw(Num(0)),
         TryTable(
-          { label: None, type_use: None },
+          { label: None, type_use: None, },
           [CatchClause(Num(0), Num(0))],
           [Nop],
         ),
@@ -691,7 +691,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
         is_sub: false,
         final_: false,
         supers: [],
-        metadata: { describes: None, descriptor: None },
+        metadata: { describes: None, descriptor: None, },
         body: TypeDefBody::Func(gen_func_type(st)),
       }),
     )
@@ -717,14 +717,14 @@ fn gen_module(size : Int, st : RandomState) -> Module {
     MemoryField({
       id: Some("$mem0"),
       exports: [],
-      memory_type: MemoryType({ min: 1, max: Some(2) }),
+      memory_type: MemoryType({ min: 1, max: Some(2), }),
     }),
   )
   fields.push(
     TableField({
       id: Some("$tab0"),
       exports: [],
-      table_type: { limits: { min: 1, max: Some(4) }, elem_type: FuncRef },
+      table_type: { limits: { min: 1, max: Some(4), }, elem_type: FuncRef, },
       elem_init: None,
       elem_exprs: None,
       elem_init_type: None,
@@ -738,7 +738,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
       GlobalField({
         id: Some("$g0"),
         exports: [],
-        global_type: { val_type: I32, mutable_: (st.next_uint() & 1) == 1 },
+        global_type: { val_type: I32, mutable_: (st.next_uint() & 1) == 1, },
         init: [Const(I32Const, "0")],
       }),
     )
@@ -748,7 +748,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
     let locals : Array[Local] = []
     let local_n = rand_len(size, st, 3)
     for _ in 0..<local_n {
-      locals.push({ id: None, val_type: pick_numeric_value_type(st) })
+      locals.push({ id: None, val_type: pick_numeric_value_type(st), })
     }
     let body : Array[Instruction] = []
     let body_n = rand_len(size + 1, st, 8)
@@ -798,19 +798,19 @@ fn gen_module(size : Int, st : RandomState) -> Module {
 
   // Optional export/start.
   if func_count > 0 {
-    fields.push(ExportField({ name: "main", desc: ExportDesc::Func(Num(0)) }))
+    fields.push(ExportField({ name: "main", desc: ExportDesc::Func(Num(0)), }))
     if (st.next_uint() & 1) == 1 {
-      fields.push(StartField({ func_index: Num(0) }))
+      fields.push(StartField({ func_index: Num(0), }))
     }
   }
-  { id: None, fields }
+  { id: None, fields, }
 }
 
 ///|
 test "wast arbitrary widened prelude reports exact FZG mirror counters" {
   let fields : Array[ModuleField] = []
   append_wide_wast_surface(fields)
-  let stats = wast_arbitrary_feature_stats({ id: None, fields })
+  let stats = wast_arbitrary_feature_stats({ id: None, fields, })
   @debug.assert_eq(stats.gc_type_fields, 1)
   @debug.assert_eq(stats.exported_tags, 1)
   @debug.assert_eq(stats.descriptor_ref_ops, 2)
@@ -882,7 +882,7 @@ pub impl Arbitrary for Limits with fn arbitrary(_, st) {
   } else {
     None
   }
-  { min, max }
+  { min, max, }
 }
 
 ///|
@@ -919,7 +919,10 @@ pub impl Arbitrary for MemoryType with fn arbitrary(_, st) {
 
 ///|
 pub impl Arbitrary for GlobalType with fn arbitrary(_, st) {
-  { val_type: pick_numeric_value_type(st), mutable_: (st.next_uint() & 1) == 1 }
+  {
+    val_type: pick_numeric_value_type(st),
+    mutable_: (st.next_uint() & 1) == 1,
+  }
 }
 
 ///|
@@ -971,12 +974,12 @@ pub impl Arbitrary for ExportDesc with fn arbitrary(size, st) {
 
 ///|
 pub impl Arbitrary for Export with fn arbitrary(size, st) {
-  { name: "ex\{st.next_uint() % 64}", desc: Arbitrary::arbitrary(size, st) }
+  { name: "ex\{st.next_uint() % 64}", desc: Arbitrary::arbitrary(size, st), }
 }
 
 ///|
 pub impl Arbitrary for Start with fn arbitrary(size, st) {
-  { func_index: rand_index(st, (size + 1).reinterpret_as_uint()) }
+  { func_index: rand_index(st, (size + 1).reinterpret_as_uint()), }
 }
 
 ///|
@@ -1027,7 +1030,7 @@ pub impl Arbitrary for V128Const with fn arbitrary(_, st) {
   for _ in 0..<count {
     values.push("\{(st.next_uint() % 32).reinterpret_as_int() - 16}")
   }
-  { shape, values }
+  { shape, values, }
 }
 
 ///|
@@ -1139,7 +1142,7 @@ pub impl Arbitrary for TypeDef with fn arbitrary(size, st) {
     is_sub: false,
     final_: false,
     supers: [],
-    metadata: { describes: None, descriptor: None },
+    metadata: { describes: None, descriptor: None, },
     body: TypeDefBody::Func(Arbitrary::arbitrary(size, st)),
   }
 }

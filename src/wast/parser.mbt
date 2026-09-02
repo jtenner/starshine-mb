@@ -255,7 +255,7 @@ pub struct Module {
 
 ///|
 pub fn Module::new(fields : Array[ModuleField], id? : String? = None) -> Module {
-  { id, fields }
+  { id, fields, }
 }
 
 // ============================================================================
@@ -672,7 +672,7 @@ pub fn WastParser::new(lexer : WastLexer) -> WastParser {
   let parser = {
     lexer,
     current: {
-      location: { filename: "", line: 0, first_column: 0, last_column: 0 },
+      location: { filename: "", line: 0, first_column: 0, last_column: 0, },
       token_type: Eof,
       value: None,
     },
@@ -781,7 +781,7 @@ fn WastParser::parse_annotation(
     args.push(self.get_annotation_arg_text(self.advance()))
   }
   self.expect_rpar()
-  { name, args }
+  { name, args, }
 }
 
 ///|
@@ -1270,7 +1270,7 @@ fn WastParser::parse_limits(self : WastParser) -> Limits raise ParserError {
   } else {
     None
   }
-  { min, max }
+  { min, max, }
 }
 
 // ============================================================================
@@ -1347,7 +1347,7 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
       break
     }
   }
-  { type_index, func_type: { params, results }, param_ids }
+  { type_index, func_type: { params, results, }, param_ids, }
 }
 
 // ============================================================================
@@ -1376,7 +1376,7 @@ fn WastParser::parse_mem_arg(
       _ => break
     }
   }
-  { align, offset }
+  { align, offset, }
 }
 
 ///|
@@ -1411,13 +1411,13 @@ fn WastParser::parse_block_type(
     let vt = self.parse_value_type()
     Some({
       type_index: None,
-      func_type: { params: [], results: [vt] },
+      func_type: { params: [], results: [vt], },
       param_ids: [],
     })
   } else {
     None
   }
-  { label, type_use }
+  { label, type_use, }
 }
 
 ///|
@@ -1724,13 +1724,13 @@ fn WastParser::parse_try_table_block_type(
     let vt = self.parse_value_type()
     Some({
       type_index: None,
-      func_type: { params: [], results: [vt] },
+      func_type: { params: [], results: [vt], },
       param_ids: [],
     })
   } else {
     None
   }
-  { label: None, type_use }
+  { label: None, type_use, }
 }
 
 ///|
@@ -2321,13 +2321,13 @@ fn WastParser::parse_type_def(self : WastParser) -> TypeDef raise ParserError {
     Some((final_, supers, metadata)) => {
       let body = self.parse_type_def_body()
       self.expect_rpar()
-      return { id, is_sub: true, final_, supers, metadata, body }
+      return { id, is_sub: true, final_, supers, metadata, body, }
     }
     None => ()
   }
   let metadata = self.parse_type_metadata_clauses()
   let body = self.parse_type_def_body()
-  { id, is_sub: false, final_: false, supers: [], metadata, body }
+  { id, is_sub: false, final_: false, supers: [], metadata, body, }
 }
 
 ///|
@@ -2417,7 +2417,7 @@ fn WastParser::parse_type_metadata_clauses(
       None => break
     }
   }
-  { describes, descriptor }
+  { describes, descriptor, }
 }
 
 ///|
@@ -2494,7 +2494,7 @@ fn WastParser::parse_func_type_signature(
       break
     }
   }
-  { params, results }
+  { params, results, }
 }
 
 ///|
@@ -2530,13 +2530,13 @@ fn WastParser::parse_struct_field_item(
       let _ = self.advance()
       let storage = self.parse_field_storage()
       self.expect_rpar()
-      return { storage, mutable_: true }
+      return { storage, mutable_: true, }
     }
     self.restore_lexer_state(saved_state)
     self.current = saved_token
   }
   let storage = self.parse_field_storage()
-  { storage, mutable_: false }
+  { storage, mutable_: false, }
 }
 
 ///|
@@ -2641,11 +2641,11 @@ fn WastParser::parse_func(self : WastParser) -> ModuleField raise ParserError {
         let id_token = self.advance()
         let local_id : String? = Some(self.get_text(id_token))
         let vt = self.parse_value_type()
-        locals.push({ id: local_id, val_type: vt })
+        locals.push({ id: local_id, val_type: vt, })
       } else {
         while self.can_start_value_type() {
           let vt = self.parse_value_type()
-          locals.push({ id: None, val_type: vt })
+          locals.push({ id: None, val_type: vt, })
         }
       }
       self.expect_rpar()
@@ -2679,7 +2679,7 @@ fn WastParser::parse_elem_item_instrs(
   }
   let instrs = self.parse_instructions()
   self.expect_rpar()
-  { instrs, explicit_item }
+  { instrs, explicit_item, }
 }
 
 ///|
@@ -2766,7 +2766,7 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
     return {
       id,
       exports,
-      table_type: { limits, elem_type },
+      table_type: { limits, elem_type, },
       elem_init: Some(func_indices),
       elem_exprs: Some(elem_exprs),
       elem_init_type,
@@ -2806,7 +2806,7 @@ fn WastParser::parse_table(self : WastParser) -> Table raise ParserError {
   {
     id,
     exports,
-    table_type: { limits, elem_type },
+    table_type: { limits, elem_type, },
     elem_init,
     elem_exprs,
     elem_init_type,
@@ -2825,7 +2825,7 @@ fn WastParser::parse_memory(self : WastParser) -> Memory raise ParserError {
   }
   let exports = self.parse_inline_exports()
   let limits = self.parse_limits()
-  { id, exports, memory_type: limits }
+  { id, exports, memory_type: limits, }
 }
 
 ///|
@@ -2844,7 +2844,7 @@ fn WastParser::parse_tag_type_use_or_default(
     self.restore_lexer_state(saved_state)
     self.current = saved_token
   }
-  { type_index: None, func_type: { params: [], results: [] }, param_ids: [] }
+  { type_index: None, func_type: { params: [], results: [], }, param_ids: [], }
 }
 
 ///|
@@ -2897,7 +2897,7 @@ fn WastParser::parse_tag_field(
         annotations: [],
       })
     }
-    None => ModuleField::TagField({ id, exports, type_use })
+    None => ModuleField::TagField({ id, exports, type_use, })
   }
 }
 
@@ -2913,7 +2913,7 @@ fn WastParser::parse_global(self : WastParser) -> Global raise ParserError {
   let exports = self.parse_inline_exports()
   let global_type = self.parse_global_type()
   let init = self.parse_instructions()
-  { id, exports, global_type, init }
+  { id, exports, global_type, init, }
 }
 
 ///|
@@ -2937,7 +2937,7 @@ fn WastParser::parse_global_type(
   } else {
     (self.parse_value_type(), false)
   }
-  { val_type, mutable_ }
+  { val_type, mutable_, }
 }
 
 ///|
@@ -2970,7 +2970,7 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
       }
       let limits = self.parse_limits()
       let elem_type = self.parse_value_type()
-      (ImportDesc::Table({ limits, elem_type }), table_id)
+      (ImportDesc::Table({ limits, elem_type, }), table_id)
     }
     Memory => {
       let _ = self.advance()
@@ -3007,7 +3007,7 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
     _ => raise UnexpectedToken(self.current, "expected import descriptor")
   }
   self.expect_rpar()
-  { module_name, field_name, desc, id, annotations: [] }
+  { module_name, field_name, desc, id, annotations: [], }
 }
 
 ///|
@@ -3040,7 +3040,7 @@ fn WastParser::parse_export(self : WastParser) -> Export raise ParserError {
     _ => raise UnexpectedToken(self.current, "expected export descriptor")
   }
   self.expect_rpar()
-  { name, desc }
+  { name, desc, }
 }
 
 ///|
@@ -3109,7 +3109,7 @@ fn WastParser::parse_module_command(
       while self.check(Lpar) || self.check(LparAnn) {
         fields.push(self.parse_annotated_module_field())
       }
-      WastCommand::Module({ id, fields })
+      WastCommand::Module({ id, fields, })
     }
   }
 }
@@ -3168,7 +3168,7 @@ fn WastParser::parse_action(
       let name_token = self.expect(Text, "expected function name")
       let name = self.strip_quotes(self.get_text(name_token))
       let args = self.parse_wast_values()
-      WastActionType::Invoke({ module_name, name, args })
+      WastActionType::Invoke({ module_name, name, args, })
     }
     Get => {
       let _ = self.advance()
@@ -3397,7 +3397,7 @@ fn WastParser::parse_module_def(
       while self.check(Lpar) || self.check(LparAnn) {
         fields.push(self.parse_annotated_module_field())
       }
-      WastModuleDef::Inline({ id: None, fields })
+      WastModuleDef::Inline({ id: None, fields, })
     }
   }
 }
@@ -3482,7 +3482,7 @@ fn WastParser::parse_data(self : WastParser) -> DataSegment raise ParserError {
     let decoded = self.decode_string(text)
     data_bytes.write_bytes(decoded)
   }
-  { id, memory_index, offset, data: data_bytes.to_bytes() }
+  { id, memory_index, offset, data: data_bytes.to_bytes(), }
 }
 
 ///|
@@ -3575,7 +3575,7 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
   while self.check(Lpar) {
     elem_exprs.push(self.parse_elem_item_instrs())
   }
-  { id, table_index, offset, func_indices, elem_exprs, elem_type }
+  { id, table_index, offset, func_indices, elem_exprs, elem_type, }
 }
 
 // ============================================================================
@@ -3655,7 +3655,7 @@ fn WastParser::parse_v128_const(
     }
     values.push(text)
   }
-  { shape, values }
+  { shape, values, }
 }
 
 ///|
@@ -4045,7 +4045,7 @@ pub fn WastParser::parse_module(self : WastParser) -> Module raise ParserError {
     fields.push(self.parse_annotated_module_field())
   }
   self.expect_rpar()
-  { id, fields }
+  { id, fields, }
 }
 
 // ============================================================================
@@ -4174,7 +4174,7 @@ test "parse simple module" {
 ///|
 test "parse error struct can be constructed" {
   let err : ParseError = {
-    location: { filename: "test", line: 1, first_column: 1, last_column: 1 },
+    location: { filename: "test", line: 1, first_column: 1, last_column: 1, },
     message: "example",
   }
   @debug.assert_eq(err.message, "example")
@@ -4352,7 +4352,7 @@ test "parse struct type defs with subtype metadata and fields" {
       @debug.assert_eq(base.is_sub, false)
       @debug.assert_eq(base.final_, false)
       @debug.assert_eq(base.supers, [])
-      @debug.assert_eq(base.metadata, { describes: None, descriptor: None })
+      @debug.assert_eq(base.metadata, { describes: None, descriptor: None, })
       @debug.assert_eq(base.body, TypeDefBody::Struct([]))
       @debug.assert_eq(node.id, Some("$node"))
       @debug.assert_eq(node.is_sub, true)
@@ -4365,7 +4365,7 @@ test "parse struct type defs with subtype metadata and fields" {
       @debug.assert_eq(
         node.body,
         TypeDefBody::Struct([
-          { storage: Value(I32), mutable_: false },
+          { storage: Value(I32), mutable_: false, },
           {
             storage: Value(TypedFuncRef(HeapTypeRef::TypeId("$base"))),
             mutable_: true,
@@ -4416,7 +4416,7 @@ test "parse array type defs with subtype metadata" {
       @debug.assert_eq(bytes.is_sub, false)
       @debug.assert_eq(
         bytes.body,
-        TypeDefBody::Array({ storage: FieldStorage::I8, mutable_: false }),
+        TypeDefBody::Array({ storage: FieldStorage::I8, mutable_: false, }),
       )
       @debug.assert_eq(arr.id, Some("$arr"))
       @debug.assert_eq(arr.is_sub, true)
@@ -4441,7 +4441,7 @@ test "parse array type defs with subtype metadata" {
       })
       @debug.assert_eq(
         arr_desc.body,
-        TypeDefBody::Array({ storage: FieldStorage::I16, mutable_: false }),
+        TypeDefBody::Array({ storage: FieldStorage::I16, mutable_: false, }),
       )
     }
     _ => fail("expected three type fields in array subtype parse fixture")
@@ -4500,7 +4500,7 @@ test "parse empty rec groups" {
   assert_false(parser.has_errors())
   match mod.fields {
     [RecField([]), TypeField(td)] =>
-      @debug.assert_eq(td.body, TypeDefBody::Func({ params: [], results: [] }))
+      @debug.assert_eq(td.body, TypeDefBody::Func({ params: [], results: [], }))
     _ => fail("expected empty rec group followed by plain type field")
   }
 }
@@ -5494,8 +5494,8 @@ test "parse function annotations on defined functions" {
   match mod.fields {
     [FuncField(func)] =>
       @debug.assert_eq(func.annotations, [
-        { name: "binaryen.idempotent", args: [] },
-        { name: "metadata.code.inline", args: ["\"\\00\""] },
+        { name: "binaryen.idempotent", args: [], },
+        { name: "metadata.code.inline", args: ["\"\\00\""], },
       ])
     _ => fail("expected single annotated function field")
   }
@@ -5514,7 +5514,7 @@ test "parse function annotations on func imports" {
   match mod.fields {
     [ImportField(im)] => {
       @debug.assert_eq(im.annotations, [
-        { name: "binaryen.js.called", args: [] },
+        { name: "binaryen.js.called", args: [], },
       ])
       match im.desc {
         Func(_) => ()

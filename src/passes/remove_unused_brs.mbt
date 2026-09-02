@@ -984,7 +984,7 @@ fn remove_unused_brs_compute_cycle_scan(
       }
     }
   }
-  { label_refs, branch_payload_children: payload_children, has_br_table }
+  { label_refs, branch_payload_children: payload_children, has_br_table, }
 }
 
 ///|
@@ -3060,7 +3060,7 @@ priv struct RemoveUnusedBrsPruneCfg {
 
 ///|
 fn RemoveUnusedBrsPruneCfg::new() -> RemoveUnusedBrsPruneCfg {
-  { values: [] }
+  { values: [], }
 }
 
 ///|
@@ -10866,7 +10866,7 @@ fn remove_unused_brs_visit_region(
     changed = remove_unused_brs_visit_node(
         ctx,
         func,
-        Some({ region_ref, idx: current_idx }),
+        Some({ region_ref, idx: current_idx, }),
         node_id,
         seen,
         reorder_cache,

@@ -16,7 +16,7 @@ pub fn CompilerFactCustomSection::new(
   version? : UInt = 1U,
   module_fingerprint? : Bytes? = None,
 ) -> CompilerFactCustomSection {
-  { version, module_fingerprint, facts }
+  { version, module_fingerprint, facts, }
 }
 
 ///|
@@ -32,7 +32,7 @@ pub fn ProducerInfo::new(
   version : String,
   build_id? : String? = None,
 ) -> ProducerInfo {
-  { name, version, build_id }
+  { name, version, build_id, }
 }
 
 ///|
@@ -70,7 +70,7 @@ pub fn WorldFacts::new(
   host_can_call_exports : Bool,
   host_can_mutate_exported_state : Bool,
 ) -> WorldFacts {
-  { mode, host_can_call_exports, host_can_mutate_exported_state }
+  { mode, host_can_call_exports, host_can_mutate_exported_state, }
 }
 
 ///|
@@ -272,7 +272,7 @@ pub struct CodeSite {
 
 ///|
 pub fn CodeSite::new(function : UInt, offset : UInt) -> CodeSite {
-  { function, offset }
+  { function, offset, }
 }
 
 ///|
@@ -283,7 +283,7 @@ pub struct ValueSite {
 
 ///|
 pub fn ValueSite::new(site : CodeSite, result? : UInt = 0U) -> ValueSite {
-  { site, result }
+  { site, result, }
 }
 
 ///|
@@ -361,7 +361,7 @@ pub struct IntConstant {
 
 ///|
 pub fn IntConstant::new(width : IntWidth, bits : UInt64) -> IntConstant {
-  { width, bits }
+  { width, bits, }
 }
 
 ///|
@@ -372,7 +372,7 @@ pub struct V128Bits {
 
 ///|
 pub fn V128Bits::new(low : UInt64, high : UInt64) -> V128Bits {
-  { low, high }
+  { low, high, }
 }
 
 ///|
@@ -666,7 +666,7 @@ pub struct SignedRange {
 
 ///|
 pub fn SignedRange::new(min : Int64, max : Int64) -> SignedRange {
-  { min, max }
+  { min, max, }
 }
 
 ///|
@@ -677,7 +677,7 @@ pub struct UnsignedRange {
 
 ///|
 pub fn UnsignedRange::new(min : UInt64, max : UInt64) -> UnsignedRange {
-  { min, max }
+  { min, max, }
 }
 
 ///|
@@ -688,7 +688,7 @@ pub struct KnownBits {
 
 ///|
 pub fn KnownBits::new(known_zero : UInt64, known_one : UInt64) -> KnownBits {
-  { known_zero, known_one }
+  { known_zero, known_one, }
 }
 
 ///|
@@ -708,7 +708,7 @@ pub fn IntegerFacts::new(
   known_bits? : KnownBits? = None,
   nonzero? : Bool = false,
 ) -> IntegerFacts {
-  { width, unsigned_range, signed_range, known_bits, nonzero }
+  { width, unsigned_range, signed_range, known_bits, nonzero, }
 }
 
 ///|
@@ -822,7 +822,7 @@ pub fn FloatFacts::new(
   width : FloatWidth,
   possible_classes : FloatClassMask,
 ) -> FloatFacts {
-  { width, possible_classes }
+  { width, possible_classes, }
 }
 
 ///|
@@ -888,7 +888,7 @@ pub fn ReferenceFacts::new(
   heap? : HeapDomain? = None,
   function_targets? : ClosedFunctionSet? = None,
 ) -> ReferenceFacts {
-  { nullability, heap, function_targets }
+  { nullability, heap, function_targets, }
 }
 
 ///|
@@ -942,7 +942,7 @@ pub fn KnownV128Bits::new(
   known_zero : V128Bits,
   known_one : V128Bits,
 ) -> KnownV128Bits {
-  { known_zero, known_one }
+  { known_zero, known_one, }
 }
 
 ///|
@@ -958,7 +958,7 @@ pub fn VectorFacts::new(
   splat? : FactValue? = None,
   lane_shape? : VectorLaneShape? = None,
 ) -> VectorFacts {
-  { known_bits, splat, lane_shape }
+  { known_bits, splat, lane_shape, }
 }
 
 ///|
@@ -978,7 +978,7 @@ pub fn ValueFacts::new(
   vector? : VectorFacts? = None,
   reference? : ReferenceFacts? = None,
 ) -> ValueFacts {
-  { possible_values, integer, float_, vector, reference }
+  { possible_values, integer, float_, vector, reference, }
 }
 
 ///|
@@ -1068,7 +1068,7 @@ pub struct ParameterRef {
 
 ///|
 pub fn ParameterRef::new(function : UInt, parameter : UInt) -> ParameterRef {
-  { function, parameter }
+  { function, parameter, }
 }
 
 ///|
@@ -1082,7 +1082,7 @@ pub fn FunctionResultRef::new(
   function : UInt,
   result : UInt,
 ) -> FunctionResultRef {
-  { function, result }
+  { function, result, }
 }
 
 ///|
@@ -1240,7 +1240,7 @@ pub fn ParameterFacts::new(
   uses? : ParameterUseMask? = None,
   escape_sinks? : EscapeSinkMask? = None,
 ) -> ParameterFacts {
-  { parameter, value, uses, escape_sinks }
+  { parameter, value, uses, escape_sinks, }
 }
 
 ///|
@@ -1256,7 +1256,7 @@ pub fn ResultFacts::new(
   value? : ValueFacts? = None,
   identity? : ResultIdentityFacts? = None,
 ) -> ResultFacts {
-  { result, value, identity }
+  { result, value, identity, }
 }
 
 ///|
@@ -1728,7 +1728,7 @@ pub fn FunctionBoundaryFacts::new(
   address_taken : Bool,
   host_callable : Bool,
 ) -> FunctionBoundaryFacts {
-  { all_call_sites_known, address_taken, host_callable }
+  { all_call_sites_known, address_taken, host_callable, }
 }
 
 ///|
@@ -1742,7 +1742,7 @@ pub fn FunctionProfile::new(
   entry_count? : UInt64? = None,
   temperature? : TemperatureHint? = None,
 ) -> FunctionProfile {
-  { entry_count, temperature }
+  { entry_count, temperature, }
 }
 
 ///|
@@ -1756,7 +1756,7 @@ pub fn CallProfile::new(
   count? : UInt64? = None,
   temperature? : TemperatureHint? = None,
 ) -> CallProfile {
-  { count, temperature }
+  { count, temperature, }
 }
 
 ///|
@@ -1767,7 +1767,7 @@ pub struct BranchProfile {
 
 ///|
 pub fn BranchProfile::new(taken : UInt64, not_taken : UInt64) -> BranchProfile {
-  { taken, not_taken }
+  { taken, not_taken, }
 }
 
 ///|
@@ -1781,7 +1781,7 @@ pub fn LoopProfile::new(
   backedge_count? : UInt64? = None,
   estimated_trip_count? : UInt64? = None,
 ) -> LoopProfile {
-  { backedge_count, estimated_trip_count }
+  { backedge_count, estimated_trip_count, }
 }
 
 ///|
@@ -1856,7 +1856,7 @@ pub fn FunctionFacts::new(
   profile? : FunctionProfile? = None,
   inline_policy? : InlinePolicy? = None,
 ) -> FunctionFacts {
-  { function, effects, parameters, results, boundary, profile, inline_policy }
+  { function, effects, parameters, results, boundary, profile, inline_policy, }
 }
 
 ///|
@@ -1870,7 +1870,7 @@ pub fn IndexedValueFacts::new(
   index : UInt,
   value : ValueFacts,
 ) -> IndexedValueFacts {
-  { index, value }
+  { index, value, }
 }
 
 ///|
@@ -1888,7 +1888,7 @@ pub fn SignatureFacts::new(
   results? : Array[IndexedValueFacts] = [],
   call_sites_complete? : Bool = false,
 ) -> SignatureFacts {
-  { signature, parameters, results, call_sites_complete }
+  { signature, parameters, results, call_sites_complete, }
 }
 
 ///|
@@ -1985,7 +1985,7 @@ pub fn FieldUsageFacts::new(
   never_read? : Bool = false,
   never_written_after_initialization? : Bool = false,
 ) -> FieldUsageFacts {
-  { never_read, never_written_after_initialization }
+  { never_read, never_written_after_initialization, }
 }
 
 ///|
@@ -2005,7 +2005,7 @@ pub fn FieldFacts::new(
   writes? : WriteFacts? = None,
   usage? : FieldUsageFacts? = None,
 ) -> FieldFacts {
-  { view, field, stored_contents, writes, usage }
+  { view, field, stored_contents, writes, usage, }
 }
 
 ///|
@@ -2021,7 +2021,7 @@ pub fn ArrayElementFacts::new(
   stored_contents? : ValueFacts? = None,
   writes? : WriteFacts? = None,
 ) -> ArrayElementFacts {
-  { view, stored_contents, writes }
+  { view, stored_contents, writes, }
 }
 
 ///|
@@ -2039,7 +2039,7 @@ pub fn TypeFacts::new(
   fields? : Array[FieldFacts] = [],
   array_element? : ArrayElementFacts? = None,
 ) -> TypeFacts {
-  { type_, population, fields, array_element }
+  { type_, population, fields, array_element, }
 }
 
 ///|
@@ -2099,7 +2099,7 @@ pub fn GlobalFacts::new(
   steady_state_value? : ValueFacts? = None,
   mutation? : MutationFacts? = None,
 ) -> GlobalFacts {
-  { global, initial_value, steady_state_value, mutation }
+  { global, initial_value, steady_state_value, mutation, }
 }
 
 ///|
@@ -2113,7 +2113,7 @@ pub fn TableEntryFacts::new(
   index : UInt64,
   value : ReferenceFacts,
 ) -> TableEntryFacts {
-  { index, value }
+  { index, value, }
 }
 
 ///|
@@ -2213,7 +2213,7 @@ pub fn AllocationFieldFacts::new(
   no_post_init_writes? : Bool = false,
   stored_value? : ValueFacts? = None,
 ) -> AllocationFieldFacts {
-  { field, no_post_init_writes, stored_value }
+  { field, no_post_init_writes, stored_value, }
 }
 
 ///|
@@ -2235,7 +2235,7 @@ pub fn AllocationFacts::new(
   length? : IntegerFacts? = None,
   fields? : Array[AllocationFieldFacts] = [],
 ) -> AllocationFacts {
-  { kind, escape_sinks, identity_unobserved, thread_confined, length, fields }
+  { kind, escape_sinks, identity_unobserved, thread_confined, length, fields, }
 }
 
 ///|
@@ -2251,7 +2251,7 @@ pub fn AllocationSiteFacts::new(
   facts : AllocationFacts,
   provenance? : SourceProvenance? = None,
 ) -> AllocationSiteFacts {
-  { site, facts, provenance }
+  { site, facts, provenance, }
 }
 
 ///|
@@ -2265,7 +2265,7 @@ pub fn AccessFacts::new(
   in_bounds? : Bool = false,
   alignment_log2? : UInt? = None,
 ) -> AccessFacts {
-  { in_bounds, alignment_log2 }
+  { in_bounds, alignment_log2, }
 }
 
 ///|
@@ -2281,7 +2281,7 @@ pub fn AccessSiteFacts::new(
   facts : AccessFacts,
   provenance? : SourceProvenance? = None,
 ) -> AccessSiteFacts {
-  { site, facts, provenance }
+  { site, facts, provenance, }
 }
 
 ///|
@@ -2297,7 +2297,7 @@ pub fn NumericOperationFacts::new(
   unsigned_no_wrap? : Bool = false,
   exact_division? : Bool = false,
 ) -> NumericOperationFacts {
-  { signed_no_wrap, unsigned_no_wrap, exact_division }
+  { signed_no_wrap, unsigned_no_wrap, exact_division, }
 }
 
 ///|
@@ -2313,7 +2313,7 @@ pub fn NumericOperationSiteFacts::new(
   facts : NumericOperationFacts,
   provenance? : SourceProvenance? = None,
 ) -> NumericOperationSiteFacts {
-  { site, facts, provenance }
+  { site, facts, provenance, }
 }
 
 ///|
@@ -2399,7 +2399,7 @@ pub fn ScopedRelationFacts::new(
   kind : RelationKind,
   right : FactOperand,
 ) -> ScopedRelationFacts {
-  { at, left, kind, right }
+  { at, left, kind, right, }
 }
 
 ///|
@@ -2415,7 +2415,7 @@ pub fn ExpressionFact::new(
   facts : ValueFacts,
   provenance? : SourceProvenance? = None,
 ) -> ExpressionFact {
-  { value, facts, provenance }
+  { value, facts, provenance, }
 }
 
 ///|
@@ -2435,7 +2435,7 @@ pub fn CallSiteFacts::new(
   inline_policy? : InlinePolicy? = None,
   provenance? : SourceProvenance? = None,
 ) -> CallSiteFacts {
-  { site, direct_target, profile, inline_policy, provenance }
+  { site, direct_target, profile, inline_policy, provenance, }
 }
 
 ///|
@@ -2453,7 +2453,7 @@ pub fn BranchFacts::new(
   temperature? : TemperatureHint? = None,
   provenance? : SourceProvenance? = None,
 ) -> BranchFacts {
-  { site, profile, temperature, provenance }
+  { site, profile, temperature, provenance, }
 }
 
 ///|
@@ -2471,7 +2471,7 @@ pub fn LoopFacts::new(
   temperature? : TemperatureHint? = None,
   provenance? : SourceProvenance? = None,
 ) -> LoopFacts {
-  { site, profile, temperature, provenance }
+  { site, profile, temperature, provenance, }
 }
 
 ///|

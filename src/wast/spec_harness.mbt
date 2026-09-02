@@ -160,9 +160,9 @@ pub fn evaluate_wast_static_assertion(
               Err(
                 "assert_malformed expected parse/lower/decode or validation failure, but module compiled and validated",
               )
-            Err(_) => Ok({ kind: Malformed, stage: ValidateRejected })
+            Err(_) => Ok({ kind: Malformed, stage: ValidateRejected, })
           }
-        Err(_) => Ok({ kind: Malformed, stage: ParseOrLowerRejected })
+        Err(_) => Ok({ kind: Malformed, stage: ParseOrLowerRejected, })
       }
     AssertInvalid(mod_def, _) => {
       let lowered = match spec_compile_module_def(mod_def, path) {
@@ -175,7 +175,7 @@ pub fn evaluate_wast_static_assertion(
           Err(
             "assert_invalid expected validation failure, but module validated",
           )
-        Err(_) => Ok({ kind: Invalid, stage: ValidateRejected })
+        Err(_) => Ok({ kind: Invalid, stage: ValidateRejected, })
       }
     }
     AssertUnlinkable(mod_def, _) => {
@@ -185,7 +185,7 @@ pub fn evaluate_wast_static_assertion(
           return Err("assert_unlinkable expected compilable module, got: \{e}")
       }
       match @validate.validate_module(lowered) {
-        Ok(_) => Ok({ kind: Unlinkable, stage: ValidBeforeLink })
+        Ok(_) => Ok({ kind: Unlinkable, stage: ValidBeforeLink, })
         Err(e) =>
           Err(
             "assert_unlinkable expected a valid module before link-time failure, got: \{e}",
@@ -377,7 +377,7 @@ pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport 
   for cmd in script.commands {
     if current_module_blocked && spec_is_runtime_only_command(cmd) {
       let reason = "blocked by a known mismatch in the current module definition"
-      command_reports.push({ command_index: index, status: Blocked(reason) })
+      command_reports.push({ command_index: index, status: Blocked(reason), })
       skipped_commands += 1
       blocked_commands += 1
       index += 1
@@ -388,7 +388,7 @@ pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport 
         checked_commands += checked_delta
         skipped_commands += skipped_delta
         if checked_delta > 0 {
-          command_reports.push({ command_index: index, status: Passed })
+          command_reports.push({ command_index: index, status: Passed, })
           if spec_command_defines_current_module(cmd) {
             current_module_blocked = false
           }
@@ -404,7 +404,10 @@ pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport 
       Err(e) => {
         if spec_is_known_unsupported_error(e) ||
           spec_is_known_specsuite_mismatch(path, Some(index), e) {
-          command_reports.push({ command_index: index, status: KnownSkipped(e) })
+          command_reports.push({
+            command_index: index,
+            status: KnownSkipped(e),
+          })
           skipped_commands += 1
           if spec_command_defines_current_module(cmd) {
             current_module_blocked = true
@@ -413,7 +416,7 @@ pub fn run_wast_spec_file(path : String, source : String) -> WastSpecFileReport 
           continue
         }
         let failure = "command #\{index + 1} failed: \{e}"
-        command_reports.push({ command_index: index, status: Failed(failure) })
+        command_reports.push({ command_index: index, status: Failed(failure), })
         return {
           path,
           status: Failed(failure),

@@ -48,7 +48,7 @@ pub fn HotBranchTable::new(
   targets : Array[LabelId],
   default_target : LabelId,
 ) -> HotBranchTable {
-  { targets, default_target }
+  { targets, default_target, }
 }
 
 ///|
@@ -84,7 +84,7 @@ pub fn HotCallSig::new(
   type_idx : TypeIdx,
   table_idx? : TableIdx? = None,
 ) -> HotCallSig {
-  { type_idx, table_idx }
+  { type_idx, table_idx, }
 }
 
 ///|

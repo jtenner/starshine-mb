@@ -57,7 +57,7 @@ fn TcState::set_unreachable(st : TcState) -> TcState {
   if !st.reachable {
     return st
   }
-  TcState::{ ..st, reachable: false, escape: TerminalTcEscape }
+  TcState::{ ..st, reachable: false, escape: TerminalTcEscape, }
 }
 
 ///|
@@ -66,7 +66,7 @@ fn TcState::set_branch_escape(st : TcState, depth : Int) -> TcState {
   if !st.reachable {
     return st
   }
-  TcState::{ ..st, reachable: false, escape: BranchTcEscape(depth) }
+  TcState::{ ..st, reachable: false, escape: BranchTcEscape(depth), }
 }
 
 ///|
@@ -111,7 +111,7 @@ fn TcState::record_reachable_escape_depth(
   }
   let depths = st.reachable_escape_depths.copy()
   depths.push(depth)
-  TcState::{ ..st, reachable_escape_depths: depths }
+  TcState::{ ..st, reachable_escape_depths: depths, }
 }
 
 ///|
@@ -448,9 +448,7 @@ pub impl Typecheck for Expr with fn typecheck(self, st0) {
     match Typecheck::typecheck(ins, st) {
       Ok(stp) => st = stp
       Err(err) =>
-        return Err(
-          "instruction[\{index}] \{ins}: \{err}; stack=\{st.stack}",
-        )
+        return Err("instruction[\{index}] \{ins}: \{err}; stack=\{st.stack}")
     }
   }
   Ok(st)
@@ -5709,7 +5707,7 @@ test "Typecheck LocalGet" {
 
 ///|
 test "Typecheck LocalGet invalid index" {
-  let env : Env = { ..empty_env(), locals: Locals::empty() }
+  let env : Env = { ..empty_env(), locals: Locals::empty(), }
   let state = make_state(env, [])
   let t = Instruction::local_get(LocalIdx::new(0))
   assert_err(Typecheck::typecheck(t, state))
@@ -5729,7 +5727,10 @@ test "Typecheck LocalSet" {
 
 ///|
 test "Typecheck LocalSet type mismatch" {
-  let env = Env::{ ..empty_env(), locals: Locals::from_types([ValType::i32()]) }
+  let env = Env::{
+    ..empty_env(),
+    locals: Locals::from_types([ValType::i32()]),
+  }
   let state = make_state(env, [ValType::i64()])
   let t = Instruction::local_set(LocalIdx::new(0))
   assert_err(Typecheck::typecheck(t, state))
@@ -5794,7 +5795,7 @@ test "Typecheck TableGet" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i32(0, None),
   )
-  let env : Env = { ..empty_env(), tables: [table_type] }
+  let env : Env = { ..empty_env(), tables: [table_type], }
   let state = make_state(env, [ValType::i32()])
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::table_get(TableIdx::new(0)), state),
@@ -5808,7 +5809,7 @@ test "Typecheck TableSet" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i32(0, None),
   )
-  let env : Env = { ..empty_env(), tables: [table_type] }
+  let env : Env = { ..empty_env(), tables: [table_type], }
   let state = make_state(env, [ValType::i32(), nullable_funcref()])
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::table_set(TableIdx::new(0)), state),
@@ -5822,7 +5823,7 @@ test "Typecheck TableSize" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i32(0, None),
   )
-  let env : Env = { ..empty_env(), tables: [table_type] }
+  let env : Env = { ..empty_env(), tables: [table_type], }
   let state = make_state(env, [])
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::table_size(TableIdx::new(0)), state),
@@ -5836,7 +5837,7 @@ test "Typecheck TableGrow" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i32(0, None),
   )
-  let env : Env = { ..empty_env(), tables: [table_type] }
+  let env : Env = { ..empty_env(), tables: [table_type], }
   let state = make_state(env, [nullable_funcref(), ValType::i32()])
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::table_grow(TableIdx::new(0)), state),
@@ -5850,7 +5851,7 @@ test "Typecheck TableFill" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i32(0, None),
   )
-  let env : Env = { ..empty_env(), tables: [table_type] }
+  let env : Env = { ..empty_env(), tables: [table_type], }
   let state = make_state(env, [
     ValType::i32(),
     nullable_funcref(),
@@ -5868,7 +5869,7 @@ test "Typecheck TableCopy" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i32(0, None),
   )
-  let env : Env = { ..empty_env(), tables: [table_type, table_type] }
+  let env : Env = { ..empty_env(), tables: [table_type, table_type], }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let new_state = assert_ok(
     Typecheck::typecheck(
@@ -5885,7 +5886,7 @@ test "Typecheck TableCopy" {
 
 ///|
 test "Typecheck I32Load" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5896,7 +5897,7 @@ test "Typecheck I32Load" {
 
 ///|
 test "Typecheck I64Load" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5907,7 +5908,7 @@ test "Typecheck I64Load" {
 
 ///|
 test "Typecheck F32Load" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5918,7 +5919,7 @@ test "Typecheck F32Load" {
 
 ///|
 test "Typecheck F64Load" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5929,7 +5930,7 @@ test "Typecheck F64Load" {
 
 ///|
 test "Typecheck I32Load8S" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5940,7 +5941,7 @@ test "Typecheck I32Load8S" {
 
 ///|
 test "Typecheck I32Load8U" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5951,7 +5952,7 @@ test "Typecheck I32Load8U" {
 
 ///|
 test "Typecheck I32Load16S" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5962,7 +5963,7 @@ test "Typecheck I32Load16S" {
 
 ///|
 test "Typecheck I32Load16U" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5973,7 +5974,7 @@ test "Typecheck I32Load16U" {
 
 ///|
 test "Typecheck I64Load8S" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5984,7 +5985,7 @@ test "Typecheck I64Load8S" {
 
 ///|
 test "Typecheck I64Load32S" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -5995,7 +5996,7 @@ test "Typecheck I64Load32S" {
 
 ///|
 test "Typecheck I32Store" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -6006,7 +6007,7 @@ test "Typecheck I32Store" {
 
 ///|
 test "Typecheck I64Store" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::i64()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -6017,7 +6018,7 @@ test "Typecheck I64Store" {
 
 ///|
 test "Typecheck F32Store" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::f32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -6028,7 +6029,7 @@ test "Typecheck F32Store" {
 
 ///|
 test "Typecheck F64Store" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::f64()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -6039,7 +6040,7 @@ test "Typecheck F64Store" {
 
 ///|
 test "Typecheck I32Store8" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -6050,7 +6051,7 @@ test "Typecheck I32Store8" {
 
 ///|
 test "Typecheck I64Store32" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::i64()])
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -6061,7 +6062,7 @@ test "Typecheck I64Store32" {
 
 ///|
 test "Typecheck MemorySize" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [])
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::memory_size(MemIdx::new(0)), state),
@@ -6071,7 +6072,7 @@ test "Typecheck MemorySize" {
 
 ///|
 test "Typecheck MemoryGrow" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::memory_grow(MemIdx::new(0)), state),
@@ -6081,7 +6082,7 @@ test "Typecheck MemoryGrow" {
 
 ///|
 test "Typecheck MemoryCopy" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let new_state = assert_ok(
     Typecheck::typecheck(
@@ -6094,7 +6095,7 @@ test "Typecheck MemoryCopy" {
 
 ///|
 test "Typecheck MemoryFill" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::memory_fill(MemIdx::new(0)), state),
@@ -7406,7 +7407,7 @@ test "Typecheck V128Const" {
 
 ///|
 test "Typecheck V128Load" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32()])
   let arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -7417,7 +7418,7 @@ test "Typecheck V128Load" {
 
 ///|
 test "Typecheck V128Store" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -7756,7 +7757,7 @@ test "Typecheck V128Bitselect" {
 
 ///|
 test "Typecheck V128Load8Lane" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -7770,7 +7771,7 @@ test "Typecheck V128Load8Lane" {
 
 ///|
 test "Typecheck V128Store16Lane" {
-  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
   let state = make_state(env, [ValType::i32(), ValType::v128()])
   let arg = MemArg::new(U32(0), None, U64(0))
   let new_state = assert_ok(
@@ -7832,7 +7833,7 @@ test "Typecheck CallIndirect" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i32(1, None),
   )
-  let env = { ..empty_env(), global_types: [func_subtype] }.push_table(
+  let env = { ..empty_env(), global_types: [func_subtype], }.push_table(
     table_type,
   )
   let state = make_state(env, [ValType::i32(), ValType::i32()])
@@ -7868,7 +7869,7 @@ test "Typecheck ReturnCallIndirect" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i32(1, None),
   )
-  let env = { ..empty_env(), global_types: [func_subtype] }
+  let env = { ..empty_env(), global_types: [func_subtype], }
     .push_table(table_type)
     .with_return_type(Some([ValType::i64()]))
   let state = make_state(env, [ValType::i32(), ValType::i32()])
@@ -7885,7 +7886,7 @@ test "Typecheck CallRef" {
   let func_subtype = SubType::comp_type(
     CompType::func([ValType::i32()], [ValType::i64()]),
   )
-  let env = { ..empty_env(), global_types: [func_subtype] }
+  let env = { ..empty_env(), global_types: [func_subtype], }
   let ref_type = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -7903,7 +7904,7 @@ test "Typecheck ReturnCallRef" {
   let func_subtype = SubType::comp_type(
     CompType::func([ValType::i32()], [ValType::i64()]),
   )
-  let env = { ..empty_env(), global_types: [func_subtype] }.with_return_type(
+  let env = { ..empty_env(), global_types: [func_subtype], }.with_return_type(
     Some([ValType::i64()]),
   )
   let ref_type = ValType::ref_type(
@@ -8049,7 +8050,7 @@ test "Typecheck RefTest with concrete type recursive" {
 ///|
 test "Typecheck RefTest with concrete type in global types" {
   let struct_subtype = SubType::comp_type(CompType::struct_([]))
-  let env : Env = { ..empty_env(), global_types: [struct_subtype] }
+  let env : Env = { ..empty_env(), global_types: [struct_subtype], }
   let state = make_state(env, [anyref_type()])
   let result = Typecheck::typecheck(
     Instruction::ref_test(true, HeapType::new(TypeIdx::new(0))),
@@ -8062,7 +8063,7 @@ test "Typecheck RefTest with concrete type in global types" {
 ///|
 test "Typecheck exact RefTest accepts exact concrete source" {
   let struct_subtype = SubType::comp_type(CompType::struct_([]))
-  let env : Env = { ..empty_env(), global_types: [struct_subtype] }
+  let env : Env = { ..empty_env(), global_types: [struct_subtype], }
   let exact_struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
   )
@@ -8105,7 +8106,7 @@ test "Typecheck RefCast accepts exact source for inexact same heap target" {
       FieldType::new(StorageType::val_type(ValType::funcref()), Var),
     ]),
   )
-  let env : Env = { ..empty_env(), global_types: [struct_type] }
+  let env : Env = { ..empty_env(), global_types: [struct_type], }
   let exact_struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
   )
@@ -8162,7 +8163,7 @@ test "Typecheck RefCastDescEq stack effect" {
     CompType::struct_([]),
     metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
   )
-  let env = Env::{ ..empty_env(), global_types: [described, descriptor] }
+  let env = Env::{ ..empty_env(), global_types: [described, descriptor], }
   let state = make_state(env, [
     anyref_type(),
     ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1U)))),
@@ -8260,7 +8261,10 @@ test "Typecheck RefCastDescEq rejects mismatched descriptor describes target" {
     CompType::struct_([]),
     metadata=TypeMetadata::new(describes=Some(TypeIdx::new(1U))),
   )
-  let env = Env::{ ..empty_env(), global_types: [described, other, descriptor] }
+  let env = Env::{
+    ..empty_env(),
+    global_types: [described, other, descriptor],
+  }
   let state = make_state(env, [
     ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0U)))),
     ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(2U)))),
@@ -8293,7 +8297,7 @@ test "Typecheck RefCastDescEq rejects descriptorless target" {
     CompType::struct_([]),
     metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
   )
-  let env = Env::{ ..empty_env(), global_types: [target, descriptor] }
+  let env = Env::{ ..empty_env(), global_types: [target, descriptor], }
   let state = make_state(env, [
     ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0U)))),
     ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1U)))),
@@ -8385,7 +8389,7 @@ test "Typecheck BrOnCastFail rejects empty label payloads" {
 ///|
 test "Typecheck Throw" {
   let tag_subtype = SubType::comp_type(CompType::func([ValType::i32()], []))
-  let env = { ..empty_env(), global_types: [tag_subtype] }.push_tag(
+  let env = { ..empty_env(), global_types: [tag_subtype], }.push_tag(
     TagType::new(TypeIdx::new(0)),
   )
   let state = make_state(env, [ValType::i32()])
@@ -8464,7 +8468,7 @@ test "Typecheck TryTable with param input" {
 ///|
 test "Typecheck TryTable catch rejects invalid tag index" {
   let tag_sig = SubType::comp_type(CompType::func([], []))
-  let env = { ..empty_env(), global_types: [tag_sig] }.push_tag(
+  let env = { ..empty_env(), global_types: [tag_sig], }.push_tag(
     TagType::new(TypeIdx::new(0)),
   )
   let state = make_state(env, [])
@@ -8482,7 +8486,7 @@ test "Typecheck TryTable catch rejects invalid tag index" {
 ///|
 test "Typecheck TryTable catch_ref rejects invalid tag index" {
   let tag_sig = SubType::comp_type(CompType::func([], []))
-  let env = { ..empty_env(), global_types: [tag_sig] }.push_tag(
+  let env = { ..empty_env(), global_types: [tag_sig], }.push_tag(
     TagType::new(TypeIdx::new(0)),
   )
   let state = make_state(env, [])
@@ -8500,7 +8504,7 @@ test "Typecheck TryTable catch_ref rejects invalid tag index" {
 ///|
 test "Typecheck TryTable catch label 0 uses outer depth semantics" {
   let tag_sig = SubType::comp_type(CompType::func([ValType::i64()], []))
-  let env = { ..empty_env(), global_types: [tag_sig] }
+  let env = { ..empty_env(), global_types: [tag_sig], }
     .push_tag(TagType::new(TypeIdx::new(0)))
     .with_labels([[ValType::i64()]])
   let state = make_state(env, [])
@@ -8519,7 +8523,7 @@ test "Typecheck TryTable catch label 0 uses outer depth semantics" {
 ///|
 test "Typecheck TryTable catch label 1 uses outer depth semantics" {
   let tag_sig = SubType::comp_type(CompType::func([ValType::i64()], []))
-  let env = { ..empty_env(), global_types: [tag_sig] }
+  let env = { ..empty_env(), global_types: [tag_sig], }
     .push_tag(TagType::new(TypeIdx::new(0)))
     .with_labels([[ValType::i64()], [ValType::i32()]])
   let state = make_state(env, [])
@@ -8549,7 +8553,7 @@ fn typecheck_descriptor_struct_env() -> Env {
     CompType::struct_([]),
     metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
   )
-  { ..empty_env(), global_types: [described, descriptor] }
+  { ..empty_env(), global_types: [described, descriptor], }
 }
 
 ///|
@@ -8559,7 +8563,7 @@ test "Typecheck StructNew" {
       FieldType::new(StorageType::val_type(ValType::i32()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let state = make_state(env, [ValType::i32()])
   let result = Typecheck::typecheck(
     Instruction::struct_new(TypeIdx::new(0)),
@@ -8576,7 +8580,7 @@ test "Typecheck StructNewDefault" {
       FieldType::new(StorageType::val_type(ValType::i32()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let state = make_state(env, [])
   let result = Typecheck::typecheck(
     Instruction::struct_new_default(TypeIdx::new(0)),
@@ -8613,7 +8617,7 @@ test "Typecheck StructGet" {
       FieldType::new(StorageType::val_type(ValType::i32()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8633,7 +8637,7 @@ test "Typecheck StructGetS" {
       FieldType::new(StorageType::pack_type(PackType::i8()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8653,7 +8657,7 @@ test "Typecheck StructGetU" {
       FieldType::new(StorageType::pack_type(PackType::i16()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8673,7 +8677,7 @@ test "Typecheck StructAtomicGet" {
       FieldType::new(StorageType::val_type(ValType::i64()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8697,7 +8701,7 @@ test "Typecheck StructAtomicGetS" {
       FieldType::new(StorageType::pack_type(PackType::i8()), Const),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8721,7 +8725,7 @@ test "Typecheck StructAtomicGetU" {
       FieldType::new(StorageType::pack_type(PackType::i16()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8745,7 +8749,7 @@ test "Typecheck StructAtomicGet rejects packed field without signedness" {
       FieldType::new(StorageType::pack_type(PackType::i8()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8771,7 +8775,7 @@ test "Typecheck StructAtomicRmw and cmpxchg" {
       FieldType::new(StorageType::val_type(ValType::i32()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8809,7 +8813,7 @@ test "Typecheck StructAtomicRmw rejects invalid field shapes" {
       FieldType::new(StorageType::val_type(ValType::i32()), Const),
     ]),
   )
-  let env = { ..empty_env(), global_types: [packed_struct, immutable_struct] }
+  let env = { ..empty_env(), global_types: [packed_struct, immutable_struct], }
   let ref0 = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8861,7 +8865,7 @@ test "Typecheck StructSet" {
       FieldType::new(StorageType::val_type(ValType::i32()), Var),
     ]),
   )
-  let env = { ..empty_env(), global_types: [struct_type] }
+  let env = { ..empty_env(), global_types: [struct_type], }
   let struct_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -8883,7 +8887,7 @@ test "Typecheck ArrayNew" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
     Instruction::array_new(TypeIdx::new(0)),
@@ -8902,7 +8906,7 @@ test "Typecheck ArrayNewDefault" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let state = make_state(env, [ValType::i32()])
   let result = Typecheck::typecheck(
     Instruction::array_new_default(TypeIdx::new(0)),
@@ -8921,7 +8925,7 @@ test "Typecheck ArrayNewFixed" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
     Instruction::array_new_fixed(TypeIdx::new(0), U32(3)),
@@ -8941,7 +8945,7 @@ test "Typecheck ArrayNewData" {
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
   let data = Data::new(DataMode::passive(), b"")
-  let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
+  let env = { ..empty_env(), global_types: [array_type], }.push_data(data)
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
     Instruction::array_new_data(TypeIdx::new(0), DataIdx::new(0)),
@@ -8964,7 +8968,7 @@ test "Typecheck ArrayNewElem" {
     ),
   )
   let elem = Elem::new(ElemMode::passive(), ElemKind::funcs([]))
-  let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
+  let env = { ..empty_env(), global_types: [array_type], }.push_elem(elem)
   let state = make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
     Instruction::array_new_elem(TypeIdx::new(0), ElemIdx::new(0)),
@@ -8985,7 +8989,7 @@ test "Typecheck StringNewWtf16Array" {
       FieldType::new(StorageType::pack_type(PackType::i16()), Const),
     ),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let state = make_state(env, [
     ValType::ref_array_nullable(TypeIdx::new(0)),
     ValType::i32(),
@@ -9012,7 +9016,7 @@ test "Typecheck StringEncodeUtf8Array" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::pack_type(PackType::i8()), Var)),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let state = make_state(env, [
     ValType::stringref(),
     ValType::ref_array_nullable(TypeIdx::new(0)),
@@ -9033,7 +9037,7 @@ test "Typecheck StringEncodeWtf16Array rejects immutable arrays" {
       FieldType::new(StorageType::pack_type(PackType::i16()), Const),
     ),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let state = make_state(env, [
     ValType::stringref(),
     ValType::ref_array_nullable(TypeIdx::new(0)),
@@ -9050,7 +9054,7 @@ test "Typecheck ArrayGet" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let array_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -9068,7 +9072,7 @@ test "Typecheck ArrayGetS" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::pack_type(PackType::i8()), Var)),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let array_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -9088,7 +9092,7 @@ test "Typecheck ArrayGetU" {
       FieldType::new(StorageType::pack_type(PackType::i16()), Var),
     ),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let array_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -9106,7 +9110,7 @@ test "Typecheck ArraySet" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let array_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -9136,7 +9140,7 @@ test "Typecheck ArrayFill" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let array_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -9159,7 +9163,7 @@ test "Typecheck ArrayCopy" {
   let array_type = SubType::comp_type(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
-  let env = { ..empty_env(), global_types: [array_type] }
+  let env = { ..empty_env(), global_types: [array_type], }
   let array_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -9184,7 +9188,7 @@ test "Typecheck ArrayInitData" {
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
   let data = Data::new(DataMode::passive(), b"")
-  let env = { ..empty_env(), global_types: [array_type] }.push_data(data)
+  let env = { ..empty_env(), global_types: [array_type], }.push_data(data)
   let array_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )
@@ -9211,7 +9215,7 @@ test "Typecheck ArrayInitElem" {
     ),
   )
   let elem = Elem::new(ElemMode::passive(), ElemKind::funcs([]))
-  let env = { ..empty_env(), global_types: [array_type] }.push_elem(elem)
+  let env = { ..empty_env(), global_types: [array_type], }.push_elem(elem)
   let array_ref = ValType::ref_type(
     RefType::new(false, HeapType::new(TypeIdx::new(0))),
   )

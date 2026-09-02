@@ -748,7 +748,7 @@ fn pls_analyze_candidates(
       elidable_uses.push(cleanup_use)
     }
   }
-  { candidates, rewritable_candidates, elidable_uses }
+  { candidates, rewritable_candidates, elidable_uses, }
 }
 
 ///|

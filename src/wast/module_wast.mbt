@@ -265,7 +265,7 @@ fn render_type_metadata(metadata : TypeDefMetadata) -> String {
 fn render_type_def_body(body : TypeDefBody) -> String {
   match body {
     TypeDefBody::Func(func_type) => {
-      let tu = { type_index: None, func_type, param_ids: [] }
+      let tu = { type_index: None, func_type, param_ids: [], }
       "(func\{render_type_use(tu)})"
     }
     TypeDefBody::Struct(fields) => {

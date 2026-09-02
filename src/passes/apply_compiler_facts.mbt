@@ -146,7 +146,7 @@ pub fn CompilerFactIndex::new(
     tables[value.table.reinterpret_as_int()] = Some(value)
   }
 
-  { facts, functions, bodies, signatures, types, globals, tables }
+  { facts, functions, bodies, signatures, types, globals, tables, }
 }
 
 ///|
@@ -682,7 +682,7 @@ pub fn apply_compiler_facts(
   let stats = CompilerFactMaterializationStats::new()
   let section = match module_.compiler_fact_custom_section {
     Some(section) => section
-    None => return Ok({ module_, stats })
+    None => return Ok({ module_, stats, })
   }
   stats.fact_sections_seen = 1
   let index = CompilerFactIndex::new(section.facts)
@@ -690,11 +690,11 @@ pub fn apply_compiler_facts(
   match policy {
     IgnoreFacts | HintsOnly => {
       stats.ignored_untrusted_assertions = stats.exact_call_target_facts_seen
-      Ok({ module_, stats })
+      Ok({ module_, stats, })
     }
     TrustAssertions =>
       match apply_compiler_facts_trusted(module_, index, stats) {
-        Ok(module_) => Ok({ module_, stats })
+        Ok(module_) => Ok({ module_, stats, })
         Err(err) => Err(err)
       }
   }

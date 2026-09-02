@@ -329,7 +329,7 @@ pub fn FuzzCorpusCaseIndexEntry::new(
   profiles : Array[String],
   artifact_paths : Array[String],
 ) -> FuzzCorpusCaseIndexEntry {
-  { hash_kind, hash, case_ids, seeds, profiles, artifact_paths }
+  { hash_kind, hash, case_ids, seeds, profiles, artifact_paths, }
 }
 
 ///|
@@ -348,7 +348,7 @@ pub fn FuzzCorpusDedupDryRunDecision::new(
   artifact_paths : Array[String],
   reason : String,
 ) -> FuzzCorpusDedupDryRunDecision {
-  { action, hash_kind, hash, case_ids, artifact_paths, reason }
+  { action, hash_kind, hash, case_ids, artifact_paths, reason, }
 }
 
 ///|
@@ -358,7 +358,7 @@ pub fn FuzzCorpusDedupDryRunPlan::new(
   keep_count : Int,
   decisions : Array[FuzzCorpusDedupDryRunDecision],
 ) -> FuzzCorpusDedupDryRunPlan {
-  { duplicate_count, compress_count, keep_count, decisions }
+  { duplicate_count, compress_count, keep_count, decisions, }
 }
 
 ///|
@@ -410,7 +410,7 @@ pub fn FuzzRecipe::new(
   seed_count? : Int = 1,
   shard_count? : Int = 1,
 ) -> FuzzRecipe {
-  { name, suite, profile, seed_i64, output_mode, seed_count, shard_count }
+  { name, suite, profile, seed_i64, output_mode, seed_count, shard_count, }
 }
 
 ///|
@@ -654,7 +654,7 @@ pub fn EmitInvalidReproArgs::new(
   out_dir : String,
   profile? : String = "smoke",
 ) -> EmitInvalidReproArgs {
-  { suite, strategy_id, seed, attempt, profile, out_dir }
+  { suite, strategy_id, seed, attempt, profile, out_dir, }
 }
 
 ///|
@@ -686,7 +686,7 @@ pub fn FuzzRunOutputIO::new(
     Err("write_file not configured: \{path}")
   },
 ) -> FuzzRunOutputIO {
-  { ensure_dir, write_file }
+  { ensure_dir, write_file, }
 }
 
 ///|
@@ -770,7 +770,7 @@ pub fn FuzzGoldenSeedSmokeReport::new(
   seed : Int64,
   cases : Array[FuzzGoldenSeedSmokeCase],
 ) -> FuzzGoldenSeedSmokeReport {
-  { schema_id, recipe_name, seed, cases }
+  { schema_id, recipe_name, seed, cases, }
 }
 
 ///|
@@ -3203,7 +3203,7 @@ pub fn GoldenSeedExpectedCounter::exact(
   name : String,
   value : Int,
 ) -> GoldenSeedExpectedCounter {
-  { name, kind: GoldenSeedCounterKind::Exact, value }
+  { name, kind: GoldenSeedCounterKind::Exact, value, }
 }
 
 ///|
@@ -3211,7 +3211,7 @@ pub fn GoldenSeedExpectedCounter::minimum(
   name : String,
   value : Int,
 ) -> GoldenSeedExpectedCounter {
-  { name, kind: GoldenSeedCounterKind::Minimum, value }
+  { name, kind: GoldenSeedCounterKind::Minimum, value, }
 }
 
 ///|
@@ -4078,7 +4078,7 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
     })
     i += 1
   }
-  Ok({ artifacts, manifest })
+  Ok({ artifacts, manifest, })
 }
 
 ///|
@@ -4279,7 +4279,7 @@ pub fn parse_gen_valid_batch_manifest_stream_derivations(
           "malformed stream derivation derived_seed for \{parsed_label.0}",
         )
     }
-    out.push({ label: parsed_label.0, derived_seed: parsed_seed.0 })
+    out.push({ label: parsed_label.0, derived_seed: parsed_seed.0, })
     pos = parsed_seed.1
   }
   if out.is_empty() {
@@ -5310,7 +5310,7 @@ pub fn plan_fuzz_corpus_replay_manifest(
     }
     pos = fuzz_skip_manifest_ws_and_commas(manifest_json, pos, entries_end)
   }
-  Ok({ planned_count, skipped_count, malformed_count, commands })
+  Ok({ planned_count, skipped_count, malformed_count, commands, })
 }
 
 ///|

@@ -55,7 +55,7 @@ fn hot_walk_skip_node(
 ) -> HotVisitCtl[HotWalkSkipState, String] {
   let next_seen = state.seen.copy()
   next_seen.push(node_id)
-  let next = { seen: next_seen, skip_at: state.skip_at }
+  let next = { seen: next_seen, skip_at: state.skip_at, }
   if node_id == state.skip_at {
     hot_visit_skip(next)
   } else {
@@ -85,7 +85,7 @@ fn hot_walk_collect_control_region(
   let next_regions = state.region_ids.copy()
   next_slots.push(slot_info.slot)
   next_regions.push(region_id)
-  hot_visit_continue({ slots: next_slots, region_ids: next_regions })
+  hot_visit_continue({ slots: next_slots, region_ids: next_regions, })
 }
 
 ///|
@@ -97,7 +97,7 @@ fn hot_walk_rewrite_if_children(
 ) -> HotRewriteCtl[HotRewriteState, String] {
   let next_slots = state.touched_slots.copy()
   next_slots.push(slot)
-  let next = { replacement: state.replacement, touched_slots: next_slots }
+  let next = { replacement: state.replacement, touched_slots: next_slots, }
   if slot == 0 {
     hot_rewrite_replace(next, state.replacement)
   } else if slot == 2 {
@@ -174,7 +174,7 @@ test "skip and stop semantics short circuit shared traversal helpers" {
     hot_walk_subtree_preorder(
       func,
       root,
-      { seen: [], skip_at: drop_second },
+      { seen: [], skip_at: drop_second, },
       hot_walk_skip_node,
     ) {
     Ok(v) => v
@@ -209,7 +209,7 @@ test "control region and rewrite walkers expose slots and optional child edits" 
     hot_walk_control_regions(
       func,
       if_id,
-      { slots: [], region_ids: [] },
+      { slots: [], region_ids: [], },
       hot_walk_collect_control_region,
     ) {
     Ok(v) => v
@@ -222,7 +222,7 @@ test "control region and rewrite walkers expose slots and optional child edits" 
     hot_rewrite_children_by_slot(
       func,
       if_id,
-      { replacement: replacement_condition, touched_slots: [] },
+      { replacement: replacement_condition, touched_slots: [], },
       hot_walk_rewrite_if_children,
     ) {
     Ok(v) => v

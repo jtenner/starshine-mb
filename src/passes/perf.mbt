@@ -46,7 +46,7 @@ pub fn HotPerfDumpOptions::new(
   hot_func? : Bool = false,
   cfg? : Bool = false,
 ) -> HotPerfDumpOptions {
-  { hot_func, cfg }
+  { hot_func, cfg, }
 }
 
 ///|
@@ -58,7 +58,7 @@ pub struct HotPerfHotSnapshot {
 
 ///|
 pub fn HotPerfHotSnapshot::empty() -> HotPerfHotSnapshot {
-  { node_count: 0, child_span_count: 0, side_table_count: 0 }
+  { node_count: 0, child_span_count: 0, side_table_count: 0, }
 }
 
 ///|

@@ -654,7 +654,7 @@ fn dfe_rewrite_type_metadata(
   metadata : @lib.TypeMetadata,
   remap : Map[UInt, UInt],
 ) -> @lib.TypeMetadata {
-  let { describes, descriptor, shared } = metadata
+  let { describes, descriptor, shared, } = metadata
   @lib.TypeMetadata::new(
     describes=match describes {
       Some(idx) => Some(dfe_rewrite_type_idx(idx, remap))
@@ -979,7 +979,7 @@ fn dfe_scan_rewrite_block_type(
   remap : Map[UInt, UInt],
 ) -> DfeTypeRewriteScan[@lib.BlockType] {
   match block_type {
-    @lib.VoidBlockType => { rewritten: None, mentions_type_idxs: false }
+    @lib.VoidBlockType => { rewritten: None, mentions_type_idxs: false, }
     @lib.ValTypeBlockType(val_type) => {
       let scan = dfe_scan_rewrite_val_type(val_type, remap)
       {
@@ -1501,7 +1501,7 @@ fn dfe_scan_rewrite_instruction_type_idxs(
       )
       let else_scan = match else_body {
         Some(body) => dfe_scan_rewrite_instruction_array_type_idxs(body, remap)
-        None => { rewritten: None, mentions_type_idxs: false }
+        None => { rewritten: None, mentions_type_idxs: false, }
       }
       {
         rewritten: if block_scan.rewritten is None &&
@@ -1580,7 +1580,7 @@ fn dfe_scan_rewrite_instruction_type_idxs(
         mentions_type_idxs: scan.mentions_type_idxs,
       }
     }
-    @lib.Select(None) => { rewritten: None, mentions_type_idxs: false }
+    @lib.Select(None) => { rewritten: None, mentions_type_idxs: false, }
     @lib.TryTable(block_type, catches, body) => {
       let block_scan = dfe_scan_rewrite_block_type(block_type, remap)
       let body_scan = dfe_scan_rewrite_expr_type_idxs(body, remap)
@@ -1958,7 +1958,7 @@ fn dfe_scan_rewrite_instruction_type_idxs(
         mentions_type_idxs: dfe_heap_type_mentions_type_idxs(source) ||
         dfe_heap_type_mentions_type_idxs(target),
       }
-    _ => { rewritten: None, mentions_type_idxs: false }
+    _ => { rewritten: None, mentions_type_idxs: false, }
   }
 }
 

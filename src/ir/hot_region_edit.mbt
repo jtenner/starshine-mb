@@ -10,7 +10,7 @@ pub impl Show for HotRegionRef with fn output(self, logger) {
 
 ///|
 pub fn HotRegionRef::root() -> HotRegionRef {
-  { holder: HOT_NONE_NODE }
+  { holder: HOT_NONE_NODE, }
 }
 
 ///|
@@ -317,7 +317,7 @@ pub fn hot_region_truncate_suffix(
     let holder = hot_region_require_holder(func, region_ref)
     let node = hot_node_get(func, holder)
     let base = hot_region_body_base(func, holder)
-    func.nodes[holder] = { ..node, child_count: base + keep_count }
+    func.nodes[holder] = { ..node, child_count: base + keep_count, }
   }
   hot_revision_bump(func)
   removed

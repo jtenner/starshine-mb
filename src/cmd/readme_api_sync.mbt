@@ -14,7 +14,7 @@ fn ReadmeApiVerifyBlock::new(
   interface_path : String,
   signatures : Array[String],
 ) -> ReadmeApiVerifyBlock {
-  { interface_path, signatures }
+  { interface_path, signatures, }
 }
 
 ///|

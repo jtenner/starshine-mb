@@ -150,7 +150,7 @@ pub fn liveness_build(
     }
   }
 
-  { include_exceptional_edges, live_in_sets, live_out_sets }
+  { include_exceptional_edges, live_in_sets, live_out_sets, }
 }
 
 ///|

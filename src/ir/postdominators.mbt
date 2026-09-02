@@ -258,7 +258,7 @@ pub fn postdom_build(cfg : HotCfg) -> HotPostDominators {
   let ipdoms = postdom_build_ipdoms(base)
   let children = postdom_build_children(cfg_block_count(cfg), ipdoms)
   let frontiers = postdom_build_frontiers(cfg, reachable, ipdoms)
-  let postdom = { roots, reachable, postdom_sets, ipdoms, children, frontiers }
+  let postdom = { roots, reachable, postdom_sets, ipdoms, children, frontiers, }
   postdom_verify(cfg, postdom)
   postdom
 }

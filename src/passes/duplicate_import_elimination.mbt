@@ -404,9 +404,9 @@ fn die_plan_remap(
                       removed_funcs[func_idx] = true
                       changed = true
                     } else {
-                      seen.set(key, { func_idx, func_type })
+                      seen.set(key, { func_idx, func_type, })
                     }
-                  None => seen.set(key, { func_idx, func_type })
+                  None => seen.set(key, { func_idx, func_type, })
                 }
               None => ()
             }

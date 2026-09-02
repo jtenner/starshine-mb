@@ -2409,7 +2409,7 @@ fn tuple_optimization_analyze_with_groups(
   perf_stop_timer_opt(
     perf, "detail:tuple-optimization:propagate-badness", propagate_start_us,
   )
-  { groups, local_group_ids, copy_read_nodes, query_summary }
+  { groups, local_group_ids, copy_read_nodes, query_summary, }
 }
 
 ///|
@@ -3011,7 +3011,7 @@ fn tuple_optimization_precompute_drop_only_elision_facts(
     perf, "detail:tuple-optimization:precompute-drop-only-elision-mask:simple-block-payload-fast-path",
     simple_payload_fast_path_start_us,
   )
-  { mask, payload_lanes_by_group }
+  { mask, payload_lanes_by_group, }
 }
 
 ///|
@@ -3426,7 +3426,7 @@ fn tuple_optimization_find_root_slot(
       @ir.HotRegionRef::root(),
       target_id,
     ) {
-    Some((region_ref, slot)) => Some({ region_ref, lane_idx, slot })
+    Some((region_ref, slot)) => Some({ region_ref, lane_idx, slot, })
     None => None
   }
 }
@@ -3447,12 +3447,12 @@ fn tuple_optimization_find_root_slot_in_known_region(
   }
   for slot = first_slot; slot < root_count; slot = slot + 1 {
     if @ir.hot_region_get(func, region_ref, slot) == target_id {
-      return Some({ region_ref, lane_idx, slot })
+      return Some({ region_ref, lane_idx, slot, })
     }
   }
   for slot = 0; slot < first_slot; slot = slot + 1 {
     if @ir.hot_region_get(func, region_ref, slot) == target_id {
-      return Some({ region_ref, lane_idx, slot })
+      return Some({ region_ref, lane_idx, slot, })
     }
   }
   None

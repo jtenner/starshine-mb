@@ -5,7 +5,7 @@ pub(all) struct FunctionReferenceBuilder {
 
 ///|
 pub fn function_reference_builder_new() -> FunctionReferenceBuilder {
-  { functions: [] }
+  { functions: [], }
 }
 
 ///|
@@ -13,9 +13,7 @@ pub fn FunctionReferenceBuilder::push(
   self : FunctionReferenceBuilder,
   function_index : Int,
 ) -> Unit {
-  self.functions.push(
-    @lib.FuncIdx::new(function_index.reinterpret_as_uint()),
-  )
+  self.functions.push(@lib.FuncIdx::new(function_index.reinterpret_as_uint()))
 }
 
 ///|

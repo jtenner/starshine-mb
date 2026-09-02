@@ -485,4 +485,3 @@ pub impl Encode for @representation.WorldMode
 pub impl Encode for @representation.WriteFacts
 pub impl[T : Encode] Encode for Array[T]
 pub impl[T : Encode] Encode for @list.List[T]
-

@@ -2283,7 +2283,7 @@ fn ValidateInvalidAstRegistryCache::new() -> ValidateInvalidAstRegistryCache {
   for idx, spec in entries {
     stable_id_lookup.set(spec.stable_id, idx)
   }
-  { entries, stable_id_lookup }
+  { entries, stable_id_lookup, }
 }
 
 ///|

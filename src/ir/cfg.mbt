@@ -6,7 +6,7 @@ pub struct CfgEdge {
 
 ///|
 pub impl Show for CfgEdge with fn output(self, logger) {
-  let { kind, block } = self
+  let { kind, block, } = self
   logger.write_string("{kind: ")
   kind.output(logger)
   logger.write_string(", block: ")
@@ -137,8 +137,8 @@ fn cfg_builder_add_edge(
   to : BlockId,
   kind : CfgEdgeKind,
 ) -> Unit {
-  builder.cfg.blocks[from].succs.push({ kind, block: to })
-  builder.cfg.blocks[to].preds.push({ kind, block: from })
+  builder.cfg.blocks[from].succs.push({ kind, block: to, })
+  builder.cfg.blocks[to].preds.push({ kind, block: from, })
 }
 
 ///|
@@ -265,9 +265,9 @@ fn cfg_builder_region_segments(
       end_slot=end,
     )
     for slot = start; slot < end; slot = slot + 1 {
-      builder.cfg.region_roots.push({ region_holder, slot, block: block_id })
+      builder.cfg.region_roots.push({ region_holder, slot, block: block_id, })
     }
-    segments.push({ block_id, end_slot: end })
+    segments.push({ block_id, end_slot: end, })
     start = end
   }
   segments
@@ -280,7 +280,7 @@ fn cfg_builder_region_build_empty(
   force_entry : Bool,
 ) -> CfgRegionBuild {
   if !force_entry {
-    return { entry_block: None, exit_blocks: [] }
+    return { entry_block: None, exit_blocks: [], }
   }
   let block_id = cfg_builder_add_block(
     builder,
@@ -290,7 +290,7 @@ fn cfg_builder_region_build_empty(
     start_slot=0,
     end_slot=0,
   )
-  { entry_block: Some(block_id), exit_blocks: [block_id] }
+  { entry_block: Some(block_id), exit_blocks: [block_id], }
 }
 
 ///|
@@ -804,7 +804,7 @@ fn cfg_builder_build_region(
       builder, func, region_ref, segments, idx, handler_target, exits,
     )
   }
-  { entry_block: Some(segments[0].block_id), exit_blocks: exits }
+  { entry_block: Some(segments[0].block_id), exit_blocks: exits, }
 }
 
 ///|

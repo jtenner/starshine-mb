@@ -1410,4 +1410,3 @@ pub impl @quickcheck.Arbitrary for WastValue
 // Type aliases
 
 // Traits
-

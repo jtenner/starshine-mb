@@ -41,4 +41,3 @@ pub fn DiffOptions::new(compare? : DiffCompareMode, ignore_whitespace? : Bool, i
 // Type aliases
 
 // Traits
-

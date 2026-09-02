@@ -27,7 +27,7 @@ priv struct GlobPrefixBucket {
 
 ///|
 fn GlobPrefixBucket::new() -> GlobPrefixBucket {
-  { all: [], by_first_segment: @hashmap.new(capacity=16) }
+  { all: [], by_first_segment: @hashmap.new(capacity=16), }
 }
 
 ///|
@@ -73,7 +73,7 @@ fn split_normalized_path(path : String) -> (String, Bool, Array[String]) {
 ///|
 fn compile_normalized_glob_path(normalized : String) -> CompiledGlobPath {
   let (prefix, absolute, segments) = split_normalized_path(normalized)
-  { normalized, prefix, absolute, segments }
+  { normalized, prefix, absolute, segments, }
 }
 
 ///|
@@ -108,7 +108,7 @@ fn compile_glob_pattern(pattern : String) -> CompiledGlobPattern {
       min_segment_count += 1
     }
   }
-  { path, first_segment_literal, min_segment_count, max_segment_count }
+  { path, first_segment_literal, min_segment_count, max_segment_count, }
 }
 
 ///|

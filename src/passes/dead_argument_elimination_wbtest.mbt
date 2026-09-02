@@ -332,7 +332,7 @@ test "dae singleton-selected core rewrite owns selection and result application"
   ) -> DaePassResult {
     observed_current.push(active == current)
     observed_selection.push(active_selected[1])
-    { mod_out: rewritten, touched: [], changed: false, primary_def: -1 }
+    { mod_out: rewritten, touched: [], changed: false, primary_def: -1, }
   }
   let preserved = dae_run_singleton_selected_core_rewrite(
     current,
@@ -392,7 +392,7 @@ test "dae bounded singleton-selected core rewrite stops after first no-op" {
       }
     }
     observed_active_modules.push(active == rewritten_twice)
-    { mod_out: active, touched: [], changed: false, primary_def: -1 }
+    { mod_out: active, touched: [], changed: false, primary_def: -1, }
   }
   let on_applied = fn(
     iteration : Int,
@@ -3651,7 +3651,7 @@ test "dae dropped-result scope application centralizes live and anywhere policie
     @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(original_body.copy())),
     untouched,
   ]
-  let scope = DaeDroppedResultScope::{ caller_defs: [0] }
+  let scope = DaeDroppedResultScope::{ caller_defs: [0], }
   let live_rewrites = dae_rewrite_dropped_result_calls_in_scope_with_policy(
     live_funcs,
     scope,
@@ -3719,7 +3719,7 @@ test "dae direct-caller scope application is transactional and count verified" {
         ok: true,
       }
     } else {
-      { func, calls_rewritten: 0, changed: false, ok: true }
+      { func, calls_rewritten: 0, changed: false, ok: true, }
     }
   }
   let application = dae_apply_direct_caller_scope_rewrite(
@@ -3749,7 +3749,7 @@ test "dae direct-caller scope application is transactional and count verified" {
         ok: true,
       }
     } else {
-      { func, calls_rewritten: 0, changed: false, ok: false }
+      { func, calls_rewritten: 0, changed: false, ok: false, }
     }
   })
   assert_false(failed.ok)
@@ -6182,7 +6182,7 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
   let control_shape = match
     dae_gc_actual_shape_discovery_evidence(
       control_body,
-      { start: 0, end: 2, pure: true },
+      { start: 0, end: 2, pure: true, },
       mod_,
       [],
     ) {
@@ -6212,7 +6212,7 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
   let select_shape = match
     dae_gc_actual_shape_discovery_evidence(
       select_body,
-      { start: 0, end: 6, pure: true },
+      { start: 0, end: 6, pure: true, },
       mod_,
       [],
     ) {
@@ -6289,7 +6289,7 @@ test "dae GC actual shape discovery separates target refinement" {
   let direct_shape = match
     dae_gc_actual_shape_discovery_evidence(
       direct_body,
-      { start: 0, end: 1, pure: true },
+      { start: 0, end: 1, pure: true, },
       mod_,
       [],
     ) {
@@ -6326,7 +6326,7 @@ test "dae GC actual shape discovery separates target refinement" {
   let control_shape = match
     dae_gc_actual_shape_discovery_evidence(
       control_body,
-      { start: 0, end: 2, pure: true },
+      { start: 0, end: 2, pure: true, },
       mod_,
       [],
     ) {
@@ -6361,7 +6361,7 @@ test "dae GC actual shape discovery separates target refinement" {
   let select_shape = match
     dae_gc_actual_shape_discovery_evidence(
       select_body,
-      { start: 0, end: 4, pure: true },
+      { start: 0, end: 4, pure: true, },
       mod_,
       [],
     ) {
@@ -8297,7 +8297,7 @@ test "dae removed-param callee rewrite preserves mapped locals and constants" {
         Some(@lib.Instruction::i64_const(@lib.I64(9L))),
         Some(@lib.Instruction::i32_const(@lib.I32(7))),
       ],
-      { gets: [true, true, true, true], writes: [false, true, false, false] },
+      { gets: [true, true, true, true], writes: [false, true, false, false], },
       [false, false, false],
     ) {
     Some(evidence) => evidence
@@ -8336,7 +8336,7 @@ test "dae removed-param callee rewrite rejects stale read evidence without repla
     [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i64()],
     [true, true, true],
     [None, None, None],
-    { gets: [false, false, false], writes: [false, false, false] },
+    { gets: [false, false, false], writes: [false, false, false], },
     [false, false, false],
   )
   match evidence {
@@ -8364,7 +8364,7 @@ test "dae removed-param callee rewrite rejects invalid out-of-range local input"
     [@lib.ValType::i32(), @lib.ValType::i32()],
     [false, true],
     [None, Some(@lib.Instruction::i32_const(@lib.I32(7)))],
-    { gets: [false, false], writes: [false, false] },
+    { gets: [false, false], writes: [false, false], },
     [false, false],
   )
   match evidence {
@@ -15701,7 +15701,7 @@ test "dae dependency invalidation follows producer-owned result domains" {
     dae_current_boundary_graph_new(mod_),
   )
   let base = dae_commit_effects_empty(4)
-  let effects = { ..base, invalidation_domains: [DaeInvalidateResult] }
+  let effects = { ..base, invalidation_domains: [DaeInvalidateResult], }
   assert_eq(
     dae_boundary_dependency_invalidations(
       graph,
@@ -15741,7 +15741,7 @@ test "dae dependency invalidation keeps metadata-only changes local" {
     dae_current_boundary_graph_new(mod_),
   )
   let base = dae_commit_effects_empty(3)
-  let effects = { ..base, invalidation_domains: [DaeInvalidateMetadata] }
+  let effects = { ..base, invalidation_domains: [DaeInvalidateMetadata], }
   assert_eq(
     dae_boundary_dependency_invalidations(
       graph,
@@ -17693,7 +17693,7 @@ test "dae complete dead-suffix call removal reports topology change" {
       0,
       0,
       0,
-      { caller_defs: [1] },
+      { caller_defs: [1], },
     ),
   )
   let @lib.Func(_, @lib.Expr(body)) = funcs[1]
@@ -17895,7 +17895,7 @@ test "dae specialized result family plan rejects stale identity and result epoch
   let stale_identity = {
     ..facts,
     active_call_identities: [
-      { caller_def: 0, path: [99], call_kind: DaeDirectCall, callee_abs: 0 },
+      { caller_def: 0, path: [99], call_kind: DaeDirectCall, callee_abs: 0, },
     ],
   }
   let identity_application = dae_apply_specialized_result_family_plan(
@@ -17905,7 +17905,7 @@ test "dae specialized result family plan rejects stale identity and result epoch
   assert_eq(identity_application.result.mod_out, mod_)
   assert_eq(identity_application.reason, DaeStaleCandidateFacts)
 
-  let stale_result = { ..facts, result_epoch: facts.result_epoch + 1 }
+  let stale_result = { ..facts, result_epoch: facts.result_epoch + 1, }
   let result_application = dae_apply_specialized_result_family_plan(
     mod_, graph, stale_result, candidate,
   )
@@ -20915,7 +20915,7 @@ test "dae GC commits schedule control reconstruction and type repair followups" 
     graph,
     dependencies,
     dae_work_item_new(graph, dependencies, 0, DaeGcResultRefinementWork),
-    { ..effects, type_section_changed: true },
+    { ..effects, type_section_changed: true, },
   )
   assert_eq(followups.length(), 2)
   assert_eq(followups[0].family, DaeControlReconstructionWork)
@@ -20931,7 +20931,7 @@ test "dae GC commits schedule control reconstruction and type repair followups" 
       changed: true,
       applied: true,
       primary_def: 0,
-      effects: { ..effects, type_section_changed: true },
+      effects: { ..effects, type_section_changed: true, },
     },
     dae_work_item_new(graph, dependencies, 0, DaeGcResultRefinementWork),
     diagnostics,
@@ -20943,7 +20943,7 @@ test "dae GC commits schedule control reconstruction and type repair followups" 
       graph,
       dependencies,
       dae_work_item_new(graph, dependencies, 0, DaeControlReconstructionWork),
-      { ..effects, type_section_changed: false },
+      { ..effects, type_section_changed: false, },
     ),
     [],
   )
@@ -21099,8 +21099,8 @@ test "dae component rewrite plan rejects changed exact call identity" {
   ).unwrap()
   let identities = plan.expected_call_identities.copy()
   assert_true(identities.length() > 0)
-  identities[0] = { ..identities[0], path: [99] }
-  let stale_plan = { ..plan, expected_call_identities: identities }
+  identities[0] = { ..identities[0], path: [99], }
+  let stale_plan = { ..plan, expected_call_identities: identities, }
   match dae_apply_component_rewrite_plan(mod_, graph, stale_plan) {
     DaeComponentPlanRejected(unchanged, DaeCallCountChanged) =>
       assert_eq(unchanged, mod_)
@@ -21185,7 +21185,7 @@ test "dae component rewrite plan validation failure restores the complete module
       @lib.CodeSec::new(invalid_funcs),
     ),
   }
-  let invalid_plan = { ..plan, candidate: invalid_candidate }
+  let invalid_plan = { ..plan, candidate: invalid_candidate, }
   match dae_apply_component_rewrite_plan(mod_, graph, invalid_plan) {
     DaeComponentPlanRejected(unchanged, DaeValidationRollback) =>
       assert_eq(unchanged, mod_)
@@ -21464,7 +21464,7 @@ test "dae family dispatcher refreshes productive stale work and drops dead targe
     }
     _ => fail("expected stale productive work to refresh")
   }
-  let removed_target : DaeWorkItem = { ..stale, target_def: 99 }
+  let removed_target : DaeWorkItem = { ..stale, target_def: 99, }
   match
     dae_process_work_item(
       original,

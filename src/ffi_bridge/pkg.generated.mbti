@@ -43,6 +43,8 @@ pub fn instructions_push(Array[@lib.Instruction], @lib.Instruction) -> Unit
 
 pub fn instructions_push_array_iter_next(Array[@lib.Instruction], Int, Int, Int) -> Unit
 
+pub fn instructions_push_array_pop(Array[@lib.Instruction], Int, Int, Int) -> Unit
+
 pub fn instructions_push_array_push(Array[@lib.Instruction], Int, Int, Int) -> Unit
 
 pub fn module_new() -> @lib.Module
@@ -149,4 +151,3 @@ pub(all) struct WasiPreview1Schema {
 // Type aliases
 
 // Traits
-

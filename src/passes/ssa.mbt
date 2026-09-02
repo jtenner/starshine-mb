@@ -167,7 +167,7 @@ pub fn ssa_full_build_merge_rewrite_plan(
       next_local += 1
       SsaFullWriteDecision::Freshen(fresh_local)
     }
-    write_rewrites.push({ write_id: node_id, original_local, decision })
+    write_rewrites.push({ write_id: node_id, original_local, decision, })
   }
 
   let get_rewrites : Array[SsaFullGetRewrite] = []
@@ -214,7 +214,7 @@ pub fn ssa_full_build_merge_rewrite_plan(
       _ => ()
     }
   }
-  { write_rewrites, get_rewrites, merge_gets }
+  { write_rewrites, get_rewrites, merge_gets, }
 }
 
 ///|

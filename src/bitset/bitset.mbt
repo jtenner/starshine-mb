@@ -61,7 +61,7 @@ fn bitset_word_bit_mask(index : Int) -> UInt64 {
 #as_free_fn
 pub fn BitSet::new(size : Int) -> BitSet {
   bitset_require_size(size)
-  { size, words: FixedArray::make(bitset_word_count(size), 0UL) }
+  { size, words: FixedArray::make(bitset_word_count(size), 0UL), }
 }
 
 ///|
@@ -69,7 +69,7 @@ pub fn BitSet::new(size : Int) -> BitSet {
 pub fn BitSet::make(size : Int, value : Bool) -> BitSet {
   bitset_require_size(size)
   let fill = if value { UInt64::lnot(0UL) } else { 0UL }
-  let values = { size, words: FixedArray::make(bitset_word_count(size), fill) }
+  let values = { size, words: FixedArray::make(bitset_word_count(size), fill), }
   bitset_mask_unused_high_bits(values)
   values
 }
@@ -81,7 +81,7 @@ pub fn BitSet::length(self : BitSet) -> Int {
 
 ///|
 pub fn BitSet::copy(self : BitSet) -> BitSet {
-  { size: self.size, words: self.words.copy() }
+  { size: self.size, words: self.words.copy(), }
 }
 
 ///|

@@ -39,4 +39,3 @@ pub fn suffix_start_index(Int, Int) -> Int?
 // Type aliases
 
 // Traits
-

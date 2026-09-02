@@ -1,6 +1,7 @@
 // Shared type-index rewrite helpers used by the standalone RUME package.
 // Keep these functions synchronized with duplicate_function_elimination.mbt.
 
+///|
 fn dfe_rewrite_type_idx(
   idx : @lib.TypeIdx,
   remap : Map[UInt, UInt],
@@ -224,7 +225,7 @@ fn dfe_rewrite_type_metadata(
   metadata : @lib.TypeMetadata,
   remap : Map[UInt, UInt],
 ) -> @lib.TypeMetadata {
-  let { describes, descriptor, shared } = metadata
+  let { describes, descriptor, shared, } = metadata
   @lib.TypeMetadata::new(
     describes=match describes {
       Some(idx) => Some(dfe_rewrite_type_idx(idx, remap))
@@ -1342,6 +1343,7 @@ fn dfe_rewrite_data_type_idxs(
 }
 
 ///|
+
 ///|
 fn dfe_rewrite_module_type_idxs(
   mod_ : @lib.Module,

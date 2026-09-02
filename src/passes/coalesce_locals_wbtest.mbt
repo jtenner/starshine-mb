@@ -188,9 +188,9 @@ test "coalesce-locals copy-forward candidates follow sparse weighted edges" {
 ///|
 test "coalesce-locals indexes tail reuse facts in two action scans" {
   let actions : Array[CLAction] = [
-    { kind: CLActionKind::Get, local_idx: 0, source: CLValueSource::Unique },
-    { kind: CLActionKind::Set, local_idx: 2, source: CLValueSource::Unique },
-    { kind: CLActionKind::Get, local_idx: 2, source: CLValueSource::Unique },
+    { kind: CLActionKind::Get, local_idx: 0, source: CLValueSource::Unique, },
+    { kind: CLActionKind::Set, local_idx: 2, source: CLValueSource::Unique, },
+    { kind: CLActionKind::Get, local_idx: 2, source: CLValueSource::Unique, },
   ]
   for _ in 0..<4096 {
     actions.push({

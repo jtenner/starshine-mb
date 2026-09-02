@@ -380,14 +380,14 @@ fn rl_rewrite_func_type_stable(
   let @lib.Func(body_locals, body) = func
   let body_local_count = body_locals.length()
   if body_local_count == 0 {
-    return { func, old_to_new: [], changed: false }
+    return { func, old_to_new: [], changed: false, }
   }
 
   let total_locals = params.length() + body_local_count
   let scan = RLScanState::new(total_locals, params.length())
   rl_scan_expr(body, scan)
   if !scan.valid {
-    return { func, old_to_new: [], changed: false }
+    return { func, old_to_new: [], changed: false, }
   }
   let body_local_types = rl_flatten_locals(body_locals, body_local_count)
   let old_to_new = Array::make(total_locals, -1)
@@ -429,7 +429,7 @@ fn rl_rewrite_func_type_stable(
   }
 
   if next_body_idx == body_local_count && !remapped {
-    return { func, old_to_new: [], changed: false }
+    return { func, old_to_new: [], changed: false, }
   }
   let rewritten_locals = @lib.Locals::new(reordered_body_runs)
   let rewritten_body = if remapped {
@@ -452,7 +452,7 @@ fn rl_rewrite_func(
   let @lib.Func(body_locals, body) = func
   let body_local_count = body_locals.length()
   if body_local_count == 0 {
-    return { func, old_to_new: [], changed: false }
+    return { func, old_to_new: [], changed: false, }
   }
 
   let total_locals = params.length() + body_local_count
@@ -462,7 +462,7 @@ fn rl_rewrite_func(
     // Fail closed for invalid/stale intermediate modules. Optimizing nested
     // cleanup callers can then validate-or-fallback instead of crashing while
     // probing a cleanup candidate.
-    return { func, old_to_new: [], changed: false }
+    return { func, old_to_new: [], changed: false, }
   }
 
   let used_body_locals = rl_sort_used_body_locals(
@@ -476,7 +476,7 @@ fn rl_rewrite_func(
   )
   if used_body_locals.length() == body_local_count &&
     used_body_locals_are_original_prefix {
-    return { func, old_to_new: [], changed: false }
+    return { func, old_to_new: [], changed: false, }
   }
 
   let old_to_new = Array::make(total_locals, -1)
@@ -502,12 +502,12 @@ fn rl_rewrite_func(
   let rewritten_locals = @lib.Locals::new(reordered_body_runs)
   if used_body_locals_are_original_prefix {
     let rewritten_func = @lib.Func::new(rewritten_locals, body)
-    return { func: rewritten_func, old_to_new, changed: true }
+    return { func: rewritten_func, old_to_new, changed: true, }
   }
 
   let rewritten_body = rl_rewrite_expr(body, old_to_new)
   let rewritten_func = @lib.Func::new(rewritten_locals, rewritten_body)
-  { func: rewritten_func, old_to_new, changed: true }
+  { func: rewritten_func, old_to_new, changed: true, }
 }
 
 ///|
@@ -625,7 +625,7 @@ fn rl_rewrite_name_sec(
         data_names,
         field_names,
         tag_names,
-        ..,
+        ..
       } = sec
       let next = @lib.NameSec::new(
         module_name~,

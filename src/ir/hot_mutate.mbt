@@ -124,7 +124,7 @@ fn hot_mutate_attach_child_span(
   }
   let base = hot_alloc_child_span(func, children.length())
   hot_mutate_write_child_span(func, base, children)
-  { ..node, child_base: base, child_count: children.length() }
+  { ..node, child_base: base, child_count: children.length(), }
 }
 
 ///|
@@ -141,7 +141,7 @@ fn hot_mutate_attach_child1(
   hot_mutate_require_child_ref(func, child0)
   let base = hot_alloc_child_span(func, 1)
   func.children[base] = child0
-  { ..node, child_base: base, child_count: 1 }
+  { ..node, child_base: base, child_count: 1, }
 }
 
 ///|
@@ -161,7 +161,7 @@ fn hot_mutate_attach_child2(
   let base = hot_alloc_child_span(func, 2)
   func.children[base] = child0
   func.children[base + 1] = child1
-  { ..node, child_base: base, child_count: 2 }
+  { ..node, child_base: base, child_count: 2, }
 }
 
 ///|
@@ -184,7 +184,7 @@ fn hot_mutate_attach_child3(
   func.children[base] = child0
   func.children[base + 1] = child1
   func.children[base + 2] = child2
-  { ..node, child_base: base, child_count: 3 }
+  { ..node, child_base: base, child_count: 3, }
 }
 
 ///|
@@ -326,7 +326,7 @@ fn hot_catch_payload_lane_repair(
   if !saw_entry || !saw_nested {
     return None
   }
-  Some({ payload_id, parent_id, parent_slot, val_type: payload_types[0] })
+  Some({ payload_id, parent_id, parent_slot, val_type: payload_types[0], })
 }
 
 ///|
@@ -559,7 +559,7 @@ fn hot_ordered_catch_payload_repair(
       }
     }
   }
-  Some({ catch_ref, lanes })
+  Some({ catch_ref, lanes, })
 }
 
 ///|
@@ -612,7 +612,7 @@ fn hot_catch_payload_repair_plan(
         Some(lane) => lane
         None => return None
       }
-      plans.push({ catch_ref, lanes: [lane] })
+      plans.push({ catch_ref, lanes: [lane], })
       planned_payloads += 1
     } else {
       let payloads : Array[NodeId] = []
@@ -899,7 +899,7 @@ pub fn HotChildSpanRewrite::new(
   node_id : NodeId,
   new_children : Array[NodeId],
 ) -> HotChildSpanRewrite {
-  { node_id, new_children }
+  { node_id, new_children, }
 }
 
 ///|
@@ -946,7 +946,7 @@ pub fn hot_control_result_type_set(
     HotOp::Loop => label.branch_arity
     _ => result_arity
   }
-  func.labels[label_id] = { ..label, result_type: ty, branch_arity }
+  func.labels[label_id] = { ..label, result_type: ty, branch_arity, }
   for slot_info in hot_control_region_slot_info(node.op) {
     let holder = match slot_info.role {
       HotControlRegionRole::BodyRegion =>
@@ -1021,7 +1021,7 @@ pub fn hot_loop_entry_values_clear(
     }
   }
   ignore(hot_replace_child_span(func, loop_id, body))
-  func.labels[label_id] = { ..label, branch_arity: 0 }
+  func.labels[label_id] = { ..label, branch_arity: 0, }
   hot_revision_bump(func)
   removed
 }
@@ -1070,7 +1070,7 @@ pub fn hot_replace_child_spans_and_control_result_type(
     HotOp::Loop => label.branch_arity
     _ => result_arity
   }
-  func.labels[label_id] = { ..label, result_type: ty, branch_arity }
+  func.labels[label_id] = { ..label, result_type: ty, branch_arity, }
   for slot_info in hot_control_region_slot_info(node.op) {
     let holder = match slot_info.role {
       HotControlRegionRole::BodyRegion =>
@@ -1128,7 +1128,7 @@ pub fn hot_control_demote_loop_to_block(
     op: HotOp::Block,
     flags: hot_default_flags_for_op(HotOp::Block),
   }
-  func.labels[label_id] = { ..label, kind: HotLabelKind::BlockLabel }
+  func.labels[label_id] = { ..label, kind: HotLabelKind::BlockLabel, }
   hot_revision_bump(func)
 }
 
@@ -1273,7 +1273,7 @@ pub fn hot_local_node_id_set(
   let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee =>
-      hot_node_set(func, node_id, { ..node, imm0: local_id })
+      hot_node_set(func, node_id, { ..node, imm0: local_id, })
     _ =>
       abort("hot local_node_id_set requires local.get, local.set, or local.tee")
   }
@@ -1296,7 +1296,7 @@ pub fn hot_branch_target_set(
     | HotOp::BrOnCast
     | HotOp::BrOnCastFail
     | HotOp::Delegate => {
-      func.nodes[node_id] = { ..node, imm0: target }
+      func.nodes[node_id] = { ..node, imm0: target, }
       hot_revision_bump(func)
     }
     _ => abort("hot branch_target_set requires a single-target branch node")
@@ -1324,7 +1324,7 @@ pub fn hot_branch_table_set(
         func,
         HotBranchTable::new(targets, default_target),
       )
-      func.nodes[node_id] = { ..node, imm0: table_id }
+      func.nodes[node_id] = { ..node, imm0: table_id, }
       hot_revision_bump(func)
     }
     _ => abort("hot branch_table_set requires a br_table node")
@@ -1353,7 +1353,7 @@ pub fn hot_try_table_catches_set(
   match node.op {
     HotOp::TryTable => {
       let catch_id = hot_alloc_catch_info(func, HotCatchInfo::new(catches))
-      func.nodes[node_id] = { ..node, imm1: catch_id }
+      func.nodes[node_id] = { ..node, imm1: catch_id, }
       hot_revision_bump(func)
     }
     _ => abort("hot try_table_catches_set requires a try_table node")
@@ -1383,8 +1383,8 @@ pub fn hot_node_exact_instr_set(
         | HotOp::RefCastDescEq
         | HotOp::BrOnCast
         | HotOp::BrOnCastFail
-        | HotOp::Atomic => { ..node, imm1: payload_id }
-        _ => { ..node, imm0: payload_id }
+        | HotOp::Atomic => { ..node, imm1: payload_id, }
+        _ => { ..node, imm0: payload_id, }
       }
       func.nodes[id] = next_node
       hot_revision_bump(func)
@@ -1761,7 +1761,7 @@ pub fn hot_delete_detached_forest(
 
   for label_id in labels {
     let label = hot_label_get(func, label_id)
-    func.labels[label_id] = { ..label, owner: HOT_NONE_NODE, branch_arity: 0 }
+    func.labels[label_id] = { ..label, owner: HOT_NONE_NODE, branch_arity: 0, }
   }
   for node_id in nodes {
     hot_delete_node_tombstone(func, node_id)

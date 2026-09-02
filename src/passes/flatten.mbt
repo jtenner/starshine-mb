@@ -313,7 +313,7 @@ fn FlattenBrTableTargetsEntry::new(
   start : Int,
   count : Int,
 ) -> FlattenBrTableTargetsEntry {
-  { table_id, start, count }
+  { table_id, start, count, }
 }
 
 ///|
@@ -329,7 +329,7 @@ fn FlattenBrTableTargets::new(
   start : Int,
   count : Int,
 ) -> FlattenBrTableTargets {
-  { targets, start, count }
+  { targets, start, count, }
 }
 
 ///|
@@ -636,7 +636,7 @@ fn FlattenBrIfFlowEntry::new(
   branch_id : Int,
   flow : Array[Int]?,
 ) -> FlattenBrIfFlowEntry {
-  { branch_id, flow }
+  { branch_id, flow, }
 }
 
 ///|
@@ -652,7 +652,7 @@ fn FlattenScalarBrIfFlowEntry::new(
   value_id : Int,
   sites : Array[Int],
 ) -> FlattenScalarBrIfFlowEntry {
-  { branch_id, value_id, sites }
+  { branch_id, value_id, sites, }
 }
 
 ///|
@@ -666,7 +666,7 @@ fn FlattenScalarFlowReplacementEntry::new(
   value_id : Int,
   replacement_id : Int,
 ) -> FlattenScalarFlowReplacementEntry {
-  { value_id, replacement_id }
+  { value_id, replacement_id, }
 }
 
 ///|
@@ -819,7 +819,7 @@ fn FlattenDeadSuffixEntry::new(
   region_ref : @ir.HotRegionRef,
   nodes : Array[Int],
 ) -> FlattenDeadSuffixEntry {
-  { table_id, region_ref, nodes }
+  { table_id, region_ref, nodes, }
 }
 
 ///|
@@ -839,7 +839,7 @@ fn FlattenTerminalTableEntry::new(
   allow_mixed_targets : Bool,
   supported : Bool,
 ) -> FlattenTerminalTableEntry {
-  { node_id, label_id, payload_count, allow_mixed_targets, supported }
+  { node_id, label_id, payload_count, allow_mixed_targets, supported, }
 }
 
 ///|
@@ -853,7 +853,7 @@ fn FlattenScalarTryEntry::new(
   try_id : Int,
   supported : Bool,
 ) -> FlattenScalarTryEntry {
-  { try_id, supported }
+  { try_id, supported, }
 }
 
 ///|
@@ -867,7 +867,7 @@ fn FlattenInputfulLoopSupportEntry::new(
   loop_id : Int,
   supported : Bool,
 ) -> FlattenInputfulLoopSupportEntry {
-  { loop_id, supported }
+  { loop_id, supported, }
 }
 
 ///|
@@ -1190,7 +1190,7 @@ fn FlattenRegionFlowEntry::new(
   holder : Int,
   summary : FlattenRegionFlowSummary,
 ) -> FlattenRegionFlowEntry {
-  { holder, summary }
+  { holder, summary, }
 }
 
 ///|
@@ -11133,7 +11133,7 @@ fn FlattenCallMemoryEffectMixFact::from_func(
       break
     }
   }
-  { has_call, has_memory }
+  { has_call, has_memory, }
 }
 
 ///|
@@ -11332,13 +11332,13 @@ fn FlattenCarriedScalarAcrossGlobalWriteFact::from_func(
           if flatten_subtree_has_source_older_rich_scalar(
               func, later_root, earlier_root,
             ) {
-            return { has_hazard: true }
+            return { has_hazard: true, }
           }
         _ => ()
       }
     }
   }
-  { has_hazard: false }
+  { has_hazard: false, }
 }
 
 ///|
@@ -11377,7 +11377,7 @@ fn FlattenCallGlobalValueIfFact::from_func(
       _ => ()
     }
   }
-  { has_call, has_global_set, has_value_if }
+  { has_call, has_global_set, has_value_if, }
 }
 
 ///|

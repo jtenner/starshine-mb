@@ -5605,7 +5605,7 @@ fn metamorphic_apply_memory_size_drop_to_defined_functions(
     mod, leading,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -5697,7 +5697,7 @@ fn metamorphic_apply_oi_local_carried(
   }
   let transformed = metamorphic_add_oi_local_carried(mod)
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -5760,7 +5760,7 @@ fn metamorphic_apply_oi_local_tee_wrapped(
   }
   let transformed = metamorphic_add_oi_local_tee_wrapped(mod)
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -5831,7 +5831,7 @@ fn metamorphic_apply_oi_commuted_operands(
   }
   let transformed = metamorphic_add_oi_commuted_operands(mod)
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -5929,7 +5929,7 @@ fn metamorphic_apply_oi_memory_commuted_operands(
     source_mod, mem_idx,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -6000,7 +6000,7 @@ fn metamorphic_apply_oi_if_select_shell(
   }
   let transformed = metamorphic_add_oi_if_select_shell(mod)
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -6105,7 +6105,7 @@ fn metamorphic_apply_oi_effectful_sibling(
   }
   let transformed = metamorphic_add_oi_effectful_sibling(mod)
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -6173,7 +6173,7 @@ fn metamorphic_apply_oi_trapping_sibling(
   }
   let transformed = metamorphic_add_oi_trapping_sibling(mod)
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -6321,7 +6321,7 @@ fn metamorphic_apply_oi_call_ref_target_wrapper(
   }
   let transformed = metamorphic_add_oi_call_ref_target_wrapper(mod)
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -6469,7 +6469,7 @@ fn metamorphic_apply_oi_tuple_selected_lane(
   }
   let transformed = metamorphic_add_oi_tuple_selected_lane(mod)
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -6710,7 +6710,7 @@ fn metamorphic_apply_oi_memory_size_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -6803,7 +6803,7 @@ fn metamorphic_apply_oi_live_zero_memory_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -6944,7 +6944,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_copy_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -7135,7 +7135,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_cross_copy_boundary(
     source_mod, src_mem, dst_mem, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -7173,7 +7173,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_second_copy_boundary(
     source_mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -7282,7 +7282,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_mid_copy_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -7403,7 +7403,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_atomic_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -7539,7 +7539,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_second_atomic_boundary(
     source_mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -8211,7 +8211,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_atomic_wait_notify_boundary(
     source_mod, mem_idx,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -8254,7 +8254,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_atomic_rmw_boundary(
     source_mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -8401,7 +8401,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_fill_restore_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -8514,7 +8514,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_mid_fill_restore_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -8681,7 +8681,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_end_copy_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -8834,7 +8834,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_dynamic_copy_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -8961,7 +8961,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_varied_copy_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -9098,7 +9098,7 @@ fn metamorphic_apply_oi_live_nonzero_memory_end_fill_restore_boundary(
     mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
@@ -9162,7 +9162,7 @@ fn metamorphic_apply_table_size_drop_to_defined_functions(
     mod, leading,
   )
   match validate_module(transformed) {
-    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Ok(_) => Ok({ transform_id, wasm_module: transformed, })
     Err(err) =>
       Err(
         "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",

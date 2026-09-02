@@ -41,7 +41,7 @@ fn tcneg_non_nullable_ref(ht : HeapType) -> ValType {
 
 ///|
 fn tcneg_i32_mem_env() -> Env {
-  Env::{ ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
+  Env::{ ..empty_env(), mems: [MemType::new(Limits::i32(1, None))], }
 }
 
 ///|
@@ -70,7 +70,7 @@ fn tcneg_descriptor_struct_env() -> Env {
     CompType::struct_([]),
     metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
   )
-  { ..empty_env(), global_types: [described, descriptor] }
+  { ..empty_env(), global_types: [described, descriptor], }
 }
 
 ///|
@@ -86,7 +86,10 @@ test "Typecheck RefGetDesc rejects non-reference operand" {
 ///|
 test "Typecheck RefGetDesc rejects types without descriptors" {
   let state = tcneg_make_state(
-    { ..empty_env(), global_types: [SubType::comp_type(CompType::struct_([]))] },
+    {
+      ..empty_env(),
+      global_types: [SubType::comp_type(CompType::struct_([]))],
+    },
     [tcneg_non_nullable_ref(HeapType::new(TypeIdx::new(0)))],
   )
   let result = Typecheck::typecheck(
@@ -390,7 +393,11 @@ test "Typecheck CallIndirect accepts an i64 index for table64" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i64(1UL, None),
   )
-  let env = Env::{ ..empty_env(), global_types: [func_type], tables: [table64] }
+  let env = Env::{
+    ..empty_env(),
+    global_types: [func_type],
+    tables: [table64],
+  }
   let state = tcneg_make_state(env, [ValType::i64()])
   match
     Typecheck::typecheck(
@@ -409,7 +416,11 @@ test "Typecheck CallIndirect rejects an i32 index for table64" {
     RefType::new(true, HeapType::abs(AbsHeapType::func())),
     Limits::i64(1UL, None),
   )
-  let env = Env::{ ..empty_env(), global_types: [func_type], tables: [table64] }
+  let env = Env::{
+    ..empty_env(),
+    global_types: [func_type],
+    tables: [table64],
+  }
   let state = tcneg_make_state(env, [ValType::i32()])
   let result = Typecheck::typecheck(
     Instruction::call_indirect(TypeIdx::new(0), TableIdx::new(0)),
@@ -423,7 +434,7 @@ test "Typecheck CallIndirect rejects invalid table index" {
   let func_type = tcneg_single_functype_subtype([ValType::i32()], [
     ValType::i64(),
   ])
-  let env = Env::{ ..empty_env(), global_types: [func_type] }
+  let env = Env::{ ..empty_env(), global_types: [func_type], }
   let state = tcneg_make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
     Instruction::call_indirect(TypeIdx::new(0), TableIdx::new(0)),
@@ -481,7 +492,7 @@ test "Typecheck ReturnCallIndirect rejects non-funcref-compatible tables" {
 ///|
 test "Typecheck TryTable catch rejects payload-label mismatches" {
   let tag_sig = tcneg_single_functype_subtype([ValType::i32()], [])
-  let env = Env::{ ..empty_env(), global_types: [tag_sig] }
+  let env = Env::{ ..empty_env(), global_types: [tag_sig], }
     .push_tag(TagType::new(TypeIdx::new(0)))
     .with_label([])
   let state = tcneg_make_state(env, [])
@@ -499,7 +510,7 @@ test "Typecheck TryTable catch rejects payload-label mismatches" {
 ///|
 test "Typecheck TryTable catch_ref rejects payload+exnref label mismatches" {
   let tag_sig = tcneg_single_functype_subtype([ValType::i32()], [])
-  let env = Env::{ ..empty_env(), global_types: [tag_sig] }
+  let env = Env::{ ..empty_env(), global_types: [tag_sig], }
     .push_tag(TagType::new(TypeIdx::new(0)))
     .with_label([])
   let state = tcneg_make_state(env, [])
@@ -517,7 +528,7 @@ test "Typecheck TryTable catch_ref rejects payload+exnref label mismatches" {
 ///|
 test "Typecheck TryTable catch rejects invalid catch label index" {
   let tag_sig = tcneg_single_functype_subtype([], [])
-  let env = Env::{ ..empty_env(), global_types: [tag_sig] }.push_tag(
+  let env = Env::{ ..empty_env(), global_types: [tag_sig], }.push_tag(
     TagType::new(TypeIdx::new(0)),
   )
   let state = tcneg_make_state(env, [])
@@ -822,7 +833,7 @@ test "Typecheck if with invalid TypeIdx blocktype" {
 test "Typecheck block with non-func CompType as blocktype" {
   // Type 0 is a struct, not a func type - expand_blocktype should fail
   let st = SubType::comp_type(CompType::struct_([]))
-  let env = Env::{ ..empty_env(), global_types: [st] }
+  let env = Env::{ ..empty_env(), global_types: [st], }
   let state = tcneg_make_state(env, [])
   let bt = BlockType::type_idx(TypeIdx::new(0))
   let result = Typecheck::typecheck(

@@ -45,7 +45,7 @@ fn CLBitMatrix::new(size : Int) -> CLBitMatrix {
     row_offsets[row] = bit_count
     bit_count += size - row - 1
   }
-  { size, bits: @bitset.BitSet::new(bit_count), row_offsets }
+  { size, bits: @bitset.BitSet::new(bit_count), row_offsets, }
 }
 
 ///|
@@ -171,7 +171,7 @@ priv struct CLValueInterner {
 
 ///|
 fn CLValueInterner::new() -> CLValueInterner {
-  { keys: [], next_value: 0 }
+  { keys: [], next_value: 0, }
 }
 
 ///|
@@ -1318,7 +1318,7 @@ fn cl_rewrite_loop_func_unused_locals(
     unread_tee_changed ||
     cleanup_changed
   if !did_change && rewritten_locals == body_locals {
-    { func, changed: false }
+    { func, changed: false, }
   } else {
     {
       func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
@@ -1649,14 +1649,14 @@ fn cl_mark_structured_interval_instruction(
     | @lib.BrOnNull(label_idx)
     | @lib.BrOnNonNull(label_idx) => {
       cl_control_add_branch_depth(branch_depths, cl_label_idx_raw(label_idx))
-      { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+      { branch_depths, max_escape_boundary: -1, never_falls_through: false, }
     }
     @lib.BrOnCast(label_idx, _, _, _)
     | @lib.BrOnCastFail(label_idx, _, _, _)
     | @lib.BrOnCastDescEq(label_idx, _, _)
     | @lib.BrOnCastDescEqFail(label_idx, _, _) => {
       cl_control_add_branch_depth(branch_depths, cl_label_idx_raw(label_idx))
-      { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+      { branch_depths, max_escape_boundary: -1, never_falls_through: false, }
     }
     @lib.Block(_, @lib.Expr(body)) => {
       let summary = cl_mark_structured_local_interval_summary(
@@ -1683,7 +1683,7 @@ fn cl_mark_structured_interval_instruction(
         record_intervals, visited_instrs,
       )
       cl_control_merge_branch_depths(branch_depths, summary.branch_depths, true)
-      { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+      { branch_depths, max_escape_boundary: -1, never_falls_through: false, }
     }
     @lib.If(_, then_body, else_body) => {
       let then_summary = cl_mark_structured_local_interval_summary(
@@ -1725,7 +1725,7 @@ fn cl_mark_structured_interval_instruction(
         }
         None => -1
       }
-      { branch_depths, max_escape_boundary, never_falls_through }
+      { branch_depths, max_escape_boundary, never_falls_through, }
     }
     @lib.TryTable(_, _, @lib.Expr(body)) => {
       let summary = cl_mark_structured_local_interval_summary(
@@ -1767,9 +1767,9 @@ fn cl_mark_structured_interval_instruction(
           true,
         )
       }
-      { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+      { branch_depths, max_escape_boundary: -1, never_falls_through: false, }
     }
-    _ => { branch_depths, max_escape_boundary: -1, never_falls_through: false }
+    _ => { branch_depths, max_escape_boundary: -1, never_falls_through: false, }
   }
 }
 
@@ -1975,7 +1975,7 @@ fn cl_rewrite_dense_tee_structured_intervals(
     rewritten_locals != body_locals ||
     !cl_old_to_new_is_identity(old_to_new)
   if !changed {
-    { func, changed: false }
+    { func, changed: false, }
   } else {
     {
       func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
@@ -1992,7 +1992,7 @@ fn cl_rewrite_func_structured_conservative(
   let @lib.Func(body_locals, body) = func
   let body_local_count = body_locals.length()
   if body_local_count == 0 {
-    return { func, changed: false }
+    return { func, changed: false, }
   }
   let types = cl_all_local_types(params, body_locals)
   let total_locals = types.length()
@@ -2136,7 +2136,7 @@ fn cl_rewrite_func_structured_conservative(
     !cl_old_to_new_is_identity(coloring.old_to_new) ||
     rewritten_locals != body_locals
   if !changed {
-    return { func, changed: false }
+    return { func, changed: false, }
   }
   let candidate = @lib.Func::new(
     rewritten_locals,
@@ -2148,7 +2148,7 @@ fn cl_rewrite_func_structured_conservative(
       _ => ()
     }
   }
-  { func: candidate, changed: true }
+  { func: candidate, changed: true, }
 }
 
 ///|
@@ -2234,7 +2234,7 @@ fn cl_compute_liveness(
     }
     idx -= 1
   }
-  { effective, live_at_entry: live }
+  { effective, live_at_entry: live, }
 }
 
 ///|
@@ -2474,7 +2474,7 @@ fn cl_compute_structured_liveness_with_write_hazards(
     [],
     [actions.length() - 1],
   )
-  ({ effective, live_at_entry }, write_live_hazards, visited_actions[0])
+  ({ effective, live_at_entry, }, write_live_hazards, visited_actions[0])
 }
 
 ///|
@@ -2506,7 +2506,7 @@ fn cl_instr_accesses_local(instr : @lib.Instruction, local_idx : Int) -> Bool {
 
 ///|
 fn cl_copy_forward_scan_failed() -> CLCopyForwardScan {
-  { ok: false, pending: false }
+  { ok: false, pending: false, }
 }
 
 ///|
@@ -2628,7 +2628,7 @@ fn cl_scan_copy_forward_instrs(
     }
     idx += 1
   }
-  { ok: true, pending: has_pending }
+  { ok: true, pending: has_pending, }
 }
 
 ///|
@@ -3460,7 +3460,7 @@ fn cl_tail_reuse_facts_with_visits(
     }
   }
   (
-    { last_get, first_effective_write, source_safe, source_read_after_write },
+    { last_get, first_effective_write, source_safe, source_read_after_write, },
     visited_actions,
   )
 }
@@ -4292,7 +4292,7 @@ fn cl_color_with_order(
       }
     }
   }
-  { old_to_new, slot_types: body_slot_types, removed_copies }
+  { old_to_new, slot_types: body_slot_types, removed_copies, }
 }
 
 ///|
@@ -5378,7 +5378,7 @@ fn cl_legacy_flow(
   falls_through : Bool,
   assigned : Bool,
 ) -> CLLegacyDefAssignFlow {
-  { safe, falls_through, assigned }
+  { safe, falls_through, assigned, }
 }
 
 ///|
@@ -5628,7 +5628,7 @@ fn cl_rewrite_legacy_func_safe(
   let cleanup_changed = cl_remove_redundant_copy_pairs(rewritten_instrs)
   let rewritten_locals = @lib.Locals::from_types(body_slot_types)
   if !changed && !cleanup_changed && rewritten_locals == body_locals {
-    { func, changed: false }
+    { func, changed: false, }
   } else {
     {
       func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
@@ -5822,7 +5822,7 @@ fn cl_rewrite_all_unused_func(
   let truncated_tail = cl_truncate_dead_tails(rewritten_instrs)
   let control_changed = flattened_control || truncated_tail
   if !changed && !control_changed && rewritten_locals == body_locals {
-    Some({ func, changed: false })
+    Some({ func, changed: false, })
   } else {
     Some({
       func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
@@ -6000,7 +6000,7 @@ fn cl_cleanup_never_read_tees(
   let unread_changed = cl_remove_unread_local_tees(instrs, gets)
   let dead_tee_changed = cl_remove_linear_dead_tees(instrs, total_locals)
   if unread_changed || dead_tee_changed {
-    { func: @lib.Func::new(locals, @lib.Expr::new(instrs)), changed: true }
+    { func: @lib.Func::new(locals, @lib.Expr::new(instrs)), changed: true, }
   } else {
     rewrite
   }
@@ -6113,7 +6113,7 @@ fn cl_cfg_collect_block_actions(
         func, node_id, block_id, seen_stamps, actions, node_ids,
       )
     }
-    out.push({ actions, node_ids })
+    out.push({ actions, node_ids, })
   }
   out
 }
@@ -6419,7 +6419,7 @@ fn cl_cfg_sparse_color_with_order(
       }
     }
   }
-  { old_to_new, slot_types: body_slot_types, removed_copies }
+  { old_to_new, slot_types: body_slot_types, removed_copies, }
 }
 
 ///|
@@ -6641,11 +6641,11 @@ fn cl_rewrite_loop_func_cfg(
   if body_locals.length() <= 1 ||
     total_locals > cl_dense_coloring_local_limit() ||
     cl_instrs_have_legacy_try(original_instrs) {
-    return { func, changed: false }
+    return { func, changed: false, }
   }
   let hot = match @ir.hot_lift_func_with_context_result(mod_, func_idx, ctx) {
     Ok(hot) => hot
-    Err(_) => return { func, changed: false }
+    Err(_) => return { func, changed: false, }
   }
   let cfg = @ir.cfg_build(hot)
   let use_def = @ir.use_def_build(hot, cfg=Some(cfg))
@@ -6658,7 +6658,7 @@ fn cl_rewrite_loop_func_cfg(
   let raw_actions : Array[CLAction] = []
   cl_collect_instrs(original_instrs, raw_actions, total_locals)
   if cfg_action_count != raw_actions.length() {
-    return { func, changed: false }
+    return { func, changed: false, }
   }
   let (interferences, ineffective_sets, ineffective_tees) = cl_cfg_compute_interferences(
     cfg,
@@ -6690,13 +6690,13 @@ fn cl_rewrite_loop_func_cfg(
   }
   let @lib.Func(base_locals, @lib.Expr(base_instrs)) = rewrite_base
   if base_locals != body_locals {
-    return { func: rewrite_base, changed: true }
+    return { func: rewrite_base, changed: true, }
   }
   if rewritten_locals == body_locals &&
     cl_old_to_new_is_identity(coloring.old_to_new) &&
     ineffective_sets.length() == 0 &&
     ineffective_tees.length() == 0 {
-    return { func, changed: false }
+    return { func, changed: false, }
   }
   let rewritten_instrs = cl_deep_copy_instrs(base_instrs)
   cl_rewrite_all_local_idxs_in_place(rewritten_instrs, coloring.old_to_new)
@@ -6912,7 +6912,7 @@ fn cl_rewrite_func(
   let @lib.Func(body_locals, body) = func
   let body_local_count = body_locals.length()
   if body_local_count == 0 {
-    return { func, changed: false }
+    return { func, changed: false, }
   }
   let @lib.Expr(original_instrs) = body
   match cl_rewrite_single_body_local_param_fast(func, params).0 {
@@ -6943,7 +6943,7 @@ fn cl_rewrite_func(
     )
   }
   if params.length() + body_local_count > cl_dense_coloring_local_limit() {
-    return { func, changed: false }
+    return { func, changed: false, }
   }
   let has_structured_control = cl_instrs_have_structured_control(
     original_instrs,
@@ -7014,7 +7014,7 @@ fn cl_rewrite_func(
     !cl_old_to_new_is_identity(coloring.old_to_new) ||
     rewritten_locals != body_locals
   if !changed {
-    return { func, changed: false }
+    return { func, changed: false, }
   }
   {
     func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
@@ -7103,7 +7103,7 @@ fn cl_name_sec_without_local_names(name_sec : @lib.NameSec?) -> @lib.NameSec? {
         data_names,
         field_names,
         tag_names,
-        ..,
+        ..
       } = sec
       Some(
         @lib.NameSec::new(
@@ -7525,7 +7525,7 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
             params,
           )
         } else {
-          { func: funcs[code_idx], changed: false }
+          { func: funcs[code_idx], changed: false, }
         }
         let rewrite_input = if cfg_rewrite.changed {
           cfg_rewrite.func

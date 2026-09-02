@@ -1032,7 +1032,7 @@ fn precompute_partial_i32_select_for_node(
     Some(value) => value
     None => return None
   }
-  Some({ condition_id: inner.condition_id, true_value, false_value })
+  Some({ condition_id: inner.condition_id, true_value, false_value, })
 }
 
 ///|
@@ -1991,7 +1991,7 @@ fn precompute_partial_known_heap_select_for_node(
         Some(value) => value
         None => return None
       }
-      Some({ condition_id: inner.condition_id, true_value, false_value })
+      Some({ condition_id: inner.condition_id, true_value, false_value, })
     }
     _ => None
   }
@@ -2072,7 +2072,7 @@ fn precompute_try_partial_heap_select_parent(
         Some(value) => KnownEmit(@lib.Instruction::i32_const(@lib.I32(value)))
         None => return false
       }
-      { condition_id: inner.condition_id, true_value, false_value }
+      { condition_id: inner.condition_id, true_value, false_value, }
     }
     _ => {
       match @ir.hot_node_exact_instr(func, node_id) {
@@ -11772,7 +11772,7 @@ fn precompute_propagate_prefix_fold_local_gets(
         allocation_values,
       )
       if allocation >= 0 {
-        identity_folds.push({ node_id, value: @lib.I32(0) })
+        identity_folds.push({ node_id, value: @lib.I32(0), })
       }
     }
     match @ir.hot_node_exact_instr(func, node_id) {
@@ -11794,7 +11794,7 @@ fn precompute_propagate_prefix_fold_local_gets(
             allocation_values,
           )
           if allocation_id >= 0 {
-            allocation_folds.push({ node_id, allocation_id })
+            allocation_folds.push({ node_id, allocation_id, })
           }
         }
       }
@@ -11881,7 +11881,7 @@ fn precompute_propagate_prefix_fold_local_gets(
         let local_id = @ir.hot_node_get(func, node_id).imm0
         match result_if_direct_get_consts[node_id] {
           Some(payload) => {
-            replacements.push({ node_id, payload })
+            replacements.push({ node_id, payload, })
             continue
           }
           None => ()
@@ -11921,7 +11921,7 @@ fn precompute_propagate_prefix_fold_local_gets(
           precompute_propagate_prefix_const_for_value(
             ctx, func, ssa, label_used, value_id, states, value_consts,
           ) {
-          Some(payload) => replacements.push({ node_id, payload })
+          Some(payload) => replacements.push({ node_id, payload, })
           None => ()
         }
       }

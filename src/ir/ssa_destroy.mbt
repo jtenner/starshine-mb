@@ -12,7 +12,7 @@ pub fn HotSsaCopy::new(
   if source_local < 0 || target_local < 0 {
     abort("ssa copies require non-negative local ids")
   }
-  { source_local, target_local }
+  { source_local, target_local, }
 }
 
 ///|
@@ -26,7 +26,7 @@ pub fn HotSsaConcreteLocals::new(
   value_locals? : Array[LocalId] = [],
   extra_local_types? : Array[ValType] = [],
 ) -> HotSsaConcreteLocals {
-  { value_locals, extra_local_types }
+  { value_locals, extra_local_types, }
 }
 
 ///|
@@ -60,7 +60,7 @@ fn ssa_destroy_block_region_ref(block : HotBlockInfo) -> HotRegionRef {
   if block.region_holder == HOT_NONE_NODE {
     return HotRegionRef::root()
   }
-  { holder: block.region_holder }
+  { holder: block.region_holder, }
 }
 
 ///|
@@ -196,10 +196,10 @@ fn ssa_destroy_push_pending_insert(
   }
   if group_idx < 0 {
     group_idx = groups.length()
-    groups.push({ region_ref, inserts: [] })
+    groups.push({ region_ref, inserts: [], })
   }
   let inserts = groups[group_idx].inserts
-  inserts.push({ insert_idx, nodes, order })
+  inserts.push({ insert_idx, nodes, order, })
   for idx = inserts.length() - 1; idx > 0; idx = idx - 1 {
     if !ssa_destroy_pending_insert_before(inserts[idx], inserts[idx - 1]) {
       break
@@ -278,7 +278,7 @@ pub fn ssa_assign_concrete_locals(
         }
     }
   }
-  { value_locals, extra_local_types }
+  { value_locals, extra_local_types, }
 }
 
 ///|
@@ -291,7 +291,7 @@ pub fn ssa_rewrite_local_use(
   let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee =>
-      hot_node_set(func, node_id, { ..node, imm0: local_id })
+      hot_node_set(func, node_id, { ..node, imm0: local_id, })
     _ =>
       abort("ssa local rewrites require a local_get/local_set/local_tee node")
   }

@@ -424,7 +424,7 @@ pub fn ssa_nomerge_build_rewrite_plan(
       _ => ()
     }
   }
-  { write_rewrites: writes, get_rewrites: gets }
+  { write_rewrites: writes, get_rewrites: gets, }
 }
 
 ///|

@@ -515,12 +515,12 @@ fn merge_locals_run_raw_straight_line_func(
 ) -> MergeLocalsRawRewrite {
   let @lib.Func(locals, @lib.Expr(original)) = func
   if !merge_locals_raw_is_straight_line(original) {
-    return { supported: false, func, changed: false }
+    return { supported: false, func, changed: false, }
   }
   let local_types = merge_locals_raw_local_types(params, locals)
   let candidates = merge_locals_raw_candidates(original, local_types.length())
   if candidates.is_empty() {
-    return { supported: true, func, changed: false }
+    return { supported: true, func, changed: false, }
   }
   let influences = merge_locals_raw_build_influences(
     original,
@@ -587,7 +587,7 @@ fn merge_locals_run_raw_straight_line_func(
     }
   }
   if kept == 0 {
-    { supported: true, func, changed: false }
+    { supported: true, func, changed: false, }
   } else {
     {
       supported: true,

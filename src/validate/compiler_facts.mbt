@@ -1607,7 +1607,7 @@ fn compiler_fact_opcode_index(
   imported_functions : Int,
 ) -> Result[CompilerFactOpcodeIndex, String] {
   match @binary.compiler_fact_module_opcode_sites(module_) {
-    Ok(defined_sites) => Ok({ imported_functions, defined_sites })
+    Ok(defined_sites) => Ok({ imported_functions, defined_sites, })
     Err(err) =>
       Err(
         "compiler facts could not index encoded function instructions: \{err}",
