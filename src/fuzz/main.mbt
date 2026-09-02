@@ -3141,7 +3141,10 @@ fn emit_gen_valid_batch_config() -> GenValidConfig {
 pub struct GenValidBatchManifestEntry {
   file_name : String
   seed : UInt64
+  case_seed : UInt64
   index : Int
+  wasm_hash : String
+  static_instruction_count : Int
   config_label : String
   selected_profile : String
   profile_case_label : String?
@@ -3588,20 +3591,8 @@ fn gen_valid_coverage_contributes(
 }
 
 ///|
-fn emit_gen_valid_batch_harness_stream_seed(seed : UInt64) -> UInt64 {
-  let mut stream_seed = seed
-  for label in gen_valid_random_stream_labels() {
-    if gen_valid_random_stream_label_name(label) == "harness-shuffling" {
-      stream_seed = gen_valid_derive_stream_seed(seed, label)
-    }
-  }
-  stream_seed
-}
-
-///|
 fn emit_gen_valid_batch_candidate_seed(seed : UInt64, index : Int) -> UInt64 {
-  emit_gen_valid_batch_harness_stream_seed(seed) ^
-  (index.to_uint64() * 0x9e3779b97f4a7c15UL)
+  @validate.gen_valid_case_seed(seed, index)
 }
 
 ///|
@@ -3718,6 +3709,12 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
   max_attempts : Int,
   metamorphic_transform_ids? : Array[String] = [],
 ) -> Result[GenValidCoverageSelection, String] {
+  if gen_valid_config_label(config).starts_with("engine-state-") &&
+    !metamorphic_transform_ids.is_empty() {
+    return Err(
+      "engine-state profiles do not support generic metamorphic transforms",
+    )
+  }
   if count < 0 {
     return Err("count must be non-negative")
   }
@@ -3824,7 +3821,12 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
     manifest.push({
       file_name,
       seed,
+      case_seed: emit_gen_valid_batch_candidate_seed(seed, attempts),
       index: selected,
+      wasm_hash: fuzz_corpus_hash_bytes(bytes),
+      static_instruction_count: gen_valid_engine_state_static_instruction_count(
+        artifact_module,
+      ),
       config_label: generated.config_label,
       selected_profile: generated.config_label,
       profile_case_label: None,
@@ -3867,6 +3869,12 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
   max_attempts : Int,
   metamorphic_transform_ids? : Array[String] = [],
 ) -> Result[GenValidCoverageSelection, String] {
+  if gen_valid_profile_name(profile).starts_with("engine-state-") &&
+    !metamorphic_transform_ids.is_empty() {
+    return Err(
+      "engine-state profiles do not support generic metamorphic transforms",
+    )
+  }
   if count < 0 {
     return Err("count must be non-negative")
   }
@@ -3983,7 +3991,12 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
     manifest.push({
       file_name,
       seed,
+      case_seed: emit_gen_valid_batch_candidate_seed(seed, attempts),
       index: selected,
+      wasm_hash: fuzz_corpus_hash_bytes(bytes),
+      static_instruction_count: gen_valid_engine_state_static_instruction_count(
+        artifact_module,
+      ),
       config_label: if gen_valid_profile_is_composite(profile) {
         requested_profile_label
       } else {
@@ -4011,6 +4024,11 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
     return Err(
       "gen-valid coverage selection unmet feature floors after \{attempts} attempts: selected=\{selected}/\{count} skipped=\{skipped_candidates} \{gen_valid_coverage_floor_failures_message(floor_failures)}",
     )
+  }
+  match
+    gen_valid_engine_state_selection_contract_error(profile, seed, manifest) {
+    Some(message) => return Err(message)
+    None => ()
   }
   Ok({
     artifacts,
@@ -4064,7 +4082,12 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
     manifest.push({
       file_name,
       seed,
+      case_seed: emit_gen_valid_batch_candidate_seed(seed, i + 1),
       index: i + 1,
+      wasm_hash: fuzz_corpus_hash_bytes(bytes),
+      static_instruction_count: gen_valid_engine_state_static_instruction_count(
+        generated.wasm_module,
+      ),
       config_label: generated.config_label,
       selected_profile: generated.config_label,
       profile_case_label: None,
@@ -5398,13 +5421,205 @@ fn format_gen_valid_batch_transform_ids_json(ids : Array[String]) -> String {
 }
 
 ///|
+fn gen_valid_engine_state_static_instruction_count(mod_ : @lib.Module) -> Int {
+  @validate.gen_valid_engine_state_static_instruction_count(mod_)
+}
+
+///|
+fn gen_valid_engine_state_selection_contract_error(
+  profile : GenValidProfile,
+  root_seed : UInt64,
+  manifest : Array[GenValidBatchManifestEntry],
+) -> String? {
+  let profile_name = gen_valid_profile_name(profile)
+  if !profile_name.starts_with("engine-state-") {
+    return None
+  }
+  let mut i = 0
+  while i < manifest.length() {
+    let item = manifest[i]
+    if !gen_valid_engine_state_manifest_profile(item.selected_profile) {
+      return Some(
+        "engine-state selection emitted non-engine leaf at index \{i + 1}: \{item.selected_profile}",
+      )
+    }
+    if item.transform_id is Some(_) {
+      return Some(
+        "engine-state selection emitted transformed case at index \{i + 1}",
+      )
+    }
+    if item.static_instruction_count > 512 {
+      return Some(
+        "engine-state selection exceeded static instruction budget at index \{i + 1}: \{item.static_instruction_count}",
+      )
+    }
+    let expected = gen_valid_profile_name(
+      gen_valid_profile_leaf_for_case(profile, root_seed, i + 1),
+    )
+    if expected != item.selected_profile {
+      return Some(
+        "engine-state deterministic leaf mismatch at index \{i + 1}: expected \{expected}, got \{item.selected_profile}",
+      )
+    }
+    i += 1
+  }
+  if profile_name == "engine-state-all" && manifest.length() >= 20 {
+    for entry in @validate.gen_valid_profile_members(profile) {
+      let expected_name = gen_valid_profile_name(entry.profile)
+      if !manifest.any(fn(item) { item.selected_profile == expected_name }) {
+        return Some(
+          "engine-state aggregate missed required singleton leaf \{expected_name}",
+        )
+      }
+    }
+  }
+  None
+}
+
+///|
+fn gen_valid_engine_state_manifest_profile(name : String) -> Bool {
+  name.starts_with("engine-state-") && name != "engine-state-all"
+}
+
+///|
+fn format_gen_valid_engine_state_observation_map(profile : String) -> String {
+  match profile {
+    "engine-state-scalar-control" =>
+      "[{\"id\":0,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":1,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":2,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":3,\"function_index\":7,\"result_index\":1,\"wasm_type\":\"i64\",\"encoding\":\"observe_i64\"},{\"id\":4,\"function_index\":8,\"result_index\":0,\"wasm_type\":\"f32\",\"encoding\":\"i32.reinterpret_f32\"},{\"id\":5,\"function_index\":8,\"result_index\":1,\"wasm_type\":\"f64\",\"encoding\":\"i64.reinterpret_f64\"}]"
+    "engine-state-calls" =>
+      "[{\"id\":10,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":11,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":12,\"function_index\":8,\"result_index\":0,\"wasm_type\":\"f32\",\"encoding\":\"i32.reinterpret_f32\"},{\"id\":13,\"function_index\":8,\"result_index\":1,\"wasm_type\":\"f64\",\"encoding\":\"i64.reinterpret_f64\"}]"
+    "engine-state-memory" =>
+      "[{\"id\":20,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":21,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":22,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-table" =>
+      "[{\"id\":30,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":31,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-simd" =>
+      "[{\"id\":40,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":41,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"v128\",\"encoding\":\"memory[128..144)\"},{\"id\":42,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"v128\",\"encoding\":\"memory[160..176)\"}]"
+    "engine-state-imports" =>
+      "[{\"id\":50,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":51,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":52,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-initialization" =>
+      "[{\"id\":60,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":61,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":62,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-trap" =>
+      "[{\"id\":70,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":71,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":72,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    _ =>
+      "[{\"id\":80,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":81,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":82,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":83,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"v128\",\"encoding\":\"memory[128..144)\"}]"
+  }
+}
+
+///|
+fn gen_valid_engine_state_feature_labels(profile : String) -> Array[String] {
+  match profile {
+    "engine-state-scalar-control" =>
+      [
+        "scalar-results", "multi-value-call", "taken-and-untaken-branch", "bounded-loop",
+        "global-mutation",
+      ]
+    "engine-state-calls" =>
+      [
+        "direct-call", "indirect-call", "call-chain", "active-element-initialization",
+      ]
+    "engine-state-memory" =>
+      [
+        "memory-load-store", "memory-fill", "memory-growth", "active-data-initialization",
+      ]
+    "engine-state-table" =>
+      [
+        "table-mutation", "table-growth", "indirect-call", "active-element-initialization",
+      ]
+    "engine-state-simd" => ["simd-result", "observation-memory"]
+    "engine-state-imports" =>
+      ["import-call", "imported-return-value", "imported-resource-mutation"]
+    "engine-state-initialization" =>
+      [
+        "start-order", "active-data-initialization", "active-element-initialization",
+        "resource-alias",
+      ]
+    "engine-state-trap" =>
+      ["observable-prefix", "post-effect-trap", "imported-resource-mutation"]
+    _ =>
+      [
+        "scalar-results", "direct-call", "indirect-call", "memory-mutation", "table-mutation",
+        "global-mutation", "simd-result", "active-data-initialization", "active-element-initialization",
+      ]
+  }
+}
+
+///|
+fn format_gen_valid_engine_state_execution_facts(profile : String) -> String {
+  let out = StringBuilder::new()
+  out.write_char('[')
+  let labels = gen_valid_engine_state_feature_labels(profile)
+  let mut i = 0
+  while i < labels.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_string(
+      "{\"feature\":\"\{fuzz_json_escape(labels[i])}\",\"present_in_module\":true,\"reachable_from_start\":true,\"executed_by_driver\":true,\"observable_after_execution\":true}",
+    )
+    i += 1
+  }
+  out.write_char(']')
+  out.to_string()
+}
+
+///|
+fn format_gen_valid_engine_state_resource_map(profile : String) -> String {
+  match profile {
+    "engine-state-scalar-control" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\"]}]"
+    "engine-state-calls" | "engine-state-table" =>
+      "[{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-memory" | "engine-state-simd" =>
+      "[{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]}]"
+    "engine-state-imports" | "engine-state-trap" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-initialization" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\",\"__fuzz_global_alias_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\",\"__fuzz_memory_alias_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\",\"__fuzz_table_alias_0\"]}]"
+    _ =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
+  }
+}
+
+///|
+fn format_gen_valid_engine_state_manifest_entry(
+  item : GenValidBatchManifestEntry,
+) -> String {
+  if !gen_valid_engine_state_manifest_profile(item.selected_profile) {
+    return "null"
+  }
+  let trapping = item.selected_profile == "engine-state-trap"
+  let trap_class = if trapping {
+    "\"\{@validate.gen_valid_engine_state_trap_family(item.case_seed)}\""
+  } else {
+    "null"
+  }
+  let completion_marker = if trapping { "null" } else { "2147483647" }
+  let pre_trap_marker = if trapping { "1879048192" } else { "null" }
+  let outcome = if trapping { "trap" } else { "complete" }
+  let trap_contract = if trapping {
+    "\"complete-externally-committed-prefix\""
+  } else {
+    "null"
+  }
+  let resources = format_gen_valid_engine_state_resource_map(
+    item.selected_profile,
+  )
+  "{\"engine_state_schema\":\"starshine.gen-valid.engine-state.v1\",\"profile_version\":1,\"generator_build_identity\":\"starshine-gen-valid-engine-state-v1\",\"root_seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"case_index\":\{item.index},\"selected_leaf\":\"\{fuzz_json_escape(item.selected_profile)}\",\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\",\"intended_outcome\":\"\{outcome}\",\"trap_class\":\{trap_class},\"trap_observation_contract\":\{trap_contract},\"completion_marker\":\{completion_marker},\"pre_trap_marker\":\{pre_trap_marker},\"fuzz_abi\":{\"module\":\"__fuzz\",\"input_i32\":\"(i32)->i32\",\"input_i64\":\"(i32)->i64\",\"mark\":\"(i32)->()\",\"observe_i32\":\"(i32,i32)->()\",\"observe_i64\":\"(i32,i64)->()\",\"input_derivation\":\"splitmix64(case_seed,channel)\"},\"resource_map\":\{resources},\"synthetic_export_map\":\{resources},\"observation_map\":\{format_gen_valid_engine_state_observation_map(item.selected_profile)},\"reachable_feature_facts\":\{format_gen_valid_engine_state_execution_facts(item.selected_profile)},\"feature_toggles\":{\"scalar\":true,\"structured_control\":true,\"direct_calls\":true,\"multiple_results\":true,\"bulk_memory\":true,\"reference_types\":true,\"simd\":\{item.selected_profile == "engine-state-simd" || item.selected_profile == "engine-state-mixed"},\"relaxed_simd\":false,\"tail_calls\":false,\"exceptions\":false,\"gc\":false,\"shared_memory\":false,\"atomics\":false,\"memory64\":false},\"static_instruction_count\":\{item.static_instruction_count},\"budgets\":{\"defined_functions_min\":4,\"defined_functions_max\":12,\"types_max\":12,\"params_max\":4,\"results_max\":3,\"locals_max\":12,\"body_depth_max\":5,\"static_instruction_limit\":512,\"dynamic_instruction_limit\":5000,\"encoded_size_typical\":16384,\"encoded_size_limit\":65536,\"initial_memory_pages_typical\":1,\"initial_memory_pages_limit\":2,\"table_entries_limit\":32,\"globals_limit\":12,\"segment_payload_limit\":4096,\"loop_trip_limit\":16},\"hidden_state_policy\":{\"passive_data\":false,\"passive_elements\":false,\"unexported_mutable_resources\":false,\"gc_objects\":false,\"continuations\":false,\"shared_memory\":false,\"wait_notify\":false,\"nondeterministic_host_references\":false},\"nan_policy\":\"strict-bits\",\"relaxed_operation_policy\":\"disabled\"}"
+}
+
+///|
 fn format_gen_valid_batch_manifest_json(
   args : EmitGenValidBatchArgs,
   selection : GenValidCoverageSelection,
 ) -> String {
   let out = StringBuilder::new()
+  let acceptance_contract = if args.profile.starts_with("engine-state-") {
+    "{\"generation_floor_status\":\"met\",\"weighted_cycle_cases\":20,\"runtime_floor_keys\":[\"successful_starts\",\"intended_traps_by_family\",\"distinct_state_hashes\",\"scalar_result_types\",\"multi_value_calls\",\"direct_calls\",\"indirect_calls\",\"taken_and_untaken_branches\",\"bounded_loop_execution\",\"global_mutations\",\"memory_mutations\",\"table_mutations\",\"memory_growth\",\"table_growth\",\"import_calls\",\"imported_return_values\",\"active_data_initialization\",\"active_element_initialization\",\"simd_results\",\"post_effect_traps\",\"complete_observations\",\"every_singleton_leaf\"]}"
+  } else {
+    "null"
+  }
   out.write_string(
-    "{\"generator\":\"gen-valid\",\"seed\":\{args.seed},\"count\":\{args.count},\"profile\":\"\{fuzz_json_escape(args.profile)}\",\"max_attempts\":\{args.max_attempts},\"attempts\":\{selection.attempts},\"selected\":\{selection.selected},\"skipped_candidates\":\{selection.skipped_candidates},\"metamorphic_transform_ids\":\{format_gen_valid_batch_transform_ids_json(args.metamorphic_transform_ids)},\"required_features\":\{format_validate_valid_feature_floors_json(args.required_features)},\"excluded_features\":\{format_gen_valid_batch_feature_keys_json(args.excluded_features)},\"feature_stats\":\{format_gen_valid_feature_stats_json(selection.feature_stats)},\"stream_derivations\":\{format_gen_valid_stream_derivations_json(args.seed)},\"records\":[",
+    "{\"schema\":\"starshine.gen-valid.batch.v2\",\"generator\":\"gen-valid\",\"seed\":\{args.seed},\"count\":\{args.count},\"profile\":\"\{fuzz_json_escape(args.profile)}\",\"acceptance_contract\":\{acceptance_contract},\"max_attempts\":\{args.max_attempts},\"attempts\":\{selection.attempts},\"selected\":\{selection.selected},\"skipped_candidates\":\{selection.skipped_candidates},\"metamorphic_transform_ids\":\{format_gen_valid_batch_transform_ids_json(args.metamorphic_transform_ids)},\"required_features\":\{format_validate_valid_feature_floors_json(args.required_features)},\"excluded_features\":\{format_gen_valid_batch_feature_keys_json(args.excluded_features)},\"feature_stats\":\{format_gen_valid_feature_stats_json(selection.feature_stats)},\"stream_derivations\":\{format_gen_valid_stream_derivations_json(args.seed)},\"records\":[",
   )
   let mut i = 0
   while i < selection.manifest.length() {
@@ -5433,7 +5648,7 @@ fn format_gen_valid_batch_manifest_json(
       None => "null"
     }
     out.write_string(
-      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"base_file_name\":\{base_file_json},\"relation_group_id\":\{relation_group_json},\"seed\":\{item.seed},\"index\":\{item.index},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(item.selected_profile)}\",\"profile_case_label\":\{profile_case_json},\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"transform_id\":\{transform_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)}}",
+      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"base_file_name\":\{base_file_json},\"relation_group_id\":\{relation_group_json},\"seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"index\":\{item.index},\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\",\"static_instruction_count\":\{item.static_instruction_count},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(item.selected_profile)}\",\"profile_case_label\":\{profile_case_json},\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"transform_id\":\{transform_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)},\"engine_state\":\{format_gen_valid_engine_state_manifest_entry(item)}}",
     )
     i += 1
   }
@@ -5469,6 +5684,12 @@ fn emit_gen_valid_batch_selection(
 fn emit_gen_valid_batch_to_dir(
   args : EmitGenValidBatchArgs,
 ) -> Result[GenValidCoverageSelection, String] {
+  if args.profile.starts_with("engine-state-") &&
+    !args.metamorphic_transform_ids.is_empty() {
+    return Err(
+      "engine-state profiles do not support generic metamorphic transforms",
+    )
+  }
   if args.count < 0 {
     return Err("count must be non-negative")
   }
@@ -5644,7 +5865,12 @@ fn emit_gen_valid_batch_to_dir(
     manifest.push({
       file_name,
       seed: args.seed,
+      case_seed: emit_gen_valid_batch_candidate_seed(args.seed, attempts),
       index: selected,
+      wasm_hash: fuzz_corpus_hash_bytes(bytes),
+      static_instruction_count: gen_valid_engine_state_static_instruction_count(
+        artifact_module,
+      ),
       config_label: if gen_valid_profile_is_composite(profile) {
         gen_valid_profile_name(profile)
       } else {
@@ -5673,6 +5899,15 @@ fn emit_gen_valid_batch_to_dir(
     return Err(
       "gen-valid coverage selection unmet feature floors after \{attempts} attempts: selected=\{selected}/\{args.count} skipped=\{skipped_candidates} \{gen_valid_coverage_floor_failures_message(floor_failures)}",
     )
+  }
+  match
+    gen_valid_engine_state_selection_contract_error(
+      profile,
+      args.seed,
+      manifest,
+    ) {
+    Some(message) => return Err(message)
+    None => ()
   }
   let selection = {
     artifacts: [],

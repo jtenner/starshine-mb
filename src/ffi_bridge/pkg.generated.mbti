@@ -21,6 +21,8 @@ pub fn funcs_push_runtime(Array[@lib.Func], RuntimeFunctionBuilder) -> Bool
 
 pub fn function_reference_builder_new() -> FunctionReferenceBuilder
 
+pub fn generate_engine_state_case(UInt64, Int) -> EncodedEngineStateCase
+
 pub fn global_builder_new() -> GlobalBuilder
 
 pub fn import_builder_new(Int) -> ImportBuilder
@@ -94,6 +96,34 @@ pub fn wasi_preview1_fd_write_schema() -> WasiPreview1Schema
 // Errors
 
 // Types and methods
+pub struct EncodedEngineStateCase {
+  encoded : EncodedModule
+  error : Bytes
+  root_seed : UInt64
+  case_seed : UInt64
+  case_index : Int
+  selected_profile : Bytes
+  generator_attempts : Int
+  static_instruction_count : Int
+  expects_trap : Bool
+  trap_family : Bytes
+}
+pub fn EncodedEngineStateCase::case_index(Self) -> Int
+pub fn EncodedEngineStateCase::case_seed(Self) -> UInt64
+pub fn EncodedEngineStateCase::error_byte_at(Self, UInt) -> Byte
+pub fn EncodedEngineStateCase::error_byte_length(Self) -> UInt
+pub fn EncodedEngineStateCase::expects_trap(Self) -> Bool
+pub fn EncodedEngineStateCase::generator_attempts(Self) -> Int
+pub fn EncodedEngineStateCase::is_ok(Self) -> Bool
+pub fn EncodedEngineStateCase::module_byte_at(Self, UInt) -> Byte
+pub fn EncodedEngineStateCase::module_byte_length(Self) -> UInt
+pub fn EncodedEngineStateCase::root_seed(Self) -> UInt64
+pub fn EncodedEngineStateCase::selected_profile_byte_at(Self, UInt) -> Byte
+pub fn EncodedEngineStateCase::selected_profile_byte_length(Self) -> UInt
+pub fn EncodedEngineStateCase::static_instruction_count(Self) -> Int
+pub fn EncodedEngineStateCase::trap_family_byte_at(Self, UInt) -> Byte
+pub fn EncodedEngineStateCase::trap_family_byte_length(Self) -> UInt
+
 pub struct EncodedModule {
   bytes : Bytes?
 }

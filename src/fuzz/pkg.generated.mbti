@@ -589,7 +589,10 @@ pub struct GenValidBatchArtifacts {
 pub struct GenValidBatchManifestEntry {
   file_name : String
   seed : UInt64
+  case_seed : UInt64
   index : Int
+  wasm_hash : String
+  static_instruction_count : Int
   config_label : String
   selected_profile : String
   profile_case_label : String?

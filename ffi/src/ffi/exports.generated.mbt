@@ -661,6 +661,16 @@ pub fn ffi_ffi_bridge_function_reference_builder_new() -> @ffi_bridge.FunctionRe
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_generate_engine_state_case")
+pub fn ffi_ffi_bridge_generate_engine_state_case(
+  value0 : UInt64,
+  value1 : Int,
+) -> @ffi_bridge.EncodedEngineStateCase {
+  @ffi_bridge.generate_engine_state_case(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_global_builder_new")
 pub fn ffi_ffi_bridge_global_builder_new() -> @ffi_bridge.GlobalBuilder {
   @ffi_bridge.global_builder_new()
@@ -976,6 +986,145 @@ pub fn ffi_ffi_bridge_wasi_preview1_fd_read_schema() -> @ffi_bridge.WasiPreview1
 #export_name("ffi_ffi_bridge_wasi_preview1_fd_write_schema")
 pub fn ffi_ffi_bridge_wasi_preview1_fd_write_schema() -> @ffi_bridge.WasiPreview1Schema {
   @ffi_bridge.wasi_preview1_fd_write_schema()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_case_index")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_case_index(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> Int {
+  @ffi_bridge.EncodedEngineStateCase::case_index(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_case_seed")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_case_seed(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> UInt64 {
+  @ffi_bridge.EncodedEngineStateCase::case_seed(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_error_byte_at")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_error_byte_at(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+  value1 : UInt,
+) -> Byte {
+  @ffi_bridge.EncodedEngineStateCase::error_byte_at(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_error_byte_length")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_error_byte_length(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> UInt {
+  @ffi_bridge.EncodedEngineStateCase::error_byte_length(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_expects_trap")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_expects_trap(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> Bool {
+  @ffi_bridge.EncodedEngineStateCase::expects_trap(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_generator_attempts")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_generator_attempts(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> Int {
+  @ffi_bridge.EncodedEngineStateCase::generator_attempts(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_is_ok")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_is_ok(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> Bool {
+  @ffi_bridge.EncodedEngineStateCase::is_ok(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_module_byte_at")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_module_byte_at(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+  value1 : UInt,
+) -> Byte {
+  @ffi_bridge.EncodedEngineStateCase::module_byte_at(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_module_byte_length")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_module_byte_length(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> UInt {
+  @ffi_bridge.EncodedEngineStateCase::module_byte_length(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_root_seed")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_root_seed(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> UInt64 {
+  @ffi_bridge.EncodedEngineStateCase::root_seed(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_at")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_at(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+  value1 : UInt,
+) -> Byte {
+  @ffi_bridge.EncodedEngineStateCase::selected_profile_byte_at(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_length")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_selected_profile_byte_length(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> UInt {
+  @ffi_bridge.EncodedEngineStateCase::selected_profile_byte_length(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_static_instruction_count")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_static_instruction_count(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> Int {
+  @ffi_bridge.EncodedEngineStateCase::static_instruction_count(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_at")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_at(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+  value1 : UInt,
+) -> Byte {
+  @ffi_bridge.EncodedEngineStateCase::trap_family_byte_at(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_length")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_trap_family_byte_length(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> UInt {
+  @ffi_bridge.EncodedEngineStateCase::trap_family_byte_length(receiver)
 }
 
 ///|
@@ -20403,6 +20552,16 @@ pub fn ffi_validate_gen_invalid_small_gen_valid_config(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_gen_valid_case_seed")
+pub fn ffi_validate_gen_valid_case_seed(
+  value0 : UInt64,
+  value1 : Int,
+) -> UInt64 {
+  @validate.gen_valid_case_seed(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_gen_valid_code_folding_profile_case_label")
 pub fn ffi_validate_gen_valid_code_folding_profile_case_label(
   value0 : @validate.GenValidProfile,
@@ -20496,6 +20655,31 @@ pub fn ffi_validate_gen_valid_duplicate_import_elimination_profile_case_label(
   @validate.gen_valid_duplicate_import_elimination_profile_case_label(
     value0, value1,
   )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_gen_valid_engine_state_profile")
+pub fn ffi_validate_gen_valid_engine_state_profile() -> @validate.GenValidProfile {
+  @validate.gen_valid_engine_state_profile()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_gen_valid_engine_state_static_instruction_count")
+pub fn ffi_validate_gen_valid_engine_state_static_instruction_count(
+  value0 : @lib.Module,
+) -> Int {
+  @validate.gen_valid_engine_state_static_instruction_count(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_gen_valid_engine_state_trap_family")
+pub fn ffi_validate_gen_valid_engine_state_trap_family(
+  value0 : UInt64,
+) -> String {
+  @validate.gen_valid_engine_state_trap_family(value0)
 }
 
 ///|

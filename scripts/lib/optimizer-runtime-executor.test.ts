@@ -394,4 +394,112 @@ describe("Node runtime observation v2", () => {
       { kind: "returned", values: [{ type: "i32", signed: 1, bits: "0x00000001" }] },
     ]);
   });
+
+  test("retains host-owned imported resources after a trapping start", async () => {
+    const { wasmPath } = compileWat(`(module
+      (import "__fuzz" "g" (global $g (mut i32)))
+      (import "__fuzz" "mem" (memory $mem 1 1))
+      (import "__fuzz" "tab" (table $tab 2 2 funcref))
+      (func $target)
+      (func $start
+        i32.const 7
+        global.set $g
+        i32.const 0
+        i32.const 42
+        i32.store
+        i32.const 0
+        ref.func $target
+        table.set $tab
+        unreachable)
+      (start $start)
+      (export "g" (global $g))
+      (export "mem" (memory $mem))
+      (export "tab" (table $tab))
+      (export "target" (func $target)))`);
+    const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+    const generated = buildInvocationPlanV2(runtimeInterface, { seed: 0x77n });
+    const observation = await executeNodeObservationV2WithTimeout(
+      wasmPath,
+      runtimeInterface,
+      { ...generated, steps: [] },
+      {
+        mode: "stateful",
+        timeoutMs: 1000,
+        memoryCapBytes: 65536,
+        tableEntryCap: 16,
+        seed: 0x77n,
+      },
+    );
+
+    expect(observation.compilation).toEqual({ status: "succeeded" });
+    expect(observation.instantiation).toMatchObject({
+      status: "trapped",
+      trapClass: "explicit-unreachable",
+    });
+    expect(observation.steps[0].outcome).toMatchObject({ kind: "trapped" });
+    expect(observation.resources.globals[0].value).toEqual({
+      type: "i32",
+      signed: 7,
+      bits: "0x00000007",
+    });
+    expect(observation.resources.memories[0].complete).toBe(true);
+    expect(observation.resources.tables[0].length).toBe(2);
+  });
+
+  test("derives fixed __fuzz input results from only case seed and channel", async () => {
+    const { wasmPath } = compileWat(`(module
+      (import "__fuzz" "input_i32" (func $input_i32 (param i32) (result i32)))
+      (import "__fuzz" "input_i64" (func $input_i64 (param i32) (result i64)))
+      (import "__fuzz" "mark" (func $mark (param i32)))
+      (import "__fuzz" "observe_i32" (func $observe_i32 (param i32 i32)))
+      (import "__fuzz" "observe_i64" (func $observe_i64 (param i32 i64)))
+      (global $g32 (export "g32") (mut i32) (i32.const 0))
+      (global $g64 (export "g64") (mut i64) (i64.const 0))
+      (func $start
+        i32.const 7
+        call $input_i32
+        global.set $g32
+        i32.const 9
+        call $input_i64
+        global.set $g64
+        i32.const 100
+        call $mark
+        i32.const 1
+        global.get $g32
+        call $observe_i32
+        i32.const 2
+        global.get $g64
+        call $observe_i64)
+      (start $start))`);
+    const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+    const plan = buildInvocationPlanV2(runtimeInterface, { seed: 0x51n });
+    const observe = (seed: bigint) => executeNodeObservationV2WithTimeout(
+      wasmPath,
+      runtimeInterface,
+      plan,
+      {
+        mode: "stateful",
+        timeoutMs: 1000,
+        memoryCapBytes: 1024,
+        tableEntryCap: 16,
+        seed,
+      },
+    );
+
+    const first = await observe(0x1234n);
+    const replay = await observe(0x1234n);
+    const otherSeed = await observe(0x1235n);
+    expect(first.compilation).toEqual({ status: "succeeded" });
+    expect(first.instantiation).toEqual({ status: "succeeded" });
+    expect(first.importTrace).toEqual(replay.importTrace);
+    expect(first.importTrace).not.toEqual(otherSeed.importTrace);
+    expect(first.importTrace?.map((event) => event.field)).toEqual([
+      "input_i32",
+      "input_i64",
+      "mark",
+      "observe_i32",
+      "observe_i64",
+    ]);
+    expect(first.resources.globals).not.toEqual(otherSeed.resources.globals);
+  });
 });

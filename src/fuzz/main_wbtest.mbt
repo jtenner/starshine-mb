@@ -3597,7 +3597,7 @@ test "gen-valid batch manifest stream derivations roundtrip through parser" {
       saw_harness = true
       @debug.assert_eq(
         derivation.derived_seed,
-        emit_gen_valid_batch_harness_stream_seed(0x51034UL),
+        @validate.gen_valid_case_seed(0x51034UL, 1) ^ 0x9e3779b97f4a7c15UL,
       )
     }
   }

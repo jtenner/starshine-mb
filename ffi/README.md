@@ -39,4 +39,47 @@ The compiler first exports C-safe wrapper names. The JavaScript build step rewri
 
 The `jtenner/starshine/ffi_bridge` package provides the small typed bridges needed by WasmGC consumers that cannot directly construct MoonBit generic arrays or inspect MoonBit `Result` values. It exposes mutable builders for the compiler-facing `ValType`, `RecType`, `TypeIdx`, `Instruction`, and `Func` arrays, an empty `Module` constructor, validation, and an `EncodedModule` byte inspector. These are object-model bridges, not a second command language.
 
+Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
+
+```text
+ffi_bridge::generate_engine_state_case(root_seed: i64, case_index: i32)
+  -> EncodedEngineStateCase
+```
+
+Case indexes are one-based. `EncodedEngineStateCase` exposes `is_ok`, root/case seed, case index, selected-profile bytes, generator attempts, static instruction count, intended-trap metadata, module bytes, and diagnostic bytes through scalar accessors. JavaScript must pass the root seed as a `BigInt`; use `BigInt.asUintN(64, value)` when reading either unsigned seed accessor. The bridge selects the leaf from the exact `engine-state-all` 20-case cycle and uses the same public case-seed derivation as CLI batch emission.
+
+The main byte-lifting calls are:
+
+```text
+EncodedEngineStateCase::module_byte_length
+EncodedEngineStateCase::module_byte_at
+EncodedEngineStateCase::error_byte_length
+EncodedEngineStateCase::error_byte_at
+```
+
+From this repository, Node can instantiate the distributable with the shared WasmGC runtime loader:
+
+```js
+import fs from "node:fs/promises";
+import { instantiateWasmGcBytes } from "../node/internal/runtime.js";
+
+const ffi = await instantiateWasmGcBytes(
+  await fs.readFile(new URL("../dist/ffi/starshine-ffi.wasm", import.meta.url)),
+);
+const generated = ffi["ffi_bridge::generate_engine_state_case"](0x5eedn, 1);
+if (!ffi["EncodedEngineStateCase::is_ok"](generated)) {
+  const length = ffi["EncodedEngineStateCase::error_byte_length"](generated);
+  const bytes = Uint8Array.from(
+    { length },
+    (_, index) => ffi["EncodedEngineStateCase::error_byte_at"](generated, index),
+  );
+  throw new Error(new TextDecoder().decode(bytes));
+}
+const length = ffi["EncodedEngineStateCase::module_byte_length"](generated);
+const moduleBytes = Uint8Array.from(
+  { length },
+  (_, index) => ffi["EncodedEngineStateCase::module_byte_at"](generated, index),
+);
+```
+
 `src/ffi/exports.generated.mbt`, `src/ffi/export-names.generated.json`, `src/ffi/moon.pkg`, and `src/ffi/unsupported.generated.json` are generated files and should not be edited manually.

@@ -21,6 +21,8 @@ function observation(overrides: Partial<RuntimeObservationV2> = {}): RuntimeObse
     schema: "starshine.optimizer-runtime-observation.v2",
     runtime: { identity: "node-test", timeoutMs: 1000 },
     mode: "stateful",
+    compilation: { status: "succeeded" },
+    instantiation: { status: "succeeded" },
     completeness: "complete",
     blockedReasons: [],
     steps: [],

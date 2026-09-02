@@ -49,6 +49,8 @@ pub fn gen_invalid_seed_mode_name(GenInvalidSeedMode) -> String
 
 pub fn gen_invalid_small_gen_valid_config(GenValidConfig) -> GenValidConfig
 
+pub fn gen_valid_case_seed(UInt64, Int) -> UInt64
+
 pub fn gen_valid_code_folding_profile_case_label(GenValidProfile, UInt64) -> String?
 
 pub fn gen_valid_config_label(GenValidConfig) -> String
@@ -68,6 +70,12 @@ pub fn gen_valid_derive_stream_seed(UInt64, GenValidRandomStreamLabel) -> UInt64
 pub fn gen_valid_directize_profile_case_label(GenValidProfile, UInt64) -> String?
 
 pub fn gen_valid_duplicate_import_elimination_profile_case_label(GenValidProfile, UInt64) -> String?
+
+pub fn gen_valid_engine_state_profile() -> GenValidProfile
+
+pub fn gen_valid_engine_state_static_instruction_count(@lib.Module) -> Int
+
+pub fn gen_valid_engine_state_trap_family(UInt64) -> String
 
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
 
@@ -1247,6 +1255,16 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
+  EngineStateScalarControlProfile
+  EngineStateCallsProfile
+  EngineStateMemoryProfile
+  EngineStateTableProfile
+  EngineStateSimdProfile
+  EngineStateImportsProfile
+  EngineStateInitializationProfile
+  EngineStateTrapProfile
+  EngineStateMixedProfile
+  EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile
   SemanticTrapFrontierProfile

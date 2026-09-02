@@ -131,10 +131,22 @@ export type RuntimeObservationStepV2 = {
   firstChangedResource: { kind: "global" | "memory" | "table"; index: number; offset?: number } | null;
 };
 
+export type RuntimeCompilationOutcomeV2 =
+  | { status: "not-attempted" | "succeeded" | "unknown" }
+  | { status: "failed"; error: string };
+
+export type RuntimeInstantiationOutcomeV2 =
+  | { status: "not-attempted" | "succeeded" | "unknown" }
+  | { status: "trapped"; trapClass: string; rawText: string }
+  | { status: "failed"; error: string }
+  | { status: "timed-out"; timeoutMs: number };
+
 export type RuntimeObservationV2 = {
   schema: "starshine.optimizer-runtime-observation.v2";
   runtime: { identity: string; timeoutMs: number };
   mode: ObservationMode;
+  compilation: RuntimeCompilationOutcomeV2;
+  instantiation: RuntimeInstantiationOutcomeV2;
   completeness: "complete" | "incomplete";
   blockedReasons: string[];
   steps: RuntimeObservationStepV2[];
@@ -498,6 +510,8 @@ export function emptyRuntimeObservationV2(mode: ObservationMode, runtimeIdentity
     schema: "starshine.optimizer-runtime-observation.v2",
     runtime: { identity: runtimeIdentity, timeoutMs },
     mode,
+    compilation: { status: "not-attempted" },
+    instantiation: { status: "not-attempted" },
     completeness: "complete",
     blockedReasons: [],
     steps: [],

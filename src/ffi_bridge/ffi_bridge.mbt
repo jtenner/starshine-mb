@@ -4,6 +4,20 @@ pub struct EncodedModule {
 }
 
 ///|
+pub struct EncodedEngineStateCase {
+  encoded : EncodedModule
+  error : Bytes
+  root_seed : UInt64
+  case_seed : UInt64
+  case_index : Int
+  selected_profile : Bytes
+  generator_attempts : Int
+  static_instruction_count : Int
+  expects_trap : Bool
+  trap_family : Bytes
+}
+
+///|
 let validation_error_bytes : Ref[Bytes] = Ref::new(Bytes::from_array([]))
 
 ///|
@@ -357,4 +371,199 @@ pub fn EncodedModule::byte_at(self : EncodedModule, index : UInt) -> Byte {
     Some(bytes) => bytes[index.reinterpret_as_int()]
     None => abort("cannot read failed Starshine module encoding")
   }
+}
+
+///|
+fn failed_engine_state_case(
+  root_seed : UInt64,
+  case_index : Int,
+  case_seed : UInt64,
+  selected_profile : String,
+  generator_attempts : Int,
+  message : String,
+) -> EncodedEngineStateCase {
+  {
+    encoded: { bytes: None, },
+    error: validation_message_bytes(message),
+    root_seed,
+    case_seed,
+    case_index,
+    selected_profile: validation_message_bytes(selected_profile),
+    generator_attempts,
+    static_instruction_count: 0,
+    expects_trap: false,
+    trap_family: Bytes::from_array([]),
+  }
+}
+
+///|
+pub fn generate_engine_state_case(
+  root_seed : UInt64,
+  case_index : Int,
+) -> EncodedEngineStateCase {
+  if case_index <= 0 {
+    return failed_engine_state_case(
+      root_seed, case_index, 0UL, "", 0, "engine-state case index must be positive",
+    )
+  }
+  let case_seed = @validate.gen_valid_case_seed(root_seed, case_index)
+  let profile = @validate.gen_valid_profile_leaf_for_case(
+    @validate.gen_valid_engine_state_profile(),
+    root_seed,
+    case_index,
+  )
+  let selected_profile = @validate.gen_valid_profile_name(profile)
+  let config = @validate.GenValidConfig::for_profile(profile)
+  match @validate.gen_valid_module_result_from_seed(case_seed, config) {
+    Err(failure) =>
+      failed_engine_state_case(
+        root_seed,
+        case_index,
+        case_seed,
+        selected_profile,
+        failure.attempts,
+        "engine-state generation failed after \{failure.attempts} attempts: \{failure.validation_error_message}",
+      )
+    Ok(generated) =>
+      match @binary.encode_module(generated.wasm_module) {
+        Err(error) =>
+          failed_engine_state_case(
+            root_seed,
+            case_index,
+            case_seed,
+            selected_profile,
+            generated.attempts,
+            "engine-state module encoding failed: \{error}",
+          )
+        Ok(bytes) => {
+          let expects_trap = selected_profile == "engine-state-trap"
+          let trap_family = if expects_trap {
+            validation_message_bytes(
+              @validate.gen_valid_engine_state_trap_family(case_seed),
+            )
+          } else {
+            Bytes::from_array([])
+          }
+          {
+            encoded: { bytes: Some(bytes), },
+            error: Bytes::from_array([]),
+            root_seed,
+            case_seed,
+            case_index,
+            selected_profile: validation_message_bytes(selected_profile),
+            generator_attempts: generated.attempts,
+            static_instruction_count: @validate.gen_valid_engine_state_static_instruction_count(
+              generated.wasm_module,
+            ),
+            expects_trap,
+            trap_family,
+          }
+        }
+      }
+  }
+}
+
+///|
+pub fn EncodedEngineStateCase::is_ok(self : EncodedEngineStateCase) -> Bool {
+  self.encoded.is_ok()
+}
+
+///|
+pub fn EncodedEngineStateCase::root_seed(
+  self : EncodedEngineStateCase,
+) -> UInt64 {
+  self.root_seed
+}
+
+///|
+pub fn EncodedEngineStateCase::case_seed(
+  self : EncodedEngineStateCase,
+) -> UInt64 {
+  self.case_seed
+}
+
+///|
+pub fn EncodedEngineStateCase::case_index(self : EncodedEngineStateCase) -> Int {
+  self.case_index
+}
+
+///|
+pub fn EncodedEngineStateCase::generator_attempts(
+  self : EncodedEngineStateCase,
+) -> Int {
+  self.generator_attempts
+}
+
+///|
+pub fn EncodedEngineStateCase::static_instruction_count(
+  self : EncodedEngineStateCase,
+) -> Int {
+  self.static_instruction_count
+}
+
+///|
+pub fn EncodedEngineStateCase::expects_trap(
+  self : EncodedEngineStateCase,
+) -> Bool {
+  self.expects_trap
+}
+
+///|
+pub fn EncodedEngineStateCase::module_byte_length(
+  self : EncodedEngineStateCase,
+) -> UInt {
+  self.encoded.byte_length()
+}
+
+///|
+pub fn EncodedEngineStateCase::module_byte_at(
+  self : EncodedEngineStateCase,
+  index : UInt,
+) -> Byte {
+  self.encoded.byte_at(index)
+}
+
+///|
+pub fn EncodedEngineStateCase::selected_profile_byte_length(
+  self : EncodedEngineStateCase,
+) -> UInt {
+  self.selected_profile.length().reinterpret_as_uint()
+}
+
+///|
+pub fn EncodedEngineStateCase::selected_profile_byte_at(
+  self : EncodedEngineStateCase,
+  index : UInt,
+) -> Byte {
+  self.selected_profile[index.reinterpret_as_int()]
+}
+
+///|
+pub fn EncodedEngineStateCase::trap_family_byte_length(
+  self : EncodedEngineStateCase,
+) -> UInt {
+  self.trap_family.length().reinterpret_as_uint()
+}
+
+///|
+pub fn EncodedEngineStateCase::trap_family_byte_at(
+  self : EncodedEngineStateCase,
+  index : UInt,
+) -> Byte {
+  self.trap_family[index.reinterpret_as_int()]
+}
+
+///|
+pub fn EncodedEngineStateCase::error_byte_length(
+  self : EncodedEngineStateCase,
+) -> UInt {
+  self.error.length().reinterpret_as_uint()
+}
+
+///|
+pub fn EncodedEngineStateCase::error_byte_at(
+  self : EncodedEngineStateCase,
+  index : UInt,
+) -> Byte {
+  self.error[index.reinterpret_as_int()]
 }

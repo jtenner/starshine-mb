@@ -318,6 +318,9 @@ function buildImportObject(module) {
         console.log(...args);
       },
     },
+    spectest: {
+      print_char(_value) {},
+    },
   };
 
   for (const entry of imports) {
@@ -334,6 +337,9 @@ function buildImportObject(module) {
     if (entry.module === "console") {
       continue;
     }
+    if (entry.module === "spectest") {
+      continue;
+    }
     throw new Error(`Unsupported wasm-gc import module: ${entry.module}`);
   }
 
@@ -344,10 +350,7 @@ function buildImportObject(module) {
   return importObject;
 }
 
-async function instantiateWasmGc() {
-  const wasmBytes = await fsPromises.readFile(
-    new URL("./starshine.wasm-gc.wasm", import.meta.url),
-  );
+export async function instantiateWasmGcBytes(wasmBytes) {
   const module = await WebAssembly.compile(wasmBytes, {
     builtins: ["js-string"],
   });
@@ -356,6 +359,13 @@ async function instantiateWasmGc() {
     builtins: ["js-string"],
   });
   return instance.exports;
+}
+
+async function instantiateWasmGc() {
+  const wasmBytes = await fsPromises.readFile(
+    new URL("./starshine.wasm-gc.wasm", import.meta.url),
+  );
+  return instantiateWasmGcBytes(wasmBytes);
 }
 
 export async function getWasmGcExports() {

@@ -720,6 +720,16 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
+  EngineStateScalarControlProfile
+  EngineStateCallsProfile
+  EngineStateMemoryProfile
+  EngineStateTableProfile
+  EngineStateSimdProfile
+  EngineStateImportsProfile
+  EngineStateInitializationProfile
+  EngineStateTrapProfile
+  EngineStateMixedProfile
+  EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile
   SemanticTrapFrontierProfile
@@ -1117,6 +1127,16 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ControlHeavyProfile => "control-heavy"
     TopologyHeavyProfile => "topology-heavy"
     PathologicalValidProfile => "pathological-valid"
+    EngineStateScalarControlProfile => "engine-state-scalar-control"
+    EngineStateCallsProfile => "engine-state-calls"
+    EngineStateMemoryProfile => "engine-state-memory"
+    EngineStateTableProfile => "engine-state-table"
+    EngineStateSimdProfile => "engine-state-simd"
+    EngineStateImportsProfile => "engine-state-imports"
+    EngineStateInitializationProfile => "engine-state-initialization"
+    EngineStateTrapProfile => "engine-state-trap"
+    EngineStateMixedProfile => "engine-state-mixed"
+    EngineStateAllProfile => "engine-state-all"
     SemanticEffectsProfile => "semantic-effects"
     SemanticImportEventsProfile => "semantic-import-events"
     SemanticTrapFrontierProfile => "semantic-trap-frontier"
@@ -1476,6 +1496,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | SgoAllProfile
     | FlattenAllProfile
     | DirectizeAllProfile
+    | EngineStateAllProfile
     | SemanticOptimizerAllProfile
     | RandomAllProfilesProfile => true
     _ => false
@@ -1958,6 +1979,18 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(DirectizeLegacyEhProfile, 3),
         GenValidProfileMember::new(DirectizeBoundaryProfile, 2),
       ]
+    EngineStateAllProfile =>
+      [
+        GenValidProfileMember::new(EngineStateScalarControlProfile, 4),
+        GenValidProfileMember::new(EngineStateCallsProfile, 3),
+        GenValidProfileMember::new(EngineStateMemoryProfile, 3),
+        GenValidProfileMember::new(EngineStateTableProfile, 2),
+        GenValidProfileMember::new(EngineStateSimdProfile, 2),
+        GenValidProfileMember::new(EngineStateImportsProfile, 2),
+        GenValidProfileMember::new(EngineStateInitializationProfile, 1),
+        GenValidProfileMember::new(EngineStateTrapProfile, 2),
+        GenValidProfileMember::new(EngineStateMixedProfile, 1),
+      ]
     SemanticOptimizerAllProfile =>
       [
         GenValidProfileMember::new(SemanticEffectsProfile, 3),
@@ -2001,12 +2034,31 @@ fn gen_valid_profile_case_roll(seed : UInt64, case_index : Int) -> UInt64 {
 }
 
 ///|
+pub fn gen_valid_case_seed(seed : UInt64, case_index : Int) -> UInt64 {
+  gen_valid_derive_stream_seed(seed, HarnessShufflingStream) ^
+  (case_index.to_uint64() * 0x9e3779b97f4a7c15UL)
+}
+
+///|
 pub fn gen_valid_profile_leaf_for_case(
   profile : GenValidProfile,
   seed : UInt64,
   case_index : Int,
 ) -> GenValidProfile {
   let members = gen_valid_profile_members(profile)
+  if profile == EngineStateAllProfile && !members.is_empty() {
+    let normalized_index = if case_index <= 0 { 1 } else { case_index }
+    let total_weight = 20
+    let rotation = (gen_valid_profile_case_roll(seed, 1) %
+    total_weight.to_uint64()).to_int()
+    let mut position = (normalized_index - 1 + rotation) % total_weight
+    for entry in members {
+      if position < entry.weight {
+        return entry.profile
+      }
+      position -= entry.weight
+    }
+  }
   if members.is_empty() {
     return profile
   }
@@ -2121,6 +2173,16 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ControlHeavyProfile,
     TopologyHeavyProfile,
     PathologicalValidProfile,
+    EngineStateScalarControlProfile,
+    EngineStateCallsProfile,
+    EngineStateMemoryProfile,
+    EngineStateTableProfile,
+    EngineStateSimdProfile,
+    EngineStateImportsProfile,
+    EngineStateInitializationProfile,
+    EngineStateTrapProfile,
+    EngineStateMixedProfile,
+    EngineStateAllProfile,
     SemanticEffectsProfile,
     SemanticImportEventsProfile,
     SemanticTrapFrontierProfile,
@@ -2595,6 +2657,8 @@ pub fn gen_valid_profile_by_name(
     "optimize-casts-closeout" => Ok(OptimizeCastsAllProfile)
     "optimize-casts-all-profiles" => Ok(OptimizeCastsAllProfile)
     "inlining-optimizing" => Ok(InliningOptimizingAllProfile)
+    "engine-state" => Ok(EngineStateAllProfile)
+    "engine-state-all-profiles" => Ok(EngineStateAllProfile)
     "runtime-callable" => Ok(SemanticOptimizerAllProfile)
     "semantic-optimizer" => Ok(SemanticOptimizerAllProfile)
     "semantic-optimizer-closeout" => Ok(SemanticOptimizerAllProfile)
@@ -4959,6 +5023,146 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_name_length: 256,
         max_segment_payload_size: 4096,
       }
+    EngineStateScalarControlProfile
+    | EngineStateCallsProfile
+    | EngineStateMemoryProfile
+    | EngineStateTableProfile
+    | EngineStateSimdProfile
+    | EngineStateImportsProfile
+    | EngineStateInitializationProfile
+    | EngineStateTrapProfile
+    | EngineStateMixedProfile => {
+      let base = GenValidConfig::portable_coverage_forced_default()
+      let profile_budget_tag = match profile {
+        EngineStateScalarControlProfile => 1
+        EngineStateCallsProfile => 2
+        EngineStateMemoryProfile => 3
+        EngineStateTableProfile => 4
+        EngineStateSimdProfile => 5
+        EngineStateImportsProfile => 6
+        EngineStateInitializationProfile => 7
+        EngineStateTrapProfile => 8
+        EngineStateMixedProfile => 9
+        _ => 0
+      }
+      let uses_memory = profile == EngineStateMemoryProfile ||
+        profile == EngineStateSimdProfile ||
+        profile == EngineStateImportsProfile ||
+        profile == EngineStateInitializationProfile ||
+        profile == EngineStateTrapProfile ||
+        profile == EngineStateMixedProfile
+      let uses_table = profile == EngineStateCallsProfile ||
+        profile == EngineStateTableProfile ||
+        profile == EngineStateImportsProfile ||
+        profile == EngineStateInitializationProfile ||
+        profile == EngineStateTrapProfile ||
+        profile == EngineStateMixedProfile
+      let uses_segments = profile == EngineStateMemoryProfile ||
+        profile == EngineStateTableProfile ||
+        profile == EngineStateInitializationProfile ||
+        profile == EngineStateMixedProfile
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 12,
+        max_imports: 9,
+        max_defined_funcs: 12,
+        max_tables: if uses_table {
+          2
+        } else {
+          0
+        },
+        max_mems: if uses_memory {
+          1
+        } else {
+          0
+        },
+        max_globals: 12,
+        max_tags: 0,
+        max_elems: if uses_segments {
+          4
+        } else {
+          0
+        },
+        max_datas: if uses_segments {
+          4
+        } else {
+          0
+        },
+        max_params: 4,
+        max_results: 3,
+        max_locals: 12,
+        max_body_statements: 64 + profile_budget_tag,
+        max_body_depth: 5,
+        max_instruction_count_budget: Some(512),
+        max_expression_depth_budget: Some(16),
+        max_module_byte_size_budget: Some(65536),
+        max_rec_group_size_budget: Some(12),
+        max_section_count_budget: Some(16),
+        max_name_length: 96,
+        max_segment_payload_size: 4096,
+        section_bias: GenValidSectionBias::{
+          imports_percent: 100,
+          tables_percent: if uses_table {
+            100
+          } else {
+            0
+          },
+          mems_percent: if uses_memory {
+            100
+          } else {
+            0
+          },
+          globals_percent: 100,
+          tags_percent: 0,
+          start_percent: 100,
+          elems_percent: if uses_segments && uses_table {
+            100
+          } else {
+            0
+          },
+          datas_percent: if uses_segments && uses_memory {
+            100
+          } else {
+            0
+          },
+        },
+        features: GenValidFeatureToggles::{
+          allow_imports: true,
+          allow_tables: uses_table,
+          allow_mems: uses_memory,
+          allow_globals: true,
+          allow_tags: false,
+          allow_start: true,
+          allow_elems: uses_segments && uses_table,
+          allow_datas: uses_segments && uses_memory,
+          allow_ref_types: uses_table,
+          allow_v128: profile == EngineStateSimdProfile ||
+          profile == EngineStateMixedProfile,
+          allow_relaxed_simd: false,
+          allow_calls: true,
+          allow_call_indirect: profile == EngineStateCallsProfile ||
+          profile == EngineStateTableProfile ||
+          profile == EngineStateMixedProfile,
+          allow_tail_calls: false,
+          allow_branch_heavy_control: profile == EngineStateScalarControlProfile ||
+          profile == EngineStateMixedProfile,
+          allow_memory_limit_variants: false,
+          allow_table_limit_variants: false,
+          allow_const_expr_variants: profile == EngineStateInitializationProfile,
+          allow_shared_memories: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_subtyping_topology: false,
+          allow_name_custom_sections: false,
+          allow_typed_body_generator: true,
+          allow_ssa_nomerge_body_generator: false,
+          allow_heap_store_optimization_body_generator: false,
+          allow_heap2local_body_generator: false,
+        },
+      }
+    }
+    EngineStateAllProfile =>
+      GenValidConfig::for_profile(EngineStateScalarControlProfile)
     SemanticEffectsProfile => {
       let base = GenValidConfig::portable_coverage_forced_default()
       GenValidConfig::{
@@ -33444,6 +33648,9 @@ fn gen_valid_duplicate_import_elimination_profile_module(
 ///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_engine_state_profile_config(config) {
+    return gen_valid_engine_state_profile_module(ctx)
+  }
   if gen_valid_is_rume_profile_config(config) {
     return gen_valid_rume_profile_module(ctx)
   }
