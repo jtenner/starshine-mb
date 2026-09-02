@@ -73,10 +73,10 @@ test "mini fs writes and deletes files" {
     }
   }
   let read_back = @xfs.read_file_to_bytes(path) catch {
-    e => {
+    @xfs.IOError(message) => {
       ignore(remove_file(path))
       ignore(remove_dir(dir))
-      fail("read_file_to_bytes failed: \{e}")
+      fail("read_file_to_bytes failed: \{message}")
     }
   }
   @debug.assert_eq(read_back, payload)
