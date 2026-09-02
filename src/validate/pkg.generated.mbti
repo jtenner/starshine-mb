@@ -1316,6 +1316,8 @@ pub enum GenValidProfile {
   EngineStateCompilerBoundariesProfile
   EngineStateNanProfile
   EngineStateInvalidModuleProfile
+  EngineStateRecursiveMultivalueProfile
+  EngineStateSubtypeCastGraphProfile
   EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile

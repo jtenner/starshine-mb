@@ -504,6 +504,303 @@ fn gen_valid_engine_state_gc_graph_module(seed : UInt64) -> Module {
 }
 
 ///|
+fn gen_valid_engine_state_recursive_multivalue_step(
+  seed : UInt64,
+  salt : UInt64,
+  callee : FuncIdx,
+) -> Func {
+  let delta = gen_valid_engine_state_seed_i32(seed, salt)
+  Func::new(
+    Locals::empty(),
+    Expr::new([
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::i32_eqz(),
+      Instruction::if_(
+        BlockType::type_idx(TypeIdx::new(13U)),
+        [
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i64_extend_i32s(),
+        ],
+        Some([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::i32_const(I32(1)),
+          Instruction::i32_sub(),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i32_const(delta),
+          Instruction::i32_add(),
+          Instruction::call(callee),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_engine_state_recursive_multivalue_module(seed : UInt64) -> Module {
+  let direct = gen_valid_engine_state_recursive_multivalue_step(
+    seed,
+    250UL,
+    FuncIdx::new(5U),
+  )
+  let mutual_left = gen_valid_engine_state_recursive_multivalue_step(
+    seed,
+    251UL,
+    FuncIdx::new(7U),
+  )
+  let mutual_right = gen_valid_engine_state_recursive_multivalue_step(
+    seed,
+    252UL,
+    FuncIdx::new(6U),
+  )
+  let join = Func::new(
+    Locals::empty(),
+    Expr::new([
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::i32_const(I32(1)),
+      Instruction::i32_and(),
+      Instruction::if_(
+        BlockType::type_idx(TypeIdx::new(13U)),
+        [
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::call(FuncIdx::new(5U)),
+        ],
+        Some([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::call(FuncIdx::new(6U)),
+        ]),
+      ),
+    ]),
+  )
+  let depth = 2 + ((seed >> 7) % 7UL).to_int()
+  let start : Array[Instruction] = []
+  gen_valid_engine_state_append(start, gen_valid_engine_state_mark(4600))
+  gen_valid_engine_state_append(start, [
+    Instruction::i32_const(I32(depth)),
+    Instruction::i32_const(I32(360)),
+    Instruction::call(FuncIdx::new(0U)),
+    Instruction::call(FuncIdx::new(8U)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_set(LocalIdx::new(0U)),
+  ])
+  gen_valid_engine_state_append(
+    start,
+    gen_valid_engine_state_observe_i32(360, [
+      Instruction::local_get(LocalIdx::new(0U)),
+    ]),
+  )
+  gen_valid_engine_state_append(
+    start,
+    gen_valid_engine_state_observe_i64(361, [
+      Instruction::local_get(LocalIdx::new(1U)),
+    ]),
+  )
+  gen_valid_engine_state_append(start, [
+    Instruction::i32_const(I32(depth + 1)),
+    Instruction::i32_const(gen_valid_engine_state_seed_i32(seed, 253UL)),
+    Instruction::call(FuncIdx::new(6U)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_set(LocalIdx::new(0U)),
+  ])
+  gen_valid_engine_state_append(
+    start,
+    gen_valid_engine_state_observe_i32(362, [
+      Instruction::local_get(LocalIdx::new(0U)),
+    ]),
+  )
+  gen_valid_engine_state_append(
+    start,
+    gen_valid_engine_state_observe_i64(363, [
+      Instruction::local_get(LocalIdx::new(1U)),
+    ]),
+  )
+  gen_valid_engine_state_append(start, gen_valid_engine_state_mark(0x7fffffff))
+  gen_valid_engine_state_base_module(
+    [],
+    [
+      TypeIdx::new(12U),
+      TypeIdx::new(12U),
+      TypeIdx::new(12U),
+      TypeIdx::new(12U),
+      TypeIdx::new(5U),
+    ],
+    [
+      direct,
+      mutual_left,
+      mutual_right,
+      join,
+      Func::new(
+        Locals::from_types([ValType::i32(), ValType::i64()]),
+        Expr::new(start),
+      ),
+    ],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+  ).with_type_sec(
+    gen_valid_engine_state_extended_types([
+      gen_valid_engine_state_func_type([ValType::i32(), ValType::i32()], [
+        ValType::i32(),
+        ValType::i64(),
+      ]),
+      gen_valid_engine_state_func_type([], [ValType::i32(), ValType::i64()]),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_engine_state_subtype_field(vt : ValType) -> FieldType {
+  FieldType::new(StorageType::val_type(vt), Mut::var_())
+}
+
+///|
+fn gen_valid_engine_state_subtype_cast_graph_module(seed : UInt64) -> Module {
+  let root_idx = TypeIdx::new(12U)
+  let left_idx = TypeIdx::new(13U)
+  let right_idx = TypeIdx::new(14U)
+  let leaf_idx = TypeIdx::new(15U)
+  let root_ref = RefType::new(true, HeapType::new(root_idx))
+  let root_value = gen_valid_engine_state_seed_i32(seed, 260UL)
+  let left_value = gen_valid_engine_state_seed_i32(seed, 261UL)
+  let leaf_value = gen_valid_engine_state_seed_i32(seed, 262UL)
+  let right_value = gen_valid_engine_state_seed_i64(seed, 263UL)
+  let graph = Func::new(
+    Locals::from_types([
+      ValType::ref_type(root_ref),
+      ValType::ref_type(root_ref),
+      ValType::i32(),
+    ]),
+    Expr::new([
+      Instruction::i32_const(root_value),
+      Instruction::i32_const(left_value),
+      Instruction::i32_const(leaf_value),
+      Instruction::struct_new(leaf_idx),
+      Instruction::local_set(LocalIdx::new(0U)),
+      Instruction::i32_const(I32(0)),
+      Instruction::local_set(LocalIdx::new(2U)),
+      Instruction::local_get(LocalIdx::new(2U)),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::ref_test(false, HeapType::new(root_idx)),
+      Instruction::i32_or(),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::ref_test(false, HeapType::new(left_idx)),
+      Instruction::i32_const(I32(1)),
+      Instruction::i32_shl(),
+      Instruction::i32_or(),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::ref_test(false, HeapType::new(right_idx)),
+      Instruction::i32_const(I32(2)),
+      Instruction::i32_shl(),
+      Instruction::i32_or(),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::ref_test(false, HeapType::new(leaf_idx)),
+      Instruction::i32_const(I32(3)),
+      Instruction::i32_shl(),
+      Instruction::i32_or(),
+      Instruction::local_set(LocalIdx::new(2U)),
+      Instruction::local_get(LocalIdx::new(2U)),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::ref_cast(false, HeapType::new(left_idx)),
+      Instruction::struct_get(left_idx, U32(1U)),
+      Instruction::i32_xor(),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::ref_cast(false, HeapType::new(leaf_idx)),
+      Instruction::struct_get(leaf_idx, U32(2U)),
+      Instruction::i32_xor(),
+      Instruction::local_set(LocalIdx::new(2U)),
+      Instruction::i32_const(root_value),
+      Instruction::i64_const(right_value),
+      Instruction::struct_new(right_idx),
+      Instruction::local_set(LocalIdx::new(1U)),
+      Instruction::local_get(LocalIdx::new(2U)),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::ref_test(false, HeapType::new(right_idx)),
+      Instruction::i32_const(I32(4)),
+      Instruction::i32_shl(),
+      Instruction::i32_or(),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::ref_test(false, HeapType::new(left_idx)),
+      Instruction::i32_const(I32(5)),
+      Instruction::i32_shl(),
+      Instruction::i32_or(),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::ref_cast(false, HeapType::new(right_idx)),
+      Instruction::struct_get(right_idx, U32(1U)),
+      Instruction::i32_wrap_i64(),
+      Instruction::i32_xor(),
+    ]),
+  )
+  let start : Array[Instruction] = []
+  gen_valid_engine_state_append(start, gen_valid_engine_state_mark(4700))
+  gen_valid_engine_state_append(
+    start,
+    gen_valid_engine_state_observe_i32(370, [
+      Instruction::call(FuncIdx::new(5U)),
+    ]),
+  )
+  gen_valid_engine_state_append(start, gen_valid_engine_state_mark(0x7fffffff))
+  gen_valid_engine_state_base_module(
+    [],
+    [TypeIdx::new(8U), TypeIdx::new(5U)],
+    [graph, Func::new(Locals::empty(), Expr::new(start))],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+  ).with_type_sec(
+    gen_valid_engine_state_extended_types([
+      RecType::new(
+        SubType::new(
+          false,
+          [],
+          CompType::struct_([
+            gen_valid_engine_state_subtype_field(ValType::i32()),
+          ]),
+        ),
+      ),
+      RecType::new(
+        SubType::new(
+          false,
+          [root_idx],
+          CompType::struct_([
+            gen_valid_engine_state_subtype_field(ValType::i32()),
+            gen_valid_engine_state_subtype_field(ValType::i32()),
+          ]),
+        ),
+      ),
+      RecType::new(
+        SubType::new(
+          true,
+          [root_idx],
+          CompType::struct_([
+            gen_valid_engine_state_subtype_field(ValType::i32()),
+            gen_valid_engine_state_subtype_field(ValType::i64()),
+          ]),
+        ),
+      ),
+      RecType::new(
+        SubType::new(
+          true,
+          [left_idx],
+          CompType::struct_([
+            gen_valid_engine_state_subtype_field(ValType::i32()),
+            gen_valid_engine_state_subtype_field(ValType::i32()),
+            gen_valid_engine_state_subtype_field(ValType::i32()),
+          ]),
+        ),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_engine_state_type_call_matrix_module(seed : UInt64) -> Module {
   let i32_constant = gen_valid_engine_state_seed_i32(seed, 220UL)
   let i64_constant = gen_valid_engine_state_seed_i64(seed, 221UL)

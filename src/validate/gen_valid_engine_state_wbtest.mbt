@@ -80,6 +80,12 @@ test "engine-state GenValid profile family resolves stable singleton names and w
     ),
     (EngineStateNanProfile, "engine-state-nan", 4),
     (EngineStateInvalidModuleProfile, "engine-state-invalid-module", 4),
+    (
+      EngineStateRecursiveMultivalueProfile,
+      "engine-state-recursive-multivalue",
+      4,
+    ),
+    (EngineStateSubtypeCastGraphProfile, "engine-state-subtype-cast-graph", 4),
   ]
   for item in expected {
     let (profile, name, _) = item
@@ -107,7 +113,7 @@ test "engine-state GenValid profile family resolves stable singleton names and w
 }
 
 ///|
-test "engine-state aggregate realizes one exact weighted cycle every 128 cases" {
+test "engine-state aggregate realizes one exact weighted cycle every 136 cases" {
   let expected = [
     (EngineStateScalarControlProfile, 3),
     (EngineStateCallsProfile, 2),
@@ -152,11 +158,13 @@ test "engine-state aggregate realizes one exact weighted cycle every 128 cases" 
     (EngineStateCompilerBoundariesProfile, 4),
     (EngineStateNanProfile, 4),
     (EngineStateInvalidModuleProfile, 4),
+    (EngineStateRecursiveMultivalueProfile, 4),
+    (EngineStateSubtypeCastGraphProfile, 4),
   ]
   for item in expected {
     let (profile, wanted) = item
     let mut actual = 0
-    for index in 1..<=128 {
+    for index in 1..<=136 {
       if gen_valid_profile_leaf_for_case(EngineStateAllProfile, 0xA11UL, index) ==
         profile {
         actual += 1
@@ -213,6 +221,8 @@ test "engine-state singleton configs enforce compact deterministic hard budgets"
       EngineStateCompilerBoundariesProfile,
       EngineStateNanProfile,
       EngineStateInvalidModuleProfile,
+      EngineStateRecursiveMultivalueProfile,
+      EngineStateSubtypeCastGraphProfile,
     ] {
     let config = GenValidConfig::for_profile(profile)
     assert_true(
@@ -243,7 +253,9 @@ test "engine-state singleton configs enforce compact deterministic hard budgets"
     )
     @debug.assert_eq(
       gen_valid_proposal_feature_enabled(config.features, GcFeature),
-      profile == EngineStateGcProfile || profile == EngineStateGcGraphProfile,
+      profile == EngineStateGcProfile ||
+      profile == EngineStateGcGraphProfile ||
+      profile == EngineStateSubtypeCastGraphProfile,
     )
     @debug.assert_eq(
       gen_valid_proposal_feature_enabled(config.features, TailCallsFeature),
@@ -491,6 +503,8 @@ test "engine-state success leaves emit deterministic driven observable modules" 
     EngineStateMetamorphicTwinsProfile,
     EngineStateCompilerBoundariesProfile,
     EngineStateNanProfile,
+    EngineStateRecursiveMultivalueProfile,
+    EngineStateSubtypeCastGraphProfile,
   ]
   for profile in profiles {
     let first = engine_state_test_generate(profile, 0xE651A7EUL)
@@ -590,6 +604,8 @@ test "engine-state new shape leaves generate valid deterministic binaries" {
     EngineStateCompilerBoundariesProfile,
     EngineStateNanProfile,
     EngineStateInvalidModuleProfile,
+    EngineStateRecursiveMultivalueProfile,
+    EngineStateSubtypeCastGraphProfile,
   ]
   for profile in profiles {
     for seed in [0UL, 1UL, 2UL, 3UL, 0xE651A7EUL] {
@@ -657,6 +673,36 @@ test "engine-state passive, multi-resource, and proposal leaves force their shap
     0,
   )
   assert_true(gc.contains(Instruction::struct_new(TypeIdx::new(12U))))
+
+  let recursive = engine_state_test_defined_body(
+    engine_state_test_generate(EngineStateRecursiveMultivalueProfile, 0UL).wasm_module,
+    0,
+  )
+  assert_true(
+    recursive.any(fn(instr) {
+      match instr {
+        If(TypeIdxBlockType(TypeIdx(13U)), _, Some(else_body)) =>
+          else_body.contains(Instruction::call(FuncIdx::new(5U)))
+        _ => false
+      }
+    }),
+  )
+
+  let subtype = engine_state_test_defined_body(
+    engine_state_test_generate(EngineStateSubtypeCastGraphProfile, 0UL).wasm_module,
+    0,
+  )
+  assert_true(subtype.contains(Instruction::struct_new(TypeIdx::new(15U))))
+  assert_true(
+    subtype.contains(
+      Instruction::ref_test(false, HeapType::new(TypeIdx::new(14U))),
+    ),
+  )
+  assert_true(
+    subtype.contains(
+      Instruction::ref_cast(false, HeapType::new(TypeIdx::new(13U))),
+    ),
+  )
 }
 
 ///|

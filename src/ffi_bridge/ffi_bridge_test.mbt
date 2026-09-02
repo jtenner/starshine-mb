@@ -98,7 +98,7 @@ test "ffi bridge generates deterministic engine-state case bytes" {
 test "ffi bridge carries deterministic cross-instance support bytes" {
   let root_seed = 0xC2055UL
   let mut case_index = 0
-  for index in 1..<=128 {
+  for index in 1..<=136 {
     if @validate.gen_valid_profile_name(
         @validate.gen_valid_profile_leaf_for_case(
           @validate.gen_valid_engine_state_profile(),
@@ -142,7 +142,7 @@ fn ffi_test_engine_state_case_index(
   root_seed : UInt64,
   profile_name : String,
 ) -> Int {
-  for index in 1..<=128 {
+  for index in 1..<=136 {
     if @validate.gen_valid_profile_name(
         @validate.gen_valid_profile_leaf_for_case(
           @validate.gen_valid_engine_state_profile(),

@@ -763,6 +763,8 @@ pub enum GenValidProfile {
   EngineStateCompilerBoundariesProfile
   EngineStateNanProfile
   EngineStateInvalidModuleProfile
+  EngineStateRecursiveMultivalueProfile
+  EngineStateSubtypeCastGraphProfile
   EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile
@@ -1208,6 +1210,8 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     EngineStateCompilerBoundariesProfile => "engine-state-compiler-boundaries"
     EngineStateNanProfile => "engine-state-nan"
     EngineStateInvalidModuleProfile => "engine-state-invalid-module"
+    EngineStateRecursiveMultivalueProfile => "engine-state-recursive-multivalue"
+    EngineStateSubtypeCastGraphProfile => "engine-state-subtype-cast-graph"
     EngineStateAllProfile => "engine-state-all"
     SemanticEffectsProfile => "semantic-effects"
     SemanticImportEventsProfile => "semantic-import-events"
@@ -2096,6 +2100,8 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(EngineStateCompilerBoundariesProfile, 4),
         GenValidProfileMember::new(EngineStateNanProfile, 4),
         GenValidProfileMember::new(EngineStateInvalidModuleProfile, 4),
+        GenValidProfileMember::new(EngineStateRecursiveMultivalueProfile, 4),
+        GenValidProfileMember::new(EngineStateSubtypeCastGraphProfile, 4),
       ]
     SemanticOptimizerAllProfile =>
       [
@@ -2327,6 +2333,8 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     EngineStateCompilerBoundariesProfile,
     EngineStateNanProfile,
     EngineStateInvalidModuleProfile,
+    EngineStateRecursiveMultivalueProfile,
+    EngineStateSubtypeCastGraphProfile,
     EngineStateAllProfile,
     SemanticEffectsProfile,
     SemanticImportEventsProfile,
@@ -5210,7 +5218,9 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | EngineStateMetamorphicTwinsProfile
     | EngineStateCompilerBoundariesProfile
     | EngineStateNanProfile
-    | EngineStateInvalidModuleProfile => {
+    | EngineStateInvalidModuleProfile
+    | EngineStateRecursiveMultivalueProfile
+    | EngineStateSubtypeCastGraphProfile => {
       let base = GenValidConfig::portable_coverage_forced_default()
       let profile_budget_tag = match profile {
         EngineStateScalarControlProfile => 1
@@ -5256,6 +5266,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         EngineStateCompilerBoundariesProfile => 41
         EngineStateNanProfile => 42
         EngineStateInvalidModuleProfile => 43
+        EngineStateRecursiveMultivalueProfile => 44
+        EngineStateSubtypeCastGraphProfile => 45
         _ => 0
       }
       let uses_memory = profile == EngineStateMemoryProfile ||
@@ -5318,7 +5330,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       let decoder_topology = profile == EngineStateDecoderTopologyProfile ||
         profile == EngineStateLebIndexBoundariesProfile
       let gc = profile == EngineStateGcProfile ||
-        profile == EngineStateGcGraphProfile
+        profile == EngineStateGcGraphProfile ||
+        profile == EngineStateSubtypeCastGraphProfile
       let many_functions = profile == EngineStateLebIndexBoundariesProfile ||
         profile == EngineStateCompilerBoundariesProfile
       GenValidConfig::{
@@ -5501,7 +5514,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           profile == EngineStateExceptionsProfile ||
           profile == EngineStateExceptionUnwindProfile ||
           profile == EngineStateTrapCommitMatrixProfile ||
-          profile == EngineStateCompilerBoundariesProfile,
+          profile == EngineStateCompilerBoundariesProfile ||
+          profile == EngineStateRecursiveMultivalueProfile,
           allow_memory_limit_variants: profile ==
           EngineStateMultiResourceProfile,
           allow_table_limit_variants: false,

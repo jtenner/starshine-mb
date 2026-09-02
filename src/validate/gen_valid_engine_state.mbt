@@ -44,6 +44,8 @@ fn gen_valid_engine_state_profiles() -> Array[GenValidProfile] {
     EngineStateCompilerBoundariesProfile,
     EngineStateNanProfile,
     EngineStateInvalidModuleProfile,
+    EngineStateRecursiveMultivalueProfile,
+    EngineStateSubtypeCastGraphProfile,
   ]
 }
 
@@ -1380,6 +1382,10 @@ fn gen_valid_engine_state_profile_module(ctx : GenValidContext) -> Module {
     EngineStateNanProfile => gen_valid_engine_state_nan_module(ctx.root_seed)
     EngineStateInvalidModuleProfile =>
       gen_valid_engine_state_invalid_base_module(ctx.root_seed)
+    EngineStateRecursiveMultivalueProfile =>
+      gen_valid_engine_state_recursive_multivalue_module(ctx.root_seed)
+    EngineStateSubtypeCastGraphProfile =>
+      gen_valid_engine_state_subtype_cast_graph_module(ctx.root_seed)
     _ => gen_valid_engine_state_scalar_control_module(ctx.root_seed)
   }
 }
