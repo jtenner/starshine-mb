@@ -117,7 +117,7 @@ Five matched clean-`ef85aa1a8`/current native-release medians on AMD Ryzen 7 884
 
 On the exact 3,140-byte depth-1024 wasm fixture, 11-sample command medians move Starshine `10.800ms -> 1.660ms` (`6.506x`, `-84.630%`) versus Binaryen v131 `2.601ms`. Baseline Starshine retained all 1,024 wrappers. Current Starshine emits 66 raw bytes because it preserves the import name section; after `--strip-debug`, current and Binaryen are byte-identical at 48 bytes with SHA-256 `cc435f18e75f3b2e0730373100929101de3b5824cb18200496bc3dfe71e1de18`.
 
-The canonical production debug-WASI Vacuum attribution reports **zero** `raw-vacuum-deep-singleton-call-leaf` hits. Therefore this closes one synthetic size-losing/parity family and removes its superlinear path, but does not close `[P0-WALL-VACUUM]`; production raw preprocessing and writeback remain the owners.
+The canonical production debug-WASI Vacuum attribution reports **zero** `raw-vacuum-deep-singleton-call-leaf` hits. Therefore this closes one synthetic size-losing/parity family and removes its superlinear path, but did not by itself satisfy the former direct-pass wall gate; production raw preprocessing and writeback remain the owners if performance work is reopened.
 
 The existing `vacuum-structural-wrappers` GenValid leaf now includes the depth-64 defined-call fixture. Explicit-v131 targeted comparison is `10000/10000` normalized with equal raw/canonical totals. Regular GenValid is also `10000/10000` normalized. The refreshed aggregate is `7175` normalized plus `2825` pre-existing canonically smaller Starshine residuals and zero failures; all 20 persisted current/baseline residual artifacts are byte-identical, so no aggregate drift is attributed to this change.
 
@@ -142,7 +142,22 @@ The calibrated suite grows from 29 to 36 cases. Seven new lanes cover dropped-pa
 - random-all: `5696` normalized plus `4304` canonically smaller residuals and zero larger outputs; the repaired `merge-similar-functions-nested` constant-result family contributes `35/35` newly exact replays;
 - wasm-smith: `9934/9956` normalized plus 22 pre-existing byte-identical clean/current Starshine wins and the same 44 Binaryen-v131 tool failures. Twenty-one wins serialize valid empty function bodies instead of Binaryen's one-byte `nop`; case 3694 remains the documented six-byte loop/local-carrier win.
 
-Fresh canonical production attribution is intentionally neutral. Three clean/current no-trace medians are `1705.620/1706.197ms` versus paired Binaryen v131 `711.836ms`; raw preprocessing is `559.636/564.746ms`, batch writeback `237.698/235.353ms`, and every clean/current output is byte-identical at SHA-256 `519d36fcf0e88121774ad188ceafba81b2d25d376517fc63fa02f074462c07a0`. The current `<=2x` gate is `1423.672ms`, so `[P0-WALL-VACUUM]` remains open for the remaining raw/writeback and shared command envelope.
+Fresh canonical production attribution is intentionally neutral. Three clean/current no-trace medians are `1705.620/1706.197ms` versus paired Binaryen v131 `711.836ms`; raw preprocessing is `559.636/564.746ms`, batch writeback `237.698/235.353ms`, and every clean/current output is byte-identical at SHA-256 `519d36fcf0e88121774ad188ceafba81b2d25d376517fc63fa02f074462c07a0`. This misses the former isolated `<=2x` threshold of `1423.672ms`, but the user explicitly accepted that direct-pass miss after the complete production O4z comparison below.
+
+## 2026-09-01 production self-optimize comparison
+
+A fresh `bun self-opt build` rebuilt the current debug, release, native, and self-optimized artifacts. The production self-opt input is the 5,819,115-byte release Wasm CLI. The complete build plus self-optimization took `249.910s`; phase tracing inside the build reported `27.569s` for the self-opt command itself.
+
+The direct comparison used one warmup followed by five alternating serial no-trace runs on AMD Ryzen 7 8845HS with MoonBit `0.1.20260713`. Starshine used the freshly built native CLI with `--optimize -O4z`; the oracle was explicitly verified Binaryen v131 with `-O4 -Oz --all-features --strip-debug`.
+
+- Starshine times: `24.658`, `21.936`, `21.887`, `22.291`, and `21.911s`; median `21.936s`.
+- Binaryen times: `20.042`, `19.889`, `19.925`, `19.948`, and `20.068s`; median `19.948s`.
+- Starshine is `1.100x`, or `9.97%`, slower at the median.
+- Starshine output is 5,076,045 bytes, SHA-256 `9f56263c6f7989bc72792f131ef3e4b27151173919325ca0cce4c20b12e5a3f0`.
+- Binaryen output is 5,240,057 bytes, SHA-256 `9216d5d6cfad5eeba465522083d8cb70e5b52cdddbbb30fc6408e0b927a55eb9`.
+- Starshine removes 743,070 input bytes (`12.769%`); Binaryen removes 579,058 (`9.951%`). Starshine therefore removes 164,012 additional bytes, `28.324%` more removed bytes than Binaryen, and emits a `3.130%` smaller result.
+
+All five outputs from each tool are byte-deterministic. Both representative outputs pass `wasm-tools validate --features all`, Node/WASI `--help`, the smoke spec, and the complete checked-in self-opt spec gate: `284` total, `87` passed, `197` known skips, `0` failed. This is whole-pipeline evidence, not attribution of the aggregate size advantage to Vacuum alone. By explicit user direction, `[P0-WALL-VACUUM]` is closed; the remaining direct raw/writeback gap is optional tuning and should reopen only for a stable aggregate regression, correctness problem, or material size loss.
 
 ## Beginner warning: what the name hides
 
