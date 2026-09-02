@@ -44884,6 +44884,88 @@ fn run_hot_pipeline_raw_has_dropped_call_result_effect_order(
 }
 
 ///|
+fn run_hot_pipeline_raw_tuple_block_may_produce_multivalue(
+  block_type : @lib.BlockType,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match block_type {
+    @lib.VoidBlockType | @lib.ValTypeBlockType(_) => false
+    @lib.TypeIdxBlockType(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(_, results)) => results.length() > 1
+        None => true
+      }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_tuple_instr_may_produce_multivalue(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instr {
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(_, results)) => results.length() > 1
+        None => true
+      }
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(_, results)) => results.length() > 1
+        None => true
+      }
+    @lib.Block(block_type, _)
+    | @lib.Loop(block_type, _)
+    | @lib.If(block_type, _, _)
+    | @lib.TryTable(block_type, _, _) =>
+      run_hot_pipeline_raw_tuple_block_may_produce_multivalue(
+        block_type, module_ctx,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_tuple_has_multivalue_producer(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_raw_tuple_instr_may_produce_multivalue(
+        instr, module_ctx,
+      ) {
+      return true
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_tuple_has_multivalue_producer(body, module_ctx) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_tuple_has_multivalue_producer(
+            then_body, module_ctx,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_tuple_has_multivalue_producer(
+                else_body, module_ctx,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_tuple_optimization_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -44907,6 +44989,14 @@ fn run_hot_pipeline_raw_tuple_optimization_skip(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
+  if !run_hot_pipeline_raw_tuple_has_multivalue_producer(body, module_ctx) {
+    return Some({
+      reason: "candidate-free-tuple-optimization-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if run_hot_pipeline_tuple_has_effect_bracketed_multivalue_call(
       body, module_ctx,
     ) {

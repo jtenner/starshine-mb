@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-01
 sources:
   - ../reorder-locals/index.md
   - ../simplify-locals-nostructure/index.md
@@ -37,7 +37,7 @@ related:
 ## Top-level ownership split
 
 - [`src/passes/tuple_optimization.mbt`](../../../../../src/passes/tuple_optimization.mbt) owns the HOT pass itself.
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) owns pass-manager dispatch plus one debug trace hook that dumps tuple groups and the rewrite mask for a targeted function.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) owns pass-manager dispatch, the fail-closed raw multivalue-producer classifier, tuple-specific safety skips, and the debug trace hook that dumps tuple groups and the rewrite mask for a targeted function.
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) owns registry exposure and the current public tuple/no-structure preset lane.
 - [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) proves the pass is still exposed as an active hot pass.
 - [`src/passes/tuple_optimization_wbtest.mbt`](../../../../../src/passes/tuple_optimization_wbtest.mbt) is the main focused analysis-and-rewrite test file.
@@ -46,6 +46,11 @@ related:
 
 ## Registry, dispatch, and preset locations
 
+- `run_hot_pipeline_raw_tuple_block_may_produce_multivalue(...)`, `run_hot_pipeline_raw_tuple_instr_may_produce_multivalue(...)`, and `run_hot_pipeline_raw_tuple_has_multivalue_producer(...)` in `src/passes/pass_manager.mbt`
+  - conservatively classify direct/indirect/reference calls and structured type-indexed results before HOT lifting
+  - recurse through every structured body and treat unresolved type information as a possible candidate
+- `run_hot_pipeline_raw_tuple_optimization_skip(...)` in `src/passes/pass_manager.mbt`
+  - applies the candidate-free one-scan skip before the effect-bracketed-call and load/call/set safety fallbacks
 - `src/passes/tuple_optimization.mbt:97`
   - `tuple_optimization_descriptor()`
   - declares the active hot-pass surface and invalidated analyses

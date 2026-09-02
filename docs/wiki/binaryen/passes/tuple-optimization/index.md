@@ -6,6 +6,7 @@ sources:
   - ../../release-horizon-and-oracles.md
   - ../code-pushing/index.md
   - ../../../../../src/passes/tuple_optimization.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
   - ../../../../../src/ir/hot_lower.mbt
   - ../../../../../src/ir/hot_lower_wbtest.mbt
@@ -37,13 +38,25 @@ related:
 
 # `tuple-optimization`
 
+## 2026-09-01 production candidate-free raw gate
+
+The canonical 4,977,401-byte artifact contained thousands of scalar-only functions that could not form a TupleOptimization seed group, but the dispatcher still lifted each function, built use-def, and ran both root-group scans. A new fail-closed raw classifier recursively checks every nested instruction sequence for a static multi-result producer. It resolves direct and indirect/reference call signatures plus type-indexed `block`, `loop`, `if`, and `try_table` results through the cached module context; any unresolved signature is treated as a possible candidate and falls back to the full HOT path.
+
+The candidate-free check runs before the older ownership-hazard probes, making scalar-only functions one-scan no-ops while preserving the hazard fallbacks whenever a real multivalue producer exists. On the production artifact, 11,767 functions take the candidate-free skip, 86 retain the effect-bracketed-call skip, 13 retain the load/call/set skip, and only 133 enter HOT lifting and the pass. Red-first tests lock both the scalar hazard ordering and the multivalue hazard fallback. A production-derived 2,000-function native-release benchmark fail-closes unless every scalar function takes the raw skip and measures `1.34ms ± 9.46us` on the AMD Ryzen 7 8845HS with MoonBit `0.1.20260713`.
+
+Matched clean-HEAD/current one-warmup/three-sample medians reduce no-trace command `2,502.949ms -> 897.562ms` (`2.789x`, `-64.140%`), pass-local `302.034ms -> 8.113ms` (`37.228x`), HOT lift `642.690ms -> 8.197ms` (`78.406x`), and the optimizer pipeline `1,772.302ms -> 181.221ms` (`9.780x`). Paired current Binaryen v131 is `501.621ms` command / `3.709ms` pass-local; Starshine's `1.789x` command ratio clears the `<=1.053s` absolute gate by `155.438ms`. The remaining low-absolute candidate-heavy pass ratio remains covered by the existing 2026-06-30 soft acceptance.
+
+Every measured output is byte-identical to the pre-change 4,976,841-byte result at SHA-256 `4b616a392d85a2c2dbf52ea08b27ad99cc07351a166838c0eaab2d9d6733d172`. Regular explicit-v131 GenValid is `10000/10000` normalized with equal canonical bytes and zero failures. The dedicated 10,000-case profile still produces the established pure/drop-only scalar-spelling family: all cases validate, Starshine is canonically smaller in all 10,000, and there are no property, generator, or command failures. `[P0-WALL-TUPLE]` is closed.
+
+Evidence lives under `.tmp/tuple-production-baseline-matched-20260901-*`, `.tmp/tuple-production-final-clean-20260901-*`, `.tmp/pass-fuzz-tuple-final-clean-regular-10000-20260901`, and `.tmp/pass-fuzz-tuple-final-clean-dedicated-10000-20260901`. The final native binary is SHA-256 `bbfa580e0e1fdcf267a1e0c313498df8f90a911b923dedd0cd40fe6c36c71cca`.
+
 ## 2026-09-01 Moon component benchmark and shared HOT lower suffix index
 
 A reusable native-release benchmark now reconstructs the established candidate-heavy contract as one function with 2,000 independent two-lane type-indexed pure/drop-only spills. It separately measures HOT lift, lowering after TupleOptimization, and the registry-dispatched pipeline. Across five matched clean-`04adcce0e`/current runs, median mean lift is neutral (`39.14ms -> 39.18ms`), HOT lower improves `467.70ms -> 11.41ms` (`-97.560%`, `40.990x`), and the complete pass pipeline improves `522.63ms -> 88.72ms` (`-83.024%`, `5.891x`).
 
 The lowerer owner was the future-root dependency proof: every local-reading root could rescan all later roots even when no later root contained an effectful value created before the current root. Large regions now build one memoized minimum dependency id per node and one suffix minimum over region roots. The minimum deliberately traverses beneath later impure parents because the original threshold-sensitive collector does so when the parent itself is not old enough; regions below 64 roots retain the original exact scan. Red-first white-box coverage locks pure roots, direct earlier effects, nested earlier effects beneath later impure parents, and the region local-read gate. The first incomplete fallback experiment changed call order on the production artifact and was rejected; the final optional-index fallback restores exact bytes.
 
-This is a synthetic shared-lowerer win, not a production-artifact speedup. Final one-warmup/three-pair production medians preserve the 4,976,841-byte raw output at SHA-256 `4b616a392d85a2c2dbf52ea08b27ad99cc07351a166838c0eaab2d9d6733d172`: clean/current no-trace is `1945.067ms -> 1955.632ms`, pass-local `268.023ms -> 272.397ms`, lift `568.033ms -> 575.643ms`, and lower `9.572ms -> 9.675ms`, all neutral host noise. Paired Binaryen v131 is `510.266ms` process / `3.713ms` pass-local, so `[P0-WALL-TUPLE]` remains open. Regular explicit-v131 GenValid is `10000/10000` normalized with zero failures and equal canonical bytes; the shared RUB recheck is `278` normalized plus `9722` cleanup-normalized with zero residual mismatches or failures.
+This is a synthetic shared-lowerer win, not a production-artifact speedup. Final one-warmup/three-pair production medians preserve the 4,976,841-byte raw output at SHA-256 `4b616a392d85a2c2dbf52ea08b27ad99cc07351a166838c0eaab2d9d6733d172`: clean/current no-trace is `1945.067ms -> 1955.632ms`, pass-local `268.023ms -> 272.397ms`, lift `568.033ms -> 575.643ms`, and lower `9.572ms -> 9.675ms`, all neutral host noise. Paired Binaryen v131 was `510.266ms` process / `3.713ms` pass-local, so `[P0-WALL-TUPLE]` remained open at this checkpoint; the production candidate-free raw gate documented above supersedes that status and closes it. Regular explicit-v131 GenValid is `10000/10000` normalized with zero failures and equal canonical bytes; the shared RUB recheck is `278` normalized plus `9722` cleanup-normalized with zero residual mismatches or failures.
 
 ## Binaryen v131 renewal status
 

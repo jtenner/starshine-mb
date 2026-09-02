@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-01
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -24,6 +24,7 @@ related:
 
 ## Durable Conclusions
 
+- The 2026-09-01 fail-closed raw candidate classifier preserves exact production output while skipping scalar-only functions before HOT lift. Regular explicit-v131 GenValid is `10000/10000` canonical-equal; the dedicated 10,000-case spill/tee/copy profile remains the established uniformly smaller pure/drop-only scalar-spelling Starshine-win family. The canonical command median is `897.562ms` versus Binaryen v131 `501.621ms`, closing `[P0-WALL-TUPLE]` under the `<=1.053s` absolute gate.
 - Starshine's tuple-opt should be judged first against Binaryen, not against a home-grown notion of "reasonable multivalue cleanup."
 - The explicit pass surface is real and useful today, and the exact in-tree preset slot is now scheduled in `optimize` and `shrink`.
 - The isolated pass has fresh direct parity evidence under the 2026-05-09 refreshed `pass-fuzz-compare` harness.

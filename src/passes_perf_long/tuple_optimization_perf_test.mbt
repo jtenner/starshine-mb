@@ -51,6 +51,76 @@ fn tuple_optimization_perf_candidate_module(pair_count : Int) -> @lib.Module {
 }
 
 ///|
+fn tuple_optimization_perf_candidate_free_module(
+  function_count : Int,
+) -> @lib.Module {
+  let func_types : Array[@lib.TypeIdx] = Array::new(capacity=function_count)
+  let funcs : Array[@lib.Func] = Array::new(capacity=function_count)
+  for func_idx in 0..<function_count {
+    func_types.push(@lib.TypeIdx::new(0U))
+    funcs.push(
+      @lib.Func::new(
+        @lib.Locals::from_types([]),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(func_idx)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    )
+  }
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new(func_types))
+  .with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+test "bench tuple-optimization candidate-free scalar functions=2000" (
+  it : @bench.T,
+) {
+  let function_count = 2000
+  let fixture = tuple_optimization_perf_candidate_free_module(function_count)
+  let trace : Array[String] = []
+  let preflight = match
+    @passes.run_hot_pipeline(
+      fixture,
+      @passes.HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["tuple-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort(
+        "expected candidate-free tuple benchmark preflight success, got \{err}",
+      )
+  }
+  let mut candidate_free_skip_count = 0
+  for line in trace {
+    if line.contains(
+        "pass[tuple-optimization]:skip-raw reason=candidate-free-tuple-optimization-noop",
+      ) {
+      candidate_free_skip_count += 1
+    }
+  }
+  assert_eq(candidate_free_skip_count, function_count)
+  match preflight.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), function_count)
+    None => abort("expected candidate-free tuple benchmark code section")
+  }
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match @passes.run_hot_pipeline(fixture, options, ["tuple-optimization"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) =>
+        abort("expected candidate-free tuple benchmark success, got \{err}")
+    }
+  })
+}
+
+///|
 test "bench HOT lift tuple-optimization drop-only pairs=2000" (it : @bench.T) {
   let fixture = tuple_optimization_perf_candidate_module(2000)
   let preflight = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))

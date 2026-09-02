@@ -12,11 +12,19 @@ sources:
 
 # `tuple-optimization` Fuzzing Profile
 
+## 2026-09-01 candidate-free raw-gate renewal
+
+The rebuilt release-native Starshine binary and explicitly required Binaryen v131 compare clean on regular GenValid: `.tmp/pass-fuzz-tuple-final-clean-regular-10000-20260901` is `10000/10000` normalized, with zero mismatches, validation failures, property failures, generator failures, or command failures. Raw totals are 42,190,083 Starshine versus 42,157,334 Binaryen bytes, while canonical bytes are exactly equal in every case.
+
+The dedicated `.tmp/pass-fuzz-tuple-final-clean-dedicated-10000-20260901` lane completes all 10,000 cases with zero validation/property/generator/command failures and the same previously classified pure/drop-only scalar-spelling differences. Starshine is smaller in every case: raw totals are 495,472 versus 625,980 bytes and canonical totals are 419,104 versus 629,164 bytes. This lane proves that the raw classifier still admits the spill, tee, and copy-chain producer families; its mismatches remain the existing measured Starshine-win output-shape family, not a new normalization rule.
+
+The production artifact remains byte-identical at SHA-256 `4b616a392d85a2c2dbf52ea08b27ad99cc07351a166838c0eaab2d9d6733d172`, and `[P0-WALL-TUPLE]` is now closed by the one-warmup/three-sample `897.562ms` no-trace command median against the `<=1.053s` absolute gate.
+
 ## 2026-09-01 shared HOT lower renewal
 
 The rebuilt explicit current native binary and `.tmp/binaryen-version-131-bin/bin/wasm-opt` compared `10000/10000` regular GenValid cases at seed `0x5eed` with `--jobs auto`, `--max-subprocesses 8`, and `--max-mismatch-artifacts 20`. All 10,000 are normalized matches with zero mismatches, validation failures, property failures, generator failures, or command failures. Raw totals are `42,190,083` Starshine versus `42,157,334` Binaryen bytes (`2,967` equal and `7,033` Starshine-larger spelling cases), while canonical totals are exactly equal at `42,157,334` bytes in every case. Binaryen cache is `2/9998` hits/misses. Evidence: `.tmp/pass-fuzz-tuple-hot-lower-suffix-20260901/`.
 
-This lane validates the shared future-dependency suffix index used by HOT lowering. It does not change the dedicated pure/drop-only scalar-spelling classification below and does not close `[P0-WALL-TUPLE]`; the production artifact remains byte-identical and timing-neutral.
+This lane validates the shared future-dependency suffix index used by HOT lowering. It did not change the dedicated pure/drop-only scalar-spelling classification below and did not close `[P0-WALL-TUPLE]` at that checkpoint; the later candidate-free raw-gate renewal above supersedes that status and closes the production gate.
 
 ## Binaryen v131 spot renewal
 

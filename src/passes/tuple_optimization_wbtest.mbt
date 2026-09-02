@@ -5,10 +5,17 @@ test "tuple-optimization skips load-call-set ownership hazards" {
     pass_test_run_pipeline(
       (
         #|(module
+        #|  (type $pair (func (result i32 i64)))
         #|  (import "m" "decref" (func $decref (param i32)))
         #|  (memory 1)
         #|  (func (param $cell i32) (result i32)
         #|    (local $out i32)
+        #|    block (type $pair)
+        #|      i32.const 0
+        #|      i64.const 0
+        #|    end
+        #|    drop
+        #|    drop
         #|    local.get $cell
         #|    i32.load offset=8
         #|    local.get $cell
@@ -30,6 +37,72 @@ test "tuple-optimization skips load-call-set ownership hazards" {
         "pass[tuple-optimization]:skip-raw reason=load-call-set-tuple-optimization-noop",
       )
     }),
+  )
+}
+
+///|
+test "tuple-optimization candidate-free gate precedes ownership hazard scans" {
+  let source =
+    #|(module
+    #|  (import "m" "decref" (func $decref (param i32)))
+    #|  (memory 1)
+    #|  (func (param $cell i32) (result i32)
+    #|    (local $out i32)
+    #|    local.get $cell
+    #|    i32.load offset=8
+    #|    local.get $cell
+    #|    call $decref
+    #|    local.set $out
+    #|    local.get $out))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected candidate-free hazard tuple success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[tuple-optimization]:skip-raw reason=candidate-free-tuple-optimization-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "tuple-optimization raw-skips functions without multivalue producers" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.add))
+  let original = pass_test_module_from_wat(source)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected candidate-free tuple success, got \{err}")
+  }
+  @debug.assert_eq(optimized, original)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[tuple-optimization]:skip-raw reason=candidate-free-tuple-optimization-noop",
+      )
+    }),
+    msg=trace.to_string(),
   )
 }
 
