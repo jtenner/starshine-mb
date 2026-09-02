@@ -10,6 +10,12 @@ fn gen_valid_engine_state_profiles() -> Array[GenValidProfile] {
     EngineStateInitializationProfile,
     EngineStateTrapProfile,
     EngineStateMixedProfile,
+    EngineStateTopologyProfile,
+    EngineStateEffectsProfile,
+    EngineStateResourcesProfile,
+    EngineStateBoundariesProfile,
+    EngineStateOptimizerShapesProfile,
+    EngineStateEquivalentFamiliesProfile,
   ]
 }
 
@@ -1280,6 +1286,18 @@ fn gen_valid_engine_state_profile_module(ctx : GenValidContext) -> Module {
     EngineStateTrapProfile => gen_valid_engine_state_trap_module(ctx.root_seed)
     EngineStateMixedProfile =>
       gen_valid_engine_state_mixed_module(ctx.root_seed)
+    EngineStateTopologyProfile =>
+      gen_valid_engine_state_topology_module(ctx.root_seed)
+    EngineStateEffectsProfile =>
+      gen_valid_engine_state_effects_module(ctx.root_seed)
+    EngineStateResourcesProfile =>
+      gen_valid_engine_state_resources_module(ctx.root_seed)
+    EngineStateBoundariesProfile =>
+      gen_valid_engine_state_boundaries_module(ctx.root_seed)
+    EngineStateOptimizerShapesProfile =>
+      gen_valid_engine_state_optimizer_shapes_module(ctx.root_seed)
+    EngineStateEquivalentFamiliesProfile =>
+      gen_valid_engine_state_equivalent_families_module(ctx.root_seed)
     _ => gen_valid_engine_state_scalar_control_module(ctx.root_seed)
   }
 }

@@ -32,21 +32,33 @@ The intended cross-engine contract is:
 
 ## Profile family
 
-`engine-state-all` is a seed-rotated exact 20-case weighted cycle. Every contiguous 20 selected cases realizes the declared weights exactly, so every singleton leaf is present without probabilistic retry:
+`engine-state-all` is a seed-rotated exact 40-case weighted cycle. Every contiguous 40 selected cases realizes the declared weights exactly, so every singleton leaf is present without probabilistic retry. The mix reserves 40% for the original execution leaves, 45% for forced semantic scenarios, and 15% for self-checking equivalent families:
 
 | Leaf | Weight | Executed focus |
 |---|---:|---|
-| `engine-state-scalar-control` | 4 | Scalar arithmetic, structured branches, a 1–8-trip bounded loop, global mutation, integer/float exact-bit observations, and multi-value results. |
-| `engine-state-calls` | 3 | Direct calls, a call chain, bounded indirect calls through an initialized table, and a multi-value float call. |
-| `engine-state-memory` | 3 | In-bounds loads/stores, `memory.fill`, one guaranteed `memory.grow`, and active data initialization. |
-| `engine-state-table` | 2 | Table mutation, one bounded `table.grow`, active elements, exported function identities, and a valid indirect call. |
-| `engine-state-simd` | 2 | Deterministic SIMD computation with `v128` results stored into exported observation-memory slots. |
+| `engine-state-scalar-control` | 3 | Scalar arithmetic, structured branches, a 1–8-trip bounded loop, global mutation, integer/float exact-bit observations, and multi-value results. |
+| `engine-state-calls` | 2 | Direct calls, a call chain, bounded indirect calls through an initialized table, and a multi-value float call. |
+| `engine-state-memory` | 2 | In-bounds loads/stores, `memory.fill`, one guaranteed `memory.grow`, and active data initialization. |
+| `engine-state-table` | 1 | Table mutation, one bounded `table.grow`, active elements, exported function identities, and a valid indirect call. |
+| `engine-state-simd` | 1 | Deterministic SIMD computation with `v128` results stored into exported observation-memory slots. |
 | `engine-state-imports` | 2 | Fixed deterministic function imports plus imported mutable global, memory, and table state. |
 | `engine-state-initialization` | 1 | Active data/elements, start-order reads, mutable global initialization, and multiple export aliases for the same resources. |
 | `engine-state-trap` | 2 | An observable committed prefix followed by one intended deterministic trap frontier. |
-| `engine-state-mixed` | 1 | A bounded scalar/call/memory/table/SIMD combination driven and observed by start. |
+| `engine-state-mixed` | 2 | A bounded scalar/call/memory/table/SIMD combination driven and observed by start. |
+| `engine-state-topology` | 4 | Deep direct chains, call diamonds, seed-selected join operations, and table dispatch. |
+| `engine-state-effects` | 4 | Seed-selected operand order, nested call effects, branch effects, host marks, and exported global/memory mutations. |
+| `engine-state-resources` | 4 | Overlapping active segments, memory/table copies, growth, mutation, and the full exported state lifecycle. |
+| `engine-state-boundaries` | 3 | Integer edge classes, strict float bit classes, unaligned stores, and an exact-end memory access. |
+| `engine-state-optimizer-shapes` | 3 | Wrappers, redundant locals, dropped constants, result blocks, constant control, and exported final state. |
+| `engine-state-equivalent-families` | 6 | Four equivalent arithmetic/control forms plus a wrapper, with in-module comparisons that trap on disagreement. |
 
 Aliases `engine-state` and `engine-state-all-profiles` resolve to the aggregate.
+
+## Scenario diversity
+
+The six scenario leaves select a forced semantic motif before they derive constants. Seed bits then rotate structural alternatives inside that motif: join operators and table targets for topology, operand order and branch effects for effects, copy order and block/if wrappers for resources, integer and float edge operations for boundaries, four cleanup/constant-control shapes for optimizer code, and four equivalent arithmetic/control spellings for equivalence checks. Dedicated tests run the forced seed slots without generator retry, which prevents invalid variants from silently biasing the output back toward one accepted shape.
+
+The equivalent-family leaf compares canonical, alternate, and wrapper results inside the generated module. A disagreement reaches `unreachable`; a successful start therefore supplies an independent in-module relation in addition to the Node-versus-Railshot observation comparison.
 
 ## Fixed fuzz ABI
 
@@ -115,7 +127,7 @@ Batch manifests now use top-level schema `starshine.gen-valid.batch.v2`. Every r
 - ordinary static `feature_facts`;
 - optional nested `engine_state` metadata.
 
-Engine-state records use `starshine.gen-valid.engine-state.v1` and include:
+Engine-state records use `starshine.gen-valid.engine-state.v2` and include:
 
 - profile version and generator build identity;
 - selected singleton leaf and intended `complete` or `trap` outcome;
@@ -133,7 +145,7 @@ The top-level `acceptance_contract` records the required runtime floor keys. The
 
 ## Budgets
 
-The initial identity uses:
+The current identity uses:
 
 - 4–12 defined functions and at most 12 types;
 - at most 4 parameters, 3 results, and 12 locals per function;
@@ -168,7 +180,7 @@ Emit one exact aggregate cycle:
 
 ```text
 bun fuzz run --emit-gen-valid-batch \
-  --count 20 \
+  --count 40 \
   --seed 150937214 \
   --out-dir .tmp/engine-state \
   --manifest .tmp/engine-state/manifest.json \

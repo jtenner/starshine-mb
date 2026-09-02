@@ -1,15 +1,25 @@
 ///|
 test "engine-state GenValid profile family resolves stable singleton names and weights" {
   let expected = [
-    (EngineStateScalarControlProfile, "engine-state-scalar-control", 4),
-    (EngineStateCallsProfile, "engine-state-calls", 3),
-    (EngineStateMemoryProfile, "engine-state-memory", 3),
-    (EngineStateTableProfile, "engine-state-table", 2),
-    (EngineStateSimdProfile, "engine-state-simd", 2),
+    (EngineStateScalarControlProfile, "engine-state-scalar-control", 3),
+    (EngineStateCallsProfile, "engine-state-calls", 2),
+    (EngineStateMemoryProfile, "engine-state-memory", 2),
+    (EngineStateTableProfile, "engine-state-table", 1),
+    (EngineStateSimdProfile, "engine-state-simd", 1),
     (EngineStateImportsProfile, "engine-state-imports", 2),
     (EngineStateInitializationProfile, "engine-state-initialization", 1),
     (EngineStateTrapProfile, "engine-state-trap", 2),
-    (EngineStateMixedProfile, "engine-state-mixed", 1),
+    (EngineStateMixedProfile, "engine-state-mixed", 2),
+    (EngineStateTopologyProfile, "engine-state-topology", 4),
+    (EngineStateEffectsProfile, "engine-state-effects", 4),
+    (EngineStateResourcesProfile, "engine-state-resources", 4),
+    (EngineStateBoundariesProfile, "engine-state-boundaries", 3),
+    (EngineStateOptimizerShapesProfile, "engine-state-optimizer-shapes", 3),
+    (
+      EngineStateEquivalentFamiliesProfile,
+      "engine-state-equivalent-families",
+      6,
+    ),
   ]
   for item in expected {
     let (profile, name, _) = item
@@ -37,22 +47,28 @@ test "engine-state GenValid profile family resolves stable singleton names and w
 }
 
 ///|
-test "engine-state aggregate realizes one exact weighted cycle every twenty cases" {
+test "engine-state aggregate realizes one exact weighted cycle every forty cases" {
   let expected = [
-    (EngineStateScalarControlProfile, 4),
-    (EngineStateCallsProfile, 3),
-    (EngineStateMemoryProfile, 3),
-    (EngineStateTableProfile, 2),
-    (EngineStateSimdProfile, 2),
+    (EngineStateScalarControlProfile, 3),
+    (EngineStateCallsProfile, 2),
+    (EngineStateMemoryProfile, 2),
+    (EngineStateTableProfile, 1),
+    (EngineStateSimdProfile, 1),
     (EngineStateImportsProfile, 2),
     (EngineStateInitializationProfile, 1),
     (EngineStateTrapProfile, 2),
-    (EngineStateMixedProfile, 1),
+    (EngineStateMixedProfile, 2),
+    (EngineStateTopologyProfile, 4),
+    (EngineStateEffectsProfile, 4),
+    (EngineStateResourcesProfile, 4),
+    (EngineStateBoundariesProfile, 3),
+    (EngineStateOptimizerShapesProfile, 3),
+    (EngineStateEquivalentFamiliesProfile, 6),
   ]
   for item in expected {
     let (profile, wanted) = item
     let mut actual = 0
-    for index in 1..<=20 {
+    for index in 1..<=40 {
       if gen_valid_profile_leaf_for_case(EngineStateAllProfile, 0xA11UL, index) ==
         profile {
         actual += 1
@@ -75,6 +91,12 @@ test "engine-state singleton configs enforce compact deterministic hard budgets"
       EngineStateInitializationProfile,
       EngineStateTrapProfile,
       EngineStateMixedProfile,
+      EngineStateTopologyProfile,
+      EngineStateEffectsProfile,
+      EngineStateResourcesProfile,
+      EngineStateBoundariesProfile,
+      EngineStateOptimizerShapesProfile,
+      EngineStateEquivalentFamiliesProfile,
     ] {
     let config = GenValidConfig::for_profile(profile)
     assert_true(config.max_defined_funcs >= 4 && config.max_defined_funcs <= 12)
@@ -157,6 +179,20 @@ fn engine_state_test_start_body(mod_ : Module) -> Array[Instruction] raise {
       body
     }
     _ => fail("engine-state module must have one defined start")
+  }
+}
+
+///|
+fn engine_state_test_defined_body(
+  mod_ : Module,
+  index : Int,
+) -> Array[Instruction] raise {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) if index >= 0 && index < funcs.length() => {
+      let Func(_, Expr(body)) = funcs[index]
+      body
+    }
+    _ => fail("engine-state defined function index is out of range")
   }
 }
 
@@ -288,6 +324,12 @@ test "engine-state success leaves emit deterministic driven observable modules" 
     EngineStateImportsProfile,
     EngineStateInitializationProfile,
     EngineStateMixedProfile,
+    EngineStateTopologyProfile,
+    EngineStateEffectsProfile,
+    EngineStateResourcesProfile,
+    EngineStateBoundariesProfile,
+    EngineStateOptimizerShapesProfile,
+    EngineStateEquivalentFamiliesProfile,
   ]
   for profile in profiles {
     let first = engine_state_test_generate(profile, 0xE651A7EUL)
@@ -397,4 +439,139 @@ test "engine-state trap leaf emits an observable prefix and one intended frontie
     )
     assert_true(tables > 0 && memories > 0 && globals > 0)
   }
+}
+
+///|
+test "engine-state topology and effects leaves force relational execution shapes" {
+  let topology = engine_state_test_generate(EngineStateTopologyProfile, 0UL)
+  let diamond = engine_state_test_defined_body(topology.wasm_module, 4)
+  assert_true(diamond.contains(Instruction::call(FuncIdx::new(6U))))
+  assert_true(diamond.contains(Instruction::call(FuncIdx::new(7U))))
+  assert_true(diamond.contains(Instruction::call(FuncIdx::new(8U))))
+  let dispatch = engine_state_test_defined_body(topology.wasm_module, 3)
+  assert_true(
+    dispatch.contains(
+      Instruction::call_indirect(TypeIdx::new(7U), TableIdx::new(0U)),
+    ),
+  )
+
+  let left_merge = engine_state_test_defined_body(
+    gen_valid_engine_state_effects_module(0UL),
+    2,
+  )
+  let right_merge = engine_state_test_defined_body(
+    gen_valid_engine_state_effects_module(8UL),
+    2,
+  )
+  @debug.assert_eq(left_merge[1], Instruction::call(FuncIdx::new(5U)))
+  @debug.assert_eq(right_merge[1], Instruction::call(FuncIdx::new(6U)))
+}
+
+///|
+test "engine-state resources and boundaries leaves force lifecycle and edge shapes" {
+  let resources = engine_state_test_generate(EngineStateResourcesProfile, 0UL)
+  let copy = engine_state_test_defined_body(resources.wasm_module, 3)
+  assert_true(
+    copy.contains(Instruction::memory_copy(MemIdx::new(0U), MemIdx::new(0U))),
+  )
+  assert_true(
+    copy.contains(Instruction::table_copy(TableIdx::new(0U), TableIdx::new(0U))),
+  )
+  match (resources.wasm_module.data_sec, resources.wasm_module.elem_sec) {
+    (Some(DataSec(datas)), Some(ElemSec(elems))) => {
+      @debug.assert_eq(datas.length(), 2)
+      @debug.assert_eq(elems.length(), 2)
+    }
+    _ => fail("resource lifecycle leaf must contain overlapping segments")
+  }
+
+  let boundaries = engine_state_test_generate(EngineStateBoundariesProfile, 0UL)
+  let memory = engine_state_test_defined_body(boundaries.wasm_module, 1)
+  assert_true(
+    memory.contains(
+      Instruction::i32_store16(gen_valid_engine_state_memarg(0U, 0UL)),
+    ),
+  )
+  assert_true(
+    memory.contains(
+      Instruction::i32_load(gen_valid_engine_state_memarg(2U, 0UL)),
+    ),
+  )
+}
+
+///|
+test "engine-state diversity leaves accept every forced seed slot without retry bias" {
+  let profiles = [
+    EngineStateTopologyProfile,
+    EngineStateEffectsProfile,
+    EngineStateResourcesProfile,
+    EngineStateBoundariesProfile,
+    EngineStateOptimizerShapesProfile,
+    EngineStateEquivalentFamiliesProfile,
+  ]
+  let seeds = [
+    0UL, 8UL, 32UL, 64UL, 128UL, 192UL, 1024UL, 2048UL, 3072UL, 4096UL, 6144UL,
+  ]
+  for profile in profiles {
+    for seed in seeds {
+      let generated = engine_state_test_generate(profile, seed)
+      @debug.assert_eq(generated.attempts, 1)
+    }
+  }
+}
+
+///|
+test "engine-state optimizer and equivalent leaves rotate forced structural variants" {
+  let optimizer_local = engine_state_test_defined_body(
+    gen_valid_engine_state_optimizer_shapes_module(0UL),
+    2,
+  )
+  let optimizer_block = engine_state_test_defined_body(
+    gen_valid_engine_state_optimizer_shapes_module(64UL),
+    2,
+  )
+  let optimizer_drop = engine_state_test_defined_body(
+    gen_valid_engine_state_optimizer_shapes_module(128UL),
+    2,
+  )
+  let optimizer_if = engine_state_test_defined_body(
+    gen_valid_engine_state_optimizer_shapes_module(192UL),
+    2,
+  )
+  assert_true(
+    optimizer_local.contains(Instruction::local_set(LocalIdx::new(1U))),
+  )
+  assert_true(optimizer_block.any(fn(instr) { instr is Block(_, _) }))
+  let mut has_dropped_constant = false
+  for i in 0..<(optimizer_drop.length() - 1) {
+    match (optimizer_drop[i], optimizer_drop[i + 1]) {
+      (I32Const(_), Drop) => has_dropped_constant = true
+      _ => ()
+    }
+  }
+  assert_true(has_dropped_constant)
+  assert_true(optimizer_if.any(fn(instr) { instr is If(_, _, _) }))
+
+  let equivalent_sub = engine_state_test_defined_body(
+    gen_valid_engine_state_equivalent_families_module(0UL),
+    1,
+  )
+  let equivalent_block = engine_state_test_defined_body(
+    gen_valid_engine_state_equivalent_families_module(1024UL),
+    1,
+  )
+  let equivalent_if = engine_state_test_defined_body(
+    gen_valid_engine_state_equivalent_families_module(2048UL),
+    1,
+  )
+  let equivalent_local = engine_state_test_defined_body(
+    gen_valid_engine_state_equivalent_families_module(3072UL),
+    1,
+  )
+  assert_true(equivalent_sub.contains(Instruction::i32_sub()))
+  assert_true(equivalent_block.any(fn(instr) { instr is Block(_, _) }))
+  assert_true(equivalent_if.any(fn(instr) { instr is If(_, _, _) }))
+  assert_true(
+    equivalent_local.contains(Instruction::local_set(LocalIdx::new(1U))),
+  )
 }

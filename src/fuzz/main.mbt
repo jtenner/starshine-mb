@@ -5463,7 +5463,7 @@ fn gen_valid_engine_state_selection_contract_error(
     }
     i += 1
   }
-  if profile_name == "engine-state-all" && manifest.length() >= 20 {
+  if profile_name == "engine-state-all" && manifest.length() >= 40 {
     for entry in @validate.gen_valid_profile_members(profile) {
       let expected_name = gen_valid_profile_name(entry.profile)
       if !manifest.any(fn(item) { item.selected_profile == expected_name }) {
@@ -5500,8 +5500,21 @@ fn format_gen_valid_engine_state_observation_map(profile : String) -> String {
       "[{\"id\":60,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":61,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":62,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
     "engine-state-trap" =>
       "[{\"id\":70,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":71,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":72,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
-    _ =>
+    "engine-state-mixed" =>
       "[{\"id\":80,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":81,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":82,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":83,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"v128\",\"encoding\":\"memory[128..144)\"}]"
+    "engine-state-topology" =>
+      "[{\"id\":90,\"function_index\":9,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":91,\"function_index\":8,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-effects" =>
+      "[{\"id\":100,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":101,\"function_index\":8,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-resources" =>
+      "[{\"id\":110,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":111,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":112,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":113,\"function_index\":8,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-boundaries" =>
+      "[{\"id\":120,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":121,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":122,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"f32\",\"encoding\":\"i32.reinterpret_f32\"}]"
+    "engine-state-optimizer-shapes" =>
+      "[{\"id\":130,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":131,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":132,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-equivalent-families" =>
+      "[{\"id\":140,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":141,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":142,\"function_index\":8,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    _ => "[]"
   }
 }
 
@@ -5535,11 +5548,37 @@ fn gen_valid_engine_state_feature_labels(profile : String) -> Array[String] {
       ]
     "engine-state-trap" =>
       ["observable-prefix", "post-effect-trap", "imported-resource-mutation"]
-    _ =>
+    "engine-state-mixed" =>
       [
         "scalar-results", "direct-call", "indirect-call", "memory-mutation", "table-mutation",
         "global-mutation", "simd-result", "active-data-initialization", "active-element-initialization",
       ]
+    "engine-state-topology" =>
+      ["deep-call-chain", "call-diamond", "direct-call", "indirect-call"]
+    "engine-state-effects" =>
+      [
+        "ordered-effects", "nested-call-arguments", "branch-effects", "global-mutation",
+        "memory-mutation",
+      ]
+    "engine-state-resources" =>
+      [
+        "overlapping-segments", "memory-copy", "table-copy", "memory-growth", "table-growth",
+        "global-mutation", "memory-mutation", "table-mutation",
+      ]
+    "engine-state-boundaries" =>
+      [
+        "integer-boundaries", "float-bit-boundaries", "unaligned-memory", "exact-memory-end",
+      ]
+    "engine-state-optimizer-shapes" =>
+      [
+        "direct-wrapper", "redundant-locals", "constant-control", "dropped-value",
+        "global-mutation",
+      ]
+    "engine-state-equivalent-families" =>
+      [
+        "equivalent-arithmetic", "equivalent-control", "wrapper-equivalence", "self-checking-result",
+      ]
+    _ => []
   }
 }
 
@@ -5575,8 +5614,17 @@ fn format_gen_valid_engine_state_resource_map(profile : String) -> String {
       "[{\"kind\":\"global\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_table_0\"]}]"
     "engine-state-initialization" =>
       "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\",\"__fuzz_global_alias_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\",\"__fuzz_memory_alias_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\",\"__fuzz_table_alias_0\"]}]"
-    _ =>
+    "engine-state-mixed" | "engine-state-resources" =>
       "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-topology" =>
+      "[{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-effects" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]}]"
+    "engine-state-boundaries" =>
+      "[{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]}]"
+    "engine-state-optimizer-shapes" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\"]}]"
+    _ => "[]"
   }
 }
 
@@ -5604,7 +5652,7 @@ fn format_gen_valid_engine_state_manifest_entry(
   let resources = format_gen_valid_engine_state_resource_map(
     item.selected_profile,
   )
-  "{\"engine_state_schema\":\"starshine.gen-valid.engine-state.v1\",\"profile_version\":1,\"generator_build_identity\":\"starshine-gen-valid-engine-state-v1\",\"root_seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"case_index\":\{item.index},\"selected_leaf\":\"\{fuzz_json_escape(item.selected_profile)}\",\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\",\"intended_outcome\":\"\{outcome}\",\"trap_class\":\{trap_class},\"trap_observation_contract\":\{trap_contract},\"completion_marker\":\{completion_marker},\"pre_trap_marker\":\{pre_trap_marker},\"fuzz_abi\":{\"module\":\"__fuzz\",\"input_i32\":\"(i32)->i32\",\"input_i64\":\"(i32)->i64\",\"mark\":\"(i32)->()\",\"observe_i32\":\"(i32,i32)->()\",\"observe_i64\":\"(i32,i64)->()\",\"input_derivation\":\"splitmix64(case_seed,channel)\"},\"resource_map\":\{resources},\"synthetic_export_map\":\{resources},\"observation_map\":\{format_gen_valid_engine_state_observation_map(item.selected_profile)},\"reachable_feature_facts\":\{format_gen_valid_engine_state_execution_facts(item.selected_profile)},\"feature_toggles\":{\"scalar\":true,\"structured_control\":true,\"direct_calls\":true,\"multiple_results\":true,\"bulk_memory\":true,\"reference_types\":true,\"simd\":\{item.selected_profile == "engine-state-simd" || item.selected_profile == "engine-state-mixed"},\"relaxed_simd\":false,\"tail_calls\":false,\"exceptions\":false,\"gc\":false,\"shared_memory\":false,\"atomics\":false,\"memory64\":false},\"static_instruction_count\":\{item.static_instruction_count},\"budgets\":{\"defined_functions_min\":4,\"defined_functions_max\":12,\"types_max\":12,\"params_max\":4,\"results_max\":3,\"locals_max\":12,\"body_depth_max\":5,\"static_instruction_limit\":512,\"dynamic_instruction_limit\":5000,\"encoded_size_typical\":16384,\"encoded_size_limit\":65536,\"initial_memory_pages_typical\":1,\"initial_memory_pages_limit\":2,\"table_entries_limit\":32,\"globals_limit\":12,\"segment_payload_limit\":4096,\"loop_trip_limit\":16},\"hidden_state_policy\":{\"passive_data\":false,\"passive_elements\":false,\"unexported_mutable_resources\":false,\"gc_objects\":false,\"continuations\":false,\"shared_memory\":false,\"wait_notify\":false,\"nondeterministic_host_references\":false},\"nan_policy\":\"strict-bits\",\"relaxed_operation_policy\":\"disabled\"}"
+  "{\"engine_state_schema\":\"starshine.gen-valid.engine-state.v2\",\"profile_version\":2,\"generator_build_identity\":\"starshine-gen-valid-engine-state-v2\",\"root_seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"case_index\":\{item.index},\"selected_leaf\":\"\{fuzz_json_escape(item.selected_profile)}\",\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\",\"intended_outcome\":\"\{outcome}\",\"trap_class\":\{trap_class},\"trap_observation_contract\":\{trap_contract},\"completion_marker\":\{completion_marker},\"pre_trap_marker\":\{pre_trap_marker},\"fuzz_abi\":{\"module\":\"__fuzz\",\"input_i32\":\"(i32)->i32\",\"input_i64\":\"(i32)->i64\",\"mark\":\"(i32)->()\",\"observe_i32\":\"(i32,i32)->()\",\"observe_i64\":\"(i32,i64)->()\",\"input_derivation\":\"splitmix64(case_seed,channel)\"},\"resource_map\":\{resources},\"synthetic_export_map\":\{resources},\"observation_map\":\{format_gen_valid_engine_state_observation_map(item.selected_profile)},\"reachable_feature_facts\":\{format_gen_valid_engine_state_execution_facts(item.selected_profile)},\"feature_toggles\":{\"scalar\":true,\"structured_control\":true,\"direct_calls\":true,\"multiple_results\":true,\"bulk_memory\":true,\"reference_types\":true,\"simd\":\{item.selected_profile == "engine-state-simd" || item.selected_profile == "engine-state-mixed"},\"relaxed_simd\":false,\"tail_calls\":false,\"exceptions\":false,\"gc\":false,\"shared_memory\":false,\"atomics\":false,\"memory64\":false},\"static_instruction_count\":\{item.static_instruction_count},\"budgets\":{\"defined_functions_min\":4,\"defined_functions_max\":12,\"types_max\":12,\"params_max\":4,\"results_max\":3,\"locals_max\":12,\"body_depth_max\":5,\"static_instruction_limit\":512,\"dynamic_instruction_limit\":5000,\"encoded_size_typical\":16384,\"encoded_size_limit\":65536,\"initial_memory_pages_typical\":1,\"initial_memory_pages_limit\":2,\"table_entries_limit\":32,\"globals_limit\":12,\"segment_payload_limit\":4096,\"loop_trip_limit\":16},\"hidden_state_policy\":{\"passive_data\":false,\"passive_elements\":false,\"unexported_mutable_resources\":false,\"gc_objects\":false,\"continuations\":false,\"shared_memory\":false,\"wait_notify\":false,\"nondeterministic_host_references\":false},\"nan_policy\":\"strict-bits\",\"relaxed_operation_policy\":\"disabled\"}"
 }
 
 ///|
@@ -5614,7 +5662,7 @@ fn format_gen_valid_batch_manifest_json(
 ) -> String {
   let out = StringBuilder::new()
   let acceptance_contract = if args.profile.starts_with("engine-state-") {
-    "{\"generation_floor_status\":\"met\",\"weighted_cycle_cases\":20,\"runtime_floor_keys\":[\"successful_starts\",\"intended_traps_by_family\",\"distinct_state_hashes\",\"scalar_result_types\",\"multi_value_calls\",\"direct_calls\",\"indirect_calls\",\"taken_and_untaken_branches\",\"bounded_loop_execution\",\"global_mutations\",\"memory_mutations\",\"table_mutations\",\"memory_growth\",\"table_growth\",\"import_calls\",\"imported_return_values\",\"active_data_initialization\",\"active_element_initialization\",\"simd_results\",\"post_effect_traps\",\"complete_observations\",\"every_singleton_leaf\"]}"
+    "{\"generation_floor_status\":\"met\",\"weighted_cycle_cases\":40,\"runtime_floor_keys\":[\"successful_starts\",\"intended_traps_by_family\",\"distinct_state_hashes\",\"scalar_result_types\",\"multi_value_calls\",\"direct_calls\",\"indirect_calls\",\"taken_and_untaken_branches\",\"bounded_loop_execution\",\"deep_call_chains\",\"call_diamonds\",\"ordered_effects\",\"global_mutations\",\"memory_mutations\",\"table_mutations\",\"memory_growth\",\"table_growth\",\"memory_copy\",\"table_copy\",\"import_calls\",\"imported_return_values\",\"active_data_initialization\",\"active_element_initialization\",\"overlapping_segments\",\"integer_boundaries\",\"float_bit_boundaries\",\"unaligned_memory\",\"exact_memory_end\",\"optimizer_shapes\",\"equivalent_family_self_checks\",\"simd_results\",\"post_effect_traps\",\"complete_observations\",\"every_singleton_leaf\"]}"
   } else {
     "null"
   }

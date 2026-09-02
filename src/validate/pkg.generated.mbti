@@ -1264,6 +1264,12 @@ pub enum GenValidProfile {
   EngineStateInitializationProfile
   EngineStateTrapProfile
   EngineStateMixedProfile
+  EngineStateTopologyProfile
+  EngineStateEffectsProfile
+  EngineStateResourcesProfile
+  EngineStateBoundariesProfile
+  EngineStateOptimizerShapesProfile
+  EngineStateEquivalentFamiliesProfile
   EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile

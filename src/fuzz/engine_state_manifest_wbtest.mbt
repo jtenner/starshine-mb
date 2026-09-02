@@ -21,9 +21,9 @@ fn engine_state_manifest_test_selection(
 ///|
 test "engine-state aggregate manifest records complete deterministic case contracts" {
   let (args, selection) = engine_state_manifest_test_selection(
-    "engine-state-all", 20, 0xE651A7EUL,
+    "engine-state-all", 40, 0xE651A7EUL,
   )
-  @debug.assert_eq(selection.manifest.length(), 20)
+  @debug.assert_eq(selection.manifest.length(), 40)
   let manifest = format_gen_valid_batch_manifest_json(args, selection)
   assert_true(
     manifest.contains("\"schema\":\"starshine.gen-valid.batch.v2\""),
@@ -33,13 +33,13 @@ test "engine-state aggregate manifest records complete deterministic case contra
   assert_true(manifest.contains("\"wasm_hash\":\"fnv1a64-"), msg=manifest)
   assert_true(
     manifest.contains(
-      "\"generator_build_identity\":\"starshine-gen-valid-engine-state-v1\"",
+      "\"generator_build_identity\":\"starshine-gen-valid-engine-state-v2\"",
     ),
     msg=manifest,
   )
   assert_true(
     manifest.contains(
-      "\"engine_state_schema\":\"starshine.gen-valid.engine-state.v1\"",
+      "\"engine_state_schema\":\"starshine.gen-valid.engine-state.v2\"",
     ),
     msg=manifest,
   )
@@ -82,7 +82,9 @@ test "engine-state aggregate manifest records complete deterministic case contra
     profile in [
       "engine-state-scalar-control", "engine-state-calls", "engine-state-memory",
       "engine-state-table", "engine-state-simd", "engine-state-imports", "engine-state-initialization",
-      "engine-state-trap", "engine-state-mixed",
+      "engine-state-trap", "engine-state-mixed", "engine-state-topology", "engine-state-effects",
+      "engine-state-resources", "engine-state-boundaries", "engine-state-optimizer-shapes",
+      "engine-state-equivalent-families",
     ] {
     assert_true(
       manifest.contains("\"selected_leaf\":\"\{profile}\""),

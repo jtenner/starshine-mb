@@ -729,6 +729,12 @@ pub enum GenValidProfile {
   EngineStateInitializationProfile
   EngineStateTrapProfile
   EngineStateMixedProfile
+  EngineStateTopologyProfile
+  EngineStateEffectsProfile
+  EngineStateResourcesProfile
+  EngineStateBoundariesProfile
+  EngineStateOptimizerShapesProfile
+  EngineStateEquivalentFamiliesProfile
   EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile
@@ -1136,6 +1142,12 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     EngineStateInitializationProfile => "engine-state-initialization"
     EngineStateTrapProfile => "engine-state-trap"
     EngineStateMixedProfile => "engine-state-mixed"
+    EngineStateTopologyProfile => "engine-state-topology"
+    EngineStateEffectsProfile => "engine-state-effects"
+    EngineStateResourcesProfile => "engine-state-resources"
+    EngineStateBoundariesProfile => "engine-state-boundaries"
+    EngineStateOptimizerShapesProfile => "engine-state-optimizer-shapes"
+    EngineStateEquivalentFamiliesProfile => "engine-state-equivalent-families"
     EngineStateAllProfile => "engine-state-all"
     SemanticEffectsProfile => "semantic-effects"
     SemanticImportEventsProfile => "semantic-import-events"
@@ -1981,15 +1993,21 @@ pub fn gen_valid_profile_members(
       ]
     EngineStateAllProfile =>
       [
-        GenValidProfileMember::new(EngineStateScalarControlProfile, 4),
-        GenValidProfileMember::new(EngineStateCallsProfile, 3),
-        GenValidProfileMember::new(EngineStateMemoryProfile, 3),
-        GenValidProfileMember::new(EngineStateTableProfile, 2),
-        GenValidProfileMember::new(EngineStateSimdProfile, 2),
+        GenValidProfileMember::new(EngineStateScalarControlProfile, 3),
+        GenValidProfileMember::new(EngineStateCallsProfile, 2),
+        GenValidProfileMember::new(EngineStateMemoryProfile, 2),
+        GenValidProfileMember::new(EngineStateTableProfile, 1),
+        GenValidProfileMember::new(EngineStateSimdProfile, 1),
         GenValidProfileMember::new(EngineStateImportsProfile, 2),
         GenValidProfileMember::new(EngineStateInitializationProfile, 1),
         GenValidProfileMember::new(EngineStateTrapProfile, 2),
-        GenValidProfileMember::new(EngineStateMixedProfile, 1),
+        GenValidProfileMember::new(EngineStateMixedProfile, 2),
+        GenValidProfileMember::new(EngineStateTopologyProfile, 4),
+        GenValidProfileMember::new(EngineStateEffectsProfile, 4),
+        GenValidProfileMember::new(EngineStateResourcesProfile, 4),
+        GenValidProfileMember::new(EngineStateBoundariesProfile, 3),
+        GenValidProfileMember::new(EngineStateOptimizerShapesProfile, 3),
+        GenValidProfileMember::new(EngineStateEquivalentFamiliesProfile, 6),
       ]
     SemanticOptimizerAllProfile =>
       [
@@ -2048,7 +2066,12 @@ pub fn gen_valid_profile_leaf_for_case(
   let members = gen_valid_profile_members(profile)
   if profile == EngineStateAllProfile && !members.is_empty() {
     let normalized_index = if case_index <= 0 { 1 } else { case_index }
-    let total_weight = 20
+    let mut total_weight = 0
+    for entry in members {
+      if entry.weight > 0 {
+        total_weight += entry.weight
+      }
+    }
     let rotation = (gen_valid_profile_case_roll(seed, 1) %
     total_weight.to_uint64()).to_int()
     let mut position = (normalized_index - 1 + rotation) % total_weight
@@ -2182,6 +2205,12 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     EngineStateInitializationProfile,
     EngineStateTrapProfile,
     EngineStateMixedProfile,
+    EngineStateTopologyProfile,
+    EngineStateEffectsProfile,
+    EngineStateResourcesProfile,
+    EngineStateBoundariesProfile,
+    EngineStateOptimizerShapesProfile,
+    EngineStateEquivalentFamiliesProfile,
     EngineStateAllProfile,
     SemanticEffectsProfile,
     SemanticImportEventsProfile,
@@ -5031,7 +5060,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | EngineStateImportsProfile
     | EngineStateInitializationProfile
     | EngineStateTrapProfile
-    | EngineStateMixedProfile => {
+    | EngineStateMixedProfile
+    | EngineStateTopologyProfile
+    | EngineStateEffectsProfile
+    | EngineStateResourcesProfile
+    | EngineStateBoundariesProfile
+    | EngineStateOptimizerShapesProfile
+    | EngineStateEquivalentFamiliesProfile => {
       let base = GenValidConfig::portable_coverage_forced_default()
       let profile_budget_tag = match profile {
         EngineStateScalarControlProfile => 1
@@ -5043,6 +5078,12 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         EngineStateInitializationProfile => 7
         EngineStateTrapProfile => 8
         EngineStateMixedProfile => 9
+        EngineStateTopologyProfile => 10
+        EngineStateEffectsProfile => 11
+        EngineStateResourcesProfile => 12
+        EngineStateBoundariesProfile => 13
+        EngineStateOptimizerShapesProfile => 14
+        EngineStateEquivalentFamiliesProfile => 15
         _ => 0
       }
       let uses_memory = profile == EngineStateMemoryProfile ||
@@ -5050,17 +5091,23 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         profile == EngineStateImportsProfile ||
         profile == EngineStateInitializationProfile ||
         profile == EngineStateTrapProfile ||
-        profile == EngineStateMixedProfile
+        profile == EngineStateMixedProfile ||
+        profile == EngineStateEffectsProfile ||
+        profile == EngineStateResourcesProfile ||
+        profile == EngineStateBoundariesProfile
       let uses_table = profile == EngineStateCallsProfile ||
         profile == EngineStateTableProfile ||
         profile == EngineStateImportsProfile ||
         profile == EngineStateInitializationProfile ||
         profile == EngineStateTrapProfile ||
-        profile == EngineStateMixedProfile
+        profile == EngineStateMixedProfile ||
+        profile == EngineStateTopologyProfile ||
+        profile == EngineStateResourcesProfile
       let uses_segments = profile == EngineStateMemoryProfile ||
         profile == EngineStateTableProfile ||
         profile == EngineStateInitializationProfile ||
-        profile == EngineStateMixedProfile
+        profile == EngineStateMixedProfile ||
+        profile == EngineStateResourcesProfile
       GenValidConfig::{
         ..base,
         max_type_defs: 12,
@@ -5142,10 +5189,16 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           allow_calls: true,
           allow_call_indirect: profile == EngineStateCallsProfile ||
           profile == EngineStateTableProfile ||
-          profile == EngineStateMixedProfile,
+          profile == EngineStateMixedProfile ||
+          profile == EngineStateTopologyProfile ||
+          profile == EngineStateResourcesProfile,
           allow_tail_calls: false,
           allow_branch_heavy_control: profile == EngineStateScalarControlProfile ||
-          profile == EngineStateMixedProfile,
+          profile == EngineStateMixedProfile ||
+          profile == EngineStateEffectsProfile ||
+          profile == EngineStateBoundariesProfile ||
+          profile == EngineStateOptimizerShapesProfile ||
+          profile == EngineStateEquivalentFamiliesProfile,
           allow_memory_limit_variants: false,
           allow_table_limit_variants: false,
           allow_const_expr_variants: profile == EngineStateInitializationProfile,
