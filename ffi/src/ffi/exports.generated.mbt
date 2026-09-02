@@ -1008,6 +1008,27 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_case_seed(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_at")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_at(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+  value1 : UInt,
+) -> Byte {
+  @ffi_bridge.EncodedEngineStateCase::comparison_module_byte_at(
+    receiver, value1,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_length")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_comparison_module_byte_length(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> UInt {
+  @ffi_bridge.EncodedEngineStateCase::comparison_module_byte_length(receiver)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_EncodedEngineStateCase_error_byte_at")
 pub fn ffi_ffi_bridge_EncodedEngineStateCase_error_byte_at(
   receiver : @ffi_bridge.EncodedEngineStateCase,
@@ -1144,6 +1165,40 @@ pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_byte_length(
   receiver : @ffi_bridge.EncodedEngineStateCase,
 ) -> UInt {
   @ffi_bridge.EncodedEngineStateCase::support_module_byte_length(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_support_module_count")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_count(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+) -> UInt {
+  @ffi_bridge.EncodedEngineStateCase::support_module_count(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_at")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_at(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+  value1 : UInt,
+  value2 : UInt,
+) -> Byte {
+  @ffi_bridge.EncodedEngineStateCase::support_module_indexed_byte_at(
+    receiver, value1, value2,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_length")
+pub fn ffi_ffi_bridge_EncodedEngineStateCase_support_module_indexed_byte_length(
+  receiver : @ffi_bridge.EncodedEngineStateCase,
+  value1 : UInt,
+) -> UInt {
+  @ffi_bridge.EncodedEngineStateCase::support_module_indexed_byte_length(
+    receiver, value1,
+  )
 }
 
 ///|
@@ -20734,6 +20789,33 @@ pub fn ffi_validate_gen_valid_engine_state_instantiation_failure_family(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_gen_valid_engine_state_invalid_module_family")
+pub fn ffi_validate_gen_valid_engine_state_invalid_module_family(
+  value0 : UInt64,
+) -> String {
+  @validate.gen_valid_engine_state_invalid_module_family(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_gen_valid_engine_state_link_graph_support_modules")
+pub fn ffi_validate_gen_valid_engine_state_link_graph_support_modules(
+  value0 : UInt64,
+) -> Array[@lib.Module] {
+  @validate.gen_valid_engine_state_link_graph_support_modules(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_gen_valid_engine_state_metamorphic_comparison_module")
+pub fn ffi_validate_gen_valid_engine_state_metamorphic_comparison_module(
+  value0 : UInt64,
+) -> @lib.Module {
+  @validate.gen_valid_engine_state_metamorphic_comparison_module(value0)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_gen_valid_engine_state_outcome")
 pub fn ffi_validate_gen_valid_engine_state_outcome(
   value0 : @validate.GenValidProfile,
@@ -20755,6 +20837,15 @@ pub fn ffi_validate_gen_valid_engine_state_static_instruction_count(
   value0 : @lib.Module,
 ) -> Int {
   @validate.gen_valid_engine_state_static_instruction_count(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_gen_valid_engine_state_trap_commit_family")
+pub fn ffi_validate_gen_valid_engine_state_trap_commit_family(
+  value0 : UInt64,
+) -> String {
+  @validate.gen_valid_engine_state_trap_commit_family(value0)
 }
 
 ///|
@@ -35524,6 +35615,16 @@ pub fn ffi_binary_Decode_Array_CodeSite_decode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Decode_Array_Module_decode")
+pub fn ffi_binary_Decode_Array_Module_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[@lib.Module], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Decode_Array_GlobalType_decode")
 pub fn ffi_binary_Decode_Array_GlobalType_decode(
   value0 : Bytes,
@@ -36907,6 +37008,16 @@ pub fn ffi_binary_Encode_Array_FieldFacts_encode(
 #export_name("ffi_binary_Encode_Array_CodeSite_encode")
 pub fn ffi_binary_Encode_Array_CodeSite_encode(
   receiver : Array[@representation.CodeSite],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Encode_Array_Module_encode")
+pub fn ffi_binary_Encode_Array_Module_encode(
+  receiver : Array[@lib.Module],
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)

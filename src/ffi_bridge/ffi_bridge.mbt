@@ -7,6 +7,8 @@ pub struct EncodedModule {
 pub struct EncodedEngineStateCase {
   encoded : EncodedModule
   support_encoded : EncodedModule
+  support_encodeds : Array[EncodedModule]
+  comparison_encoded : EncodedModule
   error : Bytes
   root_seed : UInt64
   case_seed : UInt64
@@ -387,6 +389,8 @@ fn failed_engine_state_case(
   {
     encoded: { bytes: None, },
     support_encoded: { bytes: None, },
+    support_encodeds: [],
+    comparison_encoded: { bytes: None, },
     error: validation_message_bytes(message),
     root_seed,
     case_seed,
@@ -451,8 +455,8 @@ pub fn generate_engine_state_case(
           } else {
             Bytes::from_array([])
           }
-          let support_encoded = if selected_profile ==
-            "engine-state-cross-instance" {
+          let support_encodeds : Array[EncodedModule] = []
+          if selected_profile == "engine-state-cross-instance" {
             match
               @binary.encode_module(
                 @validate.gen_valid_engine_state_cross_instance_support_module(
@@ -460,15 +464,76 @@ pub fn generate_engine_state_case(
                 ),
               ) {
               Ok(support_bytes) =>
-                EncodedModule::{ bytes: Some(support_bytes), }
-              Err(_) => EncodedModule::{ bytes: None, }
+                support_encodeds.push({ bytes: Some(support_bytes), })
+              Err(error) =>
+                return failed_engine_state_case(
+                  root_seed,
+                  case_index,
+                  case_seed,
+                  selected_profile,
+                  generated.attempts,
+                  "engine-state support module encoding failed: \{error}",
+                )
+            }
+          } else if selected_profile == "engine-state-link-graph" {
+            let mut support_index = 0
+            for
+              support in @validate.gen_valid_engine_state_link_graph_support_modules(
+                case_seed,
+              ) {
+              match @binary.encode_module(support) {
+                Ok(support_bytes) =>
+                  support_encodeds.push({ bytes: Some(support_bytes), })
+                Err(error) =>
+                  return failed_engine_state_case(
+                    root_seed,
+                    case_index,
+                    case_seed,
+                    selected_profile,
+                    generated.attempts,
+                    "engine-state support module \{support_index} encoding failed: \{error}",
+                  )
+              }
+              support_index += 1
+            }
+          }
+          let support_encoded = if support_encodeds.is_empty() {
+            EncodedModule::{ bytes: None, }
+          } else {
+            support_encodeds[0]
+          }
+          let comparison_encoded = if selected_profile ==
+            "engine-state-metamorphic-twins" {
+            match
+              @binary.encode_module(
+                @validate.gen_valid_engine_state_metamorphic_comparison_module(
+                  case_seed,
+                ),
+              ) {
+              Ok(comparison_bytes) => { bytes: Some(comparison_bytes), }
+              Err(error) =>
+                return failed_engine_state_case(
+                  root_seed,
+                  case_index,
+                  case_seed,
+                  selected_profile,
+                  generated.attempts,
+                  "engine-state comparison module encoding failed: \{error}",
+                )
             }
           } else {
             EncodedModule::{ bytes: None, }
           }
+          let case_bytes = if selected_profile == "engine-state-invalid-module" {
+            invalid_engine_state_binary(bytes, case_seed)
+          } else {
+            bytes
+          }
           {
-            encoded: { bytes: Some(bytes), },
+            encoded: { bytes: Some(case_bytes), },
             support_encoded,
+            support_encodeds,
+            comparison_encoded,
             error: Bytes::from_array([]),
             root_seed,
             case_seed,
@@ -485,6 +550,36 @@ pub fn generate_engine_state_case(
         }
       }
   }
+}
+
+///|
+fn invalid_engine_state_binary(bytes : Bytes, seed : UInt64) -> Bytes {
+  let family = @validate.gen_valid_engine_state_invalid_module_family(seed)
+  let size_hint = if family == "truncated-binary" {
+    bytes.length() - 1
+  } else {
+    bytes.length() + 2
+  }
+  let output = @buffer.new(size_hint~)
+  let length = if family == "truncated-binary" {
+    bytes.length() - 1
+  } else {
+    bytes.length()
+  }
+  for index in 0..<length {
+    if family == "invalid-magic" && index == 0 {
+      output.write_byte(b'\x01')
+    } else if family == "invalid-version" && index == 4 {
+      output.write_byte(b'\x02')
+    } else {
+      output.write_byte(bytes[index])
+    }
+  }
+  if family == "malformed-section-length" {
+    output.write_byte(b'\x00')
+    output.write_byte(b'\x80')
+  }
+  output.to_bytes()
 }
 
 ///|
@@ -560,6 +655,45 @@ pub fn EncodedEngineStateCase::support_module_byte_at(
   index : UInt,
 ) -> Byte {
   self.support_encoded.byte_at(index)
+}
+
+///|
+pub fn EncodedEngineStateCase::support_module_count(
+  self : EncodedEngineStateCase,
+) -> UInt {
+  self.support_encodeds.length().reinterpret_as_uint()
+}
+
+///|
+pub fn EncodedEngineStateCase::support_module_indexed_byte_length(
+  self : EncodedEngineStateCase,
+  module_index : UInt,
+) -> UInt {
+  self.support_encodeds[module_index.reinterpret_as_int()].byte_length()
+}
+
+///|
+pub fn EncodedEngineStateCase::support_module_indexed_byte_at(
+  self : EncodedEngineStateCase,
+  module_index : UInt,
+  byte_index : UInt,
+) -> Byte {
+  self.support_encodeds[module_index.reinterpret_as_int()].byte_at(byte_index)
+}
+
+///|
+pub fn EncodedEngineStateCase::comparison_module_byte_length(
+  self : EncodedEngineStateCase,
+) -> UInt {
+  self.comparison_encoded.byte_length()
+}
+
+///|
+pub fn EncodedEngineStateCase::comparison_module_byte_at(
+  self : EncodedEngineStateCase,
+  index : UInt,
+) -> Byte {
+  self.comparison_encoded.byte_at(index)
 }
 
 ///|

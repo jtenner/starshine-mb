@@ -46,7 +46,15 @@ ffi_bridge::generate_engine_state_case(root_seed: i64, case_index: i32)
   -> EncodedEngineStateCase
 ```
 
-Case indexes are one-based. `EncodedEngineStateCase` exposes `is_ok`, root/case seed, case index, selected-profile bytes, generator attempts, static instruction count, outcome and failure-family metadata, module bytes, optional support-module bytes, and diagnostic bytes through scalar accessors. JavaScript must pass the root seed as a `BigInt`; use `BigInt.asUintN(64, value)` when reading either unsigned seed accessor. The bridge selects the leaf from the exact `engine-state-all` 80-case cycle and uses the same public case-seed derivation as CLI batch emission. Thirty leaves include the original execution cases plus forced semantic, resource, decoder, cross-instance, and Core 3 capability shapes.
+Case indexes are one-based. `EncodedEngineStateCase` exposes `is_ok`, root/case seed, case index, selected-profile bytes, generator attempts, static instruction count, outcome and failure-family metadata, module bytes, zero or more ordered support modules, an optional equivalent comparison module, and diagnostic bytes through scalar accessors. JavaScript must pass the root seed as a `BigInt`; use `BigInt.asUintN(64, value)` when reading either unsigned seed accessor. The bridge selects the leaf from the exact `engine-state-all` 128-case cycle and uses the same public case-seed derivation as CLI batch emission. Forty-three leaves include the original execution cases plus forced semantic, resource, decoder, cross-instance, proposal, link-graph, initialization-graph, exception-unwind, type/call, LEB/index, table-reference, mixed-address-memory, trap-commit, metamorphic, compiler-boundary, NaN, and invalid-binary shapes.
+
+Support modules are in instantiation order. Import each later module from the
+previous module's `__link` exports, then import the final support exports into
+the primary module. The singular support accessors remain as compatibility
+aliases for support module zero. A non-empty comparison module is a distinct
+encoding that must produce the same canonical result as the primary module.
+The invalid-module profile mutates the encoded bytes after valid AST generation
+and reports an expected `compile-failure` family.
 
 The main byte-lifting calls are:
 
@@ -55,6 +63,11 @@ EncodedEngineStateCase::module_byte_length
 EncodedEngineStateCase::module_byte_at
 EncodedEngineStateCase::support_module_byte_length
 EncodedEngineStateCase::support_module_byte_at
+EncodedEngineStateCase::support_module_count
+EncodedEngineStateCase::support_module_indexed_byte_length
+EncodedEngineStateCase::support_module_indexed_byte_at
+EncodedEngineStateCase::comparison_module_byte_length
+EncodedEngineStateCase::comparison_module_byte_at
 EncodedEngineStateCase::outcome_kind_byte_length
 EncodedEngineStateCase::outcome_kind_byte_at
 EncodedEngineStateCase::error_byte_length

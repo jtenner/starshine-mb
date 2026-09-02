@@ -99,6 +99,8 @@ pub fn wasi_preview1_fd_write_schema() -> WasiPreview1Schema
 pub struct EncodedEngineStateCase {
   encoded : EncodedModule
   support_encoded : EncodedModule
+  support_encodeds : Array[EncodedModule]
+  comparison_encoded : EncodedModule
   error : Bytes
   root_seed : UInt64
   case_seed : UInt64
@@ -112,6 +114,8 @@ pub struct EncodedEngineStateCase {
 }
 pub fn EncodedEngineStateCase::case_index(Self) -> Int
 pub fn EncodedEngineStateCase::case_seed(Self) -> UInt64
+pub fn EncodedEngineStateCase::comparison_module_byte_at(Self, UInt) -> Byte
+pub fn EncodedEngineStateCase::comparison_module_byte_length(Self) -> UInt
 pub fn EncodedEngineStateCase::error_byte_at(Self, UInt) -> Byte
 pub fn EncodedEngineStateCase::error_byte_length(Self) -> UInt
 pub fn EncodedEngineStateCase::expects_trap(Self) -> Bool
@@ -127,6 +131,9 @@ pub fn EncodedEngineStateCase::selected_profile_byte_length(Self) -> UInt
 pub fn EncodedEngineStateCase::static_instruction_count(Self) -> Int
 pub fn EncodedEngineStateCase::support_module_byte_at(Self, UInt) -> Byte
 pub fn EncodedEngineStateCase::support_module_byte_length(Self) -> UInt
+pub fn EncodedEngineStateCase::support_module_count(Self) -> UInt
+pub fn EncodedEngineStateCase::support_module_indexed_byte_at(Self, UInt, UInt) -> Byte
+pub fn EncodedEngineStateCase::support_module_indexed_byte_length(Self, UInt) -> UInt
 pub fn EncodedEngineStateCase::trap_family_byte_at(Self, UInt) -> Byte
 pub fn EncodedEngineStateCase::trap_family_byte_length(Self) -> UInt
 
