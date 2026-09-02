@@ -886,6 +886,90 @@ fn vacuum_can_remove_dropped_node(
 }
 
 ///|
+fn vacuum_result_type_is_defaultable(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.RefTypeValType(ref_type)] => @lib.RefType::is_defaultable(ref_type)
+    [@lib.BotValType] | [] => false
+    [_] => true
+    results =>
+      results.all(fn(result) {
+        match result {
+          @lib.RefTypeValType(ref_type) =>
+            @lib.RefType::is_defaultable(ref_type)
+          @lib.BotValType => false
+          _ => true
+        }
+      })
+  }
+}
+
+///|
+fn vacuum_unused_value_parent_is_removable(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Unary
+    | @ir.HotOp::Compare
+    | @ir.HotOp::RefIsNull
+    | @ir.HotOp::Select
+    | @ir.HotOp::TupleMake
+    | @ir.HotOp::TupleExtract
+    | @ir.HotOp::RefTest => true
+    @ir.HotOp::Binary => vacuum_binary_is_nontrapping(func, node_id)
+    @ir.HotOp::Convert =>
+      vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    @ir.HotOp::Simd =>
+      vacuum_simd_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    _ => false
+  }
+}
+
+///|
+priv struct VacuumDroppedParentReplacement {
+  roots : Array[@ir.NodeId]
+  detached : Array[@ir.NodeId]
+}
+
+///|
+fn vacuum_dropped_parent_replacement(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> VacuumDroppedParentReplacement? {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    !vacuum_unused_value_parent_is_removable(func, node_id) {
+    return None
+  }
+  let roots : Array[@ir.NodeId] = []
+  let detached : Array[@ir.NodeId] = [node_id]
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if vacuum_can_remove_dropped_node(func, child_id) {
+      detached.push(child_id)
+      continue
+    }
+    match vacuum_dropped_parent_replacement(func, child_id) {
+      Some(nested) => {
+        roots.append(nested.roots)
+        detached.append(nested.detached)
+      }
+      None => roots.push(@ir.hot_build_drop(func, child_id))
+    }
+  }
+  // Binaryen's generic optimizer can directly expose one effectful child. For
+  // multiple children it rebuilds a sequence with a dummy result, which is
+  // legal only when the removed parent's result type is defaultable.
+  if roots.length() > 1 && !vacuum_result_type_is_defaultable(func, node_id) {
+    return None
+  }
+  Some({ roots, detached })
+}
+
+///|
 fn vacuum_dropped_heap_constructor_replacement(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
@@ -1595,6 +1679,72 @@ fn vacuum_delete_detached_non_control_nodes(
 }
 
 ///|
+fn vacuum_delete_known_detached_non_control_nodes_batch(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_ids : Array[@ir.NodeId],
+) -> Unit {
+  let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
+  let use_def = @ir.use_def_build(func)
+  let deletable : Array[@ir.NodeId] = []
+  for node_id in node_ids {
+    if node_id >= 0 &&
+      node_id < seen.length() &&
+      !seen[node_id] &&
+      @ir.hot_node_is_live(func, node_id) &&
+      !@ir.hot_is_control_node(func, node_id) &&
+      @ir.node_use_count(use_def, node_id) == 0 {
+      seen[node_id] = true
+      deletable.push(node_id)
+    }
+  }
+  if !deletable.is_empty() {
+    @ir.hot_delete_detached_nodes(func, deletable)
+    pass_mark_mutated(ctx, func)
+  }
+}
+
+///|
+fn hot_pass_vacuum_rewrite_dropped_parents_batch(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return false
+  }
+  let next_roots : Array[@ir.NodeId] = []
+  let detached : Array[@ir.NodeId] = []
+  let mut changed = false
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if @ir.hot_node_get(func, root_id).op is @ir.HotOp::Drop &&
+      @ir.hot_child_count(func, root_id) == 1 {
+      let child_id = @ir.hot_child_get(func, root_id, 0)
+      match vacuum_dropped_parent_replacement(func, child_id) {
+        Some(rewrite) => {
+          next_roots.append(rewrite.roots)
+          detached.push(root_id)
+          detached.append(rewrite.detached)
+          changed = true
+          continue
+        }
+        None => ()
+      }
+    }
+    next_roots.push(root_id)
+  }
+  if !changed {
+    return false
+  }
+  @ir.hot_region_replace_body(func, region_ref, next_roots)
+  pass_mark_mutated(ctx, func)
+  vacuum_delete_known_detached_non_control_nodes_batch(ctx, func, detached)
+  true
+}
+
+///|
 fn hot_pass_vacuum_flip_empty_then_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1633,6 +1783,53 @@ fn hot_pass_vacuum_flip_empty_then_if(
   @ir.hot_child_set(func, node_id, 2, -1)
   pass_mark_mutated(ctx, func)
   vacuum_delete_detached_non_control_nodes(ctx, func, [else_holder])
+  true
+}
+
+///|
+fn hot_pass_vacuum_sink_drop_into_unreachable_if_arm(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  if_id : @ir.NodeId,
+) -> Bool {
+  if !(@ir.hot_node_get(func, if_id).op is @ir.HotOp::If) ||
+    @ir.hot_type_result_arity(func, @ir.hot_node_type(func, if_id)) != 1 ||
+    hot_pass_vacuum_label_is_used(func, @ir.hot_control_node_label(func, if_id)) {
+    return false
+  }
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(region) => region
+    None => return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  if @ir.hot_region_root_count(func, then_ref) != 1 ||
+    @ir.hot_region_root_count(func, else_ref) != 1 {
+    return false
+  }
+  let then_root = @ir.hot_region_get(func, then_ref, 0)
+  let else_root = @ir.hot_region_get(func, else_ref, 0)
+  let concrete_ref = if @ir.hot_node_get(func, then_root).op
+    is @ir.HotOp::Unreachable &&
+    !(@ir.hot_node_get(func, else_root).op is @ir.HotOp::Unreachable) {
+    else_ref
+  } else if @ir.hot_node_get(func, else_root).op is @ir.HotOp::Unreachable &&
+    !(@ir.hot_node_get(func, then_root).op is @ir.HotOp::Unreachable) {
+    then_ref
+  } else {
+    return false
+  }
+  let concrete_root = @ir.hot_region_get(func, concrete_ref, 0)
+  if @ir.hot_node_result_arity(func, concrete_root) != 1 {
+    return false
+  }
+  @ir.hot_region_replace_body(func, concrete_ref, [
+    @ir.hot_build_drop(func, concrete_root),
+  ])
+  @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
+  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [if_id])
+  vacuum_delete_detached_non_control_nodes(ctx, func, removed)
   true
 }
 
@@ -1692,8 +1889,7 @@ fn hot_pass_vacuum_collapse_constant_if(
     @ir.HotOp::If => ()
     _ => return false
   }
-  if @ir.hot_type_result_arity(func, node.ty) != 0 ||
-    @ir.hot_child_count(func, node_id) < 2 ||
+  if @ir.hot_child_count(func, node_id) < 2 ||
     hot_pass_vacuum_label_is_used(
       func,
       @ir.hot_control_node_label(func, node_id),
@@ -1973,7 +2169,9 @@ fn hot_pass_remove_region_nops(
   region_ref : @ir.HotRegionRef,
   seen : Array[Bool],
 ) -> Bool {
-  let mut changed = false
+  let mut changed = hot_pass_vacuum_rewrite_dropped_parents_batch(
+    ctx, func, region_ref,
+  )
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
@@ -2026,6 +2224,13 @@ fn hot_pass_remove_region_nops(
           idx += 1
           continue
         }
+        if hot_pass_vacuum_sink_drop_into_unreachable_if_arm(
+            ctx, func, region_ref, idx, child_id,
+          ) {
+          changed = true
+          idx += 1
+          continue
+        }
         let preserved_operand = match
           vacuum_dropped_struct_get_operand(func, child_id) {
           Some(operand) => Some(operand)
@@ -2060,6 +2265,26 @@ fn hot_pass_remove_region_nops(
             vacuum_delete_detached_non_control_nodes(ctx, func, removed)
             changed = true
             idx += replacement.length()
+            continue
+          }
+          None => ()
+        }
+        match vacuum_dropped_parent_replacement(func, child_id) {
+          Some(rewrite) => {
+            let removed = pass_splice_region(
+              ctx,
+              func,
+              region_ref,
+              idx,
+              1,
+              rewrite.roots,
+            )
+            removed.append(rewrite.detached)
+            vacuum_delete_known_detached_non_control_nodes_batch(
+              ctx, func, removed,
+            )
+            changed = true
+            idx += rewrite.roots.length()
             continue
           }
           None => ()
@@ -2217,6 +2442,7 @@ priv struct HotPipelineInstrScanSummary {
   mut has_structured_control : Bool
   mut has_branches : Bool
   mut has_drop : Bool
+  mut has_constant_result_if : Bool
   mut has_dead_tail_after_nonfallthrough : Bool
   mut has_dead_drop_after_nonfallthrough : Bool
   mut instr_count : Int
@@ -2230,6 +2456,7 @@ fn HotPipelineInstrScanSummary::new() -> HotPipelineInstrScanSummary {
     has_structured_control: false,
     has_branches: false,
     has_drop: false,
+    has_constant_result_if: false,
     has_dead_tail_after_nonfallthrough: false,
     has_dead_drop_after_nonfallthrough: false,
     instr_count: 0,
@@ -2247,6 +2474,8 @@ fn hot_pipeline_instr_scan_merge(
     nested.has_structured_control
   summary.has_branches = summary.has_branches || nested.has_branches
   summary.has_drop = summary.has_drop || nested.has_drop
+  summary.has_constant_result_if = summary.has_constant_result_if ||
+    nested.has_constant_result_if
   summary.has_dead_tail_after_nonfallthrough = summary.has_dead_tail_after_nonfallthrough ||
     nested.has_dead_tail_after_nonfallthrough
   summary.has_dead_drop_after_nonfallthrough = summary.has_dead_drop_after_nonfallthrough ||
@@ -2330,7 +2559,8 @@ fn run_hot_pipeline_instr_scan_impl(
 ) -> HotPipelineInstrScanSummary {
   let summary = HotPipelineInstrScanSummary::new()
   let mut prev_may_fallthrough = true
-  for instr in instrs {
+  for instr_idx = 0; instr_idx < instrs.length(); instr_idx = instr_idx + 1 {
+    let instr = instrs[instr_idx]
     match state.visit_count {
       Some(visits) => visits[0] += 1
       None => ()
@@ -2384,8 +2614,13 @@ fn run_hot_pipeline_instr_scan_impl(
         hot_pipeline_instr_scan_merge(summary, nested)
         instr_may_fallthrough = nested.may_fallthrough
       }
-      @lib.If(_, then_body, else_body) => {
+      @lib.If(block_type, then_body, else_body) => {
         summary.has_structured_control = true
+        if block_type != @lib.BlockType::void_() &&
+          instr_idx > 0 &&
+          instrs[instr_idx - 1] is @lib.I32Const(_) {
+          summary.has_constant_result_if = true
+        }
         let token = hot_pipeline_instr_scan_push_control(state)
         let then_summary = run_hot_pipeline_instr_scan_impl(then_body, state)
         hot_pipeline_instr_scan_merge(summary, then_summary)
@@ -2427,6 +2662,7 @@ fn run_hot_pipeline_instr_scan(
   instrs : Array[@lib.Instruction],
   visit_count? : Array[Int]? = None,
   dead_drop_after_nonfallthrough? : Array[Bool]? = None,
+  constant_result_if? : Array[Bool]? = None,
 ) -> (Bool, Bool, Bool, Bool, Bool, Int) {
   let summary = run_hot_pipeline_instr_scan_impl(
     instrs,
@@ -2434,6 +2670,10 @@ fn run_hot_pipeline_instr_scan(
   )
   match dead_drop_after_nonfallthrough {
     Some(result) => result[0] = summary.has_dead_drop_after_nonfallthrough
+    None => ()
+  }
+  match constant_result_if {
+    Some(result) => result[0] = summary.has_constant_result_if
     None => ()
   }
   (
@@ -63777,6 +64017,46 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           }
           _ => next_else
         }
+        let sunk_unreachable_result_if = match (block_type, normalized_else) {
+          (@lib.ValTypeBlockType(_), Some(else_body)) if idx + 1 <
+            instrs.length() &&
+            instrs[idx + 1] is @lib.Drop =>
+            if next_then == [@lib.Instruction::unreachable_()] &&
+              else_body != [@lib.Instruction::unreachable_()] &&
+              !run_hot_pipeline_raw_vacuum_body_targets_owner(else_body, 0) {
+              let dropped_else = else_body.copy()
+              dropped_else.push(@lib.Instruction::drop())
+              rewritten.push(
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  next_then,
+                  Some(dropped_else),
+                ),
+              )
+              true
+            } else if else_body == [@lib.Instruction::unreachable_()] &&
+              next_then != [@lib.Instruction::unreachable_()] &&
+              !run_hot_pipeline_raw_vacuum_body_targets_owner(next_then, 0) {
+              let dropped_then = next_then.copy()
+              dropped_then.push(@lib.Instruction::drop())
+              rewritten.push(
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  dropped_then,
+                  Some(else_body),
+                ),
+              )
+              true
+            } else {
+              false
+            }
+          _ => false
+        }
+        if sunk_unreachable_result_if {
+          changed = true
+          idx = idx + 2
+          continue
+        }
         let dropped_pure_result_if = match (block_type, normalized_else) {
           (@lib.ValTypeBlockType(_), Some(else_body)) if idx + 1 <
             instrs.length() &&
@@ -63792,6 +64072,41 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         if dropped_pure_result_if {
           changed = true
           idx = idx + 2
+          continue
+        }
+        let collapsed_constant_result_if = if block_type !=
+          @lib.BlockType::void_() &&
+          rewritten.length() > 0 {
+          match rewritten[rewritten.length() - 1] {
+            @lib.I32Const(@lib.I32(value)) => {
+              let selected = if value != 0 {
+                next_then
+              } else {
+                match normalized_else {
+                  Some(body) => body
+                  None => []
+                }
+              }
+              if !run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
+                  selected, 0,
+                ) {
+                ignore(rewritten.pop())
+                for selected_instr in selected {
+                  rewritten.push(selected_instr)
+                }
+                true
+              } else {
+                false
+              }
+            }
+            _ => false
+          }
+        } else {
+          false
+        }
+        if collapsed_constant_result_if {
+          changed = true
+          idx = idx + 1
           continue
         }
         match block_type {
@@ -69340,8 +69655,10 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   } else {
     None
   }
+  let has_constant_result_if = [false]
   let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
+    constant_result_if=Some(has_constant_result_if),
   )
   let has_stack_effect = run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
     instrs,
@@ -69398,6 +69715,7 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     ) ||
     run_hot_pipeline_raw_vacuum_instrs_have_repeated_dropped_load(instrs) ||
     has_dropped_typeidx_block ||
+    has_constant_result_if[0] ||
     has_flattenable_no_throw_exception_region ||
     has_legacy_try ||
     has_fresh_array_set ||

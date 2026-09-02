@@ -651,6 +651,8 @@ pub enum GenValidProfile {
   VacuumCoreProfile
   VacuumTerminalUnreachableProfile
   VacuumStructuralWrappersProfile
+  VacuumDroppedParentEffectsProfile
+  VacuumConstantResultIfProfile
   VacuumCallPrefixContinuationProfile
   VacuumLocalsetPrefixPreserveProfile
   VacuumHazardBoundaryProfile
@@ -1039,6 +1041,8 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     VacuumCoreProfile => "vacuum-core"
     VacuumTerminalUnreachableProfile => "vacuum-terminal-unreachable"
     VacuumStructuralWrappersProfile => "vacuum-structural-wrappers"
+    VacuumDroppedParentEffectsProfile => "vacuum-dropped-parent-effects"
+    VacuumConstantResultIfProfile => "vacuum-constant-result-if"
     VacuumCallPrefixContinuationProfile => "vacuum-call-prefix-continuation"
     VacuumLocalsetPrefixPreserveProfile => "vacuum-localset-prefix-preserve"
     VacuumHazardBoundaryProfile => "vacuum-hazard-boundary"
@@ -1488,6 +1492,8 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(VacuumCoreProfile, 2),
         GenValidProfileMember::new(VacuumTerminalUnreachableProfile, 1),
         GenValidProfileMember::new(VacuumStructuralWrappersProfile, 1),
+        GenValidProfileMember::new(VacuumDroppedParentEffectsProfile, 1),
+        GenValidProfileMember::new(VacuumConstantResultIfProfile, 1),
         GenValidProfileMember::new(VacuumCallPrefixContinuationProfile, 1),
         GenValidProfileMember::new(VacuumLocalsetPrefixPreserveProfile, 1),
         GenValidProfileMember::new(VacuumHazardBoundaryProfile, 1),
@@ -2046,6 +2052,8 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     VacuumCoreProfile,
     VacuumTerminalUnreachableProfile,
     VacuumStructuralWrappersProfile,
+    VacuumDroppedParentEffectsProfile,
+    VacuumConstantResultIfProfile,
     VacuumCallPrefixContinuationProfile,
     VacuumLocalsetPrefixPreserveProfile,
     VacuumHazardBoundaryProfile,
@@ -4678,6 +4686,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | VacuumCoreProfile
     | VacuumTerminalUnreachableProfile
     | VacuumStructuralWrappersProfile
+    | VacuumDroppedParentEffectsProfile
+    | VacuumConstantResultIfProfile
     | VacuumCallPrefixContinuationProfile
     | VacuumLocalsetPrefixPreserveProfile
     | VacuumHazardBoundaryProfile => gen_valid_vacuum_profile_config(profile)
@@ -23620,16 +23630,20 @@ fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig 
     VacuumCoreProfile => 1
     VacuumTerminalUnreachableProfile => 2
     VacuumStructuralWrappersProfile => 3
-    VacuumCallPrefixContinuationProfile => 4
-    VacuumLocalsetPrefixPreserveProfile => 5
-    VacuumHazardBoundaryProfile => 6
+    VacuumDroppedParentEffectsProfile => 4
+    VacuumConstantResultIfProfile => 5
+    VacuumCallPrefixContinuationProfile => 6
+    VacuumLocalsetPrefixPreserveProfile => 7
+    VacuumHazardBoundaryProfile => 8
     _ => 0
   }
   GenValidConfig::{
     ..base,
     max_type_defs: if profile == VacuumHazardBoundaryProfile ||
       profile == VacuumCallPrefixContinuationProfile ||
-      profile == VacuumLocalsetPrefixPreserveProfile {
+      profile == VacuumLocalsetPrefixPreserveProfile ||
+      profile == VacuumDroppedParentEffectsProfile ||
+      profile == VacuumConstantResultIfProfile {
       4
     } else {
       1
@@ -23637,6 +23651,10 @@ fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig 
     max_imports: 0,
     max_defined_funcs: if profile == VacuumHazardBoundaryProfile {
       4
+    } else if profile == VacuumDroppedParentEffectsProfile {
+      5
+    } else if profile == VacuumConstantResultIfProfile {
+      7
     } else if profile == VacuumCallPrefixContinuationProfile {
       2
     } else if profile == VacuumLocalsetPrefixPreserveProfile {
@@ -23660,6 +23678,8 @@ fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig 
       0
     },
     max_results: if profile == VacuumHazardBoundaryProfile ||
+      profile == VacuumDroppedParentEffectsProfile ||
+      profile == VacuumConstantResultIfProfile ||
       profile == VacuumCallPrefixContinuationProfile ||
       profile == VacuumLocalsetPrefixPreserveProfile {
       1
@@ -23687,6 +23707,8 @@ fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig 
       allow_elems: false,
       allow_datas: false,
       allow_calls: profile == VacuumHazardBoundaryProfile ||
+      profile == VacuumDroppedParentEffectsProfile ||
+      profile == VacuumConstantResultIfProfile ||
       profile == VacuumCallPrefixContinuationProfile ||
       profile == VacuumLocalsetPrefixPreserveProfile ||
       profile == VacuumStructuralWrappersProfile,
@@ -23708,6 +23730,8 @@ fn gen_valid_is_vacuum_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(VacuumCoreProfile) ||
   config == GenValidConfig::for_profile(VacuumTerminalUnreachableProfile) ||
   config == GenValidConfig::for_profile(VacuumStructuralWrappersProfile) ||
+  config == GenValidConfig::for_profile(VacuumDroppedParentEffectsProfile) ||
+  config == GenValidConfig::for_profile(VacuumConstantResultIfProfile) ||
   config == GenValidConfig::for_profile(VacuumCallPrefixContinuationProfile) ||
   config == GenValidConfig::for_profile(VacuumLocalsetPrefixPreserveProfile) ||
   config == GenValidConfig::for_profile(VacuumHazardBoundaryProfile)
@@ -23720,6 +23744,11 @@ fn gen_valid_vacuum_profile_kind(config : GenValidConfig) -> GenValidProfile {
   } else if config ==
     GenValidConfig::for_profile(VacuumStructuralWrappersProfile) {
     VacuumStructuralWrappersProfile
+  } else if config ==
+    GenValidConfig::for_profile(VacuumDroppedParentEffectsProfile) {
+    VacuumDroppedParentEffectsProfile
+  } else if config == GenValidConfig::for_profile(VacuumConstantResultIfProfile) {
+    VacuumConstantResultIfProfile
   } else if config ==
     GenValidConfig::for_profile(VacuumCallPrefixContinuationProfile) {
     VacuumCallPrefixContinuationProfile
@@ -23913,6 +23942,180 @@ fn gen_valid_vacuum_structural_wrappers_profile_module() -> Module {
 }
 
 ///|
+fn gen_valid_vacuum_dropped_parent_effects_op(seed : UInt64) -> Instruction {
+  match (seed % 4UL).to_int() {
+    0 => Instruction::i32_add()
+    1 => Instruction::i32_xor()
+    2 => Instruction::i32_mul()
+    _ => Instruction::i32_lt_s()
+  }
+}
+
+///|
+fn gen_valid_vacuum_dropped_parent_effects_profile_module(
+  seed : UInt64,
+) -> Module {
+  let value = (seed % 97UL).to_int() + 1
+  let parent_op = gen_valid_vacuum_dropped_parent_effects_op(seed)
+  let i32_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([i32_func_type, void_func_type]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(1U),
+      TypeIdx::new(1U),
+      TypeIdx::new(1U),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::i32_const(I32(value))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::i32_const(I32(value + 1))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(0U)),
+          Instruction::call(FuncIdx::new(1U)),
+          parent_op,
+          Instruction::drop(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(0U)),
+          Instruction::i32_const(I32(value + 2)),
+          parent_op,
+          Instruction::drop(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(0U)),
+          Instruction::i32_const(I32(1)),
+          Instruction::i32_const(I32(0)),
+          Instruction::i32_div_s(),
+          parent_op,
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_vacuum_constant_result_if_profile_module(seed : UInt64) -> Module {
+  let condition = if seed % 2UL == 0UL { 0 } else { 1 }
+  let value = (seed % 101UL).to_int() + 100
+  let i32_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let i64_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
+  )
+  let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([i32_func_type, i64_func_type, void_func_type]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(1U),
+      TypeIdx::new(0U),
+      TypeIdx::new(2U),
+      TypeIdx::new(2U),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::i32_const(I32(condition))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::i32_const(I32(value + 6))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(condition)),
+          Instruction::if_(
+            BlockType::val_type(ValType::i32()),
+            [Instruction::i32_const(I32(value))],
+            Some([Instruction::i32_const(I32(value + 1))]),
+          ),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(1 - condition)),
+          Instruction::if_(
+            BlockType::val_type(ValType::i64()),
+            [Instruction::i64_const(I64(value.to_int64() + 2L))],
+            Some([Instruction::i64_const(I64(value.to_int64() + 3L))]),
+          ),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(condition)),
+              Instruction::if_(
+                BlockType::val_type(ValType::i32()),
+                [Instruction::i32_const(I32(value + 4))],
+                Some([Instruction::i32_const(I32(value + 5))]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(0U)),
+          Instruction::if_(
+            BlockType::val_type(ValType::i32()),
+            [Instruction::unreachable_()],
+            Some([Instruction::call(FuncIdx::new(1U))]),
+          ),
+          Instruction::drop(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(0U)),
+          Instruction::if_(
+            BlockType::val_type(ValType::i32()),
+            [Instruction::call(FuncIdx::new(1U))],
+            Some([Instruction::unreachable_()]),
+          ),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_vacuum_call_prefix_continuation_profile_module() -> Module {
   let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
   let i32_func_type = RecType::new(
@@ -24049,12 +24252,16 @@ fn gen_valid_vacuum_hazard_boundary_profile_module() -> Module {
 }
 
 ///|
-fn gen_valid_vacuum_profile_module(config : GenValidConfig) -> Module {
-  match gen_valid_vacuum_profile_kind(config) {
+fn gen_valid_vacuum_profile_module(ctx : GenValidContext) -> Module {
+  match gen_valid_vacuum_profile_kind(ctx.config) {
     VacuumTerminalUnreachableProfile =>
       gen_valid_vacuum_terminal_unreachable_profile_module()
     VacuumStructuralWrappersProfile =>
       gen_valid_vacuum_structural_wrappers_profile_module()
+    VacuumDroppedParentEffectsProfile =>
+      gen_valid_vacuum_dropped_parent_effects_profile_module(ctx.root_seed)
+    VacuumConstantResultIfProfile =>
+      gen_valid_vacuum_constant_result_if_profile_module(ctx.root_seed)
     VacuumCallPrefixContinuationProfile =>
       gen_valid_vacuum_call_prefix_continuation_profile_module()
     VacuumLocalsetPrefixPreserveProfile =>
@@ -33289,7 +33496,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     return gen_valid_once_reduction_profile_module()
   }
   if gen_valid_is_vacuum_profile_config(config) {
-    return gen_valid_vacuum_profile_module(config)
+    return gen_valid_vacuum_profile_module(ctx)
   }
   if gen_valid_is_rse_profile_config(config) {
     return gen_valid_rse_profile_module(config)

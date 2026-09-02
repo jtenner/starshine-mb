@@ -1178,6 +1178,8 @@ pub enum GenValidProfile {
   VacuumCoreProfile
   VacuumTerminalUnreachableProfile
   VacuumStructuralWrappersProfile
+  VacuumDroppedParentEffectsProfile
+  VacuumConstantResultIfProfile
   VacuumCallPrefixContinuationProfile
   VacuumLocalsetPrefixPreserveProfile
   VacuumHazardBoundaryProfile

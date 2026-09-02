@@ -18614,6 +18614,14 @@ test "vacuum gen-valid profiles expose stable family lanes" {
     "vacuum-structural-wrappers",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(VacuumDroppedParentEffectsProfile),
+    "vacuum-dropped-parent-effects",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(VacuumConstantResultIfProfile),
+    "vacuum-constant-result-if",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(VacuumCallPrefixContinuationProfile),
     "vacuum-call-prefix-continuation",
   )
@@ -18632,13 +18640,15 @@ test "vacuum gen-valid profiles expose stable family lanes" {
       @debug.assert_eq(profile, VacuumProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 6)
+      @debug.assert_eq(members.length(), 8)
       @debug.assert_eq(members[0].profile, VacuumCoreProfile)
       @debug.assert_eq(members[1].profile, VacuumTerminalUnreachableProfile)
       @debug.assert_eq(members[2].profile, VacuumStructuralWrappersProfile)
-      @debug.assert_eq(members[3].profile, VacuumCallPrefixContinuationProfile)
-      @debug.assert_eq(members[4].profile, VacuumLocalsetPrefixPreserveProfile)
-      @debug.assert_eq(members[5].profile, VacuumHazardBoundaryProfile)
+      @debug.assert_eq(members[3].profile, VacuumDroppedParentEffectsProfile)
+      @debug.assert_eq(members[4].profile, VacuumConstantResultIfProfile)
+      @debug.assert_eq(members[5].profile, VacuumCallPrefixContinuationProfile)
+      @debug.assert_eq(members[6].profile, VacuumLocalsetPrefixPreserveProfile)
+      @debug.assert_eq(members[7].profile, VacuumHazardBoundaryProfile)
     }
     Err(msg) => fail(msg)
   }
@@ -18660,6 +18670,37 @@ test "vacuum gen-valid profiles expose stable family lanes" {
 }
 
 ///|
+test "vacuum dropped-parent profile varies trigger opcode by seed" {
+  let first_generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(VacuumDroppedParentEffectsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let second_generated = match
+    gen_valid_module_result_from_seed(
+      0x5eeeUL,
+      GenValidConfig::for_profile(VacuumDroppedParentEffectsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let first = match first_generated.wasm_module.code_sec {
+    Some(CodeSec([_, _, Func(_, Expr([Call(_), Call(_), op, Drop])), ..])) => op
+    _ => fail("expected first seeded Vacuum dropped-parent trigger")
+  }
+  let second = match second_generated.wasm_module.code_sec {
+    Some(CodeSec([_, _, Func(_, Expr([Call(_), Call(_), op, Drop])), ..])) => op
+    _ => fail("expected second seeded Vacuum dropped-parent trigger")
+  }
+  assert_true(gen_valid_wbtest_is_vacuum_dropped_parent_op(first))
+  assert_true(gen_valid_wbtest_is_vacuum_dropped_parent_op(second))
+  assert_true(first != second)
+}
+
+///|
 fn gen_valid_wbtest_singleton_void_block_leaf(
   instrs : Array[Instruction],
 ) -> (Int, Array[Instruction]) {
@@ -18675,6 +18716,11 @@ fn gen_valid_wbtest_singleton_void_block_leaf(
     }
   }
   (depth, current)
+}
+
+///|
+fn gen_valid_wbtest_is_vacuum_dropped_parent_op(instr : Instruction) -> Bool {
+  instr is I32Add || instr is I32Xor || instr is I32Mul || instr is I32LtS
 }
 
 ///|
@@ -18769,6 +18815,94 @@ test "vacuum gen-valid family profiles emit focused trigger scaffolds" {
       fail(
         "expected vacuum-structural-wrappers trigger body and deep call leaf",
       )
+  }
+
+  let dropped_parent = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(VacuumDroppedParentEffectsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match dropped_parent.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          _,
+          _,
+          Func(_, Expr([Call(_), Call(_), two_effect_op, Drop])),
+          Func(_, Expr([Call(_), I32Const(_), one_effect_op, Drop])),
+          Func(
+            _,
+            Expr(
+              [Call(_), I32Const(_), I32Const(_), I32DivS, trap_effect_op, Drop]
+            )
+          ),
+        ]
+      )
+    ) => {
+      assert_true(gen_valid_wbtest_is_vacuum_dropped_parent_op(two_effect_op))
+      assert_true(gen_valid_wbtest_is_vacuum_dropped_parent_op(one_effect_op))
+      assert_true(gen_valid_wbtest_is_vacuum_dropped_parent_op(trap_effect_op))
+    }
+    _ =>
+      fail(
+        "expected vacuum-dropped-parent-effects ordered call/pure/trap scaffolds",
+      )
+  }
+
+  let result_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(VacuumConstantResultIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match result_if.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          _,
+          _,
+          Func(_, Expr([I32Const(_), If(ValTypeBlockType(_), [_], Some([_]))])),
+          Func(_, Expr([I32Const(_), If(ValTypeBlockType(_), [_], Some([_]))])),
+          Func(
+            _,
+            Expr(
+              [
+                Block(
+                  ValTypeBlockType(_),
+                  Expr([I32Const(_), If(ValTypeBlockType(_), [_], Some([_]))])
+                ),
+              ]
+            )
+          ),
+          Func(
+            _,
+            Expr(
+              [
+                Call(_),
+                If(ValTypeBlockType(_), [Unreachable], Some([Call(_)])),
+                Drop,
+              ]
+            )
+          ),
+          Func(
+            _,
+            Expr(
+              [
+                Call(_),
+                If(ValTypeBlockType(_), [Call(_)], Some([Unreachable])),
+                Drop,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ => fail("expected vacuum-constant-result-if scalar and nested scaffolds")
   }
 
   let call_prefix = match

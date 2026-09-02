@@ -257,6 +257,254 @@ test "vacuum removes dropped pure scalar expressions" {
 }
 
 ///|
+test "vacuum removes unused binary parents and preserves ordered child effects" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $ret (func (result i32)))
+      #|  (import "env" "a" (func $a (type $ret)))
+      #|  (import "env" "b" (func $b (type $ret)))
+      #|  (func
+      #|    (drop (i32.add (call $a) (call $b))))
+      #|  (func
+      #|    (drop (i32.add (call $a) (i32.const 7))))
+      #|  (func
+      #|    (drop
+      #|      (i32.add
+      #|        (call $a)
+      #|        (i32.div_s (i32.const 1) (i32.const 0))))))
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected effect-preserving vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected effect-preserving vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(_, @lib.Expr(two_calls)),
+          @lib.Func(_, @lib.Expr(one_call)),
+          @lib.Func(_, @lib.Expr(call_and_trap)),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(two_calls, [
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::drop(),
+      ])
+      @debug.assert_eq(one_call, [
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::drop(),
+      ])
+      @debug.assert_eq(call_and_trap, [
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_div_s(),
+        @lib.Instruction::drop(),
+      ])
+    }
+    other =>
+      fail(
+        "expected three effect-preserving Vacuum functions, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum recursively strips defaultable parents and keeps nondefaultable multi-effects" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $s (struct))
+      #|  (type $i32ret (func (result i32)))
+      #|  (type $refret (func (result (ref $s))))
+      #|  (func $a (type $i32ret) (i32.const 41))
+      #|  (func $b (type $i32ret) (i32.const 42))
+      #|  (func $ra (type $refret) (struct.new_default $s))
+      #|  (func $rb (type $refret) (struct.new_default $s))
+      #|  (func
+      #|    (drop (i32.eqz (i32.add (call $a) (i32.const 7)))))
+      #|  (func
+      #|    (drop (select (call $a) (call $b) (i32.const 1))))
+      #|  (func
+      #|    (drop
+      #|      (select (result (ref $s))
+      #|        (call $ra)
+      #|        (call $rb)
+      #|        (i32.const 1)))))
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected recursive dropped-parent vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected recursive dropped-parent output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          _,
+          _,
+          _,
+          _,
+          @lib.Func(_, @lib.Expr(nested)),
+          @lib.Func(_, @lib.Expr(selected)),
+          @lib.Func(_, @lib.Expr(nondefaultable)),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(nested, [
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::drop(),
+      ])
+      @debug.assert_eq(selected, [
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::drop(),
+      ])
+      assert_true(nondefaultable.any(fn(instr) { instr is @lib.Select(_) }))
+      @debug.assert_eq(
+        nondefaultable.filter(fn(instr) { instr is @lib.Call(_) }).length(),
+        2,
+      )
+    }
+    other =>
+      fail(
+        "expected recursive/defaultability Vacuum functions, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum sinks drops into concrete result if arms beside unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $ret (func (result i32)))
+        #|  (import "env" "cond" (func $cond (result i32)))
+        #|  (import "env" "value" (func $value (type $ret)))
+        #|  (func
+        #|    (drop
+        #|      (if (result i32) (call $cond)
+        #|        (then unreachable)
+        #|        (else (call $value)))))
+        #|  (func
+        #|    (drop
+        #|      (if (result i32) (call $cond)
+        #|        (then (call $value))
+        #|        (else unreachable))))
+        #|)
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped result-if vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected dropped result-if output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr(first)), @lib.Func(_, @lib.Expr(second))]
+      )
+    ) => {
+      match first {
+        [
+          @lib.Call(_),
+          @lib.If(
+            @lib.VoidBlockType,
+            [@lib.Unreachable],
+            Some([@lib.Call(_), @lib.Drop])
+          ),
+        ] => ()
+        _ => fail("expected then-unreachable void if with dropped else call")
+      }
+      match second {
+        [
+          @lib.Call(_),
+          @lib.If(
+            @lib.VoidBlockType,
+            [@lib.Call(_), @lib.Drop],
+            Some([@lib.Unreachable])
+          ),
+        ] => ()
+        _ => fail("expected else-unreachable void if with dropped then call")
+      }
+    }
+    other =>
+      fail(
+        "expected two dropped result-if functions, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum folds constant result if expressions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32)
+        #|    (if (result i32) (i32.const 1)
+        #|      (then (i32.const 402340))
+        #|      (else (i32.const 402341))))
+        #|  (func (result i32)
+        #|    (if (result i32) (i32.const 0)
+        #|      (then (i32.const 107452))
+        #|      (else (i32.const 107453)))))
+        #|)
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected constant result-if vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected constant result-if output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr(first)), @lib.Func(_, @lib.Expr(second))]
+      )
+    ) => {
+      @debug.assert_eq(first, [@lib.Instruction::i32_const(@lib.I32(402340))])
+      @debug.assert_eq(second, [@lib.Instruction::i32_const(@lib.I32(107453))])
+    }
+    other =>
+      fail(
+        "expected constant result-if arms to flatten, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum removes dropped pure result if expressions" {
   let optimized = match
     pass_test_run_pipeline(
@@ -775,7 +1023,7 @@ test "vacuum removes dropped pure SIMD shuffle arithmetic trees" {
 }
 
 ///|
-test "vacuum preserves dropped SIMD shuffles with observable local tee assignments" {
+test "vacuum removes dropped SIMD shells and preserves tee assignments as sets" {
   let input = pass_test_module_from_wat(
     (
       #|(module
@@ -796,9 +1044,19 @@ test "vacuum preserves dropped SIMD shuffles with observable local tee assignmen
     Ok(mod_) => mod_
     Err(err) => fail("expected tee-preserving shuffle cleanup, got \{err}")
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("local.tee (Local 2)"), msg=pretty)
-  assert_true(pretty.contains("i8x16.shuffle"), msg=pretty)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      ])
+    other =>
+      fail(
+        "expected dropped shuffle shell to preserve only the tee assignment and observed read, got \{@debug.to_string(other)}",
+      )
+  }
 }
 
 ///|

@@ -2638,6 +2638,84 @@ fn pass_manager_test_vacuum_f364_body() -> Array[@lib.Instruction] {
 }
 
 ///|
+test "vacuum dropped-parent batch preserves shared parents used by observable roots" {
+  let func = pass_test_lift_first_func(
+    "(module (global (mut i32) (i32.const 0)) (func (drop (i32.add (i32.const 1) (i32.const 2)))))",
+  )
+  let drop_id = @ir.hot_root_get(func, 0)
+  let shared_add = @ir.hot_child_get(func, drop_id, 0)
+  @ir.hot_region_insert(func, @ir.HotRegionRef::root(), 1, [
+    @ir.hot_build_global_set(func, 0, shared_add),
+  ])
+  let ctx = HotPassContext::new(
+    @ir.HotPassDescriptor::new("vacuum"),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected shared dropped-parent Vacuum success, got \{err}")
+  }
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected shared dropped-parent HOT graph to verify, got \{err}")
+  }
+  assert_eq(@ir.hot_root_count(func), 1)
+  let retained_set = @ir.hot_root_get(func, 0)
+  assert_true(@ir.hot_node_get(func, retained_set).op is @ir.HotOp::GlobalSet)
+  assert_eq(@ir.hot_child_get(func, retained_set, 0), shared_add)
+  assert_true(@ir.hot_node_is_live(func, shared_add))
+  assert_true(@ir.hot_node_get(func, shared_add).op is @ir.HotOp::Binary)
+}
+
+///|
+test "raw vacuum instruction scan detects nested constant result ifs once" {
+  let visits = [0]
+  let has_constant_result_if = [false]
+  ignore(
+    run_hot_pipeline_instr_scan(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Instruction::i32_const(@lib.I32(7))],
+              Some([@lib.Instruction::i32_const(@lib.I32(8))]),
+            ),
+          ]),
+        ),
+      ],
+      visit_count=Some(visits),
+      constant_result_if=Some(has_constant_result_if),
+    ),
+  )
+  assert_true(has_constant_result_if[0])
+  assert_eq(visits[0], 5)
+
+  let void_only = [false]
+  ignore(
+    run_hot_pipeline_instr_scan(
+      [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [@lib.Instruction::nop()],
+          Some([]),
+        ),
+      ],
+      constant_result_if=Some(void_only),
+    ),
+  )
+  assert_false(void_only[0])
+}
+
+///|
 test "raw vacuum deep singleton call-leaf fast path rejects nearby shapes" {
   let wrap = fn(depth : Int, leaf : Array[@lib.Instruction]) {
     let mut body = leaf

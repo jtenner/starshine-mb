@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-29
+last_reviewed: 2026-09-01
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
@@ -69,6 +69,8 @@ That includes more than `nop` removal, but less than full dead-code elimination.
 - Current Starshine still implements a focused subset of upstream behavior, but that subset is now audit-complete for the current direct pass and checked `-O4z` neighborhood evidence. It covers:
   - recursive `nop` region-entry trimming
   - dropped pure scalar result pruning for nontrapping numeric/ref/tuple shapes
+  - generic unused-parent removal that preserves one or multiple effectful/trapping children as ordered drops when Binaryen's defaultability rule permits
+  - constant result-`if` arm selection and dropped result-`if` drop sinking when exactly one arm is `unreachable`
   - removing empty void blocks
   - unwrapping blocks whose only payload is `unreachable`
   - flipping empty-then/live-else void `if`s to Binaryen's one-armed double-`eqz` form
@@ -119,6 +121,29 @@ The canonical production debug-WASI Vacuum attribution reports **zero** `raw-vac
 
 The existing `vacuum-structural-wrappers` GenValid leaf now includes the depth-64 defined-call fixture. Explicit-v131 targeted comparison is `10000/10000` normalized with equal raw/canonical totals. Regular GenValid is also `10000/10000` normalized. The refreshed aggregate is `7175` normalized plus `2825` pre-existing canonically smaller Starshine residuals and zero failures; all 20 persisted current/baseline residual artifacts are byte-identical, so no aggregate drift is attributed to this change.
 
+## 2026-09-01 broad unused-result and result-control expansion
+
+A direct Binaryen-v131 source audit exposed three represented-surface gaps beyond the prior structural/raw matcher work:
+
+- `drop(i32.add(call, call))` retained the pure parent instead of preserving the calls as two ordered drops;
+- constant scalar result `if`s retained both arms;
+- `drop(if (result T) ... unreachable ... value)` retained the outer drop instead of converting the concrete arm to `drop(value)` and making the `if` void.
+
+Vacuum now recursively removes ordinary removable unary/binary/compare/convert/SIMD/select/tuple/ref wrappers while preserving every nonremovable child in evaluation order. Multiple preserved children retain Binaryen's defaultable-result requirement; nondefaultable multi-effect parents remain unchanged. A region-wide rewrite batches generic dropped-parent replacements and one liveness-checked known-detached deletion instead of splicing and validating each root independently. A shared-DAG regression proves a parent still feeding an observable global write remains live after its redundant dropped use disappears. On the 4,096-parent native fixture, five matched pre-batch/current medians improve HOT pass `427.080ms -> 20.840ms` (`20.493x`, `-95.120%`) and registry pipeline `431.750ms -> 31.480ms` (`13.715x`, `-92.709%`); candidate-free raw admission remains neutral at `305.44us -> 303.39us`. The exact call/pure/trap probe is stripped-byte-identical to Binaryen at SHA-256 `ef61a5455d450e40b7de272d59b4fe4660e2c1ac4864c32900402e98fe1f70bf`.
+
+Constant result `if` admission is recorded during the existing single instruction-summary traversal, avoiding another whole-function scan. Raw and HOT paths select the constant arm under existing branch-target guards. Scalar dropped result `if`s with one exact `unreachable` arm now keep the condition and unreachable arm while sinking the drop into the concrete arm. The previous conservative dropped-shuffle/observable-tee expectation was corrected to Binaryen's verified shape: remove the shuffle shell and preserve the tee assignment as `local.set`; direct outputs are byte-identical at SHA-256 `65e60e2d93117b59b12c2ccd78239d1e8e932d65c0f5afb0b5737f09177fafe1`.
+
+The calibrated suite grows from 29 to 36 cases. Seven new lanes cover dropped-parent HOT lift/pass/lower/registry decomposition, candidate-free raw admission, 2,048-function constant result selection, and 2,048 unreachable-arm drop sinks. The pass-owned `vacuum` aggregate grows from six to eight leaves with seed-varying `vacuum-dropped-parent-effects` and `vacuum-constant-result-if` profiles. Explicit-v131 results are:
+
+- dropped-parent leaf: `10000/10000` normalized, equal canonical totals `667176/667176`;
+- result-control leaf: `10000/10000` normalized, equal canonical totals `900000/900000`;
+- eight-leaf aggregate: `7830` normalized plus `2170` pre-existing smaller hazard/local-set residuals, zero larger outputs or failures;
+- regular GenValid: `100000/100000` normalized, zero failures;
+- random-all: `5696` normalized plus `4304` canonically smaller residuals and zero larger outputs; the repaired `merge-similar-functions-nested` constant-result family contributes `35/35` newly exact replays;
+- wasm-smith: `9934/9956` normalized plus 22 pre-existing byte-identical clean/current Starshine wins and the same 44 Binaryen-v131 tool failures. Twenty-one wins serialize valid empty function bodies instead of Binaryen's one-byte `nop`; case 3694 remains the documented six-byte loop/local-carrier win.
+
+Fresh canonical production attribution is intentionally neutral. Three clean/current no-trace medians are `1705.620/1706.197ms` versus paired Binaryen v131 `711.836ms`; raw preprocessing is `559.636/564.746ms`, batch writeback `237.698/235.353ms`, and every clean/current output is byte-identical at SHA-256 `519d36fcf0e88121774ad188ceafba81b2d25d376517fc63fa02f074462c07a0`. The current `<=2x` gate is `1423.672ms`, so `[P0-WALL-VACUUM]` remains open for the remaining raw/writeback and shared command envelope.
+
 ## Beginner warning: what the name hides
 
 The easy wrong mental model is:
@@ -152,12 +177,12 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `vacuum` parity and scheduler research.
-- Treat the `[VACUUM-PARITY]003` explicit-v131 results in [`./fuzzing.md`](./fuzzing.md) as current direct evidence: all `289` prior residuals were replayed, the three former size-losing families are exact, regular `100000` and aggregate `10000` are exact, and the wasm-smith/random-all residuals are only measured six-byte Starshine wins. `[VACUUM-PARITY]002` remains the discovery baseline.
+- Treat the 2026-09-01 eight-leaf evidence in [`./fuzzing.md`](./fuzzing.md) as current direct evidence: both new seeded leaves are `10000/10000` exact, regular GenValid is `100000/100000` exact, the aggregate has only the established smaller hazard/local-set outputs, random-all has zero canonically larger outputs after 35 result-control repairs, and wasm-smith retains only the classified empty-body and case-3694 Starshine wins plus Binaryen tool failures. `[VACUUM-PARITY]003` remains the earlier six-leaf closeout baseline and `[VACUUM-PARITY]002` the discovery baseline.
 - Treat the raw primary-source manifest plus the refreshed Starshine code-map page as the compact answer for provenance and local navigation; future edits should keep them aligned with the broader strategy and WAT-shape pages.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
-- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, proven-nontrapping constant div/rem, dropped-tee-to-set, empty-`if`, finite no-backedge loop, exact unread default-struct allocation, fresh-GC observation pruning, guarded GC atomic-get pruning, branchy-loop dropped-local cleanup, local-only void-body, block-only-`unreachable`, empty-then/live-else `if` inversion, large lowered-function precleaning, and empty-function single-`nop` canonicalization slice.
+- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, generic ordered child-effect preservation, proven-nontrapping constant div/rem, dropped-tee-to-set, empty-`if`, constant result-`if`, one-unreachable-arm drop sinking, finite no-backedge loop, exact unread default-struct allocation, fresh-GC observation pruning, guarded GC atomic-get pruning, branchy-loop dropped-local cleanup, local-only void-body, block-only-`unreachable`, empty-then/live-else `if` inversion, large lowered-function precleaning, and empty-function canonicalization slice.
 
 ## Sources
 
