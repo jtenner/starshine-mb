@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-02
 sources:
   - ../simplify-locals/index.md
   - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
@@ -10,6 +10,7 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_variants_test.mbt
+  - ../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../agent-todo.md
@@ -44,6 +45,14 @@ Starshine now implements Binaryen's flat `SimplifyLocals<false, false, false>` s
 - shared policy: structure off, sink-created tees off, ordinary nesting off
 - preset role: none
 - compare harness: both names admitted; the alias maps to Binaryen's canonical flag
+
+## 2026-09-02 performance status
+
+The production wall blocker is closed without a new nonesting rewrite. The August root-hazard repair remains the pass-specific algorithmic fix; later shared HOT-lift and function-envelope improvements reduce the same byte-identical output to a `2,467.228ms` no-trace median versus Binaryen v131 `1,254.875ms` (`1.966x`). Pass-local is `459.349ms` versus `754.346ms` (`0.609x`), and lift is `819.908ms`, down from the accepted August `1,617.657ms` checkpoint. The 11,999-function trace reports 1,179 changed and 10,820 unchanged functions, so the remaining envelope is visible rather than hidden behind raw skipping.
+
+The long benchmark file now includes `bench simplify-locals-nonesting breadth functions=2048`. It constructs the module and runs a trace-bearing preflight outside `it.bench(...)`, requires all 2,048 functions to enter the pass with zero mutations, locks the unchanged final `i32.const; local.set; local.get` carrier, and times registry dispatch with only final-module validation disabled. Native release on AMD Ryzen 7 8845HS with MoonBit `0.1.20260713` reports `10.80ms +/- 113.06us`.
+
+The exact 4,961,908-byte production result remains SHA-256 `b5dc28fea9588a3bc219f181b83a6a644e1fba807159f472e9042f9ef7c8ee0d`. Size parity remains independent: Starshine canonical output is still 283,042 bytes larger than Binaryen's direct result, tracked under `[SIZE]001` rather than the closed wall blocker.
 
 ## Binaryen-specific legality rule
 

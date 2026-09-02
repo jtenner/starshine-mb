@@ -2,7 +2,7 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-02
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -57,6 +57,26 @@ The repaired preflight performs one forward scan with a pending-effectful-writer
 Final formatted native SHA-256 `360389c2467e43535b06842d027f4582bba659b5a352a2180e66f5701bc2dc97` measures Starshine pass-local median `551.868ms` versus Binaryen `763.111ms` (`0.72x`) over one warmup plus three serial paired samples, down from the prior `>900s` failure. The pre-repair full command did not complete and therefore produced no comparable full output; every final traced/no-trace pair is byte-identical, the output is stable across the final formatting rebuild, and regular GenValid is `10000/10000` normalized against Binaryen. The absolute no-trace command remains `3.659s` versus Binaryen `1.261s` because HOT lift still owns `1.618s`; `[P0-WALL-SLNONESTING]` therefore remains open until the complete direct command is `<=2x` Binaryen without size or parity loss.
 
 Fresh regular GenValid is `10000/10000` normalized with zero failures. The dedicated aggregate compares all 7,235 Binaryen-parseable cases as `5,026` normalized plus `2,209` strictly smaller canonical Starshine outputs, with zero canonical size losses and zero Starshine validation/property/generator failures; the remaining 2,765 `simplify-locals-family-coverage` inputs are classified Binaryen-v131 parser/tool failures (`bad node code 31`), not optimizer failures.
+
+## 2026-09-02 wall-time closeout
+
+No new nonesting transform is needed for the production gate. The accepted August output is unchanged, while the intervening shared HOT-lift and function-envelope work reduces the complete direct command. One warmup plus three serial pairs on the canonical 4,977,401-byte artifact measure:
+
+- no-trace command: `3,659.315ms -> 2,467.228ms` (`1.483x`, `-32.577%`)
+- pass-local: `551.868ms -> 459.349ms` (`1.201x`, `-16.765%`)
+- HOT lift: `1,617.657ms -> 819.908ms` (`1.973x`, `-49.315%`)
+- HOT lower: `276.629ms`
+- aggregate function overhead: `306.842ms`
+- batch writeback: `51.910ms`
+- main pipeline: `1,938.813ms`
+
+Paired Binaryen-v131 medians are `1,254.875ms` command and `754.346ms` pass-local. Starshine is therefore `1.966x` command / `0.609x` pass and clears the fixed `<=2.550s` command target by `82.772ms`. All three measured Starshine outputs equal the prior accepted result byte-for-byte: 4,961,908 bytes, SHA-256 `b5dc28fea9588a3bc219f181b83a6a644e1fba807159f472e9042f9ef7c8ee0d`. The final native binary SHA-256 is `925e2f72645efcfe48887635888b1b170d21f213ecc568283b4b106fb3436d7f`, and each representative output passes `wasm-tools validate --features all`.
+
+The trace still shows a broad unchanged envelope rather than a hidden raw bypass: all 11,999 functions enter HOT, 1,179 report `changed=true`, and 10,820 report `changed=false`. The existing fail-closed guards account for 5,839 control-local-tee protections, 2,767 root-local-set stack-hazard no-ops, and 80 suspicious-escape writeback rollbacks.
+
+A reusable native-release benchmark in `src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt` builds 2,048 functions outside `it.bench(...)`, requires 2,048 nonesting admissions and zero pass mutations, locks the unchanged final local carrier, and measures registry dispatch with only final-module validation disabled. It reports `10.80ms +/- 113.06us` on x86_64 AMD Ryzen 7 8845HS with MoonBit `0.1.20260713`.
+
+Final explicit-v131 renewal is `10000/10000` normalized in the regular lane. The dedicated aggregate is `5,026` normalized plus `4,974` canonically smaller Starshine outputs, with zero canonical size losses or validation, property, generator, or command failures. The mismatch set is exact by selected profile: all 2,209 flat-parent cases remove only Binaryen-retained `nop`s; all 2,765 family-coverage cases remove `nop` debris and flatten an untargeted void loop around the same ordered `local.set`. Those are source-backed, measured Starshine cleanup wins rather than a broad normalizer. `[P0-WALL-SLNONESTING]` is closed. The 283,042-byte canonical size gap remains separate under `[SIZE]001`.
 
 ## Why this pass matters
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-02
 sources:
   - ../simplify-locals/index.md
   - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
@@ -10,6 +10,7 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_variants_test.mbt
+  - ../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 related:
@@ -43,10 +44,10 @@ The initial port is active.
 - [x] No structure-result synthesis.
 - [x] Harness admission and Binaryen alias normalization.
 - [x] Initial regular GenValid smoke.
-- [ ] Dedicated aggregate and leaf profiles.
-- [ ] Complete official-family fixture translation.
-- [ ] Four-lane and 10,000-case closeout.
-- [ ] Timing and neighborhood signoff.
+- [x] Dedicated aggregate and leaf profiles.
+- [x] Complete official-family fixture translation for the agreed v131 scope.
+- [x] Four-lane behavior closeout and renewed 10,000-case regular/dedicated evidence.
+- [x] Timing and neighborhood signoff.
 
 ## Code surfaces
 
@@ -121,3 +122,9 @@ Add source-backed tests before final closeout for:
 7. Measure pass-local wall time against Binaryen.
 
 Final closeout requires zero validation, property, generator, and command failures, plus either normalized parity or source-backed measured justification for every remaining output-shape difference.
+
+## 2026-09-02 completion record
+
+The active implementation checklist is complete. The regular explicit-v131 renewal is `10000/10000` normalized. The dedicated aggregate compares all `10000/10000` cases as `5026` normalized plus `4974` canonically smaller Starshine outputs, with zero validation, property, generator, command, or canonical-size-loss failures. The residual partition is fully profile-backed: flat-parent removes Binaryen-retained `nop`s, and family-coverage removes the same debris plus untargeted void-loop wrappers while preserving ordered local writes.
+
+Production timing closes the fixed command gate at `2,467.228ms` versus Binaryen v131 `1,254.875ms` (`1.966x`); pass-local is `459.349ms` versus `754.346ms` (`0.609x`). The reusable 2,048-function benchmark records `10.80ms +/- 113.06us` and locks the zero-mutation breadth envelope. Output remains the accepted 4,961,908-byte SHA-256 `b5dc28fea9588a3bc219f181b83a6a644e1fba807159f472e9042f9ef7c8ee0d`. The remaining canonical size gap is explicitly tracked outside this wall-time closeout.

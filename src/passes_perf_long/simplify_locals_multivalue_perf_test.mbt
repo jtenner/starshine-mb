@@ -559,3 +559,46 @@ test "bench simplify-locals breadth functions=2048" (it : @bench.T) {
     }
   })
 }
+
+///|
+test "bench simplify-locals-nonesting breadth functions=2048" (it : @bench.T) {
+  let fixture = perf_long_module_from_wat(
+    perf_long_make_simplify_locals_2048_function_module(),
+  )
+  let trace : Array[String] = []
+  let preflight = match
+    @passes.run_hot_pipeline(
+      fixture,
+      @passes.HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["simplify-locals-nonesting"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort("expected nonesting breadth benchmark success, got \{err}")
+  }
+  let mut func_count = 0
+  let mut changed_count = 0
+  for line in trace {
+    if line.contains("pass[simplify-locals-nonesting]:func func_idx=") {
+      func_count += 1
+    }
+    if line.contains("pass[simplify-locals-nonesting]:done changed=true") {
+      changed_count += 1
+    }
+  }
+  assert_eq(func_count, 2048)
+  assert_eq(changed_count, 0)
+  let preflight_text = preflight.pretty_print_defined_func(2047U)
+  assert_true(preflight_text.contains("I32(7)"), msg=preflight_text)
+  assert_true(preflight_text.contains("local.set"), msg=preflight_text)
+  assert_true(preflight_text.contains("local.get"), msg=preflight_text)
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match
+      @passes.run_hot_pipeline(fixture, options, ["simplify-locals-nonesting"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) =>
+        abort("expected nonesting breadth benchmark success, got \{err}")
+    }
+  })
+}

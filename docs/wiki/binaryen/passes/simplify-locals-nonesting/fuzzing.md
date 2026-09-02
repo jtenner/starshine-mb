@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-02
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -33,8 +33,9 @@ The direct compare lane is runnable and the Binaryen-v131 renewal is complete.
 - dedicated aggregate profile: `simplify-locals-nonesting`
 - refreshed aggregate: `10000/10000`, `7684` exact plus `2316` strictly smaller Starshine outputs (`-6..-2` bytes), zero failures
 - refreshed idempotence: `1000/1000`, zero property failures
-- final v131 closeout: complete on 2026-07-27
-- 2026-08-27 linear root-hazard performance repair: regular GenValid `10000/10000` normalized with zero failures; dedicated comparable cases `7235/10000` = `5026` normalized + `2209` strictly smaller canonical Starshine outputs, zero canonical size losses and zero Starshine failures; `2765` family-coverage cases are Binaryen-v131 `bad node code 31` parser/tool failures
+- final v131 behavior closeout: complete; latest renewal is 2026-09-02
+- 2026-08-27 linear root-hazard performance repair: regular GenValid `10000/10000` normalized with zero failures; dedicated comparable cases `7235/10000` = `5026` normalized + `2209` strictly smaller canonical Starshine outputs, zero canonical size losses and zero Starshine failures; `2765` family-coverage cases were then Binaryen-v131 `bad node code 31` parser/tool failures
+- 2026-09-02 wall closeout renewal: regular `10000/10000` normalized; dedicated `10000/10000` compared as `5026` normalized plus `4974` canonically smaller Starshine outputs, with zero canonical size losses or validation/property/generator/command failures
 
 ## Initial smoke
 
@@ -100,6 +101,24 @@ The output-preserving root-hazard scan rewrite was followed by two fresh bounded
 - dedicated `simplify-locals-nonesting`: `7235` Binaryen-parseable comparisons, `5026` normalized matches, `2209` canonical-smaller Starshine outputs, zero canonical-larger outputs, and zero Starshine validation/property/generator failures. All `2765` command failures are selected `simplify-locals-family-coverage` inputs rejected by Binaryen v131 with `bad node code 31`; they are tool/parser failures and do not count as semantic evidence either way.
 
 Artifacts are `.tmp/pass-fuzz-simplify-locals-nonesting-linear-hazard-final-regular-10000` and `.tmp/pass-fuzz-simplify-locals-nonesting-linear-hazard-complete-10000`. The final formatted timing evidence is `.tmp/slnonesting-perf-fix-20260827/final-formatted-timing/median.json`.
+
+## 2026-09-02 explicit-v131 renewal
+
+The final production wall-time closeout reused the native binary at SHA-256 `925e2f72645efcfe48887635888b1b170d21f213ecc568283b4b106fb3436d7f` and reran the two direct GenValid lanes with explicit `--wasm-opt-bin` and `--require-binaryen-version 131`:
+
+- regular: `.tmp/pass-fuzz-slnonesting-final-regular-10000-20260902/`
+  - `10000/10000` normalized matches
+  - canonical totals exactly equal at `42,157,334 / 42,157,334` bytes
+  - zero mismatches and zero validation, property, generator, or command failures
+- dedicated `simplify-locals-nonesting`: `.tmp/pass-fuzz-slnonesting-final-dedicated-10000-20260902/`
+  - selected profiles: local traffic `2249`, structure result `1161`, flat parent `2209`, effect order `1087`, stress `529`, family coverage `2765`
+  - `5026` normalized matches plus `4974` raw output-shape mismatches
+  - canonical totals Starshine/Binaryen `2,324,202 / 2,361,154` bytes
+  - canonical smaller/equal/larger `4974 / 5026 / 0`
+  - zero validation, property, generator, or command failures
+  - 20 artifacts retained and 4,954 equivalent-family artifacts suppressed
+
+The mismatch profile partition is exact: every flat-parent case mismatches and every family-coverage case mismatches; all other selected profiles normalize. Inspection of every retained flat-parent artifact shows only Binaryen-retained `nop` instructions removed by Starshine. Inspection of every retained family-coverage artifact shows the same `nop` cleanup plus one untargeted void `loop` wrapper flattened to its ordered `local.set` body. Both rewrites are behavior-preserving under the generated contract, every Starshine output is canonically smaller, and there are no size-losing variants. These two families remain explicitly classified as measured Starshine cleanup wins rather than being hidden behind a normalizer.
 
 ## Classification rule
 

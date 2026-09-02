@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-02
 sources:
   - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
   - ./index.md
+  - ../../../../../src/passes/simplify_locals_variants_test.mbt
+  - ../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h
@@ -178,6 +180,12 @@ The lesson is that Binaryen keeps this public variant around because downstream 
 | `flatten_simplify-locals-nonesting_dfo_O3.wast` | real aggressive pipeline role before `dfo` |
 | `flatten_simplify-locals-nonesting_souperify_enable-threads.wast` | real flatten-neighbor role before `souperify` |
 | `flatten_simplify-locals-nonesting_souperify-single-use_enable-threads.wast` | same story for the single-use Souper extraction surface |
+
+## Current Starshine performance proof surface
+
+The local implementation remains protected by the red-first variant tests in `src/passes/simplify_locals_variants_test.mbt` and the root-hazard traversal bounds documented in [`index.md`](./index.md). The September 2 closeout adds a calibrated breadth lane in `src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt`: 2,048 reusable functions are constructed outside `it.bench(...)`; preflight requires 2,048 pass admissions, zero pass mutations, and the unchanged final local carrier; the timed closure retains registry dispatch and disables only final-module validation. Native release measures `10.80ms +/- 113.06us` on AMD Ryzen 7 8845HS with MoonBit `0.1.20260713`.
+
+Production attribution remains separate from this synthetic breadth contract. One warmup plus three pairs measure `2,467.228ms` no-trace command / `459.349ms` pass-local versus Binaryen v131 `1,254.875ms` / `754.346ms`, closing the fixed wall target while preserving the prior accepted output byte-for-byte.
 
 ## What these files do *not* prove
 
