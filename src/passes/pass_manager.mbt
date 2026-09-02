@@ -2445,6 +2445,9 @@ priv struct HotPipelineInstrScanSummary {
   mut has_constant_result_if : Bool
   mut has_dead_tail_after_nonfallthrough : Bool
   mut has_dead_drop_after_nonfallthrough : Bool
+  mut has_dce_candidate : Bool
+  mut has_call_result_lifetime : Bool
+  mut min_branch_target_token : Int
   mut instr_count : Int
   mut may_fallthrough : Bool
 }
@@ -2459,9 +2462,19 @@ fn HotPipelineInstrScanSummary::new() -> HotPipelineInstrScanSummary {
     has_constant_result_if: false,
     has_dead_tail_after_nonfallthrough: false,
     has_dead_drop_after_nonfallthrough: false,
+    has_dce_candidate: false,
+    has_call_result_lifetime: false,
+    min_branch_target_token: 2147483647,
     instr_count: 0,
     may_fallthrough: true,
   }
+}
+
+///|
+fn HotPipelineInstrScanSummary::mark_dce_candidate(
+  self : HotPipelineInstrScanSummary,
+) -> Unit {
+  self.has_dce_candidate = true
 }
 
 ///|
@@ -2480,6 +2493,13 @@ fn hot_pipeline_instr_scan_merge(
     nested.has_dead_tail_after_nonfallthrough
   summary.has_dead_drop_after_nonfallthrough = summary.has_dead_drop_after_nonfallthrough ||
     nested.has_dead_drop_after_nonfallthrough
+  summary.has_dce_candidate = summary.has_dce_candidate ||
+    nested.has_dce_candidate
+  summary.has_call_result_lifetime = summary.has_call_result_lifetime ||
+    nested.has_call_result_lifetime
+  if nested.min_branch_target_token < summary.min_branch_target_token {
+    summary.min_branch_target_token = nested.min_branch_target_token
+  }
   summary.instr_count += nested.instr_count
 }
 
@@ -2524,6 +2544,7 @@ fn hot_pipeline_instr_scan_pop_control(
 ///|
 fn hot_pipeline_instr_scan_mark_branch_target(
   state : HotPipelineInstrScanState,
+  summary : HotPipelineInstrScanSummary,
   label_idx : @lib.LabelIdx,
 ) -> Unit {
   let @lib.LabelIdx(raw) = label_idx
@@ -2531,25 +2552,92 @@ fn hot_pipeline_instr_scan_mark_branch_target(
   if target_slot < 0 || target_slot >= state.control_tokens.length() {
     return
   }
-  state.targeted_controls[state.control_tokens[target_slot]] = true
+  let target_token = state.control_tokens[target_slot]
+  state.targeted_controls[target_token] = true
+  if target_token < summary.min_branch_target_token {
+    summary.min_branch_target_token = target_token
+  }
 }
 
 ///|
 fn hot_pipeline_instr_scan_record_branch_targets(
   state : HotPipelineInstrScanState,
+  summary : HotPipelineInstrScanSummary,
   instr : @lib.Instruction,
 ) -> Unit {
   match instr {
     @lib.Br(target) | @lib.BrIf(target) =>
-      hot_pipeline_instr_scan_mark_branch_target(state, target)
+      hot_pipeline_instr_scan_mark_branch_target(state, summary, target)
     @lib.BrTable(targets, default_target) => {
       for target in targets {
-        hot_pipeline_instr_scan_mark_branch_target(state, target)
+        hot_pipeline_instr_scan_mark_branch_target(state, summary, target)
       }
-      hot_pipeline_instr_scan_mark_branch_target(state, default_target)
+      hot_pipeline_instr_scan_mark_branch_target(state, summary, default_target)
     }
     _ => ()
   }
+}
+
+///|
+fn hot_pipeline_instr_scan_has_call_result_multi_call_lifetime_at(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Bool {
+  if idx + 1 >= instrs.length() {
+    return false
+  }
+  let local_idx = match instrs[idx + 1] {
+    @lib.LocalSet(local_idx) => local_idx
+    _ => return false
+  }
+  let mut first_call : @lib.FuncIdx? = None
+  let mut saw_indirect_call = false
+  let scan_end = Int::min(instrs.length(), idx + 34)
+  for scan = idx + 2; scan < scan_end; scan = scan + 1 {
+    match instrs[scan] {
+      @lib.LocalGet(candidate) if candidate == local_idx => {
+        let look_end = Int::min(scan_end, scan + 12)
+        for look = scan + 1; look < look_end; look = look + 1 {
+          match instrs[look] {
+            @lib.Call(call_target) => {
+              if saw_indirect_call {
+                return true
+              }
+              match first_call {
+                Some(first_target) if first_target != call_target => return true
+                None => first_call = Some(call_target)
+                _ => ()
+              }
+              break
+            }
+            @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
+              match first_call {
+                Some(_) => return true
+                None => ()
+              }
+              if saw_indirect_call {
+                return true
+              }
+              saw_indirect_call = true
+              break
+            }
+            @lib.Block(_, _)
+            | @lib.Loop(_, _)
+            | @lib.If(_, _, _)
+            | @lib.TryTable(_, _, _)
+            | @lib.Br(_)
+            | @lib.BrIf(_)
+            | @lib.BrTable(_, _)
+            | @lib.Return
+            | @lib.Unreachable => break
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -2567,17 +2655,81 @@ fn run_hot_pipeline_instr_scan_impl(
     }
     if !prev_may_fallthrough {
       summary.has_dead_tail_after_nonfallthrough = true
+      summary.mark_dce_candidate()
       match instr {
         @lib.Drop => summary.has_dead_drop_after_nonfallthrough = true
         _ => ()
       }
     }
+    if instr_idx > 0 && instr is @lib.Unreachable {
+      summary.mark_dce_candidate()
+    }
+    match instr {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+        if !summary.has_call_result_lifetime &&
+          instr_idx + 1 < instrs.length() &&
+          instrs[instr_idx + 1] is @lib.LocalSet(_) &&
+          hot_pipeline_instr_scan_has_call_result_multi_call_lifetime_at(
+            instrs, instr_idx,
+          ) {
+          summary.has_call_result_lifetime = true
+        }
+      _ => ()
+    }
+    match instr {
+      @lib.LocalGet(base0) if instr_idx + 4 < instrs.length() => {
+        let load = instrs[instr_idx + 1]
+        match
+          (instrs[instr_idx + 2], instrs[instr_idx + 3], instrs[instr_idx + 4]) {
+          (@lib.LocalGet(base1), call, @lib.LocalSet(_)) =>
+            if base0 == base1 &&
+              (
+                load is @lib.I32Load(_) ||
+                load is @lib.I64Load(_) ||
+                load is @lib.F32Load(_) ||
+                load is @lib.F64Load(_)
+              ) &&
+              (
+                call is @lib.Call(_) ||
+                call is @lib.CallIndirect(_, _) ||
+                call is @lib.CallRef(_)
+              ) {
+              summary.mark_dce_candidate()
+            }
+          _ => ()
+        }
+      }
+      _ => ()
+    }
     summary.instr_count += 1
-    hot_pipeline_instr_scan_record_branch_targets(state, instr)
+    hot_pipeline_instr_scan_record_branch_targets(state, summary, instr)
     let mut instr_may_fallthrough = true
     match instr {
       @lib.LocalSet(_) | @lib.LocalTee(_) => summary.has_writes = true
-      @lib.Drop => summary.has_drop = true
+      @lib.Drop => {
+        summary.has_drop = true
+        if instr_idx > 0 {
+          match instrs[instr_idx - 1] {
+            @lib.Block(block_type, _)
+            | @lib.Loop(block_type, _)
+            | @lib.If(block_type, _, _)
+            | @lib.TryTable(block_type, _, _) =>
+              if block_type != @lib.BlockType::void_() {
+                summary.mark_dce_candidate()
+              }
+            _ => ()
+          }
+        }
+      }
+      @lib.StructNew(_)
+      | @lib.StructNewDefault(_)
+      | @lib.StructNewDesc(_)
+      | @lib.StructNewDefaultDesc(_)
+      | @lib.ArrayNew(_)
+      | @lib.ArrayNewDefault(_)
+      | @lib.ArrayNewFixed(_, _)
+      | @lib.ArrayNewData(_, _)
+      | @lib.ArrayNewElem(_, _) => summary.mark_dce_candidate()
       @lib.Br(_)
       | @lib.BrIf(_)
       | @lib.BrTable(_, _)
@@ -2604,14 +2756,21 @@ fn run_hot_pipeline_instr_scan_impl(
         let targeted = state.targeted_controls[token]
         hot_pipeline_instr_scan_pop_control(state)
         hot_pipeline_instr_scan_merge(summary, nested)
+        if !nested.may_fallthrough && !targeted {
+          summary.mark_dce_candidate()
+        }
         instr_may_fallthrough = nested.may_fallthrough || targeted
       }
       @lib.Loop(_, @lib.Expr(body)) => {
         summary.has_structured_control = true
-        ignore(hot_pipeline_instr_scan_push_control(state))
+        let token = hot_pipeline_instr_scan_push_control(state)
         let nested = run_hot_pipeline_instr_scan_impl(body, state)
         hot_pipeline_instr_scan_pop_control(state)
         hot_pipeline_instr_scan_merge(summary, nested)
+        if (body.length() == 1 && body[0] is @lib.Unreachable) ||
+          nested.min_branch_target_token < token {
+          summary.mark_dce_candidate()
+        }
         instr_may_fallthrough = nested.may_fallthrough
       }
       @lib.If(block_type, then_body, else_body) => {
@@ -2636,6 +2795,12 @@ fn run_hot_pipeline_instr_scan_impl(
         }
         let targeted = state.targeted_controls[token]
         hot_pipeline_instr_scan_pop_control(state)
+        if block_type != @lib.BlockType::void_() &&
+          !then_summary.may_fallthrough &&
+          !else_may_fallthrough &&
+          !targeted {
+          summary.mark_dce_candidate()
+        }
         instr_may_fallthrough = then_summary.may_fallthrough ||
           else_may_fallthrough ||
           targeted
@@ -2647,12 +2812,18 @@ fn run_hot_pipeline_instr_scan_impl(
         let targeted = state.targeted_controls[token]
         hot_pipeline_instr_scan_pop_control(state)
         hot_pipeline_instr_scan_merge(summary, nested)
+        if !nested.may_fallthrough && !targeted {
+          summary.mark_dce_candidate()
+        }
         instr_may_fallthrough = nested.may_fallthrough || targeted
       }
       _ => ()
     }
     prev_may_fallthrough = instr_may_fallthrough
     summary.may_fallthrough = summary.may_fallthrough && instr_may_fallthrough
+  }
+  if summary.has_drop && summary.has_branches {
+    summary.mark_dce_candidate()
   }
   summary
 }
@@ -2663,6 +2834,8 @@ fn run_hot_pipeline_instr_scan(
   visit_count? : Array[Int]? = None,
   dead_drop_after_nonfallthrough? : Array[Bool]? = None,
   constant_result_if? : Array[Bool]? = None,
+  dce_candidate? : Array[Bool]? = None,
+  dce_call_result_lifetime? : Array[Bool]? = None,
 ) -> (Bool, Bool, Bool, Bool, Bool, Int) {
   let summary = run_hot_pipeline_instr_scan_impl(
     instrs,
@@ -2674,6 +2847,14 @@ fn run_hot_pipeline_instr_scan(
   }
   match constant_result_if {
     Some(result) => result[0] = summary.has_constant_result_if
+    None => ()
+  }
+  match dce_candidate {
+    Some(result) => result[0] = summary.has_dce_candidate
+    None => ()
+  }
+  match dce_call_result_lifetime {
+    Some(result) => result[0] = summary.has_call_result_lifetime
     None => ()
   }
   (
@@ -14908,20 +15089,16 @@ fn run_hot_pipeline_dce_raw_has_stack_polymorphic_if_before_br(
 }
 
 ///|
-fn run_hot_pipeline_dce_can_skip_raw(
+fn run_hot_pipeline_dce_can_skip_raw_with_facts(
   original : @lib.Func,
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
+  has_structured_control : Bool,
+  has_branches : Bool,
+  has_drop : Bool,
+  has_dead_tail_after_nonfallthrough : Bool,
 ) -> Bool {
   let @lib.Func(_, @lib.Expr(instrs)) = original
-  let (
-    _,
-    has_structured_control,
-    has_branches,
-    has_drop,
-    has_dead_tail_after_nonfallthrough,
-    _,
-  ) = run_hot_pipeline_instr_scan(instrs)
   let returns_value = match
     @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(_, results)) => !results.is_empty()
@@ -30603,6 +30780,31 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     let dce_module_ctx = run_hot_pipeline_require_module_ctx(
       mod_, module_state, options,
     )
+    let dce_scan = run_hot_pipeline_instr_scan_impl(
+      instrs,
+      HotPipelineInstrScanState::new(None),
+    )
+    run_hot_pipeline_dce_record_requires_unchanged_lowering(
+      module_state,
+      func_idx,
+      dce_scan.has_dead_drop_after_nonfallthrough,
+    )
+    if !dce_scan.has_dce_candidate {
+      if dce_scan.has_call_result_lifetime {
+        return Some({
+          reason: "call-result-multi-call-lifetime-dce-noop",
+          func: original,
+          unchanged_original: true,
+          trace_skip_raw: true,
+        })
+      }
+      return Some({
+        reason: "no-dce-candidates",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     if run_hot_pipeline_dce_raw_has_multivalue_local_carrier_hazard(
         instrs, dce_module_ctx,
       ) {
@@ -30631,17 +30833,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         })
       None => ()
     }
-    let requires_unchanged_lowering = [false]
-    let (_, has_structured_control, _, _, _, _) = run_hot_pipeline_instr_scan(
-      instrs,
-      dead_drop_after_nonfallthrough=Some(requires_unchanged_lowering),
-    )
-    run_hot_pipeline_dce_record_requires_unchanged_lowering(
-      module_state,
-      func_idx,
-      requires_unchanged_lowering[0],
-    )
-    if !has_structured_control {
+    if !dce_scan.has_structured_control {
       let module_ctx = run_hot_pipeline_require_module_ctx(
         mod_, module_state, options,
       )
@@ -30659,8 +30851,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         None => ()
       }
     }
-    if has_structured_control &&
-      run_hot_pipeline_dce_raw_has_call_result_multi_call_lifetime(instrs) {
+    if dce_scan.has_structured_control && dce_scan.has_call_result_lifetime {
       return Some({
         reason: "call-result-multi-call-lifetime-dce-noop",
         func: original,
@@ -30684,19 +30875,22 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         trace_skip_raw: true,
       })
     }
-  }
-  if descriptor.name == "dead-code-elimination" &&
-    run_hot_pipeline_dce_can_skip_raw(
-      original,
-      run_hot_pipeline_require_module_ctx(mod_, module_state, options),
-      func_idx,
-    ) {
-    return Some({
-      reason: "no-dce-candidates",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
+    if run_hot_pipeline_dce_can_skip_raw_with_facts(
+        original,
+        dce_module_ctx,
+        func_idx,
+        dce_scan.has_structured_control,
+        dce_scan.has_branches,
+        dce_scan.has_drop,
+        dce_scan.has_dead_tail_after_nonfallthrough,
+      ) {
+      return Some({
+        reason: "no-dce-candidates",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
   }
   if descriptor.name != "ssa-nomerge" && descriptor.name != "ssa" {
     return None

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: strong
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-02
 sources:
   - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -13,10 +13,27 @@ sources:
 Recommended smoke lane for future DCE changes: run the ordinary GenValid compare-pass lane for this pass, adding the documented `local-cleanup-debris` normalizer when the expected raw diff is Starshine-only local/no-op cleanup:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --out-dir .tmp/pass-fuzz-dead-code-elimination --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-dead-code-elimination --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt --require-binaryen-version 131
 ```
 
-Dedicated GenValid profile status: **closed for the current Binaryen `version_130` DCE audit.** The aggregate has twelve leaves; the count-10000 `dead-code-elimination-all` lane completes with every mismatch classified; fixed split-local-set remains green at scale; branch-payload-forwarder plus pure/effectful structured-prefix mismatches are measured Starshine wins; prefix-to-branch-payload is normalized-green; explicit count-10000 wasm-smith, broad random-all-profiles, bounded O4z/neighborhood DCE-slot evidence, and the fresh regular direct count-100000 lane with `local-cleanup-debris` are classified. Legacy `try`, old-EH `pop`/nested-pop, and stack-switching remain documented local representation/tool boundaries with reopening criteria, not hidden parity claims.
+## 2026-09-02 Binaryen-v131 raw-admission renewal
+
+The production candidate-scan closure was renewed against the explicitly verified Binaryen v131 executable:
+
+- regular GenValid: `.tmp/pass-fuzz-dce-final-regular-10000-20260902/`
+  - `10000/10000` normalized matches under `local-cleanup-debris`
+  - raw totals Starshine/Binaryen `42,190,083 / 42,157,334` bytes
+  - canonical totals exactly equal at `42,157,334 / 42,157,334` bytes
+  - zero validation, property, generator, command, or mismatch failures
+- dedicated `dead-code-elimination-all`: `.tmp/pass-fuzz-dce-final-dedicated-10000-20260902/`
+  - `8,355` normalized matches plus `1,645` established Starshine-only output-shape mismatches
+  - every mismatch is canonically smaller for Starshine; canonical totals are `356,750 / 361,685` bytes
+  - zero larger canonical Starshine outputs and zero validation, property, generator, or command failures
+  - 20 bounded artifacts were retained and 1,625 equivalent-family artifacts suppressed
+
+The dedicated mismatches retain their existing agent classification as measured Starshine wins; they are not hidden behind a broad normalizer. This renewal specifically proves that the branch-aware candidate scan, exact bounded call-result lifetime fact, and precomputed-fact reuse preserve the established pass behavior.
+
+Dedicated GenValid profile status: **closed for the current Binaryen `version_131` DCE audit.** The aggregate has twelve leaves; the count-10000 `dead-code-elimination-all` lane completes with every mismatch classified; fixed split-local-set remains green at scale; branch-payload-forwarder plus pure/effectful structured-prefix mismatches are measured Starshine wins; prefix-to-branch-payload is normalized-green; explicit count-10000 wasm-smith, broad random-all-profiles, bounded O4z/neighborhood DCE-slot evidence, and the fresh regular direct count-100000 lane with `local-cleanup-debris` are classified. Legacy `try`, old-EH `pop`/nested-pop, and stack-switching remain documented local representation/tool boundaries with reopening criteria, not hidden parity claims.
 
 `dead-code-elimination-all` now exists as a composite GenValid profile. Its current deterministic leaves are:
 

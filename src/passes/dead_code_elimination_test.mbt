@@ -193,6 +193,38 @@ test "dead-code-elimination intentionally preserves nested struct stack builders
 }
 
 ///|
+test "dead-code-elimination raw-skips final void nonfallthrough if" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32)
+        #|    local.get 0
+        #|    if
+        #|      unreachable
+        #|    else
+        #|      unreachable
+        #|    end))
+        #|,
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected void final-if DCE success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dead-code-elimination skips load-call-set ownership hazards" {
   let trace : Array[String] = []
   match

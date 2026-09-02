@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-02
 sources:
   - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ../../../../../src/passes/dead_code_elimination.mbt
@@ -139,16 +139,24 @@ So the tagged source remains a strong current oracle for this folder, and the ac
 
 Research note [`1648`](../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md) added current-artifact execution evidence without reopening the behavior audit: DCE now batches changed-function writeback validation, restores internally invalid candidates independently, and falls back to the original per-function path. External validation exposed additional GC/multivalue failures that the internal validator missed, so depth-aware self-target branch fallthrough, a multivalue local-carrier boundary, and unchanged-function writeback preservation were added red-first. The fresh direct artifact was valid and deterministic in `2.847s` / `2.471s`, reached fixed point on the third application, and kept the regular and dedicated count-10000 corpora at their established classifications. Public shrink then advanced past DCE and stalled in the same vacuum raw-preclean owner as public optimize.
 
-## 2026-08-28 artifact-scale performance checkpoint
+## 2026-09-02 artifact-scale performance closure
 
-The post-HOT-lift canonical baseline still spent `6,266.946ms` inside the DCE pass and `11,580.004ms` in the no-trace direct command versus Binaryen v131 at `198.088ms` pass-local and `710.680ms` command. Attribution isolated two independent superlinear owners:
+The 2026-08-28 checkpoint had already removed two superlinear owners: speculative detached-node allocation while searching a shared DAG for unreachable children, and recursive raw fallthrough rescans. That checkpoint moved the canonical command from `11,580.004ms` to `1,915.570ms`, but its `2.583x` ratio against Binaryen v131 left `[P0-WALL-DCE]` open.
 
-- `dead_code_elimination_collect_first_unreachable_child_cleanup(...)` speculatively built detached `drop` nodes while merely searching a shared DAG for an unreachable child. One unchanged 852-line function allocated roughly 196,000 HOT nodes and consumed over four seconds.
-- `run_hot_pipeline_instr_scan(...)` recursively rescanned nested bodies through `run_hot_pipeline_dce_raw_instr_may_fallthrough(...)`; four large functions owned almost all of the approximately three-second raw admission cost. The post-pass dead-drop lowering guard repeated the same recursive proof outside the raw timer.
+The closing slice extends the shared `run_hot_pipeline_instr_scan(...)` traversal with conservative DCE candidate and bounded call-result lifetime facts. The same recursive scan now computes candidate presence, structured-control, branch, drop, nonfallthrough-tail, exact control-target, and lifetime facts. Active target tokens distinguish a loop self-backedge from a branch that escapes the loop: self-backedges may remain candidate-free, while escaping branches still enter HOT. Lifetime analysis is attempted only when a call result is immediately stored and stops after the first proven multi-call hazard. `run_hot_pipeline_dce_can_skip_raw_with_facts(...)` consumes the precomputed structural facts instead of repeating that traversal. Multivalue carriers, result-control tails, stack-polymorphic shapes, load/call/set ownership, call-result lifetimes, loop escapes, typed-control cases, and GC-builder boundaries remain conservatively admitted or fail closed.
 
-The retained implementation now builds an allocation-free cleanup plan, memoizes negative unreachable-child results by HOT revision, computes raw control/fallthrough facts in one traversal using active control tokens, and caches the exact dead-drop-after-nonfallthrough fact by function for unchanged writeback. The one-warmup/three-sample final medians are `188.440ms` Starshine pass-local versus `201.393ms` Binaryen (`0.936x`) and `1,915.570ms` Starshine command versus `741.628ms` Binaryen (`2.583x`). The DCE pass body therefore meets the requested 1x target; the direct command remains open because shared function-envelope plus command validation/encoding phases still exceed the repository's absolute `2x` gate.
+On the canonical artifact, `5,901` functions report `no-dce-candidates`, `1,922` report `call-result-multi-call-lifetime-dce-noop`, and `2,265` enter HOT, with `409` changed and `1,856` unchanged. The remaining exact raw reasons include `428` load/call/set guards, `295` loop-outer-branch guards, `256` result-control-tail guards, `8` multivalue-carrier guards, and `904` stack-polymorphic raw cleanups. Final one-warmup/three-pair medians improve:
 
-Every final artifact sample is byte-identical to the baseline at 4,968,057 bytes, SHA-256 `933cf8431540576e01b6344e037b8092eb2bd85b6b454883f25723f579d73954`. Focused DCE tests, the 7,051-test pass package, and the 10,741-test full Moon suite pass. The renewed regular lane is 100,000/100,000 normalized; runtime-callable self semantics are exact 100/100. The explicit wasm-smith lane retains three inspected canonical-smaller/no-op Starshine-win residuals plus 44 Binaryen/tool failures, and the random-all-profiles lane is byte-for-byte identical to clean HEAD in every aggregate counter and residual family.
+- no-trace command: `1,915.570ms -> 1,376.976ms` (`1.391x`, `-28.117%`)
+- raw admission: `245.478ms -> 81.387ms` (`3.016x`, `-66.846%`)
+- HOT lift: `208.253ms -> 151.308ms` (`1.376x`, `-27.344%`)
+- pass-local: `188.440ms -> 141.693ms` (`1.330x`, `-24.807%`)
+- aggregate function overhead: `407.880ms -> 335.427ms` (`1.216x`, `-17.763%`)
+- main pipeline: `930.500ms`
+
+The September 2 paired Binaryen-v131 medians are `681.536ms` command and `189.977ms` pass-local. Starshine therefore measures `2.020x` command time in that host-local set, 13.904ms outside a ratio recomputed from the unusually fast contemporaneous Binaryen median, while remaining 37.024ms below the campaign's declared fixed `<=1.414s` release target. The admitted Starshine pass body runs at `0.746x` Binaryen. All final warmup and measured outputs are byte-identical at 4,968,057 bytes, SHA-256 `933cf8431540576e01b6344e037b8092eb2bd85b6b454883f25723f579d73954`. The final minimal-diff native binary SHA-256 is `925e2f72645efcfe48887635888b1b170d21f213ecc568283b4b106fb3436d7f`.
+
+A reusable native-release benchmark in `src/passes_perf_long/dead_code_elimination_perf_test.mbt` fail-closes by requiring 2,000 branch-free scalar-drop functions to emit 2,000 `no-dce-candidates` traces before measuring the registry path; it reports `1.42ms +/- 8.12us` on x86_64 AMD Ryzen 7 8845HS with MoonBit `0.1.20260713`. Final explicit-Binaryen-v131 comparison is `10000/10000` canonical-equal in the regular lane under `local-cleanup-debris`; `dead-code-elimination-all` reports `8,355` normalized matches plus `1,645` established canonically smaller Starshine-win output shapes, with zero validation, property, generator, or command failures. `[P0-WALL-DCE]` is closed against the fixed target; reopen if the target is redefined from a new oracle median or repeated Starshine medians exceed `1.414s`.
 
 ## Current maintenance rule
 

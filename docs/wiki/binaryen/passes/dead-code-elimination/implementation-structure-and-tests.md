@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-02
 sources:
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes_perf_long/dead_code_elimination_perf_test.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_all-features.wast
@@ -242,14 +244,19 @@ So the `version_129` file remains a strong current oracle for this dossier.
 
 ## Current Starshine complexity regressions
 
-`src/passes/dead_code_elimination_wbtest.mbt` now protects four local performance contracts that are intentionally separate from the upstream Binaryen test map:
+`src/passes/dead_code_elimination_wbtest.mbt` now protects local performance contracts that are intentionally separate from the upstream Binaryen test map:
 
 - a shared no-unreachable HOT DAG is visited at most once per original node and allocates no speculative nodes;
 - deeply nested raw control is summarized with exactly one visit per instruction;
+- exact active control tokens distinguish loop self-backedges from branches that escape to an outer control;
 - dead `drop` immediately after nonfallthrough is distinguished from an ordinary live dropped value;
+- the bounded call-result multi-call lifetime guard remains active for candidate-free functions and routes them to its established raw-skip reason;
+- precomputed structured, branch, drop, and tail facts feed the final no-op classifier without a second recursive structural scan;
 - unchanged-lowering admission is cached by function index and remains unavailable until the raw proof records it.
 
-These tests prevent recurrence of the two artifact-scale superlinear owners while the existing behavior tests continue to lock the actual transform semantics.
+`src/passes_perf_long/dead_code_elimination_perf_test.mbt` adds a reusable 2,000-function native-release contract. Fixture construction and one preflight dispatch occur outside `it.bench(...)`; preflight requires exactly 2,000 `no-dce-candidates` traces and preserves all 2,000 code bodies; only final-module validation is disabled in the timed pass-local registry lane. The final September 2 measurement is `1.42ms +/- 8.12us` on AMD Ryzen 7 8845HS with MoonBit `0.1.20260713`.
+
+Together these tests prevent recurrence of the artifact-scale superlinear and duplicate-scan owners while the existing behavior tests continue to lock the actual transform semantics.
 
 ## What a future Starshine port must preserve
 

@@ -6931,7 +6931,7 @@ test "dead-code-elimination does not skip raw lift for nonfallthrough typed fina
 }
 
 ///|
-test "dead-code-elimination does not skip raw lift for straight-line dead drops" {
+test "dead-code-elimination skips raw lift for branch-free scalar drops" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -6945,18 +6945,18 @@ test "dead-code-elimination does not skip raw lift for straight-line dead drops"
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected dead-drop dead-code-elimination success without raw skip, got \{err}",
+        "expected branch-free scalar-drop dead-code-elimination raw-skip success, got \{err}",
       )
   }
 
   let text = perf_test_join_lines(lines)
-  assert_false(
+  assert_true(
     text.contains(
       "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
     ),
   )
-  assert_true(text.contains("perf:timer name=lift"))
-  assert_true(text.contains("perf:timer name=pass:dead-code-elimination"))
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:dead-code-elimination"))
 }
 
 ///|

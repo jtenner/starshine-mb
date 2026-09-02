@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-02
 sources:
   - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ./index.md
@@ -12,6 +12,7 @@ sources:
   - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
   - ../../../../../src/passes/perf_test.mbt
+  - ../../../../../src/passes_perf_long/dead_code_elimination_perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
@@ -76,10 +77,11 @@ The fastest read-along path through the current Starshine implementation is:
     - `dead_code_elimination_finish_nonfallthrough_final_root(...)`
 - raw-skip and pipeline guards in `src/passes/pass_manager.mbt`
   - raw-skip analysis helpers:
+    - `run_hot_pipeline_instr_scan(...)`
     - `run_hot_pipeline_dce_raw_has_early_terminator(...)`
     - `run_hot_pipeline_dce_raw_void_structured_noop(...)`
     - `run_hot_pipeline_dce_raw_live_typed_control_only(...)`
-    - `run_hot_pipeline_dce_can_skip_raw(...)`
+    - `run_hot_pipeline_dce_can_skip_raw_with_facts(...)`
   - pass dispatch arm:
     - `"dead-code-elimination" => dead_code_elimination_run(ctx, func)`
   - pass-specific writeback guard:
@@ -162,14 +164,19 @@ The pipeline can skip HOT lifting entirely when raw Wasm inspection shows there 
 
 The key helpers are:
 
+- `run_hot_pipeline_instr_scan(...)`
 - `run_hot_pipeline_dce_raw_has_early_terminator(...)`
 - `run_hot_pipeline_dce_raw_void_structured_noop(...)`
 - `run_hot_pipeline_dce_raw_live_typed_control_only(...)`
-- `run_hot_pipeline_dce_can_skip_raw(...)`
+- `run_hot_pipeline_dce_can_skip_raw_with_facts(...)`
+
+As of the 2026-09-02 production closure, the shared instruction scan computes DCE candidate presence together with structured-control, branch, drop, nonfallthrough-tail, exact control-target, and bounded call-result lifetime facts. Active target tokens distinguish a loop's self-backedge from branches that escape to an outer control. Lifetime analysis is attempted only for a call immediately followed by `local.set`, and the summary stops invoking the bounded lookahead after the first proven multi-call lifetime. Candidate-free functions with that hazard route to the existing `call-result-multi-call-lifetime-dce-noop` reason instead of bypassing the guard. A candidate-free function otherwise skips before the specialized ownership and GC hazard scans; a candidate-bearing function still reaches those fail-closed checks. The final no-op classifier reuses the first scan's structural facts rather than recursively traversing the body again.
 
 The practical meaning is:
 
 - some functions with structured control still take the raw fast path
+- branch-free scalar drops are not DCE candidates and skip without HOT lifting
+- loop self-backedges may skip, but escaping branches remain admitted
 - top-level parity success for `dead-code-elimination` does not always mean the full HOT rewrite family ran on that function
 - perf and trace evidence are part of the real local contract, not just an optimization detail
 
@@ -230,7 +237,11 @@ The existing tests lock cases such as:
 - branchless typed final `if`
 - branchy typed control that is still locally live and therefore a no-op for DCE
 
-The same file also proves that the pipeline emits the expected `skip-raw reason=no-dce-candidates` trace when those fast-path rules fire.
+`src/passes/dead_code_elimination_wbtest.mbt` additionally locks one-scan candidate classification, exact loop target handling, escaping-branch admission, bounded call-result lifetime preservation, and reuse of precomputed facts without a second recursive visit.
+
+`src/passes_perf_long/dead_code_elimination_perf_test.mbt` builds 2,000 reusable branch-free scalar-drop functions outside `it.bench(...)`, requires exactly 2,000 `skip-raw reason=no-dce-candidates` traces during preflight, and then measures registry dispatch with final-module validation disabled only for that named pass-local lane. Native release on x86_64 AMD Ryzen 7 8845HS with MoonBit `0.1.20260713` reports `1.42ms +/- 8.12us`.
+
+Together these files prove both the expected skip trace and the traversal boundary when the raw fast-path rules fire.
 
 ### Refreshed direct compare coverage
 
