@@ -1,13 +1,16 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-10
+last_reviewed: 2026-08-31
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../release-horizon-and-oracles.md
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
+  - ../../../../../src/ir/hot_lower.mbt
+  - ../../../../../src/ir/hot_lower_wbtest.mbt
+  - ../../../../../src/ir/hot_labels_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
@@ -39,6 +42,14 @@ related:
 ---
 
 # `remove-unused-brs`
+
+## 2026-08-31 Moon benchmark and HOT lower follow-up
+
+The calibrated 3,000-block literal-multivalue fixture separated the previously dominant aggregate into HOT lift, HOT lower, and end-to-end pass-pipeline benchmarks. Five matched native-release runs against clean commit `eea94de18` measured median HOT lower `1120.00ms` and pipeline `1260.00ms`. The lowerer was scanning every live node for each block-label-use query and scanning all future roots even when the current root had neither call-order obligations nor any local read that could conflict with a carried producer.
+
+HOT lowering now builds one used-label bitset covering direct branches, branch tables, delegates, and `try_table` catches, memoizes whether each value dependency reads a local, and skips future-root discovery when both call ordering and local-write/read conflict are impossible. Focused cache tests cover the complete label-target surface and constant-versus-local-dependent roots. Five matching current-tree runs measure median HOT lower `10.38ms` and pipeline `22.10ms`: reductions of `99.073%` (`107.900x`) and `98.246%` (`57.014x`) respectively. HOT lift remains about `6.1ms`.
+
+This is a synthetic/shared-lowerer win, not a claimed production-artifact speedup. The 4,977,401-byte canonical artifact is byte-identical before and after at SHA-256 `95de90458d3d8e72d0736b98489d67a8d16ccbdc4a9736c53ea2103d803b2145`; clean-HEAD and current no-trace medians are `1123.881ms` and `1127.151ms`, which is neutral host noise. The current one-warmup/three-measured-pair result is nevertheless below `[PERF-RUB]001`'s absolute `1.25s` gate: Starshine no-trace `1127.151ms` versus Binaryen process `825.015ms`, with pass-local `132.625ms` versus Binaryen `303.228ms`. The required regular 10,000-case GenValid lane is green with `10000` compare-normalized matches, zero mismatches/failures, and Starshine smaller in all 10,000 canonical outputs.
 
 ## 2026-08-01 performance follow-up
 

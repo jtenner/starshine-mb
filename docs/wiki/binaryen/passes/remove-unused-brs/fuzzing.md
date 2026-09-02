@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-26
+last_reviewed: 2026-08-31
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -13,6 +13,12 @@ sources:
 ---
 
 # `remove-unused-brs` Fuzzing Profile
+
+## 2026-08-31 shared HOT lower performance renewal
+
+The explicit current native binary compared `10000/10000` regular GenValid cases with `--normalize local-cleanup-debris --normalize unreachable-control-debris`, `--jobs auto`, and `--max-subprocesses 8`: all `10000` are compare-normalized matches, with zero mismatches, validation failures, property failures, generator failures, or command failures. Starshine is canonically smaller in all `10000` cases: `41,528,182` versus Binaryen `42,007,429` bytes. Evidence: `.tmp/pass-fuzz-rub-hot-lower-20260831/`.
+
+The new Moon component benchmark attributes the 3,000-block literal-multivalue fixture to shared HOT lowering rather than the RUB transform. Across five matched framework runs, the clean-HEAD/current median moves from `1120.00ms` to `10.38ms` for HOT lower (`-99.073%`, `107.900x`) and from `1260.00ms` to `22.10ms` end to end (`-98.246%`, `57.014x`). The optimization precomputes used labels once and skips future-root scans for roots without calls or local reads. The canonical production artifact remains byte-identical and timing-neutral before/after; current medians are `1127.151ms` no-trace command and `132.625ms` pass-local versus Binaryen `825.015ms` process and `303.228ms` pass-local.
 
 ## 2026-08-26 bounded safety renewal
 

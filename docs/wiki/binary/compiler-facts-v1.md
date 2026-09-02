@@ -298,7 +298,9 @@ Unknown bits are invalid.
 
 When policy is `TrustAssertions`, Starshine runs `apply-compiler-facts` before the ordinary pass queue. This preparation stage is outside Binaryen-compatible scheduler slots, so the locked O4z roster and slot numbering remain unchanged.
 
-The first semantic consumer is exact call target:
+The preparation stage has two semantic consumers under `TrustAssertions`.
+
+The existing exact-call-target consumer rewrites:
 
 ```text
 arguments
@@ -306,7 +308,7 @@ reference-producing expression
 call_ref $type
 ```
 
-becomes:
+into:
 
 ```text
 arguments
@@ -319,7 +321,19 @@ call $exact_target
 
 Exact targets can come from `CallSiteFacts.direct_target` or a singleton exact function-reference value fact on the call's target-producing root. Conflicts are not resolved by last-wins behavior.
 
-After trusted body-relative facts are materialized, the compiler-facts section is cleared before ordinary rewrites can stale offsets. Other index/body-changing `Module` helpers also clear facts conservatively. There is no general fact remapping framework in version 1.
+The value-predicate consumer resolves original producer sites before mutation and folds consumers rather than producers:
+
+- exact `i32`/`i64` values fold `eq` and `ne` against another exact operand;
+- signed or unsigned ranges fold `lt`, `le`, `gt`, and `ge` only when disjoint endpoints prove one result for the complete domain;
+- exact values, singleton/excluding-zero ranges, and standalone `nonzero` facts fold `i32.eqz` and `i64.eqz` when zero or nonzero is proved;
+- exact-null, exact-`ref.func`, `NullOnly`, and `NonNull` facts fold `ref.is_null`;
+- broad heap upper bounds without nullability do not fold null checks.
+
+The first implementation intentionally handles adjacent original single-result roots. A proven predicate becomes operand-preserving `drop` instructions followed by an ordinary `i32.const 0|1`. This keeps every operand producer, including calls and trapping expressions, in its original order. `i32`/`i64` exact values remain raw wrapping bit patterns, and signed/unsigned range projections are queried only by matching comparison opcodes. The consumer does not fold extensions, truncations, shifts, division, remainder, or floating-point producers, so shift masking, division traps/overflow, and NaN behavior remain owned by the existing validated constant folder. Ordinary Precompute, branch simplification, CFG cleanup, and DCE then consume the constant; the fact pass does not implement a parallel control-flow optimizer.
+
+A central query layer checks version 1, invocation trust, exact body/site identity, result ordinal, actual and expected Wasm type, integer width, signed versus unsigned domain, range order/domain, and referenced function, global, table, memory, nominal type, and heap-type indices before returning knowledge. Module-bounded indexes prevent malformed indices from driving allocation. Missing, stale, incompatible, contradictory, impossible, or unsupported facts return unknown and increment a rejection counter.
+
+All opcode offsets are computed once from the original immutable module. Replacements are built into new instruction arrays while queries continue to refer only to that original map; no rewritten instruction position is interpreted as a fact site. After trusted body-relative facts are materialized, the compiler-facts section is cleared before ordinary rewrites can stale offsets. Other index/body-changing `Module` helpers also clear facts conservatively. There is no general fact remapping framework in version 1.
 
 Absent-section fast path:
 
@@ -335,13 +349,17 @@ no compiler_fact_custom_section
 | Fact | Current consumer |
 | --- | --- |
 | Exact call target | `apply-compiler-facts`; `call_ref -> drop; call`, `return_call_ref -> drop; return_call` under `TrustAssertions` |
-| Inline policy | serialized/validated hint; not yet wired to the inliner |
+| Exact `i32`/`i64` value | `apply-compiler-facts`; folds adjacent-root integer equality/inequality and zero tests from raw wrapping bits while preserving operand evaluation |
+| Signed/unsigned integer range or `nonzero` | `apply-compiler-facts`; folds adjacent-root ordered comparisons only when complete matching-signedness ranges prove the result, and folds zero tests when zero is excluded |
+| Null-only/non-null/exact null/exact `ref.func` | `apply-compiler-facts`; folds `ref.is_null` while preserving the reference producer |
+| Broad reference heap bound | validated/queryable but insufficient by itself for `ref.is_null`; no cast/type-test folding yet |
+| Inline policy | serialized/validated hint; source inspection on 2026-08-31 confirmed it is not yet wired to the inliner's existing annotation policy path |
 | Hotness/profile/goal hints | serialized/validated; not yet consumed |
-| Non-null/reference heap facts | not yet consumed |
-| Integer ranges/known bits/exact values | not yet consumed |
+| Known integer bits | not yet consumed |
+| Exact heap type/closed runtime heap types | not yet consumed for `ref.test` or `ref.cast` |
 | Float classes | not yet consumed |
 | Vector facts | not yet consumed |
-| Effect summaries | not yet consumed |
+| Effect summaries | not yet consumed; an empty `may` mask does not prove totality or non-trapping behavior |
 | Parameter uses/escape | not yet consumed |
 | Result aliases | not yet consumed |
 | Type/field/array facts | not yet consumed |
@@ -351,7 +369,39 @@ no compiler_fact_custom_section
 | Source provenance | diagnostics only |
 | Producer/fingerprint | diagnostics/integrity metadata only; never trust |
 
-Serialization and validation do not imply optimizer support.
+Serialization and validation do not imply optimizer support. No proof object is generated or verified.
+
+## 2026-08-31 Consumer Audit And Representative Measurement
+
+A production-volume Dewdrop artifact was not available inside the Starshine workspace, and the available `origin/review/dewdrop-self-host-2026-08-26` branch did not contain a serialized compiler module. The production-volume category audit therefore could not be run in this repository-only task. The implementation proceeded with a serialized representative module carrying the same version-1 `ExpressionFact(ValueFacts)` path and `producer = dewdrop` metadata; the test encodes, decodes, validates, optimizes, re-encodes, validates, and executes the module.
+
+Representative inventory under explicit `TrustAssertions`:
+
+| Fact category | Functions | Instruction sites | Existing consumer before this change | Candidate use | Risk |
+| --- | ---: | ---: | --- | --- | --- |
+| Exact/range values | 1 | 1 | no | fold `i32.eq` and expose constant control flow | low; consumer replacement preserves both operands |
+| Exact call target | 0 | 0 | yes | direct call | low |
+| Reference/nullability | 0 | 0 | no | `ref.is_null` | low; covered separately by focused tests |
+| Boundaries | 0 | 0 | no | bounds predicate | medium; deferred |
+| Effects | 0 | 0 | no | call DCE | high; deferred because totality/non-trapping is not separately proved |
+| Relations, accesses, loops, allocations, globals, tables, types, signatures, profiles, hints | 0 | 0 | no semantic consumer in this fixture | future focused consumers | varies |
+
+The representative serialized command-path result was:
+
+| Metric | Ignore facts | Trust assertions |
+| --- | ---: | ---: |
+| Encoded input/output bytes | 165 | 87 |
+| Input bytes after stripping the fact section | 91 | n/a |
+| Defined functions | 2 | 2 |
+| Instructions | 9 | 8 |
+| Static calls | 1 | 1 |
+| Indirect/reference calls | 0 | 0 |
+| Candidate rewrites | 0 | 1 |
+| Applied integer-comparison rewrites | 0 | 1 |
+| Rejections | 0 | 0 |
+| Median native CLI wall time, 50 runs after 5 warmups | 1.410 ms | 1.541 ms |
+
+The trusted output validates, returns `11`, changes the exported mutable global from `0` to `1` exactly like the input, and removes the fact-proven comparison plus dead `if`/`unreachable` arm. A separate serialized trapping fixture traps before and after optimization. The tiny timing sample is startup-dominated; the observed `0.131 ms` median cost is not treated as a production performance conclusion.
 
 ## Component Model Boundary
 

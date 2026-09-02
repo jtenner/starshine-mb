@@ -184,3 +184,156 @@ test "heap-store-optimization ordered perf lane measures repeated subtree summar
     msg="expected ordered HSO stress fixture to stay under 5s, got \{median_us}us",
   )
 }
+
+///|
+fn hso_ordered_perf_count_struct_sets(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::StructSet(_, _) => count = count + 1
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count = count + hso_ordered_perf_count_struct_sets(body)
+      @lib.Instruction::If(_, then_body, else_body) => {
+        count = count + hso_ordered_perf_count_struct_sets(then_body)
+        match else_body {
+          Some(body) => count = count + hso_ordered_perf_count_struct_sets(body)
+          None => ()
+        }
+      }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count = count + hso_ordered_perf_count_struct_sets(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn hso_ordered_perf_struct_set_count(mod_ : @lib.Module) -> Int {
+  match mod_.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      hso_ordered_perf_count_struct_sets(body)
+    _ => abort("expected one ordered HSO benchmark function")
+  }
+}
+
+///|
+test "bench heap-store-optimization ordered candidates=192" (it : @bench.T) {
+  let fixture = hso_ordered_perf_module(192)
+  let preflight = match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "heap-store-optimization",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort("expected ordered HSO benchmark fixture success, got \{err}")
+  }
+  let input_set_count = hso_ordered_perf_struct_set_count(fixture)
+  assert_true(input_set_count > 0)
+  assert_true(hso_ordered_perf_struct_set_count(preflight) == input_set_count)
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match
+      @passes.run_hot_pipeline(fixture, options, ["heap-store-optimization"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected ordered HSO benchmark success, got \{err}")
+    }
+  })
+}
+
+///|
+test "bench HOT lift heap-store-optimization ordered candidates=1024" (
+  it : @bench.T,
+) {
+  let fixture = hso_ordered_perf_module(1024)
+  let preflight = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
+  assert_true(@ir.hot_node_count(preflight) > 0)
+  it.bench(fn() {
+    let lifted = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
+    ignore(@ir.hot_node_count(lifted))
+  })
+}
+
+///|
+test "bench HOT lift plus heap-store-optimization pass ordered candidates=1024" (
+  it : @bench.T,
+) {
+  let fixture = hso_ordered_perf_module(1024)
+  let module_ctx = @ir.hot_module_context_from_module(fixture)
+  let preflight = match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "heap-store-optimization",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected ordered HSO preflight success, got \{err}")
+  }
+  assert_true(
+    hso_ordered_perf_struct_set_count(preflight) ==
+    hso_ordered_perf_struct_set_count(fixture),
+  )
+  it.bench(fn() {
+    let func = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
+    let ctx = @passes.HotPassContext::new(
+      @passes.heap_store_optimization_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      @passes.HotPipelineVerifyPolicy::final_module_only(),
+      false,
+      fn(_) { () },
+      module_ctx=Some(module_ctx),
+    )
+    match @passes.hot_pass_run(ctx, func) {
+      Ok(result) => ignore(result)
+      Err(err) => abort("expected ordered HSO direct-pass success, got \{err}")
+    }
+  })
+}
+
+///|
+test "bench HOT lower heap-store-optimization ordered candidates=1024" (
+  it : @bench.T,
+) {
+  let fixture = hso_ordered_perf_module(1024)
+  let optimized = match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "heap-store-optimization",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected ordered HSO preflight success, got \{err}")
+  }
+  let input_set_count = hso_ordered_perf_struct_set_count(fixture)
+  assert_true(input_set_count > 0)
+  assert_true(hso_ordered_perf_struct_set_count(optimized) == input_set_count)
+  let lifted = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let preflight = @ir.hot_lower_func_unverified(lifted)
+  let @lib.Func(_, @lib.Expr(preflight_body)) = preflight
+  assert_true(preflight_body.length() > 0)
+  it.bench(fn() {
+    let lowered = @ir.hot_lower_func_unverified(lifted)
+    let @lib.Func(_, @lib.Expr(body)) = lowered
+    ignore(body.length())
+  })
+}
+
+///|
+test "bench heap-store-optimization ordered candidates=1024" (it : @bench.T) {
+  let fixture = hso_ordered_perf_module(1024)
+  let preflight = match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "heap-store-optimization",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected ordered HSO preflight success, got \{err}")
+  }
+  let input_set_count = hso_ordered_perf_struct_set_count(fixture)
+  assert_true(input_set_count > 0)
+  assert_true(hso_ordered_perf_struct_set_count(preflight) == input_set_count)
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match
+      @passes.run_hot_pipeline(fixture, options, ["heap-store-optimization"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected ordered HSO benchmark success, got \{err}")
+    }
+  })
+}

@@ -2760,9 +2760,20 @@ fn metamorphic_add_duplicate_equivalent_memory64(
 }
 
 ///|
+fn metamorphic_has_defined_memories(mod : @lib.Module) -> Bool {
+  match mod.mem_sec {
+    Some(@lib.MemSec(memories)) => memories.length() > 0
+    None => false
+  }
+}
+
+///|
 fn metamorphic_add_duplicate_equivalent_imported_memory(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_memories(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -2796,6 +2807,9 @@ fn metamorphic_add_duplicate_equivalent_imported_memory(
 fn metamorphic_add_duplicate_equivalent_imported_memory64(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_memories(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -2833,6 +2847,9 @@ fn metamorphic_add_duplicate_equivalent_imported_memory64(
 fn metamorphic_add_duplicate_equivalent_imported_shared_memory(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_memories(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -2870,6 +2887,9 @@ fn metamorphic_add_duplicate_equivalent_imported_shared_memory(
 fn metamorphic_add_duplicate_equivalent_imported_shared_memory64(
   mod : @lib.Module,
 ) -> @lib.Module {
+  if metamorphic_has_defined_memories(mod) {
+    return mod
+  }
   let imports = []
   let mut duplicated = false
   match mod.import_sec {

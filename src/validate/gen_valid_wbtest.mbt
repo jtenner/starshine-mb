@@ -18660,6 +18660,24 @@ test "vacuum gen-valid profiles expose stable family lanes" {
 }
 
 ///|
+fn gen_valid_wbtest_singleton_void_block_leaf(
+  instrs : Array[Instruction],
+) -> (Int, Array[Instruction]) {
+  let mut current = instrs
+  let mut depth = 0
+  while current.length() == 1 {
+    match current[0] {
+      Block(VoidBlockType, Expr(body)) => {
+        current = body
+        depth += 1
+      }
+      _ => break
+    }
+  }
+  (depth, current)
+}
+
+///|
 test "vacuum gen-valid family profiles emit focused trigger scaffolds" {
   let core = match
     gen_valid_module_result_from_seed(
@@ -18735,11 +18753,22 @@ test "vacuum gen-valid family profiles emit focused trigger scaffolds" {
             _,
             Expr([Block(_, _), Block(_, _), I32Const(_), If(_, _, Some(_)), ..])
           ),
-          ..,
+          Func(_, Expr(deep_body)),
         ]
       )
-    ) => ()
-    _ => fail("expected vacuum-structural-wrappers trigger body")
+    ) => {
+      let (depth, leaf) = gen_valid_wbtest_singleton_void_block_leaf(deep_body)
+      @debug.assert_eq(depth, 64)
+      @debug.assert_eq(leaf, [
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::call(FuncIdx::new(0U)),
+      ])
+    }
+    _ =>
+      fail(
+        "expected vacuum-structural-wrappers trigger body and deep call leaf",
+      )
   }
 
   let call_prefix = match

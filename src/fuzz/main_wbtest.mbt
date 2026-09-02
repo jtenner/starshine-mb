@@ -975,6 +975,17 @@ test "metamorphic identity-loop wrapper preserves catch_ref label typing" {
 }
 
 ///|
+test "FUZZ-META001 exact metamorphic CI seed preserves memory index typing" {
+  match run_validate_valid_metamorphic_fuzz("ci", 0x1a05d7c5def43f5UL) {
+    Ok(stats) => {
+      @debug.assert_eq(stats.generated, 10)
+      assert_true(stats.validated > 0)
+    }
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "validate-valid-metamorphic suite is active and reports transform details" {
   assert_true(fuzz_active_suite_names().contains("validate-valid-metamorphic"))
   let results = match

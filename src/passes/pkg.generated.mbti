@@ -441,11 +441,39 @@ pub fn CompilerFactIndex::value_facts(Self, @representation.ValueSite) -> @repre
 
 pub struct CompilerFactMaterializationStats {
   mut fact_sections_seen : Int
+  mut function_bodies_with_facts : Int
+  mut function_facts_seen : Int
+  mut signature_facts_seen : Int
+  mut type_facts_seen : Int
+  mut global_facts_seen : Int
+  mut table_facts_seen : Int
+  mut value_facts_seen : Int
+  mut relation_facts_seen : Int
+  mut call_facts_seen : Int
+  mut branch_facts_seen : Int
+  mut loop_facts_seen : Int
+  mut allocation_facts_seen : Int
+  mut access_facts_seen : Int
+  mut numeric_operation_facts_seen : Int
+  mut hint_facts_seen : Int
+  mut trusted_assertion_facts : Int
+  mut hint_only_facts : Int
+  mut candidate_rewrites : Int
   mut exact_call_target_facts_seen : Int
   mut exact_call_target_facts_accepted : Int
   mut call_ref_converted : Int
   mut return_call_ref_converted : Int
+  mut integer_comparisons_folded : Int
+  mut integer_zero_checks_folded : Int
+  mut reference_null_checks_folded : Int
   mut structurally_incompatible_rejected : Int
+  mut stale_or_unresolved_sites : Int
+  mut type_mismatches : Int
+  mut invalid_referenced_indices : Int
+  mut unsupported_versions : Int
+  mut malformed_or_impossible_facts : Int
+  mut facts_blocked_by_trust : Int
+  mut valid_facts_without_rewrite : Int
   mut ignored_untrusted_assertions : Int
 } derive(Eq, @debug.Debug)
 pub fn CompilerFactMaterializationStats::new() -> Self

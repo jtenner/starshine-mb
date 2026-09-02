@@ -1129,7 +1129,6 @@ fn directize_scan_producer_instr(
   state : @validate.TcState,
   values : Array[DirectizeProducerValue],
 ) -> @validate.TcState? {
-  let before = @validate.tc_state_with_stack(state, state.stack)
   let typecheck_state = @validate.tc_state_with_stack(state, state.stack)
   let after = match @validate.Typecheck::typecheck(instr, typecheck_state) {
     Ok(next) => next
@@ -1138,11 +1137,11 @@ fn directize_scan_producer_instr(
   if !after.reachable || after.escape != @validate.tc_escape_none() {
     return None
   }
-  let pop_count = match directize_instr_pop_count(instr, before, after) {
+  let pop_count = match directize_instr_pop_count(instr, state, after) {
     Some(count) => count
     None => return None
   }
-  if values.length() != before.stack.length() || pop_count > values.length() {
+  if values.length() != state.stack.length() || pop_count > values.length() {
     return None
   }
   let prefix_len = values.length() - pop_count

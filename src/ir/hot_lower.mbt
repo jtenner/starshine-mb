@@ -51,11 +51,21 @@ priv struct HotLowerLabelFrames {
   active : Array[LabelId]
   depths : Array[Int]
   legacy_rethrow_locals : Array[LocalIdx?]
+  used_labels : @bitset.BitSet
+  local_read_cache : Array[Int]
+  preceding_dependency_min_cache : Array[Int]
 }
 
 ///|
-fn hot_lower_impl_new_label_frames() -> HotLowerLabelFrames {
-  { active: [], depths: [], legacy_rethrow_locals: [], }
+fn hot_lower_impl_new_label_frames(func : HotFunc) -> HotLowerLabelFrames {
+  {
+    active: [],
+    depths: [],
+    legacy_rethrow_locals: [],
+    used_labels: hot_lower_impl_build_used_labels(func),
+    local_read_cache: Array::make(hot_node_count(func), -1),
+    preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
+  }
 }
 
 ///|
@@ -131,9 +141,12 @@ fn hot_lower_impl_control_param_types(
 }
 
 ///|
-fn hot_lower_impl_label_is_used(func : HotFunc, label_id : LabelId) -> Bool {
-  if label_id < 0 {
-    return false
+fn hot_lower_impl_build_used_labels(func : HotFunc) -> @bitset.BitSet {
+  let used = @bitset.BitSet::new(func.labels.length())
+  let mark = fn(label_id : LabelId) {
+    if label_id >= 0 && label_id < used.length() {
+      used[label_id] = true
+    }
   }
   for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
     if !hot_node_is_live(func, node_id) {
@@ -147,35 +160,38 @@ fn hot_lower_impl_label_is_used(func : HotFunc, label_id : LabelId) -> Bool {
       | HotOp::BrOnNonNull
       | HotOp::BrOnCast
       | HotOp::BrOnCastFail
-      | HotOp::Delegate if node.imm0 == label_id => return true
+      | HotOp::Delegate => mark(node.imm0)
       HotOp::BrTable => {
-        if hot_branch_table_default_target(func, node.imm0) == label_id {
-          return true
-        }
+        mark(hot_branch_table_default_target(func, node.imm0))
         for target in hot_branch_table_targets(func, node.imm0) {
-          if target == label_id {
-            return true
-          }
+          mark(target)
         }
       }
       HotOp::TryTable => {
         let info = hot_catch_info_get(func, node.imm1)
         for catch_ in info.catches {
-          let target = match catch_ {
+          match catch_ {
             HotCatchArm::CatchArm(_, target)
             | HotCatchArm::CatchRefArm(_, target)
             | HotCatchArm::CatchAllArm(target)
-            | HotCatchArm::CatchAllRefArm(target) => target
-          }
-          if target == label_id {
-            return true
+            | HotCatchArm::CatchAllRefArm(target) => mark(target)
           }
         }
       }
       _ => ()
     }
   }
-  false
+  used
+}
+
+///|
+fn hot_lower_impl_label_is_used(
+  label_frames : HotLowerLabelFrames,
+  label_id : LabelId,
+) -> Bool {
+  label_id >= 0 &&
+  label_id < label_frames.used_labels.length() &&
+  label_frames.used_labels[label_id]
 }
 
 ///|
@@ -547,6 +563,7 @@ fn hot_lower_impl_catch_rethrow_count(
 fn hot_lower_impl_strict_selected_delegate_if_root(
   func : HotFunc,
   if_id : NodeId,
+  label_frames : HotLowerLabelFrames,
 ) -> NodeId? {
   match hot_node_get(func, if_id).op {
     HotOp::If => ()
@@ -556,7 +573,7 @@ fn hot_lower_impl_strict_selected_delegate_if_root(
     return None
   }
   let label_id = hot_control_node_label(func, if_id)
-  if label_id < 0 || hot_lower_impl_label_is_used(func, label_id) {
+  if label_id < 0 || hot_lower_impl_label_is_used(label_frames, label_id) {
     return None
   }
   let condition = hot_child_get(func, if_id, 0)
@@ -580,7 +597,7 @@ fn hot_lower_impl_strict_selected_delegate_if_root(
   }
   let selected_root = hot_region_get(func, selected_ref, 0)
   if !hot_region_is_strict_no_work_forest(func, opposite_ref, fn(label_id) {
-      hot_lower_impl_label_is_used(func, label_id)
+      hot_lower_impl_label_is_used(label_frames, label_id)
     }) {
     return None
   }
@@ -591,6 +608,7 @@ fn hot_lower_impl_strict_selected_delegate_if_root(
 fn hot_lower_impl_direct_delegate_target(
   func : HotFunc,
   region_id : NodeId,
+  label_frames : HotLowerLabelFrames,
 ) -> LabelId? {
   if region_id == HOT_NONE_NODE {
     return None
@@ -609,7 +627,7 @@ fn hot_lower_impl_direct_delegate_target(
           return None
         }
         let label_id = hot_control_node_label(func, root_id)
-        if label_id < 0 || hot_lower_impl_label_is_used(func, label_id) {
+        if label_id < 0 || hot_lower_impl_label_is_used(label_frames, label_id) {
           return None
         }
         let body_ref = hot_region_body_ref(func, root_id)
@@ -619,7 +637,10 @@ fn hot_lower_impl_direct_delegate_target(
         root_id = hot_region_get(func, body_ref, 0)
       }
       HotOp::If =>
-        match hot_lower_impl_strict_selected_delegate_if_root(func, root_id) {
+        match
+          hot_lower_impl_strict_selected_delegate_if_root(
+            func, root_id, label_frames,
+          ) {
           Some(selected_root) => root_id = selected_root
           None => return None
         }
@@ -694,6 +715,139 @@ fn hot_lower_impl_mark_local_writes(
 }
 
 ///|
+fn hot_lower_impl_preceding_dependency_min_node(
+  func : HotFunc,
+  node_id : NodeId,
+  cache : Array[Int],
+) -> Int {
+  let none = hot_node_count(func)
+  if node_id < 0 ||
+    node_id >= cache.length() ||
+    !hot_node_is_live(func, node_id) {
+    return none
+  }
+  if cache[node_id] != -2 {
+    return cache[node_id]
+  }
+  let mut minimum = if hot_node_result_arity(func, node_id) > 0 &&
+    !effects_is_pure(effects_for_node(func, node_id)) {
+    node_id
+  } else {
+    none
+  }
+  for input_id in hot_lower_impl_input_info(func, node_id).nodes {
+    let input_minimum = hot_lower_impl_preceding_dependency_min_node(
+      func, input_id, cache,
+    )
+    if input_minimum < minimum {
+      minimum = input_minimum
+    }
+  }
+  cache[node_id] = minimum
+  minimum
+}
+
+///|
+fn hot_lower_impl_build_preceding_dependency_suffix_minima(
+  func : HotFunc,
+  roots : Array[NodeId],
+  cache : Array[Int],
+) -> Array[Int] {
+  let none = hot_node_count(func)
+  let suffix_minima = Array::make(roots.length() + 1, none)
+  let mut idx = roots.length() - 1
+  while idx >= 0 {
+    let root_minimum = hot_lower_impl_preceding_dependency_min_node(
+      func,
+      roots[idx],
+      cache,
+    )
+    suffix_minima[idx] = if root_minimum < suffix_minima[idx + 1] {
+      root_minimum
+    } else {
+      suffix_minima[idx + 1]
+    }
+    idx -= 1
+  }
+  suffix_minima
+}
+
+///|
+fn hot_lower_impl_node_reads_local(
+  func : HotFunc,
+  node_id : NodeId,
+  cache : Array[Int],
+) -> Bool {
+  if node_id < 0 ||
+    node_id >= cache.length() ||
+    !hot_node_is_live(func, node_id) {
+    return false
+  }
+  if cache[node_id] >= 0 {
+    return cache[node_id] == 1
+  }
+  cache[node_id] = 0
+  match hot_node_get(func, node_id).op {
+    HotOp::LocalGet => {
+      cache[node_id] = 1
+      return true
+    }
+    _ => ()
+  }
+  for input_id in hot_lower_impl_input_info(func, node_id).nodes {
+    if hot_lower_impl_node_reads_local(func, input_id, cache) {
+      cache[node_id] = 1
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_lower_impl_roots_may_need_future_dependencies(
+  func : HotFunc,
+  roots : Array[NodeId],
+  local_read_cache : Array[Int],
+) -> Bool {
+  for root_id in roots {
+    if hot_node_result_arity(func, root_id) == 0 &&
+      (match hot_query_op(func, root_id) {
+        HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => true
+        _ => false
+      }) {
+      return true
+    }
+    if hot_lower_impl_node_reads_local(func, root_id, local_read_cache) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_lower_impl_future_dependency_suffix_minima(
+  func : HotFunc,
+  roots : Array[NodeId],
+  label_frames : HotLowerLabelFrames,
+) -> Array[Int]? {
+  if roots.length() < 64 ||
+    !hot_lower_impl_roots_may_need_future_dependencies(
+      func,
+      roots,
+      label_frames.local_read_cache,
+    ) {
+    return None
+  }
+  Some(
+    hot_lower_impl_build_preceding_dependency_suffix_minima(
+      func,
+      roots,
+      label_frames.preceding_dependency_min_cache,
+    ),
+  )
+}
+
+///|
 fn hot_lower_impl_reads_written_local(
   func : HotFunc,
   node_id : NodeId,
@@ -752,6 +906,7 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   current_root : NodeId,
   future_roots : Array[NodeId],
   future_start : Int,
+  future_dependency_suffix_minima : Array[Int]?,
   use_def : HotUseDef,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
@@ -765,6 +920,23 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
       HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => true
       _ => false
     })
+  if !call_order_required &&
+    !hot_lower_impl_node_reads_local(
+      func,
+      current_root,
+      label_frames.local_read_cache,
+    ) {
+    return
+  }
+  match future_dependency_suffix_minima {
+    Some(suffix_minima) =>
+      if future_start < 0 ||
+        future_start >= suffix_minima.length() ||
+        suffix_minima[future_start] >= current_root {
+        return
+      }
+    None => ()
+  }
   let seen = Array::make(hot_node_count(func), false)
   let carried : Array[NodeId] = []
   for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
@@ -862,6 +1034,9 @@ fn hot_lower_impl_body_items(
   let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
     func, use_def, root_ids, region_keep_count,
   )
+  let future_dependency_suffix_minima = hot_lower_impl_future_dependency_suffix_minima(
+    func, root_ids, label_frames,
+  )
   let mut root_idx = 0
   for i = body_base; i < node.child_count; i = i + 1 {
     let child = func.children[node.child_base + i]
@@ -876,6 +1051,7 @@ fn hot_lower_impl_body_items(
         child,
         root_ids,
         root_idx + 1,
+        future_dependency_suffix_minima,
         use_def,
         label_frames,
         next_stack,
@@ -1127,12 +1303,13 @@ fn hot_lower_impl_typed_loop_const_prefix_lowering(
   body : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
+  label_frames : HotLowerLabelFrames,
 ) -> HotLowerTypedLoopConstPrefixLowering? {
   if !options.preserve_typed_loop_const_prefix_spills {
     return None
   }
   let label_id = hot_control_node_label(func, id)
-  if hot_lower_impl_label_is_used(func, label_id) {
+  if hot_lower_impl_label_is_used(label_frames, label_id) {
     return None
   }
   let results = hot_type_results(func, hot_node_type(func, id))
@@ -1525,7 +1702,7 @@ fn hot_lower_impl_emit_instruction(
       )
       match
         hot_lower_impl_typed_loop_const_prefix_lowering(
-          func, id, loop_body, extra_locals, options,
+          func, id, loop_body, extra_locals, options, label_frames,
         ) {
         Some(lowering) => {
           for idx = lowering.outer_locals.length() - 1; idx >= 0; idx = idx - 1 {
@@ -1627,7 +1804,9 @@ fn hot_lower_impl_emit_instruction(
         let mut delegate = None
         if node.imm1 == -2 {
           let target = match
-            hot_lower_impl_direct_delegate_target(func, catch_region) {
+            hot_lower_impl_direct_delegate_target(
+              func, catch_region, label_frames,
+            ) {
             Some(target) => target
             None =>
               abort(
@@ -1677,11 +1856,12 @@ fn hot_lower_impl_emit_instruction(
       }
       let body_ref = hot_region_body_ref(func, id)
       let label_id = hot_control_node_label(func, id)
-      match hot_lower_impl_direct_delegate_target(func, catch_region) {
+      match
+        hot_lower_impl_direct_delegate_target(func, catch_region, label_frames) {
         Some(target_label) => {
           if target_label < 0 ||
             hot_label_owner(func, target_label) == id ||
-            hot_lower_impl_label_is_used(func, label_id) {
+            hot_lower_impl_label_is_used(label_frames, label_id) {
             abort(
               "hot lower direct delegate requires an unused inner try label and outer target",
             )
@@ -1735,7 +1915,7 @@ fn hot_lower_impl_emit_instruction(
         }
       }
       if !effects_may_throw(effects_for_region(func, body_ref)) {
-        if hot_lower_impl_label_is_used(func, label_id) {
+        if hot_lower_impl_label_is_used(label_frames, label_id) {
           let body_stack = hot_lower_impl_push_label(
             label_frames, label_stack_head, label_id,
           )
@@ -2291,6 +2471,7 @@ fn hot_lower_impl_emit_transparent_param_block(
 fn hot_lower_impl_transparent_unused_result_block_roots(
   func : HotFunc,
   block_id : NodeId,
+  label_frames : HotLowerLabelFrames,
 ) -> Array[NodeId]? {
   let block = hot_node_get(func, block_id)
   let result_arity = hot_node_result_arity(func, block_id)
@@ -2300,7 +2481,7 @@ fn hot_lower_impl_transparent_unused_result_block_roots(
     return None
   }
   let label_id = hot_control_node_label(func, block_id)
-  if label_id < 0 || hot_lower_impl_label_is_used(func, label_id) {
+  if label_id < 0 || hot_lower_impl_label_is_used(label_frames, label_id) {
     return None
   }
   let value_roots : Array[NodeId] = []
@@ -2323,7 +2504,7 @@ fn hot_lower_impl_transparent_unused_result_block_roots(
       continue
     }
     if !hot_root_is_strict_no_work_block_chain(func, root_id, fn(root_label) {
-        hot_lower_impl_label_is_used(func, root_label)
+        hot_lower_impl_label_is_used(label_frames, root_label)
       }) {
       return None
     }
@@ -2357,9 +2538,12 @@ fn hot_lower_impl_emit_root(
   let label_id = hot_control_node_label(func, id)
   let param_types = hot_lower_impl_control_param_types(func, id)
   if hot_query_op(func, id) == HotOp::Block &&
-    !hot_lower_impl_label_is_used(func, label_id) {
+    !hot_lower_impl_label_is_used(label_frames, label_id) {
     if options.flatten_unused_result_blocks && param_types.length() == 0 {
-      match hot_lower_impl_transparent_unused_result_block_roots(func, id) {
+      match
+        hot_lower_impl_transparent_unused_result_block_roots(
+          func, id, label_frames,
+        ) {
         Some(value_roots) => {
           for value_root in value_roots {
             hot_lower_impl_emit_root(
@@ -4920,7 +5104,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
   options : HotLowerOptions,
 ) -> HotLowerBodyResult {
   let use_def = use_def_build_node_uses(func)
-  let label_frames = hot_lower_impl_new_label_frames()
+  let label_frames = hot_lower_impl_new_label_frames(func)
   let out : Array[Instruction] = []
   let value_stack : Array[HotLowerStackValue] = []
   let extra_locals : Array[ValType] = []
@@ -4931,6 +5115,9 @@ fn hot_lower_body_with_extras_unverified_with_options(
     root_ids,
     hot_type_result_arity(func, hot_body_result_type(func)),
   )
+  let future_dependency_suffix_minima = hot_lower_impl_future_dependency_suffix_minima(
+    func, root_ids, label_frames,
+  )
   for i = 0; i < hot_root_count(func); i = i + 1 {
     let root_id = root_ids[i]
     hot_lower_impl_emit_preceding_future_dependencies(
@@ -4938,6 +5125,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
       root_id,
       root_ids,
       i + 1,
+      future_dependency_suffix_minima,
       use_def,
       label_frames,
       -1,

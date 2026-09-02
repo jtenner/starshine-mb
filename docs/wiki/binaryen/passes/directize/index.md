@@ -2,12 +2,13 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-30
+last_reviewed: 2026-08-31
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/directize.mbt
   - ../../../../../src/passes/directize_test.mbt
+  - ../../../../../src/passes_perf_long/directize_perf_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../late-pipeline-dispatch.md
@@ -103,6 +104,7 @@ That is much closer to the real pass than either:
 - It classifies known holes, out-of-range targets, and wrong-type targets as traps and rewrites them to `unreachable` when the table facts prove the trap.
 - It lowers known/known, known/trap, and trap/trap constant-index `select` shapes to typed `if` expressions with direct-call or trapping arms and fresh locals preserving operand evaluation, including multivalue results.
 - The current closeout evidence is in [`./fuzzing.md`](./fuzzing.md): regular `100000/100000` exact, dedicated `directize-all` `10000/10000` exact across eight leaves and 27 labels, all `9956` comparable wasm-smith cases green after one pass-independent unreachable-wrapper normalization plus `44` Binaryen/tool failures, and zero directize-owned random-all residuals. Focused tests are `16/16`, the pass package is `6580/6580`, and full Moon is `10104/10104`.
+- The first MoonBit-native pass benchmark is [`../../../../../src/passes_perf_long/directize_perf_test.mbt`](../../../../../src/passes_perf_long/directize_perf_test.mbt). It validates a 256-call, depth-64 select-target fixture once, reuses the unchanged module, and times registry dispatch plus Directize with repeated final-module validation disabled. On the local AMD Ryzen 7 8845HS host with Moon `0.1.20260713`, five serial framework runs moved from a median mean of `14.23ms` to `11.75ms` after removing one redundant stack copy per producer-scan instruction: `-17.43%`, or `1.211x` faster. This synthetic win does not close the production-artifact `[P0-WALL-DIRECTIZE]` command target.
 - The accepted public `optimize` / `shrink` late-tail suffix now includes `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` via [research note 0572](../late-pipeline-dispatch.md), and the direct five-pass neighborhood proof remains in [research note 0571](../late-pipeline-dispatch.md). The remaining caveat is the optional `directize-initial-contents-immutable` pass-arg behavior, which Starshine does not expose yet. The inner `string-gathering -> reorder-globals -> directize` triple itself still has a current-head replay recorded in [research note 0549](../reorder-globals/index.md).
 
 ## Page map

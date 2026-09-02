@@ -3795,6 +3795,93 @@ test "vacuum raw-skips functions with no cleanup candidates" {
 }
 
 ///|
+fn perf_test_vacuum_deep_singleton_call_leaf_module(depth : Int) -> @lib.Module {
+  let empty_func_type = @lib.TypeIdx::new(0U)
+  let mut body : Array[@lib.Instruction] = [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ]
+  for level = 0; level < depth; level = level + 1 {
+    body = [
+      @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(body)),
+    ]
+  }
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("effect"),
+        @lib.func_extern_type(empty_func_type),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([empty_func_type]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+test "vacuum raw-skips exact deep singleton call leaves before generic preclean" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_vacuum_deep_singleton_call_leaf_module(64)
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected deep singleton Vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.I32Const(@lib.I32(7)),
+                @lib.LocalSet(@lib.LocalIdx(0U)),
+                @lib.Call(@lib.FuncIdx(0U)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected deep singleton wrappers to flatten to the exact call leaf, got \{@debug.to_string(other)}",
+      )
+  }
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[vacuum]:skip-raw reason=raw-vacuum-deep-singleton-call-leaf",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:vacuum"), msg=text)
+}
+
+///|
 test "ssa-nomerge skips ssa analysis when there are no local writes" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
@@ -6981,7 +7068,7 @@ test "heap-store-optimization skips raw lift when the original function has no H
 }
 
 ///|
-test "heap-store-optimization skips raw lift when struct allocations cannot feed struct.set" {
+test "heap-store-optimization lifts allocation-only local sets for possible sinking" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -6993,14 +7080,54 @@ test "heap-store-optimization skips raw lift when struct allocations cannot feed
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
     ) {
     Ok(_) => ()
-    Err(err) =>
-      fail("expected allocation-only raw-skip HSO success, got \{err}")
+    Err(err) => fail("expected allocation-only HSO success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_false(
+    text.contains(
+      "pass[heap-store-optimization]:skip-raw reason=no-heap-store-candidates",
+    ),
+  )
+  assert_true(text.contains("perf:timer name=lift"))
+  assert_true(text.contains("perf:timer name=analysis:module-context"))
+  assert_true(text.contains("perf:timer name=analysis:effects"))
+}
+
+///|
+test "heap-store-optimization raw-sinks allocation-only local sets across pure control" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (type $pair (struct (field (mut i32))))
+    #|   (func (local anyref)
+    #|     (local.set 0 (struct.new_default $pair))
+    #|     (drop
+    #|       (if (result anyref) (i32.const 1)
+    #|         (then (ref.i31 (i32.const 0)))
+    #|         (else (ref.i31 (i32.const 1)))))
+    #|     (drop
+    #|       (block $out (result anyref)
+    #|         (br $out (ref.i31 (i32.const 0)))))
+    #|     (drop (local.get 0))))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["heap-store-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected raw allocation-sinking HSO success, got \{err}")
   }
 
   let text = perf_test_join_lines(lines)
   assert_true(
     text.contains(
-      "pass[heap-store-optimization]:skip-raw reason=no-heap-store-candidates",
+      "pass[heap-store-optimization]:skip-raw reason=raw-allocation-only-struct-new-sink",
     ),
   )
   assert_false(text.contains("perf:timer name=lift"))

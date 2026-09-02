@@ -10,6 +10,16 @@ sources:
 
 # `vacuum` Fuzzing Profile
 
+## Deep singleton-wrapper raw flatten — 2026-09-01
+
+The calibrated native suite exposed a new size-losing parity family: 64 or more singleton void blocks around an exact `i32.const; local.set; call` leaf made generic raw preclean superlinear and left every wrapper, while Binaryen v131 flattened the complete chain and preserved the leaf. A red-first default performance contract now requires the named `raw-vacuum-deep-singleton-call-leaf` path, exact leaf preservation, no HOT lift, and zero remaining block depth. White-box boundaries reject depth 63, extra leaf debris, and loop wrappers.
+
+The existing `vacuum-structural-wrappers` profile now emits a second function with the exact depth-64 defined-call shape, so the pass-owned aggregate samples the repaired family without adding a near-duplicate profile name. Targeted explicit-v131 `.tmp/pass-fuzz-vacuum-deep-structural-10000` is `10000/10000` normalized with equal raw and canonical totals (`370000/370000` bytes), zero mismatches, and zero validation/property/generator/command failures. Regular `.tmp/pass-fuzz-vacuum-deep-fastpath-regular-10000` is likewise `10000/10000` normalized with equal canonical totals.
+
+The refreshed aggregate `.tmp/pass-fuzz-vacuum-deep-aggregate-final-10000` compares all `10000`: `7175` normalized and `2825` raw residuals, all canonically smaller Starshine outputs (`2825/7175/0` smaller/equal/larger) with zero failures. The same pre-profile clean-`ef85aa1a8` and current aggregate stopped at identical `5087` normalized plus `2000` smaller residuals after `7087` cases; all 20 persisted Starshine outputs are byte-identical across clean/current. Agent classification: the aggregate residuals are pre-existing smaller `vacuum-hazard-boundary` / `vacuum-localset-prefix-preserve` families, not behavior drift from the deep-wrapper repair.
+
+Five-run benchmark medians improve depth 512 `3.680ms -> 16.89us` (`217.880x`) and depth 1024 `12.150ms -> 21.71us` (`559.650x`). The exact depth-1024 command improves `10.800ms -> 1.660ms`; stripped current/Binaryen outputs are byte-identical at 48 bytes. Canonical production attribution reports zero fast-path hits, so this evidence does not close the production Vacuum wall gate.
+
 ## Level-zero flatten/preclean composition — 2026-08-29
 
 Proposal-rich semantic modules exposed a broad early-return family: at optimization level zero, raw Vacuum flattened an unbranched result block and immediately returned the function, skipping the already-safe raw precleaner. One saved function retained 1,422 dropped pure scalar trees that Binaryen v131 removed while preserving checked float-to-integer truncation traps.
@@ -109,7 +119,7 @@ Dedicated GenValid profile aggregate: `vacuum`.
 - Leaf intent:
   - `vacuum-core`: the previous deterministic profile, with explicit `nop`, scalar/ref pure `const; drop` debris, constant-condition void `if` scaffolds, empty then/live else forms, block-only `unreachable`, empty void blocks, nested pure debris, and a larger terminal-debris function.
   - `vacuum-terminal-unreachable`: scalar/pure debris and block wrappers immediately before hard `unreachable`.
-  - `vacuum-structural-wrappers`: empty blocks, block-only `unreachable`, constant void `if`, and empty-then/live-else scaffolds.
+  - `vacuum-structural-wrappers`: empty blocks, block-only `unreachable`, constant void `if`, empty-then/live-else scaffolds, and the exact depth-64 singleton void-block chain ending in `i32.const; local.set; call`.
   - `vacuum-call-prefix-continuation`: call-prefix wrapper and continuation-style local-set debris shapes that should normalize after direct `--vacuum`.
   - `vacuum-localset-prefix-preserve`: local-set-leading prefix wrapper shapes that guard Binaryen-preserved structure while still allowing surrounding cleanup.
   - `vacuum-hazard-boundary`: calls, memory stores, allocation/write-barrier/GC-visit-style calls, and adjacent pure debris; this keeps the `[JSON-AS]002` safety boundary sampled in a GenValid lane.

@@ -131,3 +131,23 @@ test "merge-blocks long perf lane measures one drop-parent index scan" {
     "merge_blocks multivalue_blocks=\{block_count} partial_drop_blocks=\{block_count} indexed_functions_per_run=\{indexed_functions_per_run} pipeline_median_us=\{merge_blocks_perf_median_us(samples)} full_function_drop_parent_scans_per_function=1 samples=\{samples}",
   )
 }
+
+///|
+test "bench merge-blocks pass multivalue blocks=4000" (it : @bench.T) {
+  let fixture = merge_blocks_perf_multivalue_module(4000)
+  match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "merge-blocks",
+    ]) {
+    Ok(_) => ()
+    Err(err) =>
+      abort("expected merge-blocks benchmark fixture success, got \{err}")
+  }
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match @passes.run_hot_pipeline(fixture, options, ["merge-blocks"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected merge-blocks benchmark success, got \{err}")
+    }
+  })
+}

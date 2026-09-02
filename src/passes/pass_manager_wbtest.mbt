@@ -2638,6 +2638,48 @@ fn pass_manager_test_vacuum_f364_body() -> Array[@lib.Instruction] {
 }
 
 ///|
+test "raw vacuum deep singleton call-leaf fast path rejects nearby shapes" {
+  let wrap = fn(depth : Int, leaf : Array[@lib.Instruction]) {
+    let mut body = leaf
+    for level = 0; level < depth; level = level + 1 {
+      body = [
+        @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(body)),
+      ]
+    }
+    body
+  }
+  let exact_leaf = [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ]
+  match
+    run_hot_pipeline_raw_vacuum_deep_singleton_call_leaf(wrap(64, exact_leaf)) {
+    Some(leaf) => @debug.assert_eq(leaf, exact_leaf)
+    None => fail("expected exact deep singleton call leaf")
+  }
+  assert_true(
+    run_hot_pipeline_raw_vacuum_deep_singleton_call_leaf(wrap(63, exact_leaf))
+    is None,
+  )
+  assert_true(
+    run_hot_pipeline_raw_vacuum_deep_singleton_call_leaf(
+      wrap(64, exact_leaf + [@lib.Instruction::nop()]),
+    )
+    is None,
+  )
+  assert_true(
+    run_hot_pipeline_raw_vacuum_deep_singleton_call_leaf([
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new(wrap(64, exact_leaf)),
+      ),
+    ])
+    is None,
+  )
+}
+
+///|
 test "raw vacuum preclean removes only the extra f364 four-field child wrapper" {
   let body = pass_manager_test_vacuum_f364_body()
   let source_probe = [

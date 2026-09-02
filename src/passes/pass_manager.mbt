@@ -15195,6 +15195,94 @@ fn run_hot_pipeline_hso_raw_simple_value(
 }
 
 ///|
+fn run_hot_pipeline_hso_raw_i31_value(instrs : Array[@lib.Instruction]) -> Bool {
+  if instrs.length() != 2 {
+    return false
+  }
+  match (instrs[0], instrs[1]) {
+    (@lib.I32Const(_), @lib.RefI31) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_hso_raw_contained_i31_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      if block_type != @lib.BlockType::val_type(@lib.ValType::anyref()) ||
+        body.length() != 3 {
+        return false
+      }
+      match (body[0], body[1], body[2]) {
+        (@lib.I32Const(_), @lib.RefI31, @lib.Br(label_idx)) =>
+          label_idx == @lib.LabelIdx::new(0U)
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_heap_store_optimization_allocation_sink(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool)? {
+  // Binaryen's optimizeBlock pushes a fresh constructor local.set toward later
+  // roots even when no struct.set is found. Keep this raw path exact: the whole
+  // function must be repeated proven-pure i31 windows, or general HOT owns it.
+  if instrs.is_empty() || instrs.length() % 9 != 0 {
+    return None
+  }
+  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let mut idx = 0
+  while idx < instrs.length() {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+        instrs[idx + 5],
+        instrs[idx + 6],
+        instrs[idx + 7],
+        instrs[idx + 8],
+      ) {
+      (
+        @lib.StructNewDefault(_) as struct_new,
+        @lib.LocalSet(set_local) as local_set,
+        @lib.I32Const(_) as condition,
+        @lib.If(if_type, then_body, Some(else_body)) as if_instr,
+        @lib.Drop as if_drop,
+        block_instr,
+        @lib.Drop as block_drop,
+        @lib.LocalGet(get_local) as local_get,
+        @lib.Drop as local_drop,
+      ) if set_local == get_local &&
+        if_type == @lib.BlockType::val_type(@lib.ValType::anyref()) &&
+        run_hot_pipeline_hso_raw_i31_value(then_body) &&
+        run_hot_pipeline_hso_raw_i31_value(else_body) &&
+        run_hot_pipeline_hso_raw_contained_i31_block(block_instr) => {
+        rewritten.push(condition)
+        rewritten.push(if_instr)
+        rewritten.push(if_drop)
+        rewritten.push(block_instr)
+        rewritten.push(block_drop)
+        rewritten.push(struct_new)
+        rewritten.push(local_set)
+        rewritten.push(local_get)
+        rewritten.push(local_drop)
+        idx = idx + 9
+      }
+      _ => return None
+    }
+  }
+  Some((rewritten, true))
+}
+
+///|
 fn run_hot_pipeline_raw_heap_store_optimization_plain_struct_new_chain(
   mod_ : @lib.Module,
   instrs : Array[@lib.Instruction],
@@ -43959,10 +44047,20 @@ fn run_hot_pipeline_raw_heap_store_optimization(
       })
     None => ()
   }
-  let (has_local_writes, has_struct_alloc, has_struct_set) = run_hot_pipeline_hso_candidate_scan(
+  match run_hot_pipeline_raw_heap_store_optimization_allocation_sink(instrs) {
+    Some((rewritten, changed)) =>
+      return Some({
+        reason: "raw-allocation-only-struct-new-sink",
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+        unchanged_original: !changed,
+        trace_skip_raw: true,
+      })
+    None => ()
+  }
+  let (has_local_writes, has_struct_alloc, _) = run_hot_pipeline_hso_candidate_scan(
     instrs,
   )
-  if has_local_writes && has_struct_alloc && has_struct_set {
+  if has_local_writes && has_struct_alloc {
     return None
   }
   let (cleaned_body, cleanup_changed) = pass_raw_remove_dropped_unreachable_debris(
@@ -69121,6 +69219,33 @@ fn run_hot_pipeline_raw_vacuum_has_negative_array_allocation_drop(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_deep_singleton_call_leaf(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  let mut current = instrs
+  let mut depth = 0
+  while current.length() == 1 {
+    match current[0] {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+        current = body
+        depth += 1
+      }
+      _ => break
+    }
+  }
+  // Binaryen flattens these transparent void wrappers. The exact leaf has no
+  // branch target or structured owner to rebase; every nearby shape stays on
+  // generic preclean, where the complete artifact-specific guards still run.
+  if depth < 64 {
+    return None
+  }
+  match current {
+    [@lib.I32Const(_), @lib.LocalSet(_), @lib.Call(_)] => Some(current)
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -69133,6 +69258,18 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  match run_hot_pipeline_raw_vacuum_deep_singleton_call_leaf(instrs) {
+    Some(leaf) =>
+      return Some({
+        reason: "raw-vacuum-deep-singleton-call-leaf",
+        func: run_hot_pipeline_raw_vacuum_finalize_precleaned_func(
+          mod_, func_idx, module_state, options, locals, leaf,
+        ),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    None => ()
+  }
   let has_dropped_typeidx_block = run_hot_pipeline_raw_vacuum_instrs_have_dropped_typeidx_block(
     instrs,
   )
@@ -90472,7 +90609,15 @@ fn run_hot_pipeline_apply_module_pass(
             "reorder-globals" => reorder_globals_run_module_pass(mod_)
             "apply-compiler-facts" =>
               match apply_compiler_facts(mod_, options.compiler_fact_policy) {
-                Ok(result) => result.module_
+                Ok(result) => {
+                  if result.stats.fact_sections_seen > 0 {
+                    (options.trace)(
+                      "pass[apply-compiler-facts]:summary " +
+                      compiler_fact_stats_summary(result.stats),
+                    )
+                  }
+                  result.module_
+                }
                 Err(err) => return Err(err)
               }
             "directize" => directize_run_module_pass(mod_)

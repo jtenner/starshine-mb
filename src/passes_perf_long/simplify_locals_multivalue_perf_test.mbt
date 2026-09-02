@@ -1,4 +1,9 @@
 ///|
+fn perf_long_module_from_wat(text : String) -> @lib.Module {
+  @passes.pass_test_module_from_wat(text)
+}
+
+///|
 fn perf_long_join_lines(lines : Array[String]) -> String {
   let out = StringBuilder::new()
   for i = 0; i < lines.length(); i = i + 1 {
@@ -477,4 +482,80 @@ test "simplify-locals long perf lane processes 2048-function modules" {
     perf_long_join_lines(lines).contains("skip-large-module"),
     msg=perf_long_join_lines(lines),
   )
+}
+
+///|
+test "bench simplify-locals raw multivalue tail ladder repetitions=72" (
+  it : @bench.T,
+) {
+  let fixture = perf_long_module_from_wat(
+    perf_long_make_simplify_locals_multivalue_tail_ladder_module(72),
+  )
+  let preflight = match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "simplify-locals",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected tail-ladder benchmark success, got \{err}")
+  }
+  let preflight_text = preflight.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(
+    preflight_text.contains(
+      "(local.set (Local 2))(i32.const I32(1))(local.get (Local 2))",
+    ),
+    msg=preflight_text,
+  )
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match @passes.run_hot_pipeline(fixture, options, ["simplify-locals"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected tail-ladder benchmark success, got \{err}")
+    }
+  })
+}
+
+///|
+test "bench simplify-locals raw call-heavy guard repetitions=32" (it : @bench.T) {
+  let fixture = perf_long_module_from_wat(
+    perf_long_make_simplify_locals_flat_dense_multivalue_call_ladder_module(32),
+  )
+  match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "simplify-locals",
+    ]) {
+    Ok(_) => ()
+    Err(err) => abort("expected call-heavy benchmark success, got \{err}")
+  }
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match @passes.run_hot_pipeline(fixture, options, ["simplify-locals"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected call-heavy benchmark success, got \{err}")
+    }
+  })
+}
+
+///|
+test "bench simplify-locals breadth functions=2048" (it : @bench.T) {
+  let fixture = perf_long_module_from_wat(
+    perf_long_make_simplify_locals_2048_function_module(),
+  )
+  let preflight = match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "simplify-locals",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected breadth benchmark success, got \{err}")
+  }
+  let preflight_text = preflight.pretty_print_defined_func(2047U)
+  assert_true(preflight_text.contains("I32(7)"), msg=preflight_text)
+  assert_false(preflight_text.contains("local.set"), msg=preflight_text)
+  assert_false(preflight_text.contains("local.get"), msg=preflight_text)
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match @passes.run_hot_pipeline(fixture, options, ["simplify-locals"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected breadth benchmark success, got \{err}")
+    }
+  })
 }
