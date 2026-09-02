@@ -31,6 +31,19 @@ fn gen_valid_engine_state_profiles() -> Array[GenValidProfile] {
     EngineStateMemory64Profile,
     EngineStateExceptionsProfile,
     EngineStateGcProfile,
+    EngineStateLinkGraphProfile,
+    EngineStateGcGraphProfile,
+    EngineStateInitializationGraphProfile,
+    EngineStateExceptionUnwindProfile,
+    EngineStateTypeCallMatrixProfile,
+    EngineStateLebIndexBoundariesProfile,
+    EngineStateTableReferenceMatrixProfile,
+    EngineStateMemory64MultiMemoryProfile,
+    EngineStateTrapCommitMatrixProfile,
+    EngineStateMetamorphicTwinsProfile,
+    EngineStateCompilerBoundariesProfile,
+    EngineStateNanProfile,
+    EngineStateInvalidModuleProfile,
   ]
 }
 
@@ -1342,6 +1355,31 @@ fn gen_valid_engine_state_profile_module(ctx : GenValidContext) -> Module {
     EngineStateExceptionsProfile =>
       gen_valid_engine_state_exceptions_module(ctx.root_seed)
     EngineStateGcProfile => gen_valid_engine_state_gc_module(ctx.root_seed)
+    EngineStateLinkGraphProfile =>
+      gen_valid_engine_state_link_graph_consumer_module(ctx.root_seed)
+    EngineStateGcGraphProfile =>
+      gen_valid_engine_state_gc_graph_module(ctx.root_seed)
+    EngineStateInitializationGraphProfile =>
+      gen_valid_engine_state_initialization_graph_module(ctx.root_seed)
+    EngineStateExceptionUnwindProfile =>
+      gen_valid_engine_state_exception_unwind_module(ctx.root_seed)
+    EngineStateTypeCallMatrixProfile =>
+      gen_valid_engine_state_type_call_matrix_module(ctx.root_seed)
+    EngineStateLebIndexBoundariesProfile =>
+      gen_valid_engine_state_leb_index_boundaries_module(ctx.root_seed)
+    EngineStateTableReferenceMatrixProfile =>
+      gen_valid_engine_state_table_reference_matrix_module(ctx.root_seed)
+    EngineStateMemory64MultiMemoryProfile =>
+      gen_valid_engine_state_memory64_multi_memory_module(ctx.root_seed)
+    EngineStateTrapCommitMatrixProfile =>
+      gen_valid_engine_state_trap_commit_matrix_module(ctx.root_seed)
+    EngineStateMetamorphicTwinsProfile =>
+      gen_valid_engine_state_metamorphic_module(ctx.root_seed, false)
+    EngineStateCompilerBoundariesProfile =>
+      gen_valid_engine_state_compiler_boundaries_module(ctx.root_seed)
+    EngineStateNanProfile => gen_valid_engine_state_nan_module(ctx.root_seed)
+    EngineStateInvalidModuleProfile =>
+      gen_valid_engine_state_invalid_base_module(ctx.root_seed)
     _ => gen_valid_engine_state_scalar_control_module(ctx.root_seed)
   }
 }

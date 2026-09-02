@@ -21,9 +21,9 @@ fn engine_state_manifest_test_selection(
 ///|
 test "engine-state aggregate manifest records complete deterministic case contracts" {
   let (args, selection) = engine_state_manifest_test_selection(
-    "engine-state-all", 80, 0xE651A7EUL,
+    "engine-state-all", 128, 0xE651A7EUL,
   )
-  @debug.assert_eq(selection.manifest.length(), 80)
+  @debug.assert_eq(selection.manifest.length(), 128)
   let manifest = format_gen_valid_batch_manifest_json(args, selection)
   assert_true(
     manifest.contains("\"schema\":\"starshine.gen-valid.batch.v2\""),
@@ -33,7 +33,7 @@ test "engine-state aggregate manifest records complete deterministic case contra
   assert_true(manifest.contains("\"wasm_hash\":\"fnv1a64-"), msg=manifest)
   assert_true(
     manifest.contains(
-      "\"generator_build_identity\":\"starshine-gen-valid-engine-state-v3\"",
+      "\"generator_build_identity\":\"starshine-gen-valid-engine-state-v4\"",
     ),
     msg=manifest,
   )
@@ -65,14 +65,14 @@ test "engine-state aggregate manifest records complete deterministic case contra
     msg=manifest,
   )
   assert_true(
-    manifest.contains("\"static_instruction_limit\":1024"),
+    manifest.contains("\"static_instruction_limit\":4096"),
     msg=manifest,
   )
   assert_true(
     manifest.contains("\"dynamic_instruction_limit\":5000"),
     msg=manifest,
   )
-  assert_true(manifest.contains("\"encoded_size_limit\":131072"), msg=manifest)
+  assert_true(manifest.contains("\"encoded_size_limit\":262144"), msg=manifest)
   assert_true(manifest.contains("\"nan_policy\":\"strict-bits\""), msg=manifest)
   assert_true(
     manifest.contains("\"relaxed_operation_policy\":\"disabled\""),
@@ -89,7 +89,11 @@ test "engine-state aggregate manifest records complete deterministic case contra
       "engine-state-indirect-traps", "engine-state-trap-placement", "engine-state-cross-instance",
       "engine-state-resource-exhaustion", "engine-state-decoder-topology", "engine-state-tail-calls",
       "engine-state-typed-function-references", "engine-state-memory64", "engine-state-exceptions",
-      "engine-state-gc",
+      "engine-state-gc", "engine-state-link-graph", "engine-state-gc-graph", "engine-state-initialization-graph",
+      "engine-state-exception-unwind", "engine-state-type-call-matrix", "engine-state-leb-index-boundaries",
+      "engine-state-table-reference-matrix", "engine-state-memory64-multi-memory",
+      "engine-state-trap-commit-matrix", "engine-state-metamorphic-twins", "engine-state-compiler-boundaries",
+      "engine-state-nan", "engine-state-invalid-module",
     ] {
     assert_true(
       manifest.contains("\"selected_leaf\":\"\{profile}\""),

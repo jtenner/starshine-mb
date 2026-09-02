@@ -750,6 +750,19 @@ pub enum GenValidProfile {
   EngineStateMemory64Profile
   EngineStateExceptionsProfile
   EngineStateGcProfile
+  EngineStateLinkGraphProfile
+  EngineStateGcGraphProfile
+  EngineStateInitializationGraphProfile
+  EngineStateExceptionUnwindProfile
+  EngineStateTypeCallMatrixProfile
+  EngineStateLebIndexBoundariesProfile
+  EngineStateTableReferenceMatrixProfile
+  EngineStateMemory64MultiMemoryProfile
+  EngineStateTrapCommitMatrixProfile
+  EngineStateMetamorphicTwinsProfile
+  EngineStateCompilerBoundariesProfile
+  EngineStateNanProfile
+  EngineStateInvalidModuleProfile
   EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile
@@ -1180,6 +1193,21 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     EngineStateMemory64Profile => "engine-state-memory64"
     EngineStateExceptionsProfile => "engine-state-exceptions"
     EngineStateGcProfile => "engine-state-gc"
+    EngineStateLinkGraphProfile => "engine-state-link-graph"
+    EngineStateGcGraphProfile => "engine-state-gc-graph"
+    EngineStateInitializationGraphProfile => "engine-state-initialization-graph"
+    EngineStateExceptionUnwindProfile => "engine-state-exception-unwind"
+    EngineStateTypeCallMatrixProfile => "engine-state-type-call-matrix"
+    EngineStateLebIndexBoundariesProfile => "engine-state-leb-index-boundaries"
+    EngineStateTableReferenceMatrixProfile =>
+      "engine-state-table-reference-matrix"
+    EngineStateMemory64MultiMemoryProfile =>
+      "engine-state-memory64-multi-memory"
+    EngineStateTrapCommitMatrixProfile => "engine-state-trap-commit-matrix"
+    EngineStateMetamorphicTwinsProfile => "engine-state-metamorphic-twins"
+    EngineStateCompilerBoundariesProfile => "engine-state-compiler-boundaries"
+    EngineStateNanProfile => "engine-state-nan"
+    EngineStateInvalidModuleProfile => "engine-state-invalid-module"
     EngineStateAllProfile => "engine-state-all"
     SemanticEffectsProfile => "semantic-effects"
     SemanticImportEventsProfile => "semantic-import-events"
@@ -2055,6 +2083,19 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(EngineStateMemory64Profile, 1),
         GenValidProfileMember::new(EngineStateExceptionsProfile, 1),
         GenValidProfileMember::new(EngineStateGcProfile, 1),
+        GenValidProfileMember::new(EngineStateLinkGraphProfile, 3),
+        GenValidProfileMember::new(EngineStateGcGraphProfile, 4),
+        GenValidProfileMember::new(EngineStateInitializationGraphProfile, 4),
+        GenValidProfileMember::new(EngineStateExceptionUnwindProfile, 4),
+        GenValidProfileMember::new(EngineStateTypeCallMatrixProfile, 4),
+        GenValidProfileMember::new(EngineStateLebIndexBoundariesProfile, 2),
+        GenValidProfileMember::new(EngineStateTableReferenceMatrixProfile, 4),
+        GenValidProfileMember::new(EngineStateMemory64MultiMemoryProfile, 3),
+        GenValidProfileMember::new(EngineStateTrapCommitMatrixProfile, 4),
+        GenValidProfileMember::new(EngineStateMetamorphicTwinsProfile, 4),
+        GenValidProfileMember::new(EngineStateCompilerBoundariesProfile, 4),
+        GenValidProfileMember::new(EngineStateNanProfile, 4),
+        GenValidProfileMember::new(EngineStateInvalidModuleProfile, 4),
       ]
     SemanticOptimizerAllProfile =>
       [
@@ -2273,6 +2314,19 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     EngineStateMemory64Profile,
     EngineStateExceptionsProfile,
     EngineStateGcProfile,
+    EngineStateLinkGraphProfile,
+    EngineStateGcGraphProfile,
+    EngineStateInitializationGraphProfile,
+    EngineStateExceptionUnwindProfile,
+    EngineStateTypeCallMatrixProfile,
+    EngineStateLebIndexBoundariesProfile,
+    EngineStateTableReferenceMatrixProfile,
+    EngineStateMemory64MultiMemoryProfile,
+    EngineStateTrapCommitMatrixProfile,
+    EngineStateMetamorphicTwinsProfile,
+    EngineStateCompilerBoundariesProfile,
+    EngineStateNanProfile,
+    EngineStateInvalidModuleProfile,
     EngineStateAllProfile,
     SemanticEffectsProfile,
     SemanticImportEventsProfile,
@@ -5143,7 +5197,20 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | EngineStateTypedFunctionReferencesProfile
     | EngineStateMemory64Profile
     | EngineStateExceptionsProfile
-    | EngineStateGcProfile => {
+    | EngineStateGcProfile
+    | EngineStateLinkGraphProfile
+    | EngineStateGcGraphProfile
+    | EngineStateInitializationGraphProfile
+    | EngineStateExceptionUnwindProfile
+    | EngineStateTypeCallMatrixProfile
+    | EngineStateLebIndexBoundariesProfile
+    | EngineStateTableReferenceMatrixProfile
+    | EngineStateMemory64MultiMemoryProfile
+    | EngineStateTrapCommitMatrixProfile
+    | EngineStateMetamorphicTwinsProfile
+    | EngineStateCompilerBoundariesProfile
+    | EngineStateNanProfile
+    | EngineStateInvalidModuleProfile => {
       let base = GenValidConfig::portable_coverage_forced_default()
       let profile_budget_tag = match profile {
         EngineStateScalarControlProfile => 1
@@ -5176,6 +5243,19 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         EngineStateMemory64Profile => 28
         EngineStateExceptionsProfile => 29
         EngineStateGcProfile => 30
+        EngineStateLinkGraphProfile => 31
+        EngineStateGcGraphProfile => 32
+        EngineStateInitializationGraphProfile => 33
+        EngineStateExceptionUnwindProfile => 34
+        EngineStateTypeCallMatrixProfile => 35
+        EngineStateLebIndexBoundariesProfile => 36
+        EngineStateTableReferenceMatrixProfile => 37
+        EngineStateMemory64MultiMemoryProfile => 38
+        EngineStateTrapCommitMatrixProfile => 39
+        EngineStateMetamorphicTwinsProfile => 40
+        EngineStateCompilerBoundariesProfile => 41
+        EngineStateNanProfile => 42
+        EngineStateInvalidModuleProfile => 43
         _ => 0
       }
       let uses_memory = profile == EngineStateMemoryProfile ||
@@ -5194,7 +5274,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         profile == EngineStateTrapPlacementProfile ||
         profile == EngineStateCrossInstanceProfile ||
         profile == EngineStateResourceExhaustionProfile ||
-        profile == EngineStateMemory64Profile
+        profile == EngineStateMemory64Profile ||
+        profile == EngineStateLinkGraphProfile ||
+        profile == EngineStateInitializationGraphProfile ||
+        profile == EngineStateMemory64MultiMemoryProfile ||
+        profile == EngineStateTrapCommitMatrixProfile ||
+        profile == EngineStateCompilerBoundariesProfile ||
+        profile == EngineStateExceptionUnwindProfile
       let uses_table = profile == EngineStateCallsProfile ||
         profile == EngineStateTableProfile ||
         profile == EngineStateImportsProfile ||
@@ -5210,7 +5296,12 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         profile == EngineStateTrapPlacementProfile ||
         profile == EngineStateCrossInstanceProfile ||
         profile == EngineStateResourceExhaustionProfile ||
-        profile == EngineStateTypedFunctionReferencesProfile
+        profile == EngineStateTypedFunctionReferencesProfile ||
+        profile == EngineStateLinkGraphProfile ||
+        profile == EngineStateTypeCallMatrixProfile ||
+        profile == EngineStateTableReferenceMatrixProfile ||
+        profile == EngineStateTrapCommitMatrixProfile ||
+        profile == EngineStateExceptionUnwindProfile
       let uses_segments = profile == EngineStateMemoryProfile ||
         profile == EngineStateTableProfile ||
         profile == EngineStateInitializationProfile ||
@@ -5218,10 +5309,18 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         profile == EngineStateResourcesProfile ||
         profile == EngineStatePassiveSegmentsProfile ||
         profile == EngineStateInstantiationBoundariesProfile ||
-        profile == EngineStateMultiResourceProfile
-      let wide_stack = profile == EngineStateStackPressureProfile
-      let decoder_topology = profile == EngineStateDecoderTopologyProfile
-      let gc = profile == EngineStateGcProfile
+        profile == EngineStateMultiResourceProfile ||
+        profile == EngineStateInitializationGraphProfile ||
+        profile == EngineStateTableReferenceMatrixProfile ||
+        profile == EngineStateExceptionUnwindProfile
+      let wide_stack = profile == EngineStateStackPressureProfile ||
+        profile == EngineStateCompilerBoundariesProfile
+      let decoder_topology = profile == EngineStateDecoderTopologyProfile ||
+        profile == EngineStateLebIndexBoundariesProfile
+      let gc = profile == EngineStateGcProfile ||
+        profile == EngineStateGcGraphProfile
+      let many_functions = profile == EngineStateLebIndexBoundariesProfile ||
+        profile == EngineStateCompilerBoundariesProfile
       GenValidConfig::{
         ..base,
         max_type_defs: if wide_stack || gc {
@@ -5230,18 +5329,23 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           12
         },
         max_imports: 9,
-        max_defined_funcs: if decoder_topology {
+        max_defined_funcs: if many_functions {
+          140
+        } else if decoder_topology {
           16
         } else {
           12
         },
-        max_tables: if uses_table {
+        max_tables: if profile == EngineStateTableReferenceMatrixProfile {
+          4
+        } else if uses_table {
           2
         } else {
           0
         },
         max_mems: if uses_memory {
-          if profile == EngineStateMultiResourceProfile {
+          if profile == EngineStateMultiResourceProfile ||
+            profile == EngineStateMemory64MultiMemoryProfile {
             2
           } else {
             1
@@ -5250,7 +5354,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           0
         },
         max_globals: 12,
-        max_tags: if profile == EngineStateExceptionsProfile {
+        max_tags: if profile == EngineStateExceptionsProfile ||
+          profile == EngineStateExceptionUnwindProfile {
           1
         } else {
           0
@@ -5265,35 +5370,61 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         } else {
           0
         },
-        max_params: if wide_stack {
+        max_params: if profile == EngineStateStackPressureProfile {
           16
         } else {
           4
         },
-        max_results: if wide_stack {
+        max_results: if profile == EngineStateStackPressureProfile {
           8
         } else {
           3
         },
-        max_locals: if wide_stack {
+        max_locals: if profile == EngineStateCompilerBoundariesProfile {
+          128
+        } else if wide_stack {
           64
         } else {
           12
         },
-        max_body_statements: 64 + profile_budget_tag,
-        max_body_depth: 5,
-        max_instruction_count_budget: Some(if wide_stack { 1024 } else { 512 }),
-        max_expression_depth_budget: Some(16),
+        max_body_statements: if profile == EngineStateCompilerBoundariesProfile {
+          512
+        } else {
+          64 + profile_budget_tag
+        },
+        max_body_depth: if profile == EngineStateCompilerBoundariesProfile {
+          16
+        } else {
+          5
+        },
+        max_instruction_count_budget: Some(
+          if many_functions {
+            4096
+          } else if wide_stack {
+            1024
+          } else {
+            512
+          },
+        ),
+        max_expression_depth_budget: Some(
+          if profile == EngineStateCompilerBoundariesProfile {
+            32
+          } else {
+            16
+          },
+        ),
         max_module_byte_size_budget: Some(
-          if decoder_topology {
-            131072
+          if many_functions || decoder_topology {
+            262144
           } else {
             65536
           },
         ),
         max_rec_group_size_budget: Some(if wide_stack || gc { 20 } else { 12 }),
         max_section_count_budget: Some(16),
-        max_name_length: if decoder_topology {
+        max_name_length: if profile == EngineStateLebIndexBoundariesProfile {
+          16384
+        } else if decoder_topology {
           512
         } else {
           96
@@ -5312,7 +5443,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
             0
           },
           globals_percent: 100,
-          tags_percent: if profile == EngineStateExceptionsProfile {
+          tags_percent: if profile == EngineStateExceptionsProfile ||
+            profile == EngineStateExceptionUnwindProfile {
             100
           } else {
             0
@@ -5334,13 +5466,15 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           allow_tables: uses_table,
           allow_mems: uses_memory,
           allow_globals: true,
-          allow_tags: profile == EngineStateExceptionsProfile,
+          allow_tags: profile == EngineStateExceptionsProfile ||
+          profile == EngineStateExceptionUnwindProfile,
           allow_start: true,
           allow_elems: uses_segments && uses_table,
           allow_datas: uses_segments && uses_memory,
           allow_ref_types: uses_table || gc,
           allow_v128: profile == EngineStateSimdProfile ||
-          profile == EngineStateMixedProfile,
+          profile == EngineStateMixedProfile ||
+          profile == EngineStateTypeCallMatrixProfile,
           allow_relaxed_simd: false,
           allow_calls: true,
           allow_call_indirect: profile == EngineStateCallsProfile ||
@@ -5349,8 +5483,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           profile == EngineStateTopologyProfile ||
           profile == EngineStateResourcesProfile ||
           profile == EngineStateIndirectTrapsProfile ||
-          profile == EngineStateTypedFunctionReferencesProfile,
-          allow_tail_calls: profile == EngineStateTailCallsProfile,
+          profile == EngineStateTypedFunctionReferencesProfile ||
+          profile == EngineStateTypeCallMatrixProfile ||
+          profile == EngineStateTableReferenceMatrixProfile ||
+          profile == EngineStateExceptionUnwindProfile,
+          allow_tail_calls: profile == EngineStateTailCallsProfile ||
+          profile == EngineStateTypeCallMatrixProfile ||
+          profile == EngineStateExceptionUnwindProfile,
           allow_branch_heavy_control: profile == EngineStateScalarControlProfile ||
           profile == EngineStateMixedProfile ||
           profile == EngineStateEffectsProfile ||
@@ -5359,13 +5498,18 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           profile == EngineStateEquivalentFamiliesProfile ||
           profile == EngineStateStackPressureProfile ||
           profile == EngineStateTrapPlacementProfile ||
-          profile == EngineStateExceptionsProfile,
+          profile == EngineStateExceptionsProfile ||
+          profile == EngineStateExceptionUnwindProfile ||
+          profile == EngineStateTrapCommitMatrixProfile ||
+          profile == EngineStateCompilerBoundariesProfile,
           allow_memory_limit_variants: profile ==
           EngineStateMultiResourceProfile,
           allow_table_limit_variants: false,
-          allow_const_expr_variants: profile == EngineStateInitializationProfile,
+          allow_const_expr_variants: profile == EngineStateInitializationProfile ||
+          profile == EngineStateInitializationGraphProfile,
           allow_shared_memories: false,
-          allow_memory64: profile == EngineStateMemory64Profile,
+          allow_memory64: profile == EngineStateMemory64Profile ||
+          profile == EngineStateMemory64MultiMemoryProfile,
           allow_atomics: false,
           allow_subtyping_topology: gc,
           allow_name_custom_sections: decoder_topology,

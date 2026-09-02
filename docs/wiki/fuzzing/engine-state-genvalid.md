@@ -24,7 +24,7 @@ related:
 
 ## Purpose
 
-The `engine-state-*` family generates compact deterministic Wasm test programs from the start driver outward. A case is credited only for behavior that the start driver reaches and executes and that becomes observable through the fixed host transcript or exported resource state. Static opcode presence remains available through ordinary `GenValidFeatureFacts`, but does not satisfy the engine-state execution facts in the nested manifest.
+The `engine-state-*` family generates compact deterministic Wasm test programs from the start driver outward. The invalid-module leaf starts from a valid AST and applies one controlled binary mutation after encoding. A case is credited only for behavior that the start driver reaches and executes and that becomes observable through the fixed host transcript or exported resource state. Static opcode presence remains available through ordinary `GenValidFeatureFacts`, but does not satisfy the engine-state execution facts in the nested manifest.
 
 The intended cross-engine contract is:
 
@@ -32,7 +32,7 @@ The intended cross-engine contract is:
 
 ## Profile family
 
-`engine-state-all` is a seed-rotated exact 80-case weighted cycle. Every contiguous 80 selected cases realizes the declared weights exactly, so every singleton leaf is present without probabilistic retry. The original 40 slots keep their prior weights. Forty new slots force module shapes that ordinary instruction sampling rarely reaches:
+`engine-state-all` is a seed-rotated exact 128-case weighted cycle. Every contiguous 128 selected cases realizes the declared weights exactly, so every singleton leaf is present without probabilistic retry. The original 80 slots keep their prior weights. Forty-eight new slots force module shapes that ordinary instruction sampling rarely reaches:
 
 | Leaf | Weight | Executed focus |
 |---|---:|---|
@@ -66,12 +66,25 @@ The intended cross-engine contract is:
 | `engine-state-memory64` | 1 | An i64-addressed memory64 load/store and `memory.size` result. |
 | `engine-state-exceptions` | 1 | `try_table`, `throw`, and an observed caught i32 payload. |
 | `engine-state-gc` | 1 | `struct.new` and `struct.get`, reduced to an observed i32 so no GC reference crosses the host boundary. |
+| `engine-state-link-graph` | 3 | A provider, zero to two re-export relays, and a consumer share one memory, table, and global identity. |
+| `engine-state-gc-graph` | 4 | A self-cycle, mutable array, i31 value, and dynamic `ref.test`, reduced to one scalar digest. |
+| `engine-state-initialization-graph` | 4 | Imported immutable globals, extended constant expressions, active segments, and consumed passive segments. |
+| `engine-state-exception-unwind` | 4 | State mutation before a caught throw routed through direct, indirect, `call_ref`, or tail calls. |
+| `engine-state-type-call-matrix` | 4 | Direct, indirect, `call_ref`, and tail calls with integer, float, SIMD, reference, and multi-value results. |
+| `engine-state-leb-index-boundaries` | 2 | Function index 128 and custom payload sizes 127, 128, 16,383, and 16,384. |
+| `engine-state-table-reference-matrix` | 4 | Seed-rotated funcref, externref, typed funcref, and table64 cases with bulk and growth operations. |
+| `engine-state-memory64-multi-memory` | 3 | One memory32 and one memory64 with independent address and result widths. |
+| `engine-state-trap-commit-matrix` | 4 | Imported state commits before division, memory, null-call, or unreachable traps. |
+| `engine-state-metamorphic-twins` | 4 | Two distinct module encodings compute and report the same seed-derived result. |
+| `engine-state-compiler-boundaries` | 4 | Seed-rotated function counts, local counts, and 16-deep structured control. |
+| `engine-state-nan` | 4 | NaN-producing arithmetic is reduced to stable classification, with exact signed-zero bits observed separately. |
+| `engine-state-invalid-module` | 4 | Valid AST generation followed by one strict invalid magic, version, truncation, or section-length byte mutation. |
 
 Aliases `engine-state` and `engine-state-all-profiles` resolve to the aggregate.
 
 ## Scenario diversity
 
-The scenario leaves select a forced semantic motif before they derive constants. Seed bits then rotate structural alternatives inside that motif: join operators and table targets for topology, operand order and branch effects for effects, copy order and block/if wrappers for resources, integer and float edge operations for boundaries, both overlap directions for memory aliasing, three indirect failures, four trap placements, three instantiation failures, and four equivalent arithmetic/control spellings for equivalence checks. Dedicated tests run forced seed slots without generator retry, which prevents invalid variants from silently biasing output back toward one accepted shape.
+The scenario leaves select a forced semantic motif before they derive constants. Seed bits then rotate structural alternatives inside that motif: join operators and table targets for topology, operand order and branch effects for effects, copy order and block/if wrappers for resources, integer and float edge operations for boundaries, both overlap directions for memory aliasing, three indirect failures, four trap placements, three instantiation failures, four equivalent arithmetic/control spellings, one to three support modules, four exception routes, four table kinds, four trap-commit classes, compiler thresholds, NaN operations, and four invalid binary mutations. Dedicated tests run forced seed slots without generator retry, which prevents invalid variants from silently biasing output back toward one accepted shape.
 
 The equivalent-family leaf compares canonical, alternate, and wrapper results inside the generated module. A disagreement reaches `unreachable`; a successful start therefore supplies an independent in-module relation in addition to the Node-versus-Railshot observation comparison.
 
@@ -110,17 +123,21 @@ The dedicated builders enforce:
 - a final marker `0x7fffffff` on successful leaves;
 - synthetic exports for every generated or imported memory, table, and global;
 - synthetic exports for potentially stored functions;
-- passive segments only in the passive lifecycle leaf, with both dropped before final observation;
+- passive segments only in the passive-lifecycle and initialization-graph leaves, with all dropped before final observation;
 - no recursion, shared memory, atomics, wait/notify, continuations, relaxed SIMD, or hidden surviving mutable resources;
-- GC objects stay internal and do not survive start; memory64, exceptions, tail calls, and typed function references occur only in their named capability leaves;
+- GC objects stay internal and do not survive start; proposal operations occur only in leaves that name or combine those capabilities;
 - bounded loops and explicit small resource maxima;
 - deterministic bytes for a profile/seed pair.
+
+The type/call and exception-unwind leaves intentionally combine proposal
+features. The aggregate still excludes shared memory, atomics, wait/notify,
+continuations, and relaxed SIMD.
 
 Generic GenValid metamorphic transforms are rejected for engine-state profiles. This prevents an unrelated transform from adding passive segments, hidden resources, or driver-irrelevant code while leaving the profile label unchanged.
 
 ## Success and trap separation
 
-The `engine-state-trap`, `engine-state-indirect-traps`, and `engine-state-trap-placement` leaves end in an intended runtime trap. `engine-state-instantiation-boundaries` ends before start with an intended instantiation failure. All other leaves complete normally and emit the completion marker. Any other outcome is a generator/profile failure.
+The `engine-state-trap`, `engine-state-indirect-traps`, `engine-state-trap-placement`, and `engine-state-trap-commit-matrix` leaves end in an intended runtime trap. `engine-state-instantiation-boundaries` ends before start with an intended instantiation failure. `engine-state-invalid-module` fails during compilation. All other leaves complete normally and emit the completion marker. Any other outcome is a generator/profile failure.
 
 `engine-state-trap` performs and observes three successful workload operations against host-owned imported state, emits pre-trap marker `0x70000000`, and then reaches exactly one frontier selected deterministically from the case seed:
 
@@ -143,10 +160,11 @@ Batch manifests now use top-level schema `starshine.gen-valid.batch.v2`. Every r
 - ordinary static `feature_facts`;
 - optional nested `engine_state` metadata.
 
-Engine-state records use `starshine.gen-valid.engine-state.v3` and include:
+Engine-state records use compatible schema `starshine.gen-valid.engine-state.v3`
+with profile version and generator build identity 4. They include:
 
 - profile version and generator build identity;
-- selected singleton leaf and intended `complete`, `runtime-trap`, or `instantiation-failure` outcome;
+- selected singleton leaf and intended `complete`, `runtime-trap`, `instantiation-failure`, or `compile-failure` outcome;
 - completion/pre-trap markers and intended trap family;
 - the exact fixed ABI and seed/channel derivation policy;
 - resource and synthetic-export maps, including aliases and imported-versus-defined origin;
@@ -155,19 +173,19 @@ Engine-state records use `starshine.gen-valid.engine-state.v3` and include:
 - enabled/disabled proposal policy;
 - actual static instruction count and hard budgets;
 - hidden-state restrictions;
-- strict-bit NaN policy and disabled relaxed-operation policy.
+- strict-bit NaN policy, or classification-plus-signed-zero policy for the NaN leaf, and disabled relaxed-operation policy.
 
-The top-level `acceptance_contract` records the required runtime floor keys. The generator self-checks deterministic leaf scheduling, singleton presence for aggregate batches of at least 80 cases, transform absence, and the 1,024-instruction hard limit before returning or writing a profile selection. Runtime executors remain responsible for floors that require execution evidence, including distinct state hashes, complete observations, and failure-family outcomes.
+The top-level `acceptance_contract` records the required runtime floor keys. The generator self-checks deterministic leaf scheduling, singleton presence for aggregate batches of at least 128 cases, transform absence, and the 4,096-instruction family hard limit before returning or writing a profile selection. Runtime executors remain responsible for floors that require execution evidence, including distinct state hashes, complete observations, failure-family outcomes, support-graph identity, and twin equivalence.
 
 ## Budgets
 
 The current identity uses:
 
-- 2–16 defined functions and at most 20 types;
-- at most 16 parameters, 8 results, and 64 locals per function;
-- body depth at most 5;
-- 1,024 static instructions and a declared 5,000 dynamic-instruction ceiling;
-- typical encoded size below 16 KiB and hard size at 128 KiB;
+- 1–140 defined functions and at most 20 types;
+- at most 16 parameters, 8 results, and 128 locals per function;
+- body depth at most 16;
+- 4,096 static instructions and a declared 5,000 dynamic-instruction ceiling;
+- typical encoded size below 16 KiB and hard size at 256 KiB;
 - at most two memories, with at most two initial pages;
 - at most two tables and a declared 32-entry observation cap;
 - at most 12 globals;
@@ -179,7 +197,9 @@ The current identity uses:
 
 `starshine.optimizer-runtime-observation.v2` now serializes explicit `compilation` and `instantiation` outcomes in addition to start/export steps, ordered import events, globals, full-memory hashes and chunk hashes, table relations, aliases, and completeness diagnostics. Compilation can be succeeded/failed/unknown; instantiation can be succeeded, trapped, failed, timed out, unknown, or not attempted.
 
-Node is the implemented executor in this repository. Railshot and Dragline are not present here; they should consume the same batch/engine-state schemas and emit the same runtime-observation value/resource vocabulary rather than introducing engine-specific object or pointer identities.
+Node is the reference executor in this repository. Wago/Railshot consumes the
+same FFI case and emits the same value and resource vocabulary without
+engine-specific object or pointer identities.
 
 ## Commands
 
@@ -190,18 +210,18 @@ ffi_bridge::generate_engine_state_case(root_seed: i64, case_index: i32)
   -> EncodedEngineStateCase
 ```
 
-The case index is one-based. The returned object exposes module bytes, optional support-module bytes, the exact derived case seed, selected singleton profile, generator attempts, static instruction count, outcome kind, failure-family metadata, and diagnostic bytes through scalar accessors. The support module is nonempty only for `engine-state-cross-instance`. This avoids passing MoonBit `String`, `Result`, `GenValidConfig`, or `Module` representations across the JavaScript boundary. Run `bun ffi build` before use; consumers load `dist/ffi/starshine-ffi.wasm` and pass the root seed as a JavaScript `BigInt`.
+The case index is one-based. The returned object exposes module bytes, zero or more ordered support-module byte arrays, an optional equivalent comparison module, the exact derived case seed, selected singleton profile, generator attempts, static instruction count, outcome kind, failure-family metadata, and diagnostic bytes through scalar accessors. Cross-instance uses one support module. Link-graph uses one to three. Metamorphic-twins supplies a comparison module. Invalid-module mutates its primary encoded bytes after the valid AST is encoded. This avoids passing MoonBit `String`, `Result`, `GenValidConfig`, or `Module` representations across the JavaScript boundary. Run `bun ffi build` before use; consumers load `dist/ffi/starshine-ffi.wasm` and pass the root seed as a JavaScript `BigInt`.
 
 Emit one exact aggregate cycle:
 
 ```text
 bun fuzz run --emit-gen-valid-batch \
-  --count 80 \
+  --count 128 \
   --seed 150937214 \
   --out-dir .tmp/engine-state \
   --manifest .tmp/engine-state/manifest.json \
   --gen-valid-profile engine-state-all \
-  --max-attempts 80
+  --max-attempts 128
 ```
 
 Validate emitted modules independently:

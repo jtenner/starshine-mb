@@ -5448,7 +5448,7 @@ fn gen_valid_engine_state_selection_contract_error(
         "engine-state selection emitted transformed case at index \{i + 1}",
       )
     }
-    if item.static_instruction_count > 1024 {
+    if item.static_instruction_count > 4096 {
       return Some(
         "engine-state selection exceeded static instruction budget at index \{i + 1}: \{item.static_instruction_count}",
       )
@@ -5463,7 +5463,7 @@ fn gen_valid_engine_state_selection_contract_error(
     }
     i += 1
   }
-  if profile_name == "engine-state-all" && manifest.length() >= 80 {
+  if profile_name == "engine-state-all" && manifest.length() >= 128 {
     for entry in @validate.gen_valid_profile_members(profile) {
       let expected_name = gen_valid_profile_name(entry.profile)
       if !manifest.any(fn(item) { item.selected_profile == expected_name }) {
@@ -5543,6 +5543,28 @@ fn format_gen_valid_engine_state_observation_map(profile : String) -> String {
       "[{\"id\":290,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
     "engine-state-gc" =>
       "[{\"id\":300,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-link-graph" =>
+      "[{\"id\":280,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":281,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-initialization-graph" =>
+      "[{\"id\":310,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"global.get\"},{\"id\":311,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"global.get\"},{\"id\":312,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"global.get\"},{\"id\":313,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"memory.load\"},{\"id\":314,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-exception-unwind" =>
+      "[{\"id\":320,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":321,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"global.get\"}]"
+    "engine-state-metamorphic-twins" =>
+      "[{\"id\":330,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-gc-graph" =>
+      "[{\"id\":350,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-type-call-matrix" =>
+      "[{\"id\":366,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":376,\"function_index\":6,\"result_index\":1,\"wasm_type\":\"i64\",\"encoding\":\"observe_i64\"},{\"id\":367,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":377,\"function_index\":7,\"result_index\":1,\"wasm_type\":\"i64\",\"encoding\":\"observe_i64\"},{\"id\":368,\"function_index\":8,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":378,\"function_index\":8,\"result_index\":1,\"wasm_type\":\"i64\",\"encoding\":\"observe_i64\"},{\"id\":369,\"function_index\":9,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":379,\"function_index\":9,\"result_index\":1,\"wasm_type\":\"i64\",\"encoding\":\"observe_i64\"},{\"id\":380,\"function_index\":10,\"result_index\":0,\"wasm_type\":\"f32\",\"encoding\":\"i32.reinterpret_f32\"},{\"id\":381,\"function_index\":11,\"result_index\":0,\"wasm_type\":\"f64\",\"encoding\":\"i64.reinterpret_f64\"},{\"id\":382,\"function_index\":12,\"result_index\":0,\"wasm_type\":\"v128\",\"encoding\":\"i32x4.extract_lane\"},{\"id\":383,\"function_index\":13,\"result_index\":0,\"wasm_type\":\"funcref\",\"encoding\":\"ref.is_null\"}]"
+    "engine-state-leb-index-boundaries" =>
+      "[{\"id\":390,\"function_index\":128,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-table-reference-matrix" =>
+      "[{\"id\":400,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"funcref\",\"encoding\":\"table.get/ref.is_null\"},{\"id\":401,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"table.grow\"},{\"id\":402,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"table.size\"},{\"id\":403,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"typed-funcref\",\"encoding\":\"table.get/ref.is_null\"},{\"id\":404,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"funcref\",\"encoding\":\"table64.get/ref.is_null\"},{\"id\":405,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i64\",\"encoding\":\"table64.size\"},{\"id\":406,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-memory64-multi-memory" =>
+      "[{\"id\":410,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":411,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i64\",\"encoding\":\"memory64.load\"},{\"id\":412,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"memory.size\"},{\"id\":413,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i64\",\"encoding\":\"memory64.size\"}]"
+    "engine-state-compiler-boundaries" =>
+      "[{\"id\":420,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":421,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-nan" =>
+      "[{\"id\":430,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"f32\",\"encoding\":\"is_nan\"},{\"id\":431,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"f64\",\"encoding\":\"is_nan\"},{\"id\":432,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"f32\",\"encoding\":\"signed_zero_bits\"}]"
     _ => "[]"
   }
 }
@@ -5651,6 +5673,50 @@ fn gen_valid_engine_state_feature_labels(profile : String) -> Array[String] {
       ["memory64", "i64-address", "memory64-load-store"]
     "engine-state-exceptions" => ["try-table", "throw", "caught-payload"]
     "engine-state-gc" => ["struct-new", "struct-get", "observed-gc-scalar"]
+    "engine-state-link-graph" =>
+      ["multi-module-link-graph", "relay-reexport", "shared-resource-identity"]
+    "engine-state-gc-graph" =>
+      ["cyclic-struct", "mutable-array", "i31ref", "dynamic-ref-test"]
+    "engine-state-initialization-graph" =>
+      [
+        "extended-const-expression", "imported-immutable-global", "active-segment-initialization",
+        "passive-segment-lifecycle",
+      ]
+    "engine-state-exception-unwind" =>
+      [
+        "try-table", "throw", "direct-call", "indirect-call", "call-ref", "tail-call",
+        "state-before-unwind",
+      ]
+    "engine-state-type-call-matrix" =>
+      [
+        "direct-call", "indirect-call", "call-ref", "tail-call", "multi-value-call",
+        "scalar-result-types", "simd-result", "reference-result",
+      ]
+    "engine-state-leb-index-boundaries" =>
+      ["function-index-128", "leb-size-boundaries", "large-custom-sections"]
+    "engine-state-table-reference-matrix" =>
+      [
+        "funcref-table", "externref-table", "typed-funcref-table", "table64", "table-fill",
+        "table-copy", "table-growth",
+      ]
+    "engine-state-memory64-multi-memory" =>
+      ["multi-memory", "memory32", "memory64", "mixed-address-widths"]
+    "engine-state-trap-commit-matrix" =>
+      [
+        "committed-state-prefix", "multiple-trap-families", "imported-resource-mutation",
+      ]
+    "engine-state-metamorphic-twins" =>
+      [
+        "equivalent-module-pair", "independent-encoding", "cross-engine-equivalence",
+      ]
+    "engine-state-compiler-boundaries" =>
+      ["function-count-thresholds", "local-count-thresholds", "deep-control"]
+    "engine-state-nan" =>
+      ["nan-classification", "nan-arithmetic", "signed-zero"]
+    "engine-state-invalid-module" =>
+      [
+        "invalid-magic", "invalid-version", "truncated-binary", "malformed-section-length",
+      ]
     _ => []
   }
 }
@@ -5710,6 +5776,18 @@ fn format_gen_valid_engine_state_resource_map(profile : String) -> String {
       "[{\"kind\":\"global\",\"index\":0,\"origin\":\"support-module\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"support-module\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"support-module\",\"exports\":[\"__fuzz_table_0\"]}]"
     "engine-state-resource-exhaustion" =>
       "[{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-link-graph" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"support-graph\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"support-graph\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"support-graph\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-initialization-graph" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"global\",\"index\":1,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_1\"]},{\"kind\":\"global\",\"index\":2,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_2\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-exception-unwind" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-type-call-matrix" | "engine-state-table-reference-matrix" =>
+      "[{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-memory64-multi-memory" =>
+      "[{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"memory\",\"index\":1,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_1\"]}]"
+    "engine-state-trap-commit-matrix" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_table_0\"]}]"
     _ => "[]"
   }
 }
@@ -5746,12 +5824,36 @@ fn format_gen_valid_engine_state_manifest_entry(
   let resources = format_gen_valid_engine_state_resource_map(
     item.selected_profile,
   )
+  let requires_support = item.selected_profile == "engine-state-cross-instance" ||
+    item.selected_profile == "engine-state-link-graph"
+  let multi_memory = item.selected_profile == "engine-state-multi-resource" ||
+    item.selected_profile == "engine-state-memory64-multi-memory"
+  let simd = item.selected_profile == "engine-state-simd" ||
+    item.selected_profile == "engine-state-mixed" ||
+    item.selected_profile == "engine-state-type-call-matrix"
+  let tail_calls = item.selected_profile == "engine-state-tail-calls" ||
+    item.selected_profile == "engine-state-type-call-matrix" ||
+    item.selected_profile == "engine-state-exception-unwind"
+  let exceptions = item.selected_profile == "engine-state-exceptions" ||
+    item.selected_profile == "engine-state-exception-unwind"
+  let gc = item.selected_profile == "engine-state-gc" ||
+    item.selected_profile == "engine-state-gc-graph"
+  let memory64 = item.selected_profile == "engine-state-memory64" ||
+    item.selected_profile == "engine-state-memory64-multi-memory"
+  let passive_segments = item.selected_profile ==
+    "engine-state-passive-segments" ||
+    item.selected_profile == "engine-state-initialization-graph"
+  let nan_policy = if item.selected_profile == "engine-state-nan" {
+    "classification-and-signed-zero"
+  } else {
+    "strict-bits"
+  }
   let out = StringBuilder::new()
   out.write_string(
-    "{\"engine_state_schema\":\"starshine.gen-valid.engine-state.v3\",\"profile_version\":3,\"generator_build_identity\":\"starshine-gen-valid-engine-state-v3\",\"root_seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"case_index\":\{item.index},\"selected_leaf\":\"\{fuzz_json_escape(item.selected_profile)}\",\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\"",
+    "{\"engine_state_schema\":\"starshine.gen-valid.engine-state.v3\",\"profile_version\":4,\"generator_build_identity\":\"starshine-gen-valid-engine-state-v4\",\"root_seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"case_index\":\{item.index},\"selected_leaf\":\"\{fuzz_json_escape(item.selected_profile)}\",\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\"",
   )
   out.write_string(
-    ",\"intended_outcome\":\"\{outcome}\",\"trap_class\":\{trap_class},\"trap_observation_contract\":\{trap_contract},\"completion_marker\":\{completion_marker},\"pre_trap_marker\":\{pre_trap_marker},\"requires_support_module\":\{item.selected_profile == "engine-state-cross-instance"}",
+    ",\"intended_outcome\":\"\{outcome}\",\"trap_class\":\{trap_class},\"trap_observation_contract\":\{trap_contract},\"completion_marker\":\{completion_marker},\"pre_trap_marker\":\{pre_trap_marker},\"requires_support_module\":\{requires_support}",
   )
   out.write_string(
     ",\"fuzz_abi\":{\"module\":\"__fuzz\",\"input_i32\":\"(i32)->i32\",\"input_i64\":\"(i32)->i64\",\"mark\":\"(i32)->()\",\"observe_i32\":\"(i32,i32)->()\",\"observe_i64\":\"(i32,i64)->()\",\"input_derivation\":\"splitmix64(case_seed,channel)\"}",
@@ -5760,13 +5862,13 @@ fn format_gen_valid_engine_state_manifest_entry(
     ",\"resource_map\":\{resources},\"synthetic_export_map\":\{resources},\"observation_map\":\{format_gen_valid_engine_state_observation_map(item.selected_profile)},\"reachable_feature_facts\":\{format_gen_valid_engine_state_execution_facts(item.selected_profile)}",
   )
   out.write_string(
-    ",\"feature_toggles\":{\"scalar\":true,\"structured_control\":true,\"direct_calls\":true,\"multiple_results\":true,\"bulk_memory\":true,\"multi_memory\":\{item.selected_profile == "engine-state-multi-resource"},\"reference_types\":true,\"simd\":\{item.selected_profile == "engine-state-simd" || item.selected_profile == "engine-state-mixed"},\"relaxed_simd\":false,\"tail_calls\":\{item.selected_profile == "engine-state-tail-calls"},\"exceptions\":\{item.selected_profile == "engine-state-exceptions"},\"gc\":\{item.selected_profile == "engine-state-gc"},\"shared_memory\":false,\"atomics\":false,\"memory64\":\{item.selected_profile == "engine-state-memory64"}}",
+    ",\"feature_toggles\":{\"scalar\":true,\"structured_control\":true,\"direct_calls\":true,\"multiple_results\":true,\"bulk_memory\":true,\"multi_memory\":\{multi_memory},\"reference_types\":true,\"simd\":\{simd},\"relaxed_simd\":false,\"tail_calls\":\{tail_calls},\"exceptions\":\{exceptions},\"gc\":\{gc},\"shared_memory\":false,\"atomics\":false,\"memory64\":\{memory64}}",
   )
   out.write_string(
-    ",\"static_instruction_count\":\{item.static_instruction_count},\"budgets\":{\"defined_functions_min\":2,\"defined_functions_max\":16,\"types_max\":20,\"params_max\":16,\"results_max\":8,\"locals_max\":64,\"body_depth_max\":5,\"static_instruction_limit\":1024,\"dynamic_instruction_limit\":5000,\"encoded_size_typical\":16384,\"encoded_size_limit\":131072,\"initial_memory_pages_typical\":1,\"initial_memory_pages_limit\":2,\"table_entries_limit\":32,\"globals_limit\":12,\"segment_payload_limit\":4096,\"loop_trip_limit\":16}",
+    ",\"static_instruction_count\":\{item.static_instruction_count},\"budgets\":{\"defined_functions_min\":1,\"defined_functions_max\":140,\"types_max\":20,\"params_max\":16,\"results_max\":8,\"locals_max\":128,\"body_depth_max\":16,\"static_instruction_limit\":4096,\"dynamic_instruction_limit\":5000,\"encoded_size_typical\":16384,\"encoded_size_limit\":262144,\"initial_memory_pages_typical\":1,\"initial_memory_pages_limit\":2,\"table_entries_limit\":32,\"globals_limit\":12,\"segment_payload_limit\":4096,\"loop_trip_limit\":16}",
   )
   out.write_string(
-    ",\"hidden_state_policy\":{\"passive_data\":\{item.selected_profile == "engine-state-passive-segments"},\"passive_elements\":\{item.selected_profile == "engine-state-passive-segments"},\"passive_segments_dropped_before_observation\":\{item.selected_profile == "engine-state-passive-segments"},\"unexported_mutable_resources\":false,\"gc_objects_survive_start\":false,\"continuations\":false,\"shared_memory\":false,\"wait_notify\":false,\"nondeterministic_host_references\":false},\"nan_policy\":\"strict-bits\",\"relaxed_operation_policy\":\"disabled\"}",
+    ",\"hidden_state_policy\":{\"passive_data\":\{passive_segments},\"passive_elements\":\{passive_segments},\"passive_segments_dropped_before_observation\":\{passive_segments},\"unexported_mutable_resources\":false,\"gc_objects_survive_start\":false,\"continuations\":false,\"shared_memory\":false,\"wait_notify\":false,\"nondeterministic_host_references\":false},\"nan_policy\":\"\{nan_policy}\",\"relaxed_operation_policy\":\"disabled\"}",
   )
   out.to_string()
 }
@@ -5778,7 +5880,7 @@ fn format_gen_valid_batch_manifest_json(
 ) -> String {
   let out = StringBuilder::new()
   let acceptance_contract = if args.profile.starts_with("engine-state-") {
-    "{\"generation_floor_status\":\"met\",\"weighted_cycle_cases\":80,\"runtime_floor_keys\":[\"successful_starts\",\"intended_traps_by_family\",\"instantiation_failures_by_family\",\"distinct_state_hashes\",\"scalar_result_types\",\"multi_value_calls\",\"direct_calls\",\"indirect_calls\",\"taken_and_untaken_branches\",\"bounded_loop_execution\",\"deep_call_chains\",\"call_diamonds\",\"ordered_effects\",\"global_mutations\",\"memory_mutations\",\"table_mutations\",\"memory_growth\",\"table_growth\",\"memory_copy\",\"table_copy\",\"passive_segment_lifecycle\",\"multi_memory\",\"multi_table\",\"stack_pressure\",\"memory_aliasing\",\"cross_instance_resources\",\"resource_exhaustion\",\"decoder_topology\",\"tail_calls\",\"typed_function_references\",\"memory64\",\"exceptions\",\"gc\",\"import_calls\",\"imported_return_values\",\"active_data_initialization\",\"active_element_initialization\",\"overlapping_segments\",\"integer_boundaries\",\"float_bit_boundaries\",\"unaligned_memory\",\"exact_memory_end\",\"optimizer_shapes\",\"equivalent_family_self_checks\",\"simd_results\",\"post_effect_traps\",\"complete_observations\",\"every_singleton_leaf\"]}"
+    "{\"generation_floor_status\":\"met\",\"weighted_cycle_cases\":128,\"runtime_floor_keys\":[\"successful_starts\",\"intended_traps_by_family\",\"instantiation_failures_by_family\",\"compile_failures_by_family\",\"distinct_state_hashes\",\"scalar_result_types\",\"multi_value_calls\",\"direct_calls\",\"indirect_calls\",\"call_ref\",\"taken_and_untaken_branches\",\"bounded_loop_execution\",\"deep_call_chains\",\"call_diamonds\",\"ordered_effects\",\"global_mutations\",\"memory_mutations\",\"table_mutations\",\"memory_growth\",\"table_growth\",\"memory_copy\",\"table_copy\",\"passive_segment_lifecycle\",\"initialization_graphs\",\"multi_memory\",\"multi_table\",\"stack_pressure\",\"memory_aliasing\",\"link_graphs\",\"cross_instance_resources\",\"resource_exhaustion\",\"decoder_topology\",\"leb_index_boundaries\",\"tail_calls\",\"typed_function_references\",\"table_reference_matrix\",\"memory64\",\"exceptions\",\"exception_unwind\",\"gc\",\"gc_graphs\",\"compiler_boundaries\",\"metamorphic_twins\",\"nan_classification\",\"import_calls\",\"imported_return_values\",\"active_data_initialization\",\"active_element_initialization\",\"overlapping_segments\",\"integer_boundaries\",\"float_bit_boundaries\",\"unaligned_memory\",\"exact_memory_end\",\"optimizer_shapes\",\"equivalent_family_self_checks\",\"simd_results\",\"post_effect_traps\",\"complete_observations\",\"every_singleton_leaf\"]}"
   } else {
     "null"
   }

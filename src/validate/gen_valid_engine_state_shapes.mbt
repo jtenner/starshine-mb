@@ -668,8 +668,10 @@ pub fn gen_valid_engine_state_outcome(profile : GenValidProfile) -> String {
   match profile {
     EngineStateTrapProfile
     | EngineStateIndirectTrapsProfile
-    | EngineStateTrapPlacementProfile => "runtime-trap"
+    | EngineStateTrapPlacementProfile
+    | EngineStateTrapCommitMatrixProfile => "runtime-trap"
     EngineStateInstantiationBoundariesProfile => "instantiation-failure"
+    EngineStateInvalidModuleProfile => "compile-failure"
     _ => "complete"
   }
 }
@@ -686,6 +688,10 @@ pub fn gen_valid_engine_state_failure_family(
       gen_valid_engine_state_indirect_trap_family(seed)
     EngineStateInstantiationBoundariesProfile =>
       gen_valid_engine_state_instantiation_failure_family(seed)
+    EngineStateTrapCommitMatrixProfile =>
+      gen_valid_engine_state_trap_commit_family(seed)
+    EngineStateInvalidModuleProfile =>
+      gen_valid_engine_state_invalid_module_family(seed)
     _ => ""
   }
 }

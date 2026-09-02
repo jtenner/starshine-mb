@@ -79,11 +79,19 @@ pub fn gen_valid_engine_state_indirect_trap_family(UInt64) -> String
 
 pub fn gen_valid_engine_state_instantiation_failure_family(UInt64) -> String
 
+pub fn gen_valid_engine_state_invalid_module_family(UInt64) -> String
+
+pub fn gen_valid_engine_state_link_graph_support_modules(UInt64) -> Array[@lib.Module]
+
+pub fn gen_valid_engine_state_metamorphic_comparison_module(UInt64) -> @lib.Module
+
 pub fn gen_valid_engine_state_outcome(GenValidProfile) -> String
 
 pub fn gen_valid_engine_state_profile() -> GenValidProfile
 
 pub fn gen_valid_engine_state_static_instruction_count(@lib.Module) -> Int
+
+pub fn gen_valid_engine_state_trap_commit_family(UInt64) -> String
 
 pub fn gen_valid_engine_state_trap_family(UInt64) -> String
 
@@ -1295,6 +1303,19 @@ pub enum GenValidProfile {
   EngineStateMemory64Profile
   EngineStateExceptionsProfile
   EngineStateGcProfile
+  EngineStateLinkGraphProfile
+  EngineStateGcGraphProfile
+  EngineStateInitializationGraphProfile
+  EngineStateExceptionUnwindProfile
+  EngineStateTypeCallMatrixProfile
+  EngineStateLebIndexBoundariesProfile
+  EngineStateTableReferenceMatrixProfile
+  EngineStateMemory64MultiMemoryProfile
+  EngineStateTrapCommitMatrixProfile
+  EngineStateMetamorphicTwinsProfile
+  EngineStateCompilerBoundariesProfile
+  EngineStateNanProfile
+  EngineStateInvalidModuleProfile
   EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile

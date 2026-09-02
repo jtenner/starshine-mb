@@ -47,6 +47,39 @@ test "engine-state GenValid profile family resolves stable singleton names and w
     (EngineStateMemory64Profile, "engine-state-memory64", 1),
     (EngineStateExceptionsProfile, "engine-state-exceptions", 1),
     (EngineStateGcProfile, "engine-state-gc", 1),
+    (EngineStateLinkGraphProfile, "engine-state-link-graph", 3),
+    (EngineStateGcGraphProfile, "engine-state-gc-graph", 4),
+    (
+      EngineStateInitializationGraphProfile,
+      "engine-state-initialization-graph",
+      4,
+    ),
+    (EngineStateExceptionUnwindProfile, "engine-state-exception-unwind", 4),
+    (EngineStateTypeCallMatrixProfile, "engine-state-type-call-matrix", 4),
+    (
+      EngineStateLebIndexBoundariesProfile,
+      "engine-state-leb-index-boundaries",
+      2,
+    ),
+    (
+      EngineStateTableReferenceMatrixProfile,
+      "engine-state-table-reference-matrix",
+      4,
+    ),
+    (
+      EngineStateMemory64MultiMemoryProfile,
+      "engine-state-memory64-multi-memory",
+      3,
+    ),
+    (EngineStateTrapCommitMatrixProfile, "engine-state-trap-commit-matrix", 4),
+    (EngineStateMetamorphicTwinsProfile, "engine-state-metamorphic-twins", 4),
+    (
+      EngineStateCompilerBoundariesProfile,
+      "engine-state-compiler-boundaries",
+      4,
+    ),
+    (EngineStateNanProfile, "engine-state-nan", 4),
+    (EngineStateInvalidModuleProfile, "engine-state-invalid-module", 4),
   ]
   for item in expected {
     let (profile, name, _) = item
@@ -74,7 +107,7 @@ test "engine-state GenValid profile family resolves stable singleton names and w
 }
 
 ///|
-test "engine-state aggregate realizes one exact weighted cycle every eighty cases" {
+test "engine-state aggregate realizes one exact weighted cycle every 128 cases" {
   let expected = [
     (EngineStateScalarControlProfile, 3),
     (EngineStateCallsProfile, 2),
@@ -106,11 +139,24 @@ test "engine-state aggregate realizes one exact weighted cycle every eighty case
     (EngineStateMemory64Profile, 1),
     (EngineStateExceptionsProfile, 1),
     (EngineStateGcProfile, 1),
+    (EngineStateLinkGraphProfile, 3),
+    (EngineStateGcGraphProfile, 4),
+    (EngineStateInitializationGraphProfile, 4),
+    (EngineStateExceptionUnwindProfile, 4),
+    (EngineStateTypeCallMatrixProfile, 4),
+    (EngineStateLebIndexBoundariesProfile, 2),
+    (EngineStateTableReferenceMatrixProfile, 4),
+    (EngineStateMemory64MultiMemoryProfile, 3),
+    (EngineStateTrapCommitMatrixProfile, 4),
+    (EngineStateMetamorphicTwinsProfile, 4),
+    (EngineStateCompilerBoundariesProfile, 4),
+    (EngineStateNanProfile, 4),
+    (EngineStateInvalidModuleProfile, 4),
   ]
   for item in expected {
     let (profile, wanted) = item
     let mut actual = 0
-    for index in 1..<=80 {
+    for index in 1..<=128 {
       if gen_valid_profile_leaf_for_case(EngineStateAllProfile, 0xA11UL, index) ==
         profile {
         actual += 1
@@ -154,40 +200,61 @@ test "engine-state singleton configs enforce compact deterministic hard budgets"
       EngineStateMemory64Profile,
       EngineStateExceptionsProfile,
       EngineStateGcProfile,
+      EngineStateLinkGraphProfile,
+      EngineStateGcGraphProfile,
+      EngineStateInitializationGraphProfile,
+      EngineStateExceptionUnwindProfile,
+      EngineStateTypeCallMatrixProfile,
+      EngineStateLebIndexBoundariesProfile,
+      EngineStateTableReferenceMatrixProfile,
+      EngineStateMemory64MultiMemoryProfile,
+      EngineStateTrapCommitMatrixProfile,
+      EngineStateMetamorphicTwinsProfile,
+      EngineStateCompilerBoundariesProfile,
+      EngineStateNanProfile,
+      EngineStateInvalidModuleProfile,
     ] {
     let config = GenValidConfig::for_profile(profile)
-    assert_true(config.max_defined_funcs >= 4 && config.max_defined_funcs <= 16)
+    assert_true(
+      config.max_defined_funcs >= 4 && config.max_defined_funcs <= 140,
+    )
     assert_true(config.max_type_defs <= 20)
     assert_true(config.max_params <= 16)
     assert_true(config.max_results <= 8)
-    assert_true(config.max_locals <= 64)
-    assert_true(config.max_body_depth <= 5)
+    assert_true(config.max_locals <= 128)
+    assert_true(config.max_body_depth <= 16)
     assert_true(
       config.max_instruction_count_budget == Some(512) ||
-      config.max_instruction_count_budget == Some(1024),
+      config.max_instruction_count_budget == Some(1024) ||
+      config.max_instruction_count_budget == Some(4096),
     )
     assert_true(
       config.max_module_byte_size_budget == Some(65536) ||
-      config.max_module_byte_size_budget == Some(131072),
+      config.max_module_byte_size_budget == Some(131072) ||
+      config.max_module_byte_size_budget == Some(262144),
     )
     assert_false(config.features.allow_relaxed_simd)
     assert_false(config.features.allow_shared_memories)
     assert_false(config.features.allow_atomics)
     @debug.assert_eq(
       config.features.allow_memory64,
-      profile == EngineStateMemory64Profile,
+      profile == EngineStateMemory64Profile ||
+      profile == EngineStateMemory64MultiMemoryProfile,
     )
     @debug.assert_eq(
       gen_valid_proposal_feature_enabled(config.features, GcFeature),
-      profile == EngineStateGcProfile,
+      profile == EngineStateGcProfile || profile == EngineStateGcGraphProfile,
     )
     @debug.assert_eq(
       gen_valid_proposal_feature_enabled(config.features, TailCallsFeature),
-      profile == EngineStateTailCallsProfile,
+      profile == EngineStateTailCallsProfile ||
+      profile == EngineStateTypeCallMatrixProfile ||
+      profile == EngineStateExceptionUnwindProfile,
     )
     @debug.assert_eq(
       gen_valid_proposal_feature_enabled(config.features, ExceptionsFeature),
-      profile == EngineStateExceptionsProfile,
+      profile == EngineStateExceptionsProfile ||
+      profile == EngineStateExceptionUnwindProfile,
     )
   }
 }
@@ -413,6 +480,17 @@ test "engine-state success leaves emit deterministic driven observable modules" 
     EngineStateMemory64Profile,
     EngineStateExceptionsProfile,
     EngineStateGcProfile,
+    EngineStateLinkGraphProfile,
+    EngineStateGcGraphProfile,
+    EngineStateInitializationGraphProfile,
+    EngineStateExceptionUnwindProfile,
+    EngineStateTypeCallMatrixProfile,
+    EngineStateLebIndexBoundariesProfile,
+    EngineStateTableReferenceMatrixProfile,
+    EngineStateMemory64MultiMemoryProfile,
+    EngineStateMetamorphicTwinsProfile,
+    EngineStateCompilerBoundariesProfile,
+    EngineStateNanProfile,
   ]
   for profile in profiles {
     let first = engine_state_test_generate(profile, 0xE651A7EUL)
@@ -431,6 +509,7 @@ test "engine-state success leaves emit deterministic driven observable modules" 
     )
     assert_true(
       engine_state_test_has_reachable_workload_call(first.wasm_module),
+      msg=gen_valid_profile_name(profile),
     )
     assert_true(
       engine_state_test_has_adjacent_mark(
@@ -439,7 +518,8 @@ test "engine-state success leaves emit deterministic driven observable modules" 
       ),
       msg="successful engine-state start must emit completion marker",
     )
-    if profile == EngineStatePassiveSegmentsProfile {
+    if profile == EngineStatePassiveSegmentsProfile ||
+      profile == EngineStateInitializationGraphProfile {
       assert_false(engine_state_test_all_segments_active(first.wasm_module))
     } else {
       assert_true(engine_state_test_all_segments_active(first.wasm_module))
@@ -497,9 +577,22 @@ test "engine-state new shape leaves generate valid deterministic binaries" {
     EngineStateMemory64Profile,
     EngineStateExceptionsProfile,
     EngineStateGcProfile,
+    EngineStateLinkGraphProfile,
+    EngineStateGcGraphProfile,
+    EngineStateInitializationGraphProfile,
+    EngineStateExceptionUnwindProfile,
+    EngineStateTypeCallMatrixProfile,
+    EngineStateLebIndexBoundariesProfile,
+    EngineStateTableReferenceMatrixProfile,
+    EngineStateMemory64MultiMemoryProfile,
+    EngineStateTrapCommitMatrixProfile,
+    EngineStateMetamorphicTwinsProfile,
+    EngineStateCompilerBoundariesProfile,
+    EngineStateNanProfile,
+    EngineStateInvalidModuleProfile,
   ]
   for profile in profiles {
-    for seed in [0UL, 1UL, 0xE651A7EUL] {
+    for seed in [0UL, 1UL, 2UL, 3UL, 0xE651A7EUL] {
       let generated = engine_state_test_generate(profile, seed)
       @debug.assert_eq(generated.attempts, 1)
       match validate_module(generated.wasm_module) {
@@ -510,7 +603,7 @@ test "engine-state new shape leaves generate valid deterministic binaries" {
           )
       }
       match @binary.encode_module(generated.wasm_module) {
-        Ok(bytes) => assert_true(bytes.length() <= 131072)
+        Ok(bytes) => assert_true(bytes.length() <= 262144)
         Err(err) => fail("{err}")
       }
     }
@@ -573,6 +666,7 @@ test "engine-state failure leaves are valid modules with no completion marker" {
       EngineStateInstantiationBoundariesProfile,
       EngineStateIndirectTrapsProfile,
       EngineStateTrapPlacementProfile,
+      EngineStateTrapCommitMatrixProfile,
     ] {
     for seed in 0UL..<12UL {
       let generated = engine_state_test_generate(profile, seed)
