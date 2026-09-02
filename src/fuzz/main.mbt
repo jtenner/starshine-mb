@@ -5448,7 +5448,7 @@ fn gen_valid_engine_state_selection_contract_error(
         "engine-state selection emitted transformed case at index \{i + 1}",
       )
     }
-    if item.static_instruction_count > 512 {
+    if item.static_instruction_count > 1024 {
       return Some(
         "engine-state selection exceeded static instruction budget at index \{i + 1}: \{item.static_instruction_count}",
       )
@@ -5463,7 +5463,7 @@ fn gen_valid_engine_state_selection_contract_error(
     }
     i += 1
   }
-  if profile_name == "engine-state-all" && manifest.length() >= 40 {
+  if profile_name == "engine-state-all" && manifest.length() >= 80 {
     for entry in @validate.gen_valid_profile_members(profile) {
       let expected_name = gen_valid_profile_name(entry.profile)
       if !manifest.any(fn(item) { item.selected_profile == expected_name }) {
@@ -5514,6 +5514,35 @@ fn format_gen_valid_engine_state_observation_map(profile : String) -> String {
       "[{\"id\":130,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":131,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":132,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
     "engine-state-equivalent-families" =>
       "[{\"id\":140,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":141,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":142,\"function_index\":8,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-passive-segments" =>
+      "[{\"id\":150,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"memory.load\"},{\"id\":151,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":152,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-multi-resource" =>
+      "[{\"id\":160,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":161,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-stack-pressure" =>
+      "[{\"id\":170,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":171,\"function_index\":7,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-memory-aliasing" =>
+      "[{\"id\":180,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-resource-exhaustion" =>
+      "[{\"id\":190,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":191,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-decoder-topology" =>
+      "[{\"id\":200,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":210,\"function_index\":15,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-tail-calls" =>
+      "[{\"id\":220,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-typed-function-references" =>
+      "[{\"id\":230,\"function_index\":6,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-memory64" =>
+      "[{\"id\":240,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i64\",\"encoding\":\"observe_i64\"},{\"id\":241,\"function_index\":null,\"result_index\":0,\"wasm_type\":\"i64\",\"encoding\":\"memory.size\"}]"
+    "engine-state-indirect-traps" =>
+      "[{\"id\":250,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-trap-placement" =>
+      "[{\"id\":260,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-instantiation-boundaries" => "[]"
+    "engine-state-cross-instance" =>
+      "[{\"id\":280,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"},{\"id\":281,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-exceptions" =>
+      "[{\"id\":290,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
+    "engine-state-gc" =>
+      "[{\"id\":300,\"function_index\":5,\"result_index\":0,\"wasm_type\":\"i32\",\"encoding\":\"observe_i32\"}]"
     _ => "[]"
   }
 }
@@ -5578,6 +5607,50 @@ fn gen_valid_engine_state_feature_labels(profile : String) -> Array[String] {
       [
         "equivalent-arithmetic", "equivalent-control", "wrapper-equivalence", "self-checking-result",
       ]
+    "engine-state-passive-segments" =>
+      ["memory-init", "data-drop", "table-init", "elem-drop", "indirect-call"]
+    "engine-state-instantiation-boundaries" =>
+      ["active-segment-bounds", "import-limit-matching", "pre-start-failure"]
+    "engine-state-multi-resource" =>
+      [
+        "multi-memory", "multi-table", "cross-memory-copy", "independent-growth",
+        "table-copy",
+      ]
+    "engine-state-stack-pressure" =>
+      [
+        "wide-signature", "eight-results", "deep-operand-stack", "result-reduction",
+      ]
+    "engine-state-memory-aliasing" =>
+      [
+        "overlapping-memory-copy", "unaligned-memory", "mixed-width-memory", "sign-extension",
+      ]
+    "engine-state-indirect-traps" =>
+      [
+        "null-indirect-call", "signature-mismatch", "table-mutation-before-dispatch",
+        "observable-prefix",
+      ]
+    "engine-state-trap-placement" =>
+      [
+        "nested-trap", "trap-in-block", "trap-in-loop", "trap-after-committed-effect",
+      ]
+    "engine-state-cross-instance" =>
+      [
+        "wasm-to-wasm-import", "shared-memory", "shared-table", "shared-global",
+        "consumer-start",
+      ]
+    "engine-state-resource-exhaustion" =>
+      ["failed-memory-grow", "failed-table-grow", "bounded-resource-limit"]
+    "engine-state-decoder-topology" =>
+      [
+        "many-small-functions", "custom-sections", "leb-size-boundaries", "long-custom-name",
+      ]
+    "engine-state-tail-calls" => ["tail-call", "observed-tail-result"]
+    "engine-state-typed-function-references" =>
+      ["typed-function-reference", "call-ref", "observed-call-ref-result"]
+    "engine-state-memory64" =>
+      ["memory64", "i64-address", "memory64-load-store"]
+    "engine-state-exceptions" => ["try-table", "throw", "caught-payload"]
+    "engine-state-gc" => ["struct-new", "struct-get", "observed-gc-scalar"]
     _ => []
   }
 }
@@ -5624,6 +5697,19 @@ fn format_gen_valid_engine_state_resource_map(profile : String) -> String {
       "[{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]}]"
     "engine-state-optimizer-shapes" =>
       "[{\"kind\":\"global\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_global_0\"]}]"
+    "engine-state-passive-segments" =>
+      "[{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-instantiation-boundaries" => "[]"
+    "engine-state-multi-resource" =>
+      "[{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"memory\",\"index\":1,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_1\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]},{\"kind\":\"table\",\"index\":1,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_1\"]}]"
+    "engine-state-memory-aliasing" | "engine-state-memory64" =>
+      "[{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]}]"
+    "engine-state-indirect-traps" | "engine-state-trap-placement" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"imported\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-cross-instance" =>
+      "[{\"kind\":\"global\",\"index\":0,\"origin\":\"support-module\",\"exports\":[\"__fuzz_global_0\"]},{\"kind\":\"memory\",\"index\":0,\"origin\":\"support-module\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"support-module\",\"exports\":[\"__fuzz_table_0\"]}]"
+    "engine-state-resource-exhaustion" =>
+      "[{\"kind\":\"memory\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_memory_0\"]},{\"kind\":\"table\",\"index\":0,\"origin\":\"defined\",\"exports\":[\"__fuzz_table_0\"]}]"
     _ => "[]"
   }
 }
@@ -5635,24 +5721,54 @@ fn format_gen_valid_engine_state_manifest_entry(
   if !gen_valid_engine_state_manifest_profile(item.selected_profile) {
     return "null"
   }
-  let trapping = item.selected_profile == "engine-state-trap"
-  let trap_class = if trapping {
-    "\"\{@validate.gen_valid_engine_state_trap_family(item.case_seed)}\""
+  let profile = match
+    @validate.gen_valid_profile_by_name(item.selected_profile) {
+    Ok(value) => value
+    Err(_) => return "null"
+  }
+  let outcome = @validate.gen_valid_engine_state_outcome(profile)
+  let failing = outcome != "complete"
+  let trapping = outcome == "runtime-trap"
+  let trap_class = if failing {
+    "\"\{@validate.gen_valid_engine_state_failure_family(profile, item.case_seed)}\""
   } else {
     "null"
   }
-  let completion_marker = if trapping { "null" } else { "2147483647" }
+  let completion_marker = if failing { "null" } else { "2147483647" }
   let pre_trap_marker = if trapping { "1879048192" } else { "null" }
-  let outcome = if trapping { "trap" } else { "complete" }
   let trap_contract = if trapping {
     "\"complete-externally-committed-prefix\""
+  } else if failing {
+    "\"no-instance-no-start-events\""
   } else {
     "null"
   }
   let resources = format_gen_valid_engine_state_resource_map(
     item.selected_profile,
   )
-  "{\"engine_state_schema\":\"starshine.gen-valid.engine-state.v2\",\"profile_version\":2,\"generator_build_identity\":\"starshine-gen-valid-engine-state-v2\",\"root_seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"case_index\":\{item.index},\"selected_leaf\":\"\{fuzz_json_escape(item.selected_profile)}\",\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\",\"intended_outcome\":\"\{outcome}\",\"trap_class\":\{trap_class},\"trap_observation_contract\":\{trap_contract},\"completion_marker\":\{completion_marker},\"pre_trap_marker\":\{pre_trap_marker},\"fuzz_abi\":{\"module\":\"__fuzz\",\"input_i32\":\"(i32)->i32\",\"input_i64\":\"(i32)->i64\",\"mark\":\"(i32)->()\",\"observe_i32\":\"(i32,i32)->()\",\"observe_i64\":\"(i32,i64)->()\",\"input_derivation\":\"splitmix64(case_seed,channel)\"},\"resource_map\":\{resources},\"synthetic_export_map\":\{resources},\"observation_map\":\{format_gen_valid_engine_state_observation_map(item.selected_profile)},\"reachable_feature_facts\":\{format_gen_valid_engine_state_execution_facts(item.selected_profile)},\"feature_toggles\":{\"scalar\":true,\"structured_control\":true,\"direct_calls\":true,\"multiple_results\":true,\"bulk_memory\":true,\"reference_types\":true,\"simd\":\{item.selected_profile == "engine-state-simd" || item.selected_profile == "engine-state-mixed"},\"relaxed_simd\":false,\"tail_calls\":false,\"exceptions\":false,\"gc\":false,\"shared_memory\":false,\"atomics\":false,\"memory64\":false},\"static_instruction_count\":\{item.static_instruction_count},\"budgets\":{\"defined_functions_min\":4,\"defined_functions_max\":12,\"types_max\":12,\"params_max\":4,\"results_max\":3,\"locals_max\":12,\"body_depth_max\":5,\"static_instruction_limit\":512,\"dynamic_instruction_limit\":5000,\"encoded_size_typical\":16384,\"encoded_size_limit\":65536,\"initial_memory_pages_typical\":1,\"initial_memory_pages_limit\":2,\"table_entries_limit\":32,\"globals_limit\":12,\"segment_payload_limit\":4096,\"loop_trip_limit\":16},\"hidden_state_policy\":{\"passive_data\":false,\"passive_elements\":false,\"unexported_mutable_resources\":false,\"gc_objects\":false,\"continuations\":false,\"shared_memory\":false,\"wait_notify\":false,\"nondeterministic_host_references\":false},\"nan_policy\":\"strict-bits\",\"relaxed_operation_policy\":\"disabled\"}"
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"engine_state_schema\":\"starshine.gen-valid.engine-state.v3\",\"profile_version\":3,\"generator_build_identity\":\"starshine-gen-valid-engine-state-v3\",\"root_seed\":\{item.seed},\"case_seed\":\{item.case_seed},\"case_index\":\{item.index},\"selected_leaf\":\"\{fuzz_json_escape(item.selected_profile)}\",\"wasm_hash\":\"\{fuzz_json_escape(item.wasm_hash)}\"",
+  )
+  out.write_string(
+    ",\"intended_outcome\":\"\{outcome}\",\"trap_class\":\{trap_class},\"trap_observation_contract\":\{trap_contract},\"completion_marker\":\{completion_marker},\"pre_trap_marker\":\{pre_trap_marker},\"requires_support_module\":\{item.selected_profile == "engine-state-cross-instance"}",
+  )
+  out.write_string(
+    ",\"fuzz_abi\":{\"module\":\"__fuzz\",\"input_i32\":\"(i32)->i32\",\"input_i64\":\"(i32)->i64\",\"mark\":\"(i32)->()\",\"observe_i32\":\"(i32,i32)->()\",\"observe_i64\":\"(i32,i64)->()\",\"input_derivation\":\"splitmix64(case_seed,channel)\"}",
+  )
+  out.write_string(
+    ",\"resource_map\":\{resources},\"synthetic_export_map\":\{resources},\"observation_map\":\{format_gen_valid_engine_state_observation_map(item.selected_profile)},\"reachable_feature_facts\":\{format_gen_valid_engine_state_execution_facts(item.selected_profile)}",
+  )
+  out.write_string(
+    ",\"feature_toggles\":{\"scalar\":true,\"structured_control\":true,\"direct_calls\":true,\"multiple_results\":true,\"bulk_memory\":true,\"multi_memory\":\{item.selected_profile == "engine-state-multi-resource"},\"reference_types\":true,\"simd\":\{item.selected_profile == "engine-state-simd" || item.selected_profile == "engine-state-mixed"},\"relaxed_simd\":false,\"tail_calls\":\{item.selected_profile == "engine-state-tail-calls"},\"exceptions\":\{item.selected_profile == "engine-state-exceptions"},\"gc\":\{item.selected_profile == "engine-state-gc"},\"shared_memory\":false,\"atomics\":false,\"memory64\":\{item.selected_profile == "engine-state-memory64"}}",
+  )
+  out.write_string(
+    ",\"static_instruction_count\":\{item.static_instruction_count},\"budgets\":{\"defined_functions_min\":2,\"defined_functions_max\":16,\"types_max\":20,\"params_max\":16,\"results_max\":8,\"locals_max\":64,\"body_depth_max\":5,\"static_instruction_limit\":1024,\"dynamic_instruction_limit\":5000,\"encoded_size_typical\":16384,\"encoded_size_limit\":131072,\"initial_memory_pages_typical\":1,\"initial_memory_pages_limit\":2,\"table_entries_limit\":32,\"globals_limit\":12,\"segment_payload_limit\":4096,\"loop_trip_limit\":16}",
+  )
+  out.write_string(
+    ",\"hidden_state_policy\":{\"passive_data\":\{item.selected_profile == "engine-state-passive-segments"},\"passive_elements\":\{item.selected_profile == "engine-state-passive-segments"},\"passive_segments_dropped_before_observation\":\{item.selected_profile == "engine-state-passive-segments"},\"unexported_mutable_resources\":false,\"gc_objects_survive_start\":false,\"continuations\":false,\"shared_memory\":false,\"wait_notify\":false,\"nondeterministic_host_references\":false},\"nan_policy\":\"strict-bits\",\"relaxed_operation_policy\":\"disabled\"}",
+  )
+  out.to_string()
 }
 
 ///|
@@ -5662,7 +5778,7 @@ fn format_gen_valid_batch_manifest_json(
 ) -> String {
   let out = StringBuilder::new()
   let acceptance_contract = if args.profile.starts_with("engine-state-") {
-    "{\"generation_floor_status\":\"met\",\"weighted_cycle_cases\":40,\"runtime_floor_keys\":[\"successful_starts\",\"intended_traps_by_family\",\"distinct_state_hashes\",\"scalar_result_types\",\"multi_value_calls\",\"direct_calls\",\"indirect_calls\",\"taken_and_untaken_branches\",\"bounded_loop_execution\",\"deep_call_chains\",\"call_diamonds\",\"ordered_effects\",\"global_mutations\",\"memory_mutations\",\"table_mutations\",\"memory_growth\",\"table_growth\",\"memory_copy\",\"table_copy\",\"import_calls\",\"imported_return_values\",\"active_data_initialization\",\"active_element_initialization\",\"overlapping_segments\",\"integer_boundaries\",\"float_bit_boundaries\",\"unaligned_memory\",\"exact_memory_end\",\"optimizer_shapes\",\"equivalent_family_self_checks\",\"simd_results\",\"post_effect_traps\",\"complete_observations\",\"every_singleton_leaf\"]}"
+    "{\"generation_floor_status\":\"met\",\"weighted_cycle_cases\":80,\"runtime_floor_keys\":[\"successful_starts\",\"intended_traps_by_family\",\"instantiation_failures_by_family\",\"distinct_state_hashes\",\"scalar_result_types\",\"multi_value_calls\",\"direct_calls\",\"indirect_calls\",\"taken_and_untaken_branches\",\"bounded_loop_execution\",\"deep_call_chains\",\"call_diamonds\",\"ordered_effects\",\"global_mutations\",\"memory_mutations\",\"table_mutations\",\"memory_growth\",\"table_growth\",\"memory_copy\",\"table_copy\",\"passive_segment_lifecycle\",\"multi_memory\",\"multi_table\",\"stack_pressure\",\"memory_aliasing\",\"cross_instance_resources\",\"resource_exhaustion\",\"decoder_topology\",\"tail_calls\",\"typed_function_references\",\"memory64\",\"exceptions\",\"gc\",\"import_calls\",\"imported_return_values\",\"active_data_initialization\",\"active_element_initialization\",\"overlapping_segments\",\"integer_boundaries\",\"float_bit_boundaries\",\"unaligned_memory\",\"exact_memory_end\",\"optimizer_shapes\",\"equivalent_family_self_checks\",\"simd_results\",\"post_effect_traps\",\"complete_observations\",\"every_singleton_leaf\"]}"
   } else {
     "null"
   }

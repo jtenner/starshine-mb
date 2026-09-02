@@ -71,6 +71,16 @@ pub fn gen_valid_directize_profile_case_label(GenValidProfile, UInt64) -> String
 
 pub fn gen_valid_duplicate_import_elimination_profile_case_label(GenValidProfile, UInt64) -> String?
 
+pub fn gen_valid_engine_state_cross_instance_support_module(UInt64) -> @lib.Module
+
+pub fn gen_valid_engine_state_failure_family(GenValidProfile, UInt64) -> String
+
+pub fn gen_valid_engine_state_indirect_trap_family(UInt64) -> String
+
+pub fn gen_valid_engine_state_instantiation_failure_family(UInt64) -> String
+
+pub fn gen_valid_engine_state_outcome(GenValidProfile) -> String
+
 pub fn gen_valid_engine_state_profile() -> GenValidProfile
 
 pub fn gen_valid_engine_state_static_instruction_count(@lib.Module) -> Int
@@ -1270,6 +1280,21 @@ pub enum GenValidProfile {
   EngineStateBoundariesProfile
   EngineStateOptimizerShapesProfile
   EngineStateEquivalentFamiliesProfile
+  EngineStatePassiveSegmentsProfile
+  EngineStateInstantiationBoundariesProfile
+  EngineStateMultiResourceProfile
+  EngineStateStackPressureProfile
+  EngineStateMemoryAliasingProfile
+  EngineStateIndirectTrapsProfile
+  EngineStateTrapPlacementProfile
+  EngineStateCrossInstanceProfile
+  EngineStateResourceExhaustionProfile
+  EngineStateDecoderTopologyProfile
+  EngineStateTailCallsProfile
+  EngineStateTypedFunctionReferencesProfile
+  EngineStateMemory64Profile
+  EngineStateExceptionsProfile
+  EngineStateGcProfile
   EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile

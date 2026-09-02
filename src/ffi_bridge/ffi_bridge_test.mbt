@@ -54,6 +54,7 @@ test "ffi bridge generates deterministic engine-state case bytes" {
   )
   assert_eq(first.module_byte_length(), second.module_byte_length())
   assert_true(first.selected_profile_byte_length() > 0U)
+  assert_true(first.outcome_kind_byte_length() > 0U)
   assert_true(first.static_instruction_count() > 0)
   assert_true(first.generator_attempts() > 0)
   for index in 0..<first.module_byte_length().reinterpret_as_int() {
@@ -90,6 +91,49 @@ test "ffi bridge generates deterministic engine-state case bytes" {
     Ok(decoded) => assert_true(@validate.validate_module(decoded) is Ok(_))
     Err(error) =>
       fail("expected generated engine-state case to decode: \{error}")
+  }
+}
+
+///|
+test "ffi bridge carries deterministic cross-instance support bytes" {
+  let root_seed = 0xC2055UL
+  let mut case_index = 0
+  for index in 1..<=80 {
+    if @validate.gen_valid_profile_name(
+        @validate.gen_valid_profile_leaf_for_case(
+          @validate.gen_valid_engine_state_profile(),
+          root_seed,
+          index,
+        ),
+      ) ==
+      "engine-state-cross-instance" {
+      case_index = index
+      break
+    }
+  }
+  assert_true(case_index > 0)
+  let first = generate_engine_state_case(root_seed, case_index)
+  let second = generate_engine_state_case(root_seed, case_index)
+  assert_true(first.is_ok())
+  assert_true(first.support_module_byte_length() > 0U)
+  assert_eq(
+    first.support_module_byte_length(),
+    second.support_module_byte_length(),
+  )
+  let output = Buffer(
+    size_hint=first.support_module_byte_length().reinterpret_as_int(),
+  )
+  for index in 0..<first.support_module_byte_length().reinterpret_as_int() {
+    let offset = index.reinterpret_as_uint()
+    assert_eq(
+      first.support_module_byte_at(offset),
+      second.support_module_byte_at(offset),
+    )
+    output.write_byte(first.support_module_byte_at(offset))
+  }
+  match @binary.decode_module(output.to_bytes()) {
+    Ok(decoded) => assert_true(@validate.validate_module(decoded) is Ok(_))
+    Err(error) => fail("expected support module to decode: \{error}")
   }
 }
 

@@ -16,6 +16,21 @@ fn gen_valid_engine_state_profiles() -> Array[GenValidProfile] {
     EngineStateBoundariesProfile,
     EngineStateOptimizerShapesProfile,
     EngineStateEquivalentFamiliesProfile,
+    EngineStatePassiveSegmentsProfile,
+    EngineStateInstantiationBoundariesProfile,
+    EngineStateMultiResourceProfile,
+    EngineStateStackPressureProfile,
+    EngineStateMemoryAliasingProfile,
+    EngineStateIndirectTrapsProfile,
+    EngineStateTrapPlacementProfile,
+    EngineStateCrossInstanceProfile,
+    EngineStateResourceExhaustionProfile,
+    EngineStateDecoderTopologyProfile,
+    EngineStateTailCallsProfile,
+    EngineStateTypedFunctionReferencesProfile,
+    EngineStateMemory64Profile,
+    EngineStateExceptionsProfile,
+    EngineStateGcProfile,
   ]
 }
 
@@ -1298,6 +1313,35 @@ fn gen_valid_engine_state_profile_module(ctx : GenValidContext) -> Module {
       gen_valid_engine_state_optimizer_shapes_module(ctx.root_seed)
     EngineStateEquivalentFamiliesProfile =>
       gen_valid_engine_state_equivalent_families_module(ctx.root_seed)
+    EngineStatePassiveSegmentsProfile =>
+      gen_valid_engine_state_passive_segments_module(ctx.root_seed)
+    EngineStateInstantiationBoundariesProfile =>
+      gen_valid_engine_state_instantiation_boundaries_module(ctx.root_seed)
+    EngineStateMultiResourceProfile =>
+      gen_valid_engine_state_multi_resource_module(ctx.root_seed)
+    EngineStateStackPressureProfile =>
+      gen_valid_engine_state_stack_pressure_module(ctx.root_seed)
+    EngineStateMemoryAliasingProfile =>
+      gen_valid_engine_state_memory_aliasing_module(ctx.root_seed)
+    EngineStateIndirectTrapsProfile =>
+      gen_valid_engine_state_indirect_traps_module(ctx.root_seed)
+    EngineStateTrapPlacementProfile =>
+      gen_valid_engine_state_trap_placement_module(ctx.root_seed)
+    EngineStateCrossInstanceProfile =>
+      gen_valid_engine_state_cross_instance_module(ctx.root_seed)
+    EngineStateResourceExhaustionProfile =>
+      gen_valid_engine_state_resource_exhaustion_module(ctx.root_seed)
+    EngineStateDecoderTopologyProfile =>
+      gen_valid_engine_state_decoder_topology_module(ctx.root_seed)
+    EngineStateTailCallsProfile =>
+      gen_valid_engine_state_tail_calls_module(ctx.root_seed)
+    EngineStateTypedFunctionReferencesProfile =>
+      gen_valid_engine_state_typed_function_references_module(ctx.root_seed)
+    EngineStateMemory64Profile =>
+      gen_valid_engine_state_memory64_module(ctx.root_seed)
+    EngineStateExceptionsProfile =>
+      gen_valid_engine_state_exceptions_module(ctx.root_seed)
+    EngineStateGcProfile => gen_valid_engine_state_gc_module(ctx.root_seed)
     _ => gen_valid_engine_state_scalar_control_module(ctx.root_seed)
   }
 }

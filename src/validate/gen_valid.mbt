@@ -735,6 +735,21 @@ pub enum GenValidProfile {
   EngineStateBoundariesProfile
   EngineStateOptimizerShapesProfile
   EngineStateEquivalentFamiliesProfile
+  EngineStatePassiveSegmentsProfile
+  EngineStateInstantiationBoundariesProfile
+  EngineStateMultiResourceProfile
+  EngineStateStackPressureProfile
+  EngineStateMemoryAliasingProfile
+  EngineStateIndirectTrapsProfile
+  EngineStateTrapPlacementProfile
+  EngineStateCrossInstanceProfile
+  EngineStateResourceExhaustionProfile
+  EngineStateDecoderTopologyProfile
+  EngineStateTailCallsProfile
+  EngineStateTypedFunctionReferencesProfile
+  EngineStateMemory64Profile
+  EngineStateExceptionsProfile
+  EngineStateGcProfile
   EngineStateAllProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile
@@ -1148,6 +1163,23 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     EngineStateBoundariesProfile => "engine-state-boundaries"
     EngineStateOptimizerShapesProfile => "engine-state-optimizer-shapes"
     EngineStateEquivalentFamiliesProfile => "engine-state-equivalent-families"
+    EngineStatePassiveSegmentsProfile => "engine-state-passive-segments"
+    EngineStateInstantiationBoundariesProfile =>
+      "engine-state-instantiation-boundaries"
+    EngineStateMultiResourceProfile => "engine-state-multi-resource"
+    EngineStateStackPressureProfile => "engine-state-stack-pressure"
+    EngineStateMemoryAliasingProfile => "engine-state-memory-aliasing"
+    EngineStateIndirectTrapsProfile => "engine-state-indirect-traps"
+    EngineStateTrapPlacementProfile => "engine-state-trap-placement"
+    EngineStateCrossInstanceProfile => "engine-state-cross-instance"
+    EngineStateResourceExhaustionProfile => "engine-state-resource-exhaustion"
+    EngineStateDecoderTopologyProfile => "engine-state-decoder-topology"
+    EngineStateTailCallsProfile => "engine-state-tail-calls"
+    EngineStateTypedFunctionReferencesProfile =>
+      "engine-state-typed-function-references"
+    EngineStateMemory64Profile => "engine-state-memory64"
+    EngineStateExceptionsProfile => "engine-state-exceptions"
+    EngineStateGcProfile => "engine-state-gc"
     EngineStateAllProfile => "engine-state-all"
     SemanticEffectsProfile => "semantic-effects"
     SemanticImportEventsProfile => "semantic-import-events"
@@ -2008,6 +2040,21 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(EngineStateBoundariesProfile, 3),
         GenValidProfileMember::new(EngineStateOptimizerShapesProfile, 3),
         GenValidProfileMember::new(EngineStateEquivalentFamiliesProfile, 6),
+        GenValidProfileMember::new(EngineStatePassiveSegmentsProfile, 4),
+        GenValidProfileMember::new(EngineStateInstantiationBoundariesProfile, 3),
+        GenValidProfileMember::new(EngineStateMultiResourceProfile, 4),
+        GenValidProfileMember::new(EngineStateStackPressureProfile, 4),
+        GenValidProfileMember::new(EngineStateMemoryAliasingProfile, 4),
+        GenValidProfileMember::new(EngineStateIndirectTrapsProfile, 3),
+        GenValidProfileMember::new(EngineStateTrapPlacementProfile, 3),
+        GenValidProfileMember::new(EngineStateCrossInstanceProfile, 3),
+        GenValidProfileMember::new(EngineStateResourceExhaustionProfile, 3),
+        GenValidProfileMember::new(EngineStateDecoderTopologyProfile, 4),
+        GenValidProfileMember::new(EngineStateTailCallsProfile, 1),
+        GenValidProfileMember::new(EngineStateTypedFunctionReferencesProfile, 1),
+        GenValidProfileMember::new(EngineStateMemory64Profile, 1),
+        GenValidProfileMember::new(EngineStateExceptionsProfile, 1),
+        GenValidProfileMember::new(EngineStateGcProfile, 1),
       ]
     SemanticOptimizerAllProfile =>
       [
@@ -2211,6 +2258,21 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     EngineStateBoundariesProfile,
     EngineStateOptimizerShapesProfile,
     EngineStateEquivalentFamiliesProfile,
+    EngineStatePassiveSegmentsProfile,
+    EngineStateInstantiationBoundariesProfile,
+    EngineStateMultiResourceProfile,
+    EngineStateStackPressureProfile,
+    EngineStateMemoryAliasingProfile,
+    EngineStateIndirectTrapsProfile,
+    EngineStateTrapPlacementProfile,
+    EngineStateCrossInstanceProfile,
+    EngineStateResourceExhaustionProfile,
+    EngineStateDecoderTopologyProfile,
+    EngineStateTailCallsProfile,
+    EngineStateTypedFunctionReferencesProfile,
+    EngineStateMemory64Profile,
+    EngineStateExceptionsProfile,
+    EngineStateGcProfile,
     EngineStateAllProfile,
     SemanticEffectsProfile,
     SemanticImportEventsProfile,
@@ -5066,7 +5128,22 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | EngineStateResourcesProfile
     | EngineStateBoundariesProfile
     | EngineStateOptimizerShapesProfile
-    | EngineStateEquivalentFamiliesProfile => {
+    | EngineStateEquivalentFamiliesProfile
+    | EngineStatePassiveSegmentsProfile
+    | EngineStateInstantiationBoundariesProfile
+    | EngineStateMultiResourceProfile
+    | EngineStateStackPressureProfile
+    | EngineStateMemoryAliasingProfile
+    | EngineStateIndirectTrapsProfile
+    | EngineStateTrapPlacementProfile
+    | EngineStateCrossInstanceProfile
+    | EngineStateResourceExhaustionProfile
+    | EngineStateDecoderTopologyProfile
+    | EngineStateTailCallsProfile
+    | EngineStateTypedFunctionReferencesProfile
+    | EngineStateMemory64Profile
+    | EngineStateExceptionsProfile
+    | EngineStateGcProfile => {
       let base = GenValidConfig::portable_coverage_forced_default()
       let profile_budget_tag = match profile {
         EngineStateScalarControlProfile => 1
@@ -5084,6 +5161,21 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         EngineStateBoundariesProfile => 13
         EngineStateOptimizerShapesProfile => 14
         EngineStateEquivalentFamiliesProfile => 15
+        EngineStatePassiveSegmentsProfile => 16
+        EngineStateInstantiationBoundariesProfile => 17
+        EngineStateMultiResourceProfile => 18
+        EngineStateStackPressureProfile => 19
+        EngineStateMemoryAliasingProfile => 20
+        EngineStateIndirectTrapsProfile => 21
+        EngineStateTrapPlacementProfile => 22
+        EngineStateCrossInstanceProfile => 23
+        EngineStateResourceExhaustionProfile => 24
+        EngineStateDecoderTopologyProfile => 25
+        EngineStateTailCallsProfile => 26
+        EngineStateTypedFunctionReferencesProfile => 27
+        EngineStateMemory64Profile => 28
+        EngineStateExceptionsProfile => 29
+        EngineStateGcProfile => 30
         _ => 0
       }
       let uses_memory = profile == EngineStateMemoryProfile ||
@@ -5094,7 +5186,15 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         profile == EngineStateMixedProfile ||
         profile == EngineStateEffectsProfile ||
         profile == EngineStateResourcesProfile ||
-        profile == EngineStateBoundariesProfile
+        profile == EngineStateBoundariesProfile ||
+        profile == EngineStatePassiveSegmentsProfile ||
+        profile == EngineStateInstantiationBoundariesProfile ||
+        profile == EngineStateMultiResourceProfile ||
+        profile == EngineStateMemoryAliasingProfile ||
+        profile == EngineStateTrapPlacementProfile ||
+        profile == EngineStateCrossInstanceProfile ||
+        profile == EngineStateResourceExhaustionProfile ||
+        profile == EngineStateMemory64Profile
       let uses_table = profile == EngineStateCallsProfile ||
         profile == EngineStateTableProfile ||
         profile == EngineStateImportsProfile ||
@@ -5102,29 +5202,59 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         profile == EngineStateTrapProfile ||
         profile == EngineStateMixedProfile ||
         profile == EngineStateTopologyProfile ||
-        profile == EngineStateResourcesProfile
+        profile == EngineStateResourcesProfile ||
+        profile == EngineStatePassiveSegmentsProfile ||
+        profile == EngineStateInstantiationBoundariesProfile ||
+        profile == EngineStateMultiResourceProfile ||
+        profile == EngineStateIndirectTrapsProfile ||
+        profile == EngineStateTrapPlacementProfile ||
+        profile == EngineStateCrossInstanceProfile ||
+        profile == EngineStateResourceExhaustionProfile ||
+        profile == EngineStateTypedFunctionReferencesProfile
       let uses_segments = profile == EngineStateMemoryProfile ||
         profile == EngineStateTableProfile ||
         profile == EngineStateInitializationProfile ||
         profile == EngineStateMixedProfile ||
-        profile == EngineStateResourcesProfile
+        profile == EngineStateResourcesProfile ||
+        profile == EngineStatePassiveSegmentsProfile ||
+        profile == EngineStateInstantiationBoundariesProfile ||
+        profile == EngineStateMultiResourceProfile
+      let wide_stack = profile == EngineStateStackPressureProfile
+      let decoder_topology = profile == EngineStateDecoderTopologyProfile
+      let gc = profile == EngineStateGcProfile
       GenValidConfig::{
         ..base,
-        max_type_defs: 12,
+        max_type_defs: if wide_stack || gc {
+          20
+        } else {
+          12
+        },
         max_imports: 9,
-        max_defined_funcs: 12,
+        max_defined_funcs: if decoder_topology {
+          16
+        } else {
+          12
+        },
         max_tables: if uses_table {
           2
         } else {
           0
         },
         max_mems: if uses_memory {
-          1
+          if profile == EngineStateMultiResourceProfile {
+            2
+          } else {
+            1
+          }
         } else {
           0
         },
         max_globals: 12,
-        max_tags: 0,
+        max_tags: if profile == EngineStateExceptionsProfile {
+          1
+        } else {
+          0
+        },
         max_elems: if uses_segments {
           4
         } else {
@@ -5135,17 +5265,39 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         } else {
           0
         },
-        max_params: 4,
-        max_results: 3,
-        max_locals: 12,
+        max_params: if wide_stack {
+          16
+        } else {
+          4
+        },
+        max_results: if wide_stack {
+          8
+        } else {
+          3
+        },
+        max_locals: if wide_stack {
+          64
+        } else {
+          12
+        },
         max_body_statements: 64 + profile_budget_tag,
         max_body_depth: 5,
-        max_instruction_count_budget: Some(512),
+        max_instruction_count_budget: Some(if wide_stack { 1024 } else { 512 }),
         max_expression_depth_budget: Some(16),
-        max_module_byte_size_budget: Some(65536),
-        max_rec_group_size_budget: Some(12),
+        max_module_byte_size_budget: Some(
+          if decoder_topology {
+            131072
+          } else {
+            65536
+          },
+        ),
+        max_rec_group_size_budget: Some(if wide_stack || gc { 20 } else { 12 }),
         max_section_count_budget: Some(16),
-        max_name_length: 96,
+        max_name_length: if decoder_topology {
+          512
+        } else {
+          96
+        },
         max_segment_payload_size: 4096,
         section_bias: GenValidSectionBias::{
           imports_percent: 100,
@@ -5160,7 +5312,11 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
             0
           },
           globals_percent: 100,
-          tags_percent: 0,
+          tags_percent: if profile == EngineStateExceptionsProfile {
+            100
+          } else {
+            0
+          },
           start_percent: 100,
           elems_percent: if uses_segments && uses_table {
             100
@@ -5178,11 +5334,11 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           allow_tables: uses_table,
           allow_mems: uses_memory,
           allow_globals: true,
-          allow_tags: false,
+          allow_tags: profile == EngineStateExceptionsProfile,
           allow_start: true,
           allow_elems: uses_segments && uses_table,
           allow_datas: uses_segments && uses_memory,
-          allow_ref_types: uses_table,
+          allow_ref_types: uses_table || gc,
           allow_v128: profile == EngineStateSimdProfile ||
           profile == EngineStateMixedProfile,
           allow_relaxed_simd: false,
@@ -5191,22 +5347,28 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           profile == EngineStateTableProfile ||
           profile == EngineStateMixedProfile ||
           profile == EngineStateTopologyProfile ||
-          profile == EngineStateResourcesProfile,
-          allow_tail_calls: false,
+          profile == EngineStateResourcesProfile ||
+          profile == EngineStateIndirectTrapsProfile ||
+          profile == EngineStateTypedFunctionReferencesProfile,
+          allow_tail_calls: profile == EngineStateTailCallsProfile,
           allow_branch_heavy_control: profile == EngineStateScalarControlProfile ||
           profile == EngineStateMixedProfile ||
           profile == EngineStateEffectsProfile ||
           profile == EngineStateBoundariesProfile ||
           profile == EngineStateOptimizerShapesProfile ||
-          profile == EngineStateEquivalentFamiliesProfile,
-          allow_memory_limit_variants: false,
+          profile == EngineStateEquivalentFamiliesProfile ||
+          profile == EngineStateStackPressureProfile ||
+          profile == EngineStateTrapPlacementProfile ||
+          profile == EngineStateExceptionsProfile,
+          allow_memory_limit_variants: profile ==
+          EngineStateMultiResourceProfile,
           allow_table_limit_variants: false,
           allow_const_expr_variants: profile == EngineStateInitializationProfile,
           allow_shared_memories: false,
-          allow_memory64: false,
+          allow_memory64: profile == EngineStateMemory64Profile,
           allow_atomics: false,
-          allow_subtyping_topology: false,
-          allow_name_custom_sections: false,
+          allow_subtyping_topology: gc,
+          allow_name_custom_sections: decoder_topology,
           allow_typed_body_generator: true,
           allow_ssa_nomerge_body_generator: false,
           allow_heap_store_optimization_body_generator: false,

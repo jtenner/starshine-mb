@@ -6,6 +6,7 @@ pub struct EncodedModule {
 ///|
 pub struct EncodedEngineStateCase {
   encoded : EncodedModule
+  support_encoded : EncodedModule
   error : Bytes
   root_seed : UInt64
   case_seed : UInt64
@@ -14,6 +15,7 @@ pub struct EncodedEngineStateCase {
   generator_attempts : Int
   static_instruction_count : Int
   expects_trap : Bool
+  outcome_kind : Bytes
   trap_family : Bytes
 }
 
@@ -384,6 +386,7 @@ fn failed_engine_state_case(
 ) -> EncodedEngineStateCase {
   {
     encoded: { bytes: None, },
+    support_encoded: { bytes: None, },
     error: validation_message_bytes(message),
     root_seed,
     case_seed,
@@ -392,6 +395,7 @@ fn failed_engine_state_case(
     generator_attempts,
     static_instruction_count: 0,
     expects_trap: false,
+    outcome_kind: validation_message_bytes("generation-failure"),
     trap_family: Bytes::from_array([]),
   }
 }
@@ -436,16 +440,35 @@ pub fn generate_engine_state_case(
             "engine-state module encoding failed: \{error}",
           )
         Ok(bytes) => {
-          let expects_trap = selected_profile == "engine-state-trap"
+          let outcome_kind = @validate.gen_valid_engine_state_outcome(profile)
+          let expects_trap = outcome_kind != "complete"
           let trap_family = if expects_trap {
             validation_message_bytes(
-              @validate.gen_valid_engine_state_trap_family(case_seed),
+              @validate.gen_valid_engine_state_failure_family(
+                profile, case_seed,
+              ),
             )
           } else {
             Bytes::from_array([])
           }
+          let support_encoded = if selected_profile ==
+            "engine-state-cross-instance" {
+            match
+              @binary.encode_module(
+                @validate.gen_valid_engine_state_cross_instance_support_module(
+                  case_seed,
+                ),
+              ) {
+              Ok(support_bytes) =>
+                EncodedModule::{ bytes: Some(support_bytes), }
+              Err(_) => EncodedModule::{ bytes: None, }
+            }
+          } else {
+            EncodedModule::{ bytes: None, }
+          }
           {
             encoded: { bytes: Some(bytes), },
+            support_encoded,
             error: Bytes::from_array([]),
             root_seed,
             case_seed,
@@ -456,6 +479,7 @@ pub fn generate_engine_state_case(
               generated.wasm_module,
             ),
             expects_trap,
+            outcome_kind: validation_message_bytes(outcome_kind),
             trap_family,
           }
         }
@@ -524,6 +548,21 @@ pub fn EncodedEngineStateCase::module_byte_at(
 }
 
 ///|
+pub fn EncodedEngineStateCase::support_module_byte_length(
+  self : EncodedEngineStateCase,
+) -> UInt {
+  self.support_encoded.byte_length()
+}
+
+///|
+pub fn EncodedEngineStateCase::support_module_byte_at(
+  self : EncodedEngineStateCase,
+  index : UInt,
+) -> Byte {
+  self.support_encoded.byte_at(index)
+}
+
+///|
 pub fn EncodedEngineStateCase::selected_profile_byte_length(
   self : EncodedEngineStateCase,
 ) -> UInt {
@@ -543,6 +582,21 @@ pub fn EncodedEngineStateCase::trap_family_byte_length(
   self : EncodedEngineStateCase,
 ) -> UInt {
   self.trap_family.length().reinterpret_as_uint()
+}
+
+///|
+pub fn EncodedEngineStateCase::outcome_kind_byte_length(
+  self : EncodedEngineStateCase,
+) -> UInt {
+  self.outcome_kind.length().reinterpret_as_uint()
+}
+
+///|
+pub fn EncodedEngineStateCase::outcome_kind_byte_at(
+  self : EncodedEngineStateCase,
+  index : UInt,
+) -> Byte {
+  self.outcome_kind[index.reinterpret_as_int()]
 }
 
 ///|

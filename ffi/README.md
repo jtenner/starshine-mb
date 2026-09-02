@@ -46,13 +46,17 @@ ffi_bridge::generate_engine_state_case(root_seed: i64, case_index: i32)
   -> EncodedEngineStateCase
 ```
 
-Case indexes are one-based. `EncodedEngineStateCase` exposes `is_ok`, root/case seed, case index, selected-profile bytes, generator attempts, static instruction count, intended-trap metadata, module bytes, and diagnostic bytes through scalar accessors. JavaScript must pass the root seed as a `BigInt`; use `BigInt.asUintN(64, value)` when reading either unsigned seed accessor. The bridge selects the leaf from the exact `engine-state-all` 40-case cycle and uses the same public case-seed derivation as CLI batch emission. The cycle includes the original execution leaves plus forced topology, effect-order, resource-lifecycle, boundary, optimizer-shape, and self-checking equivalent-family leaves.
+Case indexes are one-based. `EncodedEngineStateCase` exposes `is_ok`, root/case seed, case index, selected-profile bytes, generator attempts, static instruction count, outcome and failure-family metadata, module bytes, optional support-module bytes, and diagnostic bytes through scalar accessors. JavaScript must pass the root seed as a `BigInt`; use `BigInt.asUintN(64, value)` when reading either unsigned seed accessor. The bridge selects the leaf from the exact `engine-state-all` 80-case cycle and uses the same public case-seed derivation as CLI batch emission. Thirty leaves include the original execution cases plus forced semantic, resource, decoder, cross-instance, and Core 3 capability shapes.
 
 The main byte-lifting calls are:
 
 ```text
 EncodedEngineStateCase::module_byte_length
 EncodedEngineStateCase::module_byte_at
+EncodedEngineStateCase::support_module_byte_length
+EncodedEngineStateCase::support_module_byte_at
+EncodedEngineStateCase::outcome_kind_byte_length
+EncodedEngineStateCase::outcome_kind_byte_at
 EncodedEngineStateCase::error_byte_length
 EncodedEngineStateCase::error_byte_at
 ```

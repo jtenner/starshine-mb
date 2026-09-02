@@ -21,9 +21,9 @@ fn engine_state_manifest_test_selection(
 ///|
 test "engine-state aggregate manifest records complete deterministic case contracts" {
   let (args, selection) = engine_state_manifest_test_selection(
-    "engine-state-all", 40, 0xE651A7EUL,
+    "engine-state-all", 80, 0xE651A7EUL,
   )
-  @debug.assert_eq(selection.manifest.length(), 40)
+  @debug.assert_eq(selection.manifest.length(), 80)
   let manifest = format_gen_valid_batch_manifest_json(args, selection)
   assert_true(
     manifest.contains("\"schema\":\"starshine.gen-valid.batch.v2\""),
@@ -33,13 +33,13 @@ test "engine-state aggregate manifest records complete deterministic case contra
   assert_true(manifest.contains("\"wasm_hash\":\"fnv1a64-"), msg=manifest)
   assert_true(
     manifest.contains(
-      "\"generator_build_identity\":\"starshine-gen-valid-engine-state-v2\"",
+      "\"generator_build_identity\":\"starshine-gen-valid-engine-state-v3\"",
     ),
     msg=manifest,
   )
   assert_true(
     manifest.contains(
-      "\"engine_state_schema\":\"starshine.gen-valid.engine-state.v2\"",
+      "\"engine_state_schema\":\"starshine.gen-valid.engine-state.v3\"",
     ),
     msg=manifest,
   )
@@ -65,14 +65,14 @@ test "engine-state aggregate manifest records complete deterministic case contra
     msg=manifest,
   )
   assert_true(
-    manifest.contains("\"static_instruction_limit\":512"),
+    manifest.contains("\"static_instruction_limit\":1024"),
     msg=manifest,
   )
   assert_true(
     manifest.contains("\"dynamic_instruction_limit\":5000"),
     msg=manifest,
   )
-  assert_true(manifest.contains("\"encoded_size_limit\":65536"), msg=manifest)
+  assert_true(manifest.contains("\"encoded_size_limit\":131072"), msg=manifest)
   assert_true(manifest.contains("\"nan_policy\":\"strict-bits\""), msg=manifest)
   assert_true(
     manifest.contains("\"relaxed_operation_policy\":\"disabled\""),
@@ -84,7 +84,12 @@ test "engine-state aggregate manifest records complete deterministic case contra
       "engine-state-table", "engine-state-simd", "engine-state-imports", "engine-state-initialization",
       "engine-state-trap", "engine-state-mixed", "engine-state-topology", "engine-state-effects",
       "engine-state-resources", "engine-state-boundaries", "engine-state-optimizer-shapes",
-      "engine-state-equivalent-families",
+      "engine-state-equivalent-families", "engine-state-passive-segments", "engine-state-instantiation-boundaries",
+      "engine-state-multi-resource", "engine-state-stack-pressure", "engine-state-memory-aliasing",
+      "engine-state-indirect-traps", "engine-state-trap-placement", "engine-state-cross-instance",
+      "engine-state-resource-exhaustion", "engine-state-decoder-topology", "engine-state-tail-calls",
+      "engine-state-typed-function-references", "engine-state-memory64", "engine-state-exceptions",
+      "engine-state-gc",
     ] {
     assert_true(
       manifest.contains("\"selected_leaf\":\"\{profile}\""),
@@ -122,7 +127,10 @@ test "engine-state trap manifest records one intended frontier and committed-pre
     "engine-state-trap", 1, 4UL,
   )
   let manifest = format_gen_valid_batch_manifest_json(args, selection)
-  assert_true(manifest.contains("\"intended_outcome\":\"trap\""), msg=manifest)
+  assert_true(
+    manifest.contains("\"intended_outcome\":\"runtime-trap\""),
+    msg=manifest,
+  )
   assert_true(
     manifest.contains(
       "\"trap_observation_contract\":\"complete-externally-committed-prefix\"",
