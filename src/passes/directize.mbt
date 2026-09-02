@@ -1470,22 +1470,33 @@ fn directize_try_rewrite_call_tail(
 }
 
 ///|
-fn directize_instr_has_indirect_call(instr : @lib.Instruction) -> Bool {
+fn directize_table_can_optimize(
+  info : DirectizeInfo,
+  table_idx : @lib.TableIdx,
+) -> Bool {
+  let slot = directize_table_slot(table_idx)
+  slot >= 0 && slot < info.tables.length() && info.tables[slot].can_optimize
+}
+
+///|
+fn directize_instr_has_nested_rewrite_candidate(
+  instr : @lib.Instruction,
+  info : DirectizeInfo,
+) -> Bool {
   match instr {
-    @lib.CallIndirect(_, _) | @lib.ReturnCallIndirect(_, _) => true
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-      directize_instrs_have_indirect_call(body)
+      directize_instrs_have_rewrite_candidate(body, info)
     @lib.If(_, then_body, else_body) => {
-      if directize_instrs_have_indirect_call(then_body) {
+      if directize_instrs_have_rewrite_candidate(then_body, info) {
         return true
       }
       match else_body {
-        Some(body) => directize_instrs_have_indirect_call(body)
+        Some(body) => directize_instrs_have_rewrite_candidate(body, info)
         None => false
       }
     }
     @lib.Try(_, @lib.Expr(body), catches, _) => {
-      if directize_instrs_have_indirect_call(body) {
+      if directize_instrs_have_rewrite_candidate(body, info) {
         return true
       }
       for catch_ in catches {
@@ -1493,25 +1504,39 @@ fn directize_instr_has_indirect_call(instr : @lib.Instruction) -> Bool {
           @lib.LegacyCatch(_, @lib.Expr(catch_body))
           | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
         }
-        if directize_instrs_have_indirect_call(catch_body) {
+        if directize_instrs_have_rewrite_candidate(catch_body, info) {
           return true
         }
       }
       false
     }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
-      directize_instrs_have_indirect_call(body)
+      directize_instrs_have_rewrite_candidate(body, info)
     _ => false
   }
 }
 
 ///|
-fn directize_instrs_have_indirect_call(
+fn directize_instrs_have_rewrite_candidate(
   instrs : Array[@lib.Instruction],
+  info : DirectizeInfo,
 ) -> Bool {
-  for instr in instrs {
-    if directize_instr_has_indirect_call(instr) {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    if directize_instr_has_nested_rewrite_candidate(instr, info) {
       return true
+    }
+    let table_idx = match instr {
+      @lib.CallIndirect(_, table_idx) | @lib.ReturnCallIndirect(_, table_idx) =>
+        table_idx
+      _ => continue
+    }
+    if idx == 0 || !directize_table_can_optimize(info, table_idx) {
+      continue
+    }
+    match instrs[idx - 1] {
+      @lib.I32Const(_) | @lib.I64Const(_) | @lib.Select(_) => return true
+      _ => ()
     }
   }
   false
@@ -1683,7 +1708,7 @@ fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     let func = funcs[code_idx]
     let @lib.Func(locals, @lib.Expr(body)) = func
-    if !directize_instrs_have_indirect_call(body) {
+    if !directize_instrs_have_rewrite_candidate(body, info) {
       rewritten.push(func)
       continue
     }

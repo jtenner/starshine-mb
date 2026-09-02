@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-30
+last_reviewed: 2026-09-02
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
@@ -12,6 +12,8 @@ sources:
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/directize.mbt
   - ../../../../../src/passes/directize_test.mbt
+  - ../../../../../src/passes/directize_wbtest.mbt
+  - ../../../../../src/passes_perf_long/directize_perf_test.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../duplicate-import-elimination/index.md
@@ -46,6 +48,7 @@ The current local strategy is still deliberately conservative where the upstream
 
 - keep the pass spelling tracked in the registry surface as an active module pass
 - preserve the boundary-shaped architecture by computing whole-module table facts before any function-body rewrite
+- recursively admit function bodies only when an indirect call uses an entry-optimizable table and its immediate sibling target is the table-width constant or pass-owned `select` spelling the implementation can consume
 - rewrite compatible constant-index indirect calls through non-imported, non-exported, non-mutated known table entries
 - classify known holes, out-of-range entries, and wrong-type targets as traps and rewrite them to `unreachable`
 - lower known/known, known/trap, and trap/trap constant-index `select` shapes to direct-call or trapping `if` arms with fresh operand locals
@@ -113,7 +116,20 @@ It also handles the two important non-direct-call target classes from the defaul
 - known holes / out-of-range / wrong-type targets become `unreachable`
 - known/known, known/trap, and trap/trap constant-index `select` shapes become typed `if` expressions with direct-call or `unreachable` arms and fresh locals preserving operand evaluation
 
-### 3. V131 table-initial-value parity is now core default-pass work
+### 3. Exact admission now protects the module-pass boundary
+
+The production owner was not table-fact construction or the successful direct/trap rewrite. The canonical artifact has 2,261 indirect calls across 261 functions, all through table 1 with dynamic load targets. The old broad `has indirect call` admission recursively rebuilt deeply nested bodies and ran producer analysis even though `directize_try_rewrite_call_tail(...)` could only accept an immediate `i32.const`, `i64.const`, or `select` target.
+
+`directize_instrs_have_rewrite_candidate(...)` now mirrors that exact consumer boundary before constructing `DirectizeFuncContext`:
+
+- the referenced table must be entry-optimizable under the already-computed module facts;
+- the target must be the immediately preceding table-width constant or `select` in the same block/loop/if/legacy-EH/`try_table` sibling body;
+- dynamic loads, locals, arithmetic, unsupported target expressions, and calls through nonoptimizable tables skip the rewrite path unchanged;
+- nested structured regions remain recursively visible, so valid protected-body and catch candidates are not lost.
+
+This is a conservative performance gate, not a new transformation. The white-box mixed-table/dynamic-load contract is in `src/passes/directize_wbtest.mbt`, and the legacy-EH audit keeps nested candidate discovery explicit.
+
+### 4. V131 table-initial-value parity is now core default-pass work
 
 `agent-todo.md` no longer needs a dedicated `DIR` replay blocker because the neighboring `string-gathering -> reorder-globals -> directize` sequence is now locally replayable.
 
@@ -203,11 +219,11 @@ So the current repo status is best summarized as:
 
 Current direct evidence is recorded in [`./fuzzing.md`](./fuzzing.md):
 
-1. regular GenValid: `100000/100000` exact;
-2. pass-owned `directize-all`: `10000/10000` exact, with all eight leaves and 27 source-derived labels selected;
-3. wasm-smith: all `9956` comparable cases green after classifying one no-call `drop(unreachable)` wrapper residual, plus `44` Binaryen/tool admissions;
-4. random all-profiles: zero directize-owned residuals; all `180` raw differences are no-call `remove-unused-brs-*` local reconstruction/encoding cases;
-5. pass-local artifact time: `46.973ms` versus Binaryen `42.052ms` (`1.12x`, inside the repository target).
+1. September 2 regular GenValid: `10000/10000` canonical-equal;
+2. September 2 pass-owned `directize-all`: `559` canonical-equal plus `9441` explicit canonically smaller inert-`nop`-elision outputs, with all eight leaves and 27 labels selected and zero larger outputs or failures;
+3. the older regular `100000/100000`, wasm-smith `9956` comparable cases plus 44 Binaryen/tool admissions, and random-all zero-owned-residual matrix remains broader released-behavior evidence;
+4. final production command/pass medians are `689.065ms` / `49.177ms` versus Binaryen v131 `563.773ms` / `36.192ms` (`1.222x` / `1.359x`), closing `[P0-WALL-DIRECTIZE]` by `416.935ms` against the fixed command target;
+5. native release benchmarks measure `12.37ms` for the trigger-bearing select producer and `156.93us` for the fail-closed 2,048-function dynamic-target breadth lane.
 
 The audit repaired full-width table64 handling, address-width validation, trap-arm and multivalue select lowering, explicit-null default classification, and large-table allocation behavior. Future changes should rerun the same matrix when touching table facts, trap rewriting, select lowering, type matching, local insertion, or legacy-EH traversal.
 

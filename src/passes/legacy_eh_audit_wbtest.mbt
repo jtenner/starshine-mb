@@ -225,6 +225,7 @@ test "legacy EH audit: directize sees table mutation growth and indirect calls i
     [@lib.Instruction::table_set(@lib.TableIdx::new(0U))],
     [@lib.Instruction::table_grow(@lib.TableIdx::new(1U))],
     [
+      @lib.Instruction::i32_const(@lib.I32(0)),
       @lib.Instruction::call_indirect(
         @lib.TypeIdx::new(0U),
         @lib.TableIdx::new(0U),
@@ -236,7 +237,23 @@ test "legacy EH audit: directize sees table mutation growth and indirect calls i
   directize_mark_runtime_table_instr(mutated, grown, instr)
   @debug.assert_eq(mutated, [true, false])
   @debug.assert_eq(grown, [false, true])
-  assert_true(directize_instrs_have_indirect_call([instr]))
+  let info = directize_build_info(
+    @lib.Module::new().with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+      ]),
+    ),
+  )
+  assert_true(directize_instrs_have_rewrite_candidate([instr], info))
 }
 
 ///|

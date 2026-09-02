@@ -1,12 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-30
+last_reviewed: 2026-09-02
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Directize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast
   - ./index.md
+  - ../../../../../src/passes/directize.mbt
+  - ../../../../../src/passes/directize_test.mbt
+  - ../../../../../src/passes/directize_wbtest.mbt
+  - ../../../../../src/passes_perf_long/directize_perf_test.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Directize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h
@@ -187,7 +191,22 @@ Starshine's select lowering must recover the flattened stack producers for all c
 
 The active implementation in `src/passes/directize.mbt` now performs one forward producer/provenance stack scan per flat region. It records each produced value's starting instruction, uses direct pop-count classification for common scalar/local/table instructions, and materializes plus typechecks only the final argument and condition slices after a candidate select is found. Scan provenance advances at call boundaries while preserving result producers that feed a later indirect call; an immediate result `drop` resets the region cheaply, avoiding repeated rescans of earlier rewritten calls.
 
-`src/passes/directize_test.mbt` contains a long argument/condition producer regression that must still trigger directization. The manual skipped native-release lane in `src/passes_perf_long/directize_perf_test.mbt` builds `256` indirect calls with depth-`64` argument and condition expressions; the final measured median is `17.415ms` under a `22ms` bound.
+`src/passes/directize_test.mbt` contains a long argument/condition producer regression that must still trigger directization. The calibrated native-release lane in `src/passes_perf_long/directize_perf_test.mbt` builds `256` indirect calls with depth-`64` argument and condition expressions; the September 2 result is `12.37ms +/- 137.51us`.
+
+## Starshine function-admission complexity guard
+
+The September 2 production audit exposed a separate owner before select discovery. The canonical artifact contains 2,261 indirect calls across 261 definitions, all with dynamic table-index loads. `directize_try_rewrite_call_tail(...)` cannot consume those targets, but the former function gate admitted any recursive indirect call, constructing a function-local validator context and recursively rebuilding deeply nested bodies before rediscovering `Unknown`. Clean HEAD therefore exceeded a 120-second same-input bound.
+
+The active implementation now separates module/table proof from exact function admission:
+
+1. `directize_build_info(...)` computes table eligibility once;
+2. `directize_instrs_have_rewrite_candidate(...)` recursively visits block, loop, `if`, legacy `try`/catch/delegate, and `try_table` bodies;
+3. a call is admitted only when its referenced table is entry-optimizable and its immediately preceding sibling is `i32.const`, `i64.const`, or `select`, exactly mirroring the spellings consumed by the rewrite;
+4. only admitted functions construct `DirectizeFuncContext` and enter producer/provenance scanning.
+
+This remains fail closed: unsupported dynamic targets stay indirect, nonoptimizable tables stay unknown, and nested valid constant/select candidates remain visible. `src/passes/directize_wbtest.mbt` locks the mixed-table dynamic-load negative plus a nested positive, and `src/passes/legacy_eh_audit_wbtest.mbt` locks protected-region discovery.
+
+The companion 2,048-function benchmark constructs and validates the module outside `it.bench(...)`, requires exact module equality and preserved dynamic indirect calls, and times registry dispatch with only final-module validation disabled. It measures `156.93us +/- 1.76us` on native release.
 
 ## Practical reading order for future Starshine port work
 

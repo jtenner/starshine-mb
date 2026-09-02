@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-30
+last_reviewed: 2026-09-02
 sources:
   - ./index.md
   - ../late-pipeline-dispatch.md
@@ -16,6 +16,8 @@ sources:
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/directize.mbt
   - ../../../../../src/passes/directize_test.mbt
+  - ../../../../../src/passes/directize_wbtest.mbt
+  - ../../../../../src/passes_perf_long/directize_perf_test.mbt
   - ../../../../../src/wast/parser.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/lib/types.mbt
@@ -51,7 +53,7 @@ The goal here is narrower than either page:
 
 ## Current local status in one sentence
 
-Starshine implements and has renewed the default explicit `directize` module pass against Binaryen v131 for full-width table32/table64 constants, direct/trap/unknown table facts, subtype-compatible calls, known/trap and multivalue `select` lowering, tail calls, mutation/growth boundaries, and legacy-EH traversal. The accepted public late-tail suffix is scheduled; optional `directize-initial-contents-immutable` pass-arg support remains separate.
+Starshine implements and has renewed the default explicit `directize` module pass against Binaryen v131 for full-width table32/table64 constants, direct/trap/unknown table facts, subtype-compatible calls, known/trap and multivalue `select` lowering, tail calls, mutation/growth boundaries, and legacy-EH traversal. An exact recursive admission gate now requires both an entry-optimizable table and the immediate constant/select target spelling consumed by the rewrite before constructing function context or scanning producers. The accepted public late-tail suffix is scheduled; optional `directize-initial-contents-immutable` pass-arg support remains separate.
 
 ## Why the first slice is not a peephole
 
@@ -152,7 +154,8 @@ This slice is now landed and revalidated for the explicit default pass:
 - `directize` is an active module pass,
 - explicit requests run the module-pass path,
 - focused tests demonstrate element/default targets, absent-hole traps, explicit-null unknowns, mutation/growth boundaries, trap/known and multivalue select lowering, tail calls, table64, GC subtyping, and legacy-EH traversal;
-- the 2026-07-30 `directize-all` lane compares `10000/10000` exact cases across all eight leaves, while the regular lane compares `100000/100000` exact cases.
+- white-box tests require mixed-table dynamic targets to skip while nested eligible constant targets remain discoverable;
+- the September 2 regular lane compares `10000/10000` canonical-equal cases, while `directize-all` records `559` canonical-equal plus `9441` explicit inert-`nop`-elision size wins with zero larger outputs or failures; the older 100,000-case and external-generator matrix remains broader release evidence.
 
 Future code changes should keep that active status honest by preserving Binaryen-matching behavior and not broadening beyond the accepted public suffix without replaying the neighboring late tail.
 
@@ -245,7 +248,9 @@ Minimum checks:
 
 ## Binaryen oracle validation ladder
 
-Current direct validation evidence is summarized in [`./fuzzing.md`](./fuzzing.md): regular `100000/100000` exact, `directize-all` `10000/10000` exact, all `9956` comparable wasm-smith cases green after one no-call cleanup normalization plus `44` Binaryen/tool failures, and zero directize-owned random-all residuals. Focused directize tests are `16/16`, the pass package is `6580/6580`, and full Moon is `10104/10104`.
+Current direct validation evidence is summarized in [`./fuzzing.md`](./fuzzing.md): September 2 regular GenValid is `10000/10000` canonical-equal; `directize-all` is `559` canonical-equal plus `9441` explicitly classified canonically smaller inert-`nop` outputs, with zero larger outputs or validation/property/generator/command failures; and the older `100000/100000`, wasm-smith, and random-all matrix remains broader evidence. Current focused suites are Directize white-box `1/1`, legacy-EH audit `9/9`, and Directize behavior `18/18`; full Moon is `10910/10910`, and both native-release benchmark lanes pass.
+
+Production timing uses one warmup plus three serial pairs on the canonical 4,977,401-byte artifact. Starshine measures `689.065ms` no-trace command / `49.177ms` pass-local versus Binaryen v131 `563.773ms` / `36.192ms`, clearing the fixed `<=1.106s` command target by `416.935ms`. The raw Starshine output remains exactly the input, while harness canonicalization is byte-identical to Binaryen's direct output. This closes `[P0-WALL-DIRECTIZE]` without widening the pass.
 
 Use the official Binaryen files as the reduced-shape map when extending the pass:
 
@@ -280,4 +285,5 @@ The default explicit pass is now implemented and oracle-checked:
 - transformed shapes are cataloged,
 - Starshine's implementation is active as a module pass,
 - local code surfaces are mapped,
-- and direct Binaryen comparison is green on focused fuzz and the debug artifact.
+- direct Binaryen comparison is green or explicitly classified on focused fuzz and the canonical production artifact;
+- and the production wall blocker is closed with exact-output evidence.

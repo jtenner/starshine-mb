@@ -160,3 +160,92 @@ test "bench directize pass select calls=256 depth=64" (it : @bench.T) {
     }
   })
 }
+
+///|
+fn directize_dynamic_target_breadth_module(function_count : Int) -> @lib.Module {
+  let callee_type = @lib.TypeIdx::new(0U)
+  let caller_type = @lib.TypeIdx::new(1U)
+  let func_types : Array[@lib.TypeIdx] = [callee_type]
+  let funcs : Array[@lib.Func] = [
+    @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+    ),
+  ]
+  for _ in 0..<function_count {
+    func_types.push(caller_type)
+    funcs.push(
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::call_indirect(callee_type, @lib.TableIdx::new(0U)),
+        ]),
+      ),
+    )
+  }
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new(func_types))
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+          @lib.Limits::i32(1U, Some(1U)),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+      ),
+    ]),
+  )
+  .with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+test "bench directize dynamic-target breadth functions=2048" (it : @bench.T) {
+  let function_count = 2048
+  let fixture = directize_dynamic_target_breadth_module(function_count)
+  let optimized = match
+    @passes.run_hot_pipeline(fixture, @passes.HotPipelineOptions::new(), [
+      "directize",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort("expected dynamic-target benchmark preflight success, got \{err}")
+  }
+  assert_true(optimized == fixture)
+  let last_func = @lib.FuncIdx::new(function_count.reinterpret_as_uint())
+  let original_text = fixture.pretty_print_func(last_func)
+  let optimized_text = optimized.pretty_print_func(last_func)
+  assert_true(original_text.contains("call_indirect"), msg=original_text)
+  assert_eq(optimized_text, original_text)
+  let options = @passes.HotPipelineOptions::new(validate_final_module=false)
+  it.bench(fn() {
+    match @passes.run_hot_pipeline(fixture, options, ["directize"]) {
+      Ok(mod_) => ignore(mod_.code_sec)
+      Err(err) => abort("expected dynamic-target benchmark success, got \{err}")
+    }
+  })
+}

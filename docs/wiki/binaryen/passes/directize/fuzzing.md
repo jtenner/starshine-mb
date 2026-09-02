@@ -1,13 +1,15 @@
 ---
 kind: workflow
 status: strong
-last_reviewed: 2026-07-30
+last_reviewed: 2026-09-02
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid_directize.mbt
   - ../../../../../src/validate/gen_valid_directize_tests.mbt
   - ../../../../../src/passes/directize_test.mbt
+  - ../../../../../src/passes/directize_wbtest.mbt
+  - ../../../../../src/passes_perf_long/directize_perf_test.mbt
   - ./index.md
 ---
 
@@ -51,7 +53,28 @@ The stable closeout profile is `directize-all`. It deterministically samples eig
 
 Every generated leaf validates and contains an indirect-call surface. `src/passes/directize_test.mbt` additionally runs five deterministic seeds per leaf and requires each generated module to trigger a valid pass-owned rewrite. The profile is a member of `random-all-profiles`, and batch manifests preserve both `selected_profile` and `profile_case_label`.
 
-## Final four-lane matrix
+## September 2, 2026 renewal
+
+The final admission-gate binary is `_build/native/release/build/cmd/cmd.exe`, SHA-256 `3e610bb09848340b1c8d83e6d093c4e3925d64d9196bc589163745efe3b49d08`. Both renewed lanes use `.tmp/binaryen-version-131-bin/bin/wasm-opt`, verified as `wasm-opt version 131 (version_131)` at SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, plus the explicit prebuilt native Starshine command and GenValid binaries, `--jobs auto`, and `--max-subprocesses 8`.
+
+| Lane | Out dir | Requested / compared | Canonical-equal | Explicit mismatches | Canonical size classification | Failures |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| regular GenValid | `.tmp/pass-fuzz-directize-final-regular-10000-20260902` | `10000 / 10000` | `10000` | `0` | `0 / 10000 / 0` smaller/equal/larger | zero validation, property, generator, and command failures |
+| dedicated `directize-all` | `.tmp/pass-fuzz-directize-final-dedicated-10000-20260902` | `10000 / 10000` | `559` | `9441` | `9441 / 559 / 0` smaller/equal/larger | zero validation, property, generator, and command failures |
+
+The dedicated run deliberately uses no cleanup normalizer and permits the full mismatch count, so the reproducible output-shape family remains visible. It selected all eight leaves and all 27 case labels with the same distribution shown below.
+
+The `9441` mismatches are one exact pass-independent family rather than missed Directize rewrites:
+
+- `src/validate/gen_valid_directize.mbt` emits a callee containing one inert `nop` in every dedicated case except `directize:wrong-type-trap` and `directize:select-multivalue-results`;
+- the manifest contains `273` wrong-type cases and `286` multivalue-select cases, exactly the `559` canonical-equal outputs;
+- every other case contains one callee `nop`, or two for ordinary scalar `select` fixtures, which Starshine omits when serializing the transformed module while Binaryen v131 retains them;
+- all 20 persisted mismatch artifacts span constant, select, table-fact, tail-call, GC, table64, legacy-EH, and boundary labels and differ by exactly those generated `nop`s after the matching direct/trap/select rewrite;
+- Starshine is canonically smaller in all `9441` cases and never larger, totaling `559353` versus `570049` bytes, a `10696`-byte reduction.
+
+Agent classification: **pass-independent inert-`nop` elision and canonical size win, not a Directize semantic or transformation-parity gap**. The family is recorded explicitly rather than hidden behind a broad cleanup normalizer.
+
+## 2026-07-30 four-lane matrix
 
 All commands used explicit `--jobs auto`, `--starshine-bin _build/native/release/build/cmd/cmd.exe`, `--wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt`, `--max-failures 2000`, `--keep-going-after-command-failures`, and `--no-reduce-mismatches`.
 
@@ -110,6 +133,28 @@ The table model was also changed from an initial-size allocation to sparse expli
 
 ## Artifact and performance evidence
 
+### September 2 production closeout
+
+The canonical input is `.tmp/production-smoke/size-attribution-accurate/common-star-canonical.wasm`, 4,977,401 bytes at SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`. A one-time `wasm-tools print` attribution finds 2,261 `call_indirect` sites across 261 definitions; every site targets table 1, and every target is dynamic, primarily the production `local.get; i32.load; call_indirect` shape. No site has the immediate constant or constant-arm `select` target accepted by `directize_try_rewrite_call_tail(...)`.
+
+Clean HEAD native SHA-256 `925e2f72645efcfe48887635888b1b170d21f213ecc568283b4b106fb3436d7f` admitted these impossible candidates and exceeded a 120-second no-trace bound. The exact recursive gate now checks table eligibility plus the only supported immediate target spellings before function-context construction and producer scanning. One warmup plus three serial measured pairs produce:
+
+| Metric | Starshine median | Binaryen v131 median | Ratio / result |
+| --- | ---: | ---: | --- |
+| no-trace command | `689.065ms` | `563.773ms` | `1.222x`; `416.935ms` below the fixed `<=1.106s` gate |
+| pass-local | `49.177ms` | `36.192ms` | `1.359x` |
+| module-pass stage | `49.194ms` | n/a | exact owner after admission |
+| optimizer pipeline | `64.853ms` | n/a | `15.659ms` median pipeline remainder |
+
+The completed current command is more than `174.149x` faster than the same-input clean-HEAD timeout lower bound and `2.029x` faster than the older `1.398s` inventory checkpoint. All three Starshine raw and no-trace outputs are byte-identical to the input. The harness's Binaryen no-pass canonicalization makes Starshine and Binaryen exactly equal at 5,300,041 bytes, SHA-256 `4a9c3279a6fb409fbf9eaf68f714141aacfd8d6d9ddacd098f29afe4bbefe583`.
+
+The native benchmark file records two complementary lanes on x86_64 AMD Ryzen 7 8845HS with MoonBit `0.1.20260713`:
+
+- trigger-bearing 256-call depth-64 select producer: `12.37ms +/- 137.51us`;
+- fail-closed 2,048-function dynamic-target breadth: `156.93us +/- 1.76us`, requiring exact module equality and preserved indirect calls before timing.
+
+### Historical July evidence
+
 A 2026-07-30 performance review replaced repeated backward suffix allocation/typechecking in select discovery with a single producer/provenance stack scan. The trigger-bearing skipped native-release lane `src/passes_perf_long/directize_perf_test.mbt` uses `256` indirect calls with depth-`64` argument and condition expressions and reports a final median of `17.415ms` under its `22ms` bound; the pre-repair fixture measured roughly `28–30ms`. Fresh rebuilt native SHA-256 `84bcf115d3ce400923aa7b239c94d20f278eb1bd6455bb031c87b284f12006fd` preserves exact Binaryen-v131 parity in `.tmp/review-fix-directize-regular-100000-20260730-final` (`100000/100000`) and `.tmp/review-fix-directize-dedicated-10000-20260730-final` (`10000/10000`), with zero failures or mismatches. Focused directize tests now pass `18/18`, including chained rewritten-call result provenance.
 
 `.tmp/directize-v131-final-artifact-20260730` reports:
@@ -123,7 +168,17 @@ The debug artifact has `2261` remaining `call_indirect` sites in both outputs; i
 
 ## Validation gate
 
-The final implementation gate passed:
+The September 2 implementation gate records:
+
+- focused Directize white-box admission: `1/1`;
+- legacy-EH audit: `9/9`;
+- focused Directize behavior: `18/18`;
+- full `moon test`: `10910/10910`;
+- native-release Directize benchmarks: `2/2`;
+- `bun validate full --profile ci --target wasm-gc` passed at seed `0x1a06246af1465da`, including 5,000 valid-AST checks and 86,820 binary roundtrips;
+- both explicit-v131 10,000-case lanes above with zero validation, property, generator, or command failures.
+
+The 2026-07-30 implementation gate also passed:
 
 - `moon info`
 - `moon fmt`
