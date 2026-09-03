@@ -44,7 +44,7 @@ The current local strategy is therefore a maintained supported-contract map:
 - treat it as a module/global pass rather than a HOT-local peephole,
 - preserve the canonical late-post-pass slot in the public `optimize` / `shrink` presets,
 - reopen only for a new semantic mismatch, validation failure, measured size/performance regression, or upstream contract drift,
-- keep the sibling relation to plain boundary-only `simplify-globals` and `propagate-globals-globally` explicit,
+- keep the sibling relation to plain boundary-only `simplify-globals` and active startup-only `propagate-globals-globally` explicit,
 - preserve source-backed exclusions instead of widening generic structured/effect flow without proof.
 
 ## Exact local code map today

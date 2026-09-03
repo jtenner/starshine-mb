@@ -1261,6 +1261,12 @@ pub enum GenValidProfile {
   SgoRuntimePropagationProfile
   SgoNestedCleanupProfile
   SgoAllProfile
+  PggDirectGlobalProfile
+  PggCompoundGlobalProfile
+  PggGcCompoundProfile
+  PggDataOffsetProfile
+  PggElemOffsetProfile
+  PggAllProfile
   PassMemoryProfile
   PassGcRefProfile
   PassControlProfile

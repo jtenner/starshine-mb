@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-02
 sources:
   - ./index.md
 related:
@@ -30,7 +30,7 @@ Primary source URLs:
 
 ## The pass in one sentence
 
-Binaryen `propagate-globals-globally` substitutes known immutable-global constant values into other startup-level constant expressions, then rewrites defined global initializers and active element/data offsets, while deliberately leaving ordinary function bodies to `simplify-globals`.
+Binaryen `propagate-globals-globally` substitutes known defined-global constant values into other startup-level constant expressions, then rewrites defined global initializers and active element/data offsets, while deliberately leaving ordinary function bodies to `simplify-globals`. The engine records declaration-time literals without a mutability filter, although v131 validation prevents mutable `global.get` from appearing in a valid consuming initializer.
 
 ## Source-backed algorithm
 

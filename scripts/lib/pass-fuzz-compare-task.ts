@@ -496,6 +496,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--duplicate-import-elimination",
   "--strip-debug",
   "--simplify-globals-optimizing",
+  "--propagate-globals-globally",
   "--dead-argument-elimination",
   "--dae",
   "--dae-optimizing",

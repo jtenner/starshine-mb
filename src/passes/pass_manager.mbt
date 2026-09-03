@@ -91083,6 +91083,8 @@ fn run_hot_pipeline_apply_module_pass(
         Ok(next) => next
         Err(err) => return Err(err)
       }
+    "propagate-globals-globally" =>
+      propagate_globals_globally_run_module_pass(mod_)
     "dead-argument-elimination" | "dae" =>
       if dae_defined_func_count(mod_) >= 32 &&
         run_hot_pipeline_module_has_typeidx_loop(mod_) {

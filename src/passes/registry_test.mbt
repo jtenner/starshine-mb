@@ -9,6 +9,10 @@ fn registry_test_assert_requires(
 ///|
 test "pass registry classifies active, boundary-only, and removed names" {
   @debug.assert_eq(
+    pass_registry_category("propagate-globals-globally"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  @debug.assert_eq(
     pass_registry_category("vacuum"),
     Some(HotPassRegistryCategory::hot_pass()),
   )

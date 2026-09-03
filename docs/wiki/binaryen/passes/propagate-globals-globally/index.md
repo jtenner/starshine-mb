@@ -1,24 +1,27 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+starshine_status: active
+last_reviewed: 2026-09-02
 sources:
+  - ../../../../../src/passes/propagate_globals_globally.mbt
+  - ../../../../../src/passes/propagate_globals_globally_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/lib/types.mbt
-  - ../../../../../src/validate/validate.mbt
-  - ../../no-dwarf-default-optimize-path.md
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ./fuzzing.md
   - ../tracker.md
-  - ../../../../../agent-todo.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./shared-engine-and-startup-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./fuzzing.md
   - ../simplify-globals/index.md
   - ../simplify-globals-optimizing/index.md
-  - ../string-gathering/index.md
   - ../tracker.md
 ---
 
@@ -26,92 +29,62 @@ related:
 
 ## Role
 
-`propagate-globals-globally` is a real public Binaryen module pass that rewrites **startup-level constant global uses** in other globals and active segment offsets. It is currently **unimplemented** in Starshine and lives only as a boundary-only registry name in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+`propagate-globals-globally` is an active Starshine module pass that implements Binaryen's narrow startup-only contract for supported literal initializer facts: it substitutes earlier known literal globals into later defined-global initializers and active data/element offsets, then stops before ordinary function bodies.
 
-It is not part of this repo's current canonical no-DWARF `-O` / `-Os` path and does not appear in the saved generated-artifact `-O4z` skip queue. The folder exists because the pass is named locally, sits beside `simplify-globals*`, and is easy to mis-teach from its broad name.
+It is deliberately not scheduled in the public optimization presets. Users request it directly with `--propagate-globals-globally` or `--pass propagate-globals-globally`.
 
-## Beginner summary
+## Behavior
 
-A good beginner mental model is:
+The pass scans defined globals in declaration order. Before each initializer is considered as a new fact, references to earlier known literal globals are replaced. A rewritten initializer becomes a fact for later startup expressions only when its resulting encoding is one supported literal. Arithmetic compound expressions keep Binaryen's substituted shape but are not evaluated into a later fact.
 
-1. Binaryen finds immutable globals whose initializers are constant expressions.
-2. It records their literal values by global name.
-3. It replaces `global.get` uses inside other startup-level expressions with those literal values.
-4. It applies that rewrite to defined global initializers plus active element/data offsets.
-5. It stops before ordinary function-body `global.get` propagation.
+The same fact table then rewrites:
 
-So the pass is best taught as:
+- active element-segment offsets
+- active data-segment offsets
 
-- **startup-level global constant propagation**
-- not generic whole-program propagation
-- not dead-global cleanup
-- not the broader `simplify-globals` function-body rewrite mode
+It does not rewrite:
 
-## Why this folder was refreshed on 2026-04-24
+- function bodies
+- table initializers or element item expressions
+- passive or declarative segment modes
+- imports, global types, mutability, writes, or dead globals
+- unsupported or non-evaluable initializer shapes
 
-The earlier folder had already corrected the biggest source-layout mistake: the pass is implemented in `src/passes/SimplifyGlobals.cpp`, not a standalone `PropagateGlobals.cpp`.
+The Binaryen engine records declaration-time literals without filtering on mutability, but Binaryen v131 validation rejects a mutable `global.get` in a global initializer. The valid GenValid surface therefore uses immutable producers. This internal detail must not be confused with runtime value tracking after startup or after a `global.set`.
 
-Fresh primary-source review found more stale mechanics:
+## Implementation map
 
-- the reviewed release does not expose the previous wiki's `canHandleAsGlobal` / `allInputsConstant` helper pair
-- the globals pass scans defined globals in declaration order, not reverse order
-- the public pass is a `PropagateGlobalsGlobally` subclass that calls only `propagateConstantsToGlobals()`; it is not explained correctly as just “the shared engine with `optimize = false`”
-- the broader `SimplifyGlobals` sibling calls `propagateConstantsToCode()` after startup/global propagation, which is why its behavior differs in the lit test
+- [`propagate_globals_globally.mbt`](../../../../../src/passes/propagate_globals_globally.mbt) owns declaration-order fact collection and the module rewrite.
+- [`optimize.mbt`](../../../../../src/passes/optimize.mbt) registers the active module pass.
+- [`pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches the public pass name.
+- [`propagate_globals_globally_wbtest.mbt`](../../../../../src/passes/propagate_globals_globally_wbtest.mbt) covers direct and compound initializers, the literal-only fact boundary after an arithmetic compound initializer, GC/string constant expressions, active data/element offsets, function-body preservation, imports, and passive data.
+- [`gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt) owns five focused GenValid leaves plus the aggregate profile.
 
-Those corrections are retained in research note 0320, with direct `version_129` source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md). The retained 2026-05-05 research mirror rechecked `SimplifyGlobals.cpp`, `pass.cpp`, and `propagate-globals-globally.wast` against the same source-backed contract: research note 0459.
+## Validation status
 
-## Purpose and correctness constraints
+Pinned Binaryen v131 evidence is recorded in [`fuzzing.md`](./fuzzing.md). The ordinary `100000/100000` lane and dedicated `10000/10000` aggregate are normalized and canonical matches with zero generator, command, validation, property, or mismatch failures. The dedicated manifest selects every transform-family leaf roughly two thousand times.
 
-The pass's purpose is size/canonicalization cleanup for top-level startup state:
+The random-all lane has 100 retained pass-independent representation parity gaps, all from `remove-unused-brs-*` profiles with no globals, elements, data, or constant-expression variants. They are not classified as PGG wins and do not expand this pass's contract.
 
-- remove unnecessary `global.get` indirection in constant global initializers
-- simplify chained startup expressions when their global inputs are already known
-- make active element/data offsets more direct when they read known immutable globals
-- keep ordinary runtime code untouched in this public pass
+## Maintenance rule
 
-Correctness constraints:
-
-- only treat a global initializer as known when Binaryen's constant-expression predicate accepts the rewritten initializer
-- substitute into startup/module expressions by value, preserving the original constant-expression semantics
-- do not infer mutable-global runtime values
-- do not rewrite function-body uses here; that belongs to `simplify-globals`
-- preserve active/passive/declarative segment mode semantics; only active offsets are first-class rewrite targets in this pass
-
-## Inputs and outputs
-
-Input: a Binaryen module with globals, element segments, and/or data segments that may contain constant-expression `global.get` uses.
-
-Output: the same module shape with eligible startup-level `global.get` uses replaced by literal constant expressions. Function bodies are not rewritten by this public pass.
+Keep the public stop point explicit. Shared helpers may be reused by `simplify-globals*`, but PGG must remain startup-only and must not acquire runtime code propagation or cleanup as an incidental side effect.
 
 ## Page map
 
-- [`./binaryen-strategy.md`](./binaryen-strategy.md) - exact upstream `version_129` strategy, source corrections, and current-main spot-check boundary.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - file/test map for `SimplifyGlobals.cpp`, `pass.cpp`, helper surfaces, and the dedicated lit file.
-- [`./shared-engine-and-startup-boundaries.md`](./shared-engine-and-startup-boundaries.md) - focused guide to the subclass boundary, the relation to `simplify-globals*`, and what “startup-level” means here.
-- [`./wat-shapes.md`](./wat-shapes.md) - beginner-to-advanced shape catalog covering direct chains, arithmetic chains, string/GC constant expressions, active offsets, and function-body negatives.
-- [`./starshine-strategy.md`](./starshine-strategy.md) - exact local status and future port map with Starshine code locations.
-
-## Validation checklist for future Starshine work
-
-A future local port should validate at least:
-
-- direct immutable-global initializer propagation
-- chained constant-expression propagation
-- active data offset propagation
-- active element offset propagation
-- ordinary function-body `global.get` preservation for this specific pass
-- mutable-global and non-constant-expression bailouts
-- parity against Binaryen `wasm-opt --propagate-globals-globally` using the pass-targeted compare harness before adding any preset role
-
-## Current maintenance rule
-
-Keep this folder explicitly marked as **unimplemented** until Starshine grows a real module pass for it. If a future port shares code with `simplify-globals*`, preserve the public-pass stop point: `propagate-globals-globally` must not silently become plain `simplify-globals`.
+- [`binaryen-strategy.md`](./binaryen-strategy.md) - upstream algorithm and source contract.
+- [`implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - upstream owner/test map.
+- [`shared-engine-and-startup-boundaries.md`](./shared-engine-and-startup-boundaries.md) - the family split from `simplify-globals*`.
+- [`wat-shapes.md`](./wat-shapes.md) - positive and negative input shapes.
+- [`starshine-strategy.md`](./starshine-strategy.md) - current local code and validation map.
+- [`fuzzing.md`](./fuzzing.md) - dedicated profiles, commands, results, and residual classification.
 
 ## Sources
 
 - research note 0320
 - research note 0459
-- research note 0196 - historical; superseded for helper names, scan order, and `optimize`-gate explanation.
+- research note 0196 - historical; superseded for helper names, scan order, and the `optimize` explanation.
 - research note 0162 - historical; superseded for the standalone-file claim.
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- [`propagate_globals_globally.mbt`](../../../../../src/passes/propagate_globals_globally.mbt)
+- [`propagate_globals_globally_wbtest.mbt`](../../../../../src/passes/propagate_globals_globally_wbtest.mbt)
+- [`fuzzing.md`](./fuzzing.md)

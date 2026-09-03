@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-02
 sources:
   - ./index.md
 related:
@@ -78,14 +78,14 @@ During replacement, Binaryen rebuilds a constant expression from those literals.
 
 ### Positive scope
 
-- immutable defined global initializers that become constant expressions after substitution
+- defined global initializers that become supported literal facts after substitution; valid consuming expressions use immutable globals under v131 validation
 - later global initializers that read already-known globals
 - active data offsets that read already-known globals
 - active elem offsets that read already-known globals
 
 ### Negative scope
 
-- mutable globals whose runtime values may change
+- mutable-global reads in startup constant expressions, which v131 validation rejects even though the propagation engine records declaration-time literal facts without a mutability filter
 - ordinary function-body `global.get` uses
 - passive/declarative segment payloads with no active offset expression to rewrite
 - dead global removal

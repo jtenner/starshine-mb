@@ -708,6 +708,12 @@ pub enum GenValidProfile {
   SgoRuntimePropagationProfile
   SgoNestedCleanupProfile
   SgoAllProfile
+  PggDirectGlobalProfile
+  PggCompoundGlobalProfile
+  PggGcCompoundProfile
+  PggDataOffsetProfile
+  PggElemOffsetProfile
+  PggAllProfile
   PassMemoryProfile
   PassGcRefProfile
   PassControlProfile
@@ -1151,6 +1157,12 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
       "simplify-globals-optimizing-runtime-propagation"
     SgoNestedCleanupProfile => "simplify-globals-optimizing-nested-cleanup"
     SgoAllProfile => "simplify-globals-optimizing-all"
+    PggDirectGlobalProfile => "propagate-globals-globally-direct-global"
+    PggCompoundGlobalProfile => "propagate-globals-globally-compound-global"
+    PggGcCompoundProfile => "propagate-globals-globally-gc-compound"
+    PggDataOffsetProfile => "propagate-globals-globally-data-offset"
+    PggElemOffsetProfile => "propagate-globals-globally-elem-offset"
+    PggAllProfile => "propagate-globals-globally-all"
     PassMemoryProfile => "pass-memory"
     PassGcRefProfile => "pass-gc-ref"
     PassControlProfile => "pass-control"
@@ -1570,6 +1582,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | InliningOptimizingAllProfile
     | PassOiAllProfile
     | SgoAllProfile
+    | PggAllProfile
     | FlattenAllProfile
     | DirectizeAllProfile
     | EngineStateAllProfile
@@ -2029,6 +2042,14 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SgoRuntimePropagationProfile, 3),
         GenValidProfileMember::new(SgoNestedCleanupProfile, 2),
       ]
+    PggAllProfile =>
+      [
+        GenValidProfileMember::new(PggDirectGlobalProfile, 1),
+        GenValidProfileMember::new(PggCompoundGlobalProfile, 1),
+        GenValidProfileMember::new(PggGcCompoundProfile, 1),
+        GenValidProfileMember::new(PggDataOffsetProfile, 1),
+        GenValidProfileMember::new(PggElemOffsetProfile, 1),
+      ]
     FlattenAllProfile =>
       [
         GenValidProfileMember::new(FlattenFunctionResultsProfile, 1),
@@ -2132,6 +2153,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
         GenValidProfileMember::new(SsaMergeExplicitProfile, 1),
         GenValidProfileMember::new(SsaNestedValueProfile, 1),
+        GenValidProfileMember::new(PggAllProfile, 1),
       ]
     _ => []
   }
@@ -2278,6 +2300,12 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SgoRuntimePropagationProfile,
     SgoNestedCleanupProfile,
     SgoAllProfile,
+    PggDirectGlobalProfile,
+    PggCompoundGlobalProfile,
+    PggGcCompoundProfile,
+    PggDataOffsetProfile,
+    PggElemOffsetProfile,
+    PggAllProfile,
     PassMemoryProfile,
     PassGcRefProfile,
     PassControlProfile,
@@ -2825,6 +2853,11 @@ pub fn gen_valid_profile_by_name(
     "simplify-globals-optimizing-all-profiles" => Ok(SgoAllProfile)
     "sgo" => Ok(SgoAllProfile)
     "sgo-closeout" => Ok(SgoAllProfile)
+    "propagate-globals-globally"
+    | "propagate-globals-globally-closeout"
+    | "propagate-globals-globally-all-profiles"
+    | "pgg"
+    | "pgg-closeout" => Ok(PggAllProfile)
     "oc" => Ok(OptimizeCastsAllProfile)
     "oc-closeout" => Ok(OptimizeCastsAllProfile)
     "rl" => Ok(ReorderLocalsAllProfile)
@@ -5017,6 +5050,12 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | SgoRuntimePropagationProfile
     | SgoNestedCleanupProfile
     | SgoAllProfile => gen_valid_sgo_profile_config(profile)
+    PggDirectGlobalProfile
+    | PggCompoundGlobalProfile
+    | PggGcCompoundProfile
+    | PggDataOffsetProfile
+    | PggElemOffsetProfile
+    | PggAllProfile => gen_valid_pgg_profile_config(profile)
     PassMemoryProfile => {
       let base = GenValidConfig::coverage_forced_default()
       GenValidConfig::{
@@ -24032,6 +24071,256 @@ fn gen_valid_sgo_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_pgg_profile_config(profile : GenValidProfile) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let family_id = match profile {
+    PggDirectGlobalProfile => 1
+    PggCompoundGlobalProfile => 2
+    PggGcCompoundProfile => 3
+    PggDataOffsetProfile => 4
+    PggElemOffsetProfile => 5
+    _ => 6
+  }
+  let gc = profile == PggGcCompoundProfile
+  let compound = profile == PggCompoundGlobalProfile
+  let data = profile == PggDataOffsetProfile
+  let elem = profile == PggElemOffsetProfile
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if gc || elem {
+      1
+    } else {
+      0
+    },
+    max_imports: 0,
+    max_defined_funcs: if elem {
+      1
+    } else {
+      0
+    },
+    max_tables: if elem {
+      1
+    } else {
+      0
+    },
+    max_mems: if data {
+      1
+    } else {
+      0
+    },
+    max_globals: if gc || compound {
+      3
+    } else if data || elem {
+      1
+    } else {
+      2
+    },
+    max_tags: 0,
+    max_elems: if elem {
+      1
+    } else {
+      0
+    },
+    max_datas: if data {
+      1
+    } else {
+      0
+    },
+    max_params: 0,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: 4,
+    max_body_depth: 1,
+    max_module_byte_size_budget: Some(18100 + family_id),
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: elem,
+      allow_mems: data,
+      allow_globals: true,
+      allow_tags: false,
+      allow_start: false,
+      allow_elems: elem,
+      allow_datas: data,
+      allow_ref_types: gc || elem,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_const_expr_variants: true,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_pgg_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(PggDirectGlobalProfile) ||
+  config == GenValidConfig::for_profile(PggCompoundGlobalProfile) ||
+  config == GenValidConfig::for_profile(PggGcCompoundProfile) ||
+  config == GenValidConfig::for_profile(PggDataOffsetProfile) ||
+  config == GenValidConfig::for_profile(PggElemOffsetProfile) ||
+  config == GenValidConfig::for_profile(PggAllProfile)
+}
+
+///|
+fn gen_valid_pgg_profile_kind(config : GenValidConfig) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(PggCompoundGlobalProfile) {
+    PggCompoundGlobalProfile
+  } else if config == GenValidConfig::for_profile(PggGcCompoundProfile) {
+    PggGcCompoundProfile
+  } else if config == GenValidConfig::for_profile(PggDataOffsetProfile) {
+    PggDataOffsetProfile
+  } else if config == GenValidConfig::for_profile(PggElemOffsetProfile) {
+    PggElemOffsetProfile
+  } else {
+    PggDirectGlobalProfile
+  }
+}
+
+///|
+fn gen_valid_pgg_i32_global(value : Int) -> Global {
+  Global::new(
+    GlobalType::new(ValType::i32(), false),
+    Expr::new([Instruction::i32_const(I32(value))]),
+  )
+}
+
+///|
+fn gen_valid_pgg_global_profile_module(
+  seed : UInt64,
+  compound : Bool,
+) -> Module {
+  let value = (seed % 97UL).to_int() + 1
+  let dependent_init = if compound {
+    Expr::new([
+      Instruction::global_get(GlobalIdx::new(0U)),
+      Instruction::i32_const(I32((seed % 11UL).to_int() + 1)),
+      Instruction::i32_add(),
+    ])
+  } else {
+    Expr::new([Instruction::global_get(GlobalIdx::new(0U))])
+  }
+  let globals = [
+    gen_valid_pgg_i32_global(value),
+    Global::new(GlobalType::new(ValType::i32(), false), dependent_init),
+  ]
+  if compound {
+    globals.push(
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::global_get(GlobalIdx::new(1U))]),
+      ),
+    )
+  }
+  Module::new().with_global_sec(GlobalSec::new(globals))
+}
+
+///|
+fn gen_valid_pgg_gc_compound_module(seed : UInt64) -> Module {
+  let pair_type = TypeIdx::new(0U)
+  let i32_field = fn() {
+    FieldType::new(StorageType::val_type(ValType::i32()), Const)
+  }
+  let left = (seed % 97UL).to_int() + 1
+  let right = (seed / 97UL % 89UL).to_int() + 1
+  let pair_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(pair_type)),
+  )
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(
+        SubType::comp_type(CompType::struct_([i32_field(), i32_field()])),
+      ),
+    ]),
+  )
+  .with_global_sec(
+    GlobalSec::new([
+      gen_valid_pgg_i32_global(left),
+      gen_valid_pgg_i32_global(right),
+      Global::new(
+        GlobalType::new(pair_ref, false),
+        Expr::new([
+          Instruction::global_get(GlobalIdx::new(0U)),
+          Instruction::global_get(GlobalIdx::new(1U)),
+          Instruction::struct_new(pair_type),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_pgg_data_offset_module(seed : UInt64) -> Module {
+  let offset = (seed % 64UL).to_int()
+  Module::new()
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+  .with_global_sec(GlobalSec::new([gen_valid_pgg_i32_global(offset)]))
+  .with_data_sec(
+    DataSec::new([
+      Data::new(
+        DataMode::active(
+          MemIdx::new(0U),
+          Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+        ),
+        b"pgg-data",
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_pgg_elem_offset_module(seed : UInt64) -> Module {
+  let offset = (seed % 16UL).to_int()
+  let funcref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(funcref, Limits::i32(32U, None)), None),
+    ]),
+  )
+  .with_global_sec(GlobalSec::new([gen_valid_pgg_i32_global(offset)]))
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(
+        ElemMode::active(
+          TableIdx::new(0U),
+          Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+        ),
+        ElemKind::funcs([FuncIdx::new(0U)]),
+      ),
+    ]),
+  )
+  .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new([]))]))
+}
+
+///|
+fn gen_valid_pgg_profile_module(ctx : GenValidContext) -> Module {
+  match gen_valid_pgg_profile_kind(ctx.config) {
+    PggCompoundGlobalProfile =>
+      gen_valid_pgg_global_profile_module(ctx.root_seed, true)
+    PggGcCompoundProfile => gen_valid_pgg_gc_compound_module(ctx.root_seed)
+    PggDataOffsetProfile => gen_valid_pgg_data_offset_module(ctx.root_seed)
+    PggElemOffsetProfile => gen_valid_pgg_elem_offset_module(ctx.root_seed)
+    _ => gen_valid_pgg_global_profile_module(ctx.root_seed, false)
+  }
+}
+
+///|
 fn gen_valid_once_reduction_profile_config() -> GenValidConfig {
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
   GenValidConfig::{
@@ -34071,6 +34360,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_sgo_profile_config(config) {
     return gen_valid_sgo_profile_module(config)
+  }
+  if gen_valid_is_pgg_profile_config(config) {
+    return gen_valid_pgg_profile_module(ctx)
   }
   if gen_valid_is_once_reduction_profile_config(config) {
     return gen_valid_once_reduction_profile_module()

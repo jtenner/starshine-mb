@@ -4161,6 +4161,101 @@ test "simplify-globals-optimizing focused GenValid leaves emit global rewrite tr
 }
 
 ///|
+test "propagate-globals-globally GenValid profile resolves every transform family" {
+  let expected = [
+    (PggDirectGlobalProfile, "propagate-globals-globally-direct-global"),
+    (PggCompoundGlobalProfile, "propagate-globals-globally-compound-global"),
+    (PggGcCompoundProfile, "propagate-globals-globally-gc-compound"),
+    (PggDataOffsetProfile, "propagate-globals-globally-data-offset"),
+    (PggElemOffsetProfile, "propagate-globals-globally-elem-offset"),
+  ]
+  for pair in expected {
+    let (profile, name) = pair
+    @debug.assert_eq(gen_valid_profile_name(profile), name)
+    assert_true(gen_valid_profile_names().contains(name))
+  }
+  @debug.assert_eq(
+    gen_valid_profile_name(PggAllProfile),
+    "propagate-globals-globally-all",
+  )
+  match gen_valid_profile_by_name("pgg-closeout") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, PggAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      @debug.assert_eq(gen_valid_profile_members(profile), [
+        GenValidProfileMember::new(PggDirectGlobalProfile, 1),
+        GenValidProfileMember::new(PggCompoundGlobalProfile, 1),
+        GenValidProfileMember::new(PggGcCompoundProfile, 1),
+        GenValidProfileMember::new(PggDataOffsetProfile, 1),
+        GenValidProfileMember::new(PggElemOffsetProfile, 1),
+      ])
+    }
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "propagate-globals-globally focused GenValid leaves emit valid varying triggers" {
+  let profiles = [
+    PggDirectGlobalProfile,
+    PggCompoundGlobalProfile,
+    PggGcCompoundProfile,
+    PggDataOffsetProfile,
+    PggElemOffsetProfile,
+  ]
+  for profile in profiles {
+    let first = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    let second = match
+      gen_valid_module_result_from_seed(
+        0x5eeeUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    @debug.assert_eq(first.config_label, gen_valid_profile_name(profile))
+    match validate_module(first.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    assert_true(
+      gen_valid_test_pgg_module_has_trigger(first.wasm_module, profile),
+      msg="PGG profile \{gen_valid_profile_name(profile)} did not emit its expected trigger",
+    )
+    if profile == PggElemOffsetProfile {
+      match first.wasm_module.code_sec {
+        Some(CodeSec([Func(_, Expr([]))])) => ()
+        other =>
+          fail(
+            "PGG element-offset profile must avoid pass-independent body cleanup: \{@debug.to_string(other)}",
+          )
+      }
+    }
+    if profile == PggCompoundGlobalProfile {
+      match first.wasm_module.global_sec {
+        Some(GlobalSec([_, _, Global(_, Expr([GlobalGet(GlobalIdx(1U))]))])) =>
+          ()
+        other =>
+          fail(
+            "PGG compound-global profile must feed its computed initializer into a later global: \{@debug.to_string(other)}",
+          )
+      }
+    }
+    assert_true(
+      first.wasm_module != second.wasm_module,
+      msg="PGG profile \{gen_valid_profile_name(profile)} did not vary across seeds",
+    )
+  }
+}
+
+///|
 test "inlining-optimizing focused GenValid leaves emit direct inline cleanup triggers" {
   let profiles = [
     InliningOptimizingDirectWrapperProfile,
@@ -5433,6 +5528,68 @@ fn gen_valid_test_module_has_active_data_global_offset(mod : Module) -> Bool {
     None => ()
   }
   false
+}
+
+///|
+fn gen_valid_test_module_has_active_elem_global_offset(mod : Module) -> Bool {
+  match mod.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        match elem {
+          Elem(Active(_, Expr(offset)), _) if gen_valid_test_instrs_have_global_get(
+              offset,
+            ) => return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_global_initializer_get_and_instr(
+  mod : Module,
+  expected : Instruction,
+) -> Bool {
+  match mod.global_sec {
+    Some(GlobalSec(globals)) =>
+      for global in globals {
+        match global {
+          Global(_, Expr(init)) if gen_valid_test_instrs_have_global_get(init) &&
+            init.contains(expected) => return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_pgg_module_has_trigger(
+  mod : Module,
+  profile : GenValidProfile,
+) -> Bool {
+  match profile {
+    PggDirectGlobalProfile =>
+      gen_valid_test_module_has_global_initializer_get(mod)
+    PggCompoundGlobalProfile =>
+      gen_valid_test_module_has_global_initializer_get_and_instr(
+        mod,
+        Instruction::i32_add(),
+      )
+    PggGcCompoundProfile =>
+      gen_valid_test_module_has_global_initializer_get_and_instr(
+        mod,
+        Instruction::struct_new(TypeIdx::new(0U)),
+      )
+    PggDataOffsetProfile =>
+      gen_valid_test_module_has_active_data_global_offset(mod)
+    PggElemOffsetProfile =>
+      gen_valid_test_module_has_active_elem_global_offset(mod)
+    _ => false
+  }
 }
 
 ///|

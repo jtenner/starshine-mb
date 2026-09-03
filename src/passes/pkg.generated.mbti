@@ -312,6 +312,10 @@ pub fn precompute_propagate_summary() -> String
 
 pub fn precompute_summary() -> String
 
+pub fn propagate_globals_globally_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn propagate_globals_globally_summary() -> String
+
 pub fn remove_unused_brs_descriptor() -> @ir.HotPassDescriptor
 
 pub fn remove_unused_brs_summary() -> String

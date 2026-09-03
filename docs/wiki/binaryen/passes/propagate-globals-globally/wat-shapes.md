@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-02
 sources:
   - ./index.md
 related:
@@ -25,7 +25,7 @@ Binaryen is not asking:
 
 It is asking a smaller question:
 
-- “is this top-level initializer or active offset still a constant expression after known immutable globals are substituted?”
+- “is this top-level initializer or active offset still a constant expression after known valid global facts are substituted?”
 
 ## Important note about examples
 
@@ -33,7 +33,7 @@ The `after` snippets are conceptual and intentionally compact. Real Binaryen out
 
 ## Quick glossary
 
-- **known global value**: literal values recorded from an immutable defined global initializer that Binaryen still sees as a constant expression
+- **known global value**: literal values recorded from a defined global initializer that Binaryen still sees as a constant expression; valid consuming `global.get` expressions remain subject to Wasm mutability rules
 - **startup-level expression**: a global initializer or active segment offset evaluated outside ordinary function execution
 - **active offset**: the offset expression in an active data or element segment
 - **code use**: a `global.get` inside an ordinary function body; this pass preserves it
@@ -174,7 +174,7 @@ Why it stays:
 - this public pass does not call the broader function-body propagation routine
 - `simplify-globals` is the sibling that may rewrite this shape
 
-## Shape 7: mutable global bailout
+## Shape 7: mutable global validation boundary
 
 Before:
 
@@ -189,10 +189,10 @@ After, conceptually:
 ;; preserved or rejected by validation depending on the exact constant-expression context
 ```
 
-Why it is not a positive:
+Why it is not a valid positive profile:
 
-- runtime-mutated values are not startup constants
-- Starshine and Binaryen validation also treat mutable `global.get` in constant-expression contexts as a special rule boundary
+- Binaryen's propagation engine records the declaration-time literal without filtering on mutability, but Binaryen v131 validation rejects the consuming mutable `global.get` before the pass can run on a valid module
+- runtime mutation remains outside this startup-only pass even where internal IR construction bypasses normal input validation
 
 ## Shape 8: non-constant expression bailout
 

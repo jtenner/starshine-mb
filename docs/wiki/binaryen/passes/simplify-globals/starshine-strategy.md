@@ -216,7 +216,7 @@ A future real implementation should validate in this order:
    - GC/type-refinement cases that require post-rewrite repair
 2. sibling-boundary tests
    - plain `simplify-globals` stops without the optimizing sibling's nested default-function rerun
-   - any shared machinery also composes with a future `propagate-globals-globally` subset
+   - shared machinery continues to compose with the active startup-only `propagate-globals-globally` pass
 3. oracle comparison
    - compare `--simplify-globals` output against Binaryen rather than only `--simplify-globals-optimizing`
 4. late-neighborhood checks
