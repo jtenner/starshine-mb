@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-08-09
+last_reviewed: 2026-09-03
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp
   - ../../../../../src/passes/optimize.mbt
@@ -81,6 +81,14 @@ The externally validated direct four-lane matrix is green for every compared cas
 Both public presets schedule `code-folding` in the exact late sequence `vacuum -> code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks`, protected by an exact-order test. Direct semantics, external validity, and scheduling are closed. The effectful neighborhood replay still exposes downstream cleanup-shape gaps in `merge-blocks` / branch cleanup for block-exit and EH fixtures; those are classified preset-neighborhood evidence rather than direct `code-folding` behavior gaps.
 
 Pass-local performance is closed under the ordinary `<=2x` floor. Five-run medians from the final current native binary are `7.582 ms` Starshine vs `4.450 ms` Binaryen v131 (`1.70x`) on the exact-equality candidate-heavy fixture and `677.087 ms` vs `341.391 ms` (`1.98x`) on the externally validating large debug artifact. Candidate raw and canonical outputs are byte-identical; the large Starshine canonical output remains `63862` bytes (`1.35%`) smaller.
+
+## 2026-09-03 production timing refresh
+
+The current-commit refresh uses the retained 4,977,401-byte production artifact (SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`), release-native Starshine SHA-256 `a9e9924b82e983b7f375ce29c0be239966cb613d4289a71fbe258829832836dd`, and explicit Binaryen v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. One warmup plus three serial measurements under the shared heavy-process lock produced Starshine no-trace command samples `973.512`, `946.082`, and `951.535 ms` (median `951.535 ms`), traced samples `1,131.695`, `1,064.943`, and `1,056.701 ms` (median `1,064.943 ms`), and pass-local samples `38.691`, `35.311`, and `35.116 ms` (median `35.311 ms`). Binaryen command samples were `1,346.037`, `1,410.373`, and `1,866.815 ms` (median `1,410.373 ms`), with pass-local samples `410.179`, `400.440`, and `401.407 ms` (median `401.407 ms`). The median command and pass ratios are therefore `0.675x` and `0.088x`; CodeFolding itself is only `3.71%` of Starshine's no-trace command wall.
+
+Median traced owners were `99.521 ms` lift, `2.698 ms` lower, `271.803 ms` HOT total, `11.340 ms` pre-pass, `17.474 ms` post-pass, `105.459 ms` function-unattributed, and `19.342 ms` outer-loop overhead. Command owners were `195.157 ms` decode, `339.025 ms` final validation, `168.424 ms` encode, and `35.742 ms` post-encode validation. The raw result is 4,976,863 bytes (SHA-256 `e3c93824c5fa5c0628ce8252a2757970914ae76e2b42720a7e7bd275bd46aee9`); the canonical result is 5,299,463 bytes (SHA-256 `750b5a78ca9b208512aacfa2e9b78d7ceb66f9308dccc1b85f17254bad530a7e`). Binaryen v131 emits 5,263,447 bytes (SHA-256 `d071c678435dd3936fb3bc585a4b1a6f321a5df322e31d220901f5e6ff4b79a9`). This clears the direct `<1.5s` production target while preserving the 538-byte raw reduction, so no CodeFolding implementation change or broader raw classifier was retained. Evidence is `.tmp/perf-expression-sweep-20260903/baseline-clean/`; the earlier sibling `baseline/` timing set is invalid because unrelated recursive filesystem scans overlapped it.
+
+The final source-pinned, reference-bracketed confirmation is `.tmp/pass-performance-sweep-20260903-final-bracketed/` on native SHA-256 `25dadf9167acd7c98dc86e26cae6a2ccd0135c58edd1efcfa7fb33ca5a177d0b`. One warmup plus three samples report Starshine `819.125 +/- 1.551 ms` command / `34.359 +/- 1.595 ms` pass-local versus Binaryen v131 `850.033 +/- 12.174 ms` / `372.879 +/- 6.629 ms` (`0.964x` / `0.092x`). This confirms the timing closure with no CodeFolding code retained. Starshine's production canonical form is 36,016 bytes larger in this direct comparison; that pre-existing representation gap is not reclassified as a win by the performance result.
 
 ## Freshness and provenance
 

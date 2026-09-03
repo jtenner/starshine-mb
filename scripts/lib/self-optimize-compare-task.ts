@@ -213,7 +213,18 @@ function ensureStarshineRawOutputExists(
   );
 }
 
-function compileStarshineBeforeCompare(repoRoot: string, moonBin: string): void {
+export function shouldCompileStarshineBeforeCompare(starshineBin: string | null): boolean {
+  return starshineBin === null;
+}
+
+function compileStarshineBeforeCompare(
+  repoRoot: string,
+  moonBin: string,
+  starshineBin: string | null,
+): void {
+  if (!shouldCompileStarshineBeforeCompare(starshineBin)) {
+    return;
+  }
   runOrThrow(
     moonBin,
     ["build", "--target", "native", "--release", "--package", "jtenner/starshine/cmd"],
@@ -2470,7 +2481,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   const summaryPath = path.join(outDir, "result.json");
   const commandsPath = path.join(outDir, "commands.txt");
 
-  compileStarshineBeforeCompare(repoRoot, options.moonBin);
+  compileStarshineBeforeCompare(repoRoot, options.moonBin, options.starshineBin);
 
   if (!fs.existsSync(inputPath)) {
     fail(`input file not found: ${inputPath}`);

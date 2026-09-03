@@ -118,7 +118,10 @@ process.exit(1);
     result.stderr.includes("binaryen parse failed: bad baseline"),
     `expected Binaryen rejection details, got:\n${result.stderr}`,
   );
-  assert(fs.existsSync(moonLog), "expected compare harness to compile before validation");
+  assert(
+    !fs.existsSync(moonLog),
+    "expected explicit Starshine binary to bypass compilation",
+  );
   assert(!fs.existsSync(starshineLog), "expected Starshine not to run on invalid input");
   assert(fs.existsSync(binaryenLog), "expected Binaryen acceptance check to run on invalid input");
 }

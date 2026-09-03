@@ -134,10 +134,16 @@ process.exit(0);
     result.stderr.includes("error: final module validate: type mismatch"),
     `expected captured Starshine stderr, got:\n${result.stderr}`,
   );
-  assert(fs.existsSync(moonLog), "expected compare harness to compile before running Starshine");
+  assert(
+    !fs.existsSync(moonLog),
+    "expected explicit Starshine binary to bypass compilation",
+  );
   assert(fs.existsSync(starshineLog), "expected Starshine invocation to be recorded");
   assert(fs.existsSync(wasmToolsLog), "expected baseline validation to run before the failure");
-  assert(fs.existsSync(wasmOptLog), "expected Binaryen acceptance check to run before the failure");
+  assert(
+    !fs.existsSync(wasmOptLog),
+    "expected missing Starshine output to abort before the Binaryen pass",
+  );
   assert(!fs.existsSync(path.join(outDir, "result.json")), "did not expect a result summary after missing-output failure");
 }
 

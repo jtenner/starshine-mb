@@ -9,6 +9,7 @@
     "make": "bun scripts/make.ts",
     "examples": "bun scripts/examples.ts",
     "cli-benchmarks": "bun scripts/cli-benchmarks.ts",
+    "pass-performance-sweep": "bun scripts/pass-performance-sweep.ts",
     "component": "bun scripts/component.ts",
     "ffi": "bun scripts/ffi.ts"
   }

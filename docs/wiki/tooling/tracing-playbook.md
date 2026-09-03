@@ -97,7 +97,21 @@ bun scripts/self-optimize-compare.ts <input.wasm> \
   --timing-only --wall-attribution --<pass>
 ```
 
-The tool runs one traced Starshine process, one no-trace Starshine control, and Binaryen `--debug`; it records process wall time, verifies that traced and no-trace Starshine outputs are byte-identical, and reports signed tracing overhead instead of charging trace emission to optimizer work. Use one warmup plus three serial measured pairs for durable medians.
+The tool runs one traced Starshine process, one no-trace Starshine control, and Binaryen `--debug`; it records process wall time, verifies that traced and no-trace Starshine outputs are byte-identical, and reports signed tracing overhead instead of charging trace emission to optimizer work. An explicit `--starshine-bin` is used as supplied without an implicit Moon rebuild, so build and hash it before the campaign. Use one warmup plus three serial measured pairs for durable medians.
+
+For several direct passes, use the checked-in campaign wrapper rather than hand-assembling independent medians:
+
+```text
+flock -w 3600 /tmp/starshine-perf-sweep-heavy.lock \
+  bun pass-performance-sweep \
+  --input <input.wasm> \
+  --passes <pass-a,pass-b,...> \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt \
+  --warmup 1 --samples 3 --out-dir <artifact-dir>
+```
+
+`pass-performance-sweep` brackets every requested-pass round with leading and trailing reference-pass commands, reversing requested-pass order on alternating rounds to reduce thermal and order bias. It rejects campaigns with fewer than one warmup or three measured rounds, refuses a pre-existing artifact directory, requires explicit Starshine and Binaryen binaries, verifies that the oracle reports version 131, and rejects a native binary older than current compiler sources. It pins both executable SHA-256 identities, the input, and a production-compiler source fingerprint before sampling; rechecks them at the end; preserves every underlying `self-optimize-compare` result; rejects traced/no-trace byte drift and cross-round Starshine or Binaryen raw-output drift, including the reference; and writes machine-readable `result.json` plus `summary.md` with raw samples, median±MAD command and bracket-adjusted measurements, pass-local and phase attribution, sizes, and canonical equality. A bracket-adjusted increment subtracts the mean of that round's two references and is noise context rather than a substitute for pass-local attribution or a causal before/after binary comparison. Use the default `strip-debug` reference only when the input is known not to carry debug payloads. The wrapper is serial internally; the outer `flock` prevents separate worktrees, builds, or campaigns from sharing the measured host interval. A timing set that overlapped an untracked heavy process is invalid and must be rerun in a fresh artifact directory.
 
 The attribution hierarchy is nested. **Do not sum parents and children together.** The useful boundaries are:
 

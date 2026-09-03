@@ -21,9 +21,15 @@ import {
   extractPipelinePrintEntryPretties,
   parseSelfOptimizeCompareArgs,
   parseStarshinePerfTimingSummary,
+  shouldCompileStarshineBeforeCompare,
 } from "./self-optimize-compare-task";
 
 describe("self-optimize compare timing parsing", () => {
+  test("does not rebuild when an explicit Starshine binary is supplied", () => {
+    expect(shouldCompileStarshineBeforeCompare(null)).toBe(true);
+    expect(shouldCompileStarshineBeforeCompare("_build/native/release/build/cmd/cmd.exe")).toBe(false);
+  });
+
   test("parses opt-in paired traced and no-trace wall attribution", () => {
     expect(parseSelfOptimizeCompareArgs([
       "fixture.wasm",

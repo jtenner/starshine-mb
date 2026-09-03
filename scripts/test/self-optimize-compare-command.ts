@@ -175,23 +175,18 @@ process.exit(0);
     fail(`self-optimize-compare failed:\n${result.stderr}`);
   }
 
-  const moonArgs = JSON.parse(fs.readFileSync(moonLog, "utf8")) as string[];
   const starshineRuns = fs.readFileSync(starshineLog, "utf8").trim().split("\n").map((line) => JSON.parse(line) as string[]);
   const starshineArgs = starshineRuns[0];
   const wasmToolsArgs = JSON.parse(fs.readFileSync(wasmToolsLog, "utf8")) as string[];
   const order = fs.readFileSync(orderLog, "utf8").trim().split("\n").filter(Boolean);
   assert(
-    JSON.stringify(moonArgs) === JSON.stringify([
-      "build",
-      "--target",
-      "native",
-      "--release",
-      "--package",
-      "jtenner/starshine/cmd",
-    ]),
-    `unexpected moon compile args:\n${JSON.stringify(moonArgs, null, 2)}`,
+    !fs.existsSync(moonLog),
+    "expected explicit Starshine binary to bypass compilation",
   );
-  assert(order[0] === "moon", `expected compile to run first, got order ${JSON.stringify(order)}`);
+  assert(
+    order[0] === "starshine",
+    `expected Starshine to be the first logged optimizer, got order ${JSON.stringify(order)}`,
+  );
   assert(order.filter((entry) => entry === "starshine").length === 2, `expected traced and no-trace Starshine invocations in order log ${JSON.stringify(order)}`);
   assert(
     JSON.stringify(wasmToolsArgs) === JSON.stringify(["validate", inputPath]),
