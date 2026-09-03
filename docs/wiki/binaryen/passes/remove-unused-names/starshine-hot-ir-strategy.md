@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-03
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp
   - ./index.md
   - ../../../../../src/passes/remove_unused_names.mbt
   - ../../../../../src/passes/remove_unused_names_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/pass_manager_wbtest.mbt
+  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
 related:
@@ -238,7 +240,7 @@ The focused tests in `src/passes/remove_unused_names_test.mbt` currently prove t
 - branches targeting peeled parents are rebased to the surviving wrapper depth in the lowered WAT
 - branch-like uses targeting intermediate peeled wrappers are retargeted to the surviving wrapper label when the same-type chain makes those exits equivalent
 - `br_if`, `br_table`, and `try_table` catch targets participate in the same retargeting family
-- the shared label-use helper marks `Delegate` targets; this is helper-level coverage because the current public `@lib.Instruction` model has `TryTable` but not the legacy `try ... delegate` instruction surface
+- the shared label-use helper marks `Delegate` targets, while the raw adapter now declines legacy `try` ownership before its non-EH-aware debris and loop-rewrite helpers
 - non-label name-section metadata survives the pass, while label-name maps can be dropped after structural control rewrites because the old label map can become stale
 - loops demote only when no continue target survives
 
@@ -253,13 +255,51 @@ It is intentionally narrow:
 
 - It runs in direct and O4z modes.
 - It first scans for the two local candidate families: same-type single-child block wrappers and loops.
-- It falls back to the HOT path if any label-use instruction is present: `br`, `br_if`, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, `br_on_cast_fail`, or `try_table` catch targets.
+- It falls back to the HOT path if any label-use instruction is present: `br`, `br_if`, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, `br_on_cast_fail`, `br_on_cast_desc_eq`, `br_on_cast_desc_eq_fail`, or `try_table` catch targets.
 - On the safe branchless subset, it peels exact same-type block chains, demotes loops to blocks, and drops harmless `nop`s so the lowered output stays aligned with the pre-existing Starshine representation.
 - The compare harness reports this as real rewrite work (`Starshine pass skipped raw: no`) because changed functions are written; it is not the `no-remove-unused-names-candidates` skip and not the O4z no-op guard.
 
 Measured on `.tmp/run-kernel-speed/remove-unused-names-kernel-50000.wasm`, three final timing-only trials after the change recorded Starshine pass-local `4.749 ms`, `4.773 ms`, and `4.510 ms` versus Binaryen `2.493 ms`, `2.478 ms`, and `2.465 ms`. The median pass-local ratio was about `1.92x` slower than Binaryen, within the repo target of Starshine being at least 50% as fast. The same change preserved direct oracle parity: `.tmp/pass-fuzz-remove-unused-names-perf-exact-final-10000` recorded 9975 compared cases, 9975 normalized matches, 0 mismatches, and 25 Binaryen/canonicalization command failures.
 
 The HOT fallback was also tightened: instead of always doing a global candidate scan plus global label-use bitset scan, it now checks whether the specific candidate subtree targets labels that would be removed. That preserves the delegate / `try_table` safety rules while reducing redundant scans for non-raw fallback cases. The final 10k replay for the code as committed is `.tmp/pass-fuzz-remove-unused-names-perf-exact-final-10000`.
+
+## 2026-09-03 shared-envelope admission sweep
+
+The production-scale sweep added a conservative second-stage raw admission proof for functions whose initial scan found candidate loops plus label uses. A function now skips HOT unchanged only when every removable loop has a direct depth-zero continue target and no same-typed singleton block peel remains. Typed loops are retained, and nested blocks, `if` arms, legacy EH, and `try_table` stay conservative. Focused white-box coverage locks both positive rewrite families: an unused loop and a singleton block peel must still enter the rewrite path.
+
+The same audit closed three label-accounting boundaries:
+
+- `br_on_cast_desc_eq` and `br_on_cast_desc_eq_fail` participate in the initial label-use scan, immediate loop-target proof, and branch-control/debris classification.
+- Any legacy `try` makes the raw adapter return `None` before raw debris cleanup, leaving delegate labels to the existing HOT representation.
+- `precompute_raw_instrs_have_stack_switching(...)` causes an unchanged `stack-switching-remove-unused-names-noop` result. `ResumeOnLabel` carries label depths, but HOT has no continuation/resume representation that can safely update them.
+
+The retained performance evidence lives under `.tmp/perf-hot-envelope-20260903/ab1/remove-unused-names`. It used the `4,977,401`-byte retained artifact with SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`, baseline native binary `4fa6f7e00e56011c9a4e69757b47b7875c81e0c7d55d05941762ecbe25c7074`, candidate binary `b44fe6e86eef3099798caac54fc25f0ba5c56bfff739100f3e355087b5389057`, and Binaryen v131 `wasm-opt` SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. Every invocation passed `--moon /bin/true`, `--timing-only`, and `--wall-attribution`; one baseline/current warmup preceded three serial pairs ordered baseline/current, current/baseline, baseline/current under one held heavy-work lock.
+
+| Measurement (ms) | Baseline samples; median | Candidate samples; median |
+|---|---:|---:|
+| warmup no-trace command | `1000.542` | `789.612` |
+| no-trace command | `1076.817, 1028.533, 1055.790`; `1055.790` | `813.048, 778.308, 800.234`; `800.234` |
+| traced command | `1195.361, 1092.378, 1123.428`; `1123.428` | `832.904, 816.921, 827.902`; `827.902` |
+| Starshine pass-local | `13.725, 12.745, 12.929`; `12.929` | `7.703, 7.457, 7.609`; `7.609` |
+| Binaryen command | `565.716, 511.110, 550.557`; `550.557` | `507.734, 502.938, 524.631`; `507.734` |
+| Binaryen pass-local | `40.401, 38.892, 39.299`; `39.299` | `41.283, 37.723, 38.329`; `38.329` |
+
+The no-trace command median fell `24.2%`. The candidate meets the fixed `<= 1110 ms` P0 gate by `309.766 ms`. Production no-candidate admission rose from `8,504` to `11,121` of `11,999` definitions, leaving `878` on HOT.
+
+| Median phase (ms) | Baseline | Candidate |
+|---|---:|---:|
+| lift | `415.755` | `161.149` |
+| pass | `12.929` | `7.609` |
+| lower / writeback | `0 / 0` | `0 / 0` |
+| function overhead | `121.098` | `83.923` |
+| pre-pass / post-pass | `6.538 / 9.648` | `1.723 / 2.515` |
+| command main pipeline | `568.326` | `271.077` |
+| decode | `161.591` | `161.229` |
+| final / post-encode validation | `325.752 / 29.198` | `324.068 / 29.378` |
+
+All measured baseline/candidate raw outputs are exactly `4,977,401` bytes with SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`. Their canonical outputs are exactly `5,300,041` bytes with SHA-256 `4a9c3279a6fb409fbf9eaf68f714141aacfd8d6d9ddacd098f29afe4bbefe583`, equal to Binaryen; traced and untraced Starshine outputs are equal. The later descriptor/legacy-EH/continuation corrections are correctness boundaries on instruction families absent from this retained production artifact.
+
+The superseding integrated run is `.tmp/pass-performance-sweep-20260903-final-bracketed/`, using final native SHA-256 `25dadf9167acd7c98dc86e26cae6a2ccd0135c58edd1efcfa7fb33ca5a177d0b`. One warmup plus three source-pinned, reference-bracketed samples report `775.833 +/- 15.472 ms` Starshine command and `7.329 +/- 0.096 ms` pass-local versus Binaryen v131 at `533.779 +/- 7.442 ms` and `39.003 +/- 0.292 ms` (`1.453x` / `0.188x`). Production canonical output is exactly equal. The final dedicated lane `.tmp/pass-fuzz-remove-unused-names-perf-sweep-final-10000/` is `10000/10000` canonical-equal with zero mismatches, validation failures, property failures, generator failures, or command failures.
 
 ## O4z guard status
 

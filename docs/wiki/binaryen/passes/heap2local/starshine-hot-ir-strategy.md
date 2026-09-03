@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-19
+last_reviewed: 2026-09-03
 sources:
   - ./index.md
   - ../../../../../src/passes/heap2local.mbt
@@ -9,6 +9,8 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/heap2local_test.mbt
   - ../../../../../src/passes/heap2local_primary_test.mbt
+  - ../../../../../src/passes/pass_manager_wbtest.mbt
+  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../agent-todo.md
@@ -64,6 +66,7 @@ Start here when you want to confirm that `heap2local` is live and where the publ
 Important local nuance:
 
 - most semantics live in `heap2local_run(...)`.
+- the pass manager now scans lowered structured bodies for the seven allocation opcodes that `heap2local` can own and skips HOT lift, module context, and use-def entirely when none is present.
 - one exact v131 raw path in `pass_manager.mbt` recognizes the official `array.new_default -> return -> br_if` unreachable-flow encoding and scalarizes it without HOT type-flow reconstruction. The shortcut is deliberately fixed-shape and i32-array-only.
 
 ## 3. Struct candidate discovery
@@ -281,6 +284,50 @@ If Starshine rewrites this pass again, keep these lessons explicit:
 - keep the upstream nondefaultable-local / refinalization contract documented even though it is outside today's validator-accepted Starshine input surface
 - keep the now-landed `optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighbor cluster explicit whenever scheduler docs are refreshed
 - keep the strong existing parity evidence visible, but do not overstate it as full upstream surface parity
+
+## 2026-09-03 production no-candidate envelope
+
+The raw pass envelope now admits HOT only if recursive lowered-instruction scanning finds one of the allocation families the pass can actually consume:
+
+- `struct.new`
+- `struct.new_default`
+- `struct.new_desc`
+- `struct.new_default_desc`
+- `array.new`
+- `array.new_default`
+- `array.new_fixed`
+
+The scan covers blocks, loops, both `if` arms, legacy protected/catch bodies, and `try_table` bodies. It does not reject by module size or function size. White-box coverage enumerates all seven positive allocation opcodes plus nested structured admission, while the behavior regression proves that an allocation-free function creates neither module context nor HOT lift/pass timing.
+
+The retained performance evidence lives under `.tmp/perf-hot-envelope-20260903/ab1/heap2local`. It used the same pinned `4,977,401`-byte artifact and hashes documented in the RemoveUnusedNames sweep section, with one baseline/current warmup and three order-alternated serial pairs under one held heavy-work lock. All invocations explicitly used Binaryen v131 and passed `--moon /bin/true`, `--timing-only`, and `--wall-attribution`.
+
+| Measurement (ms) | Baseline samples; median | Candidate samples; median |
+|---|---:|---:|
+| warmup no-trace command | `2140.383` | `615.611` |
+| no-trace command | `2102.838, 2212.659, 2073.152`; `2102.838` | `560.746, 554.872, 545.729`; `554.872` |
+| traced command | `2414.024, 2514.212, 2262.470`; `2414.024` | `564.152, 548.853, 557.701`; `557.701` |
+| Starshine pass-local | `203.362, 202.622, 191.825`; `202.622` | `0, 0, 0`; `0` |
+| Binaryen command | `699.339, 649.446, 620.473`; `649.446` | `653.183, 631.986, 618.441`; `631.986` |
+| Binaryen pass-local | `191.639, 183.125, 177.012`; `183.125` | `187.818, 174.870, 176.108`; `176.108` |
+
+The no-trace command median fell `73.6%`, from `2102.838` to `554.872 ms`; it is also below the paired Binaryen command median. The candidate meets the fixed `<= 1428 ms` P0 gate by `873.128 ms`. The artifact contains `11,999` defined functions and no supported Heap2Local allocation, so all `11,999` now take the aggregated `no-heap2local-candidates` raw skip.
+
+| Median phase (ms) | Baseline | Candidate |
+|---|---:|---:|
+| lift | `792.224` | `0` |
+| pass | `202.622` | `0` |
+| lower / writeback | `0 / 0` | `0 / 0` |
+| function overhead | `855.805` | `22.310` |
+| pre-pass / post-pass | `564.198 / 33.507` | `0 / 0` |
+| command main pipeline | `1870.764` | `38.598` |
+| decode | `167.825` | `161.079` |
+| final / post-encode validation | `305.257 / 28.217` | `295.259 / 27.666` |
+
+All baseline/candidate raw outputs remain exactly `4,977,401` bytes with SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`. Canonical output remains exactly `5,300,041` bytes with SHA-256 `4a9c3279a6fb409fbf9eaf68f714141aacfd8d6d9ddacd098f29afe4bbefe583`, equal to Binaryen, and traced/untraced Starshine outputs are equal.
+
+The superseding integrated run is `.tmp/pass-performance-sweep-20260903-final-bracketed/`, using final native SHA-256 `25dadf9167acd7c98dc86e26cae6a2ccd0135c58edd1efcfa7fb33ca5a177d0b`. One warmup plus three source-pinned, reference-bracketed samples report `551.816 +/- 4.024 ms` Starshine command and `0 ms` pass-local versus Binaryen v131 at `688.840 +/- 6.639 ms` and `178.334 ms` (`0.801x` command); production canonical output remains exactly equal.
+
+The final dedicated lane `.tmp/pass-fuzz-heap2local-perf-sweep-final-10000/` has 2,474 canonical-equal cases and 7,526 raw residuals in the established cleanup/debris family, with zero failures. Starshine is canonically smaller in all 7,526 residuals and never larger (`711,830` aggregate canonical bytes versus Binaryen's `915,640`). Inspection of all 20 persisted examples found no pass-owned struct/array allocation or `ref.test` operation remaining in either post-pass output; every sampled delta is a 23-, 26-, or 31-byte Starshine cleanup win rather than an open Heap2Local parity gap.
 
 ## Sources
 

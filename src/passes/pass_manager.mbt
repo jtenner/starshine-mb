@@ -966,7 +966,7 @@ fn vacuum_dropped_parent_replacement(
   if roots.length() > 1 && !vacuum_result_type_is_defaultable(func, node_id) {
     return None
   }
-  Some({ roots, detached })
+  Some({ roots, detached, })
 }
 
 ///|
@@ -70215,7 +70215,9 @@ fn run_hot_pipeline_raw_remove_unused_names_scan_instr(
     | @lib.BrOnNull(_)
     | @lib.BrOnNonNull(_)
     | @lib.BrOnCast(_, _, _, _)
-    | @lib.BrOnCastFail(_, _, _, _) => (false, true)
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _) => (false, true)
     @lib.Loop(_, @lib.Expr(body)) => {
       let (_, has_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instrs(
         body,
@@ -70269,6 +70271,93 @@ fn run_hot_pipeline_raw_remove_unused_names_scan_instrs(
 }
 
 ///|
+fn run_hot_pipeline_raw_label_is_zero(label : @lib.LabelIdx) -> Bool {
+  let @lib.LabelIdx(raw) = label
+  raw == 0U
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_targets_immediate_label(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Br(label)
+    | @lib.BrIf(label)
+    | @lib.BrOnNull(label)
+    | @lib.BrOnNonNull(label)
+    | @lib.BrOnCast(label, _, _, _)
+    | @lib.BrOnCastFail(label, _, _, _)
+    | @lib.BrOnCastDescEq(label, _, _)
+    | @lib.BrOnCastDescEqFail(label, _, _) =>
+      run_hot_pipeline_raw_label_is_zero(label)
+    @lib.BrTable(labels, default_label) => {
+      if run_hot_pipeline_raw_label_is_zero(default_label) {
+        return true
+      }
+      labels.any(run_hot_pipeline_raw_label_is_zero)
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_loop_has_immediate_self_target(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.any(run_hot_pipeline_raw_remove_unused_names_targets_immediate_label)
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_can_skip_used_loops(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr([@lib.Block(_, _)])) => return false
+      @lib.Block(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_remove_unused_names_can_skip_used_loops(body) {
+          return false
+        }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let label_cannot_be_removed = match block_type {
+          @lib.TypeIdxBlockType(_) => true
+          _ =>
+            run_hot_pipeline_raw_remove_unused_names_loop_has_immediate_self_target(
+              body,
+            )
+        }
+        if !label_cannot_be_removed ||
+          !run_hot_pipeline_raw_remove_unused_names_can_skip_used_loops(body) {
+          return false
+        }
+      }
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_raw_remove_unused_names_can_skip_used_loops(
+            then_body,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !run_hot_pipeline_raw_remove_unused_names_can_skip_used_loops(
+                body,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      // Legacy EH and try_table label depths need the HOT label table. Keep
+      // those functions on the existing path even when an outer loop appears
+      // to have an immediate self-target.
+      @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_names_instr_is_branch_control(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -70280,6 +70369,8 @@ fn run_hot_pipeline_raw_remove_unused_names_instr_is_branch_control(
     | @lib.Instruction::BrOnNonNull(_)
     | @lib.Instruction::BrOnCast(_, _, _, _)
     | @lib.Instruction::BrOnCastFail(_, _, _, _)
+    | @lib.Instruction::BrOnCastDescEq(_, _, _)
+    | @lib.Instruction::BrOnCastDescEqFail(_, _, _)
     | @lib.Instruction::Return
     | @lib.Instruction::ReturnCall(_)
     | @lib.Instruction::ReturnCallIndirect(_, _)
@@ -70911,6 +71002,21 @@ fn run_hot_pipeline_raw_remove_unused_names(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  // Continuation resume handlers can carry label depths, but HOT currently has
+  // no continuation representation that RemoveUnusedNames can update safely.
+  if precompute_raw_instrs_have_stack_switching(instrs) {
+    return Some({
+      reason: "stack-switching-remove-unused-names-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  // Legacy delegates do have HOT label ownership. Avoid the raw debris and
+  // loop-demotion helpers, which intentionally do not rewrite legacy EH.
+  if precompute_raw_instrs_have_legacy_try(instrs) {
+    return None
+  }
   if run_hot_pipeline_raw_simplify_locals_has_call_bulk_memory_effect_mesh(
       instrs,
     ) {
@@ -70937,6 +71043,14 @@ fn run_hot_pipeline_raw_remove_unused_names(
       })
     }
     if !has_candidate {
+      return Some({
+        reason: "no-remove-unused-names-candidates",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_remove_unused_names_can_skip_used_loops(instrs) {
       return Some({
         reason: "no-remove-unused-names-candidates",
         func: original,
@@ -77036,6 +77150,82 @@ fn run_hot_pipeline_raw_merge_locals(
 }
 
 ///|
+fn run_hot_pipeline_raw_heap2local_has_supported_allocation(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.StructNew(_)
+      | @lib.StructNewDefault(_)
+      | @lib.StructNewDesc(_)
+      | @lib.StructNewDefaultDesc(_)
+      | @lib.ArrayNew(_)
+      | @lib.ArrayNewDefault(_)
+      | @lib.ArrayNewFixed(_, _) => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_heap2local_has_supported_allocation(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_heap2local_has_supported_allocation(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_heap2local_has_supported_allocation(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_heap2local_has_supported_allocation(body) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          if run_hot_pipeline_raw_heap2local_has_supported_allocation(
+              catch_body,
+            ) {
+            return true
+          }
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_heap2local_has_supported_allocation(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_heap2local_no_candidates(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "heap2local" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  if run_hot_pipeline_raw_heap2local_has_supported_allocation(instrs) {
+    return None
+  }
+  Some({
+    reason: "no-heap2local-candidates",
+    func: original,
+    unchanged_original: true,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_raw_heap2local_fresh_struct_null_test_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -77850,6 +78040,11 @@ fn run_hot_pipeline_func(
     run_hot_pipeline_raw_heap_store_optimization(
       mod_, func_idx, descriptor, options,
     ) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match
+    run_hot_pipeline_raw_heap2local_no_candidates(mod_, func_idx, descriptor) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -79358,20 +79553,13 @@ fn run_hot_pipeline_repair_touched_batch_writeback(
 fn run_hot_pipeline_precompute_repair_batch_writeback(
   original_mod : @lib.Module,
   candidate_mod : @lib.Module,
+  touched : Array[Bool],
   descriptor_name : String,
   options : HotPipelineOptions,
 ) -> @lib.Module? {
-  match original_mod.code_sec {
-    Some(@lib.CodeSec(defs)) =>
-      run_hot_pipeline_repair_touched_batch_writeback(
-        original_mod,
-        candidate_mod,
-        Array::make(defs.length(), true),
-        descriptor_name,
-        options,
-      )
-    None => Some(candidate_mod)
-  }
+  run_hot_pipeline_repair_touched_batch_writeback(
+    original_mod, candidate_mod, touched, descriptor_name, options,
+  )
 }
 
 ///|
@@ -79632,6 +79820,14 @@ fn run_hot_pipeline_apply_hot_pass(
     run_hot_pipeline_descriptor_is_simplify_locals_family(descriptor.name)
   let defer_this_optimize_instructions_writeback_guard = defer_optimize_instructions_writeback_guard &&
     descriptor.name == "optimize-instructions"
+  let precompute_touched : Array[Bool]? = if defer_this_precompute_writeback_guard {
+    match mod_.code_sec {
+      Some(@lib.CodeSec(defs)) => Some(Array::make(defs.length(), false))
+      None => None
+    }
+  } else {
+    None
+  }
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let code_section_start_us = perf_start_timer_opt(
@@ -79642,6 +79838,7 @@ fn run_hot_pipeline_apply_hot_pass(
     Some(@lib.CodeSec(defs)) => {
       let mut lowered : Array[@lib.Func]? = None
       let mut hso_raw_skip_count = 0
+      let mut h2l_raw_skip_count = 0
       let mut pls_raw_skip_count = 0
       let mut run_raw_skip_count = 0
       let mut vacuum_no_candidate_skip_count = 0
@@ -79846,6 +80043,9 @@ fn run_hot_pipeline_apply_hot_pass(
             vacuum_hot_changed_count += 1
           }
         }
+        if defer_this_precompute_writeback_guard && !result.unchanged_original {
+          precompute_touched.unwrap()[code_idx] = true
+        }
         let rse_trace_writeback_start_us = if descriptor.name ==
           "redundant-set-elimination" {
           perf_start_timer_opt(options.perf, "detail:rse:trace-writeback")
@@ -79856,6 +80056,9 @@ fn run_hot_pipeline_apply_hot_pass(
           if descriptor.name == "heap-store-optimization" &&
             result.reason == "no-heap-store-candidates" {
             hso_raw_skip_count += 1
+          } else if descriptor.name == "heap2local" &&
+            result.reason == "no-heap2local-candidates" {
+            h2l_raw_skip_count += 1
           } else if descriptor.name == "pick-load-signs" &&
             result.reason == "no-pick-load-signs-candidates" {
             pls_raw_skip_count += 1
@@ -79887,7 +80090,14 @@ fn run_hot_pipeline_apply_hot_pass(
           }
         }
         match lowered {
-          Some(defs_copy) => defs_copy[code_idx] = result.func
+          Some(defs_copy) =>
+            if !defer_this_precompute_writeback_guard ||
+              !result.unchanged_original {
+              // The copy starts from the original code section, so leaving an
+              // unchanged result in place makes `precompute_touched` complete
+              // by construction: only marked slots can differ at batch time.
+              defs_copy[code_idx] = result.func
+            }
           None =>
             if !result.unchanged_original {
               let defs_copy = defs.copy()
@@ -79923,6 +80133,14 @@ fn run_hot_pipeline_apply_hot_pass(
           descriptor.name,
           "skip-raw",
           payload="reason=no-heap-store-candidates count=\{hso_raw_skip_count}",
+        )
+      }
+      if h2l_raw_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-heap2local-candidates count=\{h2l_raw_skip_count}",
         )
       }
       if pls_raw_skip_count > 0 {
@@ -80068,6 +80286,7 @@ fn run_hot_pipeline_apply_hot_pass(
       run_hot_pipeline_precompute_repair_batch_writeback(
         mod_,
         next_mod,
+        precompute_touched.unwrap(),
         descriptor.name,
         options,
       ) {

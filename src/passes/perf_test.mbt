@@ -4511,6 +4511,66 @@ test "remove-unused-names skips raw lift when the original function has no candi
 }
 
 ///|
+test "remove-unused-names skips hot lift when every loop label is used" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (loop local.get 0 br_if 0)))",
+      ["remove-unused-names"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected used-loop remove-unused-names success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-names]:skip-raw reason=no-remove-unused-names-candidates",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=pass:remove-unused-names"),
+    msg=text,
+  )
+}
+
+///|
+test "heap2local skips hot lift when a function has no supported allocation" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (type $s (struct (field (mut i32)))) (func (param i32) (result i32) local.get 0))",
+      ["heap2local"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected candidate-free heap2local success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[heap2local]:skip-raw reason=no-heap2local-candidates"),
+    msg=text,
+  )
+  assert_false(
+    text.contains("perf:timer name=analysis:module-context"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:heap2local"), msg=text)
+}
+
+///|
 test "remove-unused-brs skips raw lift when the original function has no candidate control flow" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

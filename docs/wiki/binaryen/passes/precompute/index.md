@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-30
+last_reviewed: 2026-09-03
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
@@ -232,6 +232,12 @@ Wall attribution on the 4,977,401-byte canonical production artifact showed that
 The hot-pass dispatcher now keeps the existing per-function escape-carrier checks, accumulates changed definitions, validates them once against the complete candidate module, and restores only invalid definitions. If the batch cannot be completed, execution retries through the previous per-function validation path. A focused pass-manager regression requires the batch timer for both public Precompute variants.
 
 One warmup plus three measured serial pairs reduce plain Precompute to a `1,119.580ms` no-trace command median and `18.967ms` pass-local median versus Binaryen v131 at `703.670ms` / `161.308ms`. This closes the repository's direct `2x` and absolute `1.333s` gates. The raw 4,957,401-byte and canonical 5,279,750-byte outputs are byte-identical to the pre-change baseline, with SHA-256 `4de88d9fbb3d2ca93b7c4f6036def7dae5c91095db3add44359c4c634145fb4b` and `5c889ce5f89c9968a87890ce43445062a6416423598471d503f20da93fca09ef`. Evidence is under `.tmp/optimization-campaign-20260830/`.
+
+## 2026-09-03 exact changed-definition validation renewal
+
+The shared deferred writeback path now consumes the exact changed-definition bitset already produced by the precompute-family module loop. Untouched copied slots bypass structural equality checks; changed definitions retain batch validation, individual rollback, and the existing full fallback. The red-first white-box regression is `precompute batch writeback validates only touched changes` in [`../../../../../src/passes/pass_manager_wbtest.mbt`](../../../../../src/passes/pass_manager_wbtest.mbt).
+
+The separate final plain-Precompute run is `.tmp/pass-performance-sweep-20260903-final-precompute-bracketed/`, using native SHA-256 `25dadf9167acd7c98dc86e26cae6a2ccd0135c58edd1efcfa7fb33ca5a177d0b`. One warmup plus three source-pinned, reference-bracketed samples report Starshine `882.405 +/- 3.898 ms` command / `18.419 +/- 0.130 ms` pass-local / `37.413 ms` writeback versus Binaryen v131 `592.094 +/- 5.393 ms` / `147.806 +/- 1.019 ms` (`1.490x` / `0.125x`). Both gates remain closed. Final `.tmp/pass-fuzz-precompute-perf-sweep-final-10000/` has 3,238 ordinary and 6,762 cleanup-normalized matches, zero residual mismatches or failures, and canonically smaller aggregate Starshine output (`965,232` versus `971,994` bytes) with no larger cases.
 
 ## 2026-08-25 artifact-scale stack-carried overwrite repair
 

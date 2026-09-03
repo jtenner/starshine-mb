@@ -16047,6 +16047,60 @@ test "filtered touched batch writeback restores only invalid changed functions" 
 }
 
 ///|
+test "precompute batch writeback validates only touched changes" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let original_first = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+  )
+  let original_second = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(2))]),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(@lib.CodeSec::new([original_first, original_second]))
+  let candidate = input.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      original_second,
+    ]),
+  )
+  let trace : Array[String] = []
+  let repaired = match
+    run_hot_pipeline_precompute_repair_batch_writeback(
+      input,
+      candidate,
+      [true, false],
+      "precompute-propagate",
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Some(mod_) => mod_
+    None => fail("expected exact precompute touched-set repair")
+  }
+  match repaired.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(funcs[0], original_first)
+      assert_eq(funcs[1], original_second)
+    }
+    None => fail("expected repaired code section")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[precompute-propagate]:writeback-batch-invalid changed=1 invalid=1",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "tuple-optimization validates changed function writeback" {
   let input = @lib.Module::new()
     .with_type_sec(
@@ -25265,4 +25319,165 @@ test "coalesce-locals rolls back invalid candidates without losing valid neighbo
   @debug.assert_eq(checked[0], funcs[0])
   @debug.assert_eq(checked[1], valid)
   @debug.assert_eq(committed, [1])
+}
+
+///|
+test "remove-unused-names raw admission retains unused loops and block peeling" {
+  let void_ = @lib.BlockType::void_()
+  assert_false(
+    run_hot_pipeline_raw_remove_unused_names_can_skip_used_loops([
+      @lib.Instruction::loop_(void_, @lib.Expr::new([])),
+    ]),
+  )
+  assert_false(
+    run_hot_pipeline_raw_remove_unused_names_can_skip_used_loops([
+      @lib.Instruction::block(
+        void_,
+        @lib.Expr::new([@lib.Instruction::block(void_, @lib.Expr::new([]))]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "remove-unused-names recognizes descriptor branch loop targets" {
+  let nullable_any = @lib.RefType::new(
+    true,
+    @lib.HeapType::abs(@lib.AbsHeapType::any()),
+  )
+  let nullable_eq = @lib.RefType::new(
+    true,
+    @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+  )
+  let branches : Array[@lib.Instruction] = [
+    @lib.Instruction::br_on_cast_desc_eq(
+      @lib.LabelIdx::new(0U),
+      nullable_any,
+      nullable_eq,
+    ),
+    @lib.Instruction::br_on_cast_desc_eq_fail(
+      @lib.LabelIdx::new(0U),
+      nullable_any,
+      nullable_eq,
+    ),
+  ]
+  for branch in branches {
+    let loop_instr = @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([branch]),
+    )
+    let (has_candidate, has_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instrs([
+        loop_instr,
+      ],
+    )
+    assert_true(has_candidate)
+    assert_true(has_label_use)
+    assert_true(
+      run_hot_pipeline_raw_remove_unused_names_targets_immediate_label(branch),
+    )
+    assert_true(
+      run_hot_pipeline_raw_remove_unused_names_instr_is_branch_control(branch),
+    )
+    assert_true(
+      run_hot_pipeline_raw_remove_unused_names_can_skip_used_loops([loop_instr]),
+    )
+  }
+}
+
+///|
+fn pass_manager_test_remove_unused_names_raw_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
+test "remove-unused-names raw adapter fails closed on stack switching" {
+  let resume_instr = @lib.Instruction::resume_(@lib.TypeIdx::new(0U), [
+    @lib.ResumeHandler::on_label(@lib.TagIdx::new(0U), @lib.LabelIdx::new(0U)),
+  ])
+  let mod_ = pass_manager_test_remove_unused_names_raw_module([
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::nop()]),
+    ),
+    resume_instr,
+  ])
+  let result = match
+    run_hot_pipeline_raw_remove_unused_names(
+      mod_,
+      @lib.FuncIdx::new(0U),
+      @ir.HotPassDescriptor::new("remove-unused-names"),
+      HotPipelineOptions::new(),
+    ) {
+    Some(result) => result
+    None => fail("expected stack-switching raw fail-closed result")
+  }
+  @debug.assert_eq(result.reason, "stack-switching-remove-unused-names-noop")
+  assert_true(result.unchanged_original)
+}
+
+///|
+test "remove-unused-names leaves legacy try delegates to HOT" {
+  let mod_ = pass_manager_test_remove_unused_names_raw_module([
+    @lib.Instruction::try_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::loop_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+      [],
+      delegate=Some(@lib.LabelIdx::new(0U)),
+    ),
+  ])
+  assert_true(
+    run_hot_pipeline_raw_remove_unused_names(
+      mod_,
+      @lib.FuncIdx::new(0U),
+      @ir.HotPassDescriptor::new("remove-unused-names"),
+      HotPipelineOptions::new(),
+    )
+    is None,
+  )
+}
+
+///|
+test "heap2local raw admission retains every supported allocation family" {
+  let type_idx = @lib.TypeIdx::new(0U)
+  let families : Array[Array[@lib.Instruction]] = [
+    [@lib.Instruction::struct_new(type_idx)],
+    [@lib.Instruction::struct_new_default(type_idx)],
+    [@lib.Instruction::struct_new_desc(type_idx)],
+    [@lib.Instruction::struct_new_default_desc(type_idx)],
+    [@lib.Instruction::array_new(type_idx)],
+    [@lib.Instruction::array_new_default(type_idx)],
+    [@lib.Instruction::array_new_fixed(type_idx, @lib.U32(1U))],
+  ]
+  for family in families {
+    assert_true(
+      run_hot_pipeline_raw_heap2local_has_supported_allocation(family),
+      msg=@debug.to_string(family),
+    )
+  }
+  assert_true(
+    run_hot_pipeline_raw_heap2local_has_supported_allocation([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::struct_new_default(type_idx)]),
+      ),
+    ]),
+  )
 }
