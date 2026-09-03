@@ -21,9 +21,9 @@ fn engine_state_manifest_test_selection(
 ///|
 test "engine-state aggregate manifest records complete deterministic case contracts" {
   let (args, selection) = engine_state_manifest_test_selection(
-    "engine-state-all", 128, 0xE651A7EUL,
+    "engine-state-all", 136, 0xE651A7EUL,
   )
-  @debug.assert_eq(selection.manifest.length(), 128)
+  @debug.assert_eq(selection.manifest.length(), 136)
   let manifest = format_gen_valid_batch_manifest_json(args, selection)
   assert_true(
     manifest.contains("\"schema\":\"starshine.gen-valid.batch.v2\""),
@@ -93,13 +93,22 @@ test "engine-state aggregate manifest records complete deterministic case contra
       "engine-state-exception-unwind", "engine-state-type-call-matrix", "engine-state-leb-index-boundaries",
       "engine-state-table-reference-matrix", "engine-state-memory64-multi-memory",
       "engine-state-trap-commit-matrix", "engine-state-metamorphic-twins", "engine-state-compiler-boundaries",
-      "engine-state-nan", "engine-state-invalid-module",
+      "engine-state-nan", "engine-state-invalid-module", "engine-state-recursive-multivalue",
+      "engine-state-subtype-cast-graph",
     ] {
     assert_true(
       manifest.contains("\"selected_leaf\":\"\{profile}\""),
       msg=profile,
     )
   }
+}
+
+///|
+test "engine-state aggregate accepts a partial weighted cycle" {
+  let (_, selection) = engine_state_manifest_test_selection(
+    "engine-state-all", 128, 0xE651A7EUL,
+  )
+  @debug.assert_eq(selection.manifest.length(), 128)
 }
 
 ///|

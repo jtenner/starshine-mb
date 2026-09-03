@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-02
+last_reviewed: 2026-09-03
 sources:
   - ../../../ffi/README.md
   - ../../../src/ffi_bridge/ffi_bridge.mbt
@@ -175,7 +175,7 @@ with profile version and generator build identity 4. They include:
 - hidden-state restrictions;
 - strict-bit NaN policy, or classification-plus-signed-zero policy for the NaN leaf, and disabled relaxed-operation policy.
 
-The top-level `acceptance_contract` records the required runtime floor keys. The generator self-checks deterministic leaf scheduling, singleton presence for aggregate batches of at least 128 cases, transform absence, and the 4,096-instruction family hard limit before returning or writing a profile selection. Runtime executors remain responsible for floors that require execution evidence, including distinct state hashes, complete observations, failure-family outcomes, support-graph identity, and twin equivalence.
+The top-level `acceptance_contract` records the required runtime floor keys. The generator self-checks deterministic leaf scheduling, singleton presence after one complete aggregate weighted cycle, transform absence, and the 4,096-instruction family hard limit before returning or writing a profile selection. The completeness threshold is computed from the current positive member weights—136 cases across 45 leaves today—so shorter partial batches are accepted without a false missing-leaf error. Runtime executors remain responsible for floors that require execution evidence, including distinct state hashes, complete observations, failure-family outcomes, support-graph identity, and twin equivalence.
 
 ## Budgets
 
@@ -216,12 +216,12 @@ Emit one exact aggregate cycle:
 
 ```text
 bun fuzz run --emit-gen-valid-batch \
-  --count 128 \
+  --count 136 \
   --seed 150937214 \
   --out-dir .tmp/engine-state \
   --manifest .tmp/engine-state/manifest.json \
   --gen-valid-profile engine-state-all \
-  --max-attempts 128
+  --max-attempts 136
 ```
 
 Validate emitted modules independently:

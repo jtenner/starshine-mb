@@ -5463,13 +5463,24 @@ fn gen_valid_engine_state_selection_contract_error(
     }
     i += 1
   }
-  if profile_name == "engine-state-all" && manifest.length() >= 128 {
-    for entry in @validate.gen_valid_profile_members(profile) {
-      let expected_name = gen_valid_profile_name(entry.profile)
-      if !manifest.any(fn(item) { item.selected_profile == expected_name }) {
-        return Some(
-          "engine-state aggregate missed required singleton leaf \{expected_name}",
-        )
+  let members = @validate.gen_valid_profile_members(profile)
+  let mut complete_cycle_weight = 0
+  for entry in members {
+    if entry.weight > 0 {
+      complete_cycle_weight += entry.weight
+    }
+  }
+  if profile_name == "engine-state-all" &&
+    complete_cycle_weight > 0 &&
+    manifest.length() >= complete_cycle_weight {
+    for entry in members {
+      if entry.weight > 0 {
+        let expected_name = gen_valid_profile_name(entry.profile)
+        if !manifest.any(fn(item) { item.selected_profile == expected_name }) {
+          return Some(
+            "engine-state aggregate missed required singleton leaf \{expected_name}",
+          )
+        }
       }
     }
   }
