@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-14
+last_reviewed: 2026-09-03
 sources:
   - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
@@ -14,6 +14,7 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
 related:
+  - ./fuzzing.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./heuristics-splitting-and-plain-vs-optimizing.md
@@ -111,13 +112,23 @@ Partial splitting is enabled only when optimize level is at least 3, shrink leve
 - Result arms may exit through return, tail call, trap, throw, or another represented terminal-unreachable instruction.
 - `no-full-inline` still allows splitting; `no-partial-inline` and `no-inline` suppress it.
 
+## 2026-09-03 source-sized COW improvement and gate refresh
+
+A clean-current refresh on the retained 4,977,401-byte artifact (SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`) first showed that accumulated shared improvements had brought the pass near both `<=2x` P0 gates. That run is retained as progression evidence; the source-pinned integrated run below is the current gate authority.
+
+The retained follow-up reserves each copy-on-write instruction output at the source array's length when the first replacement occurs, instead of growing an empty array through repeated reallocations. Tracing records actual reconstructed-array, reserved-item, and output-item counts; no-trace execution remains counter-free. Five locked alternating before/after/Binaryen pairs retain exact output while reducing median no-trace command time `3147.313->3090.804ms` (`-1.80%`), pass-local time `2289.935->2253.548ms` (`-1.59%`), aggregate caller rewrite time `1238.181->1208.505ms` (`-2.40%`), and the late one-function rewrite `291.211->284.381ms` (`-2.35%`). This is the causal before/after evidence for the retained allocation change.
+
+The superseding integrated run is `.tmp/pass-performance-sweep-20260903-final-bracketed/`, using final native SHA-256 `25dadf9167acd7c98dc86e26cae6a2ccd0135c58edd1efcfa7fb33ca5a177d0b`. One warmup plus three source-pinned, reference-bracketed samples report `3091.212 +/- 4.150 ms` Starshine command and `2270.146 +/- 2.141 ms` pass-local versus Binaryen v131 at `1609.625 +/- 12.177 ms` and `1057.560 +/- 19.430 ms`. The command gate closes at `1.920x`; the pass-local gate remains narrowly open at `2.147x`. Dedicated `.tmp/pass-fuzz-inlining-perf-sweep-final-10000/` is `10000/10000` canonical-equal with zero mismatches or failures.
+
+All measured before/after outputs are byte-identical: raw 5,230,205 bytes, SHA-256 `bc8988df20e39e1430f9ef5246081346918acf3c92a55fc9f0b65040b18bdce4`; canonical 5,631,598 bytes, SHA-256 `1deb7e3918041984d774c86e7383df0b8a19be8f7246b9c5e4b8b38b4be418f0`. The exact five-pair samples, binary hashes, reservation counters, and reproduction command are in [`fuzzing.md`](./fuzzing.md).
+
 ## 2026-08-27 plain-pass wall-time reduction
 
 The first P0 performance slice reduces canonical plain `inlining` from the inventory baseline of `18.798s` pass-local / `20.059s` command to one-warmup/three-sample medians of `2.452s` pass-local / `3.641s` no-trace command. Paired Binaryen v131 medians are `1.032s` / `1.601s`, so the pass remains open at `2.376x` pass-local and `2.274x` command against the `<=2x` gates.
 
 The retained implementation caches trivial-mode classifications for unchanged functions across helper compaction, decides tiny/one-caller/policy-forced profitability before classification, proves any represented structured body is neither Shrinks nor MayNotShrink without HOT lift, skips optimizing-only cycle/dead-suffix graph prediction in plain mode, prepares multivalue block types only in the first default plain round, records direct targets during the existing reference scan so only callers with inlineable targets enter rewrite traversal, reconstructs caller arrays only along paths containing an actual inline, and preflights final dead-unreachable-drop pruning before allocating rewritten functions. The canonical raw output remains byte-identical to pre-repair output at 5,230,205 bytes, SHA-256 `bc8988df20e39e1430f9ef5246081346918acf3c92a55fc9f0b65040b18bdce4`; native SHA-256 is `ae0f3a06cac025de34e729295b4343ce14bd2a85b9b92192900c2ea148a0f1c1`.
 
-The remaining serial owner is the final 2.37MB caller. Its late convergence round changes one function after scanning roughly 6,102 direct calls; naive indexed flat-call, subtree-preflight, eager remap-COW, body-summary-cache, type-index, suffix-stop, and body-reference-remap experiments were measured and rejected when they were neutral or slower. Continue with an exact planner/action index or iteration fusion that preserves bounded-work ordering and canonical bytes.
+The remaining serial owner at that point was the final 2.37MB caller. Its late convergence round changes one function after scanning roughly 6,102 direct calls; naive indexed flat-call, subtree-preflight, eager remap-COW, body-summary-cache, type-index, suffix-stop, and body-reference-remap experiments were measured and rejected when they were neutral or slower. The 2026-09-03 refresh above supersedes these absolute timings but confirms that this pass-local owner remains the next optimization target.
 
 ## 2026-08-13 implicit function-label runtime repair
 
@@ -149,6 +160,7 @@ Both runs used explicit `wasm-opt version 131 (version_131)` and reported zero c
 ## Page map
 
 - [`binaryen-strategy.md`](./binaryen-strategy.md): upstream phases and rationale.
+- [`fuzzing.md`](./fuzzing.md): current fuzzing and measured performance signoff.
 - [`implementation-structure-and-tests.md`](./implementation-structure-and-tests.md): local owner/helper/test map.
 - [`heuristics-splitting-and-plain-vs-optimizing.md`](./heuristics-splitting-and-plain-vs-optimizing.md): policy and sibling distinctions.
 - [`compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md): separate metadata and policy channels.

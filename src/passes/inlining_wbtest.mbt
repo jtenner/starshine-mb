@@ -130,7 +130,7 @@ test "inlining reconstructs only changed control paths" {
   source.write_string(" call $tiny))")
   let mod_ = pass_test_module_from_wat(source.to_string())
   let infos = inl_build_function_infos(mod_)
-  let allocations = [0]
+  let allocations = [0, 0]
   let result = inl_rewrite_all_calls(
     mod_,
     infos,
@@ -138,6 +138,10 @@ test "inlining reconstructs only changed control paths" {
   )
   assert_true(result.changed)
   assert_true(allocations[0] <= 1, msg=allocations[0].to_string())
+  assert_true(
+    allocations[1] >= 257,
+    msg="expected source-sized COW reservation, got \{allocations[1]}",
+  )
 }
 
 ///|

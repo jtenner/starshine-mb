@@ -81,13 +81,20 @@ fn InlCowInstrOutput::begin_replacement(
   let out = match self.rewritten {
     Some(out) => out
     None => {
-      let out : Array[@lib.Instruction] = []
+      let out : Array[@lib.Instruction] = Array::new(
+        capacity=self.original.length(),
+      )
       for idx in 0..<self.index {
         out.push(self.original[idx])
       }
       self.rewritten = Some(out)
       match self.allocations {
-        Some(counts) => counts[0] += 1
+        Some(counts) => {
+          counts[0] += 1
+          if counts.length() > 1 {
+            counts[1] += self.original.length()
+          }
+        }
         None => ()
       }
       out
@@ -102,7 +109,13 @@ fn InlCowInstrOutput::finish(
   self : InlCowInstrOutput,
 ) -> Array[@lib.Instruction] {
   match self.rewritten {
-    Some(out) => out
+    Some(out) => {
+      match self.allocations {
+        Some(counts) => if counts.length() > 2 { counts[2] += out.length() }
+        None => ()
+      }
+      out
+    }
     None => self.original
   }
 }
@@ -8872,10 +8885,26 @@ fn inl_run_module_pass_once(
   let rewrite_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:rewrite-all-calls",
   )
-  let result = inl_rewrite_all_calls(split_prepared, infos)
+  let reconstruction_stats : Array[Int]? = match trace {
+    Some(_) => Some([0, 0, 0])
+    None => None
+  }
+  let result = inl_rewrite_all_calls(
+    split_prepared,
+    infos,
+    reconstruction_allocations=reconstruction_stats,
+  )
   perf_stop_timer_opt(
     perf, "detail:inlining:once:rewrite-all-calls", rewrite_start_us,
   )
+  match reconstruction_stats {
+    Some(stats) =>
+      inl_trace_perf(
+        trace,
+        "rewrite arrays=\{stats[0]} reserved_items=\{stats[1]} output_items=\{stats[2]}",
+      )
+    None => ()
+  }
   inl_trace_perf(
     trace,
     "once changed=\{result.changed} touched=\{inl_count_true(result.touched)} inlined_from=\{inl_count_true(result.inlined_from)} funcs=\{inl_defined_func_count(mod_)}",
