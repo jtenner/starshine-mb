@@ -264,3 +264,28 @@ test "ffi bridge rejects non-positive engine-state case indexes" {
   assert_eq(generated.module_byte_length(), 0U)
   assert_true(generated.error_byte_length() > 0U)
 }
+///|
+test "ffi bridge emits Array iterator Option next runtime" {
+  let functions = funcs_new()
+  let builder = runtime_function_builder_new(
+    0,
+    -1,
+    -1,
+    -1,
+    0,
+    0,
+    16,
+    17,
+  )
+  let name = b"dew_array_iter_next_option"
+  for index in 0..<name.length() {
+    builder.push_name_byte(name[index])
+  }
+  assert_true(funcs_push_runtime(functions, builder))
+  assert_eq(functions.length(), 1)
+  let @lib.Func(_, @lib.Expr(body)) = functions[0]
+  match body {
+    [@lib.LocalGet(_), @lib.LocalSet(_), ..] => ()
+    _ => fail("Array iterator Option next must load its parameter before its scratch local")
+  }
+}

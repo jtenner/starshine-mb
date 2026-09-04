@@ -82,6 +82,31 @@ fn bridge_array_field_body(base : Int, field : UInt) -> @lib.Func {
 }
 
 ///|
+fn bridge_array_backing_length_body(base : Int, carrier : Int) -> @lib.Func {
+  let wrapper_type = bridge_array_wrapper_type(base)
+  let array_type = bridge_array_type(base, carrier)
+  let body : Array[@lib.Instruction] = []
+  bridge_array_wrapper_get(body, wrapper_type, 0, 0U)
+  body.push(@lib.Instruction::local_tee(bridge_array_local(1)))
+  body.push(@lib.Instruction::ref_is_null())
+  body.push(
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [@lib.Instruction::i32_const(@lib.I32::new(0))],
+      Some([
+        @lib.Instruction::local_get(bridge_array_local(1)),
+        bridge_array_ref_cast(array_type),
+        @lib.Instruction::array_len(),
+      ]),
+    ),
+  )
+  @lib.Func::new(
+    @lib.Locals::from_types([@lib.ValType::eqref_null()]),
+    @lib.Expr::new(body),
+  )
+}
+
+///|
 pub fn instructions_push_array_push(
   values : Array[@lib.Instruction],
   base : Int,
@@ -422,6 +447,18 @@ pub fn instructions_push_array_iter_next(
 }
 
 ///|
+fn bridge_array_iter_next_option_body(base : Int, carrier : Int) -> @lib.Func {
+  let body : Array[@lib.Instruction] = [
+    @lib.Instruction::local_get(bridge_array_local(0)),
+  ]
+  instructions_push_array_iter_next(body, base, carrier, 1)
+  @lib.Func::new(
+    @lib.Locals::from_types([@lib.ValType::eqref_null()]),
+    @lib.Expr::new(body),
+  )
+}
+
+///|
 fn bridge_array_iter_next_body(base : Int, carrier : Int) -> @lib.Func {
   let wrapper_type = bridge_array_wrapper_type(base)
   let iterator_type = @lib.TypeIdx::new((base + 7).reinterpret_as_uint())
@@ -497,6 +534,10 @@ fn emit_bridge_array_runtime_function(
     Some(bridge_array_field_body(base, 1U))
   } else if name == b"dew_array_capacity" {
     Some(bridge_array_field_body(base, 2U))
+  } else if name == b"dew_array_backing_length_i32" {
+    Some(bridge_array_backing_length_body(base, 0))
+  } else if name == b"dew_array_backing_length_ref" {
+    Some(bridge_array_backing_length_body(base, 5))
   } else if name == b"dew_array_push" {
     Some(bridge_array_push_body(base, carrier))
   } else if name == b"dew_array_get" {
@@ -513,6 +554,8 @@ fn emit_bridge_array_runtime_function(
     Some(bridge_array_iter_has_next_body(base))
   } else if name == b"dew_array_iter_next" {
     Some(bridge_array_iter_next_body(base, carrier))
+  } else if name == b"dew_array_iter_next_option" {
+    Some(bridge_array_iter_next_option_body(base, carrier))
   } else if name == b"dew_array_truncate" {
     Some(bridge_array_truncate_body(base))
   } else if name == b"dew_array_clear" {
