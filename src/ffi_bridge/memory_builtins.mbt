@@ -1,6 +1,25 @@
 ///|
+test "memory argument bridge preserves alignment and a 64-bit offset" {
+  assert_eq(
+    memory_argument(3U, 4294967297UL),
+    @lib.MemArg::new(@lib.U32::new(3U), None, @lib.U64::new(4294967297UL)),
+  )
+  assert_eq(
+    memory_argument(0U, 0UL),
+    @lib.MemArg::new(@lib.U32::new(0U), None, @lib.U64::new(0UL)),
+  )
+}
+
+///|
+// Use the provider's own optional-memory representation. Raw FFI callers must
+// not manufacture the numeric encoding of MemIdx::None.
+pub fn memory_argument(align : UInt, offset : UInt64) -> @lib.MemArg {
+  @lib.MemArg::new(@lib.U32::new(align), None, @lib.U64::new(offset))
+}
+
+///|
 fn starshine_memory_argument(align : UInt) -> @lib.MemArg {
-  @lib.MemArg::new(@lib.U32::new(align), None, @lib.U64::new(0UL))
+  memory_argument(align, 0UL)
 }
 
 ///|

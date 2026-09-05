@@ -795,6 +795,16 @@ pub fn ffi_ffi_bridge_instructions_push_array_push(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ffi_bridge_memory_argument")
+pub fn ffi_ffi_bridge_memory_argument(
+  value0 : UInt,
+  value1 : UInt64,
+) -> @lib.MemArg {
+  @ffi_bridge.memory_argument(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ffi_bridge_module_new")
 pub fn ffi_ffi_bridge_module_new() -> @lib.Module {
   @ffi_bridge.module_new()

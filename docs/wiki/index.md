@@ -4,6 +4,8 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Schema And Operations
 
+- [`tooling/raw-wasmgc-memory-arguments.md`](tooling/raw-wasmgc-memory-arguments.md) - Raw FFI memory-argument constructor, exact provider carrier, default-memory encoding, and full-width offset contract.
+
 - [`../../AGENTS.md`](../../AGENTS.md) - Compact repo essentials, always-follow workflow rules, and task-specific guidance for repo work and wiki maintenance.
 - [`../README.md`](../README.md) - Canonical docs and wiki schema, now split into high-signal repo rules plus lower-frequency reference details; its frontmatter contract distinguishes evidence/lifecycle `status` from optional Binaryen-pass `starshine_status`, preventing source-backed upstream dossiers from being mistaken for local implementations.
 - [`raw/README.md`](raw/README.md) - Rules for committed raw sources, including immutable source captures, numbered research notes, and topic raw-source directories such as `raw/binaryen/`, `raw/fuzzing/`, `raw/ir2/`, `raw/moonbit/`, `raw/node/`, `raw/release/`, `raw/validation/`, `raw/wasm/`, and `raw/wiki/`.
