@@ -2087,6 +2087,8 @@
   "ffi_passes_precompute_propagate_run": "passes::precompute_propagate_run",
   "ffi_passes_precompute_propagate_summary": "passes::precompute_propagate_summary",
   "ffi_passes_precompute_summary": "passes::precompute_summary",
+  "ffi_passes_propagate_globals_globally_run_module_pass": "passes::propagate_globals_globally_run_module_pass",
+  "ffi_passes_propagate_globals_globally_summary": "passes::propagate_globals_globally_summary",
   "ffi_passes_remove_unused_brs_descriptor": "passes::remove_unused_brs_descriptor",
   "ffi_passes_remove_unused_brs_summary": "passes::remove_unused_brs_summary",
   "ffi_passes_remove_unused_names_descriptor": "passes::remove_unused_names_descriptor",

@@ -17227,6 +17227,22 @@ pub fn ffi_passes_precompute_summary() -> String {
 
 ///|
 #doc(hidden)
+#export_name("ffi_passes_propagate_globals_globally_run_module_pass")
+pub fn ffi_passes_propagate_globals_globally_run_module_pass(
+  value0 : @lib.Module,
+) -> @lib.Module {
+  @passes.propagate_globals_globally_run_module_pass(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_passes_propagate_globals_globally_summary")
+pub fn ffi_passes_propagate_globals_globally_summary() -> String {
+  @passes.propagate_globals_globally_summary()
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_passes_remove_unused_brs_descriptor")
 pub fn ffi_passes_remove_unused_brs_descriptor() -> @ir.HotPassDescriptor {
   @passes.remove_unused_brs_descriptor()

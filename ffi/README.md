@@ -37,6 +37,11 @@ Standalone generic functions, inaccessible private implementing types, and publi
 
 The compiler first exports C-safe wrapper names. The JavaScript build step rewrites only the Wasm export-section strings to the linker-facing names above; function indices and WasmGC signatures are unchanged.
 
+The global propagation pass is also available through
+`passes::propagate_globals_globally_run_module_pass(Module) -> Module` and
+`passes::propagate_globals_globally_summary() -> String`. Its generated wrappers
+must be kept with the export-name metadata when regenerating the provider.
+
 The `jtenner/starshine/ffi_bridge` package provides the small typed bridges needed by WasmGC consumers that cannot directly construct MoonBit generic arrays or inspect MoonBit `Result` values. It exposes mutable builders for the compiler-facing `ValType`, `RecType`, `TypeIdx`, `Instruction`, and `Func` arrays, an empty `Module` constructor, validation, and an `EncodedModule` byte inspector. These are object-model bridges, not a second command language.
 
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
