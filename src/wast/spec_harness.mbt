@@ -329,10 +329,6 @@ fn spec_is_known_specsuite_mismatch(
     return path == "tests/spec/names.wast" && command_number == 5
   }
 
-  if msg.contains("validation failed: legacy try requires a catch or delegate") {
-    return path == "tests/spec/legacy/try_catch.wast" && command_number == 3
-  }
-
   false
 }
 
@@ -675,8 +671,8 @@ test "wast spec harness intentionally skips the known type equivalence mismatch"
 }
 
 ///|
-test "wast spec harness intentionally skips the known legacy try mismatch" {
-  assert_true(
+test "wast spec harness no longer skips the repaired catchless legacy try" {
+  assert_false(
     spec_is_known_specsuite_mismatch(
       "tests/spec/legacy/try_catch.wast",
       Some(2),
@@ -872,9 +868,6 @@ test "wast spec harness known mismatch allowlist requires exact assertion identi
     ),
     (
       "tests/spec/names.wast", 5, "validation failed: duplicate export name: duplicate",
-    ),
-    (
-      "tests/spec/legacy/try_catch.wast", 3, "validation failed: legacy try requires a catch or delegate",
     ),
   ]
   let repaired_type_rec_message = "assert_invalid expected validation failure, but module validated"
@@ -1135,12 +1128,6 @@ test "wast spec harness supports legacy exception text fixtures" {
       Passed => ()
       Skipped(reason) => {
         let expected = (
-            path.has_suffix("/legacy/try_catch.wast") &&
-            reason.contains(
-              "validation failed: legacy try requires a catch or delegate",
-            )
-          ) ||
-          (
             path.has_suffix("/legacy/try_delegate.wast") &&
             reason.contains(
               "module lower failed: invalid legacy rethrow label: 1",

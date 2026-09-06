@@ -1633,6 +1633,10 @@ fn wt_legacy_try_to_lib(
     }
   }
   let delegate : @lib.LabelIdx? = match delegate_target {
+    // Catchless legacy text propagates exceptions to the surrounding context.
+    // Keep its branch label and try nesting; make that propagation explicit
+    // in the core encoding, which requires a handler or a delegate.
+    None if lib_catches.is_empty() => Some(@lib.LabelIdx::new(0))
     None => None
     Some(Num(depth)) => Some(@lib.LabelIdx::new(depth))
     Some(Id(name)) =>
@@ -6163,6 +6167,50 @@ test "wast_to_binary_module keeps implicit table-abbrev elem order ahead of expl
       fail(
         "expected table-abbrev ordering fixture to validate after lowering: \{e}",
       )
+  }
+}
+
+///|
+test "wast_to_binary_module gives catchless legacy try an outer delegate" {
+  let src =
+    #|(module
+    #|  (tag $e)
+    #|  (func (result i32)
+    #|    (try $value (result i32) (do (i32.const 42) (br $value))))
+    #|  (func (result i32)
+    #|    (try (result i32)
+    #|      (do (try (result i32) (do (throw $e))))
+    #|      (catch $e (i32.const 42)))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(module_) => module_
+    Err(error) => fail("catchless try lowering failed: \{error}")
+  }
+  match lowered.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(_, @lib.Expr([@lib.Try(_, _, [], Some(@lib.LabelIdx(0)))])),
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Try(
+                  _,
+                  @lib.Expr([@lib.Try(_, _, [], Some(@lib.LabelIdx(0)))]),
+                  catches,
+                  None
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => assert_eq(catches.length(), 1)
+    _ => fail("catchless tries must delegate without losing the outer handler")
+  }
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(error) => fail("catchless try must validate: \{error}")
   }
 }
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-09-06
 sources:
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../../src/wast/parser.mbt
@@ -159,6 +159,18 @@ Starshine also accepts a legacy text family:
 Treat this as compatibility syntax even though accepted legacy `try` is now preserved as core `Instruction::Try`. [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) validates legacy labels, retains protected bodies, typed/catch-all handler bodies, and delegate targets, while accepted `rethrow` still has narrower compatibility behavior. Optimizer tests should use first-class `Try` fixtures when traversal, remapping, or exceptional-flow analysis is the behavior under test.
 
 ## Validation Invariants And Edge Cases
+
+### Catchless legacy text preserves propagation
+
+A legacy `(try (do ...))` with no handler or explicit delegate lowers to core
+`Try` with `delegate 0`. This preserves its branch label and nested try context
+while making propagation to the surrounding handler explicit. It does not add a
+catch or discard the protected body. The core validator still rejects a directly
+constructed `Try` that has neither handlers nor a delegate. The direct-IR and
+validation regression in [`lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
+covers both a named result branch and nesting under an outer catch. The vendored
+[`legacy/try_catch.wast`](../../../tests/spec/legacy/try_catch.wast) command 3 now
+passes static checking without its former mismatch allowance.
 
 ### Tag result-shape split: declaration versus EH use site
 

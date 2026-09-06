@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-26
+last_reviewed: 2026-09-06
 sources:
   - https://github.com/WebAssembly/spec/tree/main/interpreter
   - ../../../src/wast/spec_harness.mbt
@@ -127,8 +127,13 @@ The spec runner reports file-level `Passed`, `Skipped(reason)`, or `Failed(msg)`
 - exact type-mismatch commands in `type-equivalence.wast`;
 - exact const-expression result-type mismatches in `type-rec.wast`;
 - unexpected local validation success at exact commands in `block.wast`, `br.wast`, `if.wast`, `loop.wast`, `ref.wast`, `type-rec.wast`, `i32.wast`, `load.wast`, `store.wast`, `labels.wast`, `return.wast`, and `local_set.wast`;
-- duplicate-export-name divergence in `names.wast`;
-- the exact legacy-try validation mismatch in `legacy/try_catch.wast`.
+- duplicate-export-name divergence in `names.wast`.
+
+The 2026-09-06 catchless-try repair retired the allowance for
+`legacy/try_catch.wast` command 3. WAST lowering supplies an explicit outer
+delegate while retaining the try label and body. The positive lowering and
+legacy-fixture tests must pass; this command is no longer a known-mismatch skip.
+Other runtime skips and legacy rethrow limitations remain visible.
 
 The 2026-08-26 recursive-group repair retired the two implicit-function-type failures formerly reported as `type-rec.wast` commands 6 and 7. WAST lowering no longer reuses a structurally matching function member from an explicit multi-type `rec` group for an implicit function type; it appends a standalone singleton type. Validation now preserves normalized recursive-group boundaries and requires group arity/member-position compatibility during exact defined-type matching. The command-6 allowance was removed, command 7 was never allowlisted, and focused lowering plus private const-expression regressions keep both orderings strict. The remaining `type-rec.wast` entries in the allowlist are independent commands 8, 9, 26, and 27.
 

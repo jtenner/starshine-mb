@@ -23500,3 +23500,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## 2026-09-05 — Raw FFI memory-argument contract
 
 - Added the [memory-argument guide](tooling/raw-wasmgc-memory-arguments.md) for the provider-owned optional memory representation, exact MemArg carrier, and 64-bit offset preservation. The focused bridge test covers zero and greater-than-32-bit offsets; the exported constructor avoids consumer guesses about MoonBit optional-value encoding.
+
+## 2026-09-06 — Catchless legacy text propagation
+
+- Updated the [exception/tag guide](wast/exception-tag-authoring.md) and
+  [static harness guide](wast/static-assertion-harness.md): catchless text now
+  lowers to an explicit outer delegate, with branch labels and bodies intact.
+  The positive regression failed before the fix; all nine focused legacy tests
+  pass afterward. Retired the exact command-3 mismatch allowance instead of
+  broadening it to match newer contextual validator messages. Other spec skips
+  remain separate conformance debt.
