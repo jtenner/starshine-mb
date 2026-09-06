@@ -91,7 +91,7 @@ Starshine's core representation is deliberately semantic enough for validators a
 2. `else` (`0x05`) splits only an `if` frame's then/else bodies;
 3. malformed nesting must fail without consuming unrelated trailing bytes.
 
-The decoder also has an instruction nesting limit and reports `InstructionNestingLimitExceeded` for adversarially deep payloads; [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) has focused coverage for that guard. [`Encode for Expr`](../../../src/binary/encode.mbt) emits each instruction and then appends `0x0B`.
+The decoder also has an instruction nesting limit and reports `InstructionNestingLimitExceeded` for adversarially deep payloads; [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) has focused coverage for that guard. Both instruction and expression encoding use an explicit control-work stack in [`encode_control.mbt`](../../../src/binary/encode_control.mbt). Sequence cursors keep pending work proportional to nesting depth, not instruction count. Leaf encoding does not recurse into control bodies. Each expression appends `0x0B`; legacy delegated `try` ends with `delegate` instead. A bounded nested-`if` regression in [`encode_control_wbtest.mbt`](../../../src/binary/encode_control_wbtest.mbt) checks exact bytes through both public entry points without increasing the host stack size.
 
 ### Block types
 

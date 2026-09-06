@@ -1657,13 +1657,7 @@ pub impl Encode for BlockType with fn encode(val, buf) {
 
 ///|
 pub impl Encode for Expr with fn encode(val, buf) {
-  for i in val.0.iter() {
-    if Encode::encode(i, buf) is Err(err) {
-      return Err(err)
-    }
-  }
-  buf.write_byte(0x0B)
-  Ok(())
+  encode_control_work([ControlByte(0x0B), ControlSequence(val.0, 0)], buf)
 }
 
 ///|
@@ -1928,46 +1922,29 @@ fn encode_backing_array_store_opcode(
 ///|
 pub impl Encode for Instruction with fn encode(val, buf) {
   match val {
+    Block(_, _)
+    | Loop(_, _)
+    | If(_, _, _)
+    | Try(_, _, _, _)
+    | TryTable(_, _, _) => encode_control_work([ControlInstruction(val)], buf)
+    _ => encode_leaf_instruction(val, buf)
+  }
+}
+
+///|
+fn encode_leaf_instruction(
+  val : Instruction,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  match val {
     Unreachable => buf.write_byte(0x00)
     Nop => buf.write_byte(0x01)
-    Block(bt, i) => {
-      buf.write_byte(0x02)
-      if Encode::encode(bt, buf) is Err(t) {
-        return Err(t)
-      }
-      if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
-      }
-    }
-    Loop(bt, i) => {
-      buf.write_byte(0x03)
-      if Encode::encode(bt, buf) is Err(t) {
-        return Err(t)
-      }
-      if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
-      }
-    }
-    If(bt, if_block, else_block) => {
-      buf.write_byte(0x04)
-      if Encode::encode(bt, buf) is Err(t) {
-        return Err(t)
-      }
-      for i in if_block.iter() {
-        if Encode::encode(i, buf) is Err(t) {
-          return Err(t)
-        }
-      }
-      if else_block is Some(else_block) {
-        buf.write_byte(0x05)
-        for i in else_block.iter() {
-          if Encode::encode(i, buf) is Err(t) {
-            return Err(t)
-          }
-        }
-      }
-      buf.write_byte(0x0B)
-    }
+    Block(_, _)
+    | Loop(_, _)
+    | If(_, _, _)
+    | Try(_, _, _, _)
+    | TryTable(_, _, _) =>
+      abort("structured instruction reached the leaf encoder")
     Throw(t) => {
       buf.write_byte(0x08)
       if Encode::encode(t, buf) is Err(t) {
@@ -2110,67 +2087,6 @@ pub impl Encode for Instruction with fn encode(val, buf) {
     Select(Some(vts)) => {
       buf.write_byte(0x1C)
       if Encode::encode(vts, buf) is Err(t) {
-        return Err(t)
-      }
-    }
-    Try(bt, @lib.Expr(body), catches, delegate) => {
-      if (catches.length() == 0 && delegate is None) ||
-        (catches.length() > 0 && delegate is Some(_)) {
-        return Err(BinaryEncodeError::InvalidLegacyTryShape)
-      }
-      buf.write_byte(0x06)
-      if Encode::encode(bt, buf) is Err(err) {
-        return Err(err)
-      }
-      for instr in body {
-        if Encode::encode(instr, buf) is Err(err) {
-          return Err(err)
-        }
-      }
-      match delegate {
-        Some(label) => {
-          buf.write_byte(0x18)
-          if Encode::encode(label, buf) is Err(err) {
-            return Err(err)
-          }
-        }
-        None => {
-          for catch_ in catches {
-            match catch_ {
-              @lib.LegacyCatch(tag, @lib.Expr(catch_body)) => {
-                buf.write_byte(0x07)
-                if Encode::encode(tag, buf) is Err(err) {
-                  return Err(err)
-                }
-                for instr in catch_body {
-                  if Encode::encode(instr, buf) is Err(err) {
-                    return Err(err)
-                  }
-                }
-              }
-              @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
-                buf.write_byte(0x19)
-                for instr in catch_body {
-                  if Encode::encode(instr, buf) is Err(err) {
-                    return Err(err)
-                  }
-                }
-              }
-            }
-          }
-          buf.write_byte(0x0B)
-        }
-      }
-    }
-    TryTable(bt, c, e) => {
-      buf.write_byte(0x1F)
-      if Encode::encode(bt, buf) is Err(t) {
-        return Err(t)
-      }
-      if Encode::encode(c, buf) is Err(t) {
-        return Err(t)
-      }
-      if Encode::encode(e, buf) is Err(t) {
         return Err(t)
       }
     }
