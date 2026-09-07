@@ -3343,10 +3343,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_text_load_u8x16_body(base, 2))
   } else if name == b"dew_string_load_u8x16" {
     Some(starshine_text_load_u8x16_body(base, 1))
-  } else if name == b"dew_debug_f32" {
-    Some(starshine_debug_float_body(false, wasi_fd_write_function_index))
-  } else if name == b"dew_debug_f64" {
-    Some(starshine_debug_float_body(true, wasi_fd_write_function_index))
   } else if name == b"dew_debug_string" {
     Some(starshine_debug_text_body(base, false, wasi_fd_write_function_index))
   } else if name == b"dew_debug_bytes" {

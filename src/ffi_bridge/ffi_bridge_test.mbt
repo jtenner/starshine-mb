@@ -298,6 +298,21 @@ test "ffi bridge rejects removed compiler-owned integer Debug runtimes" {
 }
 
 ///|
+test "ffi bridge rejects removed compiler-owned float Debug runtimes" {
+  // Float bit formatting is an ordinary Dew algorithm. These old runtime
+  // operations are intentionally unsupported, not fallback implementations.
+  for name in [b"dew_debug_f32", b"dew_debug_f64"] {
+    let functions = funcs_new()
+    let builder = runtime_function_builder_new(0, -1, -1, 0, 0, 16, 17)
+    for byte in name {
+      builder.push_name_byte(byte)
+    }
+    assert_false(funcs_push_runtime(functions, builder))
+    assert_eq(functions.length(), 0)
+  }
+}
+
+///|
 test "ffi bridge emits Array iterator Option next runtime" {
   let functions = funcs_new()
   let builder = runtime_function_builder_new(0, -1, -1, 0, 0, 16, 17)
