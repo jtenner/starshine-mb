@@ -57,8 +57,10 @@ removed. Dew owns integer formatting, sign/width normalization, and bounded
 partial-write handling. The existing bridge boundary tests require those names
 to stay unsupported. The `dew_debug_f32` and `dew_debug_f64` runtime operations
 are removed too. Dew formats exact float bits using one-to-one Wasm reinterpret
-operations and the bounded write loop. Text and V128 formatters still await
-their own library migration; this does not remove their remaining write dependency.
+operations and the bounded write loop. `dew_debug_v128` is removed as well:
+Dew reads the two lanes with one-to-one Wasm instructions and writes the high
+lane first. Text formatters still await their library migration; this does not
+remove their remaining write dependency.
 
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
 
