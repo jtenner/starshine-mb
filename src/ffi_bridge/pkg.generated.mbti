@@ -71,7 +71,7 @@ pub fn rec_types_new() -> Array[@lib.RecType]
 
 pub fn rec_types_push(Array[@lib.RecType], @lib.RecType) -> Unit
 
-pub fn runtime_function_builder_new(Int, Int, Int, Int, Int, Int, Int, Int) -> RuntimeFunctionBuilder
+pub fn runtime_function_builder_new(Int, Int, Int, Int, Int, Int, Int) -> RuntimeFunctionBuilder
 
 pub fn type_indices_new() -> Array[@lib.TypeIdx]
 
@@ -169,7 +169,6 @@ pub struct RuntimeFunctionBuilder {
   base : Int
   utf8_validator_function_index : Int
   wasi_fd_write_function_index : Int
-  wasi_fd_read_function_index : Int
   carrier : Int
   second_carrier : Int
   option_none_type : Int
