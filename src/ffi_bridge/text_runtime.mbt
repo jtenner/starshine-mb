@@ -3222,7 +3222,6 @@ fn emit_starshine_text_runtime_function(
   base : Int,
   utf8_validator_function_index : Int,
   wasi_fd_write_function_index : Int,
-  wasi_fd_read_function_index : Int,
 ) -> @lib.Func? {
   if name == b"dew_string_byte_length" {
     Some(starshine_text_length_body(base, true))
@@ -3372,8 +3371,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_debug_v128_body(wasi_fd_write_function_index))
   } else if name == b"dew_wasi_fd_write" {
     Some(starshine_wasi_fd_write_body(base, wasi_fd_write_function_index))
-  } else if name == b"dew_wasi_fd_read" {
-    Some(starshine_wasi_fd_read_body(base, wasi_fd_read_function_index))
   } else if name == b"dew_bench_wasi_stage_write" {
     Some(starshine_wasi_stage_write_body(base))
   } else if name == b"dew_bench_wasi_stage_read" {

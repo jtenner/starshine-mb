@@ -205,7 +205,6 @@ pub struct RuntimeFunctionBuilder {
   base : Int
   utf8_validator_function_index : Int
   wasi_fd_write_function_index : Int
-  wasi_fd_read_function_index : Int
   carrier : Int
   second_carrier : Int
   option_none_type : Int
@@ -217,7 +216,6 @@ pub fn runtime_function_builder_new(
   base : Int,
   utf8_validator_function_index : Int,
   wasi_fd_write_function_index : Int,
-  wasi_fd_read_function_index : Int,
   carrier : Int,
   second_carrier : Int,
   option_none_type : Int,
@@ -228,7 +226,6 @@ pub fn runtime_function_builder_new(
     base,
     utf8_validator_function_index,
     wasi_fd_write_function_index,
-    wasi_fd_read_function_index,
     carrier,
     second_carrier,
     option_none_type,
@@ -256,7 +253,6 @@ pub fn funcs_push_runtime(
       builder.base,
       builder.utf8_validator_function_index,
       builder.wasi_fd_write_function_index,
-      builder.wasi_fd_read_function_index,
     ) {
     Some(value) => Some(value)
     None =>

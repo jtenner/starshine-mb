@@ -906,10 +906,9 @@ pub fn ffi_ffi_bridge_runtime_function_builder_new(
   value4 : Int,
   value5 : Int,
   value6 : Int,
-  value7 : Int,
 ) -> @ffi_bridge.RuntimeFunctionBuilder {
   @ffi_bridge.runtime_function_builder_new(
-    value0, value1, value2, value3, value4, value5, value6, value7,
+    value0, value1, value2, value3, value4, value5, value6,
   )
 }
 
