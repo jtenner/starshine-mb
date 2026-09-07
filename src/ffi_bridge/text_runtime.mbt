@@ -3343,22 +3343,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_text_load_u8x16_body(base, 2))
   } else if name == b"dew_string_load_u8x16" {
     Some(starshine_text_load_u8x16_body(base, 1))
-  } else if name == b"dew_debug_i8" {
-    Some(starshine_debug_i32_body(8, true, wasi_fd_write_function_index))
-  } else if name == b"dew_debug_i16" {
-    Some(starshine_debug_i32_body(16, true, wasi_fd_write_function_index))
-  } else if name == b"dew_debug_i32" {
-    Some(starshine_debug_i32_body(32, true, wasi_fd_write_function_index))
-  } else if name == b"dew_debug_i64" {
-    Some(starshine_debug_i64_body(true, wasi_fd_write_function_index))
-  } else if name == b"dew_debug_u8" {
-    Some(starshine_debug_i32_body(8, false, wasi_fd_write_function_index))
-  } else if name == b"dew_debug_u16" {
-    Some(starshine_debug_i32_body(16, false, wasi_fd_write_function_index))
-  } else if name == b"dew_debug_u32" {
-    Some(starshine_debug_i32_body(32, false, wasi_fd_write_function_index))
-  } else if name == b"dew_debug_u64" {
-    Some(starshine_debug_i64_body(false, wasi_fd_write_function_index))
   } else if name == b"dew_debug_f32" {
     Some(starshine_debug_float_body(false, wasi_fd_write_function_index))
   } else if name == b"dew_debug_f64" {
