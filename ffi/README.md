@@ -52,6 +52,12 @@ library migrations are complete. See the
 [bridge boundary test](../src/ffi_bridge/ffi_bridge_test.mbt) and the
 [runtime dispatcher](../src/ffi_bridge/text_runtime.mbt).
 
+The eight `dew_debug_i8/i16/i32/i64/u8/u16/u32/u64` runtime operations are also
+removed. Dew owns integer formatting, sign/width normalization, and bounded
+partial-write handling. The existing bridge boundary tests require those names
+to stay unsupported. Floating-point, text, and V128 formatters still await their
+own library migration; this does not remove their remaining write dependency.
+
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
 
 ```text

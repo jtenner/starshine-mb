@@ -279,6 +279,25 @@ test "ffi bridge rejects the removed compiler-owned Bytes read runtime" {
 }
 
 ///|
+test "ffi bridge rejects removed compiler-owned integer Debug runtimes" {
+  // Integer formatting belongs to ordinary Dew functions, so these legacy
+  // operations are intentionally unsupported by this object-model bridge.
+  for
+    name in [
+      b"dew_debug_i8", b"dew_debug_i16", b"dew_debug_i32", b"dew_debug_i64", b"dew_debug_u8",
+      b"dew_debug_u16", b"dew_debug_u32", b"dew_debug_u64",
+    ] {
+    let functions = funcs_new()
+    let builder = runtime_function_builder_new(0, -1, -1, 0, 0, 16, 17)
+    for byte in name {
+      builder.push_name_byte(byte)
+    }
+    assert_false(funcs_push_runtime(functions, builder))
+    assert_eq(functions.length(), 0)
+  }
+}
+
+///|
 test "ffi bridge emits Array iterator Option next runtime" {
   let functions = funcs_new()
   let builder = runtime_function_builder_new(0, -1, -1, 0, 0, 16, 17)
