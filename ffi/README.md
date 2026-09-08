@@ -74,15 +74,16 @@ is removed with the old checked Bytes conversion runtime.
 
 Bytes equality, hash, searches, affixes, concatenation, UTF-8 validation, and
 checked String conversion are no longer provider runtime operations. Their
-ordinary Dew implementations own these algorithms. Shared helpers still used
-by the old String/StringView runtime remain for those separate removals; Bytes
-storage and unchecked representation casts are separate migration work.
+ordinary Dew implementations own these algorithms. Bytes storage and unchecked
+representation casts are separate migration work.
 
 The 13 old String access, equality, hash, UTF-16 length, search, affix, and
 concatenation runtime operations are removed too. Ordinary Dew functions and
-selected trait evidence provide these behaviors. Private concatenation and
-unused String wrappers are gone; StringView algorithms and text storage remain
-for separate migration. The two-argument provider constructor is unchanged.
+selected trait evidence provide these behaviors. The 12 old StringView access,
+conversion, UTF-16 length, equality, hash, search, and affix operations are also
+removed, with all unused shared text algorithm builders. Text storage, SIMD
+storage access, and Debug formatting remain for separate migration. The
+two-argument provider constructor is unchanged.
 
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
 

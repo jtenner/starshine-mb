@@ -326,6 +326,27 @@ test "ffi bridge rejects removed compiler-owned V128 Debug runtime" {
 }
 
 ///|
+test "ffi bridge rejects removed compiler-owned StringView algorithms" {
+  // StringView algorithms belong to Dew. These old runtime operations are
+  // intentionally unsupported, including the old wrapper-copy conversion.
+  for
+    name in [
+      b"dew_string_view_byte_length", b"dew_string_view_byte_at", b"dew_string_view_to_string",
+      b"dew_string_view_utf16_length", b"dew_string_view_equals", b"dew_string_view_hash",
+      b"dew_string_view_find", b"dew_string_view_find_string", b"dew_string_view_starts_with",
+      b"dew_string_view_starts_with_string", b"dew_string_view_ends_with", b"dew_string_view_ends_with_string",
+    ] {
+    let functions = funcs_new()
+    let builder = runtime_function_builder_new(0, -1)
+    for byte in name {
+      builder.push_name_byte(byte)
+    }
+    assert_false(funcs_push_runtime(functions, builder))
+    assert_eq(functions.length(), 0)
+  }
+}
+
+///|
 test "ffi bridge rejects removed compiler-owned String algorithms" {
   // String algorithms use Dew functions and selected trait evidence. These
   // old runtime operations are intentionally unsupported by the provider.
