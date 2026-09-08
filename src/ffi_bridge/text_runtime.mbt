@@ -1479,8 +1479,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_bytes_view_body(base))
   } else if name == b"dew_bytes_load_u8x16" {
     Some(starshine_text_load_u8x16_body(base, 2))
-  } else if name == b"dew_string_load_u8x16" {
-    Some(starshine_text_load_u8x16_body(base, 1))
   } else {
     None
   }
