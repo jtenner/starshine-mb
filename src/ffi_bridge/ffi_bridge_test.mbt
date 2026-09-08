@@ -292,6 +292,21 @@ test "ffi bridge rejects the removed compiler-owned Bytes write runtime" {
 }
 
 ///|
+test "ffi bridge rejects removed compiler-owned Bytes staging runtimes" {
+  // The parity harness now supplies ordinary Dew staging functions. These
+  // legacy operation names are intentionally outside the provider contract.
+  for name in [b"dew_bench_wasi_stage_write", b"dew_bench_wasi_stage_read"] {
+    let functions = funcs_new()
+    let builder = runtime_function_builder_new(0, -1)
+    for byte in name {
+      builder.push_name_byte(byte)
+    }
+    assert_false(funcs_push_runtime(functions, builder))
+    assert_eq(functions.length(), 0)
+  }
+}
+
+///|
 test "ffi bridge rejects removed compiler-owned integer Debug runtimes" {
   // Integer formatting belongs to ordinary Dew functions, so these legacy
   // operations are intentionally unsupported by this object-model bridge.

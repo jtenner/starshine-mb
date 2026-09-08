@@ -87,6 +87,13 @@ removed, with all unused shared text algorithm builders. Text storage, SIMD
 storage access, and Debug formatting remain for separate migration. The
 two-argument provider constructor is unchanged.
 
+The benchmark-only `dew_bench_wasi_stage_write` and `dew_bench_wasi_stage_read`
+operations are removed too. Dewdrop's parity harness now supplies ordinary Dew
+functions for bounded Bytes-to-memory and memory-to-Bytes copies. The private
+staging builders and their unused copy loops are gone. The bridge boundary
+tests reject both legacy names without appending a function. Debug text still
+uses its separate formatting/write path; no FFI signature changes are needed.
+
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
 
 ```text

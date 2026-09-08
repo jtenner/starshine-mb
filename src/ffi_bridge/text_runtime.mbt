@@ -1486,10 +1486,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_debug_text_body(base, false, wasi_fd_write_function_index))
   } else if name == b"dew_debug_bytes" {
     Some(starshine_debug_text_body(base, true, wasi_fd_write_function_index))
-  } else if name == b"dew_bench_wasi_stage_write" {
-    Some(starshine_wasi_stage_write_body(base))
-  } else if name == b"dew_bench_wasi_stage_read" {
-    Some(starshine_wasi_stage_read_body(base))
   } else {
     None
   }
