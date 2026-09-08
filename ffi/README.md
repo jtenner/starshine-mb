@@ -48,9 +48,8 @@ The legacy runtime builder no longer emits `dew_wasi_fd_read` or
 `dew_wasi_fd_write`. Dewdrop's Bytes I/O loops now belong to the Dew library and
 call raw foreign declarations. The unused private test-assertion body is also
 removed; test assertion output uses a normal Dew function and its Bytes write
-loop. `runtime_function_builder_new` has no read-function index parameter. Its
-write index remains only for Debug text formatting until that migration is
-complete. See the
+loop. `runtime_function_builder_new` has no read- or write-function index
+parameter. All Debug formatting and transport now belong to Dew. See the
 [bridge boundary test](../src/ffi_bridge/ffi_bridge_test.mbt) and the
 [runtime dispatcher](../src/ffi_bridge/text_runtime.mbt).
 
@@ -61,9 +60,10 @@ to stay unsupported. The `dew_debug_f32` and `dew_debug_f64` runtime operations
 are removed too. Dew formats exact float bits using one-to-one Wasm reinterpret
 operations and the bounded write loop. `dew_debug_v128` is removed as well:
 Dew reads the two lanes with one-to-one Wasm instructions and writes the high
-lane first. `dew_debug_string` is removed too: Dew handles quoting, escaping,
-UTF-8 preservation, output windows, and checked writes. The shared private
-formatter remains only for `dew_debug_bytes`, including its write dependency.
+lane first. `dew_debug_string` and `dew_debug_bytes` are removed too: Dew handles
+quoting, escaping, UTF-8 preservation, output windows, and checked writes. The
+shared private formatter and scratch-write builder are deleted; the provider
+contains no alternate Debug implementation or hidden host-write dependency.
 
 The removed `dew_array_*` operations and the three
 `instructions_push_array_push/pop/iter_next` exports are no longer provided.
@@ -71,7 +71,7 @@ Array allocation, mutation, and iteration belong to ordinary Dew functions.
 The runtime boundary tests reject all old Array operation names. The old
 `dew_map_*` operations and their private Array layout helpers are removed too.
 Map storage and lookup use Dew library functions. `runtime_function_builder_new`
-accepts only the text type base and write-function index; collection carrier
+accepts only the text type base; collection carrier
 codes and Option layout arguments no longer exist. Its UTF-8-validator argument
 is removed with the old checked Bytes conversion runtime.
 
@@ -84,16 +84,16 @@ The 13 old String access, equality, hash, UTF-16 length, search, affix, and
 concatenation runtime operations are removed too. Ordinary Dew functions and
 selected trait evidence provide these behaviors. The 12 old StringView access,
 conversion, UTF-16 length, equality, hash, search, and affix operations are also
-removed, with all unused shared text algorithm builders. Text storage, SIMD
-storage access, and Debug formatting remain for separate migration. The
-two-argument provider constructor is unchanged.
+removed, with all unused shared text algorithm builders. Text storage and SIMD
+storage access remain for separate migration. The provider constructor has
+one argument, the text type base.
 
 The benchmark-only `dew_bench_wasi_stage_write` and `dew_bench_wasi_stage_read`
 operations are removed too. Dewdrop's parity harness now supplies ordinary Dew
 functions for bounded Bytes-to-memory and memory-to-Bytes copies. The private
 staging builders and their unused copy loops are gone. The bridge boundary
-tests reject both legacy names without appending a function. Debug text still
-uses its separate formatting/write path; no FFI signature changes are needed.
+tests reject both legacy names without appending a function. The generated
+runtime-builder FFI signature also omits the removed write-function index.
 
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
 

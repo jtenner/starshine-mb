@@ -1432,7 +1432,6 @@ fn starshine_text_load_u8x16_body(base : Int, type_offset : Int) -> @lib.Func {
 fn emit_starshine_text_runtime_function(
   name : Bytes,
   base : Int,
-  wasi_fd_write_function_index : Int,
 ) -> @lib.Func? {
   if name == b"dew_bytes_byte_length" {
     Some(starshine_text_length_type_body(base, 2))
@@ -1482,8 +1481,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_text_load_u8x16_body(base, 2))
   } else if name == b"dew_string_load_u8x16" {
     Some(starshine_text_load_u8x16_body(base, 1))
-  } else if name == b"dew_debug_bytes" {
-    Some(starshine_debug_text_body(base, true, wasi_fd_write_function_index))
   } else {
     None
   }
