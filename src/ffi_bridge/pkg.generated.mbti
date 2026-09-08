@@ -43,12 +43,6 @@ pub fn instructions_new() -> Array[@lib.Instruction]
 
 pub fn instructions_push(Array[@lib.Instruction], @lib.Instruction) -> Unit
 
-pub fn instructions_push_array_iter_next(Array[@lib.Instruction], Int, Int, Int) -> Unit
-
-pub fn instructions_push_array_pop(Array[@lib.Instruction], Int, Int, Int) -> Unit
-
-pub fn instructions_push_array_push(Array[@lib.Instruction], Int, Int, Int) -> Unit
-
 pub fn memory_argument(UInt, UInt64) -> @lib.MemArg
 
 pub fn module_new() -> @lib.Module

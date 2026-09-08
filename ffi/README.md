@@ -62,6 +62,13 @@ Dew reads the two lanes with one-to-one Wasm instructions and writes the high
 lane first. Text formatters still await their library migration; this does not
 remove their remaining write dependency.
 
+The removed `dew_array_*` operations and the three
+`instructions_push_array_push/pop/iter_next` exports are no longer provided.
+Array allocation, mutation, and iteration belong to ordinary Dew functions.
+The runtime boundary tests reject the old names for all former carrier classes.
+Only private layout helpers needed by the old Map runtime remain until Map's
+separate removal; they are not public Array construction APIs.
+
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
 
 ```text

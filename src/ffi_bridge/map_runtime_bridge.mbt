@@ -1,3 +1,48 @@
+// These layout helpers remain only for the old Map runtime, pending its
+// separate removal. Array algorithms and public instruction builders are gone.
+
+///|
+fn bridge_array_type(base : Int, carrier : Int) -> @lib.TypeIdx {
+  @lib.TypeIdx::new((base + carrier).reinterpret_as_uint())
+}
+
+///|
+fn bridge_array_wrapper_type(base : Int) -> @lib.TypeIdx {
+  @lib.TypeIdx::new((base + 6).reinterpret_as_uint())
+}
+
+///|
+fn bridge_array_ref_cast(type_ : @lib.TypeIdx) -> @lib.Instruction {
+  @lib.Instruction::ref_cast(false, @lib.HeapType::new(type_))
+}
+
+///|
+fn bridge_array_local(index : Int) -> @lib.LocalIdx {
+  @lib.LocalIdx::new(index.reinterpret_as_uint())
+}
+
+///|
+fn bridge_array_wrapper_get(
+  output : Array[@lib.Instruction],
+  wrapper_type : @lib.TypeIdx,
+  local : Int,
+  field : UInt,
+) -> Unit {
+  output.push(@lib.Instruction::local_get(bridge_array_local(local)))
+  output.push(bridge_array_ref_cast(wrapper_type))
+  output.push(@lib.Instruction::struct_get(wrapper_type, field))
+}
+
+///|
+fn bridge_array_wrapper_set_prefix(
+  output : Array[@lib.Instruction],
+  wrapper_type : @lib.TypeIdx,
+  local : Int,
+) -> Unit {
+  output.push(@lib.Instruction::local_get(bridge_array_local(local)))
+  output.push(bridge_array_ref_cast(wrapper_type))
+}
+
 ///|
 fn bridge_map_type(base : Int) -> @lib.TypeIdx {
   @lib.TypeIdx::new((base + 8).reinterpret_as_uint())

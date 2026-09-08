@@ -326,21 +326,25 @@ test "ffi bridge rejects removed compiler-owned V128 Debug runtime" {
 }
 
 ///|
-test "ffi bridge emits Array iterator Option next runtime" {
-  let functions = funcs_new()
-  let builder = runtime_function_builder_new(0, -1, -1, 0, 0, 16, 17)
-  let name = b"dew_array_iter_next_option"
-  for index in 0..<name.length() {
-    builder.push_name_byte(name[index])
-  }
-  assert_true(funcs_push_runtime(functions, builder))
-  assert_eq(functions.length(), 1)
-  let @lib.Func(_, @lib.Expr(body)) = functions[0]
-  match body {
-    [@lib.LocalGet(_), @lib.LocalSet(_), ..] => ()
-    _ =>
-      fail(
-        "Array iterator Option next must load its parameter before its scratch local",
-      )
+test "ffi bridge rejects removed compiler-owned Array runtimes" {
+  // Array algorithms now belong to Dew. These old operations, including
+  // iterator Option next, are intentionally unsupported by the provider.
+  for
+    name in [
+      b"dew_array_new", b"dew_array_with_capacity", b"dew_array_make", b"dew_array_length",
+      b"dew_array_capacity", b"dew_array_backing_length_i32", b"dew_array_backing_length_ref",
+      b"dew_array_push", b"dew_array_get", b"dew_array_get_unchecked", b"dew_array_set_unchecked",
+      b"dew_array_pop", b"dew_array_iter", b"dew_array_iter_has_next", b"dew_array_iter_next",
+      b"dew_array_iter_next_option", b"dew_array_truncate", b"dew_array_clear",
+    ] {
+    for carrier in [0, 1, 2, 3, 4, 5, 6, 41] {
+      let functions = funcs_new()
+      let builder = runtime_function_builder_new(0, -1, -1, carrier, 0, 16, 17)
+      for byte in name {
+        builder.push_name_byte(byte)
+      }
+      assert_false(funcs_push_runtime(functions, builder))
+      assert_eq(functions.length(), 0)
+    }
   }
 }

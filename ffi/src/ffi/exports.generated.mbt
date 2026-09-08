@@ -759,42 +759,6 @@ pub fn ffi_ffi_bridge_instructions_push(
 
 ///|
 #doc(hidden)
-#export_name("ffi_ffi_bridge_instructions_push_array_iter_next")
-pub fn ffi_ffi_bridge_instructions_push_array_iter_next(
-  value0 : Array[@lib.Instruction],
-  value1 : Int,
-  value2 : Int,
-  value3 : Int,
-) -> Unit {
-  @ffi_bridge.instructions_push_array_iter_next(value0, value1, value2, value3)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_ffi_bridge_instructions_push_array_pop")
-pub fn ffi_ffi_bridge_instructions_push_array_pop(
-  value0 : Array[@lib.Instruction],
-  value1 : Int,
-  value2 : Int,
-  value3 : Int,
-) -> Unit {
-  @ffi_bridge.instructions_push_array_pop(value0, value1, value2, value3)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_ffi_bridge_instructions_push_array_push")
-pub fn ffi_ffi_bridge_instructions_push_array_push(
-  value0 : Array[@lib.Instruction],
-  value1 : Int,
-  value2 : Int,
-  value3 : Int,
-) -> Unit {
-  @ffi_bridge.instructions_push_array_push(value0, value1, value2, value3)
-}
-
-///|
-#doc(hidden)
 #export_name("ffi_ffi_bridge_memory_argument")
 pub fn ffi_ffi_bridge_memory_argument(
   value0 : UInt,
