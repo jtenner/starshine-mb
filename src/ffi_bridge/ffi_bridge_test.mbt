@@ -341,6 +341,19 @@ test "ffi bridge rejects removed compiler-owned float Debug runtimes" {
 }
 
 ///|
+test "ffi bridge rejects removed compiler-owned String Debug runtime" {
+  // String escaping belongs to Dew. This legacy operation is intentionally
+  // outside the provider contract, not a fallback for a missing Dew function.
+  let functions = funcs_new()
+  let builder = runtime_function_builder_new(0, -1)
+  for byte in b"dew_debug_string" {
+    builder.push_name_byte(byte)
+  }
+  assert_false(funcs_push_runtime(functions, builder))
+  assert_eq(functions.length(), 0)
+}
+
+///|
 test "ffi bridge rejects removed compiler-owned V128 Debug runtime" {
   // V128 formatting is an ordinary Dew algorithm. The old operation is
   // intentionally unsupported; it must not survive as a fallback builder.

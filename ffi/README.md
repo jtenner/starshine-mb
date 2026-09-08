@@ -61,8 +61,9 @@ to stay unsupported. The `dew_debug_f32` and `dew_debug_f64` runtime operations
 are removed too. Dew formats exact float bits using one-to-one Wasm reinterpret
 operations and the bounded write loop. `dew_debug_v128` is removed as well:
 Dew reads the two lanes with one-to-one Wasm instructions and writes the high
-lane first. Text formatters still await their library migration; this does not
-remove their remaining write dependency.
+lane first. `dew_debug_string` is removed too: Dew handles quoting, escaping,
+UTF-8 preservation, output windows, and checked writes. The shared private
+formatter remains only for `dew_debug_bytes`, including its write dependency.
 
 The removed `dew_array_*` operations and the three
 `instructions_push_array_push/pop/iter_next` exports are no longer provided.
