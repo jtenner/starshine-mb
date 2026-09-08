@@ -297,11 +297,6 @@ fn starshine_utf16_length_type_body(base : Int, type_offset : Int) -> @lib.Func 
 }
 
 ///|
-fn starshine_utf16_length_body(base : Int) -> @lib.Func {
-  starshine_utf16_length_type_body(base, 1)
-}
-
-///|
 fn starshine_text_length_type_body(base : Int, type_offset : Int) -> @lib.Func {
   let type_index = @lib.TypeIdx::new((base + type_offset).reinterpret_as_uint())
   @lib.Func::new(
@@ -312,11 +307,6 @@ fn starshine_text_length_type_body(base : Int, type_offset : Int) -> @lib.Func {
       @lib.Instruction::struct_get(type_index, 2U),
     ]),
   )
-}
-
-///|
-fn starshine_text_length_body(base : Int, string_ : Bool) -> @lib.Func {
-  starshine_text_length_type_body(base, if string_ { 1 } else { 2 })
 }
 
 ///|
@@ -465,11 +455,6 @@ fn starshine_text_equals_type_body(base : Int, type_offset : Int) -> @lib.Func {
     ]),
     @lib.Expr::new(body),
   )
-}
-
-///|
-fn starshine_text_equals_body(base : Int, string_ : Bool) -> @lib.Func {
-  starshine_text_equals_type_body(base, if string_ { 1 } else { 2 })
 }
 
 ///| Verify one candidate substring exactly and return its logical index on a
@@ -1234,11 +1219,6 @@ fn starshine_text_byte_at_type_body(base : Int, type_offset : Int) -> @lib.Func 
 }
 
 ///|
-fn starshine_text_byte_at_body(base : Int, string_ : Bool) -> @lib.Func {
-  starshine_text_byte_at_type_body(base, if string_ { 1 } else { 2 })
-}
-
-///|
 fn starshine_text_hash_body(base : Int, type_offset : Int) -> @lib.Func {
   let array_type = @lib.TypeIdx::new(base.reinterpret_as_uint())
   let value_type = @lib.TypeIdx::new((base + type_offset).reinterpret_as_uint())
@@ -1776,129 +1756,6 @@ fn text_copy_logical_range(
         ),
       ]),
     ),
-  )
-}
-
-///|
-fn starshine_text_concat_body(
-  base : Int,
-  left_offset : Int,
-  right_offset : Int,
-  target_offset : Int,
-) -> @lib.Func {
-  let array_type = @lib.TypeIdx::new(base.reinterpret_as_uint())
-  let left_type = @lib.TypeIdx::new((base + left_offset).reinterpret_as_uint())
-  let right_type = @lib.TypeIdx::new(
-    (base + right_offset).reinterpret_as_uint(),
-  )
-  let target_type = @lib.TypeIdx::new(
-    (base + target_offset).reinterpret_as_uint(),
-  )
-  let left_ref = 2
-  let right_ref = 3
-  let left_chunks = 4
-  let right_chunks = 5
-  let destination_chunks = 6
-  let left_start = 7
-  let left_length = 8
-  let right_start = 9
-  let right_length = 10
-  let total_length = 11
-  let required_chunks = 12
-  let destination_base = 13
-  let index = 14
-  let source_index = 15
-  let destination_index = 16
-  let byte = 17
-  let vector = 18
-  let mask = 19
-  let body : Array[@lib.Instruction] = [
-    @lib.Instruction::local_get(text_local(0)),
-    @lib.Instruction::ref_cast(false, @lib.HeapType::new(left_type)),
-    @lib.Instruction::local_set(text_local(left_ref)),
-    @lib.Instruction::local_get(text_local(1)),
-    @lib.Instruction::ref_cast(false, @lib.HeapType::new(right_type)),
-    @lib.Instruction::local_set(text_local(right_ref)),
-    @lib.Instruction::local_get(text_local(left_ref)),
-    @lib.Instruction::struct_get(left_type, 0U),
-    @lib.Instruction::local_set(text_local(left_chunks)),
-    @lib.Instruction::local_get(text_local(left_ref)),
-    @lib.Instruction::struct_get(left_type, 1U),
-    @lib.Instruction::local_set(text_local(left_start)),
-    @lib.Instruction::local_get(text_local(left_ref)),
-    @lib.Instruction::struct_get(left_type, 2U),
-    @lib.Instruction::local_set(text_local(left_length)),
-    @lib.Instruction::local_get(text_local(right_ref)),
-    @lib.Instruction::struct_get(right_type, 0U),
-    @lib.Instruction::local_set(text_local(right_chunks)),
-    @lib.Instruction::local_get(text_local(right_ref)),
-    @lib.Instruction::struct_get(right_type, 1U),
-    @lib.Instruction::local_set(text_local(right_start)),
-    @lib.Instruction::local_get(text_local(right_ref)),
-    @lib.Instruction::struct_get(right_type, 2U),
-    @lib.Instruction::local_set(text_local(right_length)),
-    @lib.Instruction::local_get(text_local(left_length)),
-    @lib.Instruction::local_get(text_local(right_length)),
-    @lib.Instruction::i32_add(),
-    @lib.Instruction::local_tee(text_local(total_length)),
-    @lib.Instruction::local_get(text_local(left_length)),
-    @lib.Instruction::i32_lt_u(),
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::unreachable_()],
-      None,
-    ),
-    @lib.Instruction::local_get(text_local(total_length)),
-    text_i32(4),
-    @lib.Instruction::i32_shr_u(),
-    @lib.Instruction::local_get(text_local(total_length)),
-    text_i32(15),
-    @lib.Instruction::i32_and(),
-    text_i32(0),
-    @lib.Instruction::i32_ne(),
-    @lib.Instruction::i32_add(),
-    @lib.Instruction::local_tee(text_local(required_chunks)),
-    @lib.Instruction::array_new_default(array_type),
-    @lib.Instruction::local_set(text_local(destination_chunks)),
-    text_i32(0),
-    @lib.Instruction::local_set(text_local(destination_base)),
-  ]
-  text_copy_logical_range(
-    body, array_type, left_chunks, left_start, left_length, destination_chunks, destination_base,
-    index, source_index, destination_index, byte, vector, mask,
-  )
-  body.push(@lib.Instruction::local_get(text_local(left_length)))
-  body.push(@lib.Instruction::local_set(text_local(destination_base)))
-  text_copy_logical_range(
-    body, array_type, right_chunks, right_start, right_length, destination_chunks,
-    destination_base, index, source_index, destination_index, byte, vector, mask,
-  )
-  body.push(@lib.Instruction::local_get(text_local(destination_chunks)))
-  body.push(text_i32(0))
-  body.push(@lib.Instruction::local_get(text_local(total_length)))
-  body.push(@lib.Instruction::struct_new(target_type))
-  @lib.Func::new(
-    @lib.Locals::from_types([
-      text_runtime_ref(base + left_offset),
-      text_runtime_ref(base + right_offset),
-      text_runtime_ref(base),
-      text_runtime_ref(base),
-      text_runtime_ref(base),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::v128(),
-      @lib.ValType::v128(),
-    ]),
-    @lib.Expr::new(body),
   )
 }
 
@@ -2682,38 +2539,12 @@ fn emit_starshine_text_runtime_function(
   base : Int,
   wasi_fd_write_function_index : Int,
 ) -> @lib.Func? {
-  if name == b"dew_string_byte_length" {
-    Some(starshine_text_length_body(base, true))
-  } else if name == b"dew_bytes_byte_length" {
-    Some(starshine_text_length_body(base, false))
+  if name == b"dew_bytes_byte_length" {
+    Some(starshine_text_length_type_body(base, 2))
   } else if name == b"dew_string_as_bytes" {
     Some(starshine_string_as_bytes_body(base))
-  } else if name == b"dew_string_utf16_length" {
-    Some(starshine_utf16_length_body(base))
-  } else if name == b"dew_string_equals" {
-    Some(starshine_text_equals_body(base, true))
-  } else if name == b"dew_string_hash" {
-    Some(starshine_text_hash_body(base, 1))
-  } else if name == b"dew_string_byte_at" {
-    Some(starshine_text_byte_at_body(base, true))
   } else if name == b"dew_string_view" {
     Some(starshine_string_view_body(base, 1))
-  } else if name == b"dew_string_concat" {
-    Some(starshine_text_concat_body(base, 1, 1, 1))
-  } else if name == b"dew_string_concat_view" {
-    Some(starshine_text_concat_body(base, 1, 3, 1))
-  } else if name == b"dew_string_find" {
-    Some(starshine_text_find_body(base, 1, 1))
-  } else if name == b"dew_string_find_view" {
-    Some(starshine_text_find_body(base, 1, 3))
-  } else if name == b"dew_string_starts_with" {
-    Some(starshine_text_affix_body(base, 1, 1, false))
-  } else if name == b"dew_string_starts_with_view" {
-    Some(starshine_text_affix_body(base, 1, 3, false))
-  } else if name == b"dew_string_ends_with" {
-    Some(starshine_text_affix_body(base, 1, 1, true))
-  } else if name == b"dew_string_ends_with_view" {
-    Some(starshine_text_affix_body(base, 1, 3, true))
   } else if name == b"dew_string_view_byte_length" {
     Some(starshine_text_length_type_body(base, 3))
   } else if name == b"dew_string_view_byte_at" {
@@ -2773,7 +2604,7 @@ fn emit_starshine_text_runtime_function(
   } else if name == b"dew_bytes_to_string_unchecked" {
     Some(starshine_text_rewrap_body(base, 2, 1))
   } else if name == b"dew_bytes_byte_at" {
-    Some(starshine_text_byte_at_body(base, false))
+    Some(starshine_text_byte_at_type_body(base, 2))
   } else if name == b"dew_bytes_view" {
     Some(starshine_bytes_view_body(base))
   } else if name == b"dew_bytes_load_u8x16" {

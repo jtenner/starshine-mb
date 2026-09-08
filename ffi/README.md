@@ -78,6 +78,12 @@ ordinary Dew implementations own these algorithms. Shared helpers still used
 by the old String/StringView runtime remain for those separate removals; Bytes
 storage and unchecked representation casts are separate migration work.
 
+The 13 old String access, equality, hash, UTF-16 length, search, affix, and
+concatenation runtime operations are removed too. Ordinary Dew functions and
+selected trait evidence provide these behaviors. Private concatenation and
+unused String wrappers are gone; StringView algorithms and text storage remain
+for separate migration. The two-argument provider constructor is unchanged.
+
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
 
 ```text
