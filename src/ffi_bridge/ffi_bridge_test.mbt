@@ -270,7 +270,7 @@ test "ffi bridge rejects the removed compiler-owned Bytes read runtime" {
   // Bytes reads are ordinary Dew functions. This legacy operation is now
   // intentionally unsupported; no compiler-generated replacement may be added.
   let functions = funcs_new()
-  let builder = runtime_function_builder_new(0, -1, -1, 0, 0, 16, 17)
+  let builder = runtime_function_builder_new(0, -1, -1)
   for byte in b"dew_wasi_fd_read" {
     builder.push_name_byte(byte)
   }
@@ -288,7 +288,7 @@ test "ffi bridge rejects removed compiler-owned integer Debug runtimes" {
       b"dew_debug_u16", b"dew_debug_u32", b"dew_debug_u64",
     ] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1, -1, 0, 0, 16, 17)
+    let builder = runtime_function_builder_new(0, -1, -1)
     for byte in name {
       builder.push_name_byte(byte)
     }
@@ -303,7 +303,7 @@ test "ffi bridge rejects removed compiler-owned float Debug runtimes" {
   // operations are intentionally unsupported, not fallback implementations.
   for name in [b"dew_debug_f32", b"dew_debug_f64"] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1, -1, 0, 0, 16, 17)
+    let builder = runtime_function_builder_new(0, -1, -1)
     for byte in name {
       builder.push_name_byte(byte)
     }
@@ -317,12 +317,31 @@ test "ffi bridge rejects removed compiler-owned V128 Debug runtime" {
   // V128 formatting is an ordinary Dew algorithm. The old operation is
   // intentionally unsupported; it must not survive as a fallback builder.
   let functions = funcs_new()
-  let builder = runtime_function_builder_new(0, -1, -1, 0, 0, 16, 17)
+  let builder = runtime_function_builder_new(0, -1, -1)
   for byte in b"dew_debug_v128" {
     builder.push_name_byte(byte)
   }
   assert_false(funcs_push_runtime(functions, builder))
   assert_eq(functions.length(), 0)
+}
+
+///|
+test "ffi bridge rejects removed compiler-owned Map runtimes" {
+  // Map algorithms belong to Dew. The removed names are intentionally
+  // unsupported, not fallback implementations for missing selected targets.
+  for
+    name in [
+      b"dew_map_empty", b"dew_map_length", b"dew_map_set", b"dew_map_insert", b"dew_map_get_unchecked",
+      b"dew_map_get", b"dew_map_contains_key",
+    ] {
+    let functions = funcs_new()
+    let builder = runtime_function_builder_new(0, -1, -1)
+    for byte in name {
+      builder.push_name_byte(byte)
+    }
+    assert_false(funcs_push_runtime(functions, builder))
+    assert_eq(functions.length(), 0)
+  }
 }
 
 ///|
@@ -337,14 +356,12 @@ test "ffi bridge rejects removed compiler-owned Array runtimes" {
       b"dew_array_pop", b"dew_array_iter", b"dew_array_iter_has_next", b"dew_array_iter_next",
       b"dew_array_iter_next_option", b"dew_array_truncate", b"dew_array_clear",
     ] {
-    for carrier in [0, 1, 2, 3, 4, 5, 6, 41] {
-      let functions = funcs_new()
-      let builder = runtime_function_builder_new(0, -1, -1, carrier, 0, 16, 17)
-      for byte in name {
-        builder.push_name_byte(byte)
-      }
-      assert_false(funcs_push_runtime(functions, builder))
-      assert_eq(functions.length(), 0)
+    let functions = funcs_new()
+    let builder = runtime_function_builder_new(0, -1, -1)
+    for byte in name {
+      builder.push_name_byte(byte)
     }
+    assert_false(funcs_push_runtime(functions, builder))
+    assert_eq(functions.length(), 0)
   }
 }

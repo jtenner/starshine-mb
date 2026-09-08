@@ -65,9 +65,11 @@ remove their remaining write dependency.
 The removed `dew_array_*` operations and the three
 `instructions_push_array_push/pop/iter_next` exports are no longer provided.
 Array allocation, mutation, and iteration belong to ordinary Dew functions.
-The runtime boundary tests reject the old names for all former carrier classes.
-Only private layout helpers needed by the old Map runtime remain until Map's
-separate removal; they are not public Array construction APIs.
+The runtime boundary tests reject all old Array operation names. The old
+`dew_map_*` operations and their private Array layout helpers are removed too.
+Map storage and lookup use Dew library functions. `runtime_function_builder_new`
+now accepts only the text type base, UTF-8 validator index, and write-function
+index; collection carrier codes and Option layout arguments no longer exist.
 
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
 
