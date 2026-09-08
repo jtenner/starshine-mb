@@ -203,22 +203,15 @@ pub fn imports_push_builder(
 pub struct RuntimeFunctionBuilder {
   name : Array[Byte]
   base : Int
-  utf8_validator_function_index : Int
   wasi_fd_write_function_index : Int
 }
 
 ///|
 pub fn runtime_function_builder_new(
   base : Int,
-  utf8_validator_function_index : Int,
   wasi_fd_write_function_index : Int,
 ) -> RuntimeFunctionBuilder {
-  {
-    name: [],
-    base,
-    utf8_validator_function_index,
-    wasi_fd_write_function_index,
-  }
+  { name: [], base, wasi_fd_write_function_index, }
 }
 
 ///|
@@ -238,7 +231,6 @@ pub fn funcs_push_runtime(
   let generated = emit_starshine_text_runtime_function(
     name,
     builder.base,
-    builder.utf8_validator_function_index,
     builder.wasi_fd_write_function_index,
   )
   match generated {

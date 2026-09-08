@@ -68,8 +68,15 @@ Array allocation, mutation, and iteration belong to ordinary Dew functions.
 The runtime boundary tests reject all old Array operation names. The old
 `dew_map_*` operations and their private Array layout helpers are removed too.
 Map storage and lookup use Dew library functions. `runtime_function_builder_new`
-now accepts only the text type base, UTF-8 validator index, and write-function
-index; collection carrier codes and Option layout arguments no longer exist.
+accepts only the text type base and write-function index; collection carrier
+codes and Option layout arguments no longer exist. Its UTF-8-validator argument
+is removed with the old checked Bytes conversion runtime.
+
+Bytes equality, hash, searches, affixes, concatenation, UTF-8 validation, and
+checked String conversion are no longer provider runtime operations. Their
+ordinary Dew implementations own these algorithms. Shared helpers still used
+by the old String/StringView runtime remain for those separate removals; Bytes
+storage and unchecked representation casts are separate migration work.
 
 Engine-state fuzz consumers should call the host-safe aggregate entry point rather than the raw `GenValidConfig` and `Result` exports:
 
