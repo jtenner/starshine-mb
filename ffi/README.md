@@ -44,11 +44,13 @@ must be kept with the export-name metadata when regenerating the provider.
 
 The `jtenner/starshine/ffi_bridge` package provides the small typed bridges needed by WasmGC consumers that cannot directly construct MoonBit generic arrays or inspect MoonBit `Result` values. It exposes mutable builders for the compiler-facing `ValType`, `RecType`, `TypeIdx`, `Instruction`, and `Func` arrays, an empty `Module` constructor, validation, and an `EncodedModule` byte inspector. These are object-model bridges, not a second command language.
 
-The legacy runtime builder no longer emits `dew_wasi_fd_read`. Dewdrop's Bytes
-read loop now belongs to the Dew library and calls the raw foreign `fd_read`
-declaration. `runtime_function_builder_new` therefore has no read-function index
-parameter. The write index remains for Debug and assertion transport until those
-library migrations are complete. See the
+The legacy runtime builder no longer emits `dew_wasi_fd_read` or
+`dew_wasi_fd_write`. Dewdrop's Bytes I/O loops now belong to the Dew library and
+call raw foreign declarations. The unused private test-assertion body is also
+removed; test assertion output uses a normal Dew function and its Bytes write
+loop. `runtime_function_builder_new` has no read-function index parameter. Its
+write index remains only for Debug text formatting until that migration is
+complete. See the
 [bridge boundary test](../src/ffi_bridge/ffi_bridge_test.mbt) and the
 [runtime dispatcher](../src/ffi_bridge/text_runtime.mbt).
 
