@@ -205,10 +205,6 @@ pub struct RuntimeFunctionBuilder {
   base : Int
   utf8_validator_function_index : Int
   wasi_fd_write_function_index : Int
-  carrier : Int
-  second_carrier : Int
-  option_none_type : Int
-  option_some_type : Int
 }
 
 ///|
@@ -216,20 +212,12 @@ pub fn runtime_function_builder_new(
   base : Int,
   utf8_validator_function_index : Int,
   wasi_fd_write_function_index : Int,
-  carrier : Int,
-  second_carrier : Int,
-  option_none_type : Int,
-  option_some_type : Int,
 ) -> RuntimeFunctionBuilder {
   {
     name: [],
     base,
     utf8_validator_function_index,
     wasi_fd_write_function_index,
-    carrier,
-    second_carrier,
-    option_none_type,
-    option_some_type,
   }
 }
 
@@ -247,24 +235,12 @@ pub fn funcs_push_runtime(
   builder : RuntimeFunctionBuilder,
 ) -> Bool {
   let name = Bytes::from_array(builder.name)
-  let generated = match
-    emit_starshine_text_runtime_function(
-      name,
-      builder.base,
-      builder.utf8_validator_function_index,
-      builder.wasi_fd_write_function_index,
-    ) {
-    Some(value) => Some(value)
-    None =>
-      emit_bridge_map_runtime_function(
-        name,
-        builder.base + 6,
-        builder.carrier,
-        builder.second_carrier,
-        builder.option_none_type,
-        builder.option_some_type,
-      )
-  }
+  let generated = emit_starshine_text_runtime_function(
+    name,
+    builder.base,
+    builder.utf8_validator_function_index,
+    builder.wasi_fd_write_function_index,
+  )
   match generated {
     Some(value) => {
       values.push(value)
