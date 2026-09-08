@@ -864,9 +864,8 @@ pub fn ffi_ffi_bridge_rec_types_push(
 #export_name("ffi_ffi_bridge_runtime_function_builder_new")
 pub fn ffi_ffi_bridge_runtime_function_builder_new(
   value0 : Int,
-  value1 : Int,
 ) -> @ffi_bridge.RuntimeFunctionBuilder {
-  @ffi_bridge.runtime_function_builder_new(value0, value1)
+  @ffi_bridge.runtime_function_builder_new(value0)
 }
 
 ///|

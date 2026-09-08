@@ -270,7 +270,7 @@ test "ffi bridge rejects the removed compiler-owned Bytes read runtime" {
   // Bytes reads are ordinary Dew functions. This legacy operation is now
   // intentionally unsupported; no compiler-generated replacement may be added.
   let functions = funcs_new()
-  let builder = runtime_function_builder_new(0, -1)
+  let builder = runtime_function_builder_new(0)
   for byte in b"dew_wasi_fd_read" {
     builder.push_name_byte(byte)
   }
@@ -283,7 +283,7 @@ test "ffi bridge rejects the removed compiler-owned Bytes write runtime" {
   // Bytes writes are ordinary Dew functions. This legacy operation is
   // intentionally unsupported; callers must use the foreign write declaration.
   let functions = funcs_new()
-  let builder = runtime_function_builder_new(0, -1)
+  let builder = runtime_function_builder_new(0)
   for byte in b"dew_wasi_fd_write" {
     builder.push_name_byte(byte)
   }
@@ -297,7 +297,7 @@ test "ffi bridge rejects removed compiler-owned Bytes staging runtimes" {
   // legacy operation names are intentionally outside the provider contract.
   for name in [b"dew_bench_wasi_stage_write", b"dew_bench_wasi_stage_read"] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1)
+    let builder = runtime_function_builder_new(0)
     for byte in name {
       builder.push_name_byte(byte)
     }
@@ -316,7 +316,7 @@ test "ffi bridge rejects removed compiler-owned integer Debug runtimes" {
       b"dew_debug_u16", b"dew_debug_u32", b"dew_debug_u64",
     ] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1)
+    let builder = runtime_function_builder_new(0)
     for byte in name {
       builder.push_name_byte(byte)
     }
@@ -331,7 +331,7 @@ test "ffi bridge rejects removed compiler-owned float Debug runtimes" {
   // operations are intentionally unsupported, not fallback implementations.
   for name in [b"dew_debug_f32", b"dew_debug_f64"] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1)
+    let builder = runtime_function_builder_new(0)
     for byte in name {
       builder.push_name_byte(byte)
     }
@@ -345,8 +345,21 @@ test "ffi bridge rejects removed compiler-owned String Debug runtime" {
   // String escaping belongs to Dew. This legacy operation is intentionally
   // outside the provider contract, not a fallback for a missing Dew function.
   let functions = funcs_new()
-  let builder = runtime_function_builder_new(0, -1)
+  let builder = runtime_function_builder_new(0)
   for byte in b"dew_debug_string" {
+    builder.push_name_byte(byte)
+  }
+  assert_false(funcs_push_runtime(functions, builder))
+  assert_eq(functions.length(), 0)
+}
+
+///|
+test "ffi bridge rejects removed compiler-owned Bytes Debug runtime" {
+  // Quoting and escaping Bytes belong to Dew. The old operation must not
+  // retain an alternate formatter or a hidden host-write dependency.
+  let functions = funcs_new()
+  let builder = runtime_function_builder_new(0)
+  for byte in b"dew_debug_bytes" {
     builder.push_name_byte(byte)
   }
   assert_false(funcs_push_runtime(functions, builder))
@@ -358,7 +371,7 @@ test "ffi bridge rejects removed compiler-owned V128 Debug runtime" {
   // V128 formatting is an ordinary Dew algorithm. The old operation is
   // intentionally unsupported; it must not survive as a fallback builder.
   let functions = funcs_new()
-  let builder = runtime_function_builder_new(0, -1)
+  let builder = runtime_function_builder_new(0)
   for byte in b"dew_debug_v128" {
     builder.push_name_byte(byte)
   }
@@ -378,7 +391,7 @@ test "ffi bridge rejects removed compiler-owned StringView algorithms" {
       b"dew_string_view_starts_with_string", b"dew_string_view_ends_with", b"dew_string_view_ends_with_string",
     ] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1)
+    let builder = runtime_function_builder_new(0)
     for byte in name {
       builder.push_name_byte(byte)
     }
@@ -399,7 +412,7 @@ test "ffi bridge rejects removed compiler-owned String algorithms" {
       b"dew_string_concat", b"dew_string_concat_view",
     ] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1)
+    let builder = runtime_function_builder_new(0)
     for byte in name {
       builder.push_name_byte(byte)
     }
@@ -419,7 +432,7 @@ test "ffi bridge rejects removed compiler-owned Bytes algorithms" {
       b"dew_bytes_concat",
     ] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1)
+    let builder = runtime_function_builder_new(0)
     for byte in name {
       builder.push_name_byte(byte)
     }
@@ -438,7 +451,7 @@ test "ffi bridge rejects removed compiler-owned Map runtimes" {
       b"dew_map_get", b"dew_map_contains_key",
     ] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1)
+    let builder = runtime_function_builder_new(0)
     for byte in name {
       builder.push_name_byte(byte)
     }
@@ -460,7 +473,7 @@ test "ffi bridge rejects removed compiler-owned Array runtimes" {
       b"dew_array_iter_next_option", b"dew_array_truncate", b"dew_array_clear",
     ] {
     let functions = funcs_new()
-    let builder = runtime_function_builder_new(0, -1)
+    let builder = runtime_function_builder_new(0)
     for byte in name {
       builder.push_name_byte(byte)
     }

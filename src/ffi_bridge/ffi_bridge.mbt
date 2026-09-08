@@ -203,15 +203,11 @@ pub fn imports_push_builder(
 pub struct RuntimeFunctionBuilder {
   name : Array[Byte]
   base : Int
-  wasi_fd_write_function_index : Int
 }
 
 ///|
-pub fn runtime_function_builder_new(
-  base : Int,
-  wasi_fd_write_function_index : Int,
-) -> RuntimeFunctionBuilder {
-  { name: [], base, wasi_fd_write_function_index, }
+pub fn runtime_function_builder_new(base : Int) -> RuntimeFunctionBuilder {
+  { name: [], base, }
 }
 
 ///|
@@ -228,11 +224,7 @@ pub fn funcs_push_runtime(
   builder : RuntimeFunctionBuilder,
 ) -> Bool {
   let name = Bytes::from_array(builder.name)
-  let generated = emit_starshine_text_runtime_function(
-    name,
-    builder.base,
-    builder.wasi_fd_write_function_index,
-  )
+  let generated = emit_starshine_text_runtime_function(name, builder.base)
   match generated {
     Some(value) => {
       values.push(value)
