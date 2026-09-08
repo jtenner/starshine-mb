@@ -65,7 +65,7 @@ pub fn rec_types_new() -> Array[@lib.RecType]
 
 pub fn rec_types_push(Array[@lib.RecType], @lib.RecType) -> Unit
 
-pub fn runtime_function_builder_new(Int, Int, Int) -> RuntimeFunctionBuilder
+pub fn runtime_function_builder_new(Int, Int) -> RuntimeFunctionBuilder
 
 pub fn type_indices_new() -> Array[@lib.TypeIdx]
 
@@ -161,7 +161,6 @@ pub fn ImportBuilder::push_module_byte(Self, Byte) -> Unit
 pub struct RuntimeFunctionBuilder {
   name : Array[Byte]
   base : Int
-  utf8_validator_function_index : Int
   wasi_fd_write_function_index : Int
 }
 pub fn RuntimeFunctionBuilder::push_name_byte(Self, Byte) -> Unit
