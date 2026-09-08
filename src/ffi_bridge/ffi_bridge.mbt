@@ -256,25 +256,14 @@ pub fn funcs_push_runtime(
     ) {
     Some(value) => Some(value)
     None =>
-      match
-        emit_bridge_array_runtime_function(
-          name,
-          builder.base + 6,
-          builder.carrier,
-          builder.option_none_type,
-          builder.option_some_type,
-        ) {
-        Some(value) => Some(value)
-        None =>
-          emit_bridge_map_runtime_function(
-            name,
-            builder.base + 6,
-            builder.carrier,
-            builder.second_carrier,
-            builder.option_none_type,
-            builder.option_some_type,
-          )
-      }
+      emit_bridge_map_runtime_function(
+        name,
+        builder.base + 6,
+        builder.carrier,
+        builder.second_carrier,
+        builder.option_none_type,
+        builder.option_some_type,
+      )
   }
   match generated {
     Some(value) => {
