@@ -85,8 +85,10 @@ concatenation runtime operations are removed too. Ordinary Dew functions and
 selected trait evidence provide these behaviors. The 12 old StringView access,
 conversion, UTF-16 length, equality, hash, search, and affix operations are also
 removed, with all unused shared text algorithm builders. Text storage and SIMD
-storage access remain for separate migration. The provider constructor has
-one argument, the text type base.
+storage access remain for separate migration. String SIMD access now uses a
+normal Dew conversion and the shared Bytes load; the separate
+`dew_string_load_u8x16` provider entry is removed. The Bytes storage bridge is
+still present. The provider constructor has one argument, the text type base.
 
 The benchmark-only `dew_bench_wasi_stage_write` and `dew_bench_wasi_stage_read`
 operations are removed too. Dewdrop's parity harness now supplies ordinary Dew

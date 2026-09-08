@@ -409,7 +409,7 @@ test "ffi bridge rejects removed compiler-owned String algorithms" {
       b"dew_string_byte_length", b"dew_string_byte_at", b"dew_string_equals", b"dew_string_utf16_length",
       b"dew_string_hash", b"dew_string_find", b"dew_string_find_view", b"dew_string_starts_with",
       b"dew_string_starts_with_view", b"dew_string_ends_with", b"dew_string_ends_with_view",
-      b"dew_string_concat", b"dew_string_concat_view",
+      b"dew_string_concat", b"dew_string_concat_view", b"dew_string_load_u8x16",
     ] {
     let functions = funcs_new()
     let builder = runtime_function_builder_new(0)
