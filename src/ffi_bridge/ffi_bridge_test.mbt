@@ -279,6 +279,19 @@ test "ffi bridge rejects the removed compiler-owned Bytes read runtime" {
 }
 
 ///|
+test "ffi bridge rejects the removed compiler-owned Bytes write runtime" {
+  // Bytes writes are ordinary Dew functions. This legacy operation is
+  // intentionally unsupported; callers must use the foreign write declaration.
+  let functions = funcs_new()
+  let builder = runtime_function_builder_new(0, -1)
+  for byte in b"dew_wasi_fd_write" {
+    builder.push_name_byte(byte)
+  }
+  assert_false(funcs_push_runtime(functions, builder))
+  assert_eq(functions.length(), 0)
+}
+
+///|
 test "ffi bridge rejects removed compiler-owned integer Debug runtimes" {
   // Integer formatting belongs to ordinary Dew functions, so these legacy
   // operations are intentionally unsupported by this object-model bridge.
