@@ -118,25 +118,6 @@ fn text_load_logical_v128(
   )
 }
 
-///|
-fn starshine_string_as_bytes_body(base : Int) -> @lib.Func {
-  let string_type = @lib.TypeIdx::new((base + 1).reinterpret_as_uint())
-  let bytes_type = @lib.TypeIdx::new((base + 2).reinterpret_as_uint())
-  @lib.Func::new(
-    @lib.Locals::from_types([text_runtime_ref(base + 1)]),
-    @lib.Expr::new([
-      @lib.Instruction::local_get(text_local(0)),
-      @lib.Instruction::ref_cast(false, @lib.HeapType::new(string_type)),
-      @lib.Instruction::local_tee(text_local(1)),
-      @lib.Instruction::struct_get(string_type, 0U),
-      @lib.Instruction::local_get(text_local(1)),
-      @lib.Instruction::struct_get(string_type, 1U),
-      @lib.Instruction::local_get(text_local(1)),
-      @lib.Instruction::struct_get(string_type, 2U),
-      @lib.Instruction::struct_new(bytes_type),
-    ]),
-  )
-}
 
 ///| Bounds-checked dynamic byte access over V128 chunks. Out-of-range access
 
@@ -1331,9 +1312,7 @@ fn emit_starshine_text_runtime_function(
   name : Bytes,
   base : Int,
 ) -> @lib.Func? {
-  if name == b"dew_string_as_bytes" {
-    Some(starshine_string_as_bytes_body(base))
-  } else if name == b"dew_string_view" {
+  if name == b"dew_string_view" {
     Some(starshine_string_view_body(base, 1))
   } else if name == b"dew_string_view_as_bytes" {
     Some(starshine_text_rewrap_body(base, 3, 2))
