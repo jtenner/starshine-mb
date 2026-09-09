@@ -379,26 +379,21 @@ fn starshine_text_rewrap_body(
 fn starshine_text_builder_new_body(
   base : Int,
   builder_offset : Int,
-  default_ : Bool,
 ) -> @lib.Func {
   let array_type = @lib.TypeIdx::new(base.reinterpret_as_uint())
   let builder_type = @lib.TypeIdx::new(
     (base + builder_offset).reinterpret_as_uint(),
   )
   let body : Array[@lib.Instruction] = []
-  if default_ {
-    body.push(text_i32(4))
-  } else {
-    body.push(@lib.Instruction::local_get(text_local(0)))
-    body.push(text_i32(4))
-    body.push(@lib.Instruction::i32_shr_u())
-    body.push(@lib.Instruction::local_get(text_local(0)))
-    body.push(text_i32(15))
-    body.push(@lib.Instruction::i32_and())
-    body.push(text_i32(0))
-    body.push(@lib.Instruction::i32_ne())
-    body.push(@lib.Instruction::i32_add())
-  }
+  body.push(@lib.Instruction::local_get(text_local(0)))
+  body.push(text_i32(4))
+  body.push(@lib.Instruction::i32_shr_u())
+  body.push(@lib.Instruction::local_get(text_local(0)))
+  body.push(text_i32(15))
+  body.push(@lib.Instruction::i32_and())
+  body.push(text_i32(0))
+  body.push(@lib.Instruction::i32_ne())
+  body.push(@lib.Instruction::i32_add())
   body.push(@lib.Instruction::array_new_default(array_type))
   body.push(text_i32(0))
   body.push(text_i32(0))
@@ -1344,10 +1339,8 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_text_rewrap_body(base, 3, 2))
   } else if name == b"dew_string_view_view" {
     Some(starshine_string_view_body(base, 3))
-  } else if name == b"dew_string_builder_new" {
-    Some(starshine_text_builder_new_body(base, 4, true))
   } else if name == b"dew_string_builder_with_capacity" {
-    Some(starshine_text_builder_new_body(base, 4, false))
+    Some(starshine_text_builder_new_body(base, 4))
   } else if name == b"dew_string_builder_append" {
     Some(starshine_text_builder_append_body(base, 4, 1))
   } else if name == b"dew_string_builder_append_view" {
@@ -1359,7 +1352,7 @@ fn emit_starshine_text_runtime_function(
   } else if name == b"dew_string_builder_finish" {
     Some(starshine_text_builder_finish_body(base, 4, 1))
   } else if name == b"dew_bytes_builder_with_capacity" {
-    Some(starshine_text_builder_new_body(base, 5, false))
+    Some(starshine_text_builder_new_body(base, 5))
   } else if name == b"dew_bytes_builder_append" {
     Some(starshine_text_builder_append_body(base, 5, 2))
   } else if name == b"dew_bytes_builder_append_byte" {
