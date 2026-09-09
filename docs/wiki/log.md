@@ -23597,3 +23597,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   Removed the old byte-access entry and body builder; internal byte copying
   remains only for pending builder migrations. See the
   [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew BytesBuilder storage
+
+- Filed the BytesBuilder allocation, growth, append, and finish migration into
+  the [runtime boundary](tooling/dew-runtime-boundary.md). Removed four private
+  dispatcher entries and copy-body helpers; Core instruction constructors
+  remain unchanged. The provider boundary test moves from 19 passes and one
+  expected failure to all 20 passing tests.
