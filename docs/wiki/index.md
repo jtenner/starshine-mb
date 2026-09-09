@@ -4,7 +4,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Schema And Operations
 
-- [`tooling/dew-runtime-boundary.md`](tooling/dew-runtime-boundary.md) - Text and builder algorithms now use Dew code and Core instructions. The retired runtime protocol only rejects requests; no algorithm bodies remain.
+- [`tooling/dew-runtime-boundary.md`](tooling/dew-runtime-boundary.md) - Text and builder algorithms use Dew code and Core instructions. The runtime-name builder protocol is removed; Core constructors remain.
 
 - [`tooling/raw-wasmgc-memory-arguments.md`](tooling/raw-wasmgc-memory-arguments.md) - Raw FFI memory-argument constructor, exact provider carrier, default-memory encoding, and full-width offset contract.
 

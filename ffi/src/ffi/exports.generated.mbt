@@ -644,16 +644,6 @@ pub fn ffi_ffi_bridge_funcs_push(
 
 ///|
 #doc(hidden)
-#export_name("ffi_ffi_bridge_funcs_push_runtime")
-pub fn ffi_ffi_bridge_funcs_push_runtime(
-  value0 : Array[@lib.Func],
-  value1 : @ffi_bridge.RuntimeFunctionBuilder,
-) -> Bool {
-  @ffi_bridge.funcs_push_runtime(value0, value1)
-}
-
-///|
-#doc(hidden)
 #export_name("ffi_ffi_bridge_function_reference_builder_new")
 pub fn ffi_ffi_bridge_function_reference_builder_new() -> @ffi_bridge.FunctionReferenceBuilder {
   @ffi_bridge.function_reference_builder_new()
@@ -857,15 +847,6 @@ pub fn ffi_ffi_bridge_rec_types_push(
   value1 : @lib.RecType,
 ) -> Unit {
   @ffi_bridge.rec_types_push(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_ffi_bridge_runtime_function_builder_new")
-pub fn ffi_ffi_bridge_runtime_function_builder_new(
-  value0 : Int,
-) -> @ffi_bridge.RuntimeFunctionBuilder {
-  @ffi_bridge.runtime_function_builder_new(value0)
 }
 
 ///|
@@ -1251,16 +1232,6 @@ pub fn ffi_ffi_bridge_ImportBuilder_push_module_byte(
   value1 : Byte,
 ) -> Unit {
   @ffi_bridge.ImportBuilder::push_module_byte(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_ffi_bridge_RuntimeFunctionBuilder_push_name_byte")
-pub fn ffi_ffi_bridge_RuntimeFunctionBuilder_push_name_byte(
-  receiver : @ffi_bridge.RuntimeFunctionBuilder,
-  value1 : Byte,
-) -> Unit {
-  @ffi_bridge.RuntimeFunctionBuilder::push_name_byte(receiver, value1)
 }
 
 ///|

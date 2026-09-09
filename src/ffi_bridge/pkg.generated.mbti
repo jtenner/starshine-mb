@@ -17,8 +17,6 @@ pub fn funcs_new() -> Array[@lib.Func]
 
 pub fn funcs_push(Array[@lib.Func], @lib.Func) -> Unit
 
-pub fn funcs_push_runtime(Array[@lib.Func], RuntimeFunctionBuilder) -> Bool
-
 pub fn function_reference_builder_new() -> FunctionReferenceBuilder
 
 pub fn generate_engine_state_case(UInt64, Int) -> EncodedEngineStateCase
@@ -64,8 +62,6 @@ pub fn nominal_ref_type(Int, Bool) -> @lib.ValType
 pub fn rec_types_new() -> Array[@lib.RecType]
 
 pub fn rec_types_push(Array[@lib.RecType], @lib.RecType) -> Unit
-
-pub fn runtime_function_builder_new(Int) -> RuntimeFunctionBuilder
 
 pub fn type_indices_new() -> Array[@lib.TypeIdx]
 
@@ -157,12 +153,6 @@ pub struct ImportBuilder {
 }
 pub fn ImportBuilder::push_field_byte(Self, Byte) -> Unit
 pub fn ImportBuilder::push_module_byte(Self, Byte) -> Unit
-
-pub struct RuntimeFunctionBuilder {
-  name : Array[Byte]
-  base : Int
-}
-pub fn RuntimeFunctionBuilder::push_name_byte(Self, Byte) -> Unit
 
 pub(all) enum WasiMarshalNode {
   WasiI32
