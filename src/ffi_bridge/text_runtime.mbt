@@ -165,51 +165,6 @@ fn starshine_text_byte_at_type_body(base : Int, type_offset : Int) -> @lib.Func 
 }
 
 ///|
-/// Construct a bounds-checked shared range over arbitrary Bytes.
-fn starshine_bytes_view_body(base : Int) -> @lib.Func {
-  let bytes_type = @lib.TypeIdx::new((base + 2).reinterpret_as_uint())
-  let bytes_ref = 3
-  let source_length = 4
-  @lib.Func::new(
-    @lib.Locals::from_types([text_runtime_ref(base + 2), @lib.ValType::i32()]),
-    @lib.Expr::new([
-      @lib.Instruction::local_get(text_local(0)),
-      @lib.Instruction::ref_cast(false, @lib.HeapType::new(bytes_type)),
-      @lib.Instruction::local_set(text_local(bytes_ref)),
-      @lib.Instruction::local_get(text_local(bytes_ref)),
-      @lib.Instruction::struct_get(bytes_type, 2U),
-      @lib.Instruction::local_set(text_local(source_length)),
-      @lib.Instruction::local_get(text_local(1)),
-      @lib.Instruction::local_get(text_local(source_length)),
-      @lib.Instruction::i32_gt_u(),
-      @lib.Instruction::if_(
-        @lib.BlockType::void_(),
-        [@lib.Instruction::unreachable_()],
-        None,
-      ),
-      @lib.Instruction::local_get(text_local(2)),
-      @lib.Instruction::local_get(text_local(source_length)),
-      @lib.Instruction::local_get(text_local(1)),
-      @lib.Instruction::i32_sub(),
-      @lib.Instruction::i32_gt_u(),
-      @lib.Instruction::if_(
-        @lib.BlockType::void_(),
-        [@lib.Instruction::unreachable_()],
-        None,
-      ),
-      @lib.Instruction::local_get(text_local(bytes_ref)),
-      @lib.Instruction::struct_get(bytes_type, 0U),
-      @lib.Instruction::local_get(text_local(bytes_ref)),
-      @lib.Instruction::struct_get(bytes_type, 1U),
-      @lib.Instruction::local_get(text_local(1)),
-      @lib.Instruction::i32_add(),
-      @lib.Instruction::local_get(text_local(2)),
-      @lib.Instruction::struct_new(bytes_type),
-    ]),
-  )
-}
-
-///|
 /// Construct a UTF-8-boundary-checked shared view over a String.
 fn starshine_string_view_body(base : Int, source_offset : Int) -> @lib.Func {
   let array_type = @lib.TypeIdx::new(base.reinterpret_as_uint())
@@ -1279,8 +1234,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_text_builder_finish_body(base, 5, 2))
   } else if name == b"dew_bytes_byte_at" {
     Some(starshine_text_byte_at_type_body(base, 2))
-  } else if name == b"dew_bytes_view" {
-    Some(starshine_bytes_view_body(base))
   } else {
     None
   }

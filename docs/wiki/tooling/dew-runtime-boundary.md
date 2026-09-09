@@ -49,6 +49,12 @@ The three `dew_string_builder_append`, `dew_string_builder_append_view`, and
 append helpers serve BytesBuilder only. Byte copying, growth, scalar encoding,
 capacity allocation, and finish still need migration; this does not close that work.
 
+Bytes views now use an ordinary Dew function with a declared V128-array/start/
+length struct. Typed Core casts preserve the shared backing array. Dew checks
+the logical range and start addition before constructing the result. The old
+`dew_bytes_view` dispatcher entry and its private body builder are removed.
+String/StringView boundary checks and builder storage remain separate work.
+
 The public FFI method signatures are unchanged by these removals.
 
 Sources: [runtime dispatcher](../../../src/ffi_bridge/text_runtime.mbt),
