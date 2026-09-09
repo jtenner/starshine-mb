@@ -23517,3 +23517,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   String SIMD loading belong to ordinary Dew code, not provider-generated
   runtime functions. The Bytes boundary test failed before removal and passes
   afterward. Core SIMD and text storage support remain unchanged.
+
+## 2026-09-09 — Dew Bytes length field read
+
+- Updated the [Dew runtime boundary](tooling/dew-runtime-boundary.md): Bytes
+  length uses a checked Core field read. The old dispatcher entry and unused
+  builder are removed. The boundary test fails before removal and all 21
+  bridge tests pass afterward. Other text storage operations remain.

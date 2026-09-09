@@ -4,7 +4,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Schema And Operations
 
-- [`tooling/dew-runtime-boundary.md`](tooling/dew-runtime-boundary.md) - Core instruction constructors versus temporary Dew runtime support; library SIMD loading does not select a provider-generated body.
+- [`tooling/dew-runtime-boundary.md`](tooling/dew-runtime-boundary.md) - Core instruction constructors versus temporary Dew runtime support; library SIMD loading and Bytes length do not select provider-generated bodies.
 
 - [`tooling/raw-wasmgc-memory-arguments.md`](tooling/raw-wasmgc-memory-arguments.md) - Raw FFI memory-argument constructor, exact provider carrier, default-memory encoding, and full-width offset contract.
 

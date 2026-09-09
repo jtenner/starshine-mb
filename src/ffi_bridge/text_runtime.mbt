@@ -119,19 +119,6 @@ fn text_load_logical_v128(
 }
 
 ///|
-fn starshine_text_length_type_body(base : Int, type_offset : Int) -> @lib.Func {
-  let type_index = @lib.TypeIdx::new((base + type_offset).reinterpret_as_uint())
-  @lib.Func::new(
-    @lib.Locals::empty(),
-    @lib.Expr::new([
-      @lib.Instruction::local_get(text_local(0)),
-      @lib.Instruction::ref_cast(false, @lib.HeapType::new(type_index)),
-      @lib.Instruction::struct_get(type_index, 2U),
-    ]),
-  )
-}
-
-///|
 fn starshine_string_as_bytes_body(base : Int) -> @lib.Func {
   let string_type = @lib.TypeIdx::new((base + 1).reinterpret_as_uint())
   let bytes_type = @lib.TypeIdx::new((base + 2).reinterpret_as_uint())
@@ -1376,9 +1363,7 @@ fn emit_starshine_text_runtime_function(
   name : Bytes,
   base : Int,
 ) -> @lib.Func? {
-  if name == b"dew_bytes_byte_length" {
-    Some(starshine_text_length_type_body(base, 2))
-  } else if name == b"dew_string_as_bytes" {
+  if name == b"dew_string_as_bytes" {
     Some(starshine_string_as_bytes_body(base))
   } else if name == b"dew_string_view" {
     Some(starshine_string_view_body(base, 1))

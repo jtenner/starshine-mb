@@ -429,7 +429,7 @@ test "ffi bridge rejects removed compiler-owned Bytes algorithms" {
     name in [
       b"dew_bytes_is_valid_utf8", b"dew_bytes_to_string", b"dew_bytes_equals", b"dew_bytes_hash",
       b"dew_bytes_find_byte", b"dew_bytes_find", b"dew_bytes_starts_with", b"dew_bytes_ends_with",
-      b"dew_bytes_concat", b"dew_bytes_load_u8x16",
+      b"dew_bytes_concat", b"dew_bytes_load_u8x16", b"dew_bytes_byte_length",
     ] {
     let functions = funcs_new()
     let builder = runtime_function_builder_new(0)
