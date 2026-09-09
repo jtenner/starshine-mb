@@ -18,7 +18,9 @@ remove the Core field-read constructor, byte access, or builder operations.
 BytesBuilder length now uses two raw scalar field reads: consumed state at 2
 and logical length at 1. Dew performs the consumed-state check before reading
 the length. `dew_bytes_builder_byte_length` no longer selects a runtime body.
-StringBuilder still uses the shared temporary length builder.
+StringBuilder now follows the same rule with its own primitive heap owner.
+`dew_string_builder_byte_length` and the now-unused shared length builder are
+removed. Dew owns both lifetime checks; Core field-read constructors remain.
 
 The provider test checks that a removed name neither selects a runtime function
 nor appends one to the function table. The public FFI method signatures are

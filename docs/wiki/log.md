@@ -23531,3 +23531,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   Dew checks consumed state. The old provider entry is removed. The shared
   length builder remains for StringBuilder. See the
   [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew StringBuilder lifetime check
+
+- StringBuilder length now follows the same Dew-side consumed-state check with
+  its own primitive heap. The final length dispatcher entry and shared helper
+  are removed. Core field instructions remain available; see the
+  [runtime boundary](tooling/dew-runtime-boundary.md).
