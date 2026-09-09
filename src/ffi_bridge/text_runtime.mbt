@@ -1391,8 +1391,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_text_builder_new_body(base, 5, true))
   } else if name == b"dew_bytes_builder_with_capacity" {
     Some(starshine_text_builder_new_body(base, 5, false))
-  } else if name == b"dew_bytes_builder_byte_length" {
-    Some(starshine_text_builder_length_body(base, 5))
   } else if name == b"dew_bytes_builder_append" {
     Some(starshine_text_builder_append_body(base, 5, 2))
   } else if name == b"dew_bytes_builder_append_byte" {

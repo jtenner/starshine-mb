@@ -15,6 +15,11 @@ heap to the Core `struct.get` instruction with physical field immediate 2.
 The provider no longer builds a separate length function. This does not
 remove the Core field-read constructor, byte access, or builder operations.
 
+BytesBuilder length now uses two raw scalar field reads: consumed state at 2
+and logical length at 1. Dew performs the consumed-state check before reading
+the length. `dew_bytes_builder_byte_length` no longer selects a runtime body.
+StringBuilder still uses the shared temporary length builder.
+
 The provider test checks that a removed name neither selects a runtime function
 nor appends one to the function table. The public FFI method signatures are
 unchanged by this removal.
