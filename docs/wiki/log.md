@@ -23538,3 +23538,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   its own primitive heap. The final length dispatcher entry and shared helper
   are removed. Core field instructions remain available; see the
   [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew BytesBuilder default capacity
+
+- Dew now selects the 64-byte default capacity. The separate default runtime
+  entry is removed; the explicit-capacity allocator remains. See the
+  [runtime boundary](tooling/dew-runtime-boundary.md).
