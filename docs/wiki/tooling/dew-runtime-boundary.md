@@ -22,6 +22,11 @@ StringBuilder now follows the same rule with its own primitive heap owner.
 `dew_string_builder_byte_length` and the now-unused shared length builder are
 removed. Dew owns both lifetime checks; Core field-read constructors remain.
 
+BytesBuilder's default constructor is also a Dew function. It requests 64
+bytes through the existing capacity constructor, preserving the former four
+V128 chunks. `dew_bytes_builder_new` no longer selects a provider body. The
+capacity allocator, growth, and finish paths remain temporary runtime support.
+
 The provider test checks that a removed name neither selects a runtime function
 nor appends one to the function table. The public FFI method signatures are
 unchanged by this removal.
