@@ -564,18 +564,10 @@ fn text_copy_logical_range(
 }
 
 ///|
-fn starshine_text_builder_append_body(
-  base : Int,
-  builder_offset : Int,
-  source_offset : Int,
-) -> @lib.Func {
+fn starshine_bytes_builder_append_body(base : Int) -> @lib.Func {
   let array_type = @lib.TypeIdx::new(base.reinterpret_as_uint())
-  let source_type = @lib.TypeIdx::new(
-    (base + source_offset).reinterpret_as_uint(),
-  )
-  let builder_type = @lib.TypeIdx::new(
-    (base + builder_offset).reinterpret_as_uint(),
-  )
+  let source_type = @lib.TypeIdx::new((base + 2).reinterpret_as_uint())
+  let builder_type = @lib.TypeIdx::new((base + 5).reinterpret_as_uint())
   let builder_ref = 2
   let source_ref = 3
   let chunks = 4
@@ -777,8 +769,8 @@ fn starshine_text_builder_append_body(
   body.push(@lib.Instruction::struct_set(builder_type, 1U))
   @lib.Func::new(
     @lib.Locals::from_types([
-      text_runtime_ref(base + builder_offset),
-      text_runtime_ref(base + source_offset),
+      text_runtime_ref(base + 5),
+      text_runtime_ref(base + 2),
       text_runtime_ref(base),
       text_runtime_ref(base),
       @lib.ValType::i32(),
@@ -801,15 +793,9 @@ fn starshine_text_builder_append_body(
 }
 
 ///|
-fn starshine_text_builder_append_byte_body(
-  base : Int,
-  builder_offset : Int,
-  ascii_only : Bool,
-) -> @lib.Func {
+fn starshine_bytes_builder_append_byte_body(base : Int) -> @lib.Func {
   let array_type = @lib.TypeIdx::new(base.reinterpret_as_uint())
-  let builder_type = @lib.TypeIdx::new(
-    (base + builder_offset).reinterpret_as_uint(),
-  )
+  let builder_type = @lib.TypeIdx::new((base + 5).reinterpret_as_uint())
   let builder_ref = 2
   let chunks = 3
   let old_length = 4
@@ -818,18 +804,6 @@ fn starshine_text_builder_append_byte_body(
   let new_chunks = 7
   let copy_index = 8
   let body : Array[@lib.Instruction] = []
-  if ascii_only {
-    body.push(@lib.Instruction::local_get(text_local(1)))
-    body.push(text_i32(0x7F))
-    body.push(@lib.Instruction::i32_gt_u())
-    body.push(
-      @lib.Instruction::if_(
-        @lib.BlockType::void_(),
-        [@lib.Instruction::unreachable_()],
-        None,
-      ),
-    )
-  }
   for
     instruction in [
       @lib.Instruction::local_get(text_local(0)),
@@ -934,7 +908,7 @@ fn starshine_text_builder_append_byte_body(
   body.push(@lib.Instruction::struct_set(builder_type, 1U))
   @lib.Func::new(
     @lib.Locals::from_types([
-      text_runtime_ref(base + builder_offset),
+      text_runtime_ref(base + 5),
       text_runtime_ref(base),
       @lib.ValType::i32(),
       @lib.ValType::i32(),
@@ -1291,12 +1265,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_string_view_body(base, 3))
   } else if name == b"dew_string_builder_with_capacity" {
     Some(starshine_text_builder_new_body(base, 4))
-  } else if name == b"dew_string_builder_append" {
-    Some(starshine_text_builder_append_body(base, 4, 1))
-  } else if name == b"dew_string_builder_append_view" {
-    Some(starshine_text_builder_append_body(base, 4, 3))
-  } else if name == b"dew_string_builder_append_ascii" {
-    Some(starshine_text_builder_append_byte_body(base, 4, true))
   } else if name == b"dew_string_builder_append_scalar" {
     Some(starshine_string_builder_append_scalar_body(base))
   } else if name == b"dew_string_builder_finish" {
@@ -1304,9 +1272,9 @@ fn emit_starshine_text_runtime_function(
   } else if name == b"dew_bytes_builder_with_capacity" {
     Some(starshine_text_builder_new_body(base, 5))
   } else if name == b"dew_bytes_builder_append" {
-    Some(starshine_text_builder_append_body(base, 5, 2))
+    Some(starshine_bytes_builder_append_body(base))
   } else if name == b"dew_bytes_builder_append_byte" {
-    Some(starshine_text_builder_append_byte_body(base, 5, false))
+    Some(starshine_bytes_builder_append_byte_body(base))
   } else if name == b"dew_bytes_builder_finish" {
     Some(starshine_text_builder_finish_body(base, 5, 2))
   } else if name == b"dew_bytes_byte_at" {
