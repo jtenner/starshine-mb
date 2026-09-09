@@ -1,86 +1,47 @@
 # Dew runtime boundary
 
-The raw FFI exposes Core instruction constructors. The temporary text runtime
-dispatcher is a separate compatibility surface; it must not grow into a second
-implementation of Dew library algorithms.
+The raw FFI exposes Core instruction constructors. Runtime text and builder
+algorithms now live in Dew library functions, not provider-generated bodies.
+This includes text/Bytes access, views, conversion checks, searches, builder
+allocation, growth, append, UTF-8 scalar encoding, and finish.
 
-`dew_bytes_load_u8x16` and `dew_string_load_u8x16` are intentionally unsupported
-by that dispatcher. Dew now owns the bounds check and logical-byte-to-vector
-algorithm. This does not remove Core `v128.load`, lane instructions, or array
-instructions. Builder storage operations still remain in the
-temporary dispatcher.
+The retired runtime-function protocol remains only as a rejection boundary:
+it creates no functions. Its public bridge methods remain until the consumer
+removes the legacy physical function kind. This is not a second implementation
+of any library algorithm. Boundary tests require removed names to leave the
+function table unchanged.
 
-`dew_bytes_byte_length` is also removed. Dew binds its checked primitive Bytes
-heap to the Core `struct.get` instruction with physical field immediate 2.
-The provider no longer builds a separate length function. This does not
-remove the Core field-read constructor or builder operations.
+## Library storage and checks
 
-BytesBuilder length now uses two raw scalar field reads: consumed state at 2
-and logical length at 1. Dew performs the consumed-state check before reading
-the length. `dew_bytes_builder_byte_length` no longer selects a runtime body.
-StringBuilder now follows the same rule with its own primitive heap owner.
-`dew_string_builder_byte_length` and the now-unused shared length builder are
-removed. Dew owns both lifetime checks; Core field-read constructors remain.
+Bytes views use a declared V128-array/start/length struct. Builders use a
+declared mutable V128-array/length/consumed struct. Explicit typed Core casts
+retain shared storage and aliases; they do not reset consumed state.
 
-BytesBuilder's default constructor is also a Dew function. It requests 64
-bytes through the existing capacity constructor, preserving the former four
-V128 chunks. `dew_bytes_builder_new` no longer selects a provider body. The
-capacity allocator, growth, and finish paths now follow the Dew storage code
-described below.
-StringBuilder now selects the same default in Dew. Its old default entry and
-the allocator's default-mode branch are removed. The remaining allocator takes
-an explicit byte capacity and computes its chunk count without a library default.
+Dew checks logical bounds and overflow before access or mutation. Growth uses
+Core array copy. Aligned appends copy complete chunks; unaligned appends use
+lane swizzles and masked writes, with exact byte tails. Finish consumes all
+builder aliases and shares the backing array with the immutable result.
 
-The provider test checks that a removed name neither selects a runtime function
-nor appends one to the function table. String-to-Bytes conversion now uses the
-consumer's typed Core `ref.cast` recipe; `dew_string_as_bytes` and its wrapper
-allocation helper are removed. StringView-to-Bytes now uses the same typed
-Core operation and no longer selects `dew_string_view_as_bytes`.
-`dew_bytes_to_string_unchecked` and the final shared rewrap helper are now
-removed too. Dew checks UTF-8 before checked Bytes-to-String conversion; the
-raw Core cast itself does not validate text. These changes remove the text
-conversion compatibility entries, not the remaining storage algorithms.
+StringBuilder uses this same Dew storage path. Its capacity and finish
+functions are ordinary wrappers. Scalar encoding rejects surrogates and
+values above U+10FFFF, reserves the complete one-to-four-byte encoding before
+writing, then emits its canonical UTF-8 bytes. No StringBuilder runtime entry
+or private scalar-encoding body remains.
 
-StringBuilder append, append-view, and append-ASCII now use Dew functions too.
-A private typed Core `ref.cast` exposes the same mutable builder as BytesBuilder;
-it does not copy storage or reset consumed state. Dew converts String or StringView
-with the existing raw text casts and checks the ASCII range before byte append.
-The three `dew_string_builder_append`, `dew_string_builder_append_view`, and
-`dew_string_builder_append_ascii` dispatcher entries are removed. The remaining
-append functions now reach the Dew BytesBuilder storage code. String scalar
-encoding, StringBuilder capacity allocation, and StringBuilder finish remain
-runtime work; this does not close that work.
+## Text identity and boundaries
 
-Bytes views now use an ordinary Dew function with a declared V128-array/start/
-length struct. Typed Core casts preserve the shared backing array. Dew checks
-the logical range and start addition before constructing the result. The old
-`dew_bytes_view` dispatcher entry and its private body builder are removed.
-String/StringView slicing follows the same storage path described below;
-builder storage remains separate work.
+Core reference casts do not validate UTF-8. Checked Bytes-to-String conversion
+validates in Dew before casting; String and StringView carry that precondition.
+StringView range checks use the selected logical range, not a source spelling.
 
-String and StringView range functions now use the checked Dew Bytes view and
-perform their UTF-8 boundary checks in Dew. The end of the source is a valid
-boundary without a byte read. This also fixes empty views at an exact V128
-array boundary: the former runtime tried to read the next array element.
-The `dew_string_view` and `dew_string_view_view` entries and shared private
-body builder are removed. Builder algorithms still remain.
+The source end is a valid UTF-8 boundary without a byte read. This fixes empty
+views at exact V128 array ends, where the former runtime read the next element.
+Byte reads check the logical index and start addition before Core array/lane
+instructions. The preamble reaches that body through an ordinary private import.
 
-Bytes byte access now also runs in Dew over declared array/start/length fields.
-It checks the logical index and start addition, then uses Core array and lane
-instructions. The preamble reaches this body through an ordinary private import;
-ordering and Facet use library calls too. `dew_bytes_byte_at` and its separate
-body builder are removed.
+The public FFI method signatures are unchanged by these algorithm removals.
+Core array, field, reference, and vector instruction constructors remain.
 
-BytesBuilder allocation, reserve/growth, append, byte append, and finish now run
-in Dew over a declared mutable V128-array/length/consumed struct. Growth uses
-Core array copy; aligned appends use block copies, and unaligned appends use
-lane swizzles and masked writes. Dew checks overflow and consumed state before
-mutation. Finish shares the backing array and consumes every builder alias.
-The four BytesBuilder runtime entries and their private copy helpers are
-removed. Only the three StringBuilder capacity/scalar/finish entries remain;
-the remaining byte-write helper serves scalar encoding alone.
-
-The public FFI method signatures are unchanged by these removals.
-
-Sources: [runtime dispatcher](../../../src/ffi_bridge/text_runtime.mbt),
+Sources: [retired runtime boundary](../../../src/ffi_bridge/text_runtime.mbt),
+[bridge methods](../../../src/ffi_bridge/ffi_bridge.mbt),
 [boundary tests](../../../src/ffi_bridge/ffi_bridge_test.mbt).

@@ -23605,3 +23605,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   dispatcher entries and copy-body helpers; Core instruction constructors
   remain unchanged. The provider boundary test moves from 19 passes and one
   expected failure to all 20 passing tests.
+
+## 2026-09-09 — Dew StringBuilder storage
+
+- Filed the final StringBuilder capacity, UTF-8 scalar, and finish migration
+  into the [runtime boundary](tooling/dew-runtime-boundary.md). No private text
+  or builder algorithm bodies remain. The retired bridge only rejects requests
+  until its consumer protocol is removed. All 20 focused provider tests pass.
