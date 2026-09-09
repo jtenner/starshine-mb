@@ -53,7 +53,15 @@ Bytes views now use an ordinary Dew function with a declared V128-array/start/
 length struct. Typed Core casts preserve the shared backing array. Dew checks
 the logical range and start addition before constructing the result. The old
 `dew_bytes_view` dispatcher entry and its private body builder are removed.
-String/StringView boundary checks and builder storage remain separate work.
+String/StringView slicing follows the same storage path described below;
+builder storage remains separate work.
+
+String and StringView range functions now use the checked Dew Bytes view and
+perform their UTF-8 boundary checks in Dew. The end of the source is a valid
+boundary without a byte read. This also fixes empty views at an exact V128
+array boundary: the former runtime tried to read the next array element.
+The `dew_string_view` and `dew_string_view_view` entries and shared private
+body builder are removed. Raw byte access and builder algorithms still remain.
 
 The public FFI method signatures are unchanged by these removals.
 

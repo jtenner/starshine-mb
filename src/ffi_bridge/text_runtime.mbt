@@ -165,126 +165,6 @@ fn starshine_text_byte_at_type_body(base : Int, type_offset : Int) -> @lib.Func 
 }
 
 ///|
-/// Construct a UTF-8-boundary-checked shared view over a String.
-fn starshine_string_view_body(base : Int, source_offset : Int) -> @lib.Func {
-  let array_type = @lib.TypeIdx::new(base.reinterpret_as_uint())
-  let source_type = @lib.TypeIdx::new(
-    (base + source_offset).reinterpret_as_uint(),
-  )
-  let view_type = @lib.TypeIdx::new((base + 3).reinterpret_as_uint())
-  let string_ref = 3
-  let chunks = 4
-  let source_length = 5
-  let absolute_start = 6
-  let relative_end = 7
-  let boundary_byte = 8
-  let body : Array[@lib.Instruction] = [
-    @lib.Instruction::local_get(text_local(0)),
-    @lib.Instruction::ref_cast(false, @lib.HeapType::new(source_type)),
-    @lib.Instruction::local_set(text_local(string_ref)),
-    @lib.Instruction::local_get(text_local(string_ref)),
-    @lib.Instruction::struct_get(source_type, 2U),
-    @lib.Instruction::local_set(text_local(source_length)),
-    @lib.Instruction::local_get(text_local(1)),
-    @lib.Instruction::local_get(text_local(source_length)),
-    @lib.Instruction::i32_gt_u(),
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::unreachable_()],
-      None,
-    ),
-    @lib.Instruction::local_get(text_local(2)),
-    @lib.Instruction::local_get(text_local(source_length)),
-    @lib.Instruction::local_get(text_local(1)),
-    @lib.Instruction::i32_sub(),
-    @lib.Instruction::i32_gt_u(),
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::unreachable_()],
-      None,
-    ),
-    @lib.Instruction::local_get(text_local(string_ref)),
-    @lib.Instruction::struct_get(source_type, 0U),
-    @lib.Instruction::local_set(text_local(chunks)),
-    @lib.Instruction::local_get(text_local(string_ref)),
-    @lib.Instruction::struct_get(source_type, 1U),
-    @lib.Instruction::local_get(text_local(1)),
-    @lib.Instruction::i32_add(),
-    @lib.Instruction::local_set(text_local(absolute_start)),
-    @lib.Instruction::local_get(text_local(1)),
-    @lib.Instruction::local_get(text_local(2)),
-    @lib.Instruction::i32_add(),
-    @lib.Instruction::local_set(text_local(relative_end)),
-  ]
-  let start_check : Array[@lib.Instruction] = []
-  for instruction in text_byte_at(array_type, chunks, absolute_start, 0) {
-    start_check.push(instruction)
-  }
-  start_check.push(@lib.Instruction::local_set(text_local(boundary_byte)))
-  start_check.push(@lib.Instruction::local_get(text_local(boundary_byte)))
-  start_check.push(text_i32(0xC0))
-  start_check.push(@lib.Instruction::i32_and())
-  start_check.push(text_i32(0x80))
-  start_check.push(@lib.Instruction::i32_eq())
-  start_check.push(
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::unreachable_()],
-      None,
-    ),
-  )
-  body.push(@lib.Instruction::local_get(text_local(1)))
-  body.push(@lib.Instruction::i32_eqz())
-  body.push(@lib.Instruction::i32_eqz())
-  body.push(@lib.Instruction::if_(@lib.BlockType::void_(), start_check, None))
-  let end_check : Array[@lib.Instruction] = [
-    @lib.Instruction::local_get(text_local(absolute_start)),
-    @lib.Instruction::local_get(text_local(2)),
-    @lib.Instruction::i32_add(),
-    @lib.Instruction::local_set(text_local(absolute_start)),
-  ]
-  for instruction in text_byte_at(array_type, chunks, absolute_start, 0) {
-    end_check.push(instruction)
-  }
-  end_check.push(@lib.Instruction::local_set(text_local(boundary_byte)))
-  end_check.push(@lib.Instruction::local_get(text_local(boundary_byte)))
-  end_check.push(text_i32(0xC0))
-  end_check.push(@lib.Instruction::i32_and())
-  end_check.push(text_i32(0x80))
-  end_check.push(@lib.Instruction::i32_eq())
-  end_check.push(
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::unreachable_()],
-      None,
-    ),
-  )
-  body.push(@lib.Instruction::local_get(text_local(relative_end)))
-  body.push(@lib.Instruction::local_get(text_local(source_length)))
-  body.push(@lib.Instruction::i32_lt_u())
-  body.push(@lib.Instruction::if_(@lib.BlockType::void_(), end_check, None))
-  body.push(@lib.Instruction::local_get(text_local(chunks)))
-  body.push(@lib.Instruction::local_get(text_local(string_ref)))
-  body.push(@lib.Instruction::struct_get(source_type, 1U))
-  body.push(@lib.Instruction::local_get(text_local(1)))
-  body.push(@lib.Instruction::i32_add())
-  body.push(@lib.Instruction::local_get(text_local(2)))
-  body.push(@lib.Instruction::struct_new(view_type))
-  @lib.Func::new(
-    @lib.Locals::from_types([
-      text_runtime_ref(base + source_offset),
-      text_runtime_ref(base),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-    ]),
-    @lib.Expr::new(body),
-  )
-}
-
-
-///|
 fn starshine_text_builder_new_body(
   base : Int,
   builder_offset : Int,
@@ -1214,11 +1094,7 @@ fn emit_starshine_text_runtime_function(
   name : Bytes,
   base : Int,
 ) -> @lib.Func? {
-  if name == b"dew_string_view" {
-    Some(starshine_string_view_body(base, 1))
-  } else if name == b"dew_string_view_view" {
-    Some(starshine_string_view_body(base, 3))
-  } else if name == b"dew_string_builder_with_capacity" {
+  if name == b"dew_string_builder_with_capacity" {
     Some(starshine_text_builder_new_body(base, 4))
   } else if name == b"dew_string_builder_append_scalar" {
     Some(starshine_string_builder_append_scalar_body(base))
