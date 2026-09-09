@@ -23582,3 +23582,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   and Core casts. Removed the old provider entry and private body builder;
   Core FFI signatures remain unchanged. See the
   [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew text view boundaries
+
+- String and StringView slices now use Dew boundary checks and shared Bytes
+  storage. An empty range at the exact array end no longer reads beyond the
+  last V128 chunk. Both old dispatcher entries and their body builder are
+  removed; see the [runtime boundary](tooling/dew-runtime-boundary.md).
