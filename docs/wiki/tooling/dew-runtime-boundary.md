@@ -26,6 +26,9 @@ BytesBuilder's default constructor is also a Dew function. It requests 64
 bytes through the existing capacity constructor, preserving the former four
 V128 chunks. `dew_bytes_builder_new` no longer selects a provider body. The
 capacity allocator, growth, and finish paths remain temporary runtime support.
+StringBuilder now selects the same default in Dew. Its old default entry and
+the allocator's default-mode branch are removed. The remaining allocator takes
+an explicit byte capacity and computes its chunk count without a library default.
 
 The provider test checks that a removed name neither selects a runtime function
 nor appends one to the function table. The public FFI method signatures are

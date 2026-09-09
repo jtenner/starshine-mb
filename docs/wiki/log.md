@@ -23545,3 +23545,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Dew now selects the 64-byte default capacity. The separate default runtime
   entry is removed; the explicit-capacity allocator remains. See the
   [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew StringBuilder default capacity
+
+- StringBuilder now selects its default in Dew too. The provider's default-mode
+  branch is removed; the remaining allocator requires a byte capacity. See the
+  [runtime boundary](tooling/dew-runtime-boundary.md).
