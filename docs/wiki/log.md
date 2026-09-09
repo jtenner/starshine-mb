@@ -23563,3 +23563,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - StringView conversion also uses the consumer's typed Core reference cast.
   Its dispatcher entry is removed; the shared rewrap helper remains only for
   Bytes-to-String. See the [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew Bytes-to-String raw conversion
+
+- Removed the last text-conversion dispatcher entry and shared rewrap helper.
+  Dew owns checked UTF-8 conversion; Core casts do not validate text. Remaining
+  storage algorithms stay tracked in the [runtime boundary](tooling/dew-runtime-boundary.md).
