@@ -31,8 +31,12 @@ the allocator's default-mode branch are removed. The remaining allocator takes
 an explicit byte capacity and computes its chunk count without a library default.
 
 The provider test checks that a removed name neither selects a runtime function
-nor appends one to the function table. The public FFI method signatures are
-unchanged by this removal.
+nor appends one to the function table. String-to-Bytes conversion now uses the
+consumer's typed Core `ref.cast` recipe; `dew_string_as_bytes` and its wrapper
+allocation helper are removed. StringView and unchecked Bytes-to-String
+compatibility entries remain separate pending migrations.
+
+The public FFI method signatures are unchanged by this removal.
 
 Sources: [runtime dispatcher](../../../src/ffi_bridge/text_runtime.mbt),
 [boundary tests](../../../src/ffi_bridge/ffi_bridge_test.mbt).

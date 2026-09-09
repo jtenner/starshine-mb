@@ -23551,3 +23551,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - StringBuilder now selects its default in Dew too. The provider's default-mode
   branch is removed; the remaining allocator requires a byte capacity. See the
   [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew String-to-Bytes raw conversion
+
+- The consumer now uses a typed Core reference cast. The old String-to-Bytes
+  entry and wrapper allocator are removed without changing Core FFI signatures.
+  See the [runtime boundary](tooling/dew-runtime-boundary.md).
