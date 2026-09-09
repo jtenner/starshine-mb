@@ -407,33 +407,6 @@ fn starshine_text_builder_new_body(
 }
 
 ///|
-fn starshine_text_builder_length_body(
-  base : Int,
-  builder_offset : Int,
-) -> @lib.Func {
-  let builder_type = @lib.TypeIdx::new(
-    (base + builder_offset).reinterpret_as_uint(),
-  )
-  let builder_ref = 1
-  @lib.Func::new(
-    @lib.Locals::from_types([text_runtime_ref(base + builder_offset)]),
-    @lib.Expr::new([
-      @lib.Instruction::local_get(text_local(0)),
-      @lib.Instruction::ref_cast(false, @lib.HeapType::new(builder_type)),
-      @lib.Instruction::local_tee(text_local(builder_ref)),
-      @lib.Instruction::struct_get(builder_type, 2U),
-      @lib.Instruction::if_(
-        @lib.BlockType::void_(),
-        [@lib.Instruction::unreachable_()],
-        None,
-      ),
-      @lib.Instruction::local_get(text_local(builder_ref)),
-      @lib.Instruction::struct_get(builder_type, 1U),
-    ]),
-  )
-}
-
-///|
 /// Write one logical V128 into a possibly unaligned mutable chunk range.
 fn text_write_logical_v128(
   output : Array[@lib.Instruction],
@@ -1375,8 +1348,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_text_builder_new_body(base, 4, true))
   } else if name == b"dew_string_builder_with_capacity" {
     Some(starshine_text_builder_new_body(base, 4, false))
-  } else if name == b"dew_string_builder_byte_length" {
-    Some(starshine_text_builder_length_body(base, 4))
   } else if name == b"dew_string_builder_append" {
     Some(starshine_text_builder_append_body(base, 4, 1))
   } else if name == b"dew_string_builder_append_view" {
