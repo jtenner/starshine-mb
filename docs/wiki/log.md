@@ -23524,3 +23524,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   length uses a checked Core field read. The old dispatcher entry and unused
   builder are removed. The boundary test fails before removal and all 21
   bridge tests pass afterward. Other text storage operations remain.
+
+## 2026-09-09 — Dew BytesBuilder lifetime check
+
+- BytesBuilder length now reads its primitive fields through Core instructions;
+  Dew checks consumed state. The old provider entry is removed. The shared
+  length builder remains for StringBuilder. See the
+  [runtime boundary](tooling/dew-runtime-boundary.md).
