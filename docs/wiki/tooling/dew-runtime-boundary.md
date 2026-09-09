@@ -40,7 +40,16 @@ removed too. Dew checks UTF-8 before checked Bytes-to-String conversion; the
 raw Core cast itself does not validate text. These changes remove the text
 conversion compatibility entries, not the remaining storage algorithms.
 
-The public FFI method signatures are unchanged by this removal.
+StringBuilder append, append-view, and append-ASCII now use Dew functions too.
+A private typed Core `ref.cast` exposes the same mutable builder as BytesBuilder;
+it does not copy storage or reset consumed state. Dew converts String or StringView
+with the existing raw text casts and checks the ASCII range before byte append.
+The three `dew_string_builder_append`, `dew_string_builder_append_view`, and
+`dew_string_builder_append_ascii` dispatcher entries are removed. The remaining
+append helpers serve BytesBuilder only. Byte copying, growth, scalar encoding,
+capacity allocation, and finish still need migration; this does not close that work.
+
+The public FFI method signatures are unchanged by these removals.
 
 Sources: [runtime dispatcher](../../../src/ffi_bridge/text_runtime.mbt),
 [boundary tests](../../../src/ffi_bridge/ffi_bridge_test.mbt).

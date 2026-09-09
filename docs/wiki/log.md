@@ -23569,3 +23569,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Removed the last text-conversion dispatcher entry and shared rewrap helper.
   Dew owns checked UTF-8 conversion; Core casts do not validate text. Remaining
   storage algorithms stay tracked in the [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew StringBuilder append wrappers
+
+- String, view, and ASCII append wrappers now live in Dew. A raw builder cast
+  preserves shared storage and consumed state; Dew checks the ASCII range.
+  Provider append helpers now serve BytesBuilder only. The remaining storage
+  algorithms are listed in the [runtime boundary](tooling/dew-runtime-boundary.md).
