@@ -23576,3 +23576,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   preserves shared storage and consumed state; Dew checks the ASCII range.
   Provider append helpers now serve BytesBuilder only. The remaining storage
   algorithms are listed in the [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew Bytes view storage
+
+- Bytes range checks and shared-view construction now use declared Dew storage
+  and Core casts. Removed the old provider entry and private body builder;
+  Core FFI signatures remain unchanged. See the
+  [runtime boundary](tooling/dew-runtime-boundary.md).
