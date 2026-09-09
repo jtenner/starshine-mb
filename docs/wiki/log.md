@@ -23511,3 +23511,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   pass afterward. Retired the exact command-3 mismatch allowance instead of
   broadening it to match newer contextual validator messages. Other spec skips
   remain separate conformance debt.
+
+## 2026-09-08 — Dew SIMD runtime boundary
+
+- Added the [Dew runtime boundary](tooling/dew-runtime-boundary.md): Bytes and
+  String SIMD loading belong to ordinary Dew code, not provider-generated
+  runtime functions. The Bytes boundary test failed before removal and passes
+  afterward. Core SIMD and text storage support remain unchanged.
