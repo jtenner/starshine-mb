@@ -23556,3 +23556,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The consumer now uses a typed Core reference cast. The old String-to-Bytes
   entry and wrapper allocator are removed without changing Core FFI signatures.
   See the [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew StringView-to-Bytes raw conversion
+
+- StringView conversion also uses the consumer's typed Core reference cast.
+  Its dispatcher entry is removed; the shared rewrap helper remains only for
+  Bytes-to-String. See the [runtime boundary](tooling/dew-runtime-boundary.md).

@@ -388,7 +388,7 @@ test "ffi bridge rejects removed compiler-owned StringView algorithms" {
       b"dew_string_view_byte_length", b"dew_string_view_byte_at", b"dew_string_view_to_string",
       b"dew_string_view_utf16_length", b"dew_string_view_equals", b"dew_string_view_hash",
       b"dew_string_view_find", b"dew_string_view_find_string", b"dew_string_view_starts_with",
-      b"dew_string_view_starts_with_string", b"dew_string_view_ends_with", b"dew_string_view_ends_with_string",
+      b"dew_string_view_starts_with_string", b"dew_string_view_ends_with", b"dew_string_view_ends_with_string", b"dew_string_view_as_bytes",
     ] {
     let functions = funcs_new()
     let builder = runtime_function_builder_new(0)

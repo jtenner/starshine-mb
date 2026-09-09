@@ -1314,8 +1314,6 @@ fn emit_starshine_text_runtime_function(
 ) -> @lib.Func? {
   if name == b"dew_string_view" {
     Some(starshine_string_view_body(base, 1))
-  } else if name == b"dew_string_view_as_bytes" {
-    Some(starshine_text_rewrap_body(base, 3, 2))
   } else if name == b"dew_string_view_view" {
     Some(starshine_string_view_body(base, 3))
   } else if name == b"dew_string_builder_with_capacity" {
