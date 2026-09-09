@@ -119,51 +119,6 @@ fn text_load_logical_v128(
 }
 
 
-///| Bounds-checked dynamic byte access over V128 chunks. Out-of-range access
-
-///|
-/// follows Wasm's trapping index semantics.
-fn starshine_text_byte_at_type_body(base : Int, type_offset : Int) -> @lib.Func {
-  let array_type = @lib.TypeIdx::new(base.reinterpret_as_uint())
-  let value_type = @lib.TypeIdx::new((base + type_offset).reinterpret_as_uint())
-  let value_ref = 2
-  let chunks = 3
-  let physical_index = 4
-  let body : Array[@lib.Instruction] = [
-    @lib.Instruction::local_get(text_local(0)),
-    @lib.Instruction::ref_cast(false, @lib.HeapType::new(value_type)),
-    @lib.Instruction::local_set(text_local(value_ref)),
-    @lib.Instruction::local_get(text_local(1)),
-    @lib.Instruction::local_get(text_local(value_ref)),
-    @lib.Instruction::struct_get(value_type, 2U),
-    @lib.Instruction::i32_ge_u(),
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::unreachable_()],
-      None,
-    ),
-    @lib.Instruction::local_get(text_local(value_ref)),
-    @lib.Instruction::struct_get(value_type, 0U),
-    @lib.Instruction::local_set(text_local(chunks)),
-    @lib.Instruction::local_get(text_local(value_ref)),
-    @lib.Instruction::struct_get(value_type, 1U),
-    @lib.Instruction::local_get(text_local(1)),
-    @lib.Instruction::i32_add(),
-    @lib.Instruction::local_set(text_local(physical_index)),
-  ]
-  for instruction in text_byte_at(array_type, chunks, physical_index, 0) {
-    body.push(instruction)
-  }
-  @lib.Func::new(
-    @lib.Locals::from_types([
-      text_runtime_ref(base + type_offset),
-      text_runtime_ref(base),
-      @lib.ValType::i32(),
-    ]),
-    @lib.Expr::new(body),
-  )
-}
-
 ///|
 fn starshine_text_builder_new_body(
   base : Int,
@@ -1108,8 +1063,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_bytes_builder_append_byte_body(base))
   } else if name == b"dew_bytes_builder_finish" {
     Some(starshine_text_builder_finish_body(base, 5, 2))
-  } else if name == b"dew_bytes_byte_at" {
-    Some(starshine_text_byte_at_type_body(base, 2))
   } else {
     None
   }

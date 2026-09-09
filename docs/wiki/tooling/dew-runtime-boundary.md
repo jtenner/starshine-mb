@@ -7,13 +7,13 @@ implementation of Dew library algorithms.
 `dew_bytes_load_u8x16` and `dew_string_load_u8x16` are intentionally unsupported
 by that dispatcher. Dew now owns the bounds check and logical-byte-to-vector
 algorithm. This does not remove Core `v128.load`, lane instructions, or array
-instructions. Text storage access and builder support still remain in the
+instructions. Builder storage operations still remain in the
 temporary dispatcher.
 
 `dew_bytes_byte_length` is also removed. Dew binds its checked primitive Bytes
 heap to the Core `struct.get` instruction with physical field immediate 2.
 The provider no longer builds a separate length function. This does not
-remove the Core field-read constructor, byte access, or builder operations.
+remove the Core field-read constructor or builder operations.
 
 BytesBuilder length now uses two raw scalar field reads: consumed state at 2
 and logical length at 1. Dew performs the consumed-state check before reading
@@ -61,7 +61,14 @@ perform their UTF-8 boundary checks in Dew. The end of the source is a valid
 boundary without a byte read. This also fixes empty views at an exact V128
 array boundary: the former runtime tried to read the next array element.
 The `dew_string_view` and `dew_string_view_view` entries and shared private
-body builder are removed. Raw byte access and builder algorithms still remain.
+body builder are removed. Builder algorithms still remain.
+
+Bytes byte access now also runs in Dew over declared array/start/length fields.
+It checks the logical index and start addition, then uses Core array and lane
+instructions. The preamble reaches this body through an ordinary private import;
+ordering and Facet use library calls too. `dew_bytes_byte_at` and its separate
+body builder are removed. The internal byte-copy helper remains only for the
+builder algorithms that have not moved yet.
 
 The public FFI method signatures are unchanged by these removals.
 

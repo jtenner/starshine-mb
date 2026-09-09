@@ -23590,3 +23590,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   storage. An empty range at the exact array end no longer reads beyond the
   last V128 chunk. Both old dispatcher entries and their body builder are
   removed; see the [runtime boundary](tooling/dew-runtime-boundary.md).
+
+## 2026-09-09 — Dew byte access
+
+- Byte range checks and array/lane reads now use ordinary Dew functions.
+  Removed the old byte-access entry and body builder; internal byte copying
+  remains only for pending builder migrations. See the
+  [runtime boundary](tooling/dew-runtime-boundary.md).
