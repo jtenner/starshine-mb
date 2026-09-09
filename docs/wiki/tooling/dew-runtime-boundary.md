@@ -33,8 +33,9 @@ an explicit byte capacity and computes its chunk count without a library default
 The provider test checks that a removed name neither selects a runtime function
 nor appends one to the function table. String-to-Bytes conversion now uses the
 consumer's typed Core `ref.cast` recipe; `dew_string_as_bytes` and its wrapper
-allocation helper are removed. StringView and unchecked Bytes-to-String
-compatibility entries remain separate pending migrations.
+allocation helper are removed. StringView-to-Bytes now uses the same typed
+Core operation and no longer selects `dew_string_view_as_bytes`. The shared
+rewrap helper remains only for unchecked Bytes-to-String conversion.
 
 The public FFI method signatures are unchanged by this removal.
 
