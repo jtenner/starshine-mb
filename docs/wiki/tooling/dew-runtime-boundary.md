@@ -5,11 +5,17 @@ algorithms now live in Dew library functions, not provider-generated bodies.
 This includes text/Bytes access, views, conversion checks, searches, builder
 allocation, growth, append, UTF-8 scalar encoding, and finish.
 
-The retired runtime-function protocol remains only as a rejection boundary:
-it creates no functions. Its public bridge methods remain until the consumer
-removes the legacy physical function kind. This is not a second implementation
-of any library algorithm. Boundary tests require removed names to leave the
-function table unchanged.
+The named runtime-function protocol is removed. This supersedes its earlier
+reject-only boundary: `RuntimeFunctionBuilder`, `runtime_function_builder_new`,
+`RuntimeFunctionBuilder::push_name_byte`, and `funcs_push_runtime` are no longer
+public APIs. Consumers use ordinary Dew algorithms and explicit Core instruction
+constructors; there is no runtime-name dispatch entry point.
+
+The 13 old rejection groups, containing 100 names, moved to the consumer's
+`src/backend/starshine_retired_runtime_names_wbtest.mbt`. They now require exact
+`UnsupportedBuiltin` errors from the native emitter instead of calling a
+provider method that always returned false. The seven Core bridge behavior
+tests remain. A public-interface test checks that the removed API stays absent.
 
 ## Library storage and checks
 
@@ -39,9 +45,10 @@ views at exact V128 array ends, where the former runtime read the next element.
 Byte reads check the logical index and start addition before Core array/lane
 instructions. The preamble reaches that body through an ordinary private import.
 
-The public FFI method signatures are unchanged by these algorithm removals.
-Core array, field, reference, and vector instruction constructors remain.
+This final protocol removal changes the public API. Core array, field,
+reference, and vector instruction constructors remain unchanged. Consumers
+must refresh generated bindings and physical heap metadata after pinning it.
 
-Sources: [retired runtime boundary](../../../src/ffi_bridge/text_runtime.mbt),
-[bridge methods](../../../src/ffi_bridge/ffi_bridge.mbt),
-[boundary tests](../../../src/ffi_bridge/ffi_bridge_test.mbt).
+Sources: [bridge methods](../../../src/ffi_bridge/ffi_bridge.mbt),
+[Core behavior tests](../../../src/ffi_bridge/ffi_bridge_test.mbt),
+[public API retirement test](../../../scripts/test/ffi-runtime-retirement.test.ts).

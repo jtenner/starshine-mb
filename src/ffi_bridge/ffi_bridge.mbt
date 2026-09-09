@@ -200,41 +200,6 @@ pub fn imports_push_builder(
 }
 
 ///|
-pub struct RuntimeFunctionBuilder {
-  name : Array[Byte]
-  base : Int
-}
-
-///|
-pub fn runtime_function_builder_new(base : Int) -> RuntimeFunctionBuilder {
-  { name: [], base, }
-}
-
-///|
-pub fn RuntimeFunctionBuilder::push_name_byte(
-  self : RuntimeFunctionBuilder,
-  value : Byte,
-) -> Unit {
-  self.name.push(value)
-}
-
-///|
-pub fn funcs_push_runtime(
-  values : Array[@lib.Func],
-  builder : RuntimeFunctionBuilder,
-) -> Bool {
-  let name = Bytes::from_array(builder.name)
-  let generated = emit_starshine_text_runtime_function(name, builder.base)
-  match generated {
-    Some(value) => {
-      values.push(value)
-      true
-    }
-    None => false
-  }
-}
-
-///|
 pub fn funcs_new() -> Array[@lib.Func] {
   []
 }

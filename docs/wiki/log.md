@@ -23612,3 +23612,14 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   into the [runtime boundary](tooling/dew-runtime-boundary.md). No private text
   or builder algorithm bodies remain. The retired bridge only rejects requests
   until its consumer protocol is removed. All 20 focused provider tests pass.
+
+## 2026-09-09 — Retire the Dew runtime-name protocol
+
+- Removed the reject-only runtime builder type, its three public methods, and
+  the empty private body dispatcher. The 13 rejection groups (100 names) move
+  to the consumer's native emitter tests; the seven Core bridge behavior tests
+  remain. The public API retirement test fails before removal and passes after
+  interface generation. See the [runtime boundary](tooling/dew-runtime-boundary.md).
+- Focused checks: interface generation 0.729 seconds, API test 0.009 seconds,
+  and all seven Core bridge tests 6.037 seconds. Consumer binding regeneration
+  and broad signoff follow in the parent repository.
