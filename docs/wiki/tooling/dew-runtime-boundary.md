@@ -10,6 +10,11 @@ algorithm. This does not remove Core `v128.load`, lane instructions, or array
 instructions. Text storage access and builder support still remain in the
 temporary dispatcher.
 
+`dew_bytes_byte_length` is also removed. Dew binds its checked primitive Bytes
+heap to the Core `struct.get` instruction with physical field immediate 2.
+The provider no longer builds a separate length function. This does not
+remove the Core field-read constructor, byte access, or builder operations.
+
 The provider test checks that a removed name neither selects a runtime function
 nor appends one to the function table. The public FFI method signatures are
 unchanged by this removal.
