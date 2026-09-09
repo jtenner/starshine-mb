@@ -328,33 +328,6 @@ fn starshine_string_view_body(base : Int, source_offset : Int) -> @lib.Func {
   )
 }
 
-///|
-fn starshine_text_rewrap_body(
-  base : Int,
-  source_offset : Int,
-  target_offset : Int,
-) -> @lib.Func {
-  let source_type = @lib.TypeIdx::new(
-    (base + source_offset).reinterpret_as_uint(),
-  )
-  let target_type = @lib.TypeIdx::new(
-    (base + target_offset).reinterpret_as_uint(),
-  )
-  @lib.Func::new(
-    @lib.Locals::from_types([text_runtime_ref(base + source_offset)]),
-    @lib.Expr::new([
-      @lib.Instruction::local_get(text_local(0)),
-      @lib.Instruction::ref_cast(false, @lib.HeapType::new(source_type)),
-      @lib.Instruction::local_tee(text_local(1)),
-      @lib.Instruction::struct_get(source_type, 0U),
-      @lib.Instruction::local_get(text_local(1)),
-      @lib.Instruction::struct_get(source_type, 1U),
-      @lib.Instruction::local_get(text_local(1)),
-      @lib.Instruction::struct_get(source_type, 2U),
-      @lib.Instruction::struct_new(target_type),
-    ]),
-  )
-}
 
 ///|
 fn starshine_text_builder_new_body(
@@ -1336,8 +1309,6 @@ fn emit_starshine_text_runtime_function(
     Some(starshine_text_builder_append_byte_body(base, 5, false))
   } else if name == b"dew_bytes_builder_finish" {
     Some(starshine_text_builder_finish_body(base, 5, 2))
-  } else if name == b"dew_bytes_to_string_unchecked" {
-    Some(starshine_text_rewrap_body(base, 2, 1))
   } else if name == b"dew_bytes_byte_at" {
     Some(starshine_text_byte_at_type_body(base, 2))
   } else if name == b"dew_bytes_view" {
