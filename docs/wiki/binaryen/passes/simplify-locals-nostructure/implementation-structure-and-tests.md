@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-10
 sources:
   - ./index.md
 related:
@@ -20,6 +20,44 @@ related:
 
 > **Binaryen-v131 renewal (2026-07-27):** The released owner contract is unchanged from v130. Current executable evidence is recorded in [`index.md`](./index.md) and the family [fuzzing closeout](../simplify-locals/fuzzing.md); older v129/v130 labels below are retained only as historical provenance, not as the current oracle.
 
+
+## Aliased loop counter repair (2026-09-10)
+
+Dewdrop's JSON benchmark exposed a valid output that never terminates. The
+ordered prefix `duplicate-function-elimination, precompute, inlining, local-cse`
+executes correctly; adding `simplify-locals-nostructure` first breaks execution.
+Reapplying that pass alone to the saved prefix also fails. Replacing one function
+at a time identifies function 52 in that prefix.
+
+The reduced shape initializes a counter before a loop, copies it with
+`local.tee` in a nested condition, and increments the counter from that copy on
+the backedge. There is one `local.get` of the counter in the instruction tree,
+but it executes on every iteration and observes two reaching definitions.
+The following-expression inline helper used to descend through region roots.
+It moved the initial zero into the loop read. Dead-write cleanup then removed
+the increment, leaving an infinite loop.
+
+`src/passes/simplify_locals.mbt` now limits all three following-expression
+walkers to evaluation inputs. A loop's parameters and an `if` condition remain
+eligible; block, loop, branch-arm, and exception-region bodies stay with the
+region scanner and its control/effect state. No whole-function skip was added.
+This shared repair also applies to the other SimplifyLocals spellings.
+
+Regression evidence:
+
+- `src/passes/simplify_locals_nostructure_test.mbt`: reduced public pipeline test.
+- `src/passes/simplify_locals_wbtest.mbt`: both counter writes and the live read
+  survive while an unrelated local copy is removed.
+- `tests/fixtures/simplify-locals/aliased-loop-counter.wat`: standalone input.
+- `scripts/test/simplify-locals-loop-runtime.ts`: CLI optimization, external
+  validation, and seven executions for four start/step choices and four pass
+  spellings. A child-process timeout makes nontermination a visible failure;
+  failed artifacts are retained. CI runs this after building the native CLI.
+
+The tests fail on the previous binary: the increment is absent and the runtime
+check times out after five seconds. The two focused tests and all 354 existing
+SimplifyLocals tests pass with the repair. This is a bounded correctness repair,
+not a claim that the complete pass family is free of runtime defects.
 
 ## Why this page exists
 
