@@ -28,6 +28,59 @@ related:
 This page is the current local signoff tracker.
 Use the strategy and shape pages in this folder for the upstream Binaryen algorithm itself; use `[./implementation-structure-and-tests.md](./implementation-structure-and-tests.md)` for owner-file and proof-surface navigation. This page is about the repo's current evidence and remaining gaps.
 
+## September 2026 runtime reopen
+
+Dewdrop's `collections/array-predicates-runtime` exposed a runtime failure that
+module validation and prior generated comparisons did not detect. The reduced
+`tests/fixtures/ssa-nomerge/closure-loop.wat` assigns a closure reference inside
+a result-producing `if` used as the condition of an outer `if`, inside a loop.
+Forward LocalGraph skipped the inner arms. The raw rewrite freshened the write,
+left its reads on the old slot, and then materialized those reads as `ref.null`.
+The emitted module validates but traps on the first nonempty input.
+
+Forward LocalGraph now transfers nested normal `if` arms independently and joins
+their reaching writes. It also admits such conditionals inside value blocks.
+The reverse analysis retains its separate straight-line rule; loops, exception
+regions, and label transfers still require CFG edges. This is a repair to the
+analysis used by the transform, not a whole-function exclusion.
+
+The native tests assert arm-local sources, both sources at a join, the incoming
+source for an absent else arm, continued optimization of the reduced loop, and
+absence of the incorrect null. The executable lane
+`bun scripts/test/ssa-nomerge-closure-runtime.ts /absolute/path/to/starshine`
+checks plain and bound closures, true and false predicates, zero and nonzero
+lengths, and both one and two pass applications, with bounded child execution.
+The old binary fails this runtime lane. Broad generated parity is separate from
+this execution evidence; the historical closeout claims below do not cover all
+Dewdrop pass compositions.
+
+Validation for this repair (native binary SHA-256
+`8c90baa509bf857d5af803852a544e237343c2c8da2d2c7ca53f5104709e76fb`):
+
+- Native suite: 10,997/10,997, 274.765 s. The final strengthened mutation
+  assertion also passes; its rebuild took 86.217 s. Release build: 191.833 s.
+  All three exceed the 30-second engineering target.
+- Closure execution: 32/32 checks, 0.323 s.
+- All 461 Dewdrop source fixtures: 410 runtime fixtures pass in both Node and
+  patched Wago, plus 51 expected compiler errors, with direct SSANoMerge and
+  SSANoMerge before inlining. The late-SSA order improves from 10 failures to
+  two: `collections/map-runtime` and `generics/generic-never-match-runtime`.
+  Those remain open composition faults; do not read this repair as full closeout.
+- Explicit Binaryen 131, regular GenValid 10,000: 7,396 canonical matches and
+  2,604 smaller canonical output differences; no validation, generator, command,
+  or property failures (131.931 s).
+- Aggregate `ssa-nomerge-all` GenValid 10,000: 3,750 canonical matches and 6,250
+  smaller canonical output differences; the same zero failure categories
+  (119.458 s). Both lanes used the current prebuilt native optimizer, eight
+  subprocesses, and 20 retained mismatch artifacts per lane. No external
+  generator lane was run.
+- All 40 retained mismatch outputs are byte-identical to the earlier native
+  optimizer at `b92bf0767`. The regular samples only remove `nop` instructions;
+  dedicated samples remove `nop` or unused local declarations. Those inspected
+  samples have a measured canonical size win and unchanged executable
+  instructions. Unretained differences remain unclassified parity gaps. These
+  generated checks do not replace original-versus-optimized runtime checks.
+
 ## Durable Conclusions
 
 - The 17 `precompute-propagate-local-facts` residuals from the shortened 2026-07-21 random-all lane were one repeated parity-gap family, not a Starshine win. A branch-free value block used as a `local.set` operand hid its nested `local.tee` write from `HotLocalGraph`; the later legacy structured alias rewrite then reused a defaulted local, replaced a subsequent empty-callee argument, and compacted/renumbered fresh locals. LocalGraph now transfers branch-free nested block operands while rejecting branching, exceptional, and terminating children; the post-default path flattens the label-free tee carrier into its consumer and returns the LocalGraph-planned result before legacy alias rewriting. All 17 saved outputs are valid and raw-byte identical to Binaryen v131, and a targeted `10000/10000` profile is normalized-exact.

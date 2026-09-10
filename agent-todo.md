@@ -1,5 +1,27 @@
 # Agent Tasks
 
+## Dewdrop runtime composition faults (September 2026)
+
+- **Goal:** repair transformations exposed by the complete 461-fixture Dewdrop
+  source sweep, using execution in Node and Wago as the primary check.
+- **Closed shape:** SSANoMerge nested conditional operands losing closure writes;
+  see [the pass tracker](docs/wiki/binaryen/passes/ssa-nomerge/parity.md#september-2026-runtime-reopen).
+- **Open:** after inlining, SSANoMerge still fails `collections/map-runtime` and
+  `generics/generic-never-match-runtime`. Heap2Local fails JSON reader state,
+  portable I/O, and a trait dictionary with a non-null field local initialized
+  only inside a value block. A second CoalesceLocals wave after control cleanup
+  breaks map/set runtime cases; a second SimplifyLocalsNoStructure wave breaks
+  nested patterns and exceeds 30 seconds on deep/wide functional loops.
+- **Deliverables / tests:** reduce each first failing prefix, add positive
+  transform and bounded original/output execution tests, repair the owner, and
+  replay all source fixtures plus required pass-specific generated lanes.
+  Keep faulty compositions out of the speed profile until these checks pass.
+- **Invariant:** a validating output is not runtime proof. Do not replace these
+  faults with fixture names, module-size guards, or tests that accept a no-op.
+- **Dependencies / exit:** LocalGraph, CFG local lifetimes, GC scalar replacement,
+  and structured lowering; zero wrong outputs/traps and bounded compile time on
+  the cited shapes, with the ordinary dedicated-pass signoff evidence recorded.
+
 ## Scope And Rules
 
 - Keep only active unreleased work, standing regression guards, or explicitly deferred future work. Durable closeout evidence belongs in pass dossiers and `docs/wiki/log.md`, not here.

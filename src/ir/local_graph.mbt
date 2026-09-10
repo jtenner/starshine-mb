@@ -242,6 +242,95 @@ fn local_graph_nested_block_region_is_straight_line(
 }
 
 ///|
+// Unlike the reverse analysis's straight-line transfer, the forward transfer
+// can fork and join ordinary conditionals nested inside value operands. Reject
+// label transfers and exception/loop regions: they need CFG edges of their own.
+fn local_graph_nested_operand_can_transfer(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Bool {
+  if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
+    return true
+  }
+  if hot_is_terminator_node(func, node_id) {
+    return false
+  }
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::Block =>
+      return local_graph_nested_region_can_transfer(
+        func,
+        hot_region_body_ref(func, node_id),
+      )
+    HotOp::If => {
+      if !local_graph_nested_region_can_transfer(
+          func,
+          hot_region_then_ref(func, node_id),
+        ) {
+        return false
+      }
+      match hot_region_else_ref(func, node_id) {
+        Some(region) =>
+          if !local_graph_nested_region_can_transfer(func, region) {
+            return false
+          }
+        None => ()
+      }
+    }
+    HotOp::Loop | HotOp::Try | HotOp::TryTable => return false
+    _ => ()
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if !local_graph_is_region_slot(node.op, slot) &&
+      !local_graph_nested_operand_can_transfer(
+        func,
+        hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn local_graph_nested_region_can_transfer(
+  func : HotFunc,
+  region : HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < hot_region_root_count(func, region); idx = idx + 1 {
+    if !local_graph_nested_operand_can_transfer(
+        func,
+        hot_region_get(func, region, idx),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn local_graph_transfer_nested_region(
+  func : HotFunc,
+  local_count : Int,
+  region : HotRegionRef,
+  state : Array[Array[Int]],
+  get_sources : Array[Array[Int]]?,
+  write_influences : Array[Array[NodeId]]?,
+) -> Unit {
+  for idx = 0; idx < hot_region_root_count(func, region); idx = idx + 1 {
+    local_graph_transfer_node(
+      func,
+      local_count,
+      hot_region_get(func, region, idx),
+      state,
+      get_sources,
+      write_influences,
+      true,
+    )
+  }
+}
+
+///|
 fn local_graph_transfer_node(
   func : HotFunc,
   local_count : Int,
@@ -269,20 +358,42 @@ fn local_graph_transfer_node(
       true,
     )
   }
-  if traverse_nested_blocks && node.op == HotOp::Block {
-    let body_ref = hot_region_body_ref(func, node_id)
-    if local_graph_nested_block_region_is_straight_line(func, body_ref) {
-      for idx = 0; idx < hot_region_root_count(func, body_ref); idx = idx + 1 {
-        local_graph_transfer_node(
+  if traverse_nested_blocks &&
+    (node.op == HotOp::Block || node.op == HotOp::If) &&
+    local_graph_nested_operand_can_transfer(func, node_id) {
+    match node.op {
+      HotOp::Block =>
+        local_graph_transfer_nested_region(
           func,
           local_count,
-          hot_region_get(func, body_ref, idx),
+          hot_region_body_ref(func, node_id),
           state,
           get_sources,
           write_influences,
-          true,
         )
+      HotOp::If => {
+        let then_state = local_graph_state_clone(state)
+        local_graph_transfer_nested_region(
+          func,
+          local_count,
+          hot_region_then_ref(func, node_id),
+          then_state,
+          get_sources,
+          write_influences,
+        )
+        // Keep the incoming state for an absent else arm.
+        match hot_region_else_ref(func, node_id) {
+          Some(region) =>
+            local_graph_transfer_nested_region(
+              func, local_count, region, state, get_sources, write_influences,
+            )
+          None => ()
+        }
+        for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+          ignore(local_graph_union_into(state[local_id], then_state[local_id]))
+        }
       }
+      _ => ()
     }
   }
   match node.op {

@@ -311,7 +311,7 @@ test "local graph tracks a tee through a branch-free value block operand" {
 }
 
 ///|
-test "local graph does not partially transfer a branching value block operand" {
+test "local graph joins a conditional write in a value block operand" {
   let func = HotFunc::new(
     locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
   )
@@ -339,12 +339,9 @@ test "local graph does not partially transfer a branching value block operand" {
 
   assert_false(local_graph_local_is_already_ssa(graph, 0))
   let sources = local_graph_reaching_sources_for_get(graph, get)
-  @debug.assert_eq(sources.length(), 1)
-  match sources[0] {
-    HotLocalGraphSource::EntrySource(local_id) => @debug.assert_eq(local_id, 0)
-    HotLocalGraphSource::SetSource(_) =>
-      fail("expected conservative entry source")
-  }
+  @debug.assert_eq(sources.length(), 2)
+  assert_true(local_graph_test_has_entry_source(sources, 0))
+  assert_true(local_graph_test_has_set_source(sources, branch_write))
 }
 
 ///|
@@ -935,4 +932,50 @@ test "local graph can-move blocks a child set from moving past its parent obstac
     local_graph_can_move_set_past_node(func, cfg, graph, tee, obstacle),
     [],
   )
+}
+
+///|
+test "local graph follows and joins conditional operands" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let then_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let then_get = hot_build_local_get(func, 1)
+  let else_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(9)),
+  )
+  let else_get = hot_build_local_get(func, 1)
+  let operand = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    hot_build_local_get(func, 0),
+    [then_set, then_get],
+    else_body=Some([else_set, else_get]),
+  )
+  // The inner if is an operand of the outer if, not a CFG region root.
+  hot_root_append(
+    func,
+    hot_build_if(func, @lib.BlockType::void_(), operand, [hot_build_nop(func)]),
+  )
+  let joined_get = hot_build_local_get(func, 1)
+  hot_root_append(func, hot_build_drop(func, joined_get))
+  let graph = local_graph_build(func, cfg_build(func))
+  let then_sources = local_graph_reaching_sources_for_get(graph, then_get)
+  @debug.assert_eq(then_sources.length(), 1)
+  assert_true(local_graph_test_has_set_source(then_sources, then_set))
+  let else_sources = local_graph_reaching_sources_for_get(graph, else_get)
+  @debug.assert_eq(else_sources.length(), 1)
+  assert_true(local_graph_test_has_set_source(else_sources, else_set))
+  let joined = local_graph_reaching_sources_for_get(graph, joined_get)
+  @debug.assert_eq(joined.length(), 2)
+  assert_true(local_graph_test_has_set_source(joined, then_set))
+  assert_true(local_graph_test_has_set_source(joined, else_set))
 }
