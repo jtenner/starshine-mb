@@ -15,6 +15,7 @@ fn hot_make_node_with_children(
     op,
     ty,
     flags: hot_default_flags_for_op(op),
+    order: -1,
     imm0,
     imm1,
     child_base: 0,

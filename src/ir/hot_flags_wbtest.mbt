@@ -60,6 +60,7 @@ test "node construction and replacement always canonicalize flags" {
     op: HotOp::Return,
     ty: hot_type_void(func),
     flags: HOT_FLAG_VALUE,
+    order: -1,
     imm0: 0,
     imm1: 0,
     child_base: 0,

@@ -21,25 +21,20 @@
   The separate CLI terminal-return stack-unwinding defect has a focused fix and
   external Dewdrop regression coverage; it does not resolve these pass defects.
 
-- Dewdrop ordered-pipeline screen (2026-09-10): `code-folding` first introduces
-  `array-out-of-bounds` in `collections/fixed-array-runtime` after
-  `duplicate-function-elimination, precompute, inlining, local-cse`.
-  `remove-unused-brs` after that prefix plus `dead-code-elimination` first
-  triggers `unreachable` only in Wago on
-  `modules/imported-generic-callback-adapter-runtime`; Node passes. The latter
-  is an unresolved runtime/transform attribution, not a proven pass defect.
-  Preserve both inputs and check observable results before admitting either
-  schedule. The separate `simplify-locals-nostructure` aliased-counter hang has
-  a reduced transform repair and executable regression; see its pass dossier.
-  The refreshed 410-case execution lane still finds four older SLNS faults:
-  `collections/fixed-array-set-oob-trap` loses its trap;
-  `control-flow/float-literal-match-runtime`, `types/derive-eq-generic-runtime`,
-  and `types/derive-hash-runtime` produce wrong results. Reduced branch-join
-  evidence already shows `run(0)` changing from 10 to 20. Investigate local
-  lifetime ordering and copy facts at control joins; do not admit the schedule
-  until these runtime regressions pass. The 10,000-case dedicated comparison
-  also has existing output gaps (8338 smaller, 1662 larger); its retained 20
-  cases replay byte-identically on the old binary. Keep this parity audit open.
+- Dewdrop pipeline screen (2026-09-10): the aliased-counter SLNS hang, four
+  additional SLNS local-lifetime/branch-join faults, and the fixed-array
+  CodeFolding failure are repaired with executable regressions. All 410 source
+  runtime fixtures pass under six candidate schedules in Node and Wago.
+  Wago-only follow-up: `remove-unused-brs` introduces typed `select` on
+  `modules/imported-generic-callback-adapter-runtime`. A reduced module that
+  selects the same struct reference for both arms, then checks `ref.eq`, fails
+  in Wago and passes in Node with no optimizer involved. This is a runtime
+  defect, not evidence of an incorrect RemoveUnusedBrs transform. Dewdrop
+  retains `tools/starshine-experiments/testdata/wago-typed-select.wat`; exclude
+  this schedule from its cross-engine speed profile until the runtime repair
+  in https://github.com/wago-org/wago/pull/600 is available in its Wago checkout.
+  The SLNS dedicated comparison still has older output/parity gaps; keep its
+  broader audit open and do not treat validation or fewer bytes as runtime proof.
 
 - Public non-O4z presets are intentionally wall-time-first. O1/O2 run `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz add only `vacuum -> reorder-locals` between those slots. The CLI accepts literal Binaryen-style `-Os` as `(optimize=2, shrink=1)` and `-Oz` as `(2,2)`.
 - O4z remains the full compatibility lane: Binaryen v131's exact 56 top-level slots plus Starshine-only `strip-debug` at slot 57. The following 18-pass Starshine local-convergence suffix remains available below 2,000 defined functions, but is skipped as one unit at artifact scale after an August 22 production A/B showed it was both 60.285 seconds slower and 25,152 bytes larger.

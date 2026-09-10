@@ -12,6 +12,7 @@ test "hot verify core reports root child span label owner and side-table corrupt
     op: HotOp::Nop,
     ty: hot_type_void(invalid_child_span),
     flags: hot_default_flags_for_op(HotOp::Nop),
+    order: -1,
     imm0: 0,
     imm1: 0,
     child_base: 1,

@@ -52,7 +52,8 @@ priv struct HotLowerLabelFrames {
   depths : Array[Int]
   legacy_rethrow_locals : Array[LocalIdx?]
   used_labels : @bitset.BitSet
-  local_read_cache : Array[Int]
+  local_access_cache : Array[Int]
+  value_orders : Array[Int]
   preceding_dependency_min_cache : Array[Int]
 }
 
@@ -63,7 +64,8 @@ fn hot_lower_impl_new_label_frames(func : HotFunc) -> HotLowerLabelFrames {
     depths: [],
     legacy_rethrow_locals: [],
     used_labels: hot_lower_impl_build_used_labels(func),
-    local_read_cache: Array::make(hot_node_count(func), -1),
+    local_access_cache: Array::make(hot_node_count(func), -1),
+    value_orders: hot_lower_impl_build_value_orders(func),
     preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
   }
 }
@@ -659,10 +661,36 @@ fn hot_lower_impl_stack_has_node(
 }
 
 ///|
+fn hot_lower_impl_build_value_orders(func : HotFunc) -> Array[Int] {
+  let orders = Array::make(hot_node_count(func), -1)
+  fn visit(node_id : NodeId) -> Int {
+    if node_id < 0 || !hot_node_is_live(func, node_id) {
+      return -1
+    }
+    if orders[node_id] >= 0 {
+      return orders[node_id]
+    }
+    orders[node_id] = hot_node_get(func, node_id).order
+    for input_id in hot_lower_impl_input_info(func, node_id).nodes {
+      let input_order = visit(input_id)
+      if input_order > orders[node_id] {
+        orders[node_id] = input_order
+      }
+    }
+    orders[node_id]
+  }
+  for node_id = 0; node_id < orders.length(); node_id = node_id + 1 {
+    ignore(visit(node_id))
+  }
+  orders
+}
+
+///|
 fn hot_lower_impl_collect_preceding_dependency(
   func : HotFunc,
   node_id : NodeId,
   before_node_id : NodeId,
+  value_orders : Array[Int],
   seen : Array[Bool],
   out : Array[NodeId],
 ) -> Unit {
@@ -673,7 +701,7 @@ fn hot_lower_impl_collect_preceding_dependency(
     return
   }
   seen[node_id] = true
-  if node_id < before_node_id &&
+  if value_orders[node_id] < before_node_id &&
     hot_node_result_arity(func, node_id) > 0 &&
     !effects_is_pure(effects_for_node(func, node_id)) {
     out.push(node_id)
@@ -682,8 +710,31 @@ fn hot_lower_impl_collect_preceding_dependency(
   let inputs = hot_lower_impl_input_info(func, node_id)
   for input_id in inputs.nodes {
     hot_lower_impl_collect_preceding_dependency(
-      func, input_id, before_node_id, seen, out,
+      func, input_id, before_node_id, value_orders, seen, out,
     )
+  }
+}
+
+///|
+fn hot_lower_impl_local_state_child_count(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Int {
+  let count = hot_child_count(func, node_id)
+  match hot_node_get(func, node_id).op {
+    HotOp::Block | HotOp::Loop => {
+      // Dead region tails cannot observe or overwrite a carried value.
+      for slot = 0; slot < count; slot = slot + 1 {
+        let child = hot_child_get(func, node_id, slot)
+        if child >= 0 &&
+          hot_node_is_live(func, child) &&
+          hot_is_terminator_node(func, child) {
+          return slot + 1
+        }
+      }
+      count
+    }
+    _ => count
   }
 }
 
@@ -693,6 +744,7 @@ fn hot_lower_impl_mark_local_writes(
   node_id : NodeId,
   writes : Array[Bool],
   seen : Array[Bool],
+  after_order : Int,
 ) -> Unit {
   if node_id < 0 ||
     node_id >= seen.length() ||
@@ -704,13 +756,22 @@ fn hot_lower_impl_mark_local_writes(
   let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::LocalSet | HotOp::LocalTee =>
-      if node.imm0 >= 0 && node.imm0 < writes.length() {
+      if node.imm0 >= 0 &&
+        node.imm0 < writes.length() &&
+        node.order > after_order {
         writes[node.imm0] = true
       }
     _ => ()
   }
-  for input_id in hot_lower_impl_input_info(func, node_id).nodes {
-    hot_lower_impl_mark_local_writes(func, input_id, writes, seen)
+  let child_count = hot_lower_impl_local_state_child_count(func, node_id)
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    hot_lower_impl_mark_local_writes(
+      func,
+      hot_child_get(func, node_id, slot),
+      writes,
+      seen,
+      after_order,
+    )
   }
 }
 
@@ -719,6 +780,7 @@ fn hot_lower_impl_preceding_dependency_min_node(
   func : HotFunc,
   node_id : NodeId,
   cache : Array[Int],
+  value_orders : Array[Int],
 ) -> Int {
   let none = hot_node_count(func)
   if node_id < 0 ||
@@ -731,13 +793,13 @@ fn hot_lower_impl_preceding_dependency_min_node(
   }
   let mut minimum = if hot_node_result_arity(func, node_id) > 0 &&
     !effects_is_pure(effects_for_node(func, node_id)) {
-    node_id
+    value_orders[node_id]
   } else {
     none
   }
   for input_id in hot_lower_impl_input_info(func, node_id).nodes {
     let input_minimum = hot_lower_impl_preceding_dependency_min_node(
-      func, input_id, cache,
+      func, input_id, cache, value_orders,
     )
     if input_minimum < minimum {
       minimum = input_minimum
@@ -752,6 +814,7 @@ fn hot_lower_impl_build_preceding_dependency_suffix_minima(
   func : HotFunc,
   roots : Array[NodeId],
   cache : Array[Int],
+  value_orders : Array[Int],
 ) -> Array[Int] {
   let none = hot_node_count(func)
   let suffix_minima = Array::make(roots.length() + 1, none)
@@ -761,6 +824,7 @@ fn hot_lower_impl_build_preceding_dependency_suffix_minima(
       func,
       roots[idx],
       cache,
+      value_orders,
     )
     suffix_minima[idx] = if root_minimum < suffix_minima[idx + 1] {
       root_minimum
@@ -773,7 +837,7 @@ fn hot_lower_impl_build_preceding_dependency_suffix_minima(
 }
 
 ///|
-fn hot_lower_impl_node_reads_local(
+fn hot_lower_impl_node_accesses_local(
   func : HotFunc,
   node_id : NodeId,
   cache : Array[Int],
@@ -788,14 +852,16 @@ fn hot_lower_impl_node_reads_local(
   }
   cache[node_id] = 0
   match hot_node_get(func, node_id).op {
-    HotOp::LocalGet => {
+    HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee => {
       cache[node_id] = 1
       return true
     }
     _ => ()
   }
-  for input_id in hot_lower_impl_input_info(func, node_id).nodes {
-    if hot_lower_impl_node_reads_local(func, input_id, cache) {
+  let child_count = hot_lower_impl_local_state_child_count(func, node_id)
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    let input_id = hot_child_get(func, node_id, slot)
+    if hot_lower_impl_node_accesses_local(func, input_id, cache) {
       cache[node_id] = 1
       return true
     }
@@ -807,7 +873,7 @@ fn hot_lower_impl_node_reads_local(
 fn hot_lower_impl_roots_may_need_future_dependencies(
   func : HotFunc,
   roots : Array[NodeId],
-  local_read_cache : Array[Int],
+  local_access_cache : Array[Int],
 ) -> Bool {
   for root_id in roots {
     if hot_node_result_arity(func, root_id) == 0 &&
@@ -817,7 +883,7 @@ fn hot_lower_impl_roots_may_need_future_dependencies(
       }) {
       return true
     }
-    if hot_lower_impl_node_reads_local(func, root_id, local_read_cache) {
+    if hot_lower_impl_node_accesses_local(func, root_id, local_access_cache) {
       return true
     }
   }
@@ -834,7 +900,7 @@ fn hot_lower_impl_future_dependency_suffix_minima(
     !hot_lower_impl_roots_may_need_future_dependencies(
       func,
       roots,
-      label_frames.local_read_cache,
+      label_frames.local_access_cache,
     ) {
     return None
   }
@@ -843,12 +909,13 @@ fn hot_lower_impl_future_dependency_suffix_minima(
       func,
       roots,
       label_frames.preceding_dependency_min_cache,
+      label_frames.value_orders,
     ),
   )
 }
 
 ///|
-fn hot_lower_impl_reads_written_local(
+fn hot_lower_impl_accesses_written_local(
   func : HotFunc,
   node_id : NodeId,
   writes : Array[Bool],
@@ -863,13 +930,15 @@ fn hot_lower_impl_reads_written_local(
   seen[node_id] = true
   let node = hot_node_get(func, node_id)
   match node.op {
-    HotOp::LocalGet if node.imm0 >= 0 &&
+    HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee if node.imm0 >= 0 &&
       node.imm0 < writes.length() &&
       writes[node.imm0] => return true
     _ => ()
   }
-  for input_id in hot_lower_impl_input_info(func, node_id).nodes {
-    if hot_lower_impl_reads_written_local(func, input_id, writes, seen) {
+  let child_count = hot_lower_impl_local_state_child_count(func, node_id)
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    let input_id = hot_child_get(func, node_id, slot)
+    if hot_lower_impl_accesses_written_local(func, input_id, writes, seen) {
       return true
     }
   }
@@ -881,6 +950,7 @@ fn hot_lower_impl_carried_local_write_conflicts(
   func : HotFunc,
   carried_id : NodeId,
   current_root : NodeId,
+  after_order? : Int = -1,
 ) -> Bool {
   let writes = Array::make(hot_local_count(func), false)
   hot_lower_impl_mark_local_writes(
@@ -888,11 +958,12 @@ fn hot_lower_impl_carried_local_write_conflicts(
     carried_id,
     writes,
     Array::make(hot_node_count(func), false),
+    after_order,
   )
   if !writes.any(fn(written) { written }) {
     return false
   }
-  hot_lower_impl_reads_written_local(
+  hot_lower_impl_accesses_written_local(
     func,
     current_root,
     writes,
@@ -921,10 +992,10 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
       _ => false
     })
   if !call_order_required &&
-    !hot_lower_impl_node_reads_local(
+    !hot_lower_impl_node_accesses_local(
       func,
       current_root,
-      label_frames.local_read_cache,
+      label_frames.local_access_cache,
     ) {
     return
   }
@@ -939,21 +1010,56 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   }
   let seen = Array::make(hot_node_count(func), false)
   let carried : Array[NodeId] = []
+  // An inserted root can have a newer ID than the consumer it precedes.
+  // That order comes from the region, not from a former stack lifetime.
+  // Infer an anti-dependence only within the value/current/consumer interval.
   for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
-    hot_lower_impl_collect_preceding_dependency(
-      func,
-      future_roots[idx],
-      current_root,
-      seen,
-      carried,
-    )
+    if future_roots[idx] > current_root {
+      hot_lower_impl_collect_preceding_dependency(
+        func,
+        future_roots[idx],
+        current_root,
+        label_frames.value_orders,
+        seen,
+        carried,
+      )
+    }
   }
-  carried.sort_by(fn(left, right) { left.compare(right) })
+  let anti_dependencies = @bitset.BitSet::new(hot_node_count(func))
+  for node_id in carried {
+    anti_dependencies[node_id] = true
+  }
+  for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
+    if future_roots[idx] <= current_root {
+      hot_lower_impl_collect_preceding_dependency(
+        func,
+        future_roots[idx],
+        current_root,
+        label_frames.value_orders,
+        seen,
+        carried,
+      )
+    }
+  }
+  carried.sort_by(fn(left, right) {
+    label_frames.value_orders[left].compare(label_frames.value_orders[right])
+  })
   for node_id in carried {
     if (
         call_order_required ||
         hot_lower_impl_carried_local_write_conflicts(
           func, node_id, current_root,
+        ) ||
+        // A stack value can read a local before a later root overwrites it.
+        // Preserve this anti-dependence as well as writes consumed by roots.
+        (
+          anti_dependencies[node_id] &&
+          hot_lower_impl_carried_local_write_conflicts(
+            func,
+            current_root,
+            node_id,
+            after_order=label_frames.value_orders[node_id],
+          )
         )
       ) &&
       !hot_lower_impl_stack_has_node(stack, node_id) {

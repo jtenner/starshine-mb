@@ -144,6 +144,8 @@ pub struct HotNode {
   op : HotOp
   ty : TypeId
   flags : UInt
+  // Allocation order follows copied replacements; a storage slot does not.
+  order : Int
   imm0 : Int
   imm1 : Int
   child_base : Int
@@ -458,6 +460,7 @@ pub fn hot_make_simple_node(
     op,
     ty,
     flags: hot_default_flags_for_op(op),
+    order: -1,
     imm0,
     imm1,
     child_base: 0,

@@ -5397,6 +5397,15 @@ fn simplify_locals_scan_equivalent_node(
         ) {
         changed = true
       }
+      // Facts learned on the textual fallthrough path do not necessarily
+      // hold at a branch target. Keep scanning branch-free blocks precisely,
+      // but discard path-specific aliases when control can leave the region.
+      if simplify_locals_region_has_any_branch(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        simplify_locals_clear_equivalences(equivalences)
+      }
       return changed
     }
     @ir.HotOp::If => {

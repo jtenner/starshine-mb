@@ -13,6 +13,44 @@ sources:
 
 # `simplify-locals-nostructure` Fuzzing Profile
 
+## Local-lifetime repair checks (2026-09-10)
+
+This is the current evidence after the branch-join, carried-value, and replacement
+order fixes. It supersedes the four source-failure blockers in the earlier
+loop-counter run below. The native release optimizer SHA-256 is
+`c12666b64811f3ed5548b28735d46d9eda85c098d81b12f3a83f57250bfcaf5f`.
+
+- All **10,995 native tests pass** in 307.876 seconds. The release build passes
+  in 213.002 seconds. Scoped native interface generation passes in 3.631 seconds;
+  the only interface change is `HotNode.order : Int`.
+- The executable loop regression passes 112 checks across four variants and four
+  start/step pairs. The four state fixtures preserve branch values, carried reads,
+  array bounds traps, and tuple-copy values. Combined time: 0.693 seconds.
+- All **461 Dewdrop fixtures** pass their expected checks: 410 executable cases
+  and 51 expected source errors. O4s, fold-coalesce, fold-code, fold-flat-locals,
+  fold-flat-coalesce, and fold-flat-code all pass in Node and Wago. Aggregate:
+  134.814 seconds.
+- Fresh regular GenValid: **10000/10000 canonical matches**, 72.222 seconds.
+- Fresh dedicated `simplify-locals-nostructure-all`: **10000/10000 output
+  differences**, 58.330 seconds; 8338 smaller and 1662 larger canonical outputs,
+  2,194,316 versus Binaryen's 2,318,603 canonical bytes. All 20 retained cases
+  produce byte-identical raw output with the earlier loop-only binary. These
+  remain output/parity gaps, not runtime equivalence proof or accepted wins.
+
+Both lanes use explicit prebuilt current native Starshine and GenValid binaries,
+pinned Binaryen 131, seed `0x5eed`, `--jobs auto --max-subprocesses 8`, mismatch
+artifact cap 20, and cache reuse (10000 hits, zero misses per lane). No reduction
+or external generator runs in this refresh. Validation, generator, property,
+and command failure counts are zero. Runtime execution is off in these GenValid
+lanes; the executable regressions and source corpus provide separate runtime
+checks. Dedicated leaf counts remain 4177 family, 2478 straight-line, 1683 effect,
+and 1662 tee-control. Full pass-family and historical parity audits remain open.
+
+Retained local runs in Dewdrop: `.tmp/cli-optimization-logs/corpus-final`,
+`fuzz-final-regular`, `fuzz-final-dedicated`, and `fuzz-final-prior-replay.json`.
+The build, full suite, corpus, and generated-lane aggregate times exceed
+Dewdrop's 30-second budget and remain performance bugs.
+
 ## Loop-counter repair checks (2026-09-10)
 
 This bounded repair uses pinned Binaryen 131 and a fresh native release CLI.
