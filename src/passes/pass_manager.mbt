@@ -69557,6 +69557,8 @@ fn o4z_canonicalize_final_size_candidate_impl(
     Some(@lib.CodeSec(funcs)) => {
       let module_ctx = @ir.hot_module_context_from_module(mod_)
       let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let return_candidates : Array[(@lib.FuncIdx, @lib.Func)] = []
+      let imported_funcs = run_hot_pipeline_imported_func_count(mod_)
       let stack_alloc_def = o4z_canonicalize_final_size_emscripten_stack_alloc_def(
         mod_,
       )
@@ -69693,9 +69695,44 @@ fn o4z_canonicalize_final_size_candidate_impl(
           next_funcs.push(
             @lib.Func::new(next_locals, @lib.Expr::new(next_instrs)),
           )
+          if return_changed {
+            return_candidates.push(
+              (
+                @lib.FuncIdx::new(
+                  (imported_funcs + code_idx).reinterpret_as_uint(),
+                ),
+                next_funcs[code_idx],
+              ),
+            )
+          }
           changed = true
         } else {
           next_funcs.push(func)
+        }
+      }
+      // A return discards ambient stack values; implicit function fallthrough
+      // requires exactly the result values. Check all removals with one shared
+      // validation environment, and retain the return when it must unwind.
+      if !return_candidates.is_empty() {
+        let failures = match
+          @validate.validate_defined_funcs_against_module(
+            mod_, return_candidates,
+          ) {
+          Ok(failures) => failures
+          Err(error) =>
+            abort("cannot validate final-return candidates: \{error}")
+        }
+        for failure in failures {
+          let (func_idx, _) = failure
+          let @lib.FuncIdx(raw) = func_idx
+          let code_idx = raw.reinterpret_as_int() - imported_funcs
+          let @lib.Func(locals, @lib.Expr(body)) = next_funcs[code_idx]
+          let restored = body.copy()
+          restored.push(@lib.Instruction::return_())
+          next_funcs[code_idx] = @lib.Func::new(
+            locals,
+            @lib.Expr::new(restored),
+          )
         }
       }
       if changed {

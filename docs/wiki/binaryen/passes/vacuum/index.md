@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-01
+last_reviewed: 2026-09-10
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
@@ -24,6 +24,39 @@ related:
 ---
 
 # `vacuum`
+
+## Dewdrop terminal-return regression
+
+Dewdrop's constructor evaluation probe exposed a terminal `return` with live
+values below its result. The return discards those values; function fallthrough
+does not. Removing it produced bytes rejected by wasm-tools and Node. Both the
+CLI encoding cleanup and the final size candidate now validate proposed return
+removals in a batch with one shared module environment, retaining a return when
+the fallthrough body would have an invalid stack. Ordinary redundant terminal
+returns are still removed. This applies to non-O4z CLI queues too.
+
+Focused coverage is in `src/cmd/tail_return_wbtest.mbt` and
+`src/passes/vacuum_dew_regression_test.mbt`. The CLI test uses explicit instruction
+arrays so WAT parsing cannot normalize away the ambient stack values before the
+encoding cleanup is tested. Dewdrop also checks the emitted binary with external
+validation and runs all nine constructor cases and ten member/index cases.
+
+Validation on 2026-09-10: the pinned native suite passed all 10,985 tests
+(334.775 s, including an existing slow DAE threshold test). External Dewdrop
+checks passed 405 saved modules in Node and Wago and 68 library modules in Node
+for O4s and seven ordered candidates. The dedicated aggregate `vacuum` GenValid
+lane compared 10,000 cases at seed `0x5eed` against Binaryen 131, with an explicit
+prebuilt native CLI and eight subprocess workers: 7,830 normalized matches,
+zero validation/generator/command failures, and 2,170 differences. Those are
+1,080 `vacuum-hazard-boundary` cases at -2 bytes and 1,090
+`vacuum-localset-prefix-preserve` cases at -1 byte. All 20 saved mismatches
+replay byte-identically with the pre-fix CLI. Agent classification: pre-existing
+smaller output families documented in [the fuzzing dossier](fuzzing.md), not new
+parity closure or runtime proof from this generated lane. The compare took
+43.566 s; total canonical sizes were 509,081 / 512,331 bytes (Starshine/Binaryen).
+
+This is a narrow encoding-correctness fix. It does not close the separate Dewdrop
+runtime failures in SimplifyLocals, OptimizeCasts, or Heap2Local.
 
 ## Role
 

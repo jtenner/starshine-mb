@@ -12,6 +12,15 @@
 
 ## Current Pipeline Facts
 
+- Dewdrop runtime follow-up: `simplify-locals` first breaks the ordered cleanup
+  prefix on `control-flow/short-circuit-runtime` (the validated module loops);
+  `optimize-casts` breaks six saved fixture executions; standalone `heap2local`
+  breaks `collections/fixed-array-runtime` with an illegal cast. Reproduce with
+  Dewdrop's `tools/starshine-experiments/isolate.py` and its checked-in fixture
+  WAT. Keep these owners open until runtime results and trap behavior agree.
+  The separate CLI terminal-return stack-unwinding defect has a focused fix and
+  external Dewdrop regression coverage; it does not resolve these pass defects.
+
 - Public non-O4z presets are intentionally wall-time-first. O1/O2 run `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz add only `vacuum -> reorder-locals` between those slots. The CLI accepts literal Binaryen-style `-Os` as `(optimize=2, shrink=1)` and `-Oz` as `(2,2)`.
 - O4z remains the full compatibility lane: Binaryen v131's exact 56 top-level slots plus Starshine-only `strip-debug` at slot 57. The following 18-pass Starshine local-convergence suffix remains available below 2,000 defined functions, but is skipped as one unit at artifact scale after an August 22 production A/B showed it was both 60.285 seconds slower and 25,152 bytes larger.
 - Direct passes remain available, and DAE, optimizing inlining, and SGO retain the full level/feature-aware nested function scheduler. DAE prepends `precompute-propagate`; SGO's touched-function nested roster does not. Separately, SGO owns a bounded transactional final suffix that starts with `precompute-propagate`.
