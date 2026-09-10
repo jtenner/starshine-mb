@@ -4437,3 +4437,28 @@ test "inlining-optimizing preserves stack-carried value across imported call" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(pretty.contains("call (Func 1)"), msg=pretty)
 }
+
+///|
+test "inlining keeps function types after multi-type recursion groups" {
+  let source =
+    #|(module
+    #|  (rec
+    #|    (type $left (struct (field (ref null $right))))
+    #|    (type $right (struct (field (ref null $left)))))
+    #|  (type $unary (func (param i32) (result i32)))
+    #|  (type $decoy (func (param i64) (result i64)))
+    #|  (func $twice (type $unary)
+    #|    local.get 0 local.get 0 i32.add)
+    #|  (func (export "run") (type $unary)
+    #|    local.get 0 call $twice))
+  for pass_name in ["inlining", "inlining-optimizing"] {
+    let optimized = inl_test_run(source, pass_name~)
+    match optimized.code_sec {
+      Some(@lib.CodeSec(functions)) => assert_eq(functions.length(), 1)
+      None => fail("expected the inlined caller")
+    }
+    let function_ = optimized.pretty_print_defined_func(0U)
+    assert_true(function_.contains("i32.add"), msg=function_)
+    assert_false(function_.contains("call"), msg=function_)
+  }
+}

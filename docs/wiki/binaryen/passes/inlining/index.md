@@ -72,6 +72,21 @@ There is no open v131 pass-owned transform-family gap. Remaining limitations are
 8. Run final adjacent `local.set; local.get` folding only for the sparse pass-local touched-function indices. This state is never written into `FuncAnnotationSec`, so user/tool annotations—including one named `starshine.inlining-finalize-fold`—survive structurally unchanged.
 9. Repeat within Binaryen's bounded-work policy.
 
+## Recursive type groups
+
+Function type indices count every subtype in an explicit recursive group.
+They do not index the outer array of groups. The inliner now uses the indexed
+module context when collecting function signatures, and its standalone lookup
+and signature-to-index map walk every group member. This preserves parameter
+and result types both within groups and after multi-member groups.
+
+A Dewdrop module with mutually recursive nominal types exposed an incorrect
+`i64` spill for an `i32` argument. Red-first direct, white-box, and CLI regressions
+cover this layout and require real helper inlining. Both plain and optimizing
+inlining pass. The fresh source fixture also validates and executes with Node
+and Wago. This is a bounded correctness repair; existing performance work stays
+open. See [fuzzing](./fuzzing.md) for the 2026-09-10 comparison refresh.
+
 ## Profitability policy
 
 The implemented order matches v131:

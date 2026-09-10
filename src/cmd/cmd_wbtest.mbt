@@ -11169,3 +11169,46 @@ test "phase tracing emits compact pass transitions" {
     "pipeline:done changed=true",
   ])
 }
+
+///|
+test "run_cmd_with_adapter inlining keeps types after recursion groups" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      (
+        #|(module
+        #|  (rec
+        #|    (type $left (struct (field (ref null $right))))
+        #|    (type $right (struct (field (ref null $left)))))
+        #|  (type $unary (func (param i32) (result i32)))
+        #|  (type $decoy (func (param i64) (result i64)))
+        #|  (func $twice (type $unary) local.get 0 local.get 0 i32.add)
+        #|  (func (export "run") (type $unary) local.get 0 call $twice))
+      ),
+    ),
+  )
+  let writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["recursive.wasm"] },
+    file_exists=fn(path) { path == "recursive.wasm" },
+    read_file=fn(_) { Ok(wasm) },
+    write_file=fn(_, bytes) {
+      writes.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--inlining", "--out", "out.wasm", "recursive.wasm"],
+      io,
+    ) {
+    Ok(value) => value
+    Err(error) => fail("recursive type inlining failed: \{error}")
+  }
+  assert_eq(summary.resolved_passes, ["inlining"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0])
+  match optimized.code_sec {
+    Some(CodeSec(functions)) => assert_eq(functions.length(), 1)
+    None => fail("expected the inlined caller")
+  }
+}

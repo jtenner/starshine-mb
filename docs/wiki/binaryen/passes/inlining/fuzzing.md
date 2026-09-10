@@ -83,3 +83,30 @@ It does not replace focused fixtures for every family. The `120/120` inlining te
 ## Reopening rule
 
 Save and minimize any new mismatch. Classify it as semantic, validation, size-losing, performance, tooling/oracle, or proven Starshine win. A raw output difference is not automatically acceptable, and a generic random no-op lane is not evidence for `inline-main`.
+
+## 2026-09-10 recursive type indexing repair
+
+Prebuilt native CLI SHA-256
+`efab56b63e08234a8dbcb44fd9b32f6f836072eae185b862e1b04d4d423a6a6f`
+passes both 10,000-case lanes at seed `0x5eed`, with pinned Binaryen 131,
+`--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`:
+
+- Regular GenValid: 10,000 normalized matches; canonical totals 42,157,334
+  bytes for each tool.
+- Aggregate `pass-inlining`: 10,000 normalized matches; canonical totals
+  84,211,036 bytes for each tool.
+- Both lanes: zero mismatches, validation/property/generator/command failures.
+
+Raw outputs remain larger than Binaryen (42,190,083 and 127,110,648 bytes);
+normalization removes that difference. These counts do not claim a raw size
+win or new runtime coverage. Runtime evidence comes from the direct Dewdrop
+source suite and the two engines. External generators were not requested.
+
+The cold release build took 215.782 seconds; the cold focused native regression
+compile took 51.581 seconds. These exceed Dewdrop's 30-second activity target
+and remain build performance problems. The warm CLI regression takes 0.026
+seconds. Build timings are separate from per-module optimization timings.
+
+The full pinned native Starshine suite passes 10,988 tests in 429.197 seconds.
+That aggregate lane is also reported over the parent project's activity budget.
+`moon info` passes with no public API diff in 3.857 seconds.
