@@ -2544,6 +2544,24 @@ fn simplify_locals_try_consume_following_local_get(
 }
 
 ///|
+fn simplify_locals_inline_input_count(func : @ir.HotFunc, node_id : Int) -> Int {
+  // A single syntactic local.get in a loop can execute many times and see
+  // writes from the backedge. Region roots are not expression operands.
+  // Leave them to the region scanner, which manages reaching definitions
+  // and effect barriers; only inline into inputs evaluated before entry.
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block | @ir.HotOp::Try | @ir.HotOp::TryTable => 0
+    @ir.HotOp::Loop =>
+      @ir.hot_label_branch_arity(
+        func,
+        @ir.hot_control_node_label(func, node_id),
+      )
+    @ir.HotOp::If => 1
+    _ => @ir.hot_child_count(func, node_id)
+  }
+}
+
+///|
 fn simplify_locals_try_inline_local_get_child(
   func : @ir.HotFunc,
   node_id : Int,
@@ -2565,13 +2583,8 @@ fn simplify_locals_try_inline_local_get_child(
     @ir.HotOp::LocalSet => true
     _ => false
   }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if (match node.op {
-        @ir.HotOp::Try | @ir.HotOp::TryTable => slot == 1
-        _ => false
-      }) {
-      continue
-    }
+  let input_count = simplify_locals_inline_input_count(func, node_id)
+  for slot = 0; slot < input_count; slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
       continue
@@ -2619,13 +2632,8 @@ fn simplify_locals_try_inline_leading_local_get_child(
     @ir.HotOp::LocalSet => true
     _ => false
   }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if (match node.op {
-        @ir.HotOp::Try | @ir.HotOp::TryTable => slot == 1
-        _ => false
-      }) {
-      continue
-    }
+  let input_count = simplify_locals_inline_input_count(func, node_id)
+  for slot = 0; slot < input_count; slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
       continue
@@ -2661,14 +2669,8 @@ fn simplify_locals_try_move_control_to_leading_local_get_child(
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  let node = @ir.hot_node_get(func, node_id)
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if (match node.op {
-        @ir.HotOp::Try | @ir.HotOp::TryTable => slot == 1
-        _ => false
-      }) {
-      continue
-    }
+  let input_count = simplify_locals_inline_input_count(func, node_id)
+  for slot = 0; slot < input_count; slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
       continue

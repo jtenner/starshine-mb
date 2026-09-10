@@ -1070,3 +1070,60 @@ test "simplify-locals WAGO countdown guard admits local-only classifiers" {
     run_hot_pipeline_raw_simplify_locals_has_wago_expansion_hazard(instrs),
   )
 }
+
+///|
+test "simplify-locals retains loop-carried counter and removes unrelated copies" {
+  let input =
+    #|(module
+    #|  (func (export "run") (param $limit i32) (result i32)
+    #|    (local $copy i32) (local $counter i32) (local $result i32) (local $scratch i32)
+    #|    i32.const 19 local.set $scratch local.get $scratch drop
+    #|    i32.const 0 local.set $counter
+    #|    block $exit
+    #|      loop $again
+    #|        block $body
+    #|          i32.const 1
+    #|          if
+    #|            local.get $counter local.tee $copy local.get $limit i32.lt_u
+    #|            if
+    #|              local.get $copy i32.const 2 i32.eq
+    #|              if
+    #|                i32.const 1 local.set $result br $exit
+    #|              else
+    #|                local.get $copy i32.const 1 i32.add local.set $counter br $again
+    #|              end
+    #|              unreachable
+    #|              br $body
+    #|            end
+    #|          end
+    #|          i32.const 1
+    #|          if
+    #|            i32.const 0 local.set $result br $exit
+    #|            br $body
+    #|          end
+    #|          unreachable
+    #|        end
+    #|        unreachable
+    #|      end
+    #|      unreachable
+    #|    end
+    #|    local.get $result))
+  let func = pass_test_lift_first_func(input)
+  simplify_locals_wbtest_run_nostructure(func)
+  let mut counter_reads = 0
+  let mut counter_writes = 0
+  let mut scratch_accesses = 0
+  for node_id in 0..<@ir.hot_node_count(func) {
+    if !@ir.hot_node_is_live(func, node_id) { continue }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalGet if node.imm0 == 2 => counter_reads += 1
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == 2 => counter_writes += 1
+      @ir.HotOp::LocalGet | @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == 4 => scratch_accesses += 1
+      _ => ()
+    }
+  }
+  assert_eq(counter_reads, 1)
+  assert_eq(counter_writes, 2)
+  assert_eq(scratch_accesses, 0)
+}

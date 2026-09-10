@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-10
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -12,6 +12,50 @@ sources:
 ---
 
 # `simplify-locals-nostructure` Fuzzing Profile
+
+## Loop-counter repair checks (2026-09-10)
+
+This bounded repair uses pinned Binaryen 131 and a fresh native release CLI.
+The regular GenValid lane compares **10000/10000**, all canonically equal,
+with zero validation, generator, property, or command failures. The dedicated
+`simplify-locals-nostructure-all` lane compares **10000/10000** with **10000
+output differences**: 8338 canonically smaller and 1662 larger Starshine
+outputs (2,194,316 versus 2,318,603 total canonical bytes). No validation,
+generator, property, or command failure occurs. These are output/parity gaps,
+not proof of runtime equivalence or accepted wins. All 20 retained examples
+are byte-identical when replayed with the previous Starshine binary, so that
+sample predates the loop fix. No external generator was requested or run.
+
+Both lanes use seed `0x5eed`, `--jobs auto --max-subprocesses 8`,
+`--max-mismatch-artifacts 20`, explicit prebuilt `--starshine-bin` and
+`--gen-valid-bin`, `--require-binaryen-version 131`, and cache reuse.
+Regular Binaryen cache hits/misses: 2/9998. Dedicated: 1368/8632.
+Dewdrop's retained local runs are `.tmp/cli-optimization-logs/fuzz-slns-regular`
+and `.tmp/cli-optimization-logs/fuzz-slns-dedicated`.
+
+The current aggregate has **four** leaves, including family coverage (weight
+5). Selected counts: straight-line 2478, tee-control 1662, effect-order 1683,
+family-coverage 4177. This supersedes the old three-leaf profile description
+and its July counts below. Nested counter coverage is now an executable,
+parameterized regression in `scripts/test/simplify-locals-loop-runtime.ts`;
+ordinary validation-only generation did not find this hang.
+
+All **10990** native tests pass (553.849 s aggregate); 354 focused family tests
+pass in 1.966 s. The release build takes 214.617 s. These build/full-suite times
+exceed Dewdrop's 30-second budget and remain performance bugs. The direct JSON
+prefix pass takes 8.75 ms in one measured run and both exports return 86.
+The CLI runtime regression executes 112 checks across four variants and four
+counter start/step choices, all passing. Its old-binary replay times out.
+
+All 461 Dewdrop source fixtures compile as expected (410 executable and 51
+expected source errors). With this pass in the candidate schedule, 406 runtime
+fixtures pass and four **pre-existing** faults remain: lost bounds trap in
+`collections/fixed-array-set-oob-trap`, wrong values in
+`control-flow/float-literal-match-runtime`, `types/derive-eq-generic-runtime`,
+and `types/derive-hash-runtime`. Replaying the old binary confirms that this
+pass first breaks each prefix. O4s and fold-coalesce pass all 410 in Node and
+Wago. The counter fix does not close those separate faults or the full pass
+family audit.
 
 ## Binaryen-v131 closeout
 

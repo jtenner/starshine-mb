@@ -2,7 +2,7 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-08-10
+last_reviewed: 2026-09-10
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -26,6 +26,10 @@ related:
 ---
 
 # `simplify-locals-nostructure`
+
+The 2026-09-10 [loop-counter repair](./implementation-structure-and-tests.md#aliased-loop-counter-repair-2026-09-10)
+fixes a runtime hang that validation did not detect. A following-expression
+walker must not treat a loop body as an ordinary expression input.
 
 ## Binaryen-v131 renewal
 
