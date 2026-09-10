@@ -4156,8 +4156,22 @@ fn cmd_strip_terminal_returns_for_encoding(mod : Module) -> Module {
   match mod.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let rewritten : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let candidates : Array[(@lib.FuncIdx, @lib.Func)] = []
+      let imported_funcs = match mod.import_sec {
+        Some(@lib.ImportSec(imports)) => {
+          let mut count = 0
+          for entry in imports {
+            match entry {
+              @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1
+              _ => ()
+            }
+          }
+          count
+        }
+        None => 0
+      }
       let mut changed = false
-      for func in funcs {
+      for code_idx, func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
         match instrs.last() {
           Some(@lib.Return) => {
@@ -4168,12 +4182,35 @@ fn cmd_strip_terminal_returns_for_encoding(mod : Module) -> Module {
               body.push(instrs[idx])
             }
             rewritten.push(@lib.Func::new(locals, @lib.Expr::new(body)))
+            candidates.push(
+              (
+                @lib.FuncIdx::new(
+                  (imported_funcs + code_idx).reinterpret_as_uint(),
+                ),
+                rewritten[code_idx],
+              ),
+            )
             changed = true
           }
           _ => rewritten.push(func)
         }
       }
       if changed {
+        // Removing return is valid only if fallthrough leaves exactly the
+        // function results. Build the validation environment once for the batch.
+        let failures = match
+          @validate.validate_defined_funcs_against_module(mod, candidates) {
+          Ok(failures) => failures
+          Err(error) =>
+            abort(
+              "cannot validate encoding terminal-return candidates: \{error}",
+            )
+        }
+        for failure in failures {
+          let (@lib.FuncIdx(raw), _) = failure
+          let code_idx = raw.reinterpret_as_int() - imported_funcs
+          rewritten[code_idx] = funcs[code_idx]
+        }
         mod.with_code_sec(@lib.CodeSec::new(rewritten))
       } else {
         mod
