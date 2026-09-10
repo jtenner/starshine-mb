@@ -1315,6 +1315,7 @@ pub struct HotNode {
   op : HotOp
   ty : Int
   flags : UInt
+  order : Int
   imm0 : Int
   imm1 : Int
   child_base : Int

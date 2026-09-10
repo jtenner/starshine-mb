@@ -1,5 +1,5 @@
 ///|
-test "hot lower local-read cache distinguishes constant and local-dependent roots" {
+test "hot lower local-access cache retains writes as dependency barriers" {
   let func = HotFunc::new(
     locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
   )
@@ -9,11 +9,14 @@ test "hot lower local-read cache distinguishes constant and local-dependent root
     hot_build_const_i32(func, @lib.I32(7)),
   )
   let dependent_set = hot_build_local_set(func, 1, hot_build_local_get(func, 0))
+  let constant = hot_build_const_i32(func, @lib.I32(8))
   let cache = Array::make(hot_node_count(func), -1)
 
-  assert_false(hot_lower_impl_node_reads_local(func, constant_set, cache))
-  @debug.assert_eq(cache[constant_set], 0)
-  assert_true(hot_lower_impl_node_reads_local(func, dependent_set, cache))
+  assert_false(hot_lower_impl_node_accesses_local(func, constant, cache))
+  @debug.assert_eq(cache[constant], 0)
+  assert_true(hot_lower_impl_node_accesses_local(func, constant_set, cache))
+  @debug.assert_eq(cache[constant_set], 1)
+  assert_true(hot_lower_impl_node_accesses_local(func, dependent_set, cache))
   @debug.assert_eq(cache[dependent_set], 1)
 }
 
@@ -28,7 +31,10 @@ test "hot lower dependency suffix minima skip pure roots and retain earlier effe
   let cache = Array::make(hot_node_count(func), -2)
 
   let suffix_minima = hot_lower_impl_build_preceding_dependency_suffix_minima(
-    func, roots, cache,
+    func,
+    roots,
+    cache,
+    hot_lower_impl_build_value_orders(func),
   )
   @debug.assert_eq(suffix_minima.length(), 3)
   @debug.assert_eq(suffix_minima[2], hot_node_count(func))
@@ -40,6 +46,7 @@ test "hot lower dependency suffix minima skip pure roots and retain earlier effe
     func,
     [pure_drop],
     Array::make(hot_node_count(func), -2),
+    hot_lower_impl_build_value_orders(func),
   )
   @debug.assert_eq(pure_suffix, [hot_node_count(func), hot_node_count(func)])
   assert_false(

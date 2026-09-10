@@ -1243,7 +1243,14 @@ pub fn hot_node_get(func : HotFunc, id : NodeId) -> HotNode {
 pub fn hot_node_set(func : HotFunc, id : NodeId, node : HotNode) -> Unit {
   hot_mutate_require_live_node(func, id, "hot node_set")
   hot_mutate_require_node_shape(func, node, "hot node_set")
-  func.nodes[id] = node
+  func.nodes[id] = {
+    ..node,
+    order: if node.order < func.nodes[id].order {
+      func.nodes[id].order
+    } else {
+      node.order
+    },
+  }
   hot_revision_bump(func)
 }
 
@@ -1460,7 +1467,7 @@ pub fn hot_replace_local_tee_with_value(
 pub fn hot_alloc_node(func : HotFunc, node : HotNode) -> NodeId {
   hot_mutate_require_node_shape(func, node, "hot alloc_node")
   let id = func.nodes.length()
-  func.nodes.push(node)
+  func.nodes.push({ ..node, order: id, })
   func.deleted_nodes.push(false)
   hot_revision_bump(func)
   id
@@ -1553,6 +1560,7 @@ fn hot_delete_node_tombstone(func : HotFunc, id : NodeId) -> Unit {
     op: HotOp::Nop,
     ty: hot_type_void(func),
     flags: hot_default_flags_for_op(HotOp::Nop),
+    order: -1,
     imm0: 0,
     imm1: 0,
     child_base: 0,

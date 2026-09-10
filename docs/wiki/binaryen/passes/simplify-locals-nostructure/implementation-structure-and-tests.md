@@ -59,6 +59,48 @@ check times out after five seconds. The two focused tests and all 354 existing
 SimplifyLocals tests pass with the repair. This is a bounded correctness repair,
 not a claim that the complete pass family is free of runtime defects.
 
+## Local lifetime and branch-join repair (2026-09-10)
+
+The full Dewdrop execution sweep exposed four additional failures after the
+counter repair. All four also fail with the earlier binary. Three small
+fixtures now preserve the causes:
+
+- `branch-join.wat`: the last textual copy was treated as the value on every
+  exit path. `run(0)` returned 20 instead of 10. Equivalent-local scanning now
+  clears path-specific copy facts at branch-bearing block exits; branch-free
+  blocks still carry facts forward.
+- `carried-read.wat`: the first match result stayed on the Wasm stack while a
+  later match reused its local. HOT lowering moved the read after that write,
+  changing the sum from 3 to 4.
+- `carried-allocation.wat`: lowering moved an allocation past writes to its
+  element and length locals. An array of length 1 became length 9, so an
+  out-of-bounds write stopped trapping.
+
+The latter two were shared lowering faults, not unique SimplifyLocals rewrites.
+`src/ir/hot_lower.mbt` now treats local writes as scheduling barriers, checks
+read-before-write and write-before-write conflicts in both directions, and
+includes live structured-region accesses. Unreachable region tails do not
+create false dependencies; existing dead-tee cleanup remains tested.
+
+Full-suite testing also exposed synthesized tuple-copy reads being pulled
+above their definitions by the broader dependency check. `HotNode.order`
+keeps the later of the copied value's order and the replaced position. Lowering
+caches the latest input order too, so an old expression cannot move ahead of a
+new input definition. The lowerer only infers read-before-write lifetimes when the value,
+current root, and future consumer occur in that order; explicitly inserted
+roots retain region order. `tuple-copy.wat` and the existing native tuple
+instruction-order assertions cover this interaction. No tuple test was relaxed.
+
+All three regressions fail before their fixes. The direct IR tests, pass test,
+and `scripts/test/simplify-locals-state-runtime.ts` check instruction ordering,
+branch values, and the required trap. CI runs the executable cases. This same
+repair also fixes the `code-folding` failure on `collections/fixed-array-runtime`.
+The current source-fixture sweep passes all 410 runtime cases in Node and Wago
+under O4s, fold-coalesce, fold-code, fold-flat-locals, fold-flat-coalesce, and
+fold-flat-code; the 51 expected source errors also match. All 10,995 native tests pass, including the existing tuple, flatten, and
+constant-expression instruction-order checks. The dedicated comparison's output gaps are a
+separate audit and are not closed by these runtime fixes.
+
 ## Why this page exists
 
 The landing, strategy, variant, and WAT-shape pages explain what `simplify-locals-nostructure` does.

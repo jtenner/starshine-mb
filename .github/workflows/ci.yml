@@ -133,6 +133,9 @@ jobs:
       - name: Run simplify-locals loop runtime regressions
         run: bun scripts/test/simplify-locals-loop-runtime.ts
 
+      - name: Run simplify-locals state runtime regressions
+        run: bun scripts/test/simplify-locals-state-runtime.ts
+
       - name: Run deterministic binary roundtrip fuzz smoke
         run: |
           bun fuzz run --suite binary-roundtrip --profile smoke --seed 0x5eed --target wasm-gc

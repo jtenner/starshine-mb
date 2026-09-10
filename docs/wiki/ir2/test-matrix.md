@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-10
 sources:
   - https://webassembly.github.io/spec/core/syntax/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
@@ -29,6 +29,7 @@ sources:
   - ../../../src/ir/hot_lift_perf_test.mbt
   - ../../../src/ir/hot_lift_perf_wbtest.mbt
   - ../../../src/ir/hot_types_perf_wbtest.mbt
+  - ../../../src/ir/hot_lower_local_lifetime_test.mbt
   - ../../../src/ir/hot_lower_test.mbt
   - ../../../src/ir/hot_lower_live_repro_test.mbt
   - ../../../src/ir/hot_verify_test.mbt
@@ -59,6 +60,26 @@ related:
 ---
 
 # IR2 Test Matrix
+
+## Stack values and local lifetimes
+
+`src/ir/hot_lower_local_lifetime_test.mbt` protects a local read and an array
+allocation carried on the Wasm stack across later local writes. Lowering must
+preserve both dependency directions and writes inside live control regions.
+`src/ir/hot_lower_wbtest.mbt` checks the cached local-access admission facts;
+existing unreachable-tail tests ensure dead reads do not keep local tees alive.
+The lowerer also distinguishes a carried value's allocation order from its
+current node slot. `HotNode.order` follows copied replacement values without preceding the replaced
+position. A cached maximum also accounts for newly introduced expression inputs, while
+region roots retain their statement positions. Read-before-write inference
+requires a value/current-root/future-consumer interval; newly inserted roots
+must not pull an existing consumer's read above its definition. A direct test
+covers each case. The existing native tuple dispatcher tests retain their
+instruction-order assertions.
+
+Executable counterparts are in `scripts/test/simplify-locals-state-runtime.ts`:
+the scalar sum stays 3 and the array bounds trap remains observable. See the
+[pass investigation](../binaryen/passes/simplify-locals-nostructure/implementation-structure-and-tests.md#local-lifetime-and-branch-join-repair-2026-09-10).
 
 ## Overview
 
