@@ -781,3 +781,38 @@ test "inlining classifies GC heap wrappers as shrinking trivial" {
   ]
   assert_true(inl_body_is_shrinking_trivial(body5, 5), msg="array.copy")
 }
+
+///|
+test "inlining resolves function members inside and after recursion groups" {
+  let module_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (rec
+      #|    (type (struct))
+      #|    (type (func (param i32) (result i64))))
+      #|  (type (func (param f32) (result f64))))
+    ),
+  )
+  let types = module_.type_sec.unwrap()
+  assert_eq(
+    inl_type_sec_func_type(types, @lib.TypeIdx::new(1U)),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i64()])),
+  )
+  assert_eq(
+    inl_type_sec_func_type(types, @lib.TypeIdx::new(2U)),
+    Some(@lib.FuncType::new([@lib.ValType::f32()], [@lib.ValType::f64()])),
+  )
+  let indices = inl_signature_type_idx_map(module_)
+  assert_eq(
+    indices.get(
+      inl_func_type_signature_key([@lib.ValType::i32()], [@lib.ValType::i64()]),
+    ),
+    Some(@lib.TypeIdx::new(1U)),
+  )
+  assert_eq(
+    indices.get(
+      inl_func_type_signature_key([@lib.ValType::f32()], [@lib.ValType::f64()]),
+    ),
+    Some(@lib.TypeIdx::new(2U)),
+  )
+}

@@ -230,24 +230,40 @@ fn inl_type_sec_func_type(
   type_sec : @lib.TypeSec,
   type_idx : @lib.TypeIdx,
 ) -> @lib.FuncType? {
-  match (type_sec, type_idx) {
-    (@lib.TypeSec(rec_types), @lib.TypeIdx(raw)) => {
-      let slot = raw.reinterpret_as_int()
-      if slot < 0 || slot >= rec_types.length() {
-        return None
+  let slot = match type_idx {
+    @lib.TypeIdx(raw) => raw.reinterpret_as_int()
+    @lib.RecIdx(_) => return None
+  }
+  if slot < 0 {
+    return None
+  }
+  let @lib.TypeSec(rec_types) = type_sec
+  let mut base = 0
+  for rec_type in rec_types {
+    let subtype = match rec_type {
+      @lib.SingleRecType(subtype) => {
+        if slot != base {
+          base += 1
+          continue
+        }
+        subtype
       }
-      match rec_types[slot] {
-        @lib.SingleRecType(subtype) =>
-          match subtype.get_comptype() {
-            @lib.FuncCompType(params, results) =>
-              Some(@lib.FuncType::new(params, results))
-            _ => None
-          }
-        @lib.GroupRecType(_) => None
+      @lib.GroupRecType(group) => {
+        let end = base + group.length()
+        if slot >= end {
+          base = end
+          continue
+        }
+        group[slot - base]
       }
     }
-    _ => None
+    return match subtype.get_comptype() {
+      @lib.FuncCompType(params, results) =>
+        Some(@lib.FuncType::new(params, results))
+      _ => None
+    }
   }
+  None
 }
 
 ///|
@@ -1988,7 +2004,11 @@ fn inl_build_function_infos(
       trivial_shrinks,
       trivial_may_not_shrink,
     ) = if abs < imports {
-      match inl_resolve_func_type(mod_, types, abs) {
+      match
+        @ir.hot_module_resolve_func_type(
+          module_ctx,
+          @lib.FuncIdx::new(abs.reinterpret_as_uint()),
+        ) {
         Some(@lib.FuncType(params, results)) =>
           (params, results, 1000000, true, false, false, true, false, false)
         None => ([], [], 1000000, true, false, false, true, false, false)
@@ -2002,7 +2022,11 @@ fn inl_build_function_infos(
       let @lib.Func(_, @lib.Expr(body)) = func
       let (calls, loops, tries, tails) = inl_scan_shape_instrs(body)
       let measured_size = inl_count_instrs(body)
-      match inl_resolve_func_type(mod_, types, abs) {
+      match
+        @ir.hot_module_resolve_func_type(
+          module_ctx,
+          @lib.FuncIdx::new(abs.reinterpret_as_uint()),
+        ) {
         Some(@lib.FuncType(params, results)) => {
           let partial_wrapper = abs >= 0 &&
             abs < partial_wrappers.length() &&
@@ -6519,26 +6543,32 @@ fn inl_signature_type_idx_map(
   mod_ : @lib.Module,
 ) -> @hashmap.HashMap[String, @lib.TypeIdx] {
   let out : @hashmap.HashMap[String, @lib.TypeIdx] = @hashmap.new()
+  let add = fn(subtype : @lib.SubType, index : Int) {
+    match subtype.get_comptype() {
+      @lib.FuncCompType(params, results) => {
+        let key = inl_func_type_signature_key(params, results)
+        if out.get(key) is None {
+          out.set(key, @lib.TypeIdx::new(index.reinterpret_as_uint()))
+        }
+      }
+      _ => ()
+    }
+  }
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => {
       let mut idx = 0
       for rec_type in rec_types {
         match rec_type {
-          @lib.SingleRecType(subtype) =>
-            match subtype.get_comptype() {
-              @lib.FuncCompType(params, results) => {
-                let key = inl_func_type_signature_key(params, results)
-                match out.get(key) {
-                  Some(_) => ()
-                  None =>
-                    out.set(key, @lib.TypeIdx::new(idx.reinterpret_as_uint()))
-                }
-              }
-              _ => ()
+          @lib.SingleRecType(subtype) => {
+            add(subtype, idx)
+            idx += 1
+          }
+          @lib.GroupRecType(group) =>
+            for subtype in group {
+              add(subtype, idx)
+              idx += 1
             }
-          @lib.GroupRecType(_) => ()
         }
-        idx += 1
       }
     }
     None => ()
