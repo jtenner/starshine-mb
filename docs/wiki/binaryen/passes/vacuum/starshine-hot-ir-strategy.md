@@ -333,3 +333,30 @@ That makes the local subset easy to teach honestly:
 
 - **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove empty void `if`s while preserving effectful/trapping conditions as drops, remove finite local-only loops with no backedge, remove exact unread `struct.new_default` allocations, remove dropped nontrapping pure scalar/ref/tuple results, canonicalize side-effect-free/local-only void function bodies with tee/write/control debris to one `nop`, unwrap block-only `unreachable`, collapse constant-condition void `if`s when branch-label safety is local, flip empty-then/live-else void `if`s, preclean large lowered functions with pure leaf `const`/`drop`, constant void-`if`, cleaned-empty else arms, `nop` debris, narrow singleton and recursive call-prefix/`if` wrappers, narrow single-`if`/`unreachable` wrappers including the call-result-`local.tee` condition subset, and narrow terminal-`unreachable` child-block wrappers, and keep the pipeline safe
 - **what it does not do yet:** the broader Binaryen `vacuum` rewrite family
+
+
+## Dropped tee source order in Dewdrop
+
+Removing a dropped `local.tee` result must retain the source position of the
+write. A fresh generic `local.set` root has a later allocation order; lowering
+can then run later reads and computations before the write. The i8x8 population
+count kernel reduced this to a packed input `0x0f0f0f0f0f0f0f0f` whose optimized
+result was `0x0303030303030303` instead of `0x0404040404040404`.
+`hot_pass_remove_region_nops` now uses `hot_build_local_set_from_tee`.
+
+`src/passes/vacuum_dew_popcnt_test.mbt` executes input and output with a bounded
+integer interpreter and checks four inputs against an independent per-bit
+reference. It also requires removal of the drop. The regression was red before
+the fix. All four Dewdrop Vacuum tests and 122 bounded native Vacuum tests in
+`optimize_test.mbt` pass. The exact O4z population-count and saturation fixtures
+pass external validation and both Node and Wago with the rebuilt release CLI.
+
+The complete saved replay improves from 937 to 939 passes out of 1,000, with no
+regression and 61 open failures (157.418 s). This is correctness evidence, not a
+whole-pipeline speed claim. Scoped interface generation takes 5.031 s; debug
+build 21.382 s; native regression build/run 71.597 s; isolated native execution
+0.188 s; release build 263.593 s. Work over 30 s remains a performance bug.
+Release SHA-256: `de9733f09782aae699f1f1d77b1119ddb07fc5a5f34a959a2376070d74b828be`.
+Required generated-pass renewal remains pending. Evidence is in Dewdrop's
+`.tmp/starshine-pass-repairs/vacuum-release-fixtures.json`,
+`vacuum-wave17-native-isolated.json`, and `full-replay-regression-wave17/report.json`.

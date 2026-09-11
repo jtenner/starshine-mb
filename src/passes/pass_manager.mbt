@@ -2210,11 +2210,9 @@ fn hot_pass_remove_region_nops(
         let child = @ir.hot_node_get(func, child_id)
         if child.op is @ir.HotOp::LocalTee &&
           @ir.hot_child_count(func, child_id) == 1 {
-          let replacement = @ir.hot_build_local_set(
-            func,
-            child.imm0,
-            @ir.hot_child_get(func, child_id, 0),
-          )
+          // Discard the tee's result without moving its write past later
+          // reads. The replacement root keeps the original tee position.
+          let replacement = @ir.hot_build_local_set_from_tee(func, child_id)
           let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
             replacement,
           ])
