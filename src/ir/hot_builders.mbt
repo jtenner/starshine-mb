@@ -343,6 +343,23 @@ pub fn hot_build_local_set(
 }
 
 ///|
+/// Copy a tee's write into a statement without changing its source order.
+/// The caller must replace each moved tee use with a read at that use site.
+pub fn hot_build_local_set_from_tee(func : HotFunc, tee_id : NodeId) -> NodeId {
+  let tee = hot_node_get(func, tee_id)
+  if tee.op != HotOp::LocalTee || tee.child_count != 1 {
+    abort("hot_build_local_set_from_tee requires a unary local.tee")
+  }
+  let set_id = hot_build_local_set(
+    func,
+    tee.imm0,
+    hot_child_get(func, tee_id, 0),
+  )
+  func.nodes[set_id] = { ..func.nodes[set_id], order: tee.order, }
+  set_id
+}
+
+///|
 pub fn hot_build_local_tee(
   func : HotFunc,
   local_id : LocalId,

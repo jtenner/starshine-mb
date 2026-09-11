@@ -648,3 +648,20 @@ case validates independently and returns 1 in Node, with 3.003 ms optimization.
 All 99 related native lift/lower and regression tests pass, and the original
 fixed-array fixture passes Node and Wago in the complete failed-case replay.
 Generated lanes and remaining Flatten runtime faults are still open.
+
+### Source order when splitting a tee
+
+A second runtime defect occurred when Flatten split `local.tee` into a new
+statement and reads. The statement acquired a later allocation order, so HOT
+lowering moved an old cast read before the write it depended on. The original
+trait dispatch module trapped on an illegal cast of the default null local.
+
+`hot_build_local_set_from_tee` now preserves the tee's source order on the split
+write. Flatten uses that builder while still flattening the expression. The
+positive regression in
+[`flatten_dew_tee_order_test.mbt`](../../../../../src/passes/flatten_dew_tee_order_test.mbt)
+requires initialization before the later cast read. The old reduced module
+trapped; the fixed output validates and returns 42 in Node in 2.523 ms of
+optimization. All 118 focused Flatten and Precompute tests pass. The new public
+builder is included in the reviewed native-compatible API snapshot. Full
+original-corpus replay and generated lanes remain open.

@@ -277,6 +277,8 @@ pub fn hot_build_local_get(HotFunc, Int) -> Int
 
 pub fn hot_build_local_set(HotFunc, Int, Int) -> Int
 
+pub fn hot_build_local_set_from_tee(HotFunc, Int) -> Int
+
 pub fn hot_build_local_tee(HotFunc, Int, Int) -> Int
 
 pub fn hot_build_loop(HotFunc, @lib.BlockType, Array[Int]) -> Int

@@ -9391,7 +9391,11 @@ fn flatten_try_lower_tee_operand(
       @ir.hot_child_set(func, parent_id, slot, @ir.hot_build_unreachable(func))
     }
     _ => {
-      preludes.push(@ir.hot_build_local_set(func, tee.imm0, value_id))
+      let set_id = @ir.hot_build_local_set_from_tee(func, tee_id)
+      // Splitting a tee changes its representation, not its execution point.
+      // Keep the original write order so lowering does not hoist later reads
+      // before this newly allocated initialization node.
+      preludes.push(set_id)
       @ir.hot_child_set(
         func,
         parent_id,
