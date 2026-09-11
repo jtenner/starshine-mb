@@ -4746,7 +4746,11 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           non_null_match_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNonNullMatch,
             literal_target.proves_match_target() ||
-            local_relation.proves_non_null_matches_target(),
+            local_relation.proves_non_null_matches_target() ||
+            (
+              ref_type.is_non_nullable() &&
+              relation.known_match_without_full_subtyping()
+            ),
           ),
           nullable_match_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNullableMatch,

@@ -444,3 +444,18 @@ It is also a:
 - and conservative unshared-GC-lowering pass
 
 That broader scope is a major part of what future Starshine parity work must preserve.
+
+## Static non-null source types after target tightening
+
+An ordinary cast can be removed when its operand's static non-null type is
+already a subtype of the target. The proof applies to all typed producers,
+including `ref.func`, not only local gets and literals matched against abstract
+heap names. After tightening an abstract function cast to a concrete function
+type, the same static proof must still apply. Exact casts retain their separate
+exact-heap guard.
+
+The two existing direct and effectful-prefix `ref.func` regression tests failed
+with redundant concrete casts after ordinary reference inference stopped marking
+all constructors exact. They now pass. The focused native OptimizeInstructions
+run passes 1,407 of 1,414 tests; seven separate capture-layout and repeated-input
+fact tests remain open.
