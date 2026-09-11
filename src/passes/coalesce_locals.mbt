@@ -4907,6 +4907,42 @@ fn cl_instrs_read_local(
 }
 
 ///|
+fn cl_suffix_reads_local_before_overwrite(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  expected : @lib.LocalIdx,
+) -> Bool {
+  for idx = start; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.LocalGet(local_idx) => if local_idx == expected { return true }
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) =>
+        if local_idx == expected {
+          // Raw operands have already run. This same-scope write kills the
+          // earlier value before any following read can observe it.
+          return false
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_read_local(body, expected) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_read_local(then_body, expected) {
+          return true
+        }
+        match else_body {
+          Some(body) => if cl_instrs_read_local(body, expected) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn cl_remove_ineffective_tees(
   rewritten_instrs : Array[@lib.Instruction],
   original_instrs : Array[@lib.Instruction],
@@ -4988,8 +5024,9 @@ fn cl_remove_ineffective_tees(
         if action_idx >= 0 &&
           action_idx < effective.length() &&
           !effective[action_idx] {
-          if cl_instrs_read_local(
-              original_instrs[idx + 1:].to_array(),
+          if cl_suffix_reads_local_before_overwrite(
+              original_instrs,
+              idx + 1,
               original_local_idx,
             ) {
             ()

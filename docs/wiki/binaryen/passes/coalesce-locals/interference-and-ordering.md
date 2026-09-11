@@ -309,3 +309,44 @@ Node, and Wago after the shared control-exit repair. Its measured pass time is
 25.203 milliseconds. The full original-failure replay is running; release
 GenValid and performance signoff remain open. The native test build over 30
 seconds remains recorded as a build-performance bug.
+
+
+## Dead tees and later overwrites
+
+The structured tail-reuse proof ignores ineffective writes because cleanup is
+expected to remove them. Dewdrop text-concat exposed disagreement between that
+proof and tee cleanup: a dead early `local.tee` was retained merely because the
+same local was read anywhere later, even after an unconditional overwrite.
+Coloring then reused a live parameter's slot, and that retained tee destroyed
+the parameter value. A reduced bounds-check/tail-add function returned 22 for
+input 0 instead of 2.
+
+The suffix query now stops at a same-scope `local.set` or `local.tee` of the
+original local. In raw Wasm order, that write's operands have already executed;
+no following read can observe the earlier value. Reads in nested control remain
+conservative and nested writes do not establish an unconditional overwrite.
+The query scans the existing array directly instead of allocating a suffix.
+Cleanup can remove the dead tee, so the proven tail slot reuse remains useful.
+
+[`coalesce_locals_dew_tail_tee_wbtest.mbt`](../../../../../src/passes/coalesce_locals_dew_tail_tee_wbtest.mbt)
+executes original/transformed code for indices 0, 2 and 9 in both registered
+CoalesceLocals modes. It requires correct results and zero body locals. The
+native test fails before the repair (`22 != 2`) and passes afterward; the
+broader native CoalesceLocals gate passes 118/118. Six exact CLI variants also
+pass external validation and execution in Node and Wago. Red/green native commands took
+34.851/70.360 s including build work; the cached family gate took 0.088 s.
+Build/test work above 30 s remains a compiler performance bug.
+
+Full Dewdrop wave 23 passes 962/1000 original failed fixture/order pairs in
+168.528 s: 27 previously failing cases pass and one previously passing JSON
+reader O4z case fails, relative to the prior Flatten checkpoint. Its first bad
+prefix is optimizing inlining (48); nested ownership is still being isolated.
+The array-comparator failure is a separate CFG coloring defect: lifting and
+ineffective-write cleanup execute correctly, but merging source reference locals
+6 and 9 changes behavior. These faults remain open; this tee repair does not
+claim final pipeline or pass-family closeout.
+
+Evidence is in Dewdrop `.tmp/starshine-pass-repairs/`:
+`coalesce-tail-tee-native-{red,green,family}.log`,
+`full-replay-regression-wave23/report.json`, `coalesce-loop-stages.json`,
+`array-comparator-wave22/color-groups.json`, and `json-reader-wave23/report.json`.

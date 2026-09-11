@@ -15,14 +15,15 @@
   Flatten retains carried call results before GC writes and moves split-tee
   prerequisites with their captures; its IR/native gate passes 924/924.
   See the relevant pass dossiers.
-- **Open:** current Flatten wave 22 passes 936/1000 original failed
-  fixture/order pairs and fails 64 (stable wave 20 was 944/1000). New text-concat
-  and array-comparator O4z regressions first change execution in later
-  CoalesceLocals CFG stages, not Flatten. The reduced text shape retains an
-  ineffective tee before an unconditional overwrite and aliases its slot with
-  a live parameter. Repair local-slot ownership and replay all 1000 cases.
-  Other optimizing-inlining, direct, and repeated-control failures remain;
-  a case name is not proof of its owning pass.
+- **Open:** full wave 23 passes 962/1000 original failed fixture/order pairs
+  and fails 38. Dead-tee cleanup now agrees with tail reuse across same-scope
+  overwrites; its native CoalesceLocals family passes 118/118. Relative to wave
+  22, 27 cases are repaired and one JSON-reader O4z regression first fails in
+  optimizing inlining prefix 48. The array-comparator fault is CFG coloring of
+  distinct reference lifetimes (locals 6 and 9); lifting and write cleanup pass.
+  Reduce and repair those owners. Other inlining, trap, time, and repeated
+  control failures remain. Fresh pass-generated and full-source gates remain
+  required; a case name is not proof of its owning pass.
 - **Native gate:** SSA has one pre-existing stack-carried-tee count assertion;
   improved branch liveness exposes 50 further old fresh-local/branch-copy shape
   assertions. Compare their semantics and size before changing expectations.
