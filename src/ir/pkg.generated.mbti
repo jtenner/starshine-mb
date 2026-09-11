@@ -423,6 +423,8 @@ pub fn hot_lift_func_with_context_result(@lib.Module, @lib.FuncIdx, HotModuleCon
 
 pub fn hot_lift_func_with_context_unverified(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
 
+pub fn hot_lift_local_accesses(HotFunc) -> HotLiftLocalAccesses
+
 pub fn hot_local_body_count(HotFunc) -> Int
 
 pub fn hot_local_count(HotFunc) -> Int
@@ -1170,6 +1172,7 @@ pub struct HotFunc {
   free_nodes : Array[Int]
   deleted_nodes : Array[Bool]
   mut revision : Int
+  mut lifted_local_accesses : HotLiftLocalAccesses?
 }
 pub fn HotFunc::new(locals? : HotLocals, body_result_type? : Int) -> Self
 
@@ -1207,6 +1210,13 @@ pub enum HotLiftError {
   UnsupportedInstruction(String)
 } derive(Eq, @debug.Debug)
 pub impl Show for HotLiftError
+
+pub struct HotLiftLocalAccesses {
+  local_count : Int
+  gets : Array[(Int, Int)]
+  writes : Array[(Int, Int)]
+  revision : Int
+}
 
 pub struct HotLiveness {
   include_exceptional_edges : Bool

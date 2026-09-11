@@ -26038,7 +26038,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_next_set_decision(
   if cursor >= plan.write_rewrites.length() {
     return None
   }
-  Some(plan.write_rewrites[cursor].decision)
+  let rewrite = plan.write_rewrites[cursor]
+  if rewrite.write_id < 0 {
+    return None
+  }
+  Some(rewrite.decision)
 }
 
 ///|
@@ -27945,12 +27949,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
               @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
             )
           }
-        Some(SsaNoMergeWriteDecision::KeepCanonical) | None => {
+        Some(SsaNoMergeWriteDecision::KeepCanonical) => {
           if original_local >= 0 && original_local < fresh_aliases.length() {
             fresh_aliases[original_local] = -1
           }
           instr
         }
+        None => instr
       }
       cursor.write_cursor = cursor.write_cursor + 1
       rewritten
@@ -27991,12 +27996,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
               @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
             )
           }
-        Some(SsaNoMergeWriteDecision::KeepCanonical) | None => {
+        Some(SsaNoMergeWriteDecision::KeepCanonical) => {
           if original_local >= 0 && original_local < fresh_aliases.length() {
             fresh_aliases[original_local] = -1
           }
           instr
         }
+        None => instr
       }
       cursor.write_cursor = cursor.write_cursor + 1
       rewritten
@@ -28280,7 +28286,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
               initialized_locals[original_local] = true
             }
           }
-          Some(SsaNoMergeWriteDecision::KeepCanonical) | None => {
+          Some(SsaNoMergeWriteDecision::KeepCanonical) => {
             if original_local >= 0 && original_local < fresh_aliases.length() {
               fresh_aliases[original_local] = -1
             }
@@ -28290,6 +28296,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
             }
             rewritten_instrs.push(instr)
           }
+          None => rewritten_instrs.push(instr)
         }
         write_cursor = write_cursor + 1
       }
@@ -28315,7 +28322,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
               initialized_locals[original_local] = true
             }
           }
-          Some(SsaNoMergeWriteDecision::KeepCanonical) | None => {
+          Some(SsaNoMergeWriteDecision::KeepCanonical) => {
             if original_local >= 0 && original_local < fresh_aliases.length() {
               fresh_aliases[original_local] = -1
             }
@@ -28325,6 +28332,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
             }
             rewritten_instrs.push(instr)
           }
+          None => rewritten_instrs.push(instr)
         }
         write_cursor = write_cursor + 1
       }
@@ -31095,7 +31103,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
                 hot_func,
                 @ir.cfg_build(hot_func),
               )
-              let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+              let plan = ssa_nomerge_build_raw_rewrite_plan(
+                hot_func, local_graph,
+              )
               let (planned_rewritten, did_plan_change) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
                 original, params, plan,
               )
@@ -31268,7 +31278,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
           })
       }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
-      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+      let plan = ssa_nomerge_build_raw_rewrite_plan(hot_func, local_graph)
       if run_hot_pipeline_raw_ssa_nomerge_plan_preserves_multisource_merge(
           local_graph, plan,
         ) {
@@ -31381,7 +31391,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
           })
       }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
-      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+      let plan = ssa_nomerge_build_raw_rewrite_plan(hot_func, local_graph)
       if run_hot_pipeline_raw_ssa_nomerge_plan_preserves_one_arm_entry_merge(
           local_graph, plan,
         ) {
@@ -31408,7 +31418,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
           })
       }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
-      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+      let plan = ssa_nomerge_build_raw_rewrite_plan(hot_func, local_graph)
       if run_hot_pipeline_raw_ssa_nomerge_plan_preserves_multisource_merge(
           local_graph, plan,
         ) {
@@ -31435,7 +31445,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
           })
       }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
-      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+      let plan = ssa_nomerge_build_raw_rewrite_plan(hot_func, local_graph)
       if run_hot_pipeline_raw_ssa_nomerge_plan_has_mixed_fresh_canonical_merge(
           local_graph, plan,
         ) {
@@ -31496,7 +31506,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
           })
       }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
-      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+      let plan = ssa_nomerge_build_raw_rewrite_plan(hot_func, local_graph)
       let (materialized, materialized_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
         original, params, plan,
       )
@@ -31531,7 +31541,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
             materialized_hot_func,
             @ir.cfg_build(materialized_hot_func),
           )
-          let materialized_plan = ssa_nomerge_build_rewrite_plan(
+          let materialized_plan = ssa_nomerge_build_raw_rewrite_plan(
             materialized_hot_func, materialized_local_graph,
           )
           let (planned, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
@@ -31635,7 +31645,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         })
     }
     let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
-    let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+    let plan = ssa_nomerge_build_raw_rewrite_plan(hot_func, local_graph)
     Some({
       reason: "straight-line-local-writes-localgraph-plan",
       func: run_hot_pipeline_raw_ssa_nomerge_straight_line(
@@ -31778,7 +31788,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
     Err(_) => return None
   }
   let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
-  let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+  let plan = ssa_nomerge_build_raw_rewrite_plan(hot_func, local_graph)
   let (planned, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
     original, params, plan,
   )
@@ -31799,7 +31809,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
     materialize_hot_func,
     @ir.cfg_build(materialize_hot_func),
   )
-  let materialize_plan = ssa_nomerge_build_rewrite_plan(
+  let materialize_plan = ssa_nomerge_build_raw_rewrite_plan(
     materialize_hot_func, materialize_local_graph,
   )
   let @lib.Func(_, @lib.Expr(materialize_instrs)) = materialize_base
@@ -31831,7 +31841,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
       default_hot_func,
       @ir.cfg_build(default_hot_func),
     )
-    let default_plan = ssa_nomerge_build_rewrite_plan(
+    let default_plan = ssa_nomerge_build_raw_rewrite_plan(
       default_hot_func, default_local_graph,
     )
     let (default_planned, changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(

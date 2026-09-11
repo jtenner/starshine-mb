@@ -10,14 +10,49 @@ pub enum HotLiftError {
 } derive(Eq, Debug)
 
 ///|
-priv struct HotLiftLabelFrames {
-  active : Array[LabelId]
-  mut legacy_catch_depth : Int
+/// Source-order local accesses from an unmodified lift. A missing node (-1)
+/// denotes a stack-polymorphic instruction with no concrete operand. Synthetic
+/// lifetime captures have no source entry. Raw rewriters must use this map,
+/// rather than assuming that HOT node order equals raw instruction order.
+pub struct HotLiftLocalAccesses {
+  local_count : Int
+  gets : Array[(LocalId, NodeId)]
+  writes : Array[(LocalId, NodeId)]
+  revision : Int
 }
 
 ///|
-fn hot_lift_impl_new_label_frames() -> HotLiftLabelFrames {
-  { active: [], legacy_catch_depth: 0, }
+pub fn hot_lift_local_accesses(func : HotFunc) -> HotLiftLocalAccesses {
+  match func.lifted_local_accesses {
+    Some(accesses) => {
+      if accesses.revision != func.revision {
+        abort("raw local access map requires the original, unmodified HOT lift")
+      }
+      accesses
+    }
+    None =>
+      abort("raw local access map requires a function produced by HOT lift")
+  }
+}
+
+///|
+priv struct HotLiftLabelFrames {
+  active : Array[LabelId]
+  mut legacy_catch_depth : Int
+  local_count : Int
+  gets : Array[(LocalId, NodeId)]
+  writes : Array[(LocalId, NodeId)]
+}
+
+///|
+fn hot_lift_impl_new_label_frames(func : HotFunc) -> HotLiftLabelFrames {
+  {
+    active: [],
+    legacy_catch_depth: 0,
+    local_count: hot_local_count(func),
+    gets: [],
+    writes: [],
+  }
 }
 
 ///|
@@ -638,7 +673,8 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
   // SIMD constants are nullary even on a polymorphic stack. Generic arity
   // inference must not promote them to consume a preceding scalar operand.
   match instr {
-    Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => return Some(0)
+    Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      return Some(0)
     _ => ()
   }
   match hot_lift_impl_direct_family(instr) {
@@ -1595,6 +1631,121 @@ fn hot_lift_impl_build_exact_node3(
 }
 
 ///|
+// Preserve both directions of a pending stack value's local dependency. A
+// later write must not change its reads; a later read must see its writes.
+// Explicit captures make these edges visible to every tree transform.
+fn hot_lift_impl_value_conflicts_with_local_access(
+  func : HotFunc,
+  node_id : NodeId,
+  local_id : Int,
+  is_write : Bool,
+) -> Bool {
+  if node_id < 0 || !hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = hot_node_get(func, node_id)
+  if node.imm0 == local_id {
+    match node.op {
+      HotOp::LocalSet | HotOp::LocalTee => return true
+      HotOp::LocalGet if is_write => return true
+      _ => ()
+    }
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if hot_lift_impl_value_conflicts_with_local_access(
+        func,
+        hot_child_get(func, node_id, slot),
+        local_id,
+        is_write,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_lift_impl_value_contains_node(
+  func : HotFunc,
+  node_id : NodeId,
+  target : NodeId,
+) -> Bool {
+  if node_id == target {
+    return true
+  }
+  // During lifting, operands are created before their consumers.
+  if node_id < target {
+    return false
+  }
+  for slot = 0; slot < hot_child_count(func, node_id); slot = slot + 1 {
+    if hot_lift_impl_value_contains_node(
+        func,
+        hot_child_get(func, node_id, slot),
+        target,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_lift_impl_capture_before_local_access(
+  func : HotFunc,
+  roots : Array[NodeId],
+  values : Array[NodeId],
+  concrete_values : Array[ValType],
+  local_id : Int,
+  is_write : Bool,
+  operand_count : Int,
+) -> Unit {
+  let pending_count = values.length() - operand_count
+  let mut idx = 0
+  while idx < pending_count {
+    let value_id = values[idx]
+    let mut end = idx + 1
+    while end < values.length() && values[end] == value_id {
+      end += 1
+    }
+    if hot_lift_impl_value_conflicts_with_local_access(
+        func, value_id, local_id, is_write,
+      ) &&
+      !roots.any(fn(root) {
+        hot_lift_impl_value_contains_node(func, root, value_id)
+      }) {
+      // A consumed tuple component already anchors its shared producer. Only
+      // producers that still exist entirely on the pending stack need capture.
+      // Tuple components share a producer ID; capture them in stack-pop order,
+      // including any component used by the current instruction's operands.
+      for slot = end - 1; slot >= idx; slot = slot - 1 {
+        let original_type = concrete_values[slot]
+        let storage_type = match original_type {
+          @lib.RefTypeValType(ref_type) =>
+            @lib.ValType::ref_type(ref_type.make_nullable())
+          _ => original_type
+        }
+        let capture_local = hot_append_body_local(func, storage_type)
+        roots.push(hot_build_local_set(func, capture_local, value_id))
+        let read = hot_build_local_get(func, capture_local)
+        values[slot] = match original_type {
+          @lib.RefTypeValType(ref_type) if ref_type.is_non_nullable() => {
+            let checked = hot_build_unary(func, original_type, read)
+            hot_node_exact_instr_set(
+              func,
+              checked,
+              @lib.Instruction::ref_as_non_null(),
+            )
+            checked
+          }
+          _ => read
+        }
+      }
+    }
+    idx = end
+  }
+}
+
+///|
 fn hot_lift_impl_push_node(
   roots : Array[NodeId],
   values : Array[NodeId],
@@ -2342,6 +2493,21 @@ fn hot_lift_impl_lift_instruction(
   values : Array[NodeId],
   concrete_values : Array[ValType],
 ) -> Result[TcState, HotLiftError] {
+  // Reserve an entry even when unreachable stack polymorphism prevents a node.
+  let source_access = match instr {
+    Instruction::LocalGet(LocalIdx(raw)) => {
+      let index = label_frames.gets.length()
+      label_frames.gets.push((raw.reinterpret_as_int(), -1))
+      Some((false, index))
+    }
+    Instruction::LocalSet(LocalIdx(raw))
+    | Instruction::LocalTee(LocalIdx(raw)) => {
+      let index = label_frames.writes.length()
+      label_frames.writes.push((raw.reinterpret_as_int(), -1))
+      Some((true, index))
+    }
+    _ => None
+  }
   match instr {
     Instruction::Block(_, _)
     | Instruction::Loop(_, _)
@@ -2884,6 +3050,30 @@ fn hot_lift_impl_lift_instruction(
     ) {
     return Ok(after_state)
   }
+  match instr {
+    Instruction::LocalSet(LocalIdx(raw))
+    | Instruction::LocalTee(LocalIdx(raw)) =>
+      hot_lift_impl_capture_before_local_access(
+        func,
+        roots,
+        values,
+        concrete_values,
+        raw.reinterpret_as_int(),
+        true,
+        child_count,
+      )
+    Instruction::LocalGet(LocalIdx(raw)) =>
+      hot_lift_impl_capture_before_local_access(
+        func,
+        roots,
+        values,
+        concrete_values,
+        raw.reinterpret_as_int(),
+        false,
+        child_count,
+      )
+    _ => ()
+  }
   match hot_lift_impl_direct_family(instr) {
     Some(op) => {
       let node_id = match child_count {
@@ -2926,6 +3116,17 @@ fn hot_lift_impl_lift_instruction(
             func, op, instr, pushed_types, children,
           )
         }
+      }
+      match source_access {
+        Some((is_write, index)) => {
+          let accesses = if is_write {
+            label_frames.writes
+          } else {
+            label_frames.gets
+          }
+          accesses[index] = (accesses[index].0, node_id)
+        }
+        None => ()
       }
       hot_lift_impl_push_node(
         roots, values, concrete_values, node_id, pushed_types,
@@ -2990,6 +3191,7 @@ fn hot_lift_impl_lift_instruction(
 fn hot_lift_impl_finish(
   func : HotFunc,
   roots : Array[NodeId],
+  label_frames : HotLiftLabelFrames,
   verify? : Bool = true,
 ) -> HotFunc {
   for root in roots {
@@ -2998,6 +3200,12 @@ fn hot_lift_impl_finish(
   if verify {
     hot_verify_all_or_abort(func)
   }
+  func.lifted_local_accesses = Some({
+    local_count: label_frames.local_count,
+    gets: label_frames.gets,
+    writes: label_frames.writes,
+    revision: func.revision,
+  })
   func
 }
 
@@ -3020,11 +3228,11 @@ pub fn hot_lift_body_result(
     hot_type_intern_block_result(func, body_result_type),
   )
   let state = make_state(env, [])
-  let label_frames = hot_lift_impl_new_label_frames()
+  let label_frames = hot_lift_impl_new_label_frames(func)
   let label_stack_head = hot_lift_impl_seed_function_label(label_frames)
   match
     hot_lift_impl_lift_region(func, body, state, label_frames, label_stack_head) {
-    Ok((roots, _, _)) => Ok(hot_lift_impl_finish(func, roots))
+    Ok((roots, _, _)) => Ok(hot_lift_impl_finish(func, roots, label_frames))
     Err(err) => Err(err)
   }
 }
@@ -3095,7 +3303,7 @@ fn hot_lift_impl_body_with_context_result(
       return_types,
     ),
   )
-  let label_frames = hot_lift_impl_new_label_frames()
+  let label_frames = hot_lift_impl_new_label_frames(func)
   let label_stack_head = hot_lift_impl_seed_function_label(label_frames)
   match
     hot_lift_impl_lift_region(
@@ -3105,7 +3313,8 @@ fn hot_lift_impl_body_with_context_result(
       label_frames,
       label_stack_head,
     ) {
-    Ok((roots, _, _)) => Ok(hot_lift_impl_finish(func, roots, verify=false))
+    Ok((roots, _, _)) =>
+      Ok(hot_lift_impl_finish(func, roots, label_frames, verify=false))
     Err(err) => Err(err)
   }
 }

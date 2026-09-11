@@ -428,6 +428,67 @@ pub fn ssa_nomerge_build_rewrite_plan(
 }
 
 ///|
+/// Keep raw occurrence positions stable across omitted unreachable operations
+/// and synthetic stack captures. Allocate only locals that the raw writer can
+/// emit; HOT-only scratch writes must never consume a raw occurrence or index.
+fn ssa_nomerge_build_raw_rewrite_plan(
+  func : @ir.HotFunc,
+  graph : @ir.HotLocalGraph,
+) -> SsaNoMergeRewritePlan {
+  let accesses = @ir.hot_lift_local_accesses(func)
+  let hot_plan = ssa_nomerge_build_rewrite_plan(func, graph)
+  let decisions : Array[SsaNoMergeWriteDecision] = Array::make(
+    @ir.hot_node_count(func),
+    SsaNoMergeWriteDecision::KeepCanonical,
+  )
+  for write in hot_plan.write_rewrites {
+    decisions[write.write_id] = write.decision
+  }
+  let writes : Array[SsaNoMergeWriteRewrite] = []
+  let mut next_fresh = accesses.local_count
+  for access in accesses.writes {
+    let (original_local, write_id) = access
+    let decision = if write_id >= 0 {
+      match decisions[write_id] {
+        SsaNoMergeWriteDecision::Freshen(_) => {
+          let fresh = next_fresh
+          next_fresh += 1
+          SsaNoMergeWriteDecision::Freshen(fresh)
+        }
+        SsaNoMergeWriteDecision::KeepCanonical =>
+          SsaNoMergeWriteDecision::KeepCanonical
+      }
+    } else {
+      SsaNoMergeWriteDecision::KeepCanonical
+    }
+    writes.push({
+      write_id,
+      original_local,
+      decision,
+      influenced_gets: if write_id >= 0 {
+        @ir.local_graph_influenced_gets_for_write(graph, write_id)
+      } else {
+        []
+      },
+    })
+  }
+  let gets : Array[SsaNoMergeGetRewrite] = []
+  for access in accesses.gets {
+    let (original_local, get_id) = access
+    gets.push({
+      get_id,
+      original_local,
+      decision: if get_id >= 0 {
+        ssa_nomerge_plan_get_decision(graph, writes, get_id)
+      } else {
+        SsaNoMergeGetDecision::KeepCanonical
+      },
+    })
+  }
+  { write_rewrites: writes, get_rewrites: gets, }
+}
+
+///|
 fn ssa_nomerge_has_local_writes(func : @ir.HotFunc) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {

@@ -205,3 +205,26 @@ If future work needs any of those, update the IR2 architecture contract first, a
 - Cache/pass helper layer: [`../../../src/ir/analysis_cache.mbt`](../../../src/ir/analysis_cache.mbt), [`../../../src/ir/architecture.mbt`](../../../src/ir/architecture.mbt), [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt)
 - Tests: [`../../../src/ir/ssa_policy_test.mbt`](../../../src/ir/ssa_policy_test.mbt), [`../../../src/ir/ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt), [`../../../src/ir/ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt), [`../../../src/ir/local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt), [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt)
 - Supporting overlays: [`../../../src/ir/use_def.mbt`](../../../src/ir/use_def.mbt), [`../../../src/ir/liveness.mbt`](../../../src/ir/liveness.mbt), [`../../../src/ir/dominators.mbt`](../../../src/ir/dominators.mbt), [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt)
+
+## Raw source accesses and pending stack locals
+
+HOT lift records each raw local read/write in source order, including an absent
+node marker for unreachable stack-polymorphic instructions. Synthetic captures
+have no raw entry. SSANoMerge maps its HOT decisions back through these entries;
+it must not align raw instruction cursors with HOT creation order. The mapping
+is valid only while the lifted function's revision is unchanged.
+
+Pending stack expressions carry local dependencies. Before a later access can
+conflict, lift captures the pending value in a fresh local. This preserves both
+reads before overwrites and tee writes before later reads. Reference storage is
+nullable; a non-null read restores the known result type. A shared tuple producer
+already anchored by an earlier root must not be captured again.
+
+The positive scalar Flatten regression returns 7 (the old output returned 0).
+The aggregate SimplifyLocals regression keeps the earlier value 4. Raw SSA tests
+cover dropped unreachable writes without shifting subsequent access decisions.
+Two existing tests still require semantic assertions instead of exact rendered
+layouts: the carried Fibonacci sum and a carried load/tee. Captures add temporary
+locals in these shapes; broad size/performance signoff remains open. The latest
+focused lift/lower run passed 99/100 tests, with only the old load layout check
+failing. All original failed fixture/orders remain in the Dewdrop replay log.

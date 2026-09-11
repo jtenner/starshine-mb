@@ -11,3 +11,30 @@ test "flatten preserves tee initialization before subsequent cast reads" {
   assert_true(output.code_sec != input.code_sec)
   ignore(@validate.validate_module(output).unwrap())
 }
+
+///|
+test "flatten keeps a pending tee before a later root reads its local" {
+  let input = @wast.wast_to_binary_module(
+    "(module (func (result i32) (local i32 i32) i32.const 7 local.tee 0 local.get 0 local.set 1 drop local.get 1))",
+  ).unwrap()
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["flatten"]).unwrap()
+  let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let storage = Array::make(locals.length(), 0)
+  let stack : Array[Int] = []
+  for instr in body {
+    match instr {
+      @lib.I32Const(@lib.I32(value)) => stack.push(value)
+      @lib.LocalSet(@lib.LocalIdx(raw)) =>
+        storage[raw.reinterpret_as_int()] = stack.pop().unwrap()
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        stack.push(storage[raw.reinterpret_as_int()])
+      @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        storage[raw.reinterpret_as_int()] = stack[stack.length() - 1]
+      @lib.Drop => ignore(stack.pop().unwrap())
+      @lib.Return => break
+      _ => fail("unexpected pending-tee instruction: \{instr}")
+    }
+  }
+  @debug.assert_eq(stack, [7])
+  assert_true(output.code_sec != input.code_sec)
+}

@@ -13,9 +13,28 @@ test "hot lower keeps a carried read before an overwrite" {
     Ok(value) => value
     Err(error) => fail("invalid lifetime fixture: \{error}")
   }
-  let original = input.code_sec.unwrap().0[0]
   let output = hot_lower_func(hot_lift_func(input, @lib.FuncIdx::new(0U)))
-  @debug.assert_eq(output, original)
+  // Capture locals may change the encoding. Execute this scalar fragment so
+  // the check protects the carried value rather than an incidental layout.
+  let @lib.Func(locals, @lib.Expr(body)) = output
+  let values = Array::make(locals.length(), 0)
+  let stack : Array[Int] = []
+  for instr in body {
+    match instr {
+      @lib.I32Const(@lib.I32(value)) => stack.push(value)
+      @lib.LocalSet(@lib.LocalIdx(raw)) =>
+        values[raw.reinterpret_as_int()] = stack.pop().unwrap()
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        stack.push(values[raw.reinterpret_as_int()])
+      @lib.I32Add => {
+        let rhs = stack.pop().unwrap()
+        let lhs = stack.pop().unwrap()
+        stack.push(lhs + rhs)
+      }
+      _ => fail("unexpected scalar lifetime instruction: \{instr}")
+    }
+  }
+  @debug.assert_eq(stack, [3])
 }
 
 ///|
