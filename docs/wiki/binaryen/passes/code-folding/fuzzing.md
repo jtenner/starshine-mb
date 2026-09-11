@@ -81,3 +81,28 @@ vacuum -> code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-nam
 ```
 
 The effectful 1000-case replay at `.tmp/pass-fuzz-code-folding-effectful-neighborhood-1000` validates all outputs but records downstream shape differences: the `if`-arm family is raw green; return/tail-call and movement cases are smaller Starshine `br_if` forms; block-exit and EH cases expose size-losing cleanup gaps in neighboring `merge-blocks` / branch cleanup. These are not direct `code-folding` mismatches because the direct aggregate is raw green, but they remain preset-neighborhood reopening evidence and must not be reported as full cleanup-cluster shape parity.
+
+## Dewdrop runtime renewal with a real Node process
+
+The September renewal uses frozen native revision `009ad983b`, explicit
+Binaryen 131, seed `0x5eed`, eight workers, wasm-tools validation, determinism,
+codec roundtrips, and the strict v2 Node process oracle. Earlier Bun-worker
+observations are not Node evidence.
+
+| Lane | Canonical output | Runtime | Canonical bytes, Starshine / Binaryen | Wall time |
+| --- | --- | --- | --- | --- |
+| Regular GenValid, 10,000 | 10,000 matches | 5,019 matches; 4,981 blocked original executions; zero mismatches | 42,157,334 / 42,157,334 | 2,191.280 s |
+| `code-folding-all`, 10,000 | 6,624 matches; 3,376 shape differences | 10,000 matches; zero blocked or mismatched | 668,374 / 671,750 | 622.840 s |
+
+Both lanes have zero generator, validation, command, determinism, or codec
+failures. All 20 retained aggregate diffs remove exactly one final bare return
+and retain earlier nested returns. Every differing output saves one canonical
+byte; none is larger. The agent classification is a size-winning final-return
+cleanup, supported by the inspected transform and completed runtime comparisons.
+This does not establish a runtime speed benefit or sign off later shared-IR
+changes. The blocked regular originals are not counted as runtime passes.
+
+Evidence in Dewdrop's `.tmp/starshine-pass-repairs/`:
+`genvalid-wave14-code-folding-{regular,aggregate}/result.json`,
+`generated-signoff-wave14-commands.json`, and
+`code-folding-aggregate-return-diff-review.json`.
