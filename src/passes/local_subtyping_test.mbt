@@ -726,10 +726,10 @@ test "local-subtyping replaces bottom call_ref refinalization with unreachable v
 test "local-subtyping retag representation validates tee parent after narrowing" {
   let funcref_nullable = @lib.ValType::funcref()
   let callee_ref = @lib.RefType::new(
-    false,
+    true,
     @lib.HeapType::new(@lib.TypeIdx::new(3U)),
   )
-  let callee_nonnull = @lib.ValType::ref_type(callee_ref)
+  let callee_nullable = @lib.ValType::ref_type(callee_ref)
   let mod_ = ls_test_module_with_child_param_and_tail_refs(funcref_nullable, [
     @lib.Instruction::block(
       @lib.BlockType::val_type(funcref_nullable),
@@ -742,12 +742,14 @@ test "local-subtyping retag representation validates tee parent after narrowing"
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
     @lib.Instruction::drop(),
   ])
+  // The heap subtype is narrower, but block-local writes do not initialize
+  // a non-null local in the surrounding validation frame.
   let optimized = match
     run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
   }
-  @debug.assert_eq(ls_test_first_body_local(optimized), callee_nonnull)
+  @debug.assert_eq(ls_test_first_body_local(optimized), callee_nullable)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -1013,15 +1015,15 @@ test "local-subtyping accepts branch-free block gets dominated by earlier write"
 }
 
 ///|
-test "local-subtyping propagates branch-free block write to following get" {
+test "local-subtyping preserves nullable storage after a branch-free block write" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
   )
   let child_ref = @lib.RefType::new(
-    false,
+    true,
     @lib.HeapType::new(@lib.TypeIdx::new(1U)),
   )
-  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let child_nullable = @lib.ValType::ref_type(child_ref)
   let mod_ = ls_test_module_with_child_param(base_nullable, [
     @lib.Instruction::block(
       @lib.BlockType::void_(),
@@ -1033,12 +1035,14 @@ test "local-subtyping propagates branch-free block write to following get" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
     @lib.Instruction::drop(),
   ])
+  // The heap subtype is narrower, but block-local writes do not initialize
+  // a non-null local in the surrounding validation frame.
   let optimized = match
     run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
   }
-  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nullable)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>

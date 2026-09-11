@@ -82,3 +82,21 @@ Starshine now keeps constructor/ref-function exactness as an internal producer f
 - The wasm-smith case `009332` belongs to shared unreachable cleanup, not local-subtyping; `--normalize unreachable-control-debris` proves convergence.
 
 Reopen the pass only for a reduced represented-surface mismatch, a v132+ source change, a validator change that makes a historical boundary valid, or a new local-subtyping family missing from the aggregate profile.
+
+## September 2026 block-local initialization repair
+
+A branch-free result block can write a reference local that is read after the
+block. Heap narrowing remains legal, but that write does not initialize a
+non-defaultable local in the outer Wasm validation frame. LocalSubtyping
+previously exported the block's initialization facts and chose an invalid
+non-null local type.
+
+The dominance scan now keeps entry initialization when it leaves a block.
+The new positive test in
+[`local_subtyping_dew_block_test.mbt`](../../../../../src/passes/local_subtyping_dew_block_test.mbt)
+requires the narrower concrete heap type with nullable storage. Two older tests
+that expected invalid non-null storage now require the same heap improvement
+with the correct nullability. Independent validation rejected the old reduced
+output as uninitialized; the repaired focused test and all LocalSubtyping tests
+pass in the 1,200-test shared repair lane. Full corpus and generated-lane
+signoff remain in progress.

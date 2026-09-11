@@ -1588,18 +1588,6 @@ fn LsDominanceScanResult::new(
 }
 
 ///|
-fn ls_copy_bool_state(dst : Array[Bool], src : Array[Bool]) -> Unit {
-  let limit = if dst.length() < src.length() {
-    dst.length()
-  } else {
-    src.length()
-  }
-  for idx = 0; idx < limit; idx = idx + 1 {
-    ignore(dst.set(idx, src[idx]))
-  }
-}
-
-///|
 fn ls_scan_branch_free_dominance_instrs(
   instrs : Array[@lib.Instruction],
   param_count : Int,
@@ -1653,9 +1641,9 @@ fn ls_scan_branch_free_dominance_instrs(
         if !block_result.valid {
           return LsDominanceScanResult::new(false, false)
         }
-        if allow_later_write_init && block_result.propagates {
-          ls_copy_bool_state(initialized, block_initialized)
-        }
+        // WebAssembly definite initialization is scoped to each control
+        // frame. Even a fallthrough write does not initialize the outer frame.
+        // Keep the heap subtype improvement without exporting non-nullness.
       }
       @lib.Loop(_, @lib.Expr(body)) => {
         let loop_initialized = initialized.copy()
