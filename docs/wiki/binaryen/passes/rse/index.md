@@ -142,3 +142,27 @@ The current durable claim is:
 - Binaryen current-main pass source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp>
 - Binaryen `version_129` pass tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.wast>
 - Binaryen `version_129` GC tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/rse-gc.wast>
+
+## September 2026 reference initialization repair
+
+Optimizing inlining exposed a failure in its nested RedundantSetElimination
+cleanup. Both `if` arms wrote the same non-null reference local. The later
+same-value `local.tee` was removed, but that write establishes initialization
+in the outer Wasm control frame. The next `local.get` then failed independent
+validation. Runtime value equality does not establish Wasm definite assignment.
+
+Both the raw and HOT implementations now track initialization separately from
+value numbers. Child regions inherit entry initialization and cannot export new
+initialization facts to a parent frame. A more precisely typed equivalent local
+can replace a read only when it is initialized in that frame. Same-frame
+redundant writes are still removed.
+
+The positive test in
+[`rse_dew_definite_init_test.mbt`](../../../../../src/passes/rse_dew_definite_init_test.mbt)
+keeps the first required tee and removes the next duplicate. Before repair it
+failed with `0 != 1`; independent validation reported uninitialized local 2.
+All 43 focused RSE native tests pass after repair. The original Dewdrop
+`collections/array-carriers-runtime` optimizing-inlining case passes Node and
+Wago. The selected 17-fault replay now has 13 passes; this is focused evidence,
+not full corpus or generated-lane signoff. The 54.639-second native test build
+exceeds Dewdrop's 30-second compiler activity limit and remains performance work.

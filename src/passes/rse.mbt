@@ -38,6 +38,7 @@ fn RseLabelScope::new(label_id : Int, kind : RseLabelKind) -> RseLabelScope {
 ///|
 priv struct RseState {
   local_values : Array[Int]
+  mut initialized : Array[Bool]
   value_ids : @hashmap.HashMap[String, Int]
   scopes : Array[RseLabelScope]
   mut next_value : Int
@@ -49,6 +50,13 @@ priv struct RseState {
 fn RseState::new(func : @ir.HotFunc) -> RseState {
   let state = {
     local_values: Array::make(@ir.hot_local_count(func), -1),
+    initialized: Array::makei(@ir.hot_local_count(func), fn(local_id) {
+      let defaultable = match @ir.hot_local_type(func, local_id) {
+        Some(@lib.RefTypeValType(ref_type)) => ref_type.is_nullable()
+        _ => true
+      }
+      local_id < @ir.hot_param_count(func) || defaultable
+    }),
     value_ids: @hashmap.new(capacity=@ir.hot_local_count(func) * 2 + 17),
     scopes: [],
     next_value: 0,
@@ -70,6 +78,7 @@ fn RseState::clone_from(other : RseState) -> RseState {
   // be copied back explicitly.
   {
     local_values: other.local_values.copy(),
+    initialized: other.initialized.copy(),
     value_ids: other.value_ids,
     scopes: other.scopes,
     next_value: other.next_value,
@@ -279,10 +288,12 @@ fn rse_visit_region(
   state : RseState,
   region_ref : @ir.HotRegionRef,
 ) -> Unit {
+  // A nested region can establish initialization only inside its own frame.
+  let entry_initialized = state.initialized.copy()
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
     if !state.reachable {
-      return
+      break
     }
     let root_id = @ir.hot_region_get(func, region_ref, idx)
     if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
@@ -290,6 +301,7 @@ fn rse_visit_region(
     }
     idx += 1
   }
+  state.initialized = entry_initialized
 }
 
 ///|
@@ -477,7 +489,7 @@ fn rse_visit_node(
       let value_id = @ir.hot_child_get(func, node_id, 0)
       let value = child_values[0]
       let current = rse_local_value_get(state, node.imm0)
-      if value >= 0 && current == value {
+      if state.initialized[node.imm0] && value >= 0 && current == value {
         match node.op {
           @ir.HotOp::LocalSet =>
             rse_replace_redundant_set(ctx, func, node_id, value_id)
@@ -488,6 +500,7 @@ fn rse_visit_node(
         state.changed = true
       }
       rse_local_value_set(state, node.imm0, value)
+      state.initialized[node.imm0] = true
       value
     }
     @ir.HotOp::Br => {
@@ -593,6 +606,7 @@ fn RseRawInterner::new(capacity : Int) -> RseRawInterner {
 ///|
 priv struct RseRawState {
   local_values : Array[Int]
+  mut initialized : Array[Bool]
   local_types : Array[@lib.ValType]
   interner : RseRawInterner
   env : @validate.Env
@@ -610,6 +624,13 @@ fn RseRawState::new(
 ) -> RseRawState {
   let state = {
     local_values: Array::make(local_types.length(), -1),
+    initialized: Array::makei(local_types.length(), fn(local_id) {
+      let defaultable = match local_types[local_id] {
+        @lib.RefTypeValType(ref_type) => ref_type.is_nullable()
+        _ => true
+      }
+      local_id < param_count || defaultable
+    }),
     local_types,
     interner: RseRawInterner::new(local_types.length() * 4 + 17),
     env,
@@ -637,6 +658,7 @@ fn RseRawState::new(
 fn RseRawState::clone_from(other : RseRawState) -> RseRawState {
   {
     local_values: other.local_values.copy(),
+    initialized: other.initialized.copy(),
     local_types: other.local_types,
     interner: other.interner,
     env: other.env,
@@ -1163,7 +1185,8 @@ fn rse_raw_refined_get_local(state : RseRawState, local_id : Int) -> Int {
   for candidate_id = 0
       candidate_id < state.local_values.length()
       candidate_id = candidate_id + 1 {
-    if state.local_values[candidate_id] == value &&
+    if state.initialized[candidate_id] &&
+      state.local_values[candidate_id] == value &&
       rse_raw_is_strict_subtype_local(state, candidate_id, local_id) {
       return candidate_id
     }
@@ -1418,16 +1441,21 @@ fn rse_raw_rewrite_expr_scoped(
       @lib.Instruction::LocalSet(local_idx) => {
         let value = rse_raw_pop(state)
         let local_id = rse_raw_local_id(local_idx)
-        if value != -1 && rse_raw_local_get(state, local_id) == value {
+        if state.initialized[local_id] &&
+          value != -1 &&
+          rse_raw_local_get(state, local_id) == value {
           out.push(@lib.Instruction::drop())
           state.changed = true
-        } else if value == -1 && rse_raw_out_ends_with_local_get(out, local_id) {
+        } else if state.initialized[local_id] &&
+          value == -1 &&
+          rse_raw_out_ends_with_local_get(out, local_id) {
           out.push(@lib.Instruction::drop())
           state.changed = true
         } else {
           out.push(instr)
         }
         rse_raw_local_set(state, local_id, value)
+        state.initialized[local_id] = true
       }
       @lib.Instruction::LocalTee(local_idx) => {
         let value = match state.stack.last() {
@@ -1435,14 +1463,19 @@ fn rse_raw_rewrite_expr_scoped(
           None => -1
         }
         let local_id = rse_raw_local_id(local_idx)
-        if value != -1 && rse_raw_local_get(state, local_id) == value {
+        if state.initialized[local_id] &&
+          value != -1 &&
+          rse_raw_local_get(state, local_id) == value {
           state.changed = true
-        } else if value == -1 && rse_raw_out_ends_with_local_get(out, local_id) {
+        } else if state.initialized[local_id] &&
+          value == -1 &&
+          rse_raw_out_ends_with_local_get(out, local_id) {
           state.changed = true
         } else {
           out.push(instr)
         }
         rse_raw_local_set(state, local_id, value)
+        state.initialized[local_id] = true
       }
       @lib.Instruction::Drop => {
         ignore(rse_raw_pop(state))
@@ -1686,9 +1719,13 @@ fn rse_raw_rewrite_expr_scoped(
         rse_raw_push(state, rse_raw_fresh(state))
       }
       @lib.Instruction::Block(block_type, @lib.Expr(body)) => {
+        // Wasm validation restores the entry initialization set at a control
+        // boundary, even when runtime value flow proves the write executes.
+        let entry_initialized = state.initialized.copy()
         let scope = RseRawLabelScope::new(RseRawLabelKind::ExitLabel)
         scopes.push(scope)
         let next = rse_raw_rewrite_expr_scoped(body, state, scopes)
+        state.initialized = entry_initialized
         ignore(scopes.pop())
         let sources : Array[Array[Int]] = []
         if state.reachable {
