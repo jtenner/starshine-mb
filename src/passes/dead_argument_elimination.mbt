@@ -11925,7 +11925,15 @@ fn dae_resolve_local_set_const_carrier(
           local_idx,
         ) ==
         local_slot => return None
-      _ => ()
+      _ =>
+        if dae_instr_writes_local(
+            instrs[idx],
+            @lib.LocalIdx::new(local_slot.reinterpret_as_uint()),
+          ) {
+          // A write in a nested block, loop, arm, or catch invalidates the
+          // earlier literal just as a write in this instruction list does.
+          return None
+        }
     }
     idx += 1
   }
@@ -35264,6 +35272,21 @@ fn dae_instr_writes_local(
       dae_instrs_write_local(else_body, target_local)
     @lib.If(_, then_body, None) =>
       dae_instrs_write_local(then_body, target_local)
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if dae_instrs_write_local(body, target_local) {
+        return true
+      }
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(body))
+          | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+        }
+        if dae_instrs_write_local(catch_body, target_local) {
+          return true
+        }
+      }
+      false
+    }
     _ => false
   }
 }

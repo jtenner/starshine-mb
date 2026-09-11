@@ -177,3 +177,21 @@ Treat the retained 2026-05-04 current-main research digest and the 2026-04-26 re
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae-gc-refine-return.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae-optimizing.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae-refine-params-and-optimize.wast>
+
+## September 2026 nested-write constant-argument repair
+
+The direct and optimizing DAE modes changed Dewdrop's integer text output to
+zero bytes. The constant-argument proof found the initial buffer pointer 48
+but ignored later writes inside a loop or conditional. It then removed the
+changing pointer argument and specialized the callee with 48.
+
+The raw local-constant carrier proof now checks intervening structured
+instructions for writes to that same local, including legacy catch bodies.
+An unrelated nested write does not affect the proof. The positive test in
+[`dae_dew_nested_write_test.mbt`](../../../../../src/passes/dae_dew_nested_write_test.mbt)
+keeps the changing argument and still specializes the independent constant 7.
+Both modes previously returned `[55,55]` for two branch choices. The rebuilt
+CLI now returns `[55,54]`, with external validation, in 2.436/3.989 ms. The
+native regression was red before repair and now passes. Full original-fixture
+replay and generated DAE lanes remain open; the native test build took 58.800
+seconds, above Dewdrop's 30-second compiler activity limit.
