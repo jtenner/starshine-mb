@@ -9,9 +9,10 @@
   destinations, and SimplifyLocals conditional-result source order have positive
   regression fixes. OptimizeCasts also retains pending call order when removing
   redundant refinements. Vacuum retains a dropped tee write's source order.
+  PrecomputePropagation uses operand-expanded scalar flow facts for loop copies.
   See the relevant pass dossiers.
-- **Open:** full wave 17 passes 939/1000 original failed fixture/order pairs and
-  fails 61, with no regression from wave 16. There are 36 O4z cases; direct
+- **Open:** full wave 18 passes 941/1000 original failed fixture/order pairs and
+  fails 59, with no regression from wave 17. There are 36 O4z cases; direct
   failures remain in optimizing inlining, optimizing DAE, and Flatten, plus
   repeated control/local pipelines. These are case counts, not proven owners.
 - **Native gate:** SSA has one pre-existing stack-carried-tee count assertion;

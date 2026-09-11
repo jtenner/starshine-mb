@@ -37,7 +37,7 @@ related:
 
 It is not an alias of plain `precompute`. The public runner performs:
 
-1. one SSA-backed local-fact solve;
+1. one SSA solve for allocation facts and a LocalGraph solve over the operand-expanded CFG for scalar reaching writes;
 2. replacement of only concrete, type-matching local reads whose reaching facts agree;
 3. one bounded plain-precompute evaluator/cleanup run.
 
@@ -159,3 +159,36 @@ The former first difference at defined `4`, absolute `31` is closed. On the rebu
 - Keep stale result-`if` facts rejected unless a real phi or direct condition proof exists; keep raw branch/loop facts conservative and invalidate loop-written locals before body evaluation.
 - Use the public descriptor in all top-level and nested propagating slots; do not recreate a private prefix fork.
 - Use Binaryen `version_131` as the released oracle and keep inherited plain-precompute boundaries explicit.
+
+
+## Nested loop-copy reaching writes
+
+A dropped result-producing conditional can contain a loop-body local copy.
+The root-only CFG does not include every condition operand and backedge.
+Resolving scalar constants from that graph used an earlier write of 5 after a
+changing counter had overwritten the same local. It changed a terminating loop
+into an infinite loop in Dewdrop's optimizing DAE and inlining cleanup.
+
+`precompute_propagate_prefix_fold_local_gets` now builds scalar LocalGraph facts
+with `cfg_build(..., expand_operand_control=true)`. The existing SSA solve still
+serves allocation facts. This repairs the input proof rather than skipping the
+loop transform. The pass retains its single evaluator rerun.
+
+`src/passes/precompute_dew_loop_copy_wbtest.mbt` checks the body copy as the
+reaching write and executes twelve combinations of stale values and starting
+counters. Execution is bounded at 500 instructions; an endless loop is a visible
+failure. Input and output must both return 9, and cleanup must still change the
+body. The original regression was red; all 179 native Precompute family tests
+now pass. All twelve CLI variants validate and run in Node and Wago; each is
+136 canonical bytes versus 138 input and 140 Binaryen 131 bytes.
+
+Full saved replay is 941/1000, with 59 remaining failures, no regression, and two
+newly passing short-circuit cases (138.260 s). Native family build/run takes
+36.726 s; debug build 21.740 s; scoped interfaces 5.128 s; release build
+253.354 s. Work over 30 s remains a performance bug. Release SHA-256 is
+`a1f870a4e102ab8f2511a70c1ccc68d6191737ef174df6f5d6cb58a680a13296`.
+No whole-pipeline speed benefit is established; generated renewal remains open.
+Evidence in Dewdrop's `.tmp/starshine-pass-repairs/` includes
+`precompute-loop-copy-native-red.log`, `precompute-family-native-wave18.log`,
+`precompute-loop-copy-variants/report.json`, `precompute-release-short-circuit.json`,
+and `full-replay-regression-wave18/report.json`.

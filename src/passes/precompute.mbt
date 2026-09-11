@@ -11689,7 +11689,11 @@ fn precompute_propagate_prefix_fold_local_gets(
 ) -> Bool {
   let ssa = pass_require_ssa(ctx, func)
   let label_used = pass_compute_label_used(func)
-  let graph = @ir.local_graph_build(func, pass_require_cfg(ctx, func))
+  // Scalar reaching writes must include control nested in value operands.
+  // The root-only SSA graph can miss loop-body copies in those conditions.
+  let graph = @ir.local_graph_build(
+    func, @ir.cfg_build(func, expand_operand_control=true),
+  )
   let states = Array::make(@ir.hot_node_count(func), 0)
   let value_consts : Array[@ir.HotConstPayload?] = Array::make(
     @ir.hot_node_count(func),
