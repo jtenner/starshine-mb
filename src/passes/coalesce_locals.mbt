@@ -2067,6 +2067,13 @@ fn cl_rewrite_func_structured_conservative(
     params.length(),
     interferences,
   )
+  // An unassigned path reads the body's default, not the incoming parameter.
+  // Flat action order loses that path when another arm writes the local.
+  cl_add_default_entry_param_interferences(
+    rewrite_liveness.live_at_entry,
+    params.length(),
+    interferences,
+  )
   let preferred = cl_preferred_compaction_flags(original_instrs, actions, types)
   let retained_copy_destinations = cl_retained_copy_destination_flags(
     actions,
@@ -3935,6 +3942,23 @@ fn cl_value_for_source(
       } else {
         interner.fresh()
       }
+  }
+}
+
+///|
+fn cl_add_default_entry_param_interferences(
+  live_at_entry : Array[Bool],
+  param_count : Int,
+  interferences : CLBitMatrix,
+) -> Unit {
+  for local_id = param_count
+      local_id < live_at_entry.length()
+      local_id = local_id + 1 {
+    if live_at_entry[local_id] {
+      for param = 0; param < param_count; param = param + 1 {
+        cl_add_interference(interferences, local_id, param)
+      }
+    }
   }
 }
 

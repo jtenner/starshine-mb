@@ -161,3 +161,19 @@ The direct white-box regressions cover the 4,096-snapshot false case, active-loc
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/opt-utils.h>
   - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/coalesce-locals.wast>
+
+## September 2026 entry-default repair
+
+Structured coloring must keep a body local's entry default separate from every
+parameter when a branch can reach that default. Flat action order loses this
+relation when an earlier arm contains a write. The conservative structured
+rewriter now restores these interferences from branch-aware entry liveness
+before selecting colors. Normal nonoverlapping local reuse stays active.
+
+The positive regression is
+[`coalesce_locals_dew_regression_test.mbt`](../../../../../src/passes/coalesce_locals_dew_regression_test.mbt).
+For inputs 0, 1, 7, and 41, the old pass returned 0, 1, 7, and 41 instead of
+0, 1, 0, and 0. The repaired output preserves the defaults. The focused
+coalescing tests, including ordinary local compaction, pass, and the
+repeated `deep-core` map fixture passes Node and Wago. Other failed orders and
+the generated-pass lanes remain in the full repair gate.
