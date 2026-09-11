@@ -194,6 +194,16 @@ So the honest summary is:
 - some remain unfinished
 - the exact supported set is narrower than “all non-null values” but broader than “none of them”
 
+## Execution order of scalar captures
+
+When a rich scalar operand becomes a local-set prelude, its new statement keeps
+the captured value's source order. `hot_build_local_set_from_value` records this
+position. The new allocation ID is not its execution position. This prevents the
+lowerer from moving later trapping casts above the original local initialization.
+The reduced `flatten_dew_pending_effect_test.mbt` case extracts one of two casts
+that feed a non-null local, then reads that local for a field access. The pass
+must still extract the operands and emit a valid module.
+
 ## The `preludes` model
 
 The most important implementation idea in `Flatten.cpp` is the `preludes` map.

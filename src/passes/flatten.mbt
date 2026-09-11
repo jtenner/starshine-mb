@@ -9205,7 +9205,7 @@ fn flatten_spill_scalar_operand(
     return false
   }
   let local_id = @ir.hot_append_body_local(func, result_types[0])
-  let set_id = @ir.hot_build_local_set(func, local_id, child_id)
+  let set_id = @ir.hot_build_local_set_from_value(func, local_id, child_id)
   let mut early_insert_idx = -1
   if child_id < state.use_count_node_limit &&
     owner_region.holder == state.active_region_holder &&

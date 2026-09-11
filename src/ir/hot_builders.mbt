@@ -343,6 +343,20 @@ pub fn hot_build_local_set(
 }
 
 ///|
+/// Capture an existing value at its source execution position.
+/// Use this when extracting an operand into a preceding local-set root.
+pub fn hot_build_local_set_from_value(
+  func : HotFunc,
+  local_id : LocalId,
+  value : NodeId,
+) -> NodeId {
+  let order = hot_node_get(func, value).order
+  let set_id = hot_build_local_set(func, local_id, value)
+  func.nodes[set_id] = { ..func.nodes[set_id], order, }
+  set_id
+}
+
+///|
 /// Copy a tee's write into a statement without changing its source order.
 /// The caller must replace each moved tee use with a read at that use site.
 pub fn hot_build_local_set_from_tee(func : HotFunc, tee_id : NodeId) -> NodeId {
