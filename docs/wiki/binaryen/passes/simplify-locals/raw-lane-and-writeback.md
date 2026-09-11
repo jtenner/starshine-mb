@@ -26,6 +26,37 @@ related:
 
 The 2026-07-27 renewal keeps the raw lane narrow but adds four exact postconditions: erase discarded default struct allocation; erase pure `local.get; drop`; move inert `nop`s before dupable return values and delete unreachable root suffixes; and replace an inert-prefix structured-result `local.set/local.get` carrier with `nop` plus the direct result producer. Binary-path encoded-size regressions guard the two stackifier-sensitive families.
 
+## Reads after a nested branch exit
+
+The leading-read sink must prove that the original local value has one read
+across every enclosing suffix. A read inside an inner block does not make a
+read after that block dead: `br_table` can select the inner exit and continue
+at that second read. Each recursive descent now checks its enclosing suffix.
+The scan also stops at an earlier read of the target instead of skipping it
+and removing the write at a later read.
+
+The reduced runtime case stores a call result of `21`, uses it to select a
+branch-table target, then multiplies the same local by two after the inner
+exit. The broken raw transform returned `0`; the fixed pipeline returns `42`.
+The GC version lost an array element reference and trapped on a later cast.
+The ordinary HOT path can still sink the value with `local.tee`, preserving
+the write needed by that later read.
+
+The same descent must respect loop backedges. A producer before a loop runs
+once; moving it into a repeated loop would execute it again. The raw sink now
+admits only loops whose bodies have no branch back to that loop. A two-iteration
+call test previously returned `43` from two calls; it now returns `42` from
+one call, with both iterations reading the saved value.
+
+The runtime regressions and existing public SimplifyLocals tests pass in the
+combined 215/215 CoalesceLocals/SimplifyLocals native run. Its 46.201-second
+native build/test duration remains a compiler performance issue under the
+30-second project limit.
+The rebuilt native CLI takes 17.429 seconds. Node returns `42` for the reduced
+call, load, GC, and repeated-loop cases. The saved O4z map-iterator prefix now
+passes the same expected output in both Node and Wago after SimplifyLocals.
+
+
 ## Why The Raw Lane Exists
 
 - Some artifact-scale functions are expensive to hot-lift, scan, and lower even when `simplify-locals` ultimately returns `changed=false`.

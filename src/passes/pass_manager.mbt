@@ -9085,6 +9085,9 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_body(
         idx = idx + 1
       }
       @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        // The first read is the only point where the original write may be
+        // removed. Skipping it and replacing a later read leaves that first
+        // read observing the old local value.
         if raw.reinterpret_as_int() == target_local &&
           !run_hot_pipeline_raw_instrs_have_later_local_read(
             body,
@@ -9105,6 +9108,8 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_body(
             rewritten.push(body[rest_idx])
           }
           return Some(rewritten)
+        } else if raw.reinterpret_as_int() == target_local {
+          return None
         } else {
           rewritten.push(body[idx])
           idx = idx + 1
@@ -9116,6 +9121,17 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_body(
           rewritten.push(instr)
           idx = idx + 1
         } else {
+          // A branch out of the nested block can resume in this suffix.
+          // Check each enclosing suffix before descending to the first read;
+          // checking only the innermost body loses live reads after br_table.
+          if run_hot_pipeline_raw_instrs_have_later_local_read(
+              body, idx + 1, target_local,
+            ) ||
+            run_hot_pipeline_raw_instrs_have_later_local_write(
+              body, idx + 1, target_local,
+            ) {
+            return None
+          }
           match instr {
             @lib.Block(bt, @lib.Expr(nested_body)) =>
               match
@@ -9138,7 +9154,9 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_body(
                 }
                 None => return None
               }
-            @lib.Loop(bt, @lib.Expr(nested_body)) =>
+            @lib.Loop(bt, @lib.Expr(nested_body)) if !run_hot_pipeline_raw_vacuum_body_targets_owner(
+                nested_body, 0,
+              ) =>
               match
                 run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_body(
                   nested_body, target_local, replacement,
@@ -9205,7 +9223,11 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_instr(
           Some(@lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)))
         None => None
       }
-    @lib.Loop(bt, @lib.Expr(body)) =>
+    // Moving a producer across a loop backedge changes how often it executes.
+    // Loops without a backedge are single-entry regions and remain eligible.
+    @lib.Loop(bt, @lib.Expr(body)) if !run_hot_pipeline_raw_vacuum_body_targets_owner(
+        body, 0,
+      ) =>
       match
         run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_body(
           body, target_local, replacement,
