@@ -228,3 +228,18 @@ The v131 renewal preserves this three-layer design. The new parity work delibera
 - Focused tests: [`../../../../../src/passes/simplify_locals_test.mbt`](../../../../../src/passes/simplify_locals_test.mbt)
 - Raw lane: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - IR2 rules: [`../../../ir2/architecture-rules.md`](../../../ir2/architecture-rules.md) and [`../../../ir2/local-ssa-policy.md`](../../../ir2/local-ssa-policy.md)
+
+## Block-result writes and escaping branches
+
+A local write can become a block result only if moving it past the trailing
+roots preserves every path that can observe the write. Checking branches to the
+candidate block's own label is insufficient: a branch to an enclosing block
+also skips the new outer local set. The motion check tracks labels contained
+inside each trailing subtree and rejects exits from that subtree. Internal
+branches remain eligible; returns, throws, and calls that can enter an enclosing
+handler prevent moving a prior local write past them.
+
+The reduced regression in `simplify_locals_dew_outer_exit_test.mbt` writes 31
+inside an inner block, branches to the enclosing exit, and reads the local.
+The old result was 0 because the transform placed the write after the branch.
+The test executes branch depths and checks the required result 31.

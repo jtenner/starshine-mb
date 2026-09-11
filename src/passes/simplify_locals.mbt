@@ -1749,6 +1749,64 @@ fn simplify_locals_subtree_mentions_local(
 }
 
 ///|
+fn simplify_locals_subtree_can_exit_before_fallthrough(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  let labels : Array[Int] = []
+  fn visit(node_id : Int) -> Bool {
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      return false
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Return
+      | @ir.HotOp::ReturnCall
+      | @ir.HotOp::ReturnCallIndirect
+      | @ir.HotOp::ReturnCallRef
+      | @ir.HotOp::Throw
+      | @ir.HotOp::ThrowRef
+      | @ir.HotOp::Rethrow
+      | @ir.HotOp::Delegate => return true
+      // A call can transfer to an enclosing exception handler, which can
+      // observe a local write made before the call.
+      @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
+        return true
+      _ => ()
+    }
+    match @ir.hot_branch_target(func, node_id) {
+      Some(label) => if !labels.contains(label) { return true }
+      None => ()
+    }
+    for label in @ir.hot_branch_table_targets_for_node(func, node_id) {
+      if !labels.contains(label) {
+        return true
+      }
+    }
+    let label = if @ir.hot_node_kind_is_control(func, node_id) {
+      @ir.hot_control_node_label(func, node_id)
+    } else {
+      -1
+    }
+    if label >= 0 {
+      labels.push(label)
+    }
+    // Child spans include structured bodies. Internal label exits still
+    // reach the following write; only exits from this subtree block motion.
+    for child in @ir.hot_child_span(func, node_id) {
+      if visit(child) {
+        return true
+      }
+    }
+    if label >= 0 {
+      ignore(labels.pop())
+    }
+    false
+  }
+  visit(root_id)
+}
+
+///|
 fn simplify_locals_root_allows_moving_local_set_value_after(
   func : @ir.HotFunc,
   node_id : Int,
@@ -1759,7 +1817,8 @@ fn simplify_locals_root_allows_moving_local_set_value_after(
     return true
   }
   !simplify_locals_subtree_mentions_local(func, node_id, local_id) &&
-  !simplify_locals_subtree_has_branch_to_label(func, node_id, target_label)
+  !simplify_locals_subtree_has_branch_to_label(func, node_id, target_label) &&
+  !simplify_locals_subtree_can_exit_before_fallthrough(func, node_id)
 }
 
 ///|
