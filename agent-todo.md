@@ -11,15 +11,18 @@
   redundant refinements. Vacuum retains a dropped tee write's source order.
   PrecomputePropagation uses operand-expanded scalar flow facts for loop copies.
   SimplifyLocals retains tee write order; lowering reuses buried carried reads.
+  DAE constant specialization includes ordinary and tail-call actuals.
   See the relevant pass dossiers.
-- **Open:** full wave 19 passes 942/1000 original failed fixture/order pairs and
-  fails 58, with no regression from wave 18. There are 35 O4z cases; direct
-  failures remain in optimizing inlining, optimizing DAE, and Flatten, plus
+- **Open:** full wave 20 passes 944/1000 original failed fixture/order pairs and
+  fails 56, with no regression from wave 19. There are 34 O4z cases; direct
+  failures remain in optimizing inlining and Flatten, plus
   repeated control/local pipelines. These are case counts, not proven owners.
 - **Native gate:** SSA has one pre-existing stack-carried-tee count assertion;
   improved branch liveness exposes 50 further old fresh-local/branch-copy shape
   assertions. Compare their semantics and size before changing expectations.
-  OptimizeInstructions assertion/transform follow-ups remain open. The native
+  OptimizeInstructions assertion/transform follow-ups remain open. DAE native
+  families pass 736/790: 53 assertion follow-ups and the definition-range
+  materialization timeout remain open. The native
   SimplifyLocals family now passes 282/282: ordinary typed-reference assertions
   retain positive carrier cleanup checks, and the pending-effects unit builds
   the intended subtree directly rather than depending on lift capture layout. Full native, all 461 source fixtures, and generated gates are

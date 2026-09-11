@@ -12011,7 +12011,7 @@ fn dae_collect_uniform_const_actuals_instrs(
       dae_target_callsite_evidence(
         instrs[idx],
         callee_abs,
-        DaeTargetDirectCallOnly,
+        DaeTargetDirectOrReturnCall,
       ) {
       Some(_) =>
         match
@@ -12325,8 +12325,10 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
       cache.visited
     _ => Array::make(func_type_indices.length(), false)
   }
+  // A tail call supplies the same parameter boundary as an ordinary call.
+  // Its arguments must join the constant proof, including recursive updates.
   for callsite in function_infos[callee_abs].calls {
-    if !callsite.active || callsite.tail || callsite.callee_abs != callee_abs {
+    if !callsite.active || callsite.callee_abs != callee_abs {
       continue
     }
     match stable_callsite_resolutions {
@@ -12347,7 +12349,7 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
       dae_target_callsite_evidence(
         scope[call_idx],
         callee_abs,
-        DaeTargetDirectCallOnly,
+        DaeTargetDirectOrReturnCall,
       ) {
       Some(_) => ()
       None => return None

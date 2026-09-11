@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-11
 sources:
   - ./index.md
 related:
@@ -33,6 +33,44 @@ It covers:
 - why call localization exists
 - why the optimizing rerun is part of the real pass contract
 - how the 2026-05-05 freshness layer keeps the same contract visible without changing it
+
+## Tail-call arguments in constant specialization
+
+A constant argument proof must include every active `call` and `return_call`
+to the callee. Both the raw instruction collector and the stable callsite
+collector use that boundary. Tail calls are not an extra entry category that
+can be omitted from uniform-value consensus.
+
+Dewdrop's tail-recursion fixture exposed the old omission. An initial ordinary
+call passed `(100000, 0)`; the recursive tail call decremented the first value
+and incremented the second. The reverse-exact-literal path specialized both
+parameters from the initial call alone and emitted an endless self-tail call.
+A smaller mixed-caller case returned 4 for a tail call that supplied 7. The
+module was already wrong before nested PrecomputePropagation ran.
+
+`src/passes/dae_tail_actuals_wbtest.mbt` executes original and optimized bodies
+with a 500-instruction bound. It tests changing recursive actuals, disagreeing
+ordinary/tail constants, and positive parameter removal when both agree.
+The two tests failed before the repair and pass after it. Thirty reduced
+release checks (12 counter/accumulator pairs and three mixed-caller values,
+each through plain and optimizing DAE) plus the original direct/O4z fixture
+pass validation and execute correctly in both Node and Wago.
+
+Release SHA-256 is
+`6ac188671a7dfe1697c44e0a859c704e51c446b269cdf8954da95d7ec6af94b5`.
+The complete Dewdrop wave-20 replay passes 944/1000 cases in 129.120 seconds:
+both tail-recursion failures are repaired and no earlier success regresses.
+This is a checkpoint, not full pass signoff. The isolated native DAE families
+pass 736/790 tests: 53 assertion follow-ups and one 30-second timeout remain
+visible. The timeout is the 15-size definition-range materialization test;
+GC exact-reference expectations account for most assertion failures. They
+must be checked against current feature rules before changing expectations.
+Required regular and aggregate generated renewal is queued for both DAE modes.
+
+Focused red/green native build runs took 31.518/62.278 seconds, the debug CLI
+21.957 seconds, scoped interface generation 4.181 seconds, and release build
+261.532 seconds. Builds over 30 seconds remain compiler performance work.
+Temporary detailed evidence is in Dewdrop's `.tmp/starshine-pass-repairs/`.
 
 ## The big beginner warning
 
