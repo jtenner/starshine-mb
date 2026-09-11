@@ -248,3 +248,27 @@ reverse their call order; the new regression requires calls 0 then 1. The full
 IR suite passes 377 tests. The 1,540-test OptimizeInstructions/SimplifyLocals run
 now passes 1,530; ten remaining capture-layout/reference/fact checks stay open.
 The bulk-memory call-order regressions pass again.
+
+## Control region exits
+
+HOT lifting and the validator use the same `tc_state_finish_block`,
+`tc_state_finish_loop`, and `tc_state_finish_if` helpers. These helpers merge
+recorded reachable branch targets as well as the last instruction's exit state.
+A trailing `unreachable` does not erase an earlier branch to an outer label.
+Loop backedges do not imply fallthrough. The helpers consume already checked
+region states, so nested bodies are still visited once.
+
+Losing those branch records marked the live tail of Dewdrop's array-copy loop
+unreachable. A following result `if` with two other carried stack values then
+lost all three consuming local stores, including the loaded array element. The
+reduced test in `src/ir/hot_lift_reachable_exit_test.mbt` requires that result
+store to remain attached to its conditional producer. The old tail-if lowering
+test now uses valid Wasm: it drops the polymorphic conditional result and gives
+the outer block a result on both exits. Runtime replay remains required in
+addition to validation.
+The repaired shared path passes 380 native IR tests (8.519 seconds) and 1,787
+native validator tests (24.134 seconds). The saved array-carriers CoalesceLocals
+prefix and map-iterator SimplifyLocals prefix pass validation and execution in
+both Node and the locally tested Wago PR 606 runner. The fresh full replay and
+release/generated-pass performance signoff are still open. The debug CLI build
+took 31.373 seconds and is recorded as a build-performance bug.

@@ -1810,19 +1810,6 @@ fn hot_lift_impl_copy_val_types(types : Array[ValType]) -> Array[ValType] {
 }
 
 ///|
-fn hot_lift_impl_restore_outer_state(
-  outer_state : TcState,
-  entry_state : TcState,
-) -> TcState {
-  tc_state_new(
-    outer_state.env,
-    entry_state.stack,
-    outer_state.reachable,
-    outer_state.escape,
-  )
-}
-
-///|
 fn hot_lift_impl_pushed_types(
   before_types : Array[ValType],
   after_types : Array[ValType],
@@ -1968,14 +1955,10 @@ fn hot_lift_impl_lift_control(
       }
       hot_lift_impl_pop_label(label_frames, next_stack)
       let after_state = match
-        tc_state_normalize_untyped_block_exit(body_exit_state, results) {
-        Ok((true, _)) =>
-          tc_state_push_types(
-            hot_lift_impl_restore_outer_state(tc_state, entry_state),
-            results,
-          )
-        Ok((false, block_escape)) =>
-          tc_state_new(tc_state.env, [], false, block_escape)
+        @validate.tc_state_finish_block(
+          tc_state, entry_state, body_exit_state, results,
+        ) {
+        Ok(state) => state
         Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
       }
       ignore(hot_replace_child_span(func, id, body_roots))
@@ -2036,14 +2019,13 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       hot_lift_impl_pop_label(label_frames, next_stack)
-      match tc_state_validate_end_stack(body_exit_state, results) {
-        Ok(_) => ()
+      let after_state = match
+        @validate.tc_state_finish_loop(
+          tc_state, entry_state, body_exit_state, results,
+        ) {
+        Ok(state) => state
         Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
       }
-      let after_state = tc_state_push_types(
-        hot_lift_impl_restore_outer_state(tc_state, entry_state),
-        results,
-      )
       let loop_children : Array[NodeId] = []
       for entry_value in entry_values {
         loop_children.push(entry_value)
@@ -2121,16 +2103,12 @@ fn hot_lift_impl_lift_control(
         Ok(state) => state
         Err(err) => return Err(err)
       }
-      let (then_reach, then_escape) = match
-        tc_state_normalize_untyped_if_branch_exit(then_exit_state, results) {
-        Ok(normalized) => normalized
-        Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
-      }
       let then_region = hot_lift_impl_make_region(
         func, then_roots, result_arity,
       )
-      let mut else_reach = false
-      let mut else_escape : TcEscape = tc_escape_terminal()
+      let mut checked_else_state = hot_lift_impl_region_state(
+        entry_state, region_env, entry_types,
+      )
       let else_region = match else_instrs {
         Some(instrs) => {
           let else_state = hot_lift_impl_region_state(
@@ -2147,49 +2125,21 @@ fn hot_lift_impl_lift_control(
               initial_value_types=entry_types,
             ) {
             Ok((else_roots, _, else_exit_state)) => {
-              match
-                tc_state_normalize_untyped_if_branch_exit(
-                  else_exit_state, results,
-                ) {
-                Ok((reaches_merge, exit_escape)) => {
-                  else_reach = reaches_merge
-                  else_escape = exit_escape
-                }
-                Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
-              }
+              checked_else_state = else_exit_state
               hot_lift_impl_make_region(func, else_roots, result_arity)
             }
             Err(err) => return Err(err)
           }
         }
-        None => {
-          let else_exit_state = hot_lift_impl_region_state(
-            entry_state, region_env, entry_types,
-          )
-          match
-            tc_state_normalize_untyped_if_branch_exit(else_exit_state, results) {
-            Ok((reaches_merge, exit_escape)) => {
-              else_reach = reaches_merge
-              else_escape = exit_escape
-            }
-            Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
-          }
-          HOT_NONE_NODE
-        }
+        None => HOT_NONE_NODE
       }
       hot_lift_impl_pop_label(label_frames, next_stack)
-      let after_state = if then_reach || else_reach {
-        tc_state_push_types(
-          tc_state_new(tc_state.env, entry_state.stack, true, tc_escape_none()),
-          results,
-        )
-      } else {
-        tc_state_new(
-          tc_state.env,
-          [],
-          false,
-          tc_state_merge_nonfallthrough_if_exits(then_escape, else_escape),
-        )
+      let after_state = match
+        @validate.tc_state_finish_if(
+          tc_state, entry_state, then_exit_state, checked_else_state, results,
+        ) {
+        Ok(state) => state
+        Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
       }
       ignore(
         hot_replace_child_span(func, id, [condition, then_region, else_region]),

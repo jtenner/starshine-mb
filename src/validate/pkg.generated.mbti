@@ -187,6 +187,12 @@ pub fn tc_escape_terminal() -> TcEscape
 
 pub fn tc_state_clone(TcState) -> TcState
 
+pub fn tc_state_finish_block(TcState, TcState, TcState, Array[@lib.ValType]) -> Result[TcState, String]
+
+pub fn tc_state_finish_if(TcState, TcState, TcState, TcState, Array[@lib.ValType]) -> Result[TcState, String]
+
+pub fn tc_state_finish_loop(TcState, TcState, TcState, Array[@lib.ValType]) -> Result[TcState, String]
+
 pub fn tc_state_merge_nonfallthrough_if_exits(TcEscape, TcEscape) -> TcEscape
 
 pub fn tc_state_new(Env, Array[@lib.ValType], Bool, TcEscape) -> TcState

@@ -693,6 +693,17 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Err(e) => return Err(e)
     Ok(s) => s
   }
+  tc_state_finish_block(st, st1, st_body, results)
+}
+
+///|
+// Complete a prechecked control region without walking its instructions again.
+pub fn tc_state_finish_block(
+  st : TcState,
+  st1 : TcState,
+  st_body : TcState,
+  results : Array[ValType],
+) -> Result[TcState, String] {
   let (base_reaches_merge, block_escape) = match
     normalize_untyped_block_exit(st_body, results) {
     Err(e) => return Err(e)
@@ -785,6 +796,18 @@ fn typecheck_if(
     Ok(s) => s
   }
 
+  tc_state_finish_if(st, st1, st_then, st_else, results)
+}
+
+///|
+// Complete a prechecked control region without walking its instructions again.
+pub fn tc_state_finish_if(
+  st : TcState,
+  st1 : TcState,
+  st_then : TcState,
+  st_else : TcState,
+  results : Array[ValType],
+) -> Result[TcState, String] {
   let (base_then_reach, then_escape) = match
     normalize_untyped_if_branch_exit(st_then, results) {
     Err(e) => return Err(e)
@@ -2027,6 +2050,17 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     Ok(s) => s
   }
 
+  tc_state_finish_loop(st, st1, st_body, results)
+}
+
+///|
+// Complete a prechecked control region without walking its instructions again.
+pub fn tc_state_finish_loop(
+  st : TcState,
+  st1 : TcState,
+  st_body : TcState,
+  results : Array[ValType],
+) -> Result[TcState, String] {
   let (reaches_merge, loop_escape) = match
     normalize_loop_exit(st_body, results) {
     Err(e) => return Err(e)

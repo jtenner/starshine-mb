@@ -2950,25 +2950,19 @@ test "hot lower preserves result blocks consumed by local.set" {
 test "hot lower canonicalizes tail if forwarders into void if plus unreachable" {
   let source =
     #|(module
-    #|  (func (param i32) (result i32) (local i32 i32)
-    #|    (local.set 2
-    #|      (block $outer (result i32)
-    #|        (block $exit
-    #|          (br $outer
-    #|            (block $mid (result i32)
-    #|              (block $cont
-    #|                (if (result i32)
-    #|                  (local.get 0)
-    #|                  (then
-    #|                    (i32.const 7)
-    #|                    (local.set 1)
-    #|                    (br $cont))
-    #|                  (else
-    #|                    (i32.const 9)
-    #|                    (local.set 1)
-    #|                    (br $exit))))
-    #|              (local.get 1)))))
-    #|    (local.get 2))))
+    #| (func (param i32) (result i32) (local i32 i32)
+    #|   (local.set 2
+    #|     (block $outer (result i32)
+    #|       (block $exit
+    #|         (br $outer
+    #|           (block $mid (result i32)
+    #|             (block $cont
+    #|               (drop (if (result i32) (local.get 0)
+    #|                 (then (local.set 1 (i32.const 7)) (br $cont))
+    #|                 (else (local.set 1 (i32.const 9)) (br $exit)))))
+    #|             (local.get 1))))
+    #|       (local.get 1)))
+    #|   (local.get 2)))
   let module_ = match @wast.wast_to_binary_module(source) {
     Ok(module_) => module_
     Err(err) => fail("expected module to parse, got \{err}")
