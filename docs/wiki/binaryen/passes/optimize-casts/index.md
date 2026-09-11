@@ -101,3 +101,17 @@ That is narrower than “optimize all casts.”
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - Binaryen `version_129` after-inlining helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-casts.wast>
+## September 2026 local-overwrite repair
+
+A cast used in the right-hand side of a local write proves a fact about the old
+value. Caching it after the assignment can redirect a later read to that old
+object. Refinement and tee-alias collection now visit operands first, invalidate
+facts for the written local, and then record any fact about the assigned value.
+
+The positive regression is
+[`optimize_casts_dew_regression_test.mbt`](../../../../../src/passes/optimize_casts_dew_regression_test.mbt):
+a call reads a cast box holding 41 and returns a new box holding 42 into the same
+local. The following read must return 42. The old output returned 41. All focused
+cast tests pass in the 1,200-test native repair run, and Dewdrop's array transform
+fixture now passes Node and Wago. The other failed cast fixtures and generated
+lanes remain part of the full repair gate.

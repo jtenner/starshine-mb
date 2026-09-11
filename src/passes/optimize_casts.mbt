@@ -703,6 +703,25 @@ fn oc_plain_fallthrough_block_for_root(
 }
 
 ///|
+// A refinement describes the value at the cast, so a later write to the same
+// local in this expression kills it. Visit operands in evaluation order.
+fn oc_forget_refinements_for_local(
+  out : Array[(Int, Int)],
+  local_id : Int,
+) -> Unit {
+  let mut kept = 0
+  for idx = 0; idx < out.length(); idx = idx + 1 {
+    if out[idx].0 != local_id {
+      out[kept] = out[idx]
+      kept += 1
+    }
+  }
+  while out.length() > kept {
+    ignore(out.pop())
+  }
+}
+
+///|
 fn oc_collect_refinements(
   func : @ir.HotFunc,
   node_id : Int,
@@ -715,13 +734,26 @@ fn oc_collect_refinements(
   if oc_op_is_structured_control(node.op) {
     return
   }
+  for child_id in oc_node_children(func, node_id) {
+    oc_collect_refinements(func, child_id, out)
+  }
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+      oc_forget_refinements_for_local(out, node.imm0)
+      if @ir.hot_child_count(func, node_id) == 1 {
+        let value_id = @ir.hot_child_get(func, node_id, 0)
+        match @ir.hot_node_exact_instr(func, value_id) {
+          Some(@lib.RefCast(_, _, _)) | Some(@lib.RefAsNonNull) =>
+            out.push((node.imm0, value_id))
+          _ => ()
+        }
+      }
+    }
+    _ => ()
+  }
   match oc_refinement_source_local(func, node_id) {
     Some(local_id) => out.push((local_id, node_id))
     None => ()
-  }
-  let children = oc_node_children(func, node_id)
-  for child_id in children {
-    oc_collect_refinements(func, child_id, out)
   }
 }
 
@@ -738,16 +770,20 @@ fn oc_collect_refinement_tee_source_aliases(
   if oc_op_is_structured_control(node.op) {
     return
   }
+  for child_id in oc_node_children(func, node_id) {
+    oc_collect_refinement_tee_source_aliases(func, child_id, out)
+  }
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+      oc_forget_refinements_for_local(out, node.imm0)
+      return
+    }
+    _ => ()
+  }
   let requires_nullable_source = match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefCast(_, _, _)) => false
     Some(@lib.Instruction::RefAsNonNull) => true
-    _ => {
-      let children = oc_node_children(func, node_id)
-      for child_id in children {
-        oc_collect_refinement_tee_source_aliases(func, child_id, out)
-      }
-      return
-    }
+    _ => return
   }
   if @ir.hot_child_count(func, node_id) == 1 {
     let child_id = @ir.hot_child_get(func, node_id, 0)
@@ -770,10 +806,6 @@ fn oc_collect_refinement_tee_source_aliases(
         }
       _ => ()
     }
-  }
-  let children = oc_node_children(func, node_id)
-  for child_id in children {
-    oc_collect_refinement_tee_source_aliases(func, child_id, out)
   }
 }
 
