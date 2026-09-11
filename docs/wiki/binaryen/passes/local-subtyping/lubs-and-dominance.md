@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: strong
-last_reviewed: 2026-07-26
+last_reviewed: 2026-09-11
 sources:
   - ./index.md
   - ../../../../../src/passes/local_subtyping.mbt
@@ -24,6 +24,20 @@ Important cases:
 - any nullable input makes the result nullable.
 
 Typed nulls use their bottom heap families for LUB reasoning: internal nulls use `none`, function nulls `nofunc`, continuation nulls `nocont`, extern nulls `noextern`, and exception nulls `noexn`.
+
+## Tee assignment type and result type
+
+A `local.tee` contributes its operand type to the written local's assignment
+LUB. Its stack result has the local's declared storage type. Those types differ
+when another assignment keeps the local wider than this operand. A following
+tee or set must use the declared result, or it can narrow its destination to a
+type that the emitted stack value does not satisfy. A later iteration can refine
+that result after the carrier's declaration has itself narrowed.
+
+`src/passes/local_subtyping_dew_tee_type_test.mbt` covers a struct passed through
+two tees while a later array assignment keeps the first local at `eqref`. Both
+locals retain a compatible common type, the pass still narrows their declarations,
+and the output validates. The old transform emitted an invalid second tee.
 
 ## Gets and structural dominance
 

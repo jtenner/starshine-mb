@@ -1462,7 +1462,9 @@ fn ls_collect_raw_assignments_instrs(
           locals, idx, assigned_type, param_types, body_locals, ref_body_locals,
           unknown_falls_back,
         )
-        stack.push(assigned_type)
+        // local.tee returns its declared storage type, which can be wider
+        // than this one value. Another write can keep that storage broad.
+        stack.push(ls_local_declared_type(idx, param_types, body_locals))
       }
       @lib.Drop => ignore(ls_raw_stack_pop(stack))
       @lib.RefAsNonNull => {
