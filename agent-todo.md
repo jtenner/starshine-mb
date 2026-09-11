@@ -4,14 +4,19 @@
 
 - **Goal:** repair transformations exposed by the complete 461-fixture Dewdrop
   source sweep, using execution in Node and Wago as the primary check.
-- **Closed shape:** SSANoMerge nested conditional operands losing closure writes;
-  see [the pass tracker](docs/wiki/binaryen/passes/ssa-nomerge/parity.md#september-2026-runtime-reopen).
-- **Open:** after inlining, SSANoMerge still fails `collections/map-runtime` and
-  `generics/generic-never-match-runtime`. Heap2Local fails JSON reader state,
-  and portable I/O. The trait dictionary non-null field-local initialization
-  defect is repaired; broad generated-pass revalidation remains pending. A second CoalesceLocals wave after control cleanup
-  breaks map/set runtime cases; a second SimplifyLocalsNoStructure wave breaks
-  nested patterns and exceeds 30 seconds on deep/wide functional loops.
+- **Closed shapes:** shared HOT stack/control lifetimes, reference initialization,
+  CoalesceLocals operand CFG, nested SSA branch joins, and transitive branch-copy
+  destinations have positive regression fixes. See the relevant pass dossiers.
+- **Open:** full wave 13 passes 931/1000 original failed fixture/order pairs and
+  fails 69, with no regression from wave 11. There are 43 O4z cases; direct
+  failures remain in optimizing inlining, optimizing DAE, and Flatten, plus
+  repeated control/local pipelines. These are case counts, not proven owners.
+- **Native gate:** SSA has one pre-existing stack-carried-tee count assertion;
+  improved branch liveness exposes 50 further old fresh-local/branch-copy shape
+  assertions. Compare their semantics and size before changing expectations.
+  OptimizeInstructions and SimplifyLocals assertion/transform follow-ups also
+  remain open. Full native, all 461 source fixtures, and generated gates are
+  required before selecting the CLI speed schedule.
 - **Deliverables / tests:** reduce each first failing prefix, add positive
   transform and bounded original/output execution tests, repair the owner, and
   replay all source fixtures plus required pass-specific generated lanes.
@@ -34,14 +39,13 @@
 
 ## Current Pipeline Facts
 
-- Dewdrop runtime follow-up: `simplify-locals` first breaks the ordered cleanup
-  prefix on `control-flow/short-circuit-runtime` (the validated module loops);
-  `optimize-casts` breaks six saved fixture executions; standalone `heap2local`
-  breaks `collections/fixed-array-runtime` with an illegal cast. Reproduce with
-  Dewdrop's `tools/starshine-experiments/isolate.py` and its checked-in fixture
-  WAT. Keep these owners open until runtime results and trap behavior agree.
-  The separate CLI terminal-return stack-unwinding defect has a focused fix and
-  external Dewdrop regression coverage; it does not resolve these pass defects.
+- Dewdrop runtime follow-up: use the complete wave 13 failure ledger at
+  `.tmp/starshine-pass-repairs/full-replay-regression-wave13/report.json` in
+  Dewdrop. Earlier standalone OptimizeCasts and Heap2Local fault counts are
+  superseded by the repairs and complete replay. Current direct failures include
+  short-circuit cleanup, tail-recursion DAE, math inlining time, JSON bloom at
+  optimize level 4/shrink level 1, nullable-reference trap behavior, and large
+  WASI Flatten. Isolate the first changed behavior before naming an owner.
 
 - Dewdrop pipeline screen (2026-09-10): the aliased-counter SLNS hang, four
   additional SLNS local-lifetime/branch-join faults, and the fixed-array

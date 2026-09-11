@@ -251,3 +251,50 @@ A future parity port must keep these concrete rules honest:
 - predecessor-copy or entry-prepend materialization belongs to full `ssa`, not `ssa-nomerge`
 
 If a local implementation blurs those boundaries, it will drift away from the real Binaryen contract.
+
+
+## Nested branch continuations and copy chains
+
+The raw structured rewrite must use the liveness at a branch's actual target.
+A possible write later in the enclosing text does not kill an earlier value on
+a path that branches around that write. Backward structured liveness now joins
+conditional and branch-table successors, tracks block exits, and solves loop
+headers to a fixed point. The implicit function label has no local live-out.
+Unsupported exception edges retain conservative inputs.
+
+A Dew JSON bloom duplicate fixture exposed two inner writes feeding a read after
+an outer join. LocalGraph correctly reported all three reaching writes; the raw
+suffix scan nevertheless renamed two writes and left the merged read on the
+old local. The reduced results were `0, 0, 9` instead of `42, 41, 9`. All three
+paths now return the original values. The saved first failing nested SSA stage
+and default-level inlining fixture pass in Node and Wago. The original optimize
+level 4/shrink level 1 inlining case still fails later and remains in the ledger.
+
+The improved liveness exposed another raw cleanup bug: collapsing `A -> B -> C`
+used the original `B` destination after it had already been rewritten to `C`.
+The final value could remain in `B`, including a loop counter update. Copy-chain
+cleanup now reads the current rewritten instructions at each step. A reduced
+integer regression returns 42 instead of 0, and the nested functional-while
+fixture's four SSA stages pass again.
+
+Seven focused native tests cover the merged values, LocalGraph sources,
+conditional entry values, unreachable writes, branch-table successors, loop
+liveness, and the copy-chain result. The final native build/test takes 49.317 s;
+this exceeds Dewdrop's 30 s compiler-work budget. Scoped `moon info` passes in
+2.749 s with no public API changes. The full replay of 1,000 original failed
+Dew fixture/pass-order pairs passes 931 and fails 69 in 122.930 seconds, with no regression from
+the 926 passing wave 11 cases. Remaining cases are open, not accepted drift.
+
+Native assertion cleanup remains open: the old build passes 495/496 isolated
+SSA tests. The liveness repair initially passes 445/496; 50 additional checks
+expect the old fresh-local/branch-copy layouts, including helpers that abort
+on a failed shape assertion. These require semantic and size comparison before
+changing their expectations. The pre-existing stack-carried-tee local-count
+check also remains open. These failures do not replace the dual-runtime replay.
+
+Sources: `src/passes/ssa_nomerge_raw_liveness.mbt`, the raw rewrite and branch
+copy cleanup in `src/passes/pass_manager.mbt`, and
+`src/passes/ssa_nomerge_dew_nested_join_wbtest.mbt`. Local replay logs are under
+Dewdrop `.tmp/starshine-pass-repairs/`: `full-replay-regression-wave13/`,
+`ssa-nested-join-fixed/`, `ssa-nested-loop-regression-fixed/`, and
+`ssa-wave11-native-isolated.json` / `ssa-wave12-native-isolated.json`.

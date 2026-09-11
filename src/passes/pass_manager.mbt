@@ -18355,20 +18355,14 @@ fn run_hot_pipeline_raw_future_local_reads_before_writes(
   instrs : Array[@lib.Instruction],
   start_idx : Int,
   inherited : @bitset.BitSet,
+  label_stack : Array[RawSsaLabelTarget],
 ) -> @bitset.BitSet {
-  let future = inherited.copy()
-  for local_id = 0; local_id < future.length(); local_id = local_id + 1 {
-    if run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
-        instrs, start_idx, local_id,
-      ) {
-      future[local_id] = true
-    } else if run_hot_pipeline_raw_instrs_have_later_local_write(
-        instrs, start_idx, local_id,
-      ) {
-      future[local_id] = false
-    }
-  }
-  future
+  ssa_nomerge_raw_live_before(
+    instrs,
+    start_idx,
+    inherited,
+    label_stack.map(target => target.needed_alias_copies),
+  )
 }
 
 ///|
@@ -21299,6 +21293,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           instrs,
           idx + 1,
           future_reads_before_writes,
+          label_stack,
         )
         let label_target = match
           run_hot_pipeline_raw_label_target(
@@ -21404,6 +21399,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           instrs,
           idx + 1,
           future_reads_before_writes,
+          label_stack,
         )
         let label_target = match
           run_hot_pipeline_raw_label_target(
@@ -21692,11 +21688,12 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           instrs,
           idx + 1,
           future_reads_before_writes,
+          label_stack,
         )
-        let loop_header_reads_before_writes = run_hot_pipeline_raw_future_local_reads_before_writes(
+        let loop_header_reads_before_writes = ssa_nomerge_raw_loop_live(
           body,
-          0,
           @bitset.BitSet::new(canonical_aliases.length()),
+          label_stack.map(target => target.needed_alias_copies),
         )
         let child_future_reads_before_writes = run_hot_pipeline_raw_bitset_union(
           after_loop_reads_before_writes, loop_header_reads_before_writes,
@@ -22071,6 +22068,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           instrs,
           idx + 1,
           future_reads_before_writes,
+          label_stack,
         )
         let label_target = match
           run_hot_pipeline_raw_label_target(
@@ -25040,6 +25038,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
             _ => ()
           }
         }
+        // An earlier copy collapse can retarget the set immediately before
+        // this copy. Follow that updated destination through the whole chain.
         let mut scan = idx - 2
         while scan >= 0 {
           if remove[scan] || remove[scan + 1] {
@@ -25047,9 +25047,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
           }
           match
             (
-              run_hot_pipeline_raw_ssa_nomerge_local_id_from_get(instrs[scan]),
+              run_hot_pipeline_raw_ssa_nomerge_local_id_from_get(rewritten[scan]),
               run_hot_pipeline_raw_ssa_nomerge_local_id_from_set(
-                instrs[scan + 1],
+                rewritten[scan + 1],
               ),
             ) {
             (Some(temp_id), Some(target_id)) => {
