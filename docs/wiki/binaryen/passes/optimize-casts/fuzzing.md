@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -25,6 +25,28 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-cas
 ```
 
 Aliases accepted by GenValid profile lookup: `optimize-casts`, `optimize-casts-closeout`, `optimize-casts-all-profiles`, `oc`, and `oc-closeout`.
+
+## Real Node process renewal, September 2026
+
+The release at `aadea9dbf` includes the pending-call ordering repair and the
+shared carried-value lowering fixes. SHA-256:
+`d5a68233c5402e62af7aa6a1b6dc12d4cb0591033608a046221344148edac1f8`.
+Both fresh lanes use explicit Binaryen 131, seed `0x5eed`, eight workers,
+strict `node-v2` execution in real Node processes, independent wasm-tools
+validation, byte determinism, and codec idempotence.
+
+| Lane | Cases | Canonical matches | Runtime matches | Original runtime blocked | Seconds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Regular | 10,000 | 10,000 | 5,019 | 4,981 | 111.712 |
+| `optimize-casts-all` | 10,000 | 10,000 | 10,000 | 0 | 594.554 |
+
+Both lanes have zero shape differences, runtime mismatches, size differences,
+and validator/generator/command/property failures. Canonical totals for each
+optimizer are 42,157,334 bytes (regular) and 620,150 bytes (aggregate). Blocked
+originals are not counted as runtime passes. These generated results support
+the pass repair; they do not close all Dewdrop composed pipelines or establish
+a runtime speed gain. Detailed evidence is under Dewdrop's
+`.tmp/starshine-pass-repairs/genvalid-wave19-optimize-casts-*`.
 
 ## Profile leaves
 
