@@ -632,3 +632,19 @@ Flatten now fails closed on two exact pre-mutation relations: a later global wri
 - [`../tracker.md`](../tracker.md)
 - [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Official Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp), [`flat.h`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/ir/flat.h), and the cited local registry sources support the current status.
+
+## September 2026 SIMD operand repair
+
+Dewdrop's fixed-array fixture exposed an arity defect in HOT lifting. On a
+polymorphic stack after nested branch-table exits, generic arity inference
+allowed `v128.const` to consume a preceding scalar. Flatten then duplicated
+that scalar and vector while lowering a later call, yielding an invalid
+argument stack. SIMD constants now have explicit zero-operand arity.
+
+[`flatten_dew_simd_operand_test.mbt`](../../../../../src/passes/flatten_dew_simd_operand_test.mbt)
+requires actual allocation flattening and one emitted SIMD constant after the
+branch-table merge. The old reduced CLI case failed call validation. The fixed
+case validates independently and returns 1 in Node, with 3.003 ms optimization.
+All 99 related native lift/lower and regression tests pass, and the original
+fixed-array fixture passes Node and Wago in the complete failed-case replay.
+Generated lanes and remaining Flatten runtime faults are still open.

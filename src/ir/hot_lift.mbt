@@ -634,6 +634,12 @@ fn hot_lift_impl_call_param_count(env : Env, instr : Instruction) -> Int? {
 
 ///|
 fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
+  // SIMD constants are nullary even on a polymorphic stack. Generic arity
+  // inference must not promote them to consume a preceding scalar operand.
+  match instr {
+    Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => return Some(0)
+    _ => ()
+  }
   match hot_lift_impl_direct_family(instr) {
     Some(HotOp::Nop)
     | Some(HotOp::Unreachable)
