@@ -5,17 +5,21 @@
 - **Goal:** repair transformations exposed by the complete 461-fixture Dewdrop
   source sweep, using execution in Node and Wago as the primary check.
 - **Closed shapes:** shared HOT stack/control lifetimes, reference initialization,
-  CoalesceLocals operand CFG, nested SSA branch joins, and transitive branch-copy
-  destinations have positive regression fixes. See the relevant pass dossiers.
-- **Open:** full wave 13 passes 931/1000 original failed fixture/order pairs and
-  fails 69, with no regression from wave 11. There are 43 O4z cases; direct
+  CoalesceLocals operand CFG, nested SSA branch joins, transitive branch-copy
+  destinations, and SimplifyLocals conditional-result source order have positive
+  regression fixes. See the relevant pass dossiers.
+- **Open:** full wave 15 passes 936/1000 original failed fixture/order pairs and
+  fails 64, with no regression from wave 14. There are 39 O4z cases; direct
   failures remain in optimizing inlining, optimizing DAE, and Flatten, plus
   repeated control/local pipelines. These are case counts, not proven owners.
 - **Native gate:** SSA has one pre-existing stack-carried-tee count assertion;
   improved branch liveness exposes 50 further old fresh-local/branch-copy shape
   assertions. Compare their semantics and size before changing expectations.
-  OptimizeInstructions and SimplifyLocals assertion/transform follow-ups also
-  remain open. Full native, all 461 source fixtures, and generated gates are
+  OptimizeInstructions assertion/transform follow-ups remain open. The native
+  SimplifyLocals family passes 278/282; three old exact-reference expectations
+  conflict with the repaired feature boundary, and one pending-effects test
+  assumes the first root still owns a tee now captured by lifting. All four
+  predate the source-order repair; verify the new contracts before updating them. Full native, all 461 source fixtures, and generated gates are
   required before selecting the CLI speed schedule.
 - **Deliverables / tests:** reduce each first failing prefix, add positive
   transform and bounded original/output execution tests, repair the owner, and

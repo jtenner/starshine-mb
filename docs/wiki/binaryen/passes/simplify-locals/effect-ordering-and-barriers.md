@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-11
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
+  - ../../../../../src/passes/simplify_locals_dew_conditional_order_test.mbt
+  - ../../../../../src/ir/hot_builders.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -33,6 +35,36 @@ The v131 renewal did not weaken this barrier model. New direct carrier rewrites 
   - mutates a source the value depends on
   - mutates observable state in a way that changes the meaning or order of the value
   - crosses a control boundary that invalidates the trace model
+
+## Source order after carrier removal
+
+A synthetic local write that captures an existing value must retain the value's
+source position. SimplifyLocals now uses `hot_build_local_set_from_value` for
+result-producing control wrappers, local-write replacements, and flat carrier
+cleanup. Ordinary node allocation gives these writes a later order, which can
+make lowering treat a later dependent conditional as an older pending value.
+The root list alone does not protect the write/read order.
+
+The reduced Dew JSON shape has three conditionals. The first computes an i64
+hash, the second reads that hash to compute an i32 bucket, and the third reads
+both. Carrier cleanup previously changed `run(1)` from 84 to 0; the native
+regression now checks 84 for both positive and negative true conditions, 0 for
+false, and exactly one hash call followed by one bucket call with argument 42.
+This protects executed behavior and call order, rather than a local-numbering
+layout. The pass still removes the temporary carriers.
+
+Nine reduced CLI variants, including a loop wrapper and a condition copied to a
+body local, pass external validation and execution in Node and Wago. Their
+stripped outputs are 11..17 bytes smaller than the inputs and 7..10 bytes smaller
+than Binaryen 131. These size results are not a runtime-speed claim.
+
+The complete Dew replay improves from 931/1000 to 936/1000, with no new
+failures, and the exact optimize-level-4/shrink-level-1 JSON inlining case now
+passes both engines. The native family is 278/282: three old exact-reference
+assertions and one old pending-effects root assumption remain open. The release
+CLI SHA-256 is `145b9829bc4d468cc54a3038da3a4e987fea0e4b28b61b196ebcd46eac1ef18e`;
+its build takes 254.423 seconds, an open compiler-work performance bug. Large
+generated gates and whole-pipeline speed selection remain open.
 
 ## The Main Barrier Buckets
 

@@ -1502,12 +1502,16 @@ fn simplify_locals_make_local_tee(
 }
 
 ///|
+/// Keep the captured value at its source position when removing a carrier.
+/// Fresh wrapper order can move dependent conditional reads before this write.
 fn simplify_locals_make_local_set(
   func : @ir.HotFunc,
   local_id : Int,
   value_id : Int,
 ) -> @ir.HotNode {
-  let replacement_id = @ir.hot_build_local_set(func, local_id, value_id)
+  let replacement_id = @ir.hot_build_local_set_from_value(
+    func, local_id, value_id,
+  )
   let replacement = @ir.hot_node_get(func, replacement_id)
   @ir.hot_delete_node(func, replacement_id)
   replacement
@@ -4465,7 +4469,11 @@ fn simplify_locals_try_rewrite_block_return(
             func,
             parent_region,
             root_idx,
-            @ir.hot_build_local_set(func, candidate.local_id, node_id),
+            @ir.hot_build_local_set_from_value(
+              func,
+              candidate.local_id,
+              node_id,
+            ),
           ),
         )
         return true
@@ -4508,7 +4516,7 @@ fn simplify_locals_try_rewrite_block_return(
           func,
           parent_region,
           root_idx,
-          @ir.hot_build_local_set(func, candidate.local_id, node_id),
+          @ir.hot_build_local_set_from_value(func, candidate.local_id, node_id),
         ),
       )
       return true
@@ -4628,7 +4636,7 @@ fn simplify_locals_try_rewrite_if_return(
           func,
           parent_region,
           root_idx,
-          @ir.hot_build_local_set(func, chosen_local, node_id),
+          @ir.hot_build_local_set_from_value(func, chosen_local, node_id),
         ),
       )
       true
@@ -4690,7 +4698,11 @@ fn simplify_locals_try_rewrite_if_return(
           func,
           parent_region,
           root_idx,
-          @ir.hot_build_local_set(func, then_tail.local_id, replacement_if),
+          @ir.hot_build_local_set_from_value(
+            func,
+            then_tail.local_id,
+            replacement_if,
+          ),
         ),
       )
       true
@@ -4805,7 +4817,7 @@ fn simplify_locals_try_rewrite_loop_return(
       func,
       parent_region,
       root_idx,
-      @ir.hot_build_local_set(func, tail.local_id, node_id),
+      @ir.hot_build_local_set_from_value(func, tail.local_id, node_id),
     ),
   )
   true
@@ -4877,7 +4889,7 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_child(
     func,
     parent_id,
     slot,
-    @ir.hot_build_local_set(func, then_tail.local_id, replacement_if),
+    @ir.hot_build_local_set_from_value(func, then_tail.local_id, replacement_if),
   )
   detached.push(child_id)
   true
@@ -5876,7 +5888,7 @@ fn simplify_locals_fold_dead_set_copy_region(
             scratch != target_set.imm0 &&
             reload.imm0 == scratch &&
             get_counts[scratch] == 1 {
-            let replacement_set = @ir.hot_build_local_set(
+            let replacement_set = @ir.hot_build_local_set_from_value(
               func,
               target_set.imm0,
               value_id,
