@@ -611,6 +611,7 @@ priv struct RseRawState {
   interner : RseRawInterner
   env : @validate.Env
   stack : Array[Int]
+  stack_types : Array[@lib.ValType?]
   mut next_unknown : Int
   mut changed : Bool
   mut reachable : Bool
@@ -635,6 +636,7 @@ fn RseRawState::new(
     interner: RseRawInterner::new(local_types.length() * 4 + 17),
     env,
     stack: [],
+    stack_types: [],
     next_unknown: 0,
     changed: false,
     reachable: true,
@@ -663,6 +665,7 @@ fn RseRawState::clone_from(other : RseRawState) -> RseRawState {
     interner: other.interner,
     env: other.env,
     stack: other.stack.copy(),
+    stack_types: other.stack_types.copy(),
     next_unknown: other.next_unknown,
     changed: other.changed,
     reachable: other.reachable,
@@ -691,6 +694,7 @@ fn rse_raw_fresh(state : RseRawState) -> Int {
 
 ///|
 fn rse_raw_pop(state : RseRawState) -> Int {
+  ignore(state.stack_types.pop())
   match state.stack.pop() {
     Some(value) => value
     None => -1
@@ -698,8 +702,27 @@ fn rse_raw_pop(state : RseRawState) -> Int {
 }
 
 ///|
-fn rse_raw_push(state : RseRawState, value : Int) -> Unit {
+fn rse_raw_push(
+  state : RseRawState,
+  value : Int,
+  ty? : @lib.ValType? = None,
+) -> Unit {
   state.stack.push(value)
+  state.stack_types.push(ty)
+}
+
+///|
+fn rse_raw_peek_type(state : RseRawState, depth? : Int = 0) -> @lib.ValType? {
+  match state.stack_types.get(state.stack_types.length() - 1 - depth) {
+    Some(ty) => ty
+    None => None
+  }
+}
+
+///|
+fn rse_raw_clear_stack(state : RseRawState) -> Unit {
+  state.stack.clear()
+  state.stack_types.clear()
 }
 
 ///|
@@ -972,7 +995,7 @@ fn rse_raw_probe_expr_scoped(
           scopes,
           rse_raw_label_depth(label_idx),
         )
-        state.stack.clear()
+        rse_raw_clear_stack(state)
         rse_raw_clear_values(state)
         state.reachable = false
       }
@@ -987,10 +1010,10 @@ fn rse_raw_probe_expr_scoped(
           scopes,
           rse_raw_label_depth(label_idx),
         )
-        state.stack.clear()
+        rse_raw_clear_stack(state)
       }
       @lib.Instruction::Return | @lib.Instruction::Unreachable => {
-        state.stack.clear()
+        rse_raw_clear_stack(state)
         rse_raw_clear_values(state)
         state.reachable = false
       }
@@ -1007,14 +1030,14 @@ fn rse_raw_loop_stable_entry_values(
 ) -> Array[Bool] {
   let stable = Array::make(state.local_values.length(), false)
   let probe = RseRawState::clone_from(state)
-  probe.stack.clear()
+  rse_raw_clear_stack(probe)
   let probe_scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
   let probe_scopes : Array[RseRawLabelScope] = [probe_scope]
   let scope = if rse_raw_probe_expr_scoped(body, probe, probe_scopes) {
     probe_scope
   } else {
     let fallback_probe = RseRawState::clone_from(state)
-    fallback_probe.stack.clear()
+    rse_raw_clear_stack(fallback_probe)
     let fallback_scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)
     let fallback_scopes : Array[RseRawLabelScope] = [fallback_scope]
     ignore(rse_raw_rewrite_expr_scoped(body, fallback_probe, fallback_scopes))
@@ -1051,7 +1074,7 @@ fn rse_raw_prepare_loop_entry(
   summary : RseRawLoopSummary,
 ) -> Unit {
   rse_raw_clear_values(loop_state)
-  loop_state.stack.clear()
+  rse_raw_clear_stack(loop_state)
   let stable_entry = rse_raw_loop_stable_entry_values(state, body)
   for local_id = 0
       local_id < loop_state.local_values.length()
@@ -1146,7 +1169,12 @@ fn rse_raw_refined_aggregate_receiver_type(
   state : RseRawState,
   base_type : @lib.TypeIdx,
   receiver_value : Int,
+  receiver_type : @lib.ValType?,
 ) -> @lib.TypeIdx? {
+  let receiver_type = match receiver_type {
+    Some(ty) => ty
+    None => return None
+  }
   if receiver_value == -1 {
     return None
   }
@@ -1165,7 +1193,8 @@ fn rse_raw_refined_aggregate_receiver_type(
           Some(candidate_type) =>
             if candidate != original &&
               candidate_type != base_type &&
-              @validate.Match::matches(candidate, original, state.env) {
+              @validate.Match::matches(candidate, original, state.env) &&
+              @validate.Match::matches(receiver_type, candidate, state.env) {
               return Some(candidate_type)
             }
           _ => ()
@@ -1208,7 +1237,7 @@ fn rse_raw_merge_sources(
   state : RseRawState,
   sources : Array[Array[Int]],
 ) -> Unit {
-  state.stack.clear()
+  rse_raw_clear_stack(state)
   if sources.length() == 0 {
     rse_raw_clear_values(state)
     state.reachable = false
@@ -1436,7 +1465,7 @@ fn rse_raw_rewrite_expr_scoped(
           }
           known => known
         }
-        rse_raw_push(state, value)
+        rse_raw_push(state, value, ty=rse_raw_local_type(state, refined_id))
       }
       @lib.Instruction::LocalSet(local_idx) => {
         let value = rse_raw_pop(state)
@@ -1473,6 +1502,11 @@ fn rse_raw_rewrite_expr_scoped(
           state.changed = true
         } else {
           out.push(instr)
+          if !state.stack_types.is_empty() {
+            state.stack_types[state.stack_types.length() - 1] = rse_raw_local_type(
+              state, local_id,
+            )
+          }
         }
         rse_raw_local_set(state, local_id, value)
         state.initialized[local_id] = true
@@ -1484,9 +1518,33 @@ fn rse_raw_rewrite_expr_scoped(
       @lib.Instruction::RefAsNonNull
       | @lib.Instruction::RefCast(_, _, _)
       | @lib.Instruction::RefCastDescEq(_, _, _) => {
+        let operand_type = rse_raw_peek_type(state)
         let value = rse_raw_pop(state)
+        let result_type = match instr {
+          @lib.Instruction::RefCast(nullable, exact, heap_type) =>
+            Some(
+              @lib.ValType::ref_type(
+                @lib.RefType::new(nullable, heap_type, exact~),
+              ),
+            )
+          @lib.Instruction::RefAsNonNull =>
+            match operand_type {
+              Some(@lib.RefTypeValType(ref_type)) =>
+                Some(
+                  @lib.ValType::ref_type(
+                    @lib.RefType::new(
+                      false,
+                      ref_type.get_heap_type(),
+                      exact=ref_type.is_exact(),
+                    ),
+                  ),
+                )
+              _ => None
+            }
+          _ => None
+        }
         out.push(instr)
-        rse_raw_push(state, value)
+        rse_raw_push(state, value, ty=result_type)
       }
       @lib.Instruction::AnyConvertExtern | @lib.Instruction::ExternConvertAny => {
         let value = rse_raw_pop(state)
@@ -1494,9 +1552,12 @@ fn rse_raw_rewrite_expr_scoped(
         rse_raw_push(state, rse_raw_unary_key(state, instr.to_string(), value))
       }
       @lib.Instruction::StructGet(type_idx, field_idx) => {
+        let receiver_type = rse_raw_peek_type(state)
         let receiver = rse_raw_pop(state)
         match
-          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          rse_raw_refined_aggregate_receiver_type(
+            state, type_idx, receiver, receiver_type,
+          ) {
           Some(refined_type) => {
             out.push(@lib.Instruction::struct_get(refined_type, field_idx))
             state.changed = true
@@ -1506,9 +1567,12 @@ fn rse_raw_rewrite_expr_scoped(
         rse_raw_push(state, rse_raw_fresh(state))
       }
       @lib.Instruction::StructGetS(type_idx, field_idx) => {
+        let receiver_type = rse_raw_peek_type(state)
         let receiver = rse_raw_pop(state)
         match
-          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          rse_raw_refined_aggregate_receiver_type(
+            state, type_idx, receiver, receiver_type,
+          ) {
           Some(refined_type) => {
             out.push(@lib.Instruction::struct_get_s(refined_type, field_idx))
             state.changed = true
@@ -1518,9 +1582,12 @@ fn rse_raw_rewrite_expr_scoped(
         rse_raw_push(state, rse_raw_fresh(state))
       }
       @lib.Instruction::StructGetU(type_idx, field_idx) => {
+        let receiver_type = rse_raw_peek_type(state)
         let receiver = rse_raw_pop(state)
         match
-          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          rse_raw_refined_aggregate_receiver_type(
+            state, type_idx, receiver, receiver_type,
+          ) {
           Some(refined_type) => {
             out.push(@lib.Instruction::struct_get_u(refined_type, field_idx))
             state.changed = true
@@ -1530,9 +1597,12 @@ fn rse_raw_rewrite_expr_scoped(
         rse_raw_push(state, rse_raw_fresh(state))
       }
       @lib.Instruction::StructAtomicGet(order, type_idx, field_idx) => {
+        let receiver_type = rse_raw_peek_type(state)
         let receiver = rse_raw_pop(state)
         match
-          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          rse_raw_refined_aggregate_receiver_type(
+            state, type_idx, receiver, receiver_type,
+          ) {
           Some(refined_type) => {
             out.push(
               @lib.Instruction::struct_atomic_get(
@@ -1546,9 +1616,12 @@ fn rse_raw_rewrite_expr_scoped(
         rse_raw_push(state, rse_raw_fresh(state))
       }
       @lib.Instruction::StructAtomicGetS(order, type_idx, field_idx) => {
+        let receiver_type = rse_raw_peek_type(state)
         let receiver = rse_raw_pop(state)
         match
-          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          rse_raw_refined_aggregate_receiver_type(
+            state, type_idx, receiver, receiver_type,
+          ) {
           Some(refined_type) => {
             out.push(
               @lib.Instruction::struct_atomic_get_s(
@@ -1562,9 +1635,12 @@ fn rse_raw_rewrite_expr_scoped(
         rse_raw_push(state, rse_raw_fresh(state))
       }
       @lib.Instruction::StructAtomicGetU(order, type_idx, field_idx) => {
+        let receiver_type = rse_raw_peek_type(state)
         let receiver = rse_raw_pop(state)
         match
-          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          rse_raw_refined_aggregate_receiver_type(
+            state, type_idx, receiver, receiver_type,
+          ) {
           Some(refined_type) => {
             out.push(
               @lib.Instruction::struct_atomic_get_u(
@@ -1579,9 +1655,12 @@ fn rse_raw_rewrite_expr_scoped(
       }
       @lib.Instruction::ArrayGet(type_idx) => {
         ignore(rse_raw_pop(state))
+        let receiver_type = rse_raw_peek_type(state)
         let receiver = rse_raw_pop(state)
         match
-          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          rse_raw_refined_aggregate_receiver_type(
+            state, type_idx, receiver, receiver_type,
+          ) {
           Some(refined_type) => {
             out.push(@lib.Instruction::array_get(refined_type))
             state.changed = true
@@ -1592,9 +1671,12 @@ fn rse_raw_rewrite_expr_scoped(
       }
       @lib.Instruction::ArrayGetS(type_idx) => {
         ignore(rse_raw_pop(state))
+        let receiver_type = rse_raw_peek_type(state)
         let receiver = rse_raw_pop(state)
         match
-          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          rse_raw_refined_aggregate_receiver_type(
+            state, type_idx, receiver, receiver_type,
+          ) {
           Some(refined_type) => {
             out.push(@lib.Instruction::array_get_s(refined_type))
             state.changed = true
@@ -1605,9 +1687,12 @@ fn rse_raw_rewrite_expr_scoped(
       }
       @lib.Instruction::ArrayGetU(type_idx) => {
         ignore(rse_raw_pop(state))
+        let receiver_type = rse_raw_peek_type(state)
         let receiver = rse_raw_pop(state)
         match
-          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          rse_raw_refined_aggregate_receiver_type(
+            state, type_idx, receiver, receiver_type,
+          ) {
           Some(refined_type) => {
             out.push(@lib.Instruction::array_get_u(refined_type))
             state.changed = true
@@ -1713,7 +1798,7 @@ fn rse_raw_rewrite_expr_scoped(
         out.push(
           @lib.Instruction::try_table(block_type, catches, @lib.Expr::new(next)),
         )
-        state.stack.clear()
+        rse_raw_clear_stack(state)
         rse_raw_clear_values(state)
         state.reachable = true
         rse_raw_push(state, rse_raw_fresh(state))
@@ -1803,7 +1888,7 @@ fn rse_raw_rewrite_expr_scoped(
           rse_raw_label_depth(label_idx),
         )
         out.push(instr)
-        state.stack.clear()
+        rse_raw_clear_stack(state)
         rse_raw_clear_values(state)
         state.reachable = false
       }
@@ -1819,7 +1904,7 @@ fn rse_raw_rewrite_expr_scoped(
           rse_raw_label_depth(label_idx),
         )
         out.push(instr)
-        state.stack.clear()
+        rse_raw_clear_stack(state)
       }
       @lib.Instruction::BrTable(label_idxs, fallback) => {
         ignore(rse_raw_pop(state))
@@ -1828,20 +1913,20 @@ fn rse_raw_rewrite_expr_scoped(
         }
         rse_raw_record_branch_exit(state, scopes, rse_raw_label_depth(fallback))
         out.push(instr)
-        state.stack.clear()
+        rse_raw_clear_stack(state)
         rse_raw_clear_values(state)
         state.reachable = false
       }
       @lib.Instruction::Return | @lib.Instruction::Unreachable => {
         out.push(instr)
-        state.stack.clear()
+        rse_raw_clear_stack(state)
         rse_raw_clear_values(state)
         state.reachable = false
       }
       _ => {
         out.push(instr)
         // Conservatively forget stack-producing details for unmodeled operations.
-        state.stack.clear()
+        rse_raw_clear_stack(state)
       }
     }
   }
@@ -2731,7 +2816,7 @@ fn rse_raw_fast_rewrite_expr_scoped(
           rse_raw_label_depth(label_idx),
         )
         out.push(instr)
-        state.stack.clear()
+        rse_raw_clear_stack(state)
         rse_raw_clear_values(state)
         state.reachable = false
       }
@@ -2747,11 +2832,11 @@ fn rse_raw_fast_rewrite_expr_scoped(
           rse_raw_label_depth(label_idx),
         )
         out.push(instr)
-        state.stack.clear()
+        rse_raw_clear_stack(state)
       }
       @lib.Instruction::Return | @lib.Instruction::Unreachable => {
         out.push(instr)
-        state.stack.clear()
+        rse_raw_clear_stack(state)
         rse_raw_clear_values(state)
         state.reachable = false
       }

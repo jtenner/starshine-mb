@@ -166,3 +166,21 @@ All 43 focused RSE native tests pass after repair. The original Dewdrop
 Wago. The selected 17-fault replay now has 13 passes; this is focused evidence,
 not full corpus or generated-lane signoff. The 54.639-second native test build
 exceeds Dewdrop's 30-second compiler activity limit and remains performance work.
+
+### Static operand types after casts
+
+The complete Dewdrop replay found a second RSE defect after local subtyping.
+An alias proved that a value had a concrete child type, but an explicit cast
+had widened the actual stack operand to its base type. RSE changed `struct.get`
+to use the child type without changing the operand. The module then failed
+validation. The same requirement applies to array and atomic struct reads.
+
+The raw value stack now tracks static reference types independently of equality
+facts. Heap access refinement requires both same-value subtype evidence and a
+compatible actual operand type. A retained tee uses its local's declared type;
+a removed tee keeps the input type; casts use their declared result type.
+The positive widening-cast regression preserves the base access while removing
+a redundant tee. All 44 RSE native tests pass, including the existing productive
+struct, atomic-struct, and array refinement tests. The reduced CLI case validates
+and returns 42 in Node in 2.328 ms of optimization time. Full replay and generated
+lanes remain open.
