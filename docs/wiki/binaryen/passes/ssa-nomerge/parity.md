@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-09-11
 sources:
   - ./index.md
 related:
@@ -80,6 +80,41 @@ Validation for this repair (native binary SHA-256
   samples have a measured canonical size win and unchanged executable
   instructions. Unretained differences remain unclassified parity gaps. These
   generated checks do not replace original-versus-optimized runtime checks.
+
+## Real Node process renewal, September 2026
+
+The frozen release at `009ad983b` was rerun through the strict `node-v2`
+three-way oracle after its worker was changed to a real Node process. Both
+lanes use explicit Binaryen 131, seed `0x5eed`, eight workers, independent
+wasm-tools validation, byte determinism, and codec idempotence. This replaces
+the earlier Bun-worker runtime evidence; validation alone remains insufficient.
+
+| Lane | Cases | Canonical equal | Smaller output differences | Runtime matches | Original runtime blocked | Seconds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Regular | 10,000 | 7,396 | 2,604 | 5,019 | 4,981 | 643.639 |
+| `ssa-nomerge-all` | 10,000 | 3,750 | 6,250 | 6,250 | 3,750 | 1,782.421 |
+
+Neither lane has a runtime mismatch, size loss, validator/generator/command
+failure, determinism failure, or codec failure. Canonical Starshine/Binaryen
+bytes are 42,156,063/42,164,278 (regular) and 2,631,560/2,645,310 (aggregate).
+Blocked original executions are not passes.
+
+All 20 retained regular diffs remove only inert `nop` instructions, saving
+2–4 bytes per module. Fourteen execute equally in all three variants; six
+originals are blocked. Ten retained aggregate diffs remove one inert `nop`
+and save one byte; all ten execute equally. The other ten remove five unused
+i32 local declarations, renumber only later unused declarations, and save
+three canonical bytes. Their executable text is unchanged and none of the
+changed declarations is accessed, but all ten original executions are blocked.
+These 40 inspected cases are agent-classified size-winning cleanup based on
+that exact semantic contract and the measured bytes, not on validation alone.
+Unretained differences remain unclassified parity gaps. No speed win is claimed.
+
+Dewdrop evidence: `.tmp/starshine-pass-repairs/genvalid-wave14-ssa-nomerge-*`,
+`ssa-regular-nop-diff-review.json`, and `ssa-aggregate-cleanup-diff-review.json`.
+The 51 native SSA shape assertions still require their separate runtime/size
+review. These generated lanes do not close those failures or later composed
+pipeline faults.
 
 ## Durable Conclusions
 
