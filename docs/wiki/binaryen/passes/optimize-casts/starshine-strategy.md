@@ -225,3 +225,21 @@ So the right mental model today is:
 - **dedicated `optimize-casts-all` generated inventory and closeout-scale four-lane evidence**
 - **clear slot in the cleanup cluster**
 - **explicit non-goals and reopening criteria rather than hidden broad deferrals**
+
+
+## Redundant wrappers around pending calls
+
+Removing a statically redundant refinement forwards the child's source order
+through `pass_replace_node(..., preserve_value_order=true)`. It must not give a
+pending operand the later position of its cast. The reduced Dew GC pair case
+has two trapping calls separated from their final constructor by a local write;
+reversing them changes the first visible trap from unreachable to integer
+division by zero. `optimize_casts_dew_regression_test.mbt` checks calls 0 then 1
+and removal of three redundant casts. Both Node and Wago execute the saved
+original and repaired output with the same first trap. Shared IR and focused
+OptimizeCasts native tests pass 459/459; this is a correctness checkpoint, with
+the generated pass gates tracked in the active backlog. The complete saved-case
+replay passes 937/1000, one more than before and no new failures, in 172.401 s.
+The release CLI build takes 308.205 s, an open build performance bug. Its
+SHA-256 is `8d4fe3609c6b128f30dcefef6a05ca688b51565ecd365baa43b082c26ad35fe2`;
+the exact O4z component-trap fixture passes both engines with this binary.

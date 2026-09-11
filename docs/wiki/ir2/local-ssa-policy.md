@@ -206,6 +206,24 @@ If future work needs any of those, update the IR2 architecture contract first, a
 - Tests: [`../../../src/ir/ssa_policy_test.mbt`](../../../src/ir/ssa_policy_test.mbt), [`../../../src/ir/ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt), [`../../../src/ir/ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt), [`../../../src/ir/local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt), [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt)
 - Supporting overlays: [`../../../src/ir/use_def.mbt`](../../../src/ir/use_def.mbt), [`../../../src/ir/liveness.mbt`](../../../src/ir/liveness.mbt), [`../../../src/ir/dominators.mbt`](../../../src/ir/dominators.mbt), [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt)
 
+## Forwarding an existing operand through an identity wrapper
+
+Normal HOT node replacement keeps the later of the old and replacement source
+positions. Identity-wrapper removal has a different contract: the operand was
+already evaluated, possibly before intervening roots. `hot_replace_node` and
+`pass_replace_node` accept `preserve_value_order=true` for this proven case.
+The flag requires a nonnegative source order and retains it after replacement;
+other replacements keep the existing rule. Callers must prove the wrapper has
+no remaining effect or trap before selecting this mode.
+
+OptimizeCasts uses this mode only when forwarding a child through a proven
+redundant refinement. The Dew component-order regression starts with
+`call first; call second; local.set; ref.cast`. Both calls trap differently.
+Removing the static cast previously gave the first call the later cast's
+position, so the second call ran first. Native ordered-instruction assertions
+and Node/Wago execution now retain the first unreachable trap while still
+removing three redundant casts.
+
 ## Raw source accesses and pending stack locals
 
 HOT lift records each raw local read/write in source order, including an absent

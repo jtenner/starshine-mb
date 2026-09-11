@@ -814,8 +814,9 @@ pub fn pass_replace_node(
   func : @ir.HotFunc,
   node_id : Int,
   new_node : @ir.HotNode,
+  preserve_value_order? : Bool = false,
 ) -> Unit {
-  @ir.hot_replace_node(func, node_id, new_node)
+  @ir.hot_replace_node(func, node_id, new_node, preserve_value_order~)
   pass_mark_mutated(ctx, func)
 }
 
@@ -908,7 +909,11 @@ pub fn pass_verify_before_after(
 fn pass_value_operand_count(func : @ir.HotFunc, node_id : Int) -> Int {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block | @ir.HotOp::Try | @ir.HotOp::TryTable => 0
-    @ir.HotOp::Loop => @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, node_id))
+    @ir.HotOp::Loop =>
+      @ir.hot_label_branch_arity(
+        func,
+        @ir.hot_control_node_label(func, node_id),
+      )
     @ir.HotOp::If => 1
     _ => @ir.hot_child_count(func, node_id)
   }

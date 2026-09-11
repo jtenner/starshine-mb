@@ -310,7 +310,13 @@ fn oc_replace_with_child(
     return
   }
   let child_id = @ir.hot_child_get(func, node_id, 0)
-  pass_replace_node(ctx, func, node_id, @ir.hot_node_get(func, child_id))
+  pass_replace_node(
+    ctx,
+    func,
+    node_id,
+    @ir.hot_node_get(func, child_id),
+    preserve_value_order=true,
+  )
 }
 
 ///|

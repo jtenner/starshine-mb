@@ -228,7 +228,7 @@ pub fn pass_registry_lookup(String) -> HotPassRegistryEntry?
 
 pub fn pass_registry_random_executable_sequence(String, UInt64) -> Array[String]
 
-pub fn pass_replace_node(HotPassContext, @ir.HotFunc, Int, @ir.HotNode) -> Unit
+pub fn pass_replace_node(HotPassContext, @ir.HotFunc, Int, @ir.HotNode, preserve_value_order? : Bool) -> Unit
 
 pub fn pass_require_cfg(HotPassContext, @ir.HotFunc) -> @ir.HotCfg
 

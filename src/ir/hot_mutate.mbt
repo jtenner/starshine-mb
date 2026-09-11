@@ -1405,11 +1405,22 @@ pub fn hot_replace_node(
   func : HotFunc,
   id : NodeId,
   new_node : HotNode,
+  preserve_value_order? : Bool = false,
 ) -> Unit {
+  if preserve_value_order && new_node.order < 0 {
+    abort("hot_replace_node requires an existing value order when forwarding")
+  }
   hot_node_set(func, id, {
     ..new_node,
     flags: hot_default_flags_for_op(new_node.op),
   })
+  // Removing a proven identity wrapper forwards its already evaluated value.
+  // Its source can precede intervening roots, unlike a newly computed value
+  // installed at the wrapper's position. Keep the default replacement rule
+  // for other mutations, which may deliberately move computation later.
+  if preserve_value_order {
+    func.nodes[id] = { ..func.nodes[id], order: new_node.order, }
+  }
 }
 
 ///|
