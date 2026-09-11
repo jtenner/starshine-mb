@@ -56,6 +56,20 @@ not:
 
 - a direct line-by-line port of Binaryen `HeapStoreOptimization.cpp`
 
+## Local dependencies during constructor movement
+
+Descriptor operand effect masks omit local reads, so masks alone cannot prove
+that a constructor can cross another root. Both movement checks now compare
+local writes against every read/write in the other subtree. This preserves
+constructor operand values even when the destination local is unrelated to the
+local that an operand reads. Read-only local pairs remain reorderable.
+
+The reduced Dewdrop case stores 42 in a local, constructs a one-field struct from
+that local, then replaces the local with 7. The old pass moved the overwrite
+before construction and returned 7; the output must return 42. The native
+HeapStoreOptimization suite passes all 433 checks, including the new ordering
+regression and the existing positive constructor-folding tests.
+
 ## Exact local code map
 
 Use this page together with the current source bridge in [research note 0448](./index.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).

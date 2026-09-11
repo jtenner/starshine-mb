@@ -402,6 +402,42 @@ fn hso_release_memory_before_shared_gc_read_can_reorder(
 }
 
 ///|
+fn hso_subtree_local_write_conflicts(
+  func : @ir.HotFunc,
+  node_id : Int,
+  other_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      if hso_subtree_touches_local(func, other_id, node.imm0) {
+        return true
+      }
+    _ => ()
+  }
+  // HOT child spans already include structured regions; visit each edge once.
+  for child in @ir.hot_child_span(func, node_id) {
+    if hso_subtree_local_write_conflicts(func, child, other_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hso_local_order_conflicts(
+  func : @ir.HotFunc,
+  first_id : Int,
+  second_id : Int,
+) -> Bool {
+  hso_subtree_local_write_conflicts(func, first_id, second_id) ||
+  hso_subtree_local_write_conflicts(func, second_id, first_id)
+}
+
+///|
 fn hso_ordered_before(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
@@ -411,7 +447,8 @@ fn hso_ordered_before(
   second_id : Int,
   second_mask : UInt,
 ) -> Bool {
-  if hso_mask_ordered_before(first_mask, second_mask) {
+  if hso_local_order_conflicts(func, first_id, second_id) ||
+    hso_mask_ordered_before(first_mask, second_mask) {
     return true
   }
   hso_order_effects_ordered_before(
@@ -704,7 +741,7 @@ fn hso_mask_is_pure(mask : UInt) -> Bool {
 
 ///|
 fn hso_new_external_roots() -> HsoExternalRoots {
-  { root_arrays: [], starts: [] }
+  { root_arrays: [], starts: [], }
 }
 
 ///|
@@ -2116,6 +2153,11 @@ fn hso_nodes_can_reorder(
   moved_id : Int,
   moved_mask : UInt,
 ) -> Bool {
+  // Descriptor operand masks deliberately omit local reads. Keep their real
+  // read/write dependencies before applying the coarser effect relaxations.
+  if hso_local_order_conflicts(func, barrier_id, moved_id) {
+    return false
+  }
   if ((barrier_mask | moved_mask) & @ir.EFFECT_MASK_GLOBAL_STATE) != 0U &&
     hso_subtree_global_order_conflicts(func, barrier_id, moved_id) {
     return false
