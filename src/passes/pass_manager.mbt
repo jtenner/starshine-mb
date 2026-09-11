@@ -39408,23 +39408,70 @@ fn RawOiScalarNumericRewriteFact::from_i64_extend_local_commute(
 }
 
 ///|
+// A zero before an instruction is an add operand only when that instruction
+// cannot consume it. Adjacent raw stack roots are not expression operands.
+fn raw_oi_is_nullary_scalar_value(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext?,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.MemorySize(_) => true
+    @lib.Call(index) =>
+      match module_ctx {
+        Some(ctx) =>
+          match @ir.hot_module_resolve_func_type(ctx, index) {
+            Some(@lib.FuncType([], [_])) => true
+            _ => false
+          }
+        None => false
+      }
+    @lib.Block(bt, _) | @lib.Loop(bt, _) | @lib.TryTable(bt, _, _) =>
+      match bt {
+        @lib.ValTypeBlockType(_) => true
+        @lib.TypeIdxBlockType(index) =>
+          match module_ctx {
+            Some(ctx) =>
+              match @ir.hot_module_resolve_type_func_type(ctx, index) {
+                Some(@lib.FuncType([], [_])) => true
+                _ => false
+              }
+            None => false
+          }
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn RawOiScalarNumericRewriteFact::from_three_roots(
   region : RawOiInstructionRegionFact,
   start : Int,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> RawOiScalarNumericRewriteFact? {
   if start + 2 >= region.roots.length() ||
     !region.has_root_at(start + 2, RawOiRootKind::ScalarNumericTerminal) {
     return None
   }
   let instrs = region.roots
-  match
+  let neutral_value = match
     (instrs[start].instr, instrs[start + 1].instr, instrs[start + 2].instr) {
     (value, @lib.I32Const(@lib.I32(0)), @lib.I32Add)
     | (value, @lib.I32Const(@lib.I32(0)), @lib.I32Sub)
-    | (@lib.I32Const(@lib.I32(0)), value, @lib.I32Add)
     | (value, @lib.I64Const(@lib.I64(0L)), @lib.I64Add)
-    | (value, @lib.I64Const(@lib.I64(0L)), @lib.I64Sub)
-    | (@lib.I64Const(@lib.I64(0L)), value, @lib.I64Add) =>
+    | (value, @lib.I64Const(@lib.I64(0L)), @lib.I64Sub) => Some(value)
+    (@lib.I32Const(@lib.I32(0)), value, @lib.I32Add)
+    | (@lib.I64Const(@lib.I64(0L)), value, @lib.I64Add) if raw_oi_is_nullary_scalar_value(
+        value, module_ctx,
+      ) => Some(value)
+    _ => None
+  }
+  match neutral_value {
+    Some(value) =>
       return Some({
         end: start + 3,
         neutral_integer: true,
@@ -39438,7 +39485,7 @@ fn RawOiScalarNumericRewriteFact::from_three_roots(
         i64_extend_local_commute: false,
         rewrite: [value],
       })
-    _ => ()
+    None => ()
   }
   match
     (instrs[start].instr, instrs[start + 1].instr, instrs[start + 2].instr) {
@@ -39750,6 +39797,7 @@ fn RawOiScalarNumericRewriteFact::from_two_roots(
 fn RawOiScalarNumericRewriteFact::from_region(
   region : RawOiInstructionRegionFact,
   start : Int,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> RawOiScalarNumericRewriteFact? {
   match RawOiScalarNumericRewriteFact::from_f64_div2_sub(region, start) {
     Some(fact) => return Some(fact)
@@ -39760,7 +39808,8 @@ fn RawOiScalarNumericRewriteFact::from_region(
     Some(fact) => return Some(fact)
     None => ()
   }
-  match RawOiScalarNumericRewriteFact::from_three_roots(region, start) {
+  match
+    RawOiScalarNumericRewriteFact::from_three_roots(region, start, module_ctx~) {
     Some(fact) => return Some(fact)
     None => ()
   }
@@ -42799,7 +42848,12 @@ fn RawOiInstructionRegionFact::has_effectful_sibling_rewrite_candidate(
       | RawOiRootKind::CommutativeIntegerBinop => {
         let mut start = if terminal > 5 { terminal - 5 } else { 0 }
         while start <= terminal {
-          if RawOiScalarNumericRewriteFact::from_region(self, start) is Some(_) {
+          if RawOiScalarNumericRewriteFact::from_region(
+              self,
+              start,
+              module_ctx=Some(module_ctx),
+            )
+            is Some(_) {
             return true
           }
           start += 1
@@ -42891,7 +42945,12 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
       None => ()
     }
-    match RawOiScalarNumericRewriteFact::from_region(region, i) {
+    match
+      RawOiScalarNumericRewriteFact::from_region(
+        region,
+        i,
+        module_ctx=Some(module_ctx),
+      ) {
       Some(fact) => {
         fact.append_rewrite(rewritten)
         changed = true

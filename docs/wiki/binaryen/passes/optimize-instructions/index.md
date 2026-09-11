@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-25
+last_reviewed: 2026-09-10
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
@@ -33,6 +33,26 @@ related:
 ---
 
 # `optimize-instructions`
+
+## September 2026 raw-stack operand repair
+
+The raw neutral-add rewrite treated three adjacent instructions as an
+expression tree. In `call $a; i32.const 0; call $b; i32.add`, `$b` can consume
+zero as its argument. Erasing that zero and the add changed the reduced
+Dewdrop result from 13 to 26. Validation accepted both modules.
+
+A zero on the left now needs a zero-input, single-result producer before it
+can be removed. The proof covers scalar leaves, nullary direct calls, and
+parameter-free result blocks using the module signatures. A trailing neutral
+zero remains removable. Calls and controls with inputs retain their operands.
+
+The [public pipeline regressions](../../../../../src/passes/optimize_instructions_dew_regression_test.mbt)
+check the preserved call argument, active multiplication cleanup, and valid
+left/right neutral folds for i32/i64. The two tests pass after a real red run.
+Independent Node execution returns 13 after the repair (0.030 seconds including
+optimization and external validation). Dewdrop's deep/wide functional-loop
+fixture now passes the direct pass in both Node and Wago. Broader pass replays
+and generated signoff remain in the active composition repair work.
 
 ## Binaryen v131 status
 
