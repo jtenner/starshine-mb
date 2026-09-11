@@ -96,3 +96,29 @@ Latest closeout evidence:
 - Random all-profiles: the earlier `.tmp/pass-fuzz-coalesce-locals-nonadj-copy-random-all-profiles-10000-20260704` timed out before `result.json`, and the first diagnostics exposed `163` mismatches (`125` `ssa-nomerge-smoke`, `38` `heap2local-struct`). Concrete-ref direct-`struct.get` packing plus preferred-first GC-ref ordering closed the `heap2local-struct` subfamily; immediate tee/drop cleanup, nested block-escape liveness, label-aware branch/return liveness, tail param reuse, and structured-scalar coloring order then closed the sampled `ssa-nomerge-smoke` family. Replay `.tmp/pass-fuzz-coalesce-locals-random-all-replay-all-structured-scalar-order-final-20260704` normalized all previously active `125/125` residuals. The refreshed diagnostic `.tmp/pass-fuzz-coalesce-locals-random-all-profiles-smoke-1000-structured-scalar-order-final-20260704` compared/normalized `1000/1000`; the required closeout lane `.tmp/pass-fuzz-coalesce-locals-random-all-profiles-10000-structured-scalar-order-final-20260704` requested/compared `10000/10000`, normalized `10000`, and had zero validation/property/generator/command failures. Selected profile counts in the 10k lane: `coverage-forced-portable=1250`, `ssa-nomerge-parity=1250`, `pass-fuzz-stress=1250`, `binaryen-oracle-portable=1250`, `ssa-nomerge-smoke=1250`, `local-subtyping-straight-line=821`, `heap2local-struct=538`, `coalesce-locals-straight-line=545`, `coalesce-locals-structured=355`, `coalesce-locals-loop-copy-through=350`, `heap2local-array=355`, `heap2local-ref=357`, and `local-subtyping-structured=429`.
 
 Manifest triage: inspect `genValidSelectedProfileCounts` for composite selection and each failure directory's `genValidManifestEntry.selected_profile`. The dedicated profile is expected to exercise local-copy opportunities in every generated case; broad `random-all-profiles` may also select neighboring pass-owned profiles that reveal direct `coalesce-locals` local-declaration cleanup gaps.
+
+## Dewdrop real-Node generated renewal
+
+The September renewal uses native revision `009ad983b`, explicit Binaryen 131,
+seed `0x5eed`, eight workers, wasm-tools, determinism, codec roundtrips, and the
+strict v2 Node process oracle. Both lanes use `local-cleanup-debris` and
+`unreachable-control-debris` normalization.
+
+| Lane | Canonical / cleanup matches / residuals | Runtime matches / blocked originals / mismatches | Canonical bytes, Starshine / Binaryen | Wall time |
+| --- | --- | --- | --- | --- |
+| Regular, 10,000 | 157 / 9,843 / 0 | 5,019 / 4,981 / 0 | 42,099,826 / 42,129,462 | 2,234.176 s |
+| `coalesce-locals-all`, 10,000 | 3,750 / 5,000 / 1,250 | 8,750 / 1,250 / 0 | 488,125 / 502,500 | 567.585 s |
+
+Both lanes have zero generator, validator, command, determinism, or codec
+failures, and no canonical size losses. All 20 retained aggregate residuals
+remove one void loop without a backedge and one inert nop. Each saves four
+canonical bytes and has a complete three-way runtime match. The agent
+classification is a size-winning finite-loop cleanup, supported by the
+inspected instruction trees and runtime results. The blocked originals are
+separate from these retained differences and are not runtime passes.
+
+This is evidence for the frozen revision, not a speed result or signoff of
+later shared-IR edits. Reports are in Dewdrop's `.tmp/starshine-pass-repairs/`:
+`genvalid-wave14-coalesce-locals-{regular,aggregate}/result.json`,
+`generated-signoff-wave14-commands.json`, and
+`coalesce-aggregate-loop-diff-review.json`.
