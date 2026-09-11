@@ -503,3 +503,37 @@ describe("Node runtime observation v2", () => {
     expect(first.resources.globals).not.toEqual(otherSeed.resources.globals);
   });
 });
+
+describe("Node observation process lifetime", () => {
+  test("uses the installed Node runtime when the harness runs under Bun", async () => {
+    const { wasmPath } = compileWat(`(module (func (export "run") (result i32) i32.const 42))`);
+    const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+    const plan = buildInvocationPlanV2(runtimeInterface, { seed: 1n, maxPairwise: 0 });
+    const observation = await executeNodeObservationV2WithTimeout(wasmPath, runtimeInterface, plan, {
+      mode: "independent", timeoutMs: 1000, memoryCapBytes: 1024, tableEntryCap: 16,
+    });
+    const nodeVersion = spawnSync("node", ["--version"], { encoding: "utf8" });
+    expect(nodeVersion.status).toBe(0);
+    expect(observation.completeness).toBe("complete");
+    expect(observation.runtime.identity).toBe(`node:${nodeVersion.stdout.trim()}`);
+  });
+
+  test("reports a nonterminating start and then executes the next module", async () => {
+    const hung = compileWat(`(module (func $start loop br 0 end) (start $start))`);
+    const good = compileWat(`(module (func (export "run") (result i32) i32.const 42))`);
+    const options = { mode: "independent" as const, timeoutMs: 200, memoryCapBytes: 1024, tableEntryCap: 16 };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const runtimeInterface = buildRuntimeInterfaceFromWasm(hung.wasmPath);
+      const plan = buildInvocationPlanV2(runtimeInterface, { seed: 1n, maxPairwise: 0 });
+      const observation = await executeNodeObservationV2WithTimeout(hung.wasmPath, runtimeInterface, plan, options);
+      expect(observation.completeness).toBe("incomplete");
+      expect(observation.instantiation.status).toBe("timed-out");
+      expect(observation.blockedReasons).toEqual(["timeout:200ms"]);
+    }
+    const runtimeInterface = buildRuntimeInterfaceFromWasm(good.wasmPath);
+    const plan = buildInvocationPlanV2(runtimeInterface, { seed: 1n, maxPairwise: 0 });
+    const observation = await executeNodeObservationV2WithTimeout(good.wasmPath, runtimeInterface, plan, { ...options, timeoutMs: 1000 });
+    expect(observation.completeness).toBe("complete");
+    expect(observation.blockedReasons).toEqual([]);
+  });
+});

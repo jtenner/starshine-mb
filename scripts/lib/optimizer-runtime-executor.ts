@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { Worker } from "node:worker_threads";
+import { spawn, spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import {
   buildInvocationPlanV2,
@@ -27,7 +27,7 @@ import {
   type RuntimeFunctionSignature,
   type TypedRuntimeValue,
   type WasmRuntimeValueType,
-} from "./optimizer-runtime";
+} from "./optimizer-runtime.ts";
 
 export type NodeObservationV2Options = {
   mode: ObservationMode;
@@ -769,13 +769,13 @@ type RuntimeInstance = {
 };
 
 class RuntimeInstantiationFailure extends Error {
-  constructor(
-    message: string,
-    readonly original: unknown,
-    readonly resources: RuntimeResources,
-  ) {
+  readonly original: unknown;
+  readonly resources: RuntimeResources;
+  constructor(message: string, original: unknown, resources: RuntimeResources) {
     super(message);
     this.name = "RuntimeInstantiationFailure";
+    this.original = original;
+    this.resources = resources;
   }
 }
 
@@ -1335,80 +1335,86 @@ export async function runNodeThreeWaySemanticOracleV2(
   };
 }
 
+let installedNodeIdentity: string | undefined;
+
+export function nodeObservationRuntimeIdentity(): string {
+  if (installedNodeIdentity !== undefined) return installedNodeIdentity;
+  const result = spawnSync("node", ["--version"], { encoding: "utf8", timeout: 5000 });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`Node runtime probe failed: ${result.stderr}`);
+  installedNodeIdentity = `node:${result.stdout.trim()}`;
+  return installedNodeIdentity;
+}
+
 export async function executeNodeObservationV2WithTimeout(
   wasmPath: string,
   runtimeInterface: RuntimeInterfaceV1,
   plan: InvocationPlanV2,
   options: NodeObservationV2Options,
 ): Promise<RuntimeObservationV2> {
+  const identity = nodeObservationRuntimeIdentity();
+  const failure = (detail: string, timedOut: boolean): RuntimeObservationV2 => ({
+    schema: "starshine.optimizer-runtime-observation.v2",
+    runtime: { identity, timeoutMs: options.timeoutMs },
+    mode: options.mode,
+    compilation: { status: "unknown" },
+    instantiation: timedOut
+      ? { status: "timed-out", timeoutMs: options.timeoutMs }
+      : { status: "failed", error: detail },
+    completeness: "incomplete",
+    blockedReasons: [timedOut ? `timeout:${options.timeoutMs}ms` : `worker-failure:${detail}`],
+    steps: timedOut ? [{
+      stepIndex: -1,
+      exportName: null,
+      phase: "instantiation",
+      arguments: [],
+      importTraceStart: 0,
+      importTraceEnd: 0,
+      stateBefore: emptyState(),
+      outcome: { kind: "timed-out", timeoutMs: options.timeoutMs },
+      stateAfter: emptyState(),
+      stateDelta: [],
+      firstChangedResource: null,
+    }] : [],
+    importTrace: [],
+    resources: emptyState(),
+  });
   return await new Promise((resolve) => {
-    const worker = new Worker(new URL("./optimizer-runtime-v2-worker.ts", import.meta.url), {
-      workerData: { wasmPath, runtimeInterface, plan, options },
+    // A host Worker inherits Bun's engine when the compare CLI runs under Bun.
+    // Its terminate() can also leave nonterminating Wasm running. Use explicit
+    // Node processes, and release a case slot only after the child has exited.
+    const child = spawn("node", [fileURLToPath(new URL("./optimizer-runtime-v2-worker.ts", import.meta.url))], {
+      stdio: ["pipe", "pipe", "pipe"],
     });
-    worker.unref();
-    let settled = false;
-    const finish = (observation: RuntimeObservationV2) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      void worker.terminate();
-      resolve(observation);
-    };
+    let output = "";
+    let diagnostic = "";
+    let timedOut = false;
+    let spawnError: Error | undefined;
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => { output += chunk; });
+    child.stderr.on("data", (chunk: string) => { diagnostic += chunk; });
     const timer = setTimeout(() => {
-      finish({
-        schema: "starshine.optimizer-runtime-observation.v2",
-        runtime: { identity: `node:${process.version}`, timeoutMs: options.timeoutMs },
-        mode: options.mode,
-        compilation: { status: "unknown" },
-        instantiation: { status: "timed-out", timeoutMs: options.timeoutMs },
-        completeness: "incomplete",
-        blockedReasons: [`timeout:${options.timeoutMs}ms`],
-        steps: [{
-          stepIndex: -1,
-          exportName: null,
-          phase: "instantiation",
-          arguments: [],
-          importTraceStart: 0,
-          importTraceEnd: 0,
-          stateBefore: emptyState(),
-          outcome: { kind: "timed-out", timeoutMs: options.timeoutMs },
-          stateAfter: emptyState(),
-          stateDelta: [],
-          firstChangedResource: null,
-        }],
-        importTrace: [],
-        resources: emptyState(),
-      });
+      timedOut = true;
+      child.kill("SIGKILL");
     }, Math.max(1, options.timeoutMs));
-    worker.on("message", (message: { ok: boolean; observation?: RuntimeObservationV2; detail?: string }) => {
-      if (message.ok && message.observation) finish(message.observation);
-      else finish({
-        schema: "starshine.optimizer-runtime-observation.v2",
-        runtime: { identity: `node:${process.version}`, timeoutMs: options.timeoutMs },
-        mode: options.mode,
-        compilation: { status: "unknown" },
-        instantiation: {
-          status: "failed",
-          error: message.detail ?? "unknown",
-        },
-        completeness: "incomplete",
-        blockedReasons: [`worker-failure:${message.detail ?? "unknown"}`],
-        steps: [],
-        importTrace: [],
-        resources: emptyState(),
-      });
+    child.on("error", (error) => { spawnError = error; });
+    child.stdin.on("error", (error) => { spawnError ??= error; });
+    child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      if (timedOut) return resolve(failure("timeout", true));
+      if (spawnError) return resolve(failure(spawnError.message, false));
+      if (code !== 0) return resolve(failure(`Node exited ${code ?? signal}: ${diagnostic}`, false));
+      try {
+        const message = JSON.parse(output) as { ok: boolean; observation?: RuntimeObservationV2; detail?: string };
+        resolve(message.ok && message.observation
+          ? message.observation
+          : failure(message.detail ?? "Node returned no observation", false));
+      } catch (error) {
+        resolve(failure(`invalid Node observation: ${String(error)}; ${diagnostic}`, false));
+      }
     });
-    worker.on("error", (error) => finish({
-      schema: "starshine.optimizer-runtime-observation.v2",
-      runtime: { identity: `node:${process.version}`, timeoutMs: options.timeoutMs },
-      mode: options.mode,
-      compilation: { status: "unknown" },
-      instantiation: { status: "failed", error: error.message },
-      completeness: "incomplete",
-      blockedReasons: [`worker-failure:${error.message}`],
-      steps: [],
-      importTrace: [],
-      resources: emptyState(),
-    }));
+    child.stdin.end(JSON.stringify({ wasmPath, runtimeInterface, plan, options },
+      (_key, value) => typeof value === "bigint" ? value.toString() : value));
   });
 }

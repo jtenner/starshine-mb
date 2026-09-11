@@ -28,6 +28,7 @@ import {
 import { replayOptimizerFailure } from "./optimizer-replay";
 import {
   runNodeThreeWaySemanticOracleV2,
+  nodeObservationRuntimeIdentity,
   type NodeThreeWaySemanticOracleV2Report,
 } from "./optimizer-runtime-executor";
 import type { ObservationMode } from "./optimizer-runtime";
@@ -4950,7 +4951,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             timeoutMs: options.runtimeTimeoutMs,
             memoryCapBytes: options.observationMemoryCapBytes,
             tableEntryCap: options.observationTableEntryCap,
-            runtimeVersion: `node-v2-timings-v1:${binaryenDiagnostic}`,
+            runtimeVersion: `node-v2-process-v1:${nodeObservationRuntimeIdentity()}:${binaryenDiagnostic}`,
           });
       semanticV2Report = semanticCacheRoot === null || semanticCacheKey === null
         ? null

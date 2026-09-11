@@ -323,3 +323,34 @@ The version 2 runtime, semantic-idempotence/convergence, commutator, emitted Gen
 - `gen-valid` batch emitter: [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt)
 - Shared gates: [`validation-gates.md`](validation-gates.md), [`fuzz-runner.md`](fuzz-runner.md)
 - Pass queues and oracle context: [`../binaryen/passes/tracker.md`](../binaryen/passes/tracker.md), [`../binaryen/no-dwarf-default-optimize-path.md`](../binaryen/no-dwarf-default-optimize-path.md)
+
+
+### Explicit Node execution and timeout cleanup
+
+The `node-v2` oracle runs each observation in an explicit `node` child process,
+even when the compare CLI runs under Bun. A host `Worker` uses the host engine;
+labeling that observation with Bun's emulated Node version does not make it a
+Node measurement. The child reports the installed Node version. This entry
+point requires Node with native TypeScript stripping (tested with v26.8.1).
+
+A timed-out child receives `SIGKILL`, and the oracle waits for its `close` event
+before releasing the case slot. The observed timeout stays incomplete and
+blocked. It is never counted as a semantic match. The old host-worker path
+could leave nonterminating Wasm alive after `terminate()`: a generated run grew
+from 162 to 243 threads and used about 1,500 percent CPU. That run was stopped;
+its partial semantic observations are not signoff evidence.
+
+Semantic cache identity includes `node-v2-process-v1` and the installed Node
+version. Host-worker observations cannot be reused as Node process results.
+Regression tests check the actual Node version, three nonterminating starts,
+a successful observation afterward, state and import events, SIMD adapters,
+and three-way mismatch classification. The executor and compare task tests
+must pass before restarting a generated gate. All 75 executor/compare-task
+tests pass in 2.128 seconds. A 128-case real-Node smoke run takes 28.256 seconds:
+128 canonical matches, 67 complete three-way semantic matches, 61 blocked
+original runs, and zero mismatches or command/validation/property failures.
+Blocked originals remain incomplete evidence.
+
+Sources: `scripts/lib/optimizer-runtime-executor.ts`,
+`scripts/lib/optimizer-runtime-v2-worker.ts`, and
+`scripts/lib/optimizer-runtime-executor.test.ts`.
