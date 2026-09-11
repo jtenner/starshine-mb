@@ -901,3 +901,15 @@ pub fn pass_verify_before_after(
     Err(err) => Err(err)
   }
 }
+
+///|
+// Control bodies share HOT's child storage with expression operands. Visitors
+// that also walk region roots must use only this leading operand range.
+fn pass_value_operand_count(func : @ir.HotFunc, node_id : Int) -> Int {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block | @ir.HotOp::Try | @ir.HotOp::TryTable => 0
+    @ir.HotOp::Loop => @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, node_id))
+    @ir.HotOp::If => 1
+    _ => @ir.hot_child_count(func, node_id)
+  }
+}

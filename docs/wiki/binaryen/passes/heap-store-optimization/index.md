@@ -438,3 +438,19 @@ Current durable answer:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/refs/heads/main/CHANGELOG.md>
   - <https://manpages.debian.org/experimental/binaryen/wasm-opt.1.en.html>
   - <https://docs.rs/wasm-opt/latest/wasm_opt/enum.Pass.html>
+
+## September 2026 nested-region repair
+
+HOT stores region roots and value operands in the same child array. Heap-store
+queries previously scanned the whole array and then scanned each region again.
+Nested blocks therefore caused exponential work. The visitors now use the
+shared `pass_value_operand_count` boundary before their region walk. Effects,
+local/global barriers, traps, and branch targets remain part of the proof.
+
+The positive regression is
+[`heap_store_optimization_dew_regression_test.mbt`](../../../../../src/passes/heap_store_optimization_dew_regression_test.mbt).
+It requires folding the store across 24 pure nested blocks. The old CLI exceeded
+a four-second limit; the fixed debug CLI takes 3.15 ms. Dewdrop's JSON reader
+previously exceeded 30 seconds and now takes 20.79 ms, with equal execution in
+Node and Wago. The focused pass tests pass as part of a 1,200-test native run.
+The full generated-pass and remaining JSON fixture checks are still pending.
