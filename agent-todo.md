@@ -8,8 +8,8 @@
   see [the pass tracker](docs/wiki/binaryen/passes/ssa-nomerge/parity.md#september-2026-runtime-reopen).
 - **Open:** after inlining, SSANoMerge still fails `collections/map-runtime` and
   `generics/generic-never-match-runtime`. Heap2Local fails JSON reader state,
-  portable I/O, and a trait dictionary with a non-null field local initialized
-  only inside a value block. A second CoalesceLocals wave after control cleanup
+  and portable I/O. The trait dictionary non-null field-local initialization
+  defect is repaired; broad generated-pass revalidation remains pending. A second CoalesceLocals wave after control cleanup
   breaks map/set runtime cases; a second SimplifyLocalsNoStructure wave breaks
   nested patterns and exceeds 30 seconds on deep/wide functional loops.
 - **Deliverables / tests:** reduce each first failing prefix, add positive

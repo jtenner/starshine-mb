@@ -1505,6 +1505,34 @@ fn h2l_find_sequential_array_candidates_for_local(
 }
 
 ///|
+fn h2l_scalar_local_type(type_ : @lib.ValType) -> @lib.ValType {
+  match type_ {
+    @lib.RefTypeValType(ref_type) =>
+      @lib.ValType::ref_type(ref_type.make_nullable())
+    _ => type_
+  }
+}
+
+///|
+fn h2l_build_scalar_local_get(
+  func : @ir.HotFunc,
+  local_id : Int,
+  value_type : @lib.ValType,
+) -> Int {
+  let read = @ir.hot_build_local_get(func, local_id)
+  match value_type {
+    @lib.RefTypeValType(ref_type) if ref_type.is_non_nullable() => {
+      let non_null = @ir.hot_build_unary(func, value_type, read)
+      @ir.hot_node_exact_instr_set(
+        func, non_null, @lib.Instruction::ref_as_non_null(),
+      )
+      non_null
+    }
+    _ => read
+  }
+}
+
+///|
 fn h2l_alloc_field_locals(
   func : @ir.HotFunc,
   fields : Array[@lib.FieldType],
@@ -1512,7 +1540,10 @@ fn h2l_alloc_field_locals(
   let field_locals : Array[Int] = []
   for field in fields {
     let local_id = @ir.hot_local_count(func)
-    func.locals.locals.push(field.unpack())
+    // Scalar writes can be nested in a value block while later field reads
+    // lie outside that block. Wasm does not carry non-defaultable local-init
+    // facts across that boundary; restore the field's non-null type at reads.
+    func.locals.locals.push(h2l_scalar_local_type(field.unpack()))
     field_locals.push(local_id)
   }
   field_locals
@@ -1527,7 +1558,7 @@ fn h2l_alloc_array_element_locals(
   let element_locals : Array[Int] = []
   for _ in 0..<length {
     let local_id = @ir.hot_local_count(func)
-    func.locals.locals.push(element.unpack())
+    func.locals.locals.push(h2l_scalar_local_type(element.unpack()))
     element_locals.push(local_id)
   }
   element_locals
@@ -1594,7 +1625,7 @@ fn h2l_build_array_init_replacement(
       }
     Some(@lib.Instruction::ArrayNew(_)) => {
       let repeated_local = @ir.hot_local_count(func)
-      func.locals.locals.push(candidate.element.unpack())
+      func.locals.locals.push(h2l_scalar_local_type(candidate.element.unpack()))
       init_roots.push(
         @ir.hot_build_local_set(
           func,
@@ -2215,7 +2246,7 @@ fn h2l_build_array_local_read(
   local_idx : Int,
   access : @lib.Instruction?,
 ) -> Int? {
-  let local_get = @ir.hot_build_local_get(func, local_idx)
+  let local_get = h2l_build_scalar_local_get(func, local_idx, element.unpack())
   match (element.get_storage_type(), access) {
     (@lib.ValTypeStorageType(_), Some(@lib.ArrayGet(_))) => Some(local_get)
     (@lib.PackTypeStorageType(@lib.I8PackType), Some(@lib.ArrayGetS(_))) => {
@@ -2375,9 +2406,10 @@ fn h2l_apply_candidate(
               | @lib.StructGetU(_, _) =>
                 Some(
                   {
-                    let local_get = @ir.hot_build_local_get(
+                    let local_get = h2l_build_scalar_local_get(
                       func,
                       field_locals[field_idx],
+                      candidate.fields[field_idx].unpack(),
                     )
                     if write_is_tee &&
                       h2l_source_requires_tee_init(
@@ -2919,7 +2951,7 @@ fn h2l_apply_variant_candidate(
   let field_locals : Array[Int] = []
   for field in candidate.fields {
     let local_id = @ir.hot_local_count(func)
-    func.locals.locals.push(field.type_)
+    func.locals.locals.push(h2l_scalar_local_type(field.type_))
     field_locals.push(local_id)
   }
   let then_roots = match
@@ -2977,7 +3009,7 @@ fn h2l_apply_variant_candidate(
   let producer_replacement = @ir.hot_build_block(
     func,
     @lib.BlockType::val_type(producer_type),
-    [scalar_if, @ir.hot_build_local_get(func, producer_local)],
+    [scalar_if, h2l_build_scalar_local_get(func, producer_local, producer_type)],
   )
   @ir.hot_replace_node(
     func,
@@ -2994,7 +3026,10 @@ fn h2l_apply_variant_candidate(
       Some(local_id) => local_id
       None => return false
     }
-    let replacement = @ir.hot_build_local_get(func, local_id)
+    let value_type = @ir.hot_type_results(
+      func, @ir.hot_node_type(func, field_use.user_node_id),
+    )[0]
+    let replacement = h2l_build_scalar_local_get(func, local_id, value_type)
     @ir.hot_replace_node(
       func,
       field_use.user_node_id,
@@ -3027,7 +3062,7 @@ fn h2l_apply_variant_local_candidate(
   let field_locals : Array[Int] = []
   for field in candidate.fields {
     let local_id = @ir.hot_local_count(func)
-    func.locals.locals.push(field.type_)
+    func.locals.locals.push(h2l_scalar_local_type(field.type_))
     field_locals.push(local_id)
   }
   for producer in candidate.producers {
@@ -3088,7 +3123,10 @@ fn h2l_apply_variant_local_candidate(
       Some(local_id) => local_id
       None => return false
     }
-    let replacement = @ir.hot_build_local_get(func, local_id)
+    let value_type = @ir.hot_type_results(
+      func, @ir.hot_node_type(func, field_use.user_node_id),
+    )[0]
+    let replacement = h2l_build_scalar_local_get(func, local_id, value_type)
     @ir.hot_replace_node(
       func,
       field_use.user_node_id,

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-09-10
 sources:
   - ../../release-horizon-and-oracles.md
   - ../tracker.md
@@ -37,6 +37,28 @@ related:
 ---
 
 # `heap2local`
+
+## September 2026 runtime repair
+
+Dewdrop's late Heap2Local order exposed a reference field initialized inside
+one result block and read outside it. Declaring its scalar replacement as a
+non-null local violates Wasm definite initialization even though Starshine's
+validator accepted the output. The same hazard applies to array elements and
+variant scalar fields.
+
+Scalar reference locals now use nullable storage. Reads of non-null fields use
+`ref.as_non_null` to restore the field type, after the allocation's field write.
+This preserves scalar replacement and exact-reference type information while
+making each local declaration defaultable. Numeric fields are unchanged.
+
+The [native regression](../../../../../src/passes/heap2local_dew_regression_test.mbt)
+failed before the repair and passes afterward. All 53 focused Heap2Local tests
+pass. The [execution lane](../../../../../scripts/test/heap2local-reference-runtime.ts)
+checks struct fields, reference results, and reference array elements after one
+and two Heap2Local passes: 30 transformed Node checks pass, with independent
+`wasm-tools` validation (0.087 seconds). Run it with an explicit native CLI path.
+The broader generated-pass and composition recheck remains part of the active
+Dewdrop repair work; previous parity closure did not cover this runtime shape.
 
 ## Binaryen v131 status
 
