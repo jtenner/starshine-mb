@@ -58,6 +58,7 @@ priv struct CfgBuilder {
   cfg : HotCfg
   label_targets : Array[BlockId]
   conservative_exception_entries : Bool
+  operand_seen : Array[Bool]?
 }
 
 ///|
@@ -70,12 +71,14 @@ priv struct CfgRegionBuild {
 priv struct CfgRegionSegment {
   block_id : BlockId
   end_slot : Int
+  last_node : NodeId
 }
 
 ///|
 fn cfg_builder_new(
   func : HotFunc,
   conservative_exception_entries : Bool,
+  expand_operand_control : Bool,
 ) -> CfgBuilder {
   let node_to_block : Array[BlockId] = []
   for _ in 0..<hot_node_count(func) {
@@ -96,6 +99,11 @@ fn cfg_builder_new(
     },
     label_targets,
     conservative_exception_entries,
+    operand_seen: if expand_operand_control {
+      Some(Array::make(hot_node_count(func), false))
+    } else {
+      None
+    },
   }
 }
 
@@ -235,15 +243,30 @@ fn cfg_builder_region_segments(
   let segments : Array[CfgRegionSegment] = []
   let region_holder = cfg_builder_region_holder(region_ref)
   let root_count = hot_region_root_count(func, region_ref)
+  let ordered_nodes : Array[NodeId] = []
+  let root_slots : Array[Int] = []
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    let root_id = hot_region_get(func, region_ref, slot)
+    match builder.operand_seen {
+      Some(seen) =>
+        cfg_builder_collect_operand_nodes(
+          func, root_id, slot, seen, ordered_nodes, root_slots,
+        )
+      None => {
+        ordered_nodes.push(root_id)
+        root_slots.push(slot)
+      }
+    }
+  }
   let mut start = 0
-  while start < root_count {
+  while start < ordered_nodes.length() {
     let mut end = start + 1
-    while end < root_count {
-      let previous = hot_region_get(func, region_ref, end - 1)
+    while end < ordered_nodes.length() {
+      let previous = ordered_nodes[end - 1]
       if cfg_op_is_terminator(hot_node_get(func, previous).op) {
         break
       }
-      let next = hot_region_get(func, region_ref, end)
+      let next = ordered_nodes[end]
       if hot_is_control_node(func, next) {
         break
       }
@@ -254,23 +277,62 @@ fn cfg_builder_region_segments(
     }
     let nodes : Array[NodeId] = []
     for slot = start; slot < end; slot = slot + 1 {
-      nodes.push(hot_region_get(func, region_ref, slot))
+      nodes.push(ordered_nodes[slot])
     }
     let block_id = cfg_builder_add_block(
       builder,
       nodes,
       false,
       region_holder~,
-      start_slot=start,
-      end_slot=end,
+      start_slot=root_slots[start],
+      end_slot=root_slots[end - 1] + 1,
     )
-    for slot = start; slot < end; slot = slot + 1 {
-      builder.cfg.region_roots.push({ region_holder, slot, block: block_id, })
+    for index = start; index < end; index = index + 1 {
+      let slot = root_slots[index]
+      if ordered_nodes[index] == hot_region_get(func, region_ref, slot) {
+        builder.cfg.region_roots.push({ region_holder, slot, block: block_id, })
+      }
     }
-    segments.push({ block_id, end_slot: end, })
+    segments.push({
+      block_id,
+      end_slot: root_slots[end - 1] + 1,
+      last_node: ordered_nodes[end - 1],
+    })
     start = end
   }
   segments
+}
+
+///|
+fn cfg_builder_collect_operand_nodes(
+  func : HotFunc,
+  node_id : NodeId,
+  root_slot : Int,
+  seen : Array[Bool],
+  nodes : Array[NodeId],
+  root_slots : Array[Int],
+) -> Unit {
+  if node_id < 0 || !hot_node_is_live(func, node_id) || seen[node_id] {
+    return
+  }
+  seen[node_id] = true
+  let node = hot_node_get(func, node_id)
+  // The control header owns its condition and value operands. Its branch
+  // regions are built separately with their actual control-flow edges.
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if !use_def_region_slot(node.op, slot) {
+      cfg_builder_collect_operand_nodes(
+        func,
+        hot_child_get(func, node_id, slot),
+        root_slot,
+        seen,
+        nodes,
+        root_slots,
+      )
+    }
+  }
+  nodes.push(node_id)
+  root_slots.push(root_slot)
 }
 
 ///|
@@ -446,7 +508,7 @@ fn cfg_builder_process_block(
   } else {
     None
   }
-  let last_node = hot_region_get(func, region_ref, segment.end_slot - 1)
+  let last_node = segment.last_node
   let node = hot_node_get(func, last_node)
   match node.op {
     HotOp::Block => {
@@ -526,7 +588,8 @@ fn cfg_builder_process_block(
     }
     HotOp::Drop => {
       let operand_id = hot_child_get(func, last_node, 0)
-      if operand_id >= 0 &&
+      if builder.operand_seen == None &&
+        operand_id >= 0 &&
         hot_node_is_live(func, operand_id) &&
         hot_node_get(func, operand_id).op == HotOp::If &&
         ssa_simple_drop_result_if_allowed(func, last_node, 0, operand_id) {
@@ -798,6 +861,9 @@ fn cfg_builder_build_region(
     return cfg_builder_region_build_empty(builder, region_ref, force_entry)
   }
   let segments = cfg_builder_region_segments(builder, func, region_ref)
+  if segments.length() == 0 {
+    return cfg_builder_region_build_empty(builder, region_ref, force_entry)
+  }
   let exits : Array[BlockId] = []
   for idx = 0; idx < segments.length(); idx = idx + 1 {
     cfg_builder_process_block(
@@ -875,9 +941,12 @@ fn cfg_verify(cfg : HotCfg) -> Unit {
 pub fn cfg_build(
   func : HotFunc,
   conservative_exception_entries? : Bool = true,
+  expand_operand_control? : Bool = false,
 ) -> HotCfg {
   hot_verify_all_or_abort(func)
-  let builder = cfg_builder_new(func, conservative_exception_entries)
+  let builder = cfg_builder_new(
+    func, conservative_exception_entries, expand_operand_control,
+  )
   let entry_block = cfg_builder_add_block(builder, [], true)
   let exit_block = cfg_builder_add_block(builder, [], true)
   builder.cfg.entry_block = entry_block

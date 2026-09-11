@@ -63,6 +63,26 @@ The advanced invariant is that every analysis must treat `BlockId` as an id insi
 
 The segmentation implementation in [`cfg_builder_region_segments(...)`](../../../src/ir/cfg.mbt) follows the same broad rule: it starts a new segment after a terminator and before a structured-control node. That makes region-local block order deterministic and gives later passes stable predecessors/successors instead of making them infer control slots from child arrays.
 
+## Control flow inside operands
+
+`cfg_build(func, expand_operand_control=true)` builds control regions that are
+nested under value consumers as well as regions that are already roots. For
+example, `local.set x (if ... then ... else ...)` has a condition/header, two
+branch paths, and a continuation containing the destination write. Reads in
+those branch paths remain visible to liveness. The original root-oriented mode
+remains the default for consumers with narrower SSA placement contracts.
+
+The expanded mode walks operand dependencies once, in evaluation order, then
+uses the same region and edge builder for nested controls. Every emitted
+operand node has a block owner. Use-def and CFG-local action scans respect
+that owner: a later consumer of a produced value must not count the producer's
+reads or writes a second time. Original region-root lookup remains available.
+
+CoalesceLocals uses this mode because it colors the full lifted body, including
+conditional value operands. The regression test proves that a branch read
+keeps the condition's saved local live until that branch, before the outer
+local destination is written. The original CFG omitted that branch entirely.
+
 ## Successor And Edge-Kind Policy
 
 [`CfgEdgeKind`](../../../src/ir/cfg_contract.mbt) has five explicit kinds:

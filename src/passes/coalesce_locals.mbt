@@ -6066,6 +6066,7 @@ priv struct CLCfgBlockActions {
 ///|
 fn cl_cfg_collect_block_node_actions(
   func : @ir.HotFunc,
+  cfg : @ir.HotCfg,
   node_id : @ir.NodeId,
   block_id : @ir.BlockId,
   seen_stamps : Array[Int],
@@ -6074,6 +6075,10 @@ fn cl_cfg_collect_block_node_actions(
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
+  }
+  match @ir.cfg_block_for_node(cfg, node_id) {
+    Some(owner) if owner != block_id => return
+    _ => ()
   }
   if seen_stamps[node_id] == block_id {
     return
@@ -6089,7 +6094,7 @@ fn cl_cfg_collect_block_node_actions(
       continue
     }
     cl_cfg_collect_block_node_actions(
-      func, child_id, block_id, seen_stamps, actions, action_node_ids,
+      func, cfg, child_id, block_id, seen_stamps, actions, action_node_ids,
     )
   }
   let action = match node.op {
@@ -6134,7 +6139,7 @@ fn cl_cfg_collect_block_actions(
     let node_ids : Array[@ir.NodeId] = []
     for node_id in @ir.cfg_block_get(cfg, block_id).nodes {
       cl_cfg_collect_block_node_actions(
-        func, node_id, block_id, seen_stamps, actions, node_ids,
+        func, cfg, node_id, block_id, seen_stamps, actions, node_ids,
       )
     }
     out.push({ actions, node_ids, })
@@ -6553,6 +6558,16 @@ fn cl_cfg_compute_interferences(
       cl_cfg_sparse_add_interference(interferences, lhs, rhs)
     }
   }
+  // A body local read before any write holds its default value at entry.
+  // An unused parameter still holds its caller-supplied value, so sharing its
+  // slot would replace that default even when the parameter itself is not live.
+  for local_id = param_count; local_id < total_locals; local_id = local_id + 1 {
+    if @ir.local_live_in(liveness, @ir.cfg_entry_block(cfg), local_id) {
+      for param_id = 0; param_id < param_count; param_id = param_id + 1 {
+        cl_cfg_sparse_add_interference(interferences, local_id, param_id)
+      }
+    }
+  }
   let ineffective_sets : Array[@ir.NodeId] = []
   let ineffective_tees : Array[@ir.NodeId] = []
   for block_id = 0; block_id < @ir.cfg_block_count(cfg); block_id = block_id + 1 {
@@ -6660,10 +6675,8 @@ fn cl_rewrite_loop_func_cfg(
   params : Array[@lib.ValType],
 ) -> CLFuncRewrite {
   let @lib.Func(body_locals, @lib.Expr(original_instrs)) = func
-  let types = cl_all_local_types(params, body_locals)
-  let total_locals = types.length()
   if body_locals.length() <= 1 ||
-    total_locals > cl_dense_coloring_local_limit() ||
+    params.length() + body_locals.length() > cl_dense_coloring_local_limit() ||
     cl_instrs_have_legacy_try(original_instrs) {
     return { func, changed: false, }
   }
@@ -6671,19 +6684,25 @@ fn cl_rewrite_loop_func_cfg(
     Ok(hot) => hot
     Err(_) => return { func, changed: false, }
   }
-  let cfg = @ir.cfg_build(hot)
+  // Lifting captures stack values before conflicting accesses and conditional
+  // operands. Those locals participate in the same liveness and interference
+  // analysis as source locals, even when the two access counts happen to match.
+  let total_locals = @ir.hot_local_count(hot)
+  let types : Array[@lib.ValType] = []
+  for local_id = 0; local_id < total_locals; local_id = local_id + 1 {
+    types.push(
+      match @ir.hot_local_type(hot, local_id) {
+        Some(ty) => ty
+        None => abort("coalesce-locals lifted local must have a declared type")
+      },
+    )
+  }
+  let cfg = @ir.cfg_build(hot, expand_operand_control=true)
   let use_def = @ir.use_def_build(hot, cfg=Some(cfg))
   let liveness = @ir.liveness_build(cfg, use_def)
   let block_actions = cl_cfg_collect_block_actions(hot, cfg)
-  let mut cfg_action_count = 0
-  for block in block_actions {
-    cfg_action_count += block.actions.length()
-  }
   let raw_actions : Array[CLAction] = []
   cl_collect_instrs(original_instrs, raw_actions, total_locals)
-  if cfg_action_count != raw_actions.length() {
-    return { func, changed: false, }
-  }
   let (interferences, ineffective_sets, ineffective_tees) = cl_cfg_compute_interferences(
     cfg,
     liveness,
@@ -6702,33 +6721,34 @@ fn cl_rewrite_loop_func_cfg(
       total_locals,
     ),
   )
-  let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
   if ineffective_sets.length() > 0 || ineffective_tees.length() > 0 {
     cl_cfg_cleanup_ineffective_writes(hot, ineffective_sets, ineffective_tees)
   }
-  let rewrite_base = if ineffective_sets.length() > 0 ||
-    ineffective_tees.length() > 0 {
-    @ir.hot_lower_func(hot)
-  } else {
-    func
+  // Apply the coloring to the very body whose lifetimes were analyzed. Applying
+  // a capture-aware coloring to the source body can clobber a carried read.
+  let @lib.Func(base_locals, @lib.Expr(base_instrs)) = @ir.hot_lower_func(hot)
+  let base_types = cl_all_local_types(params, base_locals)
+  if base_types.length() < total_locals {
+    abort("coalesce-locals lowering must retain every analyzed local")
   }
-  let @lib.Func(base_locals, @lib.Expr(base_instrs)) = rewrite_base
-  if base_locals != body_locals {
-    return { func: rewrite_base, changed: true, }
+  // Lowering may need additional stack temporaries. Their lifetimes were not
+  // in this CFG, so append distinct slots instead of indexing past the map or
+  // merging them using unrelated source-local facts.
+  for local_id = total_locals
+      local_id < base_types.length()
+      local_id = local_id + 1 {
+    coloring.old_to_new.push(params.length() + coloring.slot_types.length())
+    coloring.slot_types.push(base_types[local_id])
   }
-  if rewritten_locals == body_locals &&
-    cl_old_to_new_is_identity(coloring.old_to_new) &&
-    ineffective_sets.length() == 0 &&
-    ineffective_tees.length() == 0 {
-    return { func, changed: false, }
-  }
+  let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
   let rewritten_instrs = cl_deep_copy_instrs(base_instrs)
   cl_rewrite_all_local_idxs_in_place(rewritten_instrs, coloring.old_to_new)
   ignore(cl_remove_redundant_copy_pairs(rewritten_instrs))
-  {
-    func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
-    changed: true,
-  }
+  let rewritten = @lib.Func::new(
+    rewritten_locals,
+    @lib.Expr::new(rewritten_instrs),
+  )
+  { func: rewritten, changed: rewritten != func, }
 }
 
 ///|

@@ -212,6 +212,7 @@ fn use_def_block_mark_def(
 ///|
 fn use_def_scan_block_node(
   func : HotFunc,
+  cfg : HotCfg,
   node_id : NodeId,
   block_id : BlockId,
   local_count : Int,
@@ -220,6 +221,12 @@ fn use_def_scan_block_node(
   local_write_blocks : Array[Array[BlockId]],
   seen_stamps : Array[Int],
 ) -> Unit {
+  // Expanded CFGs give control operands their own blocks. A consumer uses the
+  // produced value; it must not re-execute the producer's local accesses.
+  match cfg_block_for_node(cfg, node_id) {
+    Some(owner) if owner != block_id => return
+    _ => ()
+  }
   if seen_stamps[node_id] == block_id {
     return
   }
@@ -243,12 +250,14 @@ fn use_def_scan_block_node(
           continue
         }
         use_def_scan_block_node(
-          func, root_id, block_id, local_count, defs, uses, local_write_blocks, seen_stamps,
+          func, cfg, root_id, block_id, local_count, defs, uses, local_write_blocks,
+          seen_stamps,
         )
       }
     } else {
       use_def_scan_block_node(
-        func, child_id, block_id, local_count, defs, uses, local_write_blocks, seen_stamps,
+        func, cfg, child_id, block_id, local_count, defs, uses, local_write_blocks,
+        seen_stamps,
       )
     }
   }
@@ -285,7 +294,8 @@ fn use_def_build_block_sets(
     let uses = bitset_new(local_count)
     for node_id in cfg_block_get(cfg, block_id).nodes {
       use_def_scan_block_node(
-        func, node_id, block_id, local_count, defs, uses, local_write_blocks, seen_stamps,
+        func, cfg, node_id, block_id, local_count, defs, uses, local_write_blocks,
+        seen_stamps,
       )
     }
     block_defs.push(defs)

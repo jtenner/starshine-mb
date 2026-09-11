@@ -109,7 +109,7 @@ pub fn cfg_block_get(HotCfg, Int) -> HotBlockInfo
 
 pub fn cfg_block_worklist_seed(HotCfg) -> Array[Int]
 
-pub fn cfg_build(HotFunc, conservative_exception_entries? : Bool) -> HotCfg
+pub fn cfg_build(HotFunc, conservative_exception_entries? : Bool, expand_operand_control? : Bool) -> HotCfg
 
 pub fn cfg_control_successor_policy(HotOp) -> CfgControlSuccessorPolicy?
 

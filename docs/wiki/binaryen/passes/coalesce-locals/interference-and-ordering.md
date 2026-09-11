@@ -273,3 +273,39 @@ A future Starshine port should preserve all of these points:
 - Binaryen `version_129` liveness helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/cfg/liveness-traversal.h>
 - Binaryen `version_129` value-numbering helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/numbering.h>
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/coalesce-locals.wast>
+
+## Locals created while lifting and lowering
+
+The CFG lane builds its type, liveness, and interference tables from the full
+lifted local list. Conditional operands can add capture locals, including
+array operands held while an `if` computes the final `array.copy` length.
+Matching the number of raw and lifted accesses does not establish matching
+local identities. A 104-byte reduced module previously passed that count
+check and aborted while indexing the smaller raw-local interference table.
+
+The coloring is applied to the lowered version of the analyzed HOT body, so
+stack captures remain present. Any further locals added by lowering receive
+distinct appended slots; they do not reuse slots based on a CFG that did not
+contain them. A diagnostic assertion checks that lowering retains all analyzed
+local declarations.
+
+Body locals that are live at function entry must also interfere with every
+parameter. They still contain their default values even when an unused
+parameter is not live. The reduced loop test used to return the caller's `9`
+in place of the local's `0`.
+
+Control instructions can occur inside a root operand. CoalesceLocals requests
+`cfg_build(..., expand_operand_control=true)` so each conditional arm has its
+own edges before the consuming store. Operand actions belong only to the block
+that evaluates the operand; consumers do not replay those actions. Without
+these edges, the liveness scan missed a read inside a result conditional and
+could overwrite a saved parameter before that read.
+
+The native CoalesceLocals suite passes 116 tests (47.012 seconds); the IR suite
+passes 380 (8.519 seconds). The reduced tests cover captured stack values,
+conditional array operands, default locals against parameters, and conditional
+reads. The saved Dewdrop array-carriers CoalesceLocals prefix passes validation,
+Node, and Wago after the shared control-exit repair. Its measured pass time is
+25.203 milliseconds. The full original-failure replay is running; release
+GenValid and performance signoff remain open. The native test build over 30
+seconds remains recorded as a build-performance bug.
