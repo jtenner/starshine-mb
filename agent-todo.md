@@ -12,11 +12,17 @@
   PrecomputePropagation uses operand-expanded scalar flow facts for loop copies.
   SimplifyLocals retains tee write order; lowering reuses buried carried reads.
   DAE constant specialization includes ordinary and tail-call actuals.
+  Flatten retains carried call results before GC writes and moves split-tee
+  prerequisites with their captures; its IR/native gate passes 924/924.
   See the relevant pass dossiers.
-- **Open:** full wave 20 passes 944/1000 original failed fixture/order pairs and
-  fails 56, with no regression from wave 19. There are 34 O4z cases; direct
-  failures remain in optimizing inlining and Flatten, plus
-  repeated control/local pipelines. These are case counts, not proven owners.
+- **Open:** current Flatten wave 22 passes 936/1000 original failed
+  fixture/order pairs and fails 64 (stable wave 20 was 944/1000). New text-concat
+  and array-comparator O4z regressions first change execution in later
+  CoalesceLocals CFG stages, not Flatten. The reduced text shape retains an
+  ineffective tee before an unconditional overwrite and aliases its slot with
+  a live parameter. Repair local-slot ownership and replay all 1000 cases.
+  Other optimizing-inlining, direct, and repeated-control failures remain;
+  a case name is not proof of its owning pass.
 - **Native gate:** SSA has one pre-existing stack-carried-tee count assertion;
   improved branch liveness exposes 50 further old fresh-local/branch-copy shape
   assertions. Compare their semantics and size before changing expectations.

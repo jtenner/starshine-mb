@@ -19,7 +19,17 @@ related:
 
 # `flatten` Fuzzing Status
 
-## Current state: closed for direct-pass ownership
+## September runtime renewal remains open
+
+The earlier direct-pass closeout below is historical. Dewdrop found a carried
+call moved across a GC field write. The repair and current native/runtime
+checks are in [the prelude contract](./flat-ir-contract-and-preludes.md#carried-calls-before-gc-writes).
+Fresh regular and `flatten-all` 10,000-case lanes use the documented three
+normalizers, explicit Binaryen 131, real Node (`node-v2`), strict execution
+comparison, external validation, determinism and codec checks. They are queued;
+no generated or full-pipeline closeout is claimed for the repair yet.
+
+## Historical direct-pass closeout
 
 `flatten` is closed again for direct-pass behavior, validity, generation breadth, residual classification, ownership/failure atomicity, and pass-local performance. Preset order and nested reruns remain separate scheduler work.
 

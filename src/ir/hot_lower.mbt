@@ -727,6 +727,13 @@ fn hot_lower_impl_build_first_effect_orders(func : HotFunc) -> Array[Int] {
 }
 
 ///|
+/// First source-ordered external effect in each node's operand tree.
+/// Region bodies are separate scopes. The node count denotes no effect.
+pub fn hot_source_first_effect_orders(func : HotFunc) -> Array[Int] {
+  hot_lower_impl_build_first_effect_orders(func)
+}
+
+///|
 fn hot_lower_impl_collect_preceding_dependency(
   func : HotFunc,
   node_id : NodeId,

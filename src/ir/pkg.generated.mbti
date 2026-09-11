@@ -695,6 +695,8 @@ pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
 
 pub fn hot_simple_value_key(HotFunc, Int) -> HotSimpleValueKey?
 
+pub fn hot_source_first_effect_orders(HotFunc) -> Array[Int]
+
 pub fn hot_split_trailing_payload_roots(HotFunc, Array[Int], Int) -> (Array[Int], Array[Int])?
 
 pub fn hot_try_table_catches_set(HotFunc, Int, Array[HotCatchArm]) -> Unit

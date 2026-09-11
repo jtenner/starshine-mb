@@ -1219,6 +1219,7 @@ priv struct FlattenRewriteState {
   branch_payload_nodes : Array[Int]
   use_def : @ir.HotNodeUseCounts
   use_count_node_limit : Int
+  source_first_effect_orders : Array[Int]
   module_subtypes : Array[@lib.SubType]
   tuple_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
   multivalue_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
@@ -1276,6 +1277,7 @@ fn FlattenRewriteState::new(
     branch_payload_nodes: node_index.branch_payload_nodes,
     use_def: flatten_build_node_use_counts(func),
     use_count_node_limit: @ir.hot_node_count(func),
+    source_first_effect_orders: @ir.hot_source_first_effect_orders(func),
     module_subtypes,
     tuple_br_if_flow_entries: [],
     multivalue_br_if_flow_entries: [],
@@ -9213,24 +9215,43 @@ fn flatten_spill_scalar_operand(
     let current_idx = state.active_root_idx + state.active_early_insertions
     for idx = 0; idx < current_idx; idx = idx + 1 {
       let root_id = @ir.hot_region_get(func, owner_region, idx)
-      if root_id >= 0 &&
-        root_id < state.use_count_node_limit &&
-        root_id > child_id {
-        match @ir.hot_node_get(func, root_id).op {
-          @ir.HotOp::GlobalSet => {
-            early_insert_idx = idx
-            break
-          }
-          _ => ()
+      let origin = if root_id >= 0 && root_id < state.use_count_node_limit {
+        root_id
+      } else if root_id >= 0 &&
+        @ir.hot_node_get(func, root_id).op is @ir.HotOp::LocalSet &&
+        @ir.hot_child_count(func, root_id) == 1 {
+        let value = @ir.hot_child_get(func, root_id, 0)
+        if @ir.hot_node_get(func, root_id).order ==
+          @ir.hot_node_get(func, value).order {
+          value
+        } else {
+          -1
         }
+      } else {
+        -1
+      }
+      if origin >= 0 &&
+        origin < state.source_first_effect_orders.length() &&
+        state.source_first_effect_orders[origin] < state.use_count_node_limit &&
+        state.source_first_effect_orders[origin] > child.order {
+        // Capture before the next source effect, including already-spilled
+        // operands of a later GC write. Synthetic control roots do not have
+        // an original execution position and must not become such anchors.
+        early_insert_idx = idx
+        break
       }
     }
   }
   if early_insert_idx >= 0 {
+    // Operand preludes can initialize locals consumed by this value (for
+    // example a split tee feeding a cast). Move the dependency chain with it.
+    preludes.push(set_id)
+    let inserted = preludes.length()
     ignore(
-      pass_splice_region(ctx, func, owner_region, early_insert_idx, 0, [set_id]),
+      pass_splice_region(ctx, func, owner_region, early_insert_idx, 0, preludes),
     )
-    state.active_early_insertions = state.active_early_insertions + 1
+    preludes.clear()
+    state.active_early_insertions = state.active_early_insertions + inserted
   } else {
     preludes.push(set_id)
   }
@@ -9309,7 +9330,16 @@ fn flatten_rewrite_region_operands(
     }
     let inserted = preludes.length()
     if inserted > 0 {
-      ignore(pass_splice_region(ctx, func, region_ref, idx, 0, preludes))
+      ignore(
+        pass_splice_region(
+          ctx,
+          func,
+          region_ref,
+          idx + state.active_early_insertions,
+          0,
+          preludes,
+        ),
+      )
       changed = true
     }
     let root_idx = idx + state.active_early_insertions + inserted

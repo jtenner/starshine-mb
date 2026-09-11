@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-01
+last_reviewed: 2026-09-11
 sources:
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
@@ -701,3 +701,49 @@ The cleanest summary is:
 - `breakTemps` are the mechanism that makes carried branch values explicit
 - placeholder `unreachable` plus EH pop fixup are part of the real correctness story
 - and that is why flatten is much more than a generic “remove nesting” pass
+
+
+## Carried calls before GC writes
+
+Dewdrop execution exposed a scalar spill that crossed a later `struct.set`:
+`1; call read(box); box.field += 1; add` read the updated field instead of
+retaining the call's earlier result. The old early-spill anchor handled only
+`global.set` and compared node identities. A GC write and a call nested in an
+operand tree require the same source-order rule.
+
+Flatten now caches `hot_source_first_effect_orders` once before rewriting.
+This shared HOT analysis reports the earliest external effect in each original
+operand tree; nested region bodies remain separate scopes, and the original
+node count means no such effect. An original root, or a source-preserving
+capture of an original operand, can anchor an earlier carried value before a
+later source effect. Synthetic control roots cannot supply that evidence.
+
+A moved capture includes its pending operand preludes. In particular, splitting
+a tee must initialize the reference local before a moved cast reads it.
+Ordinary prelude insertion also accounts for roots already inserted earlier in
+the region. Moving every earlier root solely by its order is incorrect: it can
+move casts before their reference-local initialization.
+
+The executable regressions are
+[`flatten_dew_gc_call_order_test.mbt`](../../../../../src/passes/flatten_dew_gc_call_order_test.mbt)
+and [`flatten_dew_accumulator_test.mbt`](../../../../../src/passes/flatten_dew_accumulator_test.mbt).
+They cover flat/conditional calls, read-only and writing helpers, split tees,
+field values, observable read/write order, and 13 Fibonacci inputs. They require
+real flattening and compare original/transformed execution with bounded fuel.
+The previous Fibonacci no-op assertion was stale after the shared HOT lifetime
+repair; the replacement requires the transform and the correct sequence.
+
+The native IR/Flatten gate passes 924/924 in 60.146 s. A rebuilt release CLI
+(SHA-256 `b2e974d057cc4fa0f7f9e8a11aa277351ba0296c9ccee6fb2fcd16a6b047f921`)
+passes 26 reduced variants in both Node and Wago, with external validation.
+The debug and release builds took 21.916 s and 285.348 s. The test/build times
+above 30 s remain compiler performance bugs, not pass-speed measurements.
+Evidence is in Dewdrop `.tmp/starshine-pass-repairs/flatten-effect-release-check/`
+and `flatten-effect-order-*` logs.
+
+This repair is a forward checkpoint, not full pipeline signoff. Full wave 22
+passes 936/1000 previously failing fixture/order pairs, with 64 still failing.
+The new text-concat and array-comparator O4z faults first change execution in
+later `coalesce-locals-cfg` stages (71 and 57), after correct Flatten output.
+Their local-slot repairs are separate work. Fresh regular and `flatten-all`
+10,000-case generated lanes are queued against the frozen release binary.

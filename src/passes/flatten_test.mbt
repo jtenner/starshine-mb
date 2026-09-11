@@ -11759,13 +11759,13 @@ test "flatten defers nested scalar producers carried across global writes" {
 }
 
 ///|
-test "flatten defers stack-carried accumulator reads before local writes" {
-  // WAGO tests/fixtures/wasm/fib computes the new accumulator before the
-  // following local.set consumes the old accumulator. Flatten reordered the
-  // roots and made the sum read the overwritten local, producing powers of two.
+test "flatten retains stack-carried accumulator values before local writes" {
+  // The new accumulator is computed before the old one is copied. Earlier
+  // HOT lifetime repairs now let Flatten transform this shape correctly.
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (result i32) (local i32 i32 i32 i32) i32.const 1 local.set 1 loop local.get 0 local.get 4 i32.gt_s if local.get 1 local.get 2 i32.add local.get 1 local.set 2 local.set 1 local.get 4 i32.const 1 i32.add local.set 4 br 1 end end local.get 2))",
   )
+  let before = @ir.hot_lower_func(func)
   let ctx = HotPassContext::new(
     flatten_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -11773,7 +11773,17 @@ test "flatten defers stack-carried accumulator reads before local writes" {
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let after = @ir.hot_lower_func(func)
+  let expected = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]
+  for n, value in expected {
+    @debug.assert_eq(flatten_dew_accumulator_execute(before, n), value)
+    @debug.assert_eq(flatten_dew_accumulator_execute(after, n), value)
+  }
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("flatten accumulator verification failed: \{err}")
+  }
 }
 
 ///|
