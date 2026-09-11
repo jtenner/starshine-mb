@@ -93,3 +93,54 @@ test "hot lowering keeps call order after replacing drop roots" {
   }
   @debug.assert_eq(calls, [0U, 1U])
 }
+
+///|
+test "hot lowering reuses a carried call below another constructor operand" {
+  let input = @wast.wast_to_binary_module(
+    (
+      #|(module
+      #| (import "env" "read" (func (result i32)))
+      #| (import "env" "mutate" (func))
+      #| (func (export "run") (result i32) (local i32)
+      #|  call 0 call 1 local.set 0
+      #|  i32.const 1 local.get 0 i32.add))
+    ),
+  ).unwrap()
+  let func = hot_lift_func(input, @lib.FuncIdx::new(2U))
+  let mut set_id = -1
+  let mut get_id = -1
+  for id = 0; id < hot_node_count(func); id = id + 1 {
+    if !hot_node_is_live(func, id) {
+      continue
+    }
+    let node = hot_node_get(func, id)
+    if node.op is HotOp::LocalSet && node.imm0 == 0 {
+      set_id = id
+    }
+    if node.op is HotOp::LocalGet && node.imm0 == 0 {
+      get_id = id
+    }
+  }
+  assert_true(set_id >= 0 && get_id >= 0)
+  let tee = hot_build_local_tee_from_set(func, set_id)
+  hot_replace_node(
+    func,
+    get_id,
+    hot_node_get(func, tee),
+    preserve_value_order=true,
+  )
+  hot_delete_node(func, tee)
+  let nop = hot_build_nop(func)
+  hot_replace_node(func, set_id, hot_node_get(func, nop))
+  hot_delete_node(func, nop)
+  let @lib.Func(_, @lib.Expr(body)) = hot_lower_func(func)
+  let calls : Array[UInt] = []
+  for instr in body {
+    match instr {
+      @lib.Call(@lib.FuncIdx(index)) => calls.push(index)
+      _ => ()
+    }
+  }
+  @debug.assert_eq(calls, [0U, 1U])
+  assert_true(body.contains(@lib.Instruction::i32_add()))
+}

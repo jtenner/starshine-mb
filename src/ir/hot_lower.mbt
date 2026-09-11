@@ -2697,6 +2697,56 @@ fn hot_lower_impl_transparent_unused_result_block_roots(
 }
 
 ///|
+// A value emitted before a side effect can sit below a later operand. Move
+// that existing value to the top; evaluating its producer again changes reads,
+// calls, traps, and allocation identity. Scratch locals preserve the values
+// above it in their original order.
+fn hot_lower_impl_reuse_buried_scalar(
+  func : HotFunc,
+  id : NodeId,
+  stack : Array[HotLowerStackValue],
+  out : Array[Instruction],
+  extra_locals : Array[ValType],
+) -> Bool {
+  if hot_node_result_arity(func, id) != 1 || stack.length() < 2 {
+    return false
+  }
+  let mut position = stack.length() - 2
+  while position >= 0 && stack[position].node_id != id {
+    position -= 1
+  }
+  if position < 0 {
+    return false
+  }
+  let above : Array[(HotLowerStackValue, LocalIdx)] = []
+  while stack.length() > position + 1 {
+    let value = stack.pop().unwrap()
+    let local_ = hot_lower_impl_alloc_scratch_local(
+      func,
+      extra_locals,
+      value.val_type,
+    )
+    out.push(Instruction::local_set(local_))
+    above.push((value, local_))
+  }
+  let value = stack.pop().unwrap()
+  let local_ = hot_lower_impl_alloc_scratch_local(
+    func,
+    extra_locals,
+    value.val_type,
+  )
+  out.push(Instruction::local_set(local_))
+  for index = above.length() - 1; index >= 0; index = index - 1 {
+    let (saved, saved_local) = above[index]
+    out.push(Instruction::local_get(saved_local))
+    stack.push(saved)
+  }
+  out.push(Instruction::local_get(local_))
+  stack.push(value)
+  true
+}
+
+///|
 fn hot_lower_impl_emit_root(
   func : HotFunc,
   id : NodeId,
@@ -2713,6 +2763,12 @@ fn hot_lower_impl_emit_root(
     match stack.last() {
       Some(top) if top.node_id == id => return
       _ => ()
+    }
+    // Pure values can be rematerialized cheaply. A saved effectful value
+    // must be reused even when a later operand has covered it on the stack.
+    if !effects_is_pure(label_frames.node_effects[id]) &&
+      hot_lower_impl_reuse_buried_scalar(func, id, stack, out, extra_locals) {
+      return
     }
   }
   let label_id = hot_control_node_label(func, id)

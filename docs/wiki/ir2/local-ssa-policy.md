@@ -308,3 +308,22 @@ order. Parameters and locals initialized in an enclosing scope retain their
 types. CodeFolding invokes the repair once after a successful fixpoint, retaining
 its common-tail optimization. The helper is a storage repair for valid-input
 code motion, not a validator or a way to accept invalid source Wasm.
+
+### Reusing carried values below later operands
+
+A single-result value already emitted onto the Wasm stack must not be evaluated
+again merely because another operand now covers it. `hot_lower_impl_emit_root`
+keeps its top-of-stack fast path and reuses a buried effectful value through
+typed scratch locals. Values above it retain their order. Pure values retain
+cheap rematerialization. This preserves read snapshots, call counts, traps,
+and allocation identity across later effects.
+
+When a pass turns `local.set` plus `local.get` into a tee,
+`hot_build_local_tee_from_set` preserves the write position. Replacing the read
+must explicitly retain that order with `preserve_value_order=true`. The new
+builder asserts that its source is a unary set. SimplifyLocals uses this pair.
+The bounded lowerer regression in `src/ir/hot_lower_pending_effect_test.mbt`
+requires the carried call to run once, before the later call; the array-pop
+execution regression also checks the value and memory writes. See the
+[SimplifyLocals ordering dossier](../binaryen/passes/simplify-locals/effect-ordering-and-barriers.md)
+for measured validation and remaining gates.

@@ -389,6 +389,24 @@ pub fn hot_build_local_tee(
 }
 
 ///|
+/// Turn a set into a value-producing write without changing its source order.
+/// The caller must remove the old set and preserve this order when replacing
+/// the read that receives the tee.
+pub fn hot_build_local_tee_from_set(func : HotFunc, set_id : NodeId) -> NodeId {
+  let set = hot_node_get(func, set_id)
+  if set.op != HotOp::LocalSet || set.child_count != 1 {
+    abort("hot_build_local_tee_from_set requires a unary local.set")
+  }
+  let tee_id = hot_build_local_tee(
+    func,
+    set.imm0,
+    hot_child_get(func, set_id, 0),
+  )
+  func.nodes[tee_id] = { ..func.nodes[tee_id], order: set.order, }
+  tee_id
+}
+
+///|
 pub fn hot_build_global_get(
   func : HotFunc,
   global_idx : Int,

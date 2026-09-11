@@ -283,6 +283,8 @@ pub fn hot_build_local_set_from_value(HotFunc, Int, Int) -> Int
 
 pub fn hot_build_local_tee(HotFunc, Int, Int) -> Int
 
+pub fn hot_build_local_tee_from_set(HotFunc, Int) -> Int
+
 pub fn hot_build_loop(HotFunc, @lib.BlockType, Array[Int]) -> Int
 
 pub fn hot_build_node(HotFunc, HotOp, Int, imm0? : Int, imm1? : Int, children? : Array[Int]) -> Int

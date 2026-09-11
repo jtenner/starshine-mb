@@ -195,3 +195,44 @@ generated gates and whole-pipeline speed selection remain open.
   - a stable Binaryen parity family
   - a reusable exact/HOT design consequence
 - Do not add temporary frontier notes here if they only describe "which function number is currently red."
+
+## A carried array read below another operand
+
+The array-pop shape has two separate times: read an element before a mutation
+call, then write that saved value into a local after the call. When replacing
+set/get traffic with a tee, retain the original set's write order with
+`hot_build_local_tee_from_set` and `preserve_value_order=true`. Forwarding a
+single-use value also retains its original order.
+
+Correct source order then exposes a lowering requirement. A saved array value
+may already be on the Wasm stack when a tag constant is pushed above it for a
+struct constructor. Checking only the top stack value misses the saved read.
+The old emitter ran `array.get` a second time after the mutation, returning 99
+instead of the saved 42. Lowering now moves an existing buried single-result
+value through typed scratch locals, retains the values above it in order, and
+reuses that value. Pure values can still be rematerialized cheaply.
+
+`src/passes/simplify_locals_dew_array_order_test.mbt` executes empty and nonempty
+arrays, checks the returned payload, exact read/mutation order, and final array
+contents, and requires the conditional to produce its result directly. The
+shared regression in `src/ir/hot_lower_pending_effect_test.mbt` simulates tee
+formation around a carried call and requires call order `[0, 1]`; the old lowerer
+emitted `[0, 1, 0]`. Both regressions were red before repair. All 664 native IR
+and SimplifyLocals tests pass (75.734 s). Twelve CLI variants validate and run in
+Node and Wago, each two canonical bytes smaller than input and Binaryen 131.
+
+The saved replay improves to 942/1000 with 58 failures and no regression
+(144.042 s). O4z hash-evaluation-once now passes. The array fixture passes the
+formerly bad SimplifyLocals prefix and has a later, separate inlining failure.
+Generated renewal and whole-pipeline speed selection remain open. Evidence is
+in Dewdrop's `.tmp/starshine-pass-repairs/sl-array-order-variants/report.json`,
+`sl-and-ir-native-wave19.log`, `buried-pending-value-native-red.log`,
+`full-replay-regression-wave19/report.json`, and `array-runtime-wave19/report.json`.
+
+The rebuilt release CLI passes the twelve variants and exact O4z
+hash-evaluation-once fixture in both engines. Debug build takes 22.626 s;
+scoped interfaces 5.084 s; release build 261.278 s. Work over 30 s remains a
+performance bug. Release SHA-256 is
+`d5a68233c5402e62af7aa6a1b6dc12d4cb0591033608a046221344148edac1f8`;
+exact fixture evidence is `sl-release-hash-evaluation-once.json` in the same
+Dewdrop evidence directory.

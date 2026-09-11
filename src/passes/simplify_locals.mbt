@@ -1492,10 +1492,9 @@ fn simplify_locals_make_local_get(
 ///|
 fn simplify_locals_make_local_tee(
   func : @ir.HotFunc,
-  local_id : Int,
-  value_id : Int,
+  set_id : Int,
 ) -> @ir.HotNode {
-  let replacement_id = @ir.hot_build_local_tee(func, local_id, value_id)
+  let replacement_id = @ir.hot_build_local_tee_from_set(func, set_id)
   let replacement = @ir.hot_node_get(func, replacement_id)
   @ir.hot_delete_node(func, replacement_id)
   replacement
@@ -3848,6 +3847,7 @@ fn simplify_locals_scan_node(
                     func,
                     node_id,
                     @ir.hot_node_get(func, value_id),
+                    preserve_value_order=true,
                   )
                   detached.push(value_id)
                 } else if policy.allow_sink_tee &&
@@ -3856,7 +3856,8 @@ fn simplify_locals_scan_node(
                   @ir.hot_replace_node(
                     func,
                     node_id,
-                    simplify_locals_make_local_tee(func, local_id, value_id),
+                    simplify_locals_make_local_tee(func, info.node_id),
+                    preserve_value_order=true,
                   )
                 } else {
                   simplify_locals_sinkables_clear_local(sinkables, local_id)
