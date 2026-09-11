@@ -330,3 +330,30 @@ The checked-in reduced fixture is `tests/repros/precompute-propagate-rust-fannku
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-strings.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-ref-func.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-relaxed.wast>
+
+## September 2026 reaching-write and region-ownership repairs
+
+Two Dewdrop failures reopened the propagating mode. In pattern-matrix execution,
+a local written in a conditional operand was copied into another local. CFG SSA
+missed the first write, so transitive constant resolution replaced the copied
+value with its entry default. Scalar propagation now follows the forward
+LocalGraph's actual reaching writes at every transitive read. Every reaching
+source must agree; cycles and unknown writes stop that constant proof. Literal
+nodes appended by allocation/identity folding remain directly resolvable, and
+the replacement scan stays within the original analysis snapshot.
+
+In short-circuit execution, folding a constant `if` moved roots to its parent
+but left the old arm holder pointing to them. Later transparent-block deletion
+aborted because the supposedly detached block still had that incoming edge.
+The selected arm is now emptied when its roots move, in both value and void
+constant-if folding. The return remains productive and control ownership stays
+consistent.
+
+[`precompute_dew_regression_test.mbt`](../../../../../src/passes/precompute_dew_regression_test.mbt)
+covers the transitive conditional copy and nested return through constant
+branches. The original pattern-matrix case passes Node and Wago. The short
+return fixture previously aborted and now returns 0, 41, and -7 for matching
+inputs, validates externally, and optimizes in 2.755 ms. All 118 focused native
+Precompute and Flatten tests pass. Original-corpus replay and generated lanes
+remain open; native test compilation took 50.335 seconds, over Dewdrop's
+30-second compiler activity limit.

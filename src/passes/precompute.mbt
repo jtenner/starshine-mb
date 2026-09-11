@@ -35,7 +35,7 @@ pub fn precompute_propagate_descriptor() -> @ir.HotPassDescriptor {
 
 ///|
 pub fn precompute_propagate_summary() -> String {
-  "Precompute constants, propagate agreeing local values through SSA, then rerun precompute once."
+  "Precompute constants, propagate agreeing reaching local writes, then rerun precompute once."
 }
 
 ///|
@@ -3187,6 +3187,9 @@ fn precompute_try_fold_constant_if(
   for i = 0; i < root_count; i = i + 1 {
     replacement.push(@ir.hot_region_get(func, chosen_region, i))
   }
+  // The selected arm's roots move to the former if node. Detach them from
+  // the old region holder so later subtree deletion sees one live owner.
+  @ir.hot_region_replace_body(func, chosen_region, [])
   @ir.hot_control_demote_if_to_block(func, node_id, replacement)
   pass_mark_mutated(ctx, func)
   true
@@ -3837,6 +3840,11 @@ fn precompute_simplify_region_roots(
                   // splicing the chosen arm into the parent region. Deleting the
                   // detached owner would leave the label table pointing at a dead
                   // control node.
+                  match chosen_region {
+                    Some(region) =>
+                      @ir.hot_region_replace_body(func, region, [])
+                    None => ()
+                  }
                   @ir.hot_control_demote_if_to_block(func, node_id, [])
                   ignore(
                     pass_splice_region(
@@ -10444,10 +10452,47 @@ fn precompute_propagate_prefix_default_local_const(
 }
 
 ///|
+// Resolve every transitive local read from actual reaching writes. CFG SSA
+// currently omits writes in nested condition operands; following its apparent
+// entry defaults through a copy can turn a dynamic result into zero.
 fn precompute_propagate_prefix_const_for_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  ssa : @ir.HotLocalSsa,
+  graph : @ir.HotLocalGraph,
+  label_used : @bitset.BitSet,
+  node_id : Int,
+  states : Array[Int],
+  value_consts : Array[@ir.HotConstPayload?],
+) -> @ir.HotConstPayload? {
+  // Earlier allocation/identity folds can append constant nodes after the
+  // LocalGraph snapshot. Their literal payload needs no reaching-write fact.
+  match
+    precompute_propagate_prefix_const_payload_from_node(ctx, func, node_id) {
+    Some(payload) => return Some(payload)
+    None => ()
+  }
+  if node_id < 0 || node_id >= states.length() {
+    return None
+  }
+  match states[node_id] {
+    1 | 3 => return None
+    2 => return value_consts[node_id]
+    _ => ()
+  }
+  states[node_id] = 1
+  let value = precompute_propagate_prefix_const_for_node_impl(
+    ctx, func, graph, label_used, node_id, states, value_consts,
+  )
+  value_consts[node_id] = value
+  states[node_id] = if value.is_some() { 2 } else { 3 }
+  value
+}
+
+///|
+fn precompute_propagate_prefix_const_for_node_impl(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  graph : @ir.HotLocalGraph,
   label_used : @bitset.BitSet,
   node_id : Int,
   states : Array[Int],
@@ -10464,13 +10509,49 @@ fn precompute_propagate_prefix_const_for_node(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalGet => {
-      let value_id = ssa.local_get_values[node_id]
-      if value_id < 0 {
-        return None
+      let sources = @ir.local_graph_reaching_sources_for_get(graph, node_id)
+      let mut candidate : @ir.HotConstPayload? = None
+      for source in sources {
+        let value = match source {
+          @ir.HotLocalGraphSource::EntrySource(local_id) =>
+            if @ir.local_graph_entry_source_has_legal_default(graph, local_id) {
+              precompute_propagate_prefix_default_local_const(func, local_id)
+            } else {
+              None
+            }
+          @ir.HotLocalGraphSource::SetSource(write_id) =>
+            if @ir.hot_child_count(func, write_id) == 1 {
+              precompute_propagate_prefix_const_for_node(
+                ctx,
+                func,
+                graph,
+                label_used,
+                @ir.hot_child_get(func, write_id, 0),
+                states,
+                value_consts,
+              )
+            } else {
+              None
+            }
+        }
+        match value {
+          Some(payload) => {
+            let expected_type = @ir.hot_local_type(func, node.imm0).unwrap()
+            if !precompute_propagate_prefix_const_payload_matches_type(
+                payload, expected_type,
+              ) {
+              return None
+            }
+            match candidate {
+              Some(previous) if previous != payload => return None
+              None => candidate = Some(payload)
+              _ => ()
+            }
+          }
+          None => return None
+        }
       }
-      return precompute_propagate_prefix_const_for_value(
-        ctx, func, ssa, label_used, value_id, states, value_consts,
-      )
+      return candidate
     }
     // Binaryen's propagate mode reasons from a set value's fallthrough value.
     // Peel value-preserving tees and unbranched single-result blocks while
@@ -10480,7 +10561,7 @@ fn precompute_propagate_prefix_const_for_node(
         return precompute_propagate_prefix_const_for_node(
           ctx,
           func,
-          ssa,
+          graph,
           label_used,
           @ir.hot_child_get(func, node_id, 0),
           states,
@@ -10497,7 +10578,7 @@ fn precompute_propagate_prefix_const_for_node(
         return precompute_propagate_prefix_const_for_node(
           ctx,
           func,
-          ssa,
+          graph,
           label_used,
           @ir.hot_region_get(func, body_ref, body_count - 1),
           states,
@@ -10509,7 +10590,7 @@ fn precompute_propagate_prefix_const_for_node(
       let cond_id = @ir.hot_child_get(func, node_id, 0)
       let take_then = match
         precompute_propagate_prefix_const_for_node(
-          ctx, func, ssa, label_used, cond_id, states, value_consts,
+          ctx, func, graph, label_used, cond_id, states, value_consts,
         ) {
         Some(@ir.HotConstPayload::I32Const(@lib.I32(0))) => false
         Some(@ir.HotConstPayload::I32Const(_)) => true
@@ -10527,7 +10608,7 @@ fn precompute_propagate_prefix_const_for_node(
             return precompute_propagate_prefix_const_for_node(
               ctx,
               func,
-              ssa,
+              graph,
               label_used,
               @ir.hot_region_get(func, region_ref, root_count - 1),
               states,
@@ -10550,7 +10631,7 @@ fn precompute_propagate_prefix_const_for_node(
       precompute_propagate_prefix_const_for_node(
         ctx,
         func,
-        ssa,
+        graph,
         label_used,
         @ir.hot_child_get(func, node_id, 0),
         states,
@@ -10573,7 +10654,7 @@ fn precompute_propagate_prefix_const_for_node(
       precompute_propagate_prefix_const_for_node(
         ctx,
         func,
-        ssa,
+        graph,
         label_used,
         @ir.hot_child_get(func, node_id, 0),
         states,
@@ -10586,7 +10667,7 @@ fn precompute_propagate_prefix_const_for_node(
       precompute_propagate_prefix_const_for_node(
         ctx,
         func,
-        ssa,
+        graph,
         label_used,
         @ir.hot_child_get(func, node_id, 1),
         states,
@@ -10609,113 +10690,6 @@ fn precompute_propagate_prefix_const_for_node(
     }
   }
   None
-}
-
-///|
-fn precompute_propagate_prefix_const_for_value(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  ssa : @ir.HotLocalSsa,
-  label_used : @bitset.BitSet,
-  value_id : Int,
-  states : Array[Int],
-  value_consts : Array[@ir.HotConstPayload?],
-) -> @ir.HotConstPayload? {
-  if value_id < 0 || value_id >= states.length() {
-    return None
-  }
-  match states[value_id] {
-    1 => return None
-    2 => return value_consts[value_id]
-    3 => return None
-    _ => ()
-  }
-  states[value_id] = 1
-  let expected_type = @ir.ssa_value_type(ssa, value_id)
-  let resolved = match @ir.ssa_value_origin(ssa, value_id) {
-    @ir.HotSsaValueOrigin::EntryParamDef(_) => None
-    @ir.HotSsaValueOrigin::EntryDefaultInitDef(local_id) =>
-      precompute_propagate_prefix_default_local_const(func, local_id)
-    @ir.HotSsaValueOrigin::LocalSetDef(node_id)
-    | @ir.HotSsaValueOrigin::LocalTeeDef(node_id) =>
-      if @ir.hot_child_count(func, node_id) != 1 {
-        None
-      } else {
-        match
-          precompute_propagate_prefix_const_for_node(
-            ctx,
-            func,
-            ssa,
-            label_used,
-            @ir.hot_child_get(func, node_id, 0),
-            states,
-            value_consts,
-          ) {
-          Some(payload) =>
-            if precompute_propagate_prefix_const_payload_matches_type(
-                payload, expected_type,
-              ) {
-              Some(payload)
-            } else {
-              None
-            }
-          _ => None
-        }
-      }
-    @ir.HotSsaValueOrigin::PhiDef(phi_id) => {
-      let inputs = @ir.ssa_phi_inputs(ssa, phi_id)
-      if inputs.length() == 0 {
-        None
-      } else {
-        let mut candidate : @ir.HotConstPayload? = None
-        let mut ok = true
-        for input in inputs {
-          match
-            precompute_propagate_prefix_const_for_value(
-              ctx,
-              func,
-              ssa,
-              label_used,
-              input.value_id,
-              states,
-              value_consts,
-            ) {
-            Some(payload) =>
-              if precompute_propagate_prefix_const_payload_matches_type(
-                  payload, expected_type,
-                ) {
-                match candidate {
-                  Some(existing) => if existing != payload { ok = false }
-                  None => candidate = Some(payload)
-                }
-              } else {
-                ok = false
-              }
-            _ => ok = false
-          }
-          if !ok {
-            break
-          }
-        }
-        if ok {
-          candidate
-        } else {
-          None
-        }
-      }
-    }
-  }
-  match resolved {
-    Some(payload) => {
-      states[value_id] = 2
-      value_consts[value_id] = Some(payload)
-      Some(payload)
-    }
-    None => {
-      states[value_id] = 3
-      None
-    }
-  }
 }
 
 ///|
@@ -11711,9 +11685,10 @@ fn precompute_propagate_prefix_fold_local_gets(
 ) -> Bool {
   let ssa = pass_require_ssa(ctx, func)
   let label_used = pass_compute_label_used(func)
-  let states = Array::make(ssa.value_types.length(), 0)
+  let graph = @ir.local_graph_build(func, pass_require_cfg(ctx, func))
+  let states = Array::make(@ir.hot_node_count(func), 0)
   let value_consts : Array[@ir.HotConstPayload?] = Array::make(
-    ssa.value_types.length(),
+    @ir.hot_node_count(func),
     None,
   )
   let allocation_states = Array::make(ssa.value_types.length(), 0)
@@ -11872,7 +11847,7 @@ fn precompute_propagate_prefix_fold_local_gets(
   // Apply evaluator-derived allocation facts before resolving scalar local
   // reads. This still uses the single SSA solve above, but lets dependent local
   // definitions observe constants produced by that same bounded fact solve.
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+  for node_id = 0; node_id < states.length(); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
@@ -11918,8 +11893,8 @@ fn precompute_propagate_prefix_fold_local_gets(
         // In particular, an entry-default read before a later write is a real
         // constant, even when that local is written elsewhere in the function.
         match
-          precompute_propagate_prefix_const_for_value(
-            ctx, func, ssa, label_used, value_id, states, value_consts,
+          precompute_propagate_prefix_const_for_node(
+            ctx, func, graph, label_used, node_id, states, value_consts,
           ) {
           Some(payload) => replacements.push({ node_id, payload, })
           None => ()
