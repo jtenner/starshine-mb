@@ -2655,12 +2655,12 @@ test "simplify-locals-nostructure canonicalizes reverse mixed catch_ref catch_al
 }
 
 ///|
-test "simplify-locals-nostructure keeps exact table-set if validating while directizing later call_ref local" {
+test "simplify-locals-nostructure keeps typed table-set if validating while simplifying later call_ref local" {
   // Generated case-000251 combines a `funcref` if that feeds `table.set`, a
   // later `ref.func; local.set; local.get; call_ref` wrapper, and the
   // catch_all_ref refinalization trigger. Starshine must rewrite the
-  // `ref.null func` arm when narrowing the if result to an exact func type so
-  // the exact table-set value validates instead of rolling back the whole
+  // `ref.null func` arm when narrowing the if result to a typed function ref so
+  // the table-set value validates instead of rolling back the whole
   // lowered cleanup. Use the direct-lib fixture because the public WAT path is
   // still parser-blocked for the required generated `call_ref` spelling.
   let trace : Array[String] = []
@@ -2769,10 +2769,21 @@ test "simplify-locals-nostructure keeps exact table-set if validating while dire
   let trace_text = "\{trace}"
   assert_false(trace_text.contains("skip-invalid-lower"), msg=trace_text)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("Exact (HeapType Idx 0)"), msg=pretty)
-  assert_true(
-    pretty.contains("ref.null (RefType Null Exact (HeapType Idx 0))"),
-    msg=pretty,
+  // Keep ordinary typed references: this input does not enable descriptors.
+  // The conditional and its null arm must narrow together, while the dead
+  // local carrier feeding call_ref is still removed below.
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[1]
+  @debug.assert_eq(
+    body[2],
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::new(func_type)),
+        ),
+      ),
+      [@lib.Instruction::ref_func(callee_idx)],
+      Some([@lib.Instruction::ref_null(@lib.HeapType::new(func_type))]),
+    ),
   )
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
@@ -2781,7 +2792,7 @@ test "simplify-locals-nostructure keeps exact table-set if validating while dire
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected exact table-set/call_ref cleanup to validate, got \{@validate.validation_error_message(err)}: \{pretty}",
+        "expected typed table-set/call_ref cleanup to validate, got \{@validate.validation_error_message(err)}: \{pretty}",
       )
   }
 }
@@ -2891,10 +2902,21 @@ test "simplify-locals-nostructure refinalizes table-set if after direct call_ref
   let trace_text = "\{trace}"
   assert_false(trace_text.contains("skip-invalid-lower"), msg=trace_text)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("Exact (HeapType Idx 0)"), msg=pretty)
-  assert_true(
-    pretty.contains("ref.null (RefType Null Exact (HeapType Idx 0))"),
-    msg=pretty,
+  // Keep ordinary typed references: this input does not enable descriptors.
+  // The conditional and its null arm must narrow together, while the dead
+  // local carrier feeding call_ref is still removed below.
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[1]
+  @debug.assert_eq(
+    body[2],
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::new(func_type)),
+        ),
+      ),
+      [@lib.Instruction::ref_func(callee_idx)],
+      Some([@lib.Instruction::ref_null(@lib.HeapType::new(func_type))]),
+    ),
   )
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
@@ -2903,7 +2925,7 @@ test "simplify-locals-nostructure refinalizes table-set if after direct call_ref
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected non-EH exact table-set/call_ref cleanup to validate, got \{@validate.validation_error_message(err)}: \{pretty}",
+        "expected non-EH typed table-set/call_ref cleanup to validate, got \{@validate.validation_error_message(err)}: \{pretty}",
       )
   }
 }
@@ -3032,10 +3054,21 @@ test "simplify-locals-nostructure refinalizes table-set if across intervening im
   let trace_text = "\{trace}"
   assert_false(trace_text.contains("skip-invalid-lower"), msg=trace_text)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("Exact (HeapType Idx 0)"), msg=pretty)
-  assert_true(
-    pretty.contains("ref.null (RefType Null Exact (HeapType Idx 0))"),
-    msg=pretty,
+  // Keep ordinary typed references: this input does not enable descriptors.
+  // The conditional and its null arm must narrow together, while the dead
+  // local carrier feeding call_ref is still removed below.
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[1]
+  @debug.assert_eq(
+    body[2],
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::new(func_type)),
+        ),
+      ),
+      [@lib.Instruction::ref_func(callee_idx)],
+      Some([@lib.Instruction::ref_null(@lib.HeapType::new(func_type))]),
+    ),
   )
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
@@ -3044,7 +3077,7 @@ test "simplify-locals-nostructure refinalizes table-set if across intervening im
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected intervening-call exact table-set/call_ref cleanup to validate, got \{@validate.validation_error_message(err)}: \{pretty}",
+        "expected intervening-call typed table-set/call_ref cleanup to validate, got \{@validate.validation_error_message(err)}: \{pretty}",
       )
   }
 }

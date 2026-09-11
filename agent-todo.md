@@ -16,10 +16,9 @@
   improved branch liveness exposes 50 further old fresh-local/branch-copy shape
   assertions. Compare their semantics and size before changing expectations.
   OptimizeInstructions assertion/transform follow-ups remain open. The native
-  SimplifyLocals family passes 278/282; three old exact-reference expectations
-  conflict with the repaired feature boundary, and one pending-effects test
-  assumes the first root still owns a tee now captured by lifting. All four
-  predate the source-order repair; verify the new contracts before updating them. Full native, all 461 source fixtures, and generated gates are
+  SimplifyLocals family now passes 282/282: ordinary typed-reference assertions
+  retain positive carrier cleanup checks, and the pending-effects unit builds
+  the intended subtree directly rather than depending on lift capture layout. Full native, all 461 source fixtures, and generated gates are
   required before selecting the CLI speed schedule.
 - **Deliverables / tests:** reduce each first failing prefix, add positive
   transform and bounded original/output execution tests, repair the owner, and

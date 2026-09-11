@@ -651,19 +651,23 @@ test "simplify-locals does not rewrite block returns when the fallthrough value 
 
 ///|
 test "simplify-locals records sparse pending local effects" {
-  let func = pass_test_lift_first_func(
-    (
-      #|(module
-      #|  (func (param i32 i32) (result i32) (local i32 i32)
-      #|    local.get 0
-      #|    local.tee 3
-      #|    local.get 3
-      #|    i32.add
-      #|    local.set 2
-      #|    local.get 2))
-      #|),
+  // Test the effect collector on its intended expression tree. Lifting a
+  // stack-carried tee inserts an earlier capture root before the final set.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(
+      params=[@lib.ValType::i32(), @lib.ValType::i32()],
+      locals=[@lib.ValType::i32(), @lib.ValType::i32()],
     ),
   )
+  let tee = @ir.hot_build_local_tee(func, 3, @ir.hot_build_local_get(func, 0))
+  let sum = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    tee,
+    @ir.hot_build_local_get(func, 3),
+  )
+  @ir.hot_node_exact_instr_set(func, sum, @lib.Instruction::i32_add())
+  @ir.hot_root_append(func, @ir.hot_build_local_set(func, 2, sum))
   let set_id = @ir.hot_root_get(func, 0)
   let set_node = @ir.hot_node_get(func, set_id)
   let sinkables = simplify_locals_new_sinkables(func)
@@ -1114,12 +1118,16 @@ test "simplify-locals retains loop-carried counter and removes unrelated copies"
   let mut counter_writes = 0
   let mut scratch_accesses = 0
   for node_id in 0..<@ir.hot_node_count(func) {
-    if !@ir.hot_node_is_live(func, node_id) { continue }
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::LocalGet if node.imm0 == 2 => counter_reads += 1
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == 2 => counter_writes += 1
-      @ir.HotOp::LocalGet | @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == 4 => scratch_accesses += 1
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == 2 =>
+        counter_writes += 1
+      @ir.HotOp::LocalGet | @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 ==
+        4 => scratch_accesses += 1
       _ => ()
     }
   }

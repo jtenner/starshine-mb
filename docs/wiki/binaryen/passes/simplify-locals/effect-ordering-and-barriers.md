@@ -60,8 +60,12 @@ than Binaryen 131. These size results are not a runtime-speed claim.
 
 The complete Dew replay improves from 931/1000 to 936/1000, with no new
 failures, and the exact optimize-level-4/shrink-level-1 JSON inlining case now
-passes both engines. The native family is 278/282: three old exact-reference
-assertions and one old pending-effects root assumption remain open. The release
+passes both engines. The native family is now 282/282. Three stale exact-reference assertions now
+check the actual ordinary typed function reference and matching null arm; they
+still require removal of the call_ref local carrier. The pending-effects unit
+fixture builds its intended expression tree directly, keeping the checks for
+reads of locals 0/3 and writes of locals 2/3. Lifting that tree inserts a capture
+root, so the earlier first-root assumption tested a different expression. The release
 CLI SHA-256 is `145b9829bc4d468cc54a3038da3a4e987fea0e4b28b61b196ebcd46eac1ef18e`;
 its build takes 254.423 seconds, an open compiler-work performance bug. Large
 generated gates and whole-pipeline speed selection remain open.
