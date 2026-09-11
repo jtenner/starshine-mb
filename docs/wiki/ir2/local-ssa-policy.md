@@ -239,3 +239,12 @@ mask for every node is built once per lowered function and reused for these
 queries. Regressions in `src/ir/hot_lower_pending_effect_test.mbt` cover a call
 before a global write and a memory-backed tee write before a later read. The
 same call shape also runs through the public Flatten dispatcher.
+
+A new wrapper's source position also must not outrank effects in its operands.
+The lowerer caches the earliest external effect under each root. A pending
+value can precede that root only if it precedes the first effect that root will
+actually emit. Replacing two drop statements after creating both calls used to
+reverse their call order; the new regression requires calls 0 then 1. The full
+IR suite passes 377 tests. The 1,540-test OptimizeInstructions/SimplifyLocals run
+now passes 1,530; ten remaining capture-layout/reference/fact checks stay open.
+The bulk-memory call-order regressions pass again.

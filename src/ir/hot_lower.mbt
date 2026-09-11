@@ -55,6 +55,7 @@ priv struct HotLowerLabelFrames {
   local_access_cache : Array[Int]
   value_orders : Array[Int]
   node_effects : Array[EffectMask]
+  first_effect_orders : Array[Int]
   preceding_dependency_min_cache : Array[Int]
 }
 
@@ -68,6 +69,7 @@ fn hot_lower_impl_new_label_frames(func : HotFunc) -> HotLowerLabelFrames {
     local_access_cache: Array::make(hot_node_count(func), -1),
     value_orders: hot_lower_impl_build_value_orders(func),
     node_effects: effects_build_node_masks(func),
+    first_effect_orders: hot_lower_impl_build_first_effect_orders(func),
     preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
   }
 }
@@ -693,6 +695,38 @@ fn hot_lower_impl_has_external_effects(mask : EffectMask) -> Bool {
 }
 
 ///|
+fn hot_lower_impl_build_first_effect_orders(func : HotFunc) -> Array[Int] {
+  let none = hot_node_count(func)
+  let orders = Array::make(none, -1)
+  fn visit(node_id : NodeId) -> Int {
+    if node_id < 0 || !hot_node_is_live(func, node_id) {
+      return none
+    }
+    if orders[node_id] >= 0 {
+      return orders[node_id]
+    }
+    let own_effects = effects_mask_for_flags(hot_node_flags(func, node_id)) |
+      effects_mask_for_node_exact(func, node_id)
+    orders[node_id] = if hot_lower_impl_has_external_effects(own_effects) {
+      hot_node_get(func, node_id).order
+    } else {
+      none
+    }
+    for input_id in hot_lower_impl_input_info(func, node_id).nodes {
+      let input_order = visit(input_id)
+      if input_order < orders[node_id] {
+        orders[node_id] = input_order
+      }
+    }
+    orders[node_id]
+  }
+  for node_id = 0; node_id < none; node_id = node_id + 1 {
+    ignore(visit(node_id))
+  }
+  orders
+}
+
+///|
 fn hot_lower_impl_collect_preceding_dependency(
   func : HotFunc,
   node_id : NodeId,
@@ -1070,14 +1104,21 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   })
   for node_id in carried {
     if (
-        call_order_required ||
-        // A source stack value is already evaluated before this root. Keep
-        // calls, heap/memory/global effects, and distinct traps in that order.
+      // Compare with the first effect actually emitted by this root. A
+      // fresh drop/set wrapper can have a late ID around an earlier call;
+      // a later pending call must not jump ahead of that operand.
         (
-          effect_order_required &&
-          anti_dependencies[node_id] &&
-          hot_lower_impl_has_external_effects(
-            label_frames.node_effects[node_id],
+          label_frames.value_orders[node_id] <
+          label_frames.first_effect_orders[current_root] &&
+          (
+            call_order_required ||
+            (
+              effect_order_required &&
+              anti_dependencies[node_id] &&
+              hot_lower_impl_has_external_effects(
+                label_frames.node_effects[node_id],
+              )
+            )
           )
         ) ||
         hot_lower_impl_carried_local_write_conflicts(

@@ -66,3 +66,30 @@ test "hot lowering uses source order for a set split from a tee" {
   }
   @debug.assert_eq(reads, 1)
 }
+
+///|
+test "hot lowering keeps call order after replacing drop roots" {
+  let input = @wast.wast_to_binary_module(
+    (
+      #|(module
+      #| (import "env" "a" (func (result i32)))
+      #| (import "env" "b" (func (result i32)))
+      #| (func call 0 drop call 1 drop))
+    ),
+  ).unwrap()
+  let func = hot_lift_func(input, @lib.FuncIdx::new(2U))
+  for index = 0; index < hot_root_count(func); index = index + 1 {
+    let root = hot_root_get(func, index)
+    let call = hot_child_get(func, root, 0)
+    ignore(hot_root_set(func, index, hot_build_drop(func, call)))
+  }
+  let @lib.Func(_, @lib.Expr(body)) = hot_lower_func(func)
+  let calls : Array[UInt] = []
+  for instr in body {
+    match instr {
+      @lib.Call(@lib.FuncIdx(index)) => calls.push(index)
+      _ => ()
+    }
+  }
+  @debug.assert_eq(calls, [0U, 1U])
+}
