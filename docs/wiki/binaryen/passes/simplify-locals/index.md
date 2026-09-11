@@ -235,3 +235,21 @@ This repair is traversal-only: it changes neither tee classification nor rewrite
   - <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/local-utils.h>
 - Narrow freshness-check surface:
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp>
+
+## September 2026 nested-region traversal repair
+
+The full pass exceeded 30 seconds on Dewdrop's
+`control-flow/functional-while-deep-wide-runtime`. Its local-read query visited
+a control region explicitly and then visited its contents again as operands.
+A local absent from 24 nested blocks caused exponential repeated work.
+
+Region-child detection now uses the physical value-operand count, including
+loop parameters. The local-read query walks value operands once after its
+explicit region walk. The positive regression in
+[`simplify_locals_dew_depth_test.mbt`](../../../../../src/passes/simplify_locals_dew_depth_test.mbt)
+requires real local cleanup through that nested shape. Its CLI case fell from
+a four-second timeout to 3.402 ms and preserved five integer results in Node.
+The original fixture finishes in 16.192 ms and passes Node and Wago. All 99
+focused SimplifyLocals native tests pass. The native test build took 50.883
+seconds, above Dewdrop's 30-second compiler activity limit. Full corpus and
+generated-lane signoff are still in progress.

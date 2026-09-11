@@ -1058,7 +1058,7 @@ fn simplify_locals_effects_mask_for_subtree_scan(
     mask = mask | simplify_locals_effects_mask_for_exact_node(func, current_id)
     let current = @ir.hot_node_get(func, current_id)
     for slot = 0; slot < @ir.hot_child_count(func, current_id); slot = slot + 1 {
-      if !simplify_locals_is_region_child_slot(current.op, slot) {
+      if !simplify_locals_is_region_child_slot(func, current_id, slot) {
         pending.push(@ir.hot_child_get(func, current_id, slot))
       }
     }
@@ -2452,7 +2452,7 @@ fn simplify_locals_subtree_reads_only_params(
     return false
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if simplify_locals_is_region_child_slot(node.op, slot) {
+    if simplify_locals_is_region_child_slot(func, node_id, slot) {
       return false
     }
     if !simplify_locals_subtree_reads_only_params(
@@ -6545,13 +6545,12 @@ fn simplify_locals_run_with_options(
 }
 
 ///|
-fn simplify_locals_is_region_child_slot(op : @ir.HotOp, slot : Int) -> Bool {
-  for info in @ir.hot_control_region_slot_info(op) {
-    if info.slot == slot {
-      return true
-    }
-  }
-  false
+fn simplify_locals_is_region_child_slot(
+  func : @ir.HotFunc,
+  node_id : Int,
+  slot : Int,
+) -> Bool {
+  slot >= pass_value_operand_count(func, node_id)
 }
 
 ///|
@@ -6593,7 +6592,7 @@ fn simplify_locals_node_contains_value_before(
   }
   let node = @ir.hot_node_get(func, node_id)
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if !simplify_locals_is_region_child_slot(node.op, slot) &&
+    if !simplify_locals_is_region_child_slot(func, node_id, slot) &&
       simplify_locals_node_contains_value_before(
         func,
         @ir.hot_child_get(func, node_id, slot),
@@ -6811,7 +6810,7 @@ fn simplify_locals_node_has_stack_effect_hazard(
     _ => ()
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if simplify_locals_is_region_child_slot(node.op, slot) {
+    if simplify_locals_is_region_child_slot(func, node_id, slot) {
       continue
     }
     if simplify_locals_node_has_stack_effect_hazard(
@@ -6909,7 +6908,7 @@ fn simplify_locals_node_reads_local(
       }
     _ => ()
   }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
     if simplify_locals_node_reads_local(
         func,
         @ir.hot_child_get(func, node_id, slot),
@@ -7040,7 +7039,7 @@ fn simplify_locals_node_reads_pending_root_hazard_local(
     _ => ()
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if simplify_locals_is_region_child_slot(node.op, slot) {
+    if simplify_locals_is_region_child_slot(func, node_id, slot) {
       continue
     }
     if simplify_locals_node_reads_pending_root_hazard_local(
@@ -7176,7 +7175,7 @@ fn simplify_locals_root_memory_write_scan(func : @ir.HotFunc) -> (Bool, Int) {
     }
     let node = @ir.hot_node_get(func, node_id)
     for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-      if !simplify_locals_is_region_child_slot(node.op, slot) {
+      if !simplify_locals_is_region_child_slot(func, node_id, slot) {
         pending.push(@ir.hot_child_get(func, node_id, slot))
       }
     }
@@ -7358,7 +7357,7 @@ fn simplify_locals_node_has_control_embedded_local_tee(
       _ => false
     })
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if simplify_locals_is_region_child_slot(node.op, slot) {
+    if simplify_locals_is_region_child_slot(func, node_id, slot) {
       continue
     }
     if simplify_locals_node_has_control_embedded_local_tee(
