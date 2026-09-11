@@ -14,16 +14,36 @@
   DAE constant specialization includes ordinary and tail-call actuals.
   Flatten retains carried call results before GC writes and moves split-tee
   prerequisites with their captures; its IR/native gate passes 924/924.
+  Operand-expanded CFG and HOT lowering now share carried source order, which
+  repairs reference-slot coloring in array-comparator and two related cases.
   See the relevant pass dossiers.
-- **Open:** full wave 23 passes 962/1000 original failed fixture/order pairs
-  and fails 38. Dead-tee cleanup now agrees with tail reuse across same-scope
-  overwrites; its native CoalesceLocals family passes 118/118. Relative to wave
-  22, 27 cases are repaired and one JSON-reader O4z regression first fails in
-  optimizing inlining prefix 48. The array-comparator fault is CFG coloring of
-  distinct reference lifetimes (locals 6 and 9); lifting and write cleanup pass.
-  Reduce and repair those owners. Other inlining, trap, time, and repeated
-  control failures remain. Fresh pass-generated and full-source gates remain
-  required; a case name is not proof of its owning pass.
+- **Open:** full wave 25 on remote master `3dc72fd2d` passes 961/1000 original
+  fixture/order pairs and fails 39. It repairs array-comparator O4z, text-hash
+  O4z, and JSON-reader `deep-both-no-shrink` against that exact baseline. The
+  five other changed wave-25 failures also fail on the unchanged baseline, so
+  this repair adds no failure in the selected comparison. IR, CoalesceLocals,
+  and Precompute native gates pass 398/398, 119/119, and 179/179.
+- **Assertions (13):** eight unmapped SSA local-get failures affect
+  array-pop-empty, circular-buffer, deque, queue, JSON runtime, using O4z and
+  direct optimizing inlining, and text ordering direct optimizing inlining.
+  Binary-heap O4z has a repeated-predecessor SSA phi mismatch. Nested common
+  subexpression and nested struct each hit attached-child deletion assertions
+  in both `deep-late-ssa` and `deep-twice`.
+- **Runtime faults (17):** O4z traps or produces the wrong result for array
+  methods, fixed-array out-of-bounds, defer, let-bound nominal arguments,
+  bloom duplicate, JSON core, compiler diagnostics, the three show fixtures,
+  string-builder scalar, string-builder, string compact, and string slice.
+  Nullable `ref.as_non_null` has the wrong trap in O4z and direct optimizing
+  inlining. Numeric math produces `FAIL` in `deep-both-no-shrink`.
+- **Timeouts (7):** float specials O4z; numeric math O4z and direct optimizing
+  inlining; and both O4z and direct Flatten for boundary-65521 and
+  multiwindow-100000 exceed the 30-second failure limit.
+- **Invalid outputs (2):** string-builder O4z fails validation in function 10;
+  derive-hash `deep-both-no-shrink` fails validation in function 3.
+- **Evidence:** exact commands and diagnostics are in Dewdrop
+  `.tmp/starshine-pass-repairs/full-replay-regression-wave25/report.json`.
+  Fresh pass-generated and full-source gates remain required; a case name is
+  not proof of its owning pass.
 - **Native gate:** SSA has one pre-existing stack-carried-tee count assertion;
   improved branch liveness exposes 50 further old fresh-local/branch-copy shape
   assertions. Compare their semantics and size before changing expectations.
