@@ -281,13 +281,8 @@ fn gr_reftype_is_public(
 }
 
 ///|
-fn gr_custom_descriptors_enabled_locally(_env : @validate.Env) -> Bool {
-  // Starshine's current direct-pass and preset feature model runs with the
-  // custom-descriptors proposal available, matching the `--all-features`
-  // Binaryen oracle lane used by pass-fuzz-compare. Binaryen's
-  // PublicTypeValidator accepts every exported immutable refinement under that
-  // feature, including exact refs and types whose bodies mention exact refs.
-  true
+fn gr_custom_descriptors_enabled_locally(env : @validate.Env) -> Bool {
+  env.infer_exact_references
 }
 
 ///|

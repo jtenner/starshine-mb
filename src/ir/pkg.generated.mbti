@@ -1311,6 +1311,7 @@ pub struct HotModuleContext {
   elems : Array[@lib.Elem]
   datas : Array[@lib.Data]
   tags : Array[@lib.TagType]
+  uses_custom_descriptors : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct HotNode {

@@ -19761,7 +19761,11 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     Some(@lib.StructNewDefault(type_idx)) =>
       (
         @lib.ValType::ref_type(
-          @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::new(type_idx),
+            exact=module_ctx.uses_custom_descriptors,
+          ),
         ),
         None,
         true,
@@ -19772,7 +19776,11 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     Some(@lib.StructNew(type_idx)) =>
       (
         @lib.ValType::ref_type(
-          @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::new(type_idx),
+            exact=module_ctx.uses_custom_descriptors,
+          ),
         ),
         None,
         true,
@@ -73722,7 +73730,7 @@ fn run_hot_pipeline_slns_lowered_refinalize_ref_func_null_if(
       let exact_ref_type = @lib.RefType::new(
         true,
         @lib.HeapType::new(type_idx),
-        exact=true,
+        exact=@lib.module_uses_custom_descriptors(mod_),
       )
       Some(
         (

@@ -938,6 +938,7 @@ fn env_add_rec_group(env : Env, group : Array[SubType]) -> Env {
     labels: env.labels,
     return_type: env.return_type,
     legacy_catch_depth: env.legacy_catch_depth,
+    infer_exact_references: env.infer_exact_references,
   }
 }
 

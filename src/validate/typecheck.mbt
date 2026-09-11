@@ -2112,7 +2112,7 @@ fn typecheck_ref_func(st : TcState, f : FuncIdx) -> TcResult {
   }
   let heap_type = inferred_ref_func_heap_type(st.env, f)
   let exact = match heap_type {
-    HeapType(_) | DefTypeHeapType(_) => true
+    HeapType(_) | DefTypeHeapType(_) => st.env.infer_exact_references
     AbsHeapTypeHeapType(_) | SharedAbsHeapTypeHeapType(_) => false
   }
   Ok(st.push1(ValType::ref_type(RefType::new(false, heap_type, exact~))))
@@ -2404,7 +2404,13 @@ fn typecheck_struct_new(st : TcState, x : TypeIdx) -> TcResult {
   // push (ref x)
   Ok(
     st1.push1(
-      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+      ValType::ref_type(
+        RefType::new(
+          false,
+          HeapType::new(x),
+          exact=st.env.infer_exact_references,
+        ),
+      ),
     ),
   )
 }
@@ -2432,7 +2438,13 @@ fn typecheck_struct_new_default(st : TcState, x : TypeIdx) -> TcResult {
   }
   Ok(
     st.push1(
-      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+      ValType::ref_type(
+        RefType::new(
+          false,
+          HeapType::new(x),
+          exact=st.env.infer_exact_references,
+        ),
+      ),
     ),
   )
 }
@@ -3159,7 +3171,13 @@ fn typecheck_array_new(st : TcState, x : TypeIdx) -> TcResult {
   }
   Ok(
     st2.push1(
-      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+      ValType::ref_type(
+        RefType::new(
+          false,
+          HeapType::new(x),
+          exact=st.env.infer_exact_references,
+        ),
+      ),
     ),
   )
 }
@@ -3180,7 +3198,13 @@ fn typecheck_array_new_default(st : TcState, x : TypeIdx) -> TcResult {
   }
   Ok(
     st1.push1(
-      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+      ValType::ref_type(
+        RefType::new(
+          false,
+          HeapType::new(x),
+          exact=st.env.infer_exact_references,
+        ),
+      ),
     ),
   )
 }
@@ -3207,7 +3231,13 @@ fn typecheck_array_new_fixed(st : TcState, x : TypeIdx, n : U32) -> TcResult {
   }
   Ok(
     cur.push1(
-      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+      ValType::ref_type(
+        RefType::new(
+          false,
+          HeapType::new(x),
+          exact=st.env.infer_exact_references,
+        ),
+      ),
     ),
   )
 }
@@ -3606,7 +3636,13 @@ fn typecheck_array_new_elem(st : TcState, x : TypeIdx, y : ElemIdx) -> TcResult 
   }
   Ok(
     st2.push1(
-      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+      ValType::ref_type(
+        RefType::new(
+          false,
+          HeapType::new(x),
+          exact=st.env.infer_exact_references,
+        ),
+      ),
     ),
   )
 }
@@ -3641,7 +3677,13 @@ fn typecheck_array_new_data(st : TcState, x : TypeIdx, y : DataIdx) -> TcResult 
   }
   Ok(
     st2.push1(
-      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+      ValType::ref_type(
+        RefType::new(
+          false,
+          HeapType::new(x),
+          exact=st.env.infer_exact_references,
+        ),
+      ),
     ),
   )
 }

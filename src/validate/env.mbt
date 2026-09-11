@@ -98,6 +98,7 @@ pub(all) struct Env {
   labels : LabelStack
   return_type : Array[ValType]?
   legacy_catch_depth : Int
+  infer_exact_references : Bool
 } derive(Hash, Debug)
 
 ///|
@@ -321,6 +322,7 @@ pub fn empty_env() -> Env {
     labels: LabelStack::new(),
     return_type: None,
     legacy_catch_depth: 0,
+    infer_exact_references: true,
   }
 }
 
@@ -804,7 +806,13 @@ pub fn Env::with_module(self : Env, m : Module) -> Env {
     self.rec_stack,
     m,
   )
-  let type_env = Env::{ ..self, global_types, rec_stack, }
+  let type_env = Env::{
+    ..self,
+    global_types,
+    rec_stack,
+    infer_exact_references: self.infer_exact_references &&
+    @lib.module_uses_custom_descriptors(m),
+  }
 
   let funcs = self.funcs.copy()
   let func_type_idxs = self.func_type_idxs.copy()
@@ -839,4 +847,11 @@ pub fn Env::with_module(self : Env, m : Module) -> Env {
     datas,
     tags,
   }
+}
+
+///|
+/// Limit inferred constructor types to the target proposal set. Explicit
+/// exact types and casts retain their declared semantics.
+pub fn Env::with_exact_reference_inference(env : Env, enabled : Bool) -> Env {
+  Env::{ ..env, infer_exact_references: enabled, }
 }

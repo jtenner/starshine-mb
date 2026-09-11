@@ -768,7 +768,11 @@ fn gsi_unnestable_instr_result_type(
     | @lib.ArrayNewElem(type_idx, _) =>
       Some(
         @lib.ValType::ref_type(
-          @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::new(type_idx),
+            exact=env.infer_exact_references,
+          ),
         ),
       )
     _ => gsi_simple_instr_result_type(env, instr)

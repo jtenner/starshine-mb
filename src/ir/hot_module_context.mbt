@@ -14,6 +14,7 @@ pub struct HotModuleContext {
   elems : Array[Elem]
   datas : Array[Data]
   tags : Array[TagType]
+  uses_custom_descriptors : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -261,6 +262,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     elems,
     datas,
     tags,
+    uses_custom_descriptors: @lib.module_uses_custom_descriptors(mod_),
   }
 }
 

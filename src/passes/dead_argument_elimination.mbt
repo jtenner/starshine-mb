@@ -14260,6 +14260,14 @@ fn dae_refined_gc_candidate_ref_type(
   old_type : @lib.ValType,
   candidate_type : @lib.ValType,
 ) -> @lib.ValType? {
+  let candidate_type = match candidate_type {
+    @lib.RefTypeValType(ref_type) if ref_type.is_exact() &&
+      !@lib.module_uses_custom_descriptors(mod_) =>
+      @lib.ValType::ref_type(
+        @lib.RefType::new(ref_type.is_nullable(), ref_type.get_heap_type()),
+      )
+    _ => candidate_type
+  }
   match (old_type, candidate_type) {
     (
       @lib.RefTypeValType(

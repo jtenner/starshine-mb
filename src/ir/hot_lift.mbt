@@ -126,6 +126,7 @@ fn hot_lift_impl_env_from_context(
     None => hot_lift_impl_all_locals(locals)
   }
   let env = empty_env()
+    .with_exact_reference_inference(ctx.uses_custom_descriptors)
     .with_types(ctx.subtypes)
     .with_funcs_and_type_idxs(ctx.func_types, ctx.func_type_slots)
     .with_tables(ctx.tables)

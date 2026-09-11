@@ -2032,7 +2032,11 @@ fn precompute_build_known_emit(
         @ir.hot_build_ref_func(
           func,
           func_idx,
-          @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::new(type_idx),
+            exact=ctx.module_ctx.unwrap().uses_custom_descriptors,
+          ),
         ),
       )
     }
@@ -11422,7 +11426,7 @@ fn precompute_replace_with_known_emit(
       let ref_type = @lib.RefType::new(
         false,
         @lib.HeapType::new(type_idx),
-        exact=true,
+        exact=ctx.module_ctx.unwrap().uses_custom_descriptors,
       )
       let temp = @ir.hot_build_ref_func(func, func_idx, ref_type)
       let replacement = @ir.hot_node_get(func, temp)

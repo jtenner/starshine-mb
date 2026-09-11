@@ -57,6 +57,8 @@ pub fn min_addr(Limits, Limits) -> Limits
 
 pub fn min_addr_valtype(Limits, Limits) -> ValType
 
+pub fn module_uses_custom_descriptors(Module) -> Bool
+
 pub fn rec_idx(UInt) -> TypeIdx
 
 pub fn result_type(Array[ValType]) -> Array[ValType]

@@ -237,3 +237,18 @@ When changing a feature-status claim:
 - Local generator gate vocabulary: [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)
 - Custom-descriptor instruction boundary: [`custom-descriptors/descriptor-instruction-surface.md`](custom-descriptors/descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Focused companion pages: [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md)
+
+## Inferred exact references
+
+Ordinary GC input keeps ordinary reference types during optimization. The module
+feature scan treats exact references and custom-descriptor metadata/instructions
+as opt-in evidence. Allocation and `ref.func` type inference use that evidence;
+module passes must use the same policy when they materialize new types.
+Explicit exact references retain their declared semantics. Standalone validation
+type queries keep their all-feature default unless the caller supplies a module
+or an explicit inference policy.
+
+The constructor inference regression covers both ordinary and exact module
+results. The Dewdrop failed-case replay confirms that ordinary GC output no
+longer requires Node's custom-descriptors flag. The remaining runtime failures
+are still tracked separately; validation alone does not close those cases.

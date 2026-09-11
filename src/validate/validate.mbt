@@ -1175,6 +1175,7 @@ pub fn validate_tagsec(tagsec : TagSec?, env0 : Env) -> Result[Env, String] {
           labels: env.labels,
           return_type: env.return_type,
           legacy_catch_depth: env.legacy_catch_depth,
+          infer_exact_references: env.infer_exact_references,
         }
       }
       Ok(env)

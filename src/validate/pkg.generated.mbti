@@ -297,6 +297,7 @@ pub(all) struct Env {
   labels : LabelStack
   return_type : Array[@lib.ValType]?
   legacy_catch_depth : Int
+  infer_exact_references : Bool
 } derive(Hash, @debug.Debug)
 pub fn Env::append_rectype_types(Self, @lib.RecType) -> Self
 pub fn Env::descriptor_result_type(Self, @lib.TypeIdx, @lib.RefType?) -> Result[@lib.ValType, String]
@@ -337,6 +338,7 @@ pub fn Env::resolve_tag_functype(Self, @lib.TagIdx) -> @lib.FuncType?
 pub fn Env::resolve_typeidx_subtype(Self, @lib.TypeIdx) -> @lib.SubType?
 pub fn Env::with_datas(Self, Array[@lib.Data]) -> Self
 pub fn Env::with_elems(Self, Array[@lib.Elem]) -> Self
+pub fn Env::with_exact_reference_inference(Self, Bool) -> Self
 pub fn Env::with_funcs(Self, Array[@lib.FuncType]) -> Self
 pub fn Env::with_funcs_and_type_idxs(Self, Array[@lib.FuncType], Array[@lib.TypeIdx?]) -> Self
 pub fn Env::with_globals(Self, Array[@lib.GlobalType]) -> Self
