@@ -5169,6 +5169,9 @@ pub fn code_folding_run(
     }
   }
   if changed {
+    if @ir.hot_repair_nondefaultable_local_scopes(func) {
+      pass_mark_mutated(ctx, func)
+    }
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()

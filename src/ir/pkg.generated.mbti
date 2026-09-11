@@ -637,6 +637,8 @@ pub fn hot_region_then_ref(HotFunc, Int) -> HotRegionRef
 
 pub fn hot_region_truncate_suffix(HotFunc, HotRegionRef, Int) -> Array[Int]
 
+pub fn hot_repair_nondefaultable_local_scopes(HotFunc) -> Bool
+
 pub fn hot_repair_ordered_catch_payloads(HotFunc) -> Bool
 
 pub fn hot_repair_scalar_catch_payloads(HotFunc) -> Bool

@@ -267,3 +267,32 @@ So the right mental model today is:
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
+
+
+## Reference initialization after tail sharing
+
+A shared suffix can read a non-defaultable reference local initialized separately
+inside each conditional arm. Hoisting that suffix keeps the runtime value but
+loses the Wasm control-frame initialization proof. The Dewdrop bloom-filter
+nested inlining cleanup exposed this shape in a shared output call; the same
+CodeFolding step was the first invalid stage in twelve saved inlining fixtures.
+
+The pass now calls `hot_repair_nondefaultable_local_scopes` after its fixpoint.
+It keeps the shared call, changes only affected storage to nullable, and restores
+the get/tee result type with `ref.as_non_null`. An enclosing initialization needs
+no repair. The positive reduced tests in
+`src/passes/code_folding_dew_local_scope_test.mbt` require one common call,
+unchanged enclosing initialization without extra checks, and a checked tee
+result when storage is weakened. Runtime, size, and generated-pass evidence is
+required alongside the native tests.
+
+The IR and CodeFolding native run passes 587/587 in 40.339 seconds. All twelve
+saved pre-CodeFolding stages now pass external validation and Node/Wago execution
+after the direct pass. Command times range from 5.437 to 35.201 ms (median
+7.367 ms); these smoke measurements include CLI startup. With custom sections
+removed equally, the three reduced outputs are byte-identical to Binaryen v131:
+130 -> 125 bytes, 84 -> 78 bytes, and 140 -> 136 bytes. This proves the local
+shape/size result, not a full-pipeline runtime-speed win. The debug CLI builds
+in 15.527 seconds. The native test build remains above the 30-second limit.
+Full regression replay and release GenValid closeout remain open; the full
+JSON bloom pipeline exposes a later runtime fault after this valid stage.

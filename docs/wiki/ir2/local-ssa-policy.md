@@ -272,3 +272,21 @@ prefix and map-iterator SimplifyLocals prefix pass validation and execution in
 both Node and the locally tested Wago PR 606 runner. The fresh full replay and
 release/generated-pass performance signoff are still open. The debug CLI build
 took 31.373 seconds and is recorded as a build-performance bug.
+
+
+## Reference locals after code motion
+
+`hot_repair_nondefaultable_local_scopes` restores the Wasm storage contract after
+an otherwise semantics-preserving transform. Its scan follows operand order,
+keeps initialization within each control frame, and tracks loop entry operands
+in the enclosing frame. A write log restores frame entry state without copying
+the full local table for each nested region. Node visits are shared within a
+frame, including tuple producers used by more than one root.
+
+Only body reference locals with a read outside their initialization scope become
+nullable. Every get and tee of an affected local retains its original non-null
+result through `ref.as_non_null`; copied reads/writes keep the original source
+order. Parameters and locals initialized in an enclosing scope retain their
+types. CodeFolding invokes the repair once after a successful fixpoint, retaining
+its common-tail optimization. The helper is a storage repair for valid-input
+code motion, not a validator or a way to accept invalid source Wasm.
