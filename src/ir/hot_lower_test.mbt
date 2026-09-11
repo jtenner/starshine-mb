@@ -2876,12 +2876,36 @@ test "hot lower preserves stack-carried local tee before later local read" {
     Ok(module_) => module_
     Err(err) => fail("expected module to parse, got \{err}")
   }
-  let original = match module_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs[0]
-    None => fail("expected code section")
+  let @lib.Func(locals, @lib.Expr(body)) = hot_lower_func(
+    hot_lift_func(module_, @lib.FuncIdx::new(0U)),
+  )
+  // Explicit captures can change the local table. Execute the small load
+  // fragment so the test checks the carried address and returned value.
+  let storage = Array::make(locals.length() + 1, 0)
+  storage[0] = 4
+  let memory = [17, 42, 90]
+  let stack : Array[Int] = []
+  let mut loads = 0
+  for instr in body {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        stack.push(storage[raw.reinterpret_as_int()])
+      @lib.LocalSet(@lib.LocalIdx(raw)) =>
+        storage[raw.reinterpret_as_int()] = stack.pop().unwrap()
+      @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        storage[raw.reinterpret_as_int()] = stack[stack.length() - 1]
+      @lib.I32Load(_) => {
+        let address = stack.pop().unwrap()
+        @debug.assert_eq(address, 4)
+        stack.push(memory[address / 4])
+        loads += 1
+      }
+      @lib.Drop => ignore(stack.pop().unwrap())
+      _ => fail("unexpected carried-load instruction: \{instr}")
+    }
   }
-  let lowered = hot_lower_func(hot_lift_func(module_, @lib.FuncIdx::new(0U)))
-  @debug.assert_eq(lowered, original)
+  @debug.assert_eq(loads, 2)
+  @debug.assert_eq(stack, [42])
 }
 
 ///|

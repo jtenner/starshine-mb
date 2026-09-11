@@ -188,13 +188,58 @@ test "merge-locals preserves source reads evaluated before a later copy" {
     Ok(mod_) => mod_
     Err(err) => fail("expected stack-carried copy preservation, got \{err}")
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(
-    pretty.contains(
-      "(local.get (Local 1))(local.get (Local 2))i64.add(local.get (Local 2))(local.set (Local 1))(local.set (Local 2))",
-    ),
-    msg=pretty,
-  )
+  let @lib.Func(locals, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  // Execute the local updates through ten iterations. Capture temporaries
+  // may change the spelling, but must not turn the old sum into twice b.
+  let storage = Array::make(locals.length() + 1, 0)
+  storage[0] = 10
+  let stack : Array[Int] = []
+  let mut loop_body : Array[@lib.Instruction] = []
+  fn step(instrs : Array[@lib.Instruction]) -> Bool raise {
+    for instr in instrs {
+      match instr {
+        @lib.I32Const(@lib.I32(value)) => stack.push(value)
+        @lib.I64Const(@lib.I64(value)) => stack.push(value.to_int())
+        @lib.LocalGet(@lib.LocalIdx(raw)) =>
+          stack.push(storage[raw.reinterpret_as_int()])
+        @lib.LocalSet(@lib.LocalIdx(raw)) =>
+          storage[raw.reinterpret_as_int()] = stack.pop().unwrap()
+        @lib.LocalTee(@lib.LocalIdx(raw)) =>
+          storage[raw.reinterpret_as_int()] = stack[stack.length() - 1]
+        @lib.I64Add => {
+          let right = stack.pop().unwrap()
+          let left = stack.pop().unwrap()
+          stack.push(left + right)
+        }
+        @lib.I32Sub => {
+          let right = stack.pop().unwrap()
+          let left = stack.pop().unwrap()
+          stack.push(left - right)
+        }
+        @lib.I32Eqz => stack.push(if stack.pop().unwrap() == 0 { 1 } else { 0 })
+        @lib.Block(_, @lib.Expr(nested)) => if step(nested) { return true }
+        @lib.Loop(_, @lib.Expr(nested)) => {
+          loop_body = nested
+          if step(nested) {
+            return true
+          }
+        }
+        @lib.BrIf(_) => if stack.pop().unwrap() != 0 { return true }
+        @lib.Br(_) => return true
+        _ => fail("unexpected Fibonacci local-update instruction: \{instr}")
+      }
+    }
+    false
+  }
+  assert_true(step(body))
+  assert_false(loop_body.is_empty())
+  for remaining = 9; remaining > 0; remaining = remaining - 1 {
+    @debug.assert_eq(storage[0], remaining)
+    assert_true(step(loop_body))
+  }
+  @debug.assert_eq(storage[0], 0)
+  @debug.assert_eq(storage[1], 55)
+  @debug.assert_eq(storage[2], 89)
 }
 
 ///|

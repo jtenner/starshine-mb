@@ -35,6 +35,7 @@ test "hot lower dependency suffix minima skip pure roots and retain earlier effe
     roots,
     cache,
     hot_lower_impl_build_value_orders(func),
+    effects_build_node_masks(func),
   )
   @debug.assert_eq(suffix_minima.length(), 3)
   @debug.assert_eq(suffix_minima[2], hot_node_count(func))
@@ -47,6 +48,7 @@ test "hot lower dependency suffix minima skip pure roots and retain earlier effe
     [pure_drop],
     Array::make(hot_node_count(func), -2),
     hot_lower_impl_build_value_orders(func),
+    effects_build_node_masks(func),
   )
   @debug.assert_eq(pure_suffix, [hot_node_count(func), hot_node_count(func)])
   assert_false(
@@ -54,6 +56,7 @@ test "hot lower dependency suffix minima skip pure roots and retain earlier effe
       func,
       [pure_drop],
       Array::make(hot_node_count(func), -1),
+      effects_build_node_masks(func),
     ),
   )
   assert_true(
@@ -61,6 +64,7 @@ test "hot lower dependency suffix minima skip pure roots and retain earlier effe
       func,
       [pure_read],
       Array::make(hot_node_count(func), -1),
+      effects_build_node_masks(func),
     ),
   )
 }

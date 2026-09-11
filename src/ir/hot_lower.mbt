@@ -54,6 +54,7 @@ priv struct HotLowerLabelFrames {
   used_labels : @bitset.BitSet
   local_access_cache : Array[Int]
   value_orders : Array[Int]
+  node_effects : Array[EffectMask]
   preceding_dependency_min_cache : Array[Int]
 }
 
@@ -66,6 +67,7 @@ fn hot_lower_impl_new_label_frames(func : HotFunc) -> HotLowerLabelFrames {
     used_labels: hot_lower_impl_build_used_labels(func),
     local_access_cache: Array::make(hot_node_count(func), -1),
     value_orders: hot_lower_impl_build_value_orders(func),
+    node_effects: effects_build_node_masks(func),
     preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
   }
 }
@@ -686,11 +688,17 @@ fn hot_lower_impl_build_value_orders(func : HotFunc) -> Array[Int] {
 }
 
 ///|
+fn hot_lower_impl_has_external_effects(mask : EffectMask) -> Bool {
+  mask != 0U && mask != EFFECT_MASK_LOCAL_STATE
+}
+
+///|
 fn hot_lower_impl_collect_preceding_dependency(
   func : HotFunc,
   node_id : NodeId,
   before_node_id : NodeId,
   value_orders : Array[Int],
+  node_effects : Array[EffectMask],
   seen : Array[Bool],
   out : Array[NodeId],
 ) -> Unit {
@@ -703,14 +711,14 @@ fn hot_lower_impl_collect_preceding_dependency(
   seen[node_id] = true
   if value_orders[node_id] < before_node_id &&
     hot_node_result_arity(func, node_id) > 0 &&
-    !effects_is_pure(effects_for_node(func, node_id)) {
+    !effects_is_pure(node_effects[node_id]) {
     out.push(node_id)
     return
   }
   let inputs = hot_lower_impl_input_info(func, node_id)
   for input_id in inputs.nodes {
     hot_lower_impl_collect_preceding_dependency(
-      func, input_id, before_node_id, value_orders, seen, out,
+      func, input_id, before_node_id, value_orders, node_effects, seen, out,
     )
   }
 }
@@ -781,6 +789,7 @@ fn hot_lower_impl_preceding_dependency_min_node(
   node_id : NodeId,
   cache : Array[Int],
   value_orders : Array[Int],
+  node_effects : Array[EffectMask],
 ) -> Int {
   let none = hot_node_count(func)
   if node_id < 0 ||
@@ -792,14 +801,14 @@ fn hot_lower_impl_preceding_dependency_min_node(
     return cache[node_id]
   }
   let mut minimum = if hot_node_result_arity(func, node_id) > 0 &&
-    !effects_is_pure(effects_for_node(func, node_id)) {
+    !effects_is_pure(node_effects[node_id]) {
     value_orders[node_id]
   } else {
     none
   }
   for input_id in hot_lower_impl_input_info(func, node_id).nodes {
     let input_minimum = hot_lower_impl_preceding_dependency_min_node(
-      func, input_id, cache, value_orders,
+      func, input_id, cache, value_orders, node_effects,
     )
     if input_minimum < minimum {
       minimum = input_minimum
@@ -815,6 +824,7 @@ fn hot_lower_impl_build_preceding_dependency_suffix_minima(
   roots : Array[NodeId],
   cache : Array[Int],
   value_orders : Array[Int],
+  node_effects : Array[EffectMask],
 ) -> Array[Int] {
   let none = hot_node_count(func)
   let suffix_minima = Array::make(roots.length() + 1, none)
@@ -825,6 +835,7 @@ fn hot_lower_impl_build_preceding_dependency_suffix_minima(
       roots[idx],
       cache,
       value_orders,
+      node_effects,
     )
     suffix_minima[idx] = if root_minimum < suffix_minima[idx + 1] {
       root_minimum
@@ -874,8 +885,12 @@ fn hot_lower_impl_roots_may_need_future_dependencies(
   func : HotFunc,
   roots : Array[NodeId],
   local_access_cache : Array[Int],
+  node_effects : Array[EffectMask],
 ) -> Bool {
   for root_id in roots {
+    if hot_lower_impl_has_external_effects(node_effects[root_id]) {
+      return true
+    }
     if hot_node_result_arity(func, root_id) == 0 &&
       (match hot_query_op(func, root_id) {
         HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => true
@@ -901,6 +916,7 @@ fn hot_lower_impl_future_dependency_suffix_minima(
       func,
       roots,
       label_frames.local_access_cache,
+      label_frames.node_effects,
     ) {
     return None
   }
@@ -910,6 +926,7 @@ fn hot_lower_impl_future_dependency_suffix_minima(
       roots,
       label_frames.preceding_dependency_min_cache,
       label_frames.value_orders,
+      label_frames.node_effects,
     ),
   )
 }
@@ -986,12 +1003,17 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   extra_locals : Array[ValType],
   options : HotLowerOptions,
 ) -> Unit {
+  let current_order = hot_node_get(func, current_root).order
   let call_order_required = hot_node_result_arity(func, current_root) == 0 &&
     (match hot_query_op(func, current_root) {
       HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => true
       _ => false
     })
+  let effect_order_required = hot_lower_impl_has_external_effects(
+    label_frames.node_effects[current_root],
+  )
   if !call_order_required &&
+    !effect_order_required &&
     !hot_lower_impl_node_accesses_local(
       func,
       current_root,
@@ -1003,23 +1025,24 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
     Some(suffix_minima) =>
       if future_start < 0 ||
         future_start >= suffix_minima.length() ||
-        suffix_minima[future_start] >= current_root {
+        suffix_minima[future_start] >= current_order {
         return
       }
     None => ()
   }
   let seen = Array::make(hot_node_count(func), false)
   let carried : Array[NodeId] = []
-  // An inserted root can have a newer ID than the consumer it precedes.
-  // That order comes from the region, not from a former stack lifetime.
+  // Use source order, not allocation IDs: a set split from a tee has a
+  // newer ID while retaining the original write's execution position.
   // Infer an anti-dependence only within the value/current/consumer interval.
   for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
-    if future_roots[idx] > current_root {
+    if hot_node_get(func, future_roots[idx]).order > current_order {
       hot_lower_impl_collect_preceding_dependency(
         func,
         future_roots[idx],
-        current_root,
+        current_order,
         label_frames.value_orders,
+        label_frames.node_effects,
         seen,
         carried,
       )
@@ -1030,12 +1053,13 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
     anti_dependencies[node_id] = true
   }
   for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
-    if future_roots[idx] <= current_root {
+    if hot_node_get(func, future_roots[idx]).order <= current_order {
       hot_lower_impl_collect_preceding_dependency(
         func,
         future_roots[idx],
-        current_root,
+        current_order,
         label_frames.value_orders,
+        label_frames.node_effects,
         seen,
         carried,
       )
@@ -1047,6 +1071,15 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   for node_id in carried {
     if (
         call_order_required ||
+        // A source stack value is already evaluated before this root. Keep
+        // calls, heap/memory/global effects, and distinct traps in that order.
+        (
+          effect_order_required &&
+          anti_dependencies[node_id] &&
+          hot_lower_impl_has_external_effects(
+            label_frames.node_effects[node_id],
+          )
+        ) ||
         hot_lower_impl_carried_local_write_conflicts(
           func, node_id, current_root,
         ) ||

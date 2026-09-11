@@ -223,8 +223,18 @@ already anchored by an earlier root must not be captured again.
 The positive scalar Flatten regression returns 7 (the old output returned 0).
 The aggregate SimplifyLocals regression keeps the earlier value 4. Raw SSA tests
 cover dropped unreachable writes without shifting subsequent access decisions.
-Two existing tests still require semantic assertions instead of exact rendered
-layouts: the carried Fibonacci sum and a carried load/tee. Captures add temporary
-locals in these shapes; broad size/performance signoff remains open. The latest
-focused lift/lower run passed 99/100 tests, with only the old load layout check
-failing. All original failed fixture/orders remain in the Dewdrop replay log.
+The carried Fibonacci sum and carried load/tee tests execute their bounded local
+updates, allowing temporary captures while checking the original results. The
+full IR suite passes 376 tests; the focused LocalSubtyping, MergeLocals, and
+Flatten suite passes 101 tests. Broad size/performance and generated-pass
+signoff remains open. All original failed fixture/orders remain in the Dewdrop
+replay log.
+
+Pending values can also carry calls, heap/global/memory operations, and traps.
+Lowering emits a preceding pending value before a later conflicting root. This
+uses source execution order, including the original order retained by a set
+split from a tee; allocation IDs do not establish execution order. The effect
+mask for every node is built once per lowered function and reused for these
+queries. Regressions in `src/ir/hot_lower_pending_effect_test.mbt` cover a call
+before a global write and a memory-backed tee write before a later read. The
+same call shape also runs through the public Flatten dispatcher.

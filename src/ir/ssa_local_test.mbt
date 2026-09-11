@@ -700,14 +700,11 @@ test "ssa local build carries writes from straight-line value block operands" {
     "(module (func (result i64) (local i64) (i64.add (block (result i64) (local.set 0 (i64.const 100)) (i64.const 7)) (local.get 0))))",
   )
   let func = fixture.hot_func
-  let add = hot_root_get(func, 0)
-  let value_block = hot_child_get(func, add, 0)
-  let nested_set = hot_region_get(
-    func,
-    hot_region_body_ref(func, value_block),
-    0,
-  )
-  let final_get = hot_child_get(func, add, 1)
+  // Lift may anchor the value block before the following read. Use source
+  // identities rather than assuming the add is the first region root.
+  let accesses = hot_lift_local_accesses(func)
+  let nested_set = accesses.writes[0].1
+  let final_get = accesses.gets[0].1
   let cfg = cfg_build(func)
   let dom = dom_build(cfg)
   let use_def = use_def_build(func, cfg=Some(cfg))
