@@ -82907,18 +82907,31 @@ test "optimize-instructions keeps local tee before same-local get" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) (local i32) local.get 0 local.tee 1 local.get 1 i32.eq))",
   )
-  let root = @ir.hot_root_get(func, 0)
-  let lhs = @ir.hot_child_get(func, root, 0)
-  let rhs = @ir.hot_child_get(func, root, 1)
-  match @ir.hot_node_get(func, lhs).op {
-    @ir.HotOp::LocalTee => ()
-    _ => fail("expected local.tee subtree to stay before same-local get")
+  let @lib.Func(locals, @lib.Expr(body)) = @ir.hot_lower_func(func)
+  for parameter in [0, 41, -7] {
+    let storage = Array::make(locals.length() + 1, 0)
+    storage[0] = parameter
+    let stack : Array[Int] = []
+    for instr in body {
+      match instr {
+        @lib.Nop => ()
+        @lib.I32Const(@lib.I32(n)) => stack.push(n)
+        @lib.LocalGet(@lib.LocalIdx(raw)) =>
+          stack.push(storage[raw.reinterpret_as_int()])
+        @lib.LocalSet(@lib.LocalIdx(raw)) =>
+          storage[raw.reinterpret_as_int()] = stack.pop().unwrap()
+        @lib.LocalTee(@lib.LocalIdx(raw)) =>
+          storage[raw.reinterpret_as_int()] = stack[stack.length() - 1]
+        @lib.I32Eq => {
+          let right = stack.pop().unwrap()
+          let left = stack.pop().unwrap()
+          stack.push(if left == right { 1 } else { 0 })
+        }
+        _ => fail("unexpected tee-comparison instruction: \{instr}")
+      }
+    }
+    @debug.assert_eq(stack, [1])
   }
-  match @ir.hot_node_get(func, rhs).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected same-local get to stay behind local.tee")
-  }
-  @debug.assert_eq(@ir.hot_node_get(func, rhs).imm0, 1)
 }
 
 ///|

@@ -223,8 +223,9 @@ already anchored by an earlier root must not be captured again.
 The positive scalar Flatten regression returns 7 (the old output returned 0).
 The aggregate SimplifyLocals regression keeps the earlier value 4. Raw SSA tests
 cover dropped unreachable writes without shifting subsequent access decisions.
-The carried Fibonacci sum and carried load/tee tests execute their bounded local
-updates, allowing temporary captures while checking the original results. The
+The carried Fibonacci sum, carried load/tee, and OptimizeInstructions tee
+comparison tests execute bounded local updates, allowing temporary captures
+while checking the original results. The
 full IR suite passes 376 tests; the focused LocalSubtyping, MergeLocals, and
 Flatten suite passes 101 tests. Broad size/performance and generated-pass
 signoff remains open. All original failed fixture/orders remain in the Dewdrop
