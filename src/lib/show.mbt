@@ -82,6 +82,8 @@ pub impl Show for AbsHeapType with fn output(self, logger) {
     NoFuncAbsHeapType => logger.write_string("(AbsHeapType NoFunc)")
     NoExnAbsHeapType => logger.write_string("(AbsHeapType NoExn)")
     NoContAbsHeapType => logger.write_string("(AbsHeapType NoCont)")
+    WaitqueueAbsHeapType => logger.write_string("(AbsHeapType Waitqueue)")
+    NoWaitqueueAbsHeapType => logger.write_string("(AbsHeapType NoWaitqueue)")
   }
 }
 
@@ -849,6 +851,7 @@ pub impl Show for AtomicOrder with fn output(self, logger) {
   match self {
     SeqCst => logger.write_string("seq_cst")
     AcqRel => logger.write_string("acq_rel")
+    Relaxed => logger.write_string("relaxed")
   }
 }
 
@@ -963,6 +966,15 @@ pub impl Show for Instruction with fn output(self, logger) {
     ReturnCallRef(t) => {
       logger.write_string("(return_call_ref ")
       Show::output(t, logger)
+      logger.write_char(')')
+    }
+    WaitqueueNew => logger.write_string("(WaitqueueNew)")
+    WaitqueueNotify => logger.write_string("(WaitqueueNotify)")
+    StructWait(t, field) => {
+      logger.write_string("(StructWait ")
+      t.output(logger)
+      logger.write_char(' ')
+      field.output(logger)
       logger.write_char(')')
     }
     ContNew(t) => {
@@ -1581,6 +1593,15 @@ pub impl Show for Instruction with fn output(self, logger) {
       Show::output(i, logger)
       logger.write_char(')')
     }
+    StructAtomicSet(order, t, i) => {
+      logger.write_string("(struct.atomic.set ")
+      Show::output(order, logger)
+      logger.write_char(' ')
+      Show::output(t, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
     StructAtomicGet(order, t, i) => {
       logger.write_string("(struct.atomic.get ")
       Show::output(order, logger)
@@ -1703,6 +1724,13 @@ pub impl Show for Instruction with fn output(self, logger) {
       Show::output(i, logger)
       logger.write_char(')')
     }
+    ArrayAtomicSet(order, i) => {
+      logger.write_string("(array.atomic.set ")
+      Show::output(order, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
     ArrayAtomicGet(order, i) => {
       logger.write_string("(array.atomic.get ")
       Show::output(order, logger)
@@ -1745,18 +1773,22 @@ pub impl Show for Instruction with fn output(self, logger) {
       Show::output(i, logger)
       logger.write_char(')')
     }
-    ArrayLoad(op, i) => {
+    ArrayLoad(op, i, memarg) => {
       logger.write_string("(array.load ")
       Show::output(op, logger)
       logger.write_char(' ')
       Show::output(i, logger)
+      logger.write_char(' ')
+      Show::output(memarg, logger)
       logger.write_char(')')
     }
-    ArrayStore(op, i) => {
+    ArrayStore(op, i, memarg) => {
       logger.write_string("(array.store ")
       Show::output(op, logger)
       logger.write_char(' ')
       Show::output(i, logger)
+      logger.write_char(' ')
+      Show::output(memarg, logger)
       logger.write_char(')')
     }
     ArrayLen => logger.write_string("array.len")

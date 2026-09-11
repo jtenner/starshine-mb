@@ -657,6 +657,18 @@ fn vacuum_heap_is_removable_if_unused(
     Some(@lib.Instruction::ArrayNew(_)) => length_is_not_negative_const(1)
     Some(@lib.Instruction::ArrayNewDefault(_)) =>
       length_is_not_negative_const(0)
+    Some(@lib.Instruction::ContNew(_)) => {
+      // Allocation itself has no observable effect when the result is unused.
+      // Its nullable function operand can still trap (Binaryen effects.h).
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return false
+      }
+      let operand = @ir.hot_child_get(func, node_id, 0)
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, operand)) {
+        [@lib.RefTypeValType(ref_type)] => ref_type.is_non_nullable()
+        _ => false
+      }
+    }
     _ => false
   }
 }
@@ -908,6 +920,7 @@ fn vacuum_result_type_is_defaultable(
 
 ///|
 fn vacuum_unused_value_parent_is_removable(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
 ) -> Bool {
@@ -924,6 +937,17 @@ fn vacuum_unused_value_parent_is_removable(
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     @ir.HotOp::Simd =>
       vacuum_simd_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    @ir.HotOp::Call =>
+      match ctx.module_ctx {
+        Some(module_ctx) =>
+          @ir.hot_module_func_import_matches(
+            module_ctx,
+            @lib.FuncIdx::new(@ir.hot_node_get(func, node_id).imm0.to_uint()),
+            "binaryen-intrinsics",
+            "call.without.effects",
+          )
+        None => false
+      }
     _ => false
   }
 }
@@ -936,12 +960,13 @@ priv struct VacuumDroppedParentReplacement {
 
 ///|
 fn vacuum_dropped_parent_replacement(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
 ) -> VacuumDroppedParentReplacement? {
   if node_id < 0 ||
     !@ir.hot_node_is_live(func, node_id) ||
-    !vacuum_unused_value_parent_is_removable(func, node_id) {
+    !vacuum_unused_value_parent_is_removable(ctx, func, node_id) {
     return None
   }
   let roots : Array[@ir.NodeId] = []
@@ -952,7 +977,7 @@ fn vacuum_dropped_parent_replacement(
       detached.push(child_id)
       continue
     }
-    match vacuum_dropped_parent_replacement(func, child_id) {
+    match vacuum_dropped_parent_replacement(ctx, func, child_id) {
       Some(nested) => {
         roots.append(nested.roots)
         detached.append(nested.detached)
@@ -981,6 +1006,7 @@ fn vacuum_dropped_heap_constructor_replacement(
       | @lib.Instruction::ArrayNew(_)
       | @lib.Instruction::ArrayNewDefault(_)
       | @lib.Instruction::ArrayNewFixed(_, _)
+      | @lib.Instruction::ContNew(_)
     ) => ()
     _ => return None
   }
@@ -1722,7 +1748,7 @@ fn hot_pass_vacuum_rewrite_dropped_parents_batch(
     if @ir.hot_node_get(func, root_id).op is @ir.HotOp::Drop &&
       @ir.hot_child_count(func, root_id) == 1 {
       let child_id = @ir.hot_child_get(func, root_id, 0)
-      match vacuum_dropped_parent_replacement(func, child_id) {
+      match vacuum_dropped_parent_replacement(ctx, func, child_id) {
         Some(rewrite) => {
           next_roots.append(rewrite.roots)
           detached.push(root_id)
@@ -2267,7 +2293,7 @@ fn hot_pass_remove_region_nops(
           }
           None => ()
         }
-        match vacuum_dropped_parent_replacement(func, child_id) {
+        match vacuum_dropped_parent_replacement(ctx, func, child_id) {
           Some(rewrite) => {
             let removed = pass_splice_region(
               ctx,
@@ -2395,6 +2421,23 @@ fn hot_pass_remove_region_nops(
         }
         changed = hot_pass_vacuum_flip_empty_then_if(ctx, func, node_id) ||
           changed
+        let void_signature = match
+          @ir.hot_type_get(func, @ir.hot_node_type(func, node_id)) {
+          @ir.VoidType
+          | @ir.BlockResult(@lib.VoidBlockType)
+          | @ir.BlockResultResolved(@lib.VoidBlockType, _, _) => true
+          _ => false
+        }
+        if void_signature {
+          if @ir.hot_region_else_ref(func, node_id) is Some(else_ref) &&
+            @ir.hot_region_root_count(func, else_ref) == 0 {
+            let holder = @ir.hot_child_get(func, node_id, 2)
+            @ir.hot_child_set(func, node_id, 2, -1)
+            pass_mark_mutated(ctx, func)
+            vacuum_delete_detached_non_control_nodes(ctx, func, [holder])
+            changed = true
+          }
+        }
       }
       @ir.HotOp::Try => {
         changed = hot_pass_remove_region_nops(
@@ -2734,7 +2777,9 @@ fn run_hot_pipeline_instr_scan_impl(
       | @lib.BrOnNull(_)
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => summary.has_branches = true
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _) => summary.has_branches = true
       _ => ()
     }
     match instr {
@@ -3099,6 +3144,8 @@ fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.Return => return true
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         if run_hot_pipeline_instr_has_remove_unused_brs_candidate(body) {
@@ -9123,10 +9170,14 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leading_local_get_in_body(
           // Check each enclosing suffix before descending to the first read;
           // checking only the innermost body loses live reads after br_table.
           if run_hot_pipeline_raw_instrs_have_later_local_read(
-              body, idx + 1, target_local,
+              body,
+              idx + 1,
+              target_local,
             ) ||
             run_hot_pipeline_raw_instrs_have_later_local_write(
-              body, idx + 1, target_local,
+              body,
+              idx + 1,
+              target_local,
             ) {
             return None
           }
@@ -11389,17 +11440,25 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
   let rewritten : Array[@lib.Instruction] = []
   let mut idx = 0
   while idx < nested.length() {
-    if idx + 1 < nested.length() {
-      match (nested[idx], nested[idx + 1]) {
-        (@lib.LocalSet(set_local), @lib.LocalGet(get_local)) =>
-          if set_local == get_local {
-            rewritten.push(@lib.Instruction::local_tee(set_local))
-            rewrite_count = rewrite_count + 1
-            idx = idx + 2
-            continue
+    match nested[idx] {
+      @lib.LocalSet(set_local) => {
+        let mut get_idx = idx + 1
+        while get_idx < nested.length() &&
+              nested[get_idx] == @lib.Instruction::nop() {
+          get_idx += 1
+        }
+        if get_idx < nested.length() &&
+          nested[get_idx] == @lib.Instruction::local_get(set_local) {
+          rewritten.push(@lib.Instruction::local_tee(set_local))
+          for nop_idx = idx + 1; nop_idx < get_idx; nop_idx = nop_idx + 1 {
+            rewritten.push(nested[nop_idx])
           }
-        _ => ()
+          rewrite_count += 1
+          idx = get_idx + 1
+          continue
+        }
       }
+      _ => ()
     }
     rewritten.push(nested[idx])
     idx = idx + 1
@@ -18841,7 +18900,9 @@ fn run_hot_pipeline_raw_instrs_have_branch(
       | @lib.BrOnNull(_)
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => return true
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _) => return true
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -18901,6 +18962,8 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
   let mut saw_backedge = false
   for instr in instrs {
     match instr {
+      @lib.BrOnCastDescEq(_, _, _) | @lib.BrOnCastDescEqFail(_, _, _) =>
+        return false
       @lib.Br(@lib.LabelIdx(raw)) | @lib.BrIf(@lib.LabelIdx(raw)) =>
         if raw == loop_depth {
           saw_backedge = true
@@ -19083,6 +19146,8 @@ fn run_hot_pipeline_raw_instrs_current_loop_backedges_are_plain_br(
       @lib.BrIf(@lib.LabelIdx(raw)) => if raw == loop_depth { return false }
       @lib.BrOnCast(@lib.LabelIdx(raw), _, _, _)
       | @lib.BrOnCastFail(@lib.LabelIdx(raw), _, _, _)
+      | @lib.BrOnCastDescEq(@lib.LabelIdx(raw), _, _)
+      | @lib.BrOnCastDescEqFail(@lib.LabelIdx(raw), _, _)
       | @lib.BrOnNull(@lib.LabelIdx(raw))
       | @lib.BrOnNonNull(@lib.LabelIdx(raw)) =>
         if raw == loop_depth {
@@ -22299,6 +22364,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           exit_depths[raw.reinterpret_as_int()] = true
         }
       }
+      @lib.BrOnCastDescEq(_, _, _) | @lib.BrOnCastDescEqFail(_, _, _) =>
+        return None
       @lib.BrOnCast(
         label_idx,
         @lib.CastOp(
@@ -25045,7 +25112,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
           }
           match
             (
-              run_hot_pipeline_raw_ssa_nomerge_local_id_from_get(rewritten[scan]),
+              run_hot_pipeline_raw_ssa_nomerge_local_id_from_get(
+                rewritten[scan],
+              ),
               run_hot_pipeline_raw_ssa_nomerge_local_id_from_set(
                 rewritten[scan + 1],
               ),
@@ -26351,6 +26420,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_scan_one_arm_merge_control(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.Loop(_, _)
       | @lib.TryTable(_, _, _) => return false
       @lib.Block(_, @lib.Expr(body)) =>
@@ -26402,6 +26473,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_multisource_merge_supported_control(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.Loop(_, _)
       | @lib.TryTable(_, _, _) => return false
       @lib.Block(_, @lib.Expr(body)) =>
@@ -26516,6 +26589,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_ordinary_set_supported_control(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.Loop(_, _)
       | @lib.TryTable(_, _, _)
       | @lib.Return
@@ -26572,6 +26647,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_supported_control(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.Block(_, _)
       | @lib.Loop(_, _)
       | @lib.TryTable(_, _, _) => return false
@@ -26610,6 +26687,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_body_supported_control(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.Loop(_, _)
       | @lib.TryTable(_, _, _) => return false
       @lib.Block(_, @lib.Expr(body)) =>
@@ -26660,6 +26739,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_scan_loop_backedge_merge_control(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.TryTable(_, _, _) => return false
       @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) =>
         if !run_hot_pipeline_raw_ssa_nomerge_loop_backedge_body_supported_control(
@@ -26726,7 +26807,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
       @lib.BrOnNull(_)
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => return false
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _) => return false
       @lib.Block(block_type, @lib.Expr(body)) => {
         if !run_hot_pipeline_raw_ssa_nomerge_is_void_block_type(block_type) &&
           run_hot_pipeline_raw_instrs_have_branch(body) {
@@ -29479,7 +29562,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_non_plain_branch(
       | @lib.BrOnNull(_)
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => return true
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _) => return true
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -30272,6 +30357,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_branch_free_value_block_tee_local(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.Return
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
@@ -34821,7 +34908,9 @@ fn RawOiRootFlowFact::from_instr(instr : @lib.Instruction) -> RawOiRootFlowFact 
     | @lib.BrOnNull(_)
     | @lib.BrOnNonNull(_)
     | @lib.BrOnCast(_, _, _, _)
-    | @lib.BrOnCastFail(_, _, _, _) =>
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _) =>
       {
         has_nested_control: false,
         has_branch: true,
@@ -46740,7 +46829,9 @@ fn run_hot_pipeline_raw_vacuum_instr_targets_owner(
     | @lib.BrOnNull(label)
     | @lib.BrOnNonNull(label)
     | @lib.BrOnCast(label, _, _, _)
-    | @lib.BrOnCastFail(label, _, _, _) =>
+    | @lib.BrOnCastFail(label, _, _, _)
+    | @lib.BrOnCastDescEq(label, _, _)
+    | @lib.BrOnCastDescEqFail(label, _, _) =>
       run_hot_pipeline_raw_vacuum_label_targets_owner(label, owner_depth)
     @lib.BrTable(labels, fallback) => {
       if run_hot_pipeline_raw_vacuum_label_targets_owner(fallback, owner_depth) {
@@ -46805,6 +46896,18 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
   owner_depth : Int,
 ) -> @lib.Instruction {
   match instr {
+    @lib.BrOnCastDescEq(label, source, target) =>
+      @lib.Instruction::br_on_cast_desc_eq(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        source,
+        target,
+      )
+    @lib.BrOnCastDescEqFail(label, source, target) =>
+      @lib.Instruction::br_on_cast_desc_eq_fail(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        source,
+        target,
+      )
     @lib.Br(label) =>
       @lib.Instruction::br(
         run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
@@ -65588,6 +65691,8 @@ fn o4z_canonicalize_final_size_local_tee_is_dead_before_read(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.Return
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
@@ -66376,6 +66481,8 @@ fn o4z_canonicalize_final_size_first_local_access(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
       | @lib.Return
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
@@ -68846,6 +68953,35 @@ fn o4z_canonicalize_final_size_deduplicate_declarative_elems(
 }
 
 ///|
+fn vacuum_remove_unused_declarations(mod_ : @lib.Module) -> @lib.Module {
+  let elems = match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) if !elems.is_empty() => elems
+    _ => return mod_
+  }
+  // A declaration only enables ref.func validation. Keep all segments if any
+  // runtime element index exists, so neither indices nor their trap behavior
+  // can change. Active/passive segments and expression initializers need their
+  // own analysis and are outside this cleanup.
+  if !elems.all(fn(elem) {
+      elem is @lib.Elem(@lib.Declarative, @lib.FuncsElemKind(_))
+    }) ||
+    o4z_canonicalize_final_size_module_has_ref_func(mod_) {
+    return mod_
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        if o4z_canonicalize_final_size_instrs_use_elem_indices(body) {
+          return mod_
+        }
+      }
+    None => ()
+  }
+  o4z_canonicalize_final_size_without_elem_sec(mod_)
+}
+
+///|
 fn o4z_canonicalize_final_size_strip_type_only_empty_module(
   mod_ : @lib.Module,
 ) -> @lib.Module {
@@ -70253,7 +70389,7 @@ fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
     match instr {
-      @lib.Nop | @lib.Drop => return true
+      @lib.Nop | @lib.Drop | @lib.Return => return true
       @lib.ArraySet(set_type) if idx >= 4 =>
         match (instrs[idx - 4], instrs[idx - 3], instrs[idx - 2]) {
           (
@@ -70294,6 +70430,7 @@ fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
         }
         match (block_type, then_body.length(), else_body) {
           (@lib.VoidBlockType, 0, None) => return true
+          (@lib.VoidBlockType, _, Some(body)) if body.is_empty() => return true
           (@lib.VoidBlockType, 0, Some(body)) if body.length() > 0 =>
             return true
           _ => ()
@@ -74564,6 +74701,21 @@ fn run_hot_pipeline_simplify_locals_finalize_lowered_root(
 }
 
 ///|
+fn run_hot_pipeline_simplify_locals_fold_adjacent_captures_func(
+  func : @lib.Func,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (body, count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
+    body,
+  )
+  if count == 0 {
+    (func, false)
+  } else {
+    (@lib.Func::new(locals, @lib.Expr::new(body)), true)
+  }
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   func : @lib.Func,
   descriptor_name : String,
@@ -76928,6 +77080,29 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   func_idx : @lib.FuncIdx,
   mod_ : @lib.Module,
 ) -> @lib.Func {
+  let func = if descriptor_name == "constraint-analysis" ||
+    descriptor_name == "tuple-optimization" ||
+    descriptor_name == "optimize-instructions" {
+    match
+      (
+        original_func,
+        run_hot_pipeline_defined_func_params_from_sections(mod_, func_idx),
+      ) {
+      (Some(original), Some(params)) =>
+        pass_lower_compact_captures(
+          if descriptor_name == "constraint-analysis" {
+            ca_lower_refinalize(func, mod_)
+          } else {
+            func
+          },
+          original,
+          params,
+        )
+      _ => func
+    }
+  } else {
+    func
+  }
   let func = if descriptor_name == "remove-unused-brs" {
     remove_unused_brs_refinalize_lowered_null_blocks(func)
   } else if descriptor_name == "merge-blocks" {
@@ -76938,6 +77113,36 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   let cleaned = run_hot_pipeline_simplify_locals_cleanup_lowered_func(
     func, descriptor_name, original_func, mod_,
   )
+  let cleaned = if descriptor_name == "simplify-locals" {
+    // Fold only after lowering has fixed evaluation order. The existing
+    // adjacent-pair rewrite preserves the producer, local write and value;
+    // applying it here also preserves the no-tee variants' contract.
+    run_hot_pipeline_simplify_locals_fold_adjacent_captures_func(cleaned).0
+  } else {
+    cleaned
+  }
+  // SimplifyLocals may consume a lowering capture while leaving its scratch
+  // declaration behind. Preserve source locals and compact only unused suffix
+  // declarations; this does not move or remove any instruction evaluation.
+  let cleaned = if run_hot_pipeline_descriptor_is_simplify_locals_family(
+      descriptor_name,
+    ) {
+    match
+      (
+        original_func,
+        run_hot_pipeline_defined_func_params_from_sections(mod_, func_idx),
+      ) {
+      (Some(@lib.Func(original_locals, _)), Some(params)) =>
+        run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+          cleaned,
+          params,
+          original_locals.length(),
+        ).0
+      _ => cleaned
+    }
+  } else {
+    cleaned
+  }
   let cleaned = if descriptor_name == "merge-blocks" {
     let refinalized = run_hot_pipeline_merge_blocks_refinalize_lowered_null_blocks(
       cleaned,
@@ -77876,7 +78081,9 @@ fn run_hot_pipeline_raw_optimize_casts_has_candidate(
       | @lib.RefTestDesc(_, _)
       | @lib.RefAsNonNull
       | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => return true
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _) => return true
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -78141,14 +78348,26 @@ fn run_hot_pipeline_func(
       mod_, func_idx, module_state, descriptor, options,
     ) {
     Some(result) => {
+      let (folded, capture_changed) = if descriptor.name == "simplify-locals" &&
+        !result.unchanged_original {
+        run_hot_pipeline_simplify_locals_fold_adjacent_captures_func(
+          result.func,
+        )
+      } else {
+        (result.func, false)
+      }
       let (finalized, finalized_changed) = run_hot_pipeline_simplify_locals_finalize_lowered_root_with_changed(
-        result.func,
+        folded,
       )
-      if !finalized_changed {
+      if !finalized_changed && !capture_changed {
         return Ok(result)
       }
       return Ok({
-        reason: "\{result.reason}-root-finalized",
+        reason: if finalized_changed {
+          "\{result.reason}-root-finalized"
+        } else {
+          "\{result.reason}-adjacent-capture"
+        },
         func: finalized,
         unchanged_original: false,
         trace_skip_raw: result.trace_skip_raw,
@@ -78388,7 +78607,12 @@ fn run_hot_pipeline_func(
   }
   let lift_start_us = perf_start_timer_opt(options.perf, "lift")
   let func = match
-    @ir.hot_lift_func_with_context_result(lift_mod, func_idx, module_ctx) {
+    @ir.hot_lift_func_with_context_result(
+      lift_mod,
+      func_idx,
+      module_ctx,
+      capture_stack_locals=descriptor.name == "constraint-analysis",
+    ) {
     Ok(func) => func
     Err(err) => {
       pipeline_trace_hook(
@@ -80528,7 +80752,7 @@ fn run_hot_pipeline_apply_hot_pass(
           "guard:vacuum-writeback-batch",
           batch_guard_start_us,
         )
-        return Ok(repaired_mod)
+        return Ok(vacuum_remove_unused_declarations(repaired_mod))
       }
       None => {
         perf_stop_timer_opt(
@@ -80652,7 +80876,13 @@ fn run_hot_pipeline_apply_hot_pass(
       }
     }
   }
-  Ok(next_mod)
+  Ok(
+    if descriptor.name == "vacuum" {
+      vacuum_remove_unused_declarations(next_mod)
+    } else {
+      next_mod
+    },
+  )
 }
 
 ///|
@@ -80707,7 +80937,12 @@ fn run_hot_pipeline_apply_hot_pass_stack(
         let lift_start_us = perf_start_timer_opt(options.perf, "lift")
         let func = match
           @ir.hot_lift_func_with_context_result(
-            current_mod, func_idx, module_ctx,
+            current_mod,
+            func_idx,
+            module_ctx,
+            capture_stack_locals=descriptors.any(fn(d) {
+              d.name == "constraint-analysis"
+            }),
           ) {
           Ok(func) => func
           Err(err) => {
@@ -80810,11 +81045,16 @@ fn run_hot_pipeline_apply_hot_pass_stack(
     }
     None => None
   }
+  let output = match next_code_sec {
+    Some(code_sec) =>
+      run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
+    None => current_mod
+  }
   Ok(
-    match next_code_sec {
-      Some(code_sec) =>
-        run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
-      None => current_mod
+    if descriptors.any(fn(d) { d.name == "vacuum" }) {
+      vacuum_remove_unused_declarations(output)
+    } else {
+      output
     },
   )
 }
@@ -80861,7 +81101,12 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
         let lift_start_us = perf_start_timer_opt(options.perf, "lift")
         let func = match
           @ir.hot_lift_func_with_context_result(
-            current_mod, func_idx, module_ctx,
+            current_mod,
+            func_idx,
+            module_ctx,
+            capture_stack_locals=descriptors.any(fn(d) {
+              d.name == "constraint-analysis"
+            }),
           ) {
           Ok(func) => func
           Err(err) => {
@@ -83028,7 +83273,9 @@ fn run_hot_pipeline_dae_void_dropped_i32_block_payloads(
           label,
         ) ==
         target_depth => return (instrs, false, 0)
-      @lib.BrOnCastFail(label, _, _, _) if run_hot_pipeline_raw_vacuum_label_depth(
+      @lib.BrOnCastFail(label, _, _, _)
+      | @lib.BrOnCastDescEq(label, _, _)
+      | @lib.BrOnCastDescEqFail(label, _, _) if run_hot_pipeline_raw_vacuum_label_depth(
           label,
         ) ==
         target_depth => return (instrs, false, 0)
@@ -83723,7 +83970,9 @@ fn run_hot_pipeline_dae_copy_retarget_is_control_boundary(
     @lib.BrOnNull(_)
     | @lib.BrOnNonNull(_)
     | @lib.BrOnCast(_, _, _, _)
-    | @lib.BrOnCastFail(_, _, _, _) => true
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _) => true
     _ => false
   }
 }
@@ -91438,6 +91687,20 @@ fn run_hot_pipeline_apply_module_pass(
       }
     "propagate-globals-globally" =>
       propagate_globals_globally_run_module_pass(mod_)
+    "dae2" | "dae2-optimizing" =>
+      match dae2_run_module_pass(mod_, options.closed_world) {
+        Ok(next) =>
+          if entry.name == "dae2-optimizing" {
+            match
+              run_hot_pipeline(next, options, ["simplify-locals", "vacuum"]) {
+              Ok(cleaned) => dae2_cleanup_captures(cleaned)
+              Err(err) => return Err(err)
+            }
+          } else {
+            next
+          }
+        Err(err) => return Err(err)
+      }
     "dead-argument-elimination" | "dae" =>
       if dae_defined_func_count(mod_) >= 32 &&
         run_hot_pipeline_module_has_typeidx_loop(mod_) {
@@ -91687,6 +91950,7 @@ fn hot_pass_run_with_aggregate_perf_timer(
     "optimize-casts" => optimize_casts_run(ctx, func)
     "pick-load-signs" => pick_load_signs_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
+    "constraint-analysis" => constraint_analysis_run(ctx, func)
     "precompute-propagate" => {
       let propagated = precompute_propagate_run(ctx, func)
       if !propagated.changed &&

@@ -50,6 +50,12 @@ pub fn hot_default_flags_for_op(op : HotOp) -> UInt {
     | HotOp::BrOnCast
     | HotOp::BrOnCastFail => HOT_FLAG_BRANCH
     HotOp::Return => HOT_FLAG_TERMINATOR | HOT_FLAG_SIDE_EFFECT
+    HotOp::Continuation =>
+      HOT_FLAG_CALL |
+      HOT_FLAG_BRANCH |
+      HOT_FLAG_SIDE_EFFECT |
+      HOT_FLAG_MAY_TRAP |
+      HOT_FLAG_HAS_EXCEPTIONAL_SUCC
     HotOp::Call | HotOp::CallIndirect | HotOp::CallRef =>
       HOT_FLAG_CALL |
       HOT_FLAG_SIDE_EFFECT |

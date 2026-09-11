@@ -669,6 +669,39 @@ pub enum GenValidProfile {
   RseVacuumTailProfile
   PassDaeProfile
   DaeAllProfile
+  ConstraintAllProfile
+  ConstraintIntegerProfile
+  ConstraintJoinsProfile
+  ConstraintLoopsProfile
+  ConstraintTeesProfile
+  ConstraintWraparoundProfile
+  ConstraintI64Profile
+  ConstraintLogicalProfile
+  ConstraintReferencesProfile
+  ConstraintUnreachableProfile
+  ConstraintRelationsProfile
+  ConstraintEffectsProfile
+  ConstraintFloatBoundaryProfile
+  Binaryen132ArrayMemoryProfile
+  Binaryen132WaitqueueProfile
+  Binaryen132CompactImportsProfile
+  Binaryen132AtomicOrdersProfile
+  Binaryen132DescriptorBranchesProfile
+  Dae2AllProfile
+  Dae2ForwardedResultsProfile
+  Dae2CyclesProfile
+  Dae2ControlFlowProfile
+  Dae2EffectfulArgumentsProfile
+  Dae2TupleResultsProfile
+  Dae2TailCallsProfile
+  Dae2IndirectProfile
+  Dae2OpenWorldProfile
+  Dae2ReferenceTypesProfile
+  Dae2LocalsProfile
+  Dae2ContinuationsProfile
+  Dae2ExceptionsProfile
+  Dae2CallRefProfile
+  Dae2IntrinsicsProfile
   DaeUnusedParamsProfile
   DaeEffectfulArgsProfile
   DaeConstantArgsProfile
@@ -1111,6 +1144,39 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     RseVacuumTailProfile => "rse-vacuum-tail"
     PassDaeProfile => "pass-dae"
     DaeAllProfile => "dead-argument-elimination"
+    ConstraintAllProfile => "constraint-analysis"
+    ConstraintIntegerProfile => "constraint-integer"
+    ConstraintJoinsProfile => "constraint-joins"
+    ConstraintLoopsProfile => "constraint-loops"
+    ConstraintTeesProfile => "constraint-tees"
+    ConstraintWraparoundProfile => "constraint-wraparound"
+    ConstraintI64Profile => "constraint-i64"
+    ConstraintLogicalProfile => "constraint-logical"
+    ConstraintReferencesProfile => "constraint-references"
+    ConstraintUnreachableProfile => "constraint-unreachable"
+    ConstraintRelationsProfile => "constraint-relations"
+    ConstraintEffectsProfile => "constraint-effects"
+    ConstraintFloatBoundaryProfile => "constraint-float-boundary"
+    Dae2AllProfile => "dae2"
+    Dae2ForwardedResultsProfile => "dae2-forwarded-results"
+    Dae2CyclesProfile => "dae2-cycles"
+    Dae2ControlFlowProfile => "dae2-control-flow"
+    Dae2EffectfulArgumentsProfile => "dae2-effectful-arguments"
+    Dae2TupleResultsProfile => "dae2-tuple-results"
+    Dae2TailCallsProfile => "dae2-tail-calls"
+    Dae2IndirectProfile => "dae2-indirect"
+    Dae2OpenWorldProfile => "dae2-open-world"
+    Dae2ReferenceTypesProfile => "dae2-reference-types"
+    Binaryen132ArrayMemoryProfile => "binaryen132-array-memory"
+    Binaryen132WaitqueueProfile => "binaryen132-waitqueue"
+    Binaryen132AtomicOrdersProfile => "binaryen132-atomic-orders"
+    Binaryen132DescriptorBranchesProfile => "binaryen132-descriptor-branches"
+    Binaryen132CompactImportsProfile => "binaryen132-compact-imports"
+    Dae2LocalsProfile => "dae2-locals"
+    Dae2ContinuationsProfile => "dae2-continuations"
+    Dae2ExceptionsProfile => "dae2-exceptions"
+    Dae2CallRefProfile => "dae2-call-ref"
+    Dae2IntrinsicsProfile => "dae2-intrinsics"
     DaeUnusedParamsProfile => "dae-unused-params"
     DaeEffectfulArgsProfile => "dae-effectful-args"
     DaeConstantArgsProfile => "dae-constant-args"
@@ -1550,6 +1616,8 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     VacuumProfile
     | RseAllProfile
     | DaeAllProfile
+    | ConstraintAllProfile
+    | Dae2AllProfile
     | DaeOptimizingProfile
     | GsiDescCastAllProfile
     | PrecomputeAllProfile
@@ -1620,6 +1688,38 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(RseExceptionBoundariesProfile, 1),
         GenValidProfileMember::new(RseHazardBoundaryProfile, 2),
         GenValidProfileMember::new(RseVacuumTailProfile, 2),
+      ]
+    ConstraintAllProfile =>
+      [
+        GenValidProfileMember::new(ConstraintIntegerProfile, 1),
+        GenValidProfileMember::new(ConstraintJoinsProfile, 1),
+        GenValidProfileMember::new(ConstraintLoopsProfile, 1),
+        GenValidProfileMember::new(ConstraintTeesProfile, 1),
+        GenValidProfileMember::new(ConstraintWraparoundProfile, 1),
+        GenValidProfileMember::new(ConstraintI64Profile, 1),
+        GenValidProfileMember::new(ConstraintLogicalProfile, 1),
+        GenValidProfileMember::new(ConstraintReferencesProfile, 1),
+        GenValidProfileMember::new(ConstraintUnreachableProfile, 1),
+        GenValidProfileMember::new(ConstraintRelationsProfile, 1),
+        GenValidProfileMember::new(ConstraintEffectsProfile, 1),
+        GenValidProfileMember::new(ConstraintFloatBoundaryProfile, 1),
+      ]
+    Dae2AllProfile =>
+      [
+        GenValidProfileMember::new(Dae2ForwardedResultsProfile, 1),
+        GenValidProfileMember::new(Dae2CyclesProfile, 1),
+        GenValidProfileMember::new(Dae2ControlFlowProfile, 1),
+        GenValidProfileMember::new(Dae2EffectfulArgumentsProfile, 1),
+        GenValidProfileMember::new(Dae2TupleResultsProfile, 1),
+        GenValidProfileMember::new(Dae2TailCallsProfile, 1),
+        GenValidProfileMember::new(Dae2IndirectProfile, 1),
+        GenValidProfileMember::new(Dae2OpenWorldProfile, 1),
+        GenValidProfileMember::new(Dae2ReferenceTypesProfile, 1),
+        GenValidProfileMember::new(Dae2LocalsProfile, 1),
+        GenValidProfileMember::new(Dae2ContinuationsProfile, 1),
+        GenValidProfileMember::new(Dae2ExceptionsProfile, 1),
+        GenValidProfileMember::new(Dae2CallRefProfile, 1),
+        GenValidProfileMember::new(Dae2IntrinsicsProfile, 1),
       ]
     DaeAllProfile =>
       [
@@ -1947,6 +2047,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SimplifyLocalsEffectOrderProfile, 2),
         GenValidProfileMember::new(SimplifyLocalsStressProfile, 1),
         GenValidProfileMember::new(SimplifyLocalsFamilyCoverageProfile, 5),
+        GenValidProfileMember::new(Dae2LocalsProfile, 1),
       ]
     SimplifyLocalsNoteeAllProfile =>
       [
@@ -2140,6 +2241,8 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(MemoryPackingAllProfile, 1),
         GenValidProfileMember::new(PrecomputeAllProfile, 1),
         GenValidProfileMember::new(DaeAllProfile, 1),
+        GenValidProfileMember::new(ConstraintAllProfile, 1),
+        GenValidProfileMember::new(Dae2AllProfile, 1),
         GenValidProfileMember::new(DaeOptimizingProfile, 1),
         GenValidProfileMember::new(Heap2LocalAllProfile, 1),
         GenValidProfileMember::new(LocalSubtypingAllProfile, 1),
@@ -2210,8 +2313,17 @@ pub fn gen_valid_profile_leaf_for_case(
   if total_weight <= 0 {
     return profile
   }
-  let mut roll = (gen_valid_profile_case_roll(seed, case_index) %
-  total_weight.to_uint64()).to_int()
+  let selector = gen_valid_profile_case_roll(seed, case_index)
+  // These new aggregates use seed bits inside each leaf to choose important
+  // semantic variants. Avalanche the independent selector so a leaf index
+  // cannot fix those body bits (for example, selecting OR but never AND).
+  // Keep existing aggregate sequences and singleton case seeds replayable.
+  let selector = if profile == ConstraintAllProfile || profile == Dae2AllProfile {
+    @splitmix.new(seed=selector).next_uint64()
+  } else {
+    selector
+  }
+  let mut roll = (selector % total_weight.to_uint64()).to_int()
   for entry in members {
     if entry.weight > 0 {
       if roll < entry.weight {
@@ -2261,6 +2373,39 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     RseVacuumTailProfile,
     PassDaeProfile,
     DaeAllProfile,
+    ConstraintAllProfile,
+    ConstraintIntegerProfile,
+    ConstraintJoinsProfile,
+    ConstraintLoopsProfile,
+    ConstraintTeesProfile,
+    ConstraintWraparoundProfile,
+    ConstraintI64Profile,
+    ConstraintLogicalProfile,
+    ConstraintReferencesProfile,
+    ConstraintUnreachableProfile,
+    ConstraintRelationsProfile,
+    ConstraintEffectsProfile,
+    ConstraintFloatBoundaryProfile,
+    Dae2AllProfile,
+    Dae2ForwardedResultsProfile,
+    Dae2CyclesProfile,
+    Dae2ControlFlowProfile,
+    Dae2EffectfulArgumentsProfile,
+    Dae2TupleResultsProfile,
+    Dae2TailCallsProfile,
+    Dae2IndirectProfile,
+    Dae2OpenWorldProfile,
+    Dae2ReferenceTypesProfile,
+    Binaryen132ArrayMemoryProfile,
+    Binaryen132WaitqueueProfile,
+    Binaryen132AtomicOrdersProfile,
+    Binaryen132DescriptorBranchesProfile,
+    Binaryen132CompactImportsProfile,
+    Dae2LocalsProfile,
+    Dae2ContinuationsProfile,
+    Dae2ExceptionsProfile,
+    Dae2CallRefProfile,
+    Dae2IntrinsicsProfile,
     DaeUnusedParamsProfile,
     DaeEffectfulArgsProfile,
     DaeConstantArgsProfile,
@@ -4952,6 +5097,41 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | RseExceptionBoundariesProfile
     | RseHazardBoundaryProfile
     | RseVacuumTailProfile => gen_valid_rse_profile_config(profile)
+    ConstraintAllProfile
+    | ConstraintIntegerProfile
+    | ConstraintJoinsProfile
+    | ConstraintLoopsProfile
+    | ConstraintTeesProfile
+    | ConstraintWraparoundProfile
+    | ConstraintI64Profile
+    | ConstraintLogicalProfile
+    | ConstraintReferencesProfile
+    | ConstraintUnreachableProfile
+    | ConstraintRelationsProfile
+    | ConstraintEffectsProfile
+    | ConstraintFloatBoundaryProfile =>
+      gen_valid_constraint_profile_config(profile)
+    Dae2AllProfile
+    | Dae2ForwardedResultsProfile
+    | Dae2CyclesProfile
+    | Dae2ControlFlowProfile
+    | Dae2EffectfulArgumentsProfile
+    | Dae2TupleResultsProfile
+    | Dae2TailCallsProfile
+    | Dae2IndirectProfile
+    | Dae2OpenWorldProfile
+    | Dae2ReferenceTypesProfile
+    | Dae2LocalsProfile
+    | Dae2ContinuationsProfile
+    | Dae2ExceptionsProfile
+    | Dae2CallRefProfile
+    | Dae2IntrinsicsProfile => gen_valid_dae2_profile_config(profile)
+    Binaryen132ArrayMemoryProfile => gen_valid_array_memory_config()
+    Binaryen132WaitqueueProfile => gen_valid_waitqueue_config()
+    Binaryen132AtomicOrdersProfile => gen_valid_atomic_orders_config()
+    Binaryen132DescriptorBranchesProfile =>
+      gen_valid_descriptor_branches_config()
+    Binaryen132CompactImportsProfile => gen_valid_compact_imports_config()
     DaeAllProfile
     | DaeUnusedParamsProfile
     | DaeEffectfulArgsProfile
@@ -23404,21 +23584,28 @@ fn gen_valid_precompute_gc_atomic_types() -> Array[RecType] {
 
 ///|
 fn gen_valid_precompute_gc_atomic_body() -> Array[Instruction] {
-  [
-    Instruction::local_get(LocalIdx::new(0U)),
-    Instruction::struct_atomic_get_s(
+  let body : Array[Instruction] = []
+  for
+    order in [
       AtomicOrder::seq_cst(),
-      TypeIdx::new(0U),
-      U32(0U),
-    ),
-    Instruction::drop(),
+      AtomicOrder::acq_rel(),
+      AtomicOrder::relaxed(),
+    ] {
+    body.push(Instruction::local_get(LocalIdx::new(0U)))
+    body.push(
+      Instruction::struct_atomic_get_s(order, TypeIdx::new(0U), U32(0U)),
+    )
+    body.push(Instruction::drop())
+  }
+  body.append([
     Instruction::i32_const(I32(7)),
     Instruction::i32_const(I32(1)),
     Instruction::array_new(TypeIdx::new(1U)),
     Instruction::i32_const(I32(0)),
     Instruction::array_get(TypeIdx::new(1U)),
     Instruction::drop(),
-  ]
+  ])
+  body
 }
 
 ///|
@@ -34333,6 +34520,27 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_duplicate_import_elimination_profile_config(config) {
     return gen_valid_duplicate_import_elimination_profile_module(ctx)
+  }
+  if gen_valid_is_constraint_profile_config(config) {
+    return gen_valid_constraint_profile_module(ctx)
+  }
+  if config == gen_valid_compact_imports_config() {
+    return gen_valid_compact_imports_module(ctx)
+  }
+  if config == gen_valid_descriptor_branches_config() {
+    return gen_valid_descriptor_branches_module(ctx)
+  }
+  if config == gen_valid_atomic_orders_config() {
+    return gen_valid_atomic_orders_module(ctx)
+  }
+  if config == gen_valid_waitqueue_config() {
+    return gen_valid_waitqueue_module(ctx)
+  }
+  if config == gen_valid_array_memory_config() {
+    return gen_valid_array_memory_module(ctx)
+  }
+  if gen_valid_is_dae2_profile_config(config) {
+    return gen_valid_dae2_profile_module(ctx)
   }
   if gen_valid_is_msf_profile_config(config) {
     return gen_valid_msf_profile_module(ctx)

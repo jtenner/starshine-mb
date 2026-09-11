@@ -979,3 +979,85 @@ test "local graph follows and joins conditional operands" {
   assert_true(local_graph_test_has_set_source(joined, then_set))
   assert_true(local_graph_test_has_set_source(joined, else_set))
 }
+
+///|
+test "local graph evaluates a shared tuple producer once across result consumers" {
+  let source =
+    #| (module
+    #|   (func (param i32) (local i32 i32 i32)
+    #|     (if (result i32 i32) (local.get 0)
+    #|       (then (local.get 1) (local.set 1 (i32.const 7)) (i32.const 3))
+    #|       (else (i32.const 2) (i32.const 4)))
+    #|     local.set 2 local.set 3
+    #|     (drop (local.get 1))))
+  let mod_ = @wast.wast_to_binary_module(source).unwrap()
+  let func = hot_lift_func_with_context_result(
+    mod_,
+    @lib.FuncIdx::new(0U),
+    hot_module_context_from_module(mod_),
+    capture_stack_locals=true,
+    materialize_multi_values=true,
+  ).unwrap()
+  let graph = local_graph_build_full_flow(func, cfg_build(func))
+  let reads : Array[NodeId] = []
+  for node = 0; node < hot_node_count(func); node = node + 1 {
+    let data = hot_node_get(func, node)
+    if data.op is HotOp::LocalGet && data.imm0 == 1 {
+      reads.push(node)
+    }
+  }
+  @debug.assert_eq(reads.length(), 2)
+  // The first read precedes the only write inside a tuple-producing arm.
+  // Visiting that producer again for lane two would invent a backedge.
+  let before = local_graph_reaching_sources_for_get(graph, reads[0])
+  @debug.assert_eq(before.length(), 1)
+  assert_true(local_graph_test_has_entry_source(before, 1))
+  let after = local_graph_reaching_sources_for_get(graph, reads[1])
+  @debug.assert_eq(after.length(), 2)
+  assert_true(local_graph_test_has_entry_source(after, 1))
+}
+
+///|
+test "local graph joins preserve definitions on untouched sibling paths" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let write = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let yes_read = hot_build_local_get(func, 1)
+  let no_read = hot_build_local_get(func, 1)
+  let choice = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    hot_build_local_get(func, 0),
+    [write, yes_read],
+    else_body=Some([no_read]),
+  )
+  hot_root_append(
+    func,
+    hot_build_if(func, @lib.BlockType::void_(), choice, [hot_build_nop(func)]),
+  )
+  let joined_read = hot_build_local_get(func, 1)
+  hot_root_append(func, hot_build_drop(func, joined_read))
+  for
+    graph in [
+      local_graph_build(func, cfg_build(func)),
+      local_graph_build_full_flow(func, cfg_build(func)),
+    ] {
+    let yes = local_graph_reaching_sources_for_get(graph, yes_read)
+    let no = local_graph_reaching_sources_for_get(graph, no_read)
+    let joined = local_graph_reaching_sources_for_get(graph, joined_read)
+    @debug.assert_eq(yes.length(), 1)
+    assert_true(local_graph_test_has_set_source(yes, write))
+    @debug.assert_eq(no.length(), 1)
+    assert_true(local_graph_test_has_entry_source(no, 1))
+    @debug.assert_eq(joined.length(), 2)
+    assert_true(local_graph_test_has_set_source(joined, write))
+    assert_true(local_graph_test_has_entry_source(joined, 1))
+  }
+}

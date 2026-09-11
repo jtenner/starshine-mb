@@ -1524,7 +1524,9 @@ fn h2l_build_scalar_local_get(
     @lib.RefTypeValType(ref_type) if ref_type.is_non_nullable() => {
       let non_null = @ir.hot_build_unary(func, value_type, read)
       @ir.hot_node_exact_instr_set(
-        func, non_null, @lib.Instruction::ref_as_non_null(),
+        func,
+        non_null,
+        @lib.Instruction::ref_as_non_null(),
       )
       non_null
     }
@@ -3027,8 +3029,9 @@ fn h2l_apply_variant_candidate(
       None => return false
     }
     let value_type = @ir.hot_type_results(
-      func, @ir.hot_node_type(func, field_use.user_node_id),
-    )[0]
+        func,
+        @ir.hot_node_type(func, field_use.user_node_id),
+      )[0]
     let replacement = h2l_build_scalar_local_get(func, local_id, value_type)
     @ir.hot_replace_node(
       func,
@@ -3124,8 +3127,9 @@ fn h2l_apply_variant_local_candidate(
       None => return false
     }
     let value_type = @ir.hot_type_results(
-      func, @ir.hot_node_type(func, field_use.user_node_id),
-    )[0]
+        func,
+        @ir.hot_node_type(func, field_use.user_node_id),
+      )[0]
     let replacement = h2l_build_scalar_local_get(func, local_id, value_type)
     @ir.hot_replace_node(
       func,

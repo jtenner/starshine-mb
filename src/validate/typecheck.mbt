@@ -699,42 +699,42 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
 ///|
 // Complete a prechecked control region without walking its instructions again.
 pub fn tc_state_finish_block(
-  st : TcState,
-  st1 : TcState,
-  st_body : TcState,
+  outer : TcState,
+  entry : TcState,
+  body : TcState,
   results : Array[ValType],
 ) -> Result[TcState, String] {
   let (base_reaches_merge, block_escape) = match
-    normalize_untyped_block_exit(st_body, results) {
+    normalize_untyped_block_exit(body, results) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
   let reaches_merge = base_reaches_merge ||
-    tc_escape_depths_has(st_body.reachable_escape_depths, 0)
+    tc_escape_depths_has(body.reachable_escape_depths, 0)
   if reaches_merge {
     let out = TcState::{
-      env: st.env,
-      stack: st1.stack,
-      reachable: st.reachable,
-      escape: st.escape,
-      reachable_escape_depths: st.reachable_escape_depths,
+      env: outer.env,
+      stack: entry.stack,
+      reachable: outer.reachable,
+      escape: outer.escape,
+      reachable_escape_depths: outer.reachable_escape_depths,
       initialized_locals: if base_reaches_merge {
-        st_body.initialized_locals
+        body.initialized_locals
       } else {
-        st1.initialized_locals
+        entry.initialized_locals
       },
-    }.merge_child_reachable_escape_depths(st_body)
+    }.merge_child_reachable_escape_depths(body)
     return Ok(out.push_types(results))
   }
   Ok(
     TcState::{
-      env: st.env,
+      env: outer.env,
       stack: [],
       reachable: false,
       escape: block_escape,
-      reachable_escape_depths: st.reachable_escape_depths,
-      initialized_locals: st.initialized_locals,
-    }.merge_child_reachable_escape_depths(st_body),
+      reachable_escape_depths: outer.reachable_escape_depths,
+      initialized_locals: outer.initialized_locals,
+    }.merge_child_reachable_escape_depths(body),
   )
 }
 
@@ -1311,7 +1311,12 @@ fn typecheck_br_on_cast_desc_eq(
     Ok(next) => next
     Err(err) => return Err(err)
   }
-  let op = CastOp::new(source.is_nullable(), target.is_nullable())
+  let op = CastOp::new(
+    source.is_nullable(),
+    target.is_nullable(),
+    source_exact=source.is_exact(),
+    target_exact=target.is_exact(),
+  )
   if fail {
     typecheck_br_on_cast_fail(
       st1,
@@ -1395,7 +1400,12 @@ fn typecheck_throw(st : TcState, tag : TagIdx) -> TcResult {
   // get payload params
   let TagType(tidx) = st.env.tags[tag.0.reinterpret_as_int()]
   let params = match st.env.resolve_functype(tidx) {
-    Some(FuncType(ps, _)) => ps
+    Some(FuncType(ps, results)) => {
+      if !results.is_empty() {
+        return Err("throw: exception tag must have no results")
+      }
+      ps
+    }
     None => return Err("throw: invalid tag type")
   }
 
@@ -1451,6 +1461,10 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
       if Validate::validate(tag, st.env) is Err(e) {
         return Err(e)
       }
+      if st.env.resolve_tag_functype(tag) is Some(FuncType(_, results)) &&
+        !results.is_empty() {
+        return Err("catch: exception tag must have no results")
+      }
       // label must expect tag's payload types
       let label_types = match st.env.get_catch_label_types(lbl) {
         Some(label_types) => label_types
@@ -1470,6 +1484,10 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
       let label_types = match st.env.get_catch_label_types(lbl) {
         Some(label_types) => label_types
         None => return Err("Invalid catch label index")
+      }
+      if st.env.resolve_tag_functype(tag) is Some(FuncType(_, results)) &&
+        !results.is_empty() {
+        return Err("catch_ref: exception tag must have no results")
       }
       let payload = tag_payload_types(st.env, tag)
       let expected = payload.copy()
@@ -1526,9 +1544,6 @@ fn typecheck_legacy_try(
   if catches.length() > 0 && delegate is Some(_) {
     return Err("legacy try cannot mix catches and delegate")
   }
-  if catches.length() == 0 && delegate is None {
-    return Err("legacy try requires a catch or delegate")
-  }
   let (params, results) = match st.env.expand_blocktype(bt) {
     Err(err) => return Err(err)
     Ok(types) => types
@@ -1560,6 +1575,10 @@ fn typecheck_legacy_try(
       @lib.LegacyCatch(tag, _) => {
         if Validate::validate(tag, st.env) is Err(err) {
           return Err(err)
+        }
+        if st.env.resolve_tag_functype(tag) is Some(FuncType(_, results)) &&
+          !results.is_empty() {
+          return Err("legacy catch: exception tag must have no results")
         }
         tag_payload_types(st.env, tag)
       }
@@ -1661,16 +1680,33 @@ fn typecheck_try_table(
     Ok(_) => ()
   }
 
-  // restore outer env (pop the try_table label scope)
-  let out = TcState::{
-    env: st.env,
-    stack: st1.stack,
-    reachable: st_body.reachable,
-    escape: st_body.escape,
-    reachable_escape_depths: st.reachable_escape_depths,
-    initialized_locals: st_body.initialized_locals,
-  }.merge_child_reachable_escape_depths(st_body)
-  Ok(out.push_types(results))
+  tc_state_finish_try_table(st, st1, st_body, results, catches)
+}
+
+///|
+pub fn tc_state_finish_try_table(
+  outer : TcState,
+  entry : TcState,
+  body : TcState,
+  results : Array[ValType],
+  catches : Array[Catch],
+) -> TcResult {
+  let mut out = match tc_state_finish_block(outer, entry, body, results) {
+    Ok(out) => out
+    Err(err) => return Err(err)
+  }
+  // Handler labels belong to the enclosing label space. A throw can take
+  // them before the body's normal exit, even when that exit is unreachable.
+  for catch_ in catches {
+    let label = match catch_ {
+      Catch(_, label)
+      | CatchRef(_, label)
+      | CatchAll(label)
+      | CatchAllRef(label) => label
+    }
+    out = out.record_reachable_escape_label(entry.reachable, label)
+  }
+  Ok(out)
 }
 
 ///|
@@ -3881,6 +3917,7 @@ fn typecheck_array_load_result(op : @lib.LoadOp) -> ValType? {
     | @lib.I64Load32UOp => Some(ValType::i64())
     @lib.F32LoadOp => Some(ValType::f32())
     @lib.F64LoadOp => Some(ValType::f64())
+    @lib.V128LoadOp => Some(ValType::v128())
     _ => None
   }
 }
@@ -3896,6 +3933,7 @@ fn typecheck_array_store_value(op : @lib.StoreOp) -> ValType? {
     | @lib.I64Store32Op => Some(ValType::i64())
     @lib.F32StoreOp => Some(ValType::f32())
     @lib.F64StoreOp => Some(ValType::f64())
+    @lib.V128StoreOp => Some(ValType::v128())
     _ => None
   }
 }
@@ -3911,8 +3949,11 @@ fn typecheck_backing_array_field(
     Err(err) => return Err(err)
   }
   let FieldType(storage, mutability) = field
-  if storage != StorageType::pack_type(PackType::i8()) {
-    return Err("backing-array memory operations require i8 array elements")
+  match storage {
+    @lib.PackTypeStorageType(_)
+    | @lib.ValTypeStorageType(@lib.NumTypeValType(_))
+    | @lib.ValTypeStorageType(@lib.VecTypeValType) => ()
+    _ => return Err("array memory operations require numeric or vector storage")
   }
   if require_mutable && mutability != Mut::var_() {
     return Err("backing-array stores require mutable array elements")
@@ -3925,7 +3966,12 @@ fn typecheck_array_load_op(
   st : TcState,
   op : @lib.LoadOp,
   type_idx : TypeIdx,
+  ma : MemArg,
 ) -> TcResult {
+  if typecheck_array_memory_argument(ma, typecheck_array_load_alignment(op))
+    is Err(err) {
+    return Err(err)
+  }
   let result = match typecheck_array_load_result(op) {
     Some(result) => result
     None => return Err("unsupported backing-array load opcode")
@@ -3949,7 +3995,12 @@ fn typecheck_array_store_op(
   st : TcState,
   op : @lib.StoreOp,
   type_idx : TypeIdx,
+  ma : MemArg,
 ) -> TcResult {
+  if typecheck_array_memory_argument(ma, typecheck_array_store_alignment(op))
+    is Err(err) {
+    return Err(err)
+  }
   let value = match typecheck_array_store_value(op) {
     Some(value) => value
     None => return Err("unsupported backing-array store opcode")
@@ -4148,6 +4199,22 @@ fn typecheck_resume_handlers(
 }
 
 ///|
+fn TcState::record_resume_edges(
+  state : TcState,
+  handlers : Array[ResumeHandler],
+) -> TcState {
+  let mut next = state
+  for handler in handlers {
+    match handler {
+      ResumeOnLabel(_, label) =>
+        next = next.record_reachable_escape_label(state.reachable, label)
+      ResumeOnSwitch(_) => ()
+    }
+  }
+  next
+}
+
+///|
 fn typecheck_resume(
   st : TcState,
   type_idx : TypeIdx,
@@ -4167,7 +4234,7 @@ fn typecheck_resume(
     Err(err) => return Err(err)
   }
   match st1.pop_types(params) {
-    Ok(next) => Ok(next.push_types(results))
+    Ok(next) => Ok(next.push_types(results).record_resume_edges(handlers))
     Err(err) => Err(err)
   }
 }
@@ -4201,7 +4268,7 @@ fn typecheck_resume_throw(
     Err(err) => return Err(err)
   }
   match st1.pop_types(tag_params) {
-    Ok(next) => Ok(next.push_types(results))
+    Ok(next) => Ok(next.push_types(results).record_resume_edges(handlers))
     Err(err) => Err(err)
   }
 }
@@ -4226,7 +4293,7 @@ fn typecheck_resume_throw_ref(
     Err(err) => return Err(err)
   }
   match st1.pop_expect(ValType::ref_null_exn()) {
-    Ok(next) => Ok(next.push_types(results))
+    Ok(next) => Ok(next.push_types(results).record_resume_edges(handlers))
     Err(err) => Err(err)
   }
 }
@@ -4505,6 +4572,16 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     ReturnCall(fidx) => typecheck_return_call(st, fidx)
     ReturnCallIndirect(tidx, t) => typecheck_return_call_indirect(st, tidx, t)
     ReturnCallRef(tidx) => typecheck_return_call_ref(st, tidx)
+    WaitqueueNew =>
+      Ok(
+        st.push1(
+          ValType::ref_type(
+            RefType::new(false, HeapType::shared_abs(AbsHeapType::waitqueue())),
+          ),
+        ),
+      )
+    WaitqueueNotify => typecheck_waitqueue_notify(st)
+    StructWait(type_idx, field) => typecheck_struct_wait(st, type_idx, field)
     ContNew(type_idx) => typecheck_cont_new(st, type_idx)
     ContBind(source_type, target_type) =>
       typecheck_cont_bind(st, source_type, target_type)
@@ -4595,7 +4672,7 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
       typecheck_struct_atomic_get_u(st, order, x, i)
     StructAtomicRmw(_, op, x, i) => typecheck_struct_atomic_rmw(st, op, x, i)
     StructAtomicCmpxchg(_, x, i) => typecheck_struct_atomic_cmpxchg(st, x, i)
-    StructSet(x, i) => typecheck_struct_set(st, x, i)
+    StructSet(x, i) | StructAtomicSet(_, x, i) => typecheck_struct_set(st, x, i)
     ArrayNew(x) => typecheck_array_new(st, x)
     ArrayNewDefault(x) => typecheck_array_new_default(st, x)
     ArrayNewFixed(x, n) => typecheck_array_new_fixed(st, x, n)
@@ -4605,11 +4682,11 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     ArrayAtomicGet(_, x) => typecheck_array_get(st, x)
     ArrayAtomicGetS(_, x) => typecheck_array_get_s(st, x)
     ArrayAtomicGetU(_, x) => typecheck_array_get_u(st, x)
-    ArraySet(x) => typecheck_array_set(st, x)
+    ArraySet(x) | ArrayAtomicSet(_, x) => typecheck_array_set(st, x)
     ArrayAtomicRmw(_, op, x) => typecheck_array_atomic_rmw(st, op, x)
     ArrayAtomicCmpxchg(_, x) => typecheck_array_atomic_cmpxchg(st, x)
-    ArrayLoad(op, x) => typecheck_array_load_op(st, op, x)
-    ArrayStore(op, x) => typecheck_array_store_op(st, op, x)
+    ArrayLoad(op, x, ma) => typecheck_array_load_op(st, op, x, ma)
+    ArrayStore(op, x, ma) => typecheck_array_store_op(st, op, x, ma)
     ArrayLen => typecheck_array_len(st)
     ArrayFill(x) => typecheck_array_fill(st, x)
     ArrayCopy(x, y) => typecheck_array_copy(st, x, y)
@@ -11788,4 +11865,82 @@ test "Typecheck I32x4RelaxedDotI8x16I7x16AddS" {
   )
   let state = assert_ok(result)
   assert_stack(state, [ValType::v128()])
+}
+
+///|
+fn typecheck_array_memory_argument(
+  ma : MemArg,
+  maximum : UInt,
+) -> Result[Unit, String] {
+  let MemArg(U32(align), memory, U64(offset)) = ma
+  if memory is Some(_) {
+    return Err("array memory argument cannot select a linear memory")
+  }
+  if offset > 0xffffffffUL {
+    return Err("array memory offset exceeds u32")
+  }
+  if align > maximum {
+    return Err("array memory alignment exceeds access width")
+  }
+  Ok(())
+}
+
+///|
+fn typecheck_array_load_alignment(op : @lib.LoadOp) -> UInt {
+  match op {
+    @lib.I32Load8SOp | @lib.I32Load8UOp | @lib.I64Load8SOp | @lib.I64Load8UOp =>
+      0U
+    @lib.I32Load16SOp
+    | @lib.I32Load16UOp
+    | @lib.I64Load16SOp
+    | @lib.I64Load16UOp => 1U
+    @lib.I32LoadOp | @lib.F32LoadOp | @lib.I64Load32SOp | @lib.I64Load32UOp =>
+      2U
+    @lib.I64LoadOp | @lib.F64LoadOp => 3U
+    @lib.V128LoadOp => 4U
+    _ => 0U
+  }
+}
+
+///|
+fn typecheck_array_store_alignment(op : @lib.StoreOp) -> UInt {
+  match op {
+    @lib.I32Store8Op | @lib.I64Store8Op => 0U
+    @lib.I32Store16Op | @lib.I64Store16Op => 1U
+    @lib.I32StoreOp | @lib.F32StoreOp | @lib.I64Store32Op => 2U
+    @lib.I64StoreOp | @lib.F64StoreOp => 3U
+    @lib.V128StoreOp => 4U
+    _ => 0U
+  }
+}
+
+///|
+fn typecheck_waitqueue_notify(st : TcState) -> TcResult {
+  let queue = ValType::ref_null(HeapType::shared_abs(AbsHeapType::waitqueue()))
+  match st.pop_types([queue, ValType::i32()]) {
+    Err(err) => Err(err)
+    Ok(next) => Ok(next.push1(ValType::i32()))
+  }
+}
+
+///|
+fn typecheck_struct_wait(
+  st : TcState,
+  type_idx : TypeIdx,
+  field : U32,
+) -> TcResult {
+  let fields = match st.env.resolve_struct_fields(type_idx) {
+    Err(err) => return Err(err)
+    Ok(fields) => fields
+  }
+  match get_struct_field(fields, field) {
+    Err(err) => return Err(err)
+    Ok(_) => ()
+  }
+  let receiver = ValType::ref_null(HeapType::new(type_idx))
+  let queue = ValType::ref_null(HeapType::shared_abs(AbsHeapType::waitqueue()))
+  match st.pop_types([receiver, queue, ValType::i32(), ValType::i64()]) {
+    Err(err) => Err(err)
+    Ok(next) => Ok(next.push1(ValType::i32()))
+  }
 }

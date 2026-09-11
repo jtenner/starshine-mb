@@ -1998,7 +1998,7 @@ test "dead-argument-elimination repairs direct return_call sites when removing a
 }
 
 ///|
-test "dead-argument-elimination narrows live GC parameters to exact owned direct allocations" {
+test "dead-argument-elimination narrows live GC parameters to owned direct allocations" {
   let source =
     #|(module
     #|  (type $base (sub (struct)))
@@ -2014,7 +2014,7 @@ test "dead-argument-elimination narrows live GC parameters to exact owned direct
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
@@ -2348,7 +2348,7 @@ test "dead-argument-elimination narrows live GC parameters through typed select 
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_leaf])
@@ -2418,7 +2418,7 @@ test "dead-argument-elimination narrows live GC parameters through effectful typ
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_params(optimized, 1), [expected_leaf])
@@ -2487,7 +2487,7 @@ test "dead-argument-elimination preserves nullable select LUB while narrowing li
     @lib.RefType::new(
       true,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_params(optimized, 0), [expected_nullable_leaf])
@@ -2601,7 +2601,7 @@ test "dae-optimizing folds exact non-null ref.is_null and then removes the dead 
 }
 
 ///|
-test "dead-argument-elimination narrows live GC results to exact helper allocations" {
+test "dead-argument-elimination narrows live GC results to helper allocations" {
   let source =
     #|(module
     #|  (type $base (sub (struct)))
@@ -2616,7 +2616,7 @@ test "dead-argument-elimination narrows live GC results to exact helper allocati
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
@@ -3044,7 +3044,7 @@ test "dead-argument-elimination narrows live GC results in flat multi-result bod
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3079,7 +3079,7 @@ test "dead-argument-elimination narrows explicit-return GC results in flat multi
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3115,7 +3115,7 @@ test "dead-argument-elimination narrows live GC results after droppable multi-re
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3407,7 +3407,7 @@ test "dead-argument-elimination narrows live GC results through block-carrier mu
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3456,7 +3456,7 @@ test "dead-argument-elimination narrows live GC results through nested block-car
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3546,7 +3546,7 @@ test "dead-argument-elimination narrows explicit-return GC results through block
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3598,7 +3598,7 @@ test "dead-argument-elimination narrows explicit-return GC results through neste
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3646,7 +3646,7 @@ test "dead-argument-elimination narrows explicit-return GC results through void-
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3681,7 +3681,7 @@ test "dead-argument-elimination narrows live GC results through multi-result blo
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3717,7 +3717,7 @@ test "dead-argument-elimination narrows live GC results through nested multi-res
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3754,7 +3754,7 @@ test "dead-argument-elimination narrows explicit-return GC results through neste
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3790,7 +3790,7 @@ test "dead-argument-elimination narrows explicit-return GC results through multi
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3823,7 +3823,7 @@ test "dead-argument-elimination narrows live GC results through typed block bodi
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
@@ -3854,7 +3854,7 @@ test "dead-argument-elimination narrows live GC results through typeidx block bo
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
@@ -3887,7 +3887,7 @@ test "dead-argument-elimination narrows explicit-return GC results through typei
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
@@ -3922,7 +3922,7 @@ test "dead-argument-elimination narrows non-tail-lane parametric typeidx block G
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -3967,7 +3967,7 @@ test "dead-argument-elimination narrows non-tail-lane parametric typeidx if GC r
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4005,7 +4005,7 @@ test "dead-argument-elimination narrows non-tail-lane parametric typeidx loop GC
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4044,7 +4044,7 @@ test "dead-argument-elimination narrows non-drop parametric typeidx block GC res
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4091,7 +4091,7 @@ test "dead-argument-elimination narrows non-drop parametric typeidx if GC result
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4130,7 +4130,7 @@ test "dead-argument-elimination narrows non-drop parametric typeidx loop GC resu
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4171,7 +4171,7 @@ test "dead-argument-elimination narrows effectful parametric typeidx block GC re
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4219,7 +4219,7 @@ test "dead-argument-elimination narrows effectful parametric typeidx if GC resul
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4260,7 +4260,7 @@ test "dead-argument-elimination narrows effectful parametric typeidx loop GC res
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4300,7 +4300,7 @@ test "dead-argument-elimination narrows trapping-load parametric typeidx block G
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4348,7 +4348,7 @@ test "dead-argument-elimination narrows trapping-load parametric typeidx if GC r
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4388,7 +4388,7 @@ test "dead-argument-elimination narrows trapping-load parametric typeidx loop GC
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -4428,7 +4428,7 @@ test "dead-argument-elimination narrows fallthrough loop GC results" {
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
@@ -4462,7 +4462,7 @@ test "dead-argument-elimination narrows fallthrough loop multi-result GC results
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [
@@ -7525,7 +7525,7 @@ test "dead-argument-elimination narrows loop-carried explicit-return GC results"
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
@@ -7565,7 +7565,7 @@ test "dead-argument-elimination narrows typed-control explicit-return GC results
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   @debug.assert_eq(dae_test_func_results(optimized, 0), [expected_leaf])
@@ -19811,4 +19811,36 @@ test "dae-optimizing fails closed for AssemblyScript startup exported memory" {
     }),
     msg=trace.to_string(),
   )
+}
+
+///|
+test "DAE allocation refinement preserves the module exact-reference capability" {
+  for
+    allocation in [
+      "(struct.new_default $leaf)", "(block (result (ref null $base)) (struct.new_default $leaf))",
+      "(loop (result (ref null $base)) (struct.new_default $leaf))", "(if (result (ref null $base)) (i32.const 1) (then (struct.new_default $leaf)) (else (struct.new_default $leaf)))",
+    ] {
+    for exact in [false, true] {
+      let capability = if exact {
+        "(type (func (result (ref (exact $leaf)))))"
+      } else {
+        ""
+      }
+      let source = "(module (type $base (sub (struct))) (type $leaf (sub $base (struct))) \{capability} (func $f (param (ref null $base)) (result (ref null $base)) (drop (ref.is_null (local.get 0))) \{allocation}) (func (export \"run\") (result i32) (ref.is_null (call $f (struct.new_default $leaf)))))"
+      let input = pass_test_module_from_wat(source)
+      @debug.assert_eq(@lib.module_uses_custom_descriptors(input), exact)
+      let output = dae_test_run(source, pass_name="dae")
+      let expected = @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+          exact~,
+        ),
+      )
+      @debug.assert_eq(dae_test_func_params(output, 0), [expected])
+      @debug.assert_eq(dae_test_func_results(output, 0), [expected])
+      @debug.assert_eq(@lib.module_uses_custom_descriptors(output), exact)
+      assert_true(@validate.validate_module(output) is Ok(_))
+    }
+  }
 }

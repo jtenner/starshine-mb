@@ -2177,7 +2177,7 @@ test "simplify-locals-nostructure lowered cleanup skips stack-root call hazards"
 ///|
 test "simplify-locals-nostructure lowered cleanup refinalizes ref.func null if result" {
   // Binaryen version_130's ReFinalize pass narrows a `funcref` if whose arms
-  // are `ref.func $dummy` and `ref.null func` to `(ref null (exact $ft))` after
+  // are `ref.func $dummy` and `ref.null func` to `(ref null $ft)` without adding the descriptor feature after
   // a same-function ref.func local simplification trigger. This whitebox test
   // covers the generated case-000251 suffix without relying on public call_ref
   // WAT spellings that the current test parser rejects.
@@ -2197,10 +2197,23 @@ test "simplify-locals-nostructure lowered cleanup refinalizes ref.func null if r
   )
   let optimized = mod_.with_code_sec(@lib.CodeSec::new([dummy_func, cleaned]))
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("Exact (HeapType Idx 0)"), msg=pretty)
+  // The input has ordinary GC references. Refinement must preserve that
+  // capability while narrowing the if and its null arm to the concrete type.
+  assert_false(@lib.module_uses_custom_descriptors(optimized))
+  let expected_ref = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let @lib.Func(_, @lib.Expr(refined_body)) = optimized.code_sec.unwrap().0[1]
   assert_true(
-    pretty.contains("ref.null (RefType Null Exact (HeapType Idx 0))"),
-    msg=pretty,
+    refined_body.any(fn(instr) {
+      match instr {
+        @lib.If(bt, _, Some(no)) =>
+          bt == @lib.BlockType::val_type(@lib.ValType::ref_type(expected_ref)) &&
+          no.contains(@lib.Instruction::ref_null_type(expected_ref))
+        _ => false
+      }
+    }),
   )
   assert_false(
     pretty.contains("if (RefType Null (AbsHeapType Func))"),

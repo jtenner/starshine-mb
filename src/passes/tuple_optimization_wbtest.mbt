@@ -805,7 +805,7 @@ test "tuple-optimization elides pure type-indexed block tee when all scalar lane
 }
 
 ///|
-test "tuple-optimization keeps simple type-indexed drop-only copy chains as a six-set compact scalar ladder" {
+test "tuple-optimization keeps simple type-indexed drop-only copy chains as a four-set compact scalar ladder" {
   let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64 i32 i64) block (type 1) i32.const 11 i64.const 13 end local.set 1 local.set 0 block (type 1) local.get 0 local.get 1 end local.set 3 local.set 2 local.get 2 drop local.get 3 drop))",
     0,
@@ -827,7 +827,7 @@ test "tuple-optimization keeps simple type-indexed drop-only copy chains as a si
   )
   @debug.assert_eq(
     tuple_optimization_test_count_substring(pretty, "local.set"),
-    6,
+    4,
     msg=pretty,
   )
 }
@@ -1116,17 +1116,77 @@ test "tuple-optimization rewrite scalarizes lane-ordered scrambled exact copy gr
 
 ///|
 test "tuple-optimization rewrite scalarizes overlapping exact copy groups from a host tee source" {
-  let pretty = tuple_optimization_test_pipeline_pretty(
-    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 6 local.set 10 local.set 9 local.get 9 local.get 10 local.get 6 call 1))",
-    2U,
-  )
-  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 6 local.set 10 local.set 9 local.get 9 local.get 10 local.get 6 call 1))"
+  let optimized = pass_test_run_pipeline(source, ["tuple-optimization"]).unwrap()
+  tuple_optimization_assert_overlap_values(optimized)
+}
+
+///|
+test "tuple-optimization preserves a copyback from a different tuple lane" {
+  let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 10 local.set 6 local.set 9 local.get 9 local.get 10 local.get 6 call 1))"
+  let analysis = tuple_optimization_test_analyze(source)
+  assert_true(analysis.groups[0].bad)
+  let optimized = pass_test_run_pipeline(source, ["tuple-optimization"]).unwrap()
+  tuple_optimization_assert_overlap_values(optimized, expected=[42, 202, 101])
+}
+
+///|
+// This fixture has only straight-line scalar operations and parameter-free
+// blocks. Evaluate distinct tuple lanes to detect reordered or overwritten
+// values independently of the optimizer's scratch-local numbering.
+fn tuple_optimization_assert_overlap_values(
+  mod_ : @lib.Module,
+  expected? : Array[Int] = [42, 101, 202],
+) -> Unit raise {
+  let @lib.Func(decls, @lib.Expr(body)) = mod_.code_sec.unwrap().0[0]
+  let locals = Array::make(decls.length(), 0)
+  let stack : Array[Int] = []
+  let calls : Array[Array[Int]] = []
+  fn run(instructions : Array[@lib.Instruction]) -> Unit raise {
+    for instruction in instructions {
+      match instruction {
+        @lib.Nop => ()
+        @lib.Drop => ignore(stack.pop().unwrap())
+        @lib.I32Const(@lib.I32(value)) => stack.push(value)
+        @lib.LocalGet(@lib.LocalIdx(index)) =>
+          stack.push(locals[index.to_int()])
+        @lib.LocalSet(@lib.LocalIdx(index)) =>
+          locals[index.to_int()] = stack.pop().unwrap()
+        @lib.LocalTee(@lib.LocalIdx(index)) =>
+          locals[index.to_int()] = stack[stack.length() - 1]
+        @lib.Block(_, @lib.Expr(nested)) => run(nested)
+        @lib.Call(@lib.FuncIdx(0U)) => {
+          let second = stack.pop().unwrap()
+          let first = stack.pop().unwrap()
+          @debug.assert_eq([first, second], [42, 10000])
+          stack.push(42)
+          stack.push(101)
+          stack.push(202)
+        }
+        @lib.Call(@lib.FuncIdx(1U)) => {
+          let third = stack.pop().unwrap()
+          let second = stack.pop().unwrap()
+          let first = stack.pop().unwrap()
+          calls.push([first, second, third])
+          stack.push(345)
+        }
+        _ =>
+          fail(
+            "unexpected overlapping tuple fixture instruction: \{instruction}",
+          )
+      }
+    }
+  }
+  run(body)
   assert_true(
-    pretty.contains(
-      "(local.set (Local 6))(local.set (Local 10))(end))(local.set (Local 9))(local.get (Local 9))(local.get (Local 10))(local.get (Local 6))(call (Func 1))",
-    ),
-    msg=pretty,
+    calls == [expected],
+    msg=mod_.pretty_print_func(@lib.FuncIdx::new(2U)),
   )
+  @debug.assert_eq(stack, [345])
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(error) => fail("invalid scalarized tuple fixture: \{error}")
+  }
 }
 
 ///|
@@ -1161,18 +1221,36 @@ test "tuple-optimization rewrite scalarizes two-lane exact-copy chains past unre
 
 ///|
 test "tuple-optimization analysis links overlapping exact copy groups from a host tee source" {
-  let analysis = tuple_optimization_test_analyze(
+  let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 6 local.set 10 local.set 9 local.get 9 local.get 10 local.get 6 call 1))",
   )
 
+  let func = fixture.hot_func
+  let analysis = tuple_optimization_analyze(func, @ir.use_def_build(func))
   @debug.assert_eq(analysis.groups.length(), 2)
 
   let source = analysis.groups[0]
   let copy = analysis.groups[1]
-  @debug.assert_eq(copy.lane_locals, [9, 10, 6])
+  @debug.assert_eq(copy.lane_locals.length(), 3)
+  for lane in 0..<3 {
+    let destination = [9, 10, 6][lane]
+    assert_true(copy.lane_locals[lane] >= 11)
+    assert_true(
+      func.nodes.any(fn(node) {
+        node.op is @ir.HotOp::LocalSet &&
+        node.imm0 == destination &&
+        node.child_count == 1 &&
+        ({
+          let child = @ir.hot_node_get(func, func.children[node.child_base])
+          child.op is @ir.HotOp::LocalGet &&
+          child.imm0 == copy.lane_locals[lane]
+        })
+      }),
+    )
+  }
   @debug.assert_eq(copy.copy_source, Some(0))
   @debug.assert_eq(copy.copy_payload_locals, Some([8, 7, 6]))
-  assert_false(copy.bad)
+  assert_false(copy.bad, msg=analysis.groups.to_string())
   assert_true(tuple_optimization_group_should_rewrite(copy))
 
   @debug.assert_eq(source.lane_locals, [4, 5, 6])
@@ -1556,8 +1634,8 @@ test "tuple-optimization lowered chained host-copy tail-live0 keeps downstream h
     msg=pretty,
   )
   assert_true(pretty.contains("local.tee (Local 3)"), msg=pretty)
-  assert_true(pretty.contains("local.set (Local 15)"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 15)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 12)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 12)"), msg=pretty)
   assert_true(pretty.contains("local.tee (Local 0)"), msg=pretty)
 }
 
@@ -1776,4 +1854,43 @@ test "tuple-optimization pipeline keeps chained mixed scalar-forward bridges on 
   assert_true(pretty.contains("local.set (Local 9)"), msg=pretty)
   assert_false(pretty.contains("tuple.make"), msg=pretty)
   assert_false(pretty.contains("tuple.extract"), msg=pretty)
+}
+
+///|
+test "tuple optimization retains stack values across balanced local writes without capture pairs" {
+  let source =
+    #|(module (global $effects (mut i32) (i32.const 0))
+    #| (func (export "run") (param i32) (result i32 i64) (local i32)
+    #|  local.get 0
+    #|  if (result i32 i64)
+    #|   local.get 1 i32.const 9 local.set 1 i64.const 3
+    #|  else local.get 0 i64.const 4 end
+    #|  local.get 1 global.set $effects))
+  let output = pass_test_run_pipeline(source, ["tuple-optimization"]).unwrap()
+  assert_true(@validate.validate_module(output) is Ok(_))
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let work = [body]
+  let mut checked = false
+  while !work.is_empty() {
+    for instr in work.pop().unwrap() {
+      match instr {
+        @lib.If(_, yes, no) => {
+          @debug.assert_eq(
+            yes[0],
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          )
+          @debug.assert_eq(yes[1], @lib.Instruction::i32_const(@lib.I32(9)))
+          checked = true
+          work.push(yes)
+          if no is Some(no) {
+            work.push(no)
+          }
+        }
+        @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+          work.push(body)
+        _ => ()
+      }
+    }
+  }
+  assert_true(checked)
 }

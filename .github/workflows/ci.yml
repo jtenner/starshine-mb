@@ -18,8 +18,8 @@ env:
   WASM_TOOLS_VERSION: "1.251.0"
   WIT_BINDGEN_VERSION: "0.60.0"
   JCO_VERSION: "1.28.1"
-  BINARYEN_VERSION: "131"
-  BINARYEN_DIR: ${{ github.workspace }}/.tmp/binaryen-version_131
+  BINARYEN_VERSION: "132"
+  BINARYEN_DIR: ${{ github.workspace }}/.tmp/binaryen-version_132
 
 jobs:
   format-and-tests:
@@ -207,6 +207,6 @@ jobs:
             --jobs auto \
             --starshine-bin _build/native/release/build/cmd/cmd.exe \
             --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" \
-            --require-binaryen-version 131 \
+            --require-binaryen-version 132 \
             --max-failures 1 \
             --no-reduce-mismatches

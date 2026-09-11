@@ -9,6 +9,12 @@ import {
 }
 
 // Values
+pub const EFFECT_MASK_ACQUIRE : UInt = 4096
+
+pub const EFFECT_MASK_ATOMIC_READ : UInt = 1024
+
+pub const EFFECT_MASK_ATOMIC_WRITE : UInt = 2048
+
 pub const EFFECT_MASK_CALL : UInt = 2
 
 pub const EFFECT_MASK_CONTROL : UInt = 1
@@ -20,6 +26,10 @@ pub const EFFECT_MASK_LOCAL_STATE : UInt = 16
 pub const EFFECT_MASK_MEMORY_READ : UInt = 64
 
 pub const EFFECT_MASK_MEMORY_WRITE : UInt = 128
+
+pub const EFFECT_MASK_RELEASE : UInt = 8192
+
+pub const EFFECT_MASK_SEQ_CST : UInt = 16384
 
 pub const EFFECT_MASK_TABLE_READ : UInt = 256
 
@@ -170,6 +180,10 @@ pub fn dom_frontier(HotDominators, Int) -> Array[Int]
 pub fn dom_idom(HotDominators, Int) -> Int?
 
 pub fn dom_strictly_dominates(HotDominators, Int, Int) -> Bool
+
+pub fn effects_atomic_order_mask(@lib.AtomicOrder, read~ : Bool, write~ : Bool) -> UInt
+
+pub fn effects_atomic_orders_conflict(UInt, UInt, earlier_shared~ : Bool, later_shared~ : Bool) -> Bool
 
 pub fn effects_for_block(HotFunc, HotCfg, Int) -> UInt
 
@@ -351,6 +365,10 @@ pub fn hot_child_storage_count(HotFunc) -> Int
 
 pub fn hot_const_get(HotFunc, Int) -> HotConstPayload
 
+pub fn hot_continuation_targets(HotFunc, Int) -> Array[Int]
+
+pub fn hot_continuation_targets_set(HotFunc, Int, Array[Int]) -> Unit
+
 pub fn hot_control_demote_if_to_block(HotFunc, Int, Array[Int]) -> Unit
 
 pub fn hot_control_demote_loop_to_block(HotFunc, Int) -> Unit
@@ -423,7 +441,7 @@ pub fn hot_lift_func(@lib.Module, @lib.FuncIdx) -> HotFunc
 
 pub fn hot_lift_func_with_context(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
 
-pub fn hot_lift_func_with_context_result(@lib.Module, @lib.FuncIdx, HotModuleContext) -> Result[HotFunc, HotLiftError]
+pub fn hot_lift_func_with_context_result(@lib.Module, @lib.FuncIdx, HotModuleContext, capture_stack_locals? : Bool, materialize_multi_values? : Bool) -> Result[HotFunc, HotLiftError]
 
 pub fn hot_lift_func_with_context_unverified(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
 
@@ -1403,6 +1421,7 @@ pub enum HotOp {
   RefTestDesc
   RefCastDescEq
   Heap
+  Continuation
   Unary
   Binary
   Compare

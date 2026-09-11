@@ -1702,7 +1702,7 @@ fn compiler_fact_instruction_result_arity(
     | I64AtomicStore32(_, _)
     | StructSet(_, _)
     | ArraySet(_)
-    | ArrayStore(_, _)
+    | ArrayStore(_, _, _)
     | ArrayFill(_)
     | ArrayCopy(_, _)
     | ArrayInitData(_, _)
@@ -1792,8 +1792,8 @@ fn compiler_fact_is_access_opcode(instr : Instruction) -> Bool {
     | ArrayGetS(_)
     | ArrayGetU(_)
     | ArraySet(_)
-    | ArrayLoad(_, _)
-    | ArrayStore(_, _) => true
+    | ArrayLoad(_, _, _)
+    | ArrayStore(_, _, _) => true
     _ => false
   }
 }

@@ -157,6 +157,8 @@ pub impl Encode for AbsHeapType with fn encode(val, buf) {
     NoFuncAbsHeapType => buf.write_byte(0x73)
     NoExnAbsHeapType => buf.write_byte(0x74)
     NoContAbsHeapType => buf.write_byte(0x75)
+    WaitqueueAbsHeapType => buf.write_byte(0x5c)
+    NoWaitqueueAbsHeapType => buf.write_byte(0x5b)
   }
   Ok(())
 }
@@ -318,6 +320,7 @@ pub impl Encode for AtomicOrder with fn encode(val, buf) {
   match val {
     SeqCst => buf.write_byte(0x00)
     AcqRel => buf.write_byte(0x01)
+    Relaxed => buf.write_byte(0x02)
   }
   Ok(())
 }
@@ -330,6 +333,7 @@ fn encode_aggregate_atomic_rmw_order(
   match order {
     SeqCst => buf.write_byte(0x00)
     AcqRel => buf.write_byte(0x11)
+    Relaxed => buf.write_byte(0x22)
   }
 }
 
@@ -1018,6 +1022,82 @@ pub impl Encode for ImportSec with fn encode(val, buf) {
 }
 
 ///|
+fn encode_compact_import_section(
+  sec : ImportSec,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  let ImportSec(imports) = sec
+  let groups : Array[(Int, Int, Byte)] = []
+  let mut start = 0
+  while start < imports.length() {
+    let Import(module_name, _, ty) = imports[start]
+    let mut end = start + 1
+    while end < imports.length() {
+      let Import(next_module, _, next_type) = imports[end]
+      if next_module != module_name || next_type != ty {
+        break
+      }
+      end += 1
+    }
+    let mut kind : Byte = 0x7e
+    if end == start + 1 {
+      kind = 0x7f
+      while end < imports.length() {
+        let Import(next_module, _, _) = imports[end]
+        if next_module != module_name {
+          break
+        }
+        end += 1
+      }
+    }
+    groups.push((start, end, kind))
+    start = end
+  }
+  write_section(2, buf, fn(payload) {
+    if Encode::encode(U32(groups.length().reinterpret_as_uint()), payload)
+      is Err(err) {
+      return Err(err)
+    }
+    for group in groups {
+      let (start, end, kind) = group
+      if end == start + 1 {
+        if Encode::encode(imports[start], payload) is Err(err) {
+          return Err(err)
+        }
+        continue
+      }
+      let Import(module_name, _, ty) = imports[start]
+      if Encode::encode(module_name, payload) is Err(err) {
+        return Err(err)
+      }
+      payload.write_byte(0)
+      payload.write_byte(kind)
+      if kind == 0x7e {
+        if Encode::encode(ty, payload) is Err(err) {
+          return Err(err)
+        }
+      }
+      if Encode::encode(U32((end - start).reinterpret_as_uint()), payload)
+        is Err(err) {
+        return Err(err)
+      }
+      for idx in start..<end {
+        let Import(_, field_name, import_type) = imports[idx]
+        if Encode::encode(field_name, payload) is Err(err) {
+          return Err(err)
+        }
+        if kind == 0x7f {
+          if Encode::encode(import_type, payload) is Err(err) {
+            return Err(err)
+          }
+        }
+      }
+    }
+    Ok(())
+  })
+}
+
+///|
 pub impl Encode for Import with fn encode(val, buf) {
   let Import(ns, name, et) = val
   match Encode::encode(ns, buf) {
@@ -1527,6 +1607,15 @@ fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
 
 ///|
 pub impl Encode for Module with fn encode(val, buf) {
+  encode_module_sections(val, buf, false)
+}
+
+///|
+fn encode_module_sections(
+  val : Module,
+  buf : @buffer.Buffer,
+  compact_imports : Bool,
+) -> Result[Unit, BinaryEncodeError] {
   buf.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
   // custom sections
   for sec in val.custom_secs {
@@ -1551,8 +1640,18 @@ pub impl Encode for Module with fn encode(val, buf) {
   if Encode::encode(val.type_sec, buf) is Err(t) {
     return Err(t)
   }
-  if Encode::encode(val.import_sec, buf) is Err(t) {
-    return Err(t)
+  match val.import_sec {
+    Some(sec) => {
+      let result = if compact_imports {
+        encode_compact_import_section(sec, buf)
+      } else {
+        Encode::encode(sec, buf)
+      }
+      if result is Err(err) {
+        return Err(err)
+      }
+    }
+    None => ()
   }
   if Encode::encode(val.func_sec, buf) is Err(t) {
     return Err(t)
@@ -1717,7 +1816,7 @@ pub impl Encode for Catch with fn encode(val, buf) {
 ///|
 pub impl Encode for MemArg with fn encode(val, buf) {
   match val {
-    MemArg(U32(n), Some(@lib.MemIdx(0U)), m) if n < 64 => {
+    MemArg(U32(n), Some(@lib.MemIdx(0U)), m) if n <= 8 => {
       if Encode::encode(@lib.U32(n), buf) is Err(t) {
         return Err(t)
       }
@@ -1725,7 +1824,7 @@ pub impl Encode for MemArg with fn encode(val, buf) {
         return Err(t)
       }
     }
-    MemArg(U32(n), Some(i), m) if n < 64 => {
+    MemArg(U32(n), Some(i), m) if n <= 8 => {
       if Encode::encode(@lib.U32(n + 64), buf) is Err(t) {
         return Err(t)
       }
@@ -1736,7 +1835,7 @@ pub impl Encode for MemArg with fn encode(val, buf) {
         return Err(t)
       }
     }
-    MemArg(U32(n), None, m) if n < 64 => {
+    MemArg(U32(n), None, m) if n <= 8 => {
       if Encode::encode(@lib.U32(n), buf) is Err(t) {
         return Err(t)
       }
@@ -1760,7 +1859,7 @@ fn encode_atomic_memarg(
   if align >= 16U {
     return Err(BinaryEncodeError::InvalidMemArgEncoding)
   }
-  let has_order = order == AtomicOrder::acq_rel()
+  let has_order = order != AtomicOrder::seq_cst()
   let memory_idx = match memory {
     Some(@lib.MemIdx(raw)) => raw
     None => 0U
@@ -1894,6 +1993,10 @@ fn encode_backing_array_load_opcode(
     @lib.I64Load16UOp => buf.write_byte(0x33)
     @lib.I64Load32SOp => buf.write_byte(0x34)
     @lib.I64Load32UOp => buf.write_byte(0x35)
+    @lib.V128LoadOp => {
+      buf.write_byte(0xfd)
+      buf.write_byte(0x00)
+    }
     _ => return Err(BinaryEncodeError::UnsupportedBackingArrayMemoryOp)
   }
   Ok(())
@@ -1914,6 +2017,10 @@ fn encode_backing_array_store_opcode(
     @lib.I64Store8Op => buf.write_byte(0x3C)
     @lib.I64Store16Op => buf.write_byte(0x3D)
     @lib.I64Store32Op => buf.write_byte(0x3E)
+    @lib.V128StoreOp => {
+      buf.write_byte(0xfd)
+      buf.write_byte(0x0b)
+    }
     _ => return Err(BinaryEncodeError::UnsupportedBackingArrayMemoryOp)
   }
   Ok(())
@@ -2020,6 +2127,26 @@ fn encode_leaf_instruction(
       buf.write_byte(0x15)
       if Encode::encode(t, buf) is Err(t) {
         return Err(t)
+      }
+    }
+    WaitqueueNew => {
+      buf.write_byte(0xfe)
+      buf.write_byte(0x07)
+    }
+    WaitqueueNotify => {
+      buf.write_byte(0xfe)
+      buf.write_byte(0x06)
+    }
+    StructWait(type_idx, field) => {
+      buf.write_byte(0xfe)
+      buf.write_byte(0x05)
+      match Encode::encode(type_idx, buf) {
+        Err(err) => return Err(err)
+        Ok(_) => ()
+      }
+      match Encode::encode(field, buf) {
+        Err(err) => return Err(err)
+        Ok(_) => ()
       }
     }
     ContNew(type_idx) => {
@@ -2693,6 +2820,21 @@ fn encode_leaf_instruction(
         return Err(t)
       }
     }
+    StructAtomicSet(order, i, idx) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x5F), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(idx, buf) is Err(t) {
+        return Err(t)
+      }
+    }
     StructAtomicGet(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5C), buf) is Err(t) {
@@ -2865,6 +3007,18 @@ fn encode_leaf_instruction(
         return Err(t)
       }
     }
+    ArrayAtomicSet(order, i) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x6A), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
     ArrayAtomicGet(order, i) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x67), buf) is Err(t) {
@@ -2938,22 +3092,22 @@ fn encode_leaf_instruction(
         return Err(t)
       }
     }
-    ArrayLoad(op, i) => {
+    ArrayLoad(op, i, memarg) => {
       if encode_backing_array_load_opcode(op, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(@lib.U32(0x20U), buf) is Err(t) {
+      if encode_array_memory_argument(memarg, buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
-    ArrayStore(op, i) => {
+    ArrayStore(op, i, memarg) => {
       if encode_backing_array_store_opcode(op, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(@lib.U32(0x20U), buf) is Err(t) {
+      if encode_array_memory_argument(memarg, buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(i, buf) is Err(t) {
@@ -4104,4 +4258,19 @@ pub impl[T : Encode] Encode for Array[T] with fn encode(val, buf) {
     }
   }
   Ok(())
+}
+
+///|
+fn encode_array_memory_argument(
+  ma : MemArg,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  let MemArg(U32(align), memory, @lib.U64(offset)) = ma
+  if memory is Some(_) || align > 8U || offset > 0xffffffffUL {
+    return Err(BinaryEncodeError::InvalidMemArgEncoding)
+  }
+  if Encode::encode(@lib.U32(align | 0x20U), buf) is Err(err) {
+    return Err(err)
+  }
+  Encode::encode(@lib.U32(offset.to_uint()), buf)
 }

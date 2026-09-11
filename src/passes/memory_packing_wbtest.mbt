@@ -151,3 +151,25 @@ test "memory-packing public pipeline rewrites active memory.init across correcte
     @lib.Instruction::drop(),
   ])
 }
+
+///|
+test "Binaryen 132 memory64 massive empty segment retains its offset and instantiation trap" {
+  // v132 ctor-eval/memory64-massive.wast: an empty segment at this offset is
+  // still outside a 16-page memory. Packing must neither zero-fill 4 GiB nor
+  // discard the segment and make instantiation succeed.
+  let input = pass_test_module_from_wat(
+    (
+      #|(module (memory i64 16 16 shared)
+      #| (data (i64.const 4294968321) "")
+      #| (func (export "func")))
+    ),
+  )
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
+    Ok(output) => output
+    Err(err) => fail(err)
+  }
+  @debug.assert_eq(output.data_sec, input.data_sec)
+  @debug.assert_eq(output.mem_sec, input.mem_sec)
+  assert_true(@validate.validate_module(output) is Ok(_))
+}

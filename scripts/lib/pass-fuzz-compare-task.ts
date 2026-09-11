@@ -1,3 +1,4 @@
+import { optimizerRuntimeIdentity } from "./optimizer-runtime";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -48,6 +49,7 @@ import {
 import { loadExpandedPassQueueFromStarshine } from "./optimizer-expanded-pass-queue";
 import {
   buildSemanticCacheKey,
+  SEMANTIC_EXECUTION_CONTRACT,
   loadSemanticCacheEntry,
   storeSemanticCacheEntry,
 } from "./optimizer-semantic-cache";
@@ -110,7 +112,7 @@ type PropertyFailureClass =
   | "optimizer-idempotence"
   | "codec-idempotence"
   | "composition";
-type OptimizerModeFlag = "--traps-never-happen" | "--ignore-implicit-traps" | "--zero-filled-memory";
+type OptimizerModeFlag = "--closed-world" | "--traps-never-happen" | "--ignore-implicit-traps" | "--zero-filled-memory";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -139,6 +141,7 @@ type PassFuzzCompareOptions = {
   binaryenValidateBin: string;
   wabtValidateBin: string;
   externalValidators: ExternalValidatorKind[];
+  primaryValidator: "wasm-tools" | "binaryen";
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
   propertyModes: Exclude<PropertyMode, "none">[];
@@ -307,6 +310,7 @@ export type PassFuzzCompareSummary = {
   genValidSelectedProfileCounts: GenValidSelectedProfileCounts;
   genValidProfileCaseCounts?: GenValidProfileCaseCounts;
   externalValidators: ExternalValidatorKind[];
+  primaryValidator: "wasm-tools" | "binaryen";
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
   propertyModes: Exclude<PropertyMode, "none">[];
@@ -414,6 +418,7 @@ const RESERVED_OPTIONS = new Set([
   "--wasm-opt-bin",
   "--require-binaryen-version",
   "--wasm-tools-bin",
+  "--primary-validator",
   "--binaryen-validate-bin",
   "--wabt-validate-bin",
   "--external-validator",
@@ -501,6 +506,9 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--dead-argument-elimination",
   "--dae",
   "--dae-optimizing",
+  "--dae2",
+  "--constraint-analysis",
+  "--dae2-optimizing",
   "--inline-main",
   "--inlining",
   "--inlining-optimizing",
@@ -523,6 +531,7 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
 ]);
 
 const SUPPORTED_OPTIMIZER_MODE_FLAGS = new Set<OptimizerModeFlag>([
+  "--closed-world",
   "--traps-never-happen",
   "--ignore-implicit-traps",
   "--zero-filled-memory",
@@ -536,6 +545,8 @@ const HELP_TEXT = [
   "  --min-compared <n>    Require at least this many successful comparisons",
   "  --out-dir <dir>       Output directory for artifacts and failures",
   "  --resume              Continue an interrupted run in --out-dir by skipping completed case indices",
+  "  --primary-validator <id>",
+  "                       Required validity oracle: wasm-tools (default) | binaryen; Binaryen is not independent validation.",
   "  --external-validator <id>",
   "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
   "  --runtime-execution <mode>",
@@ -567,7 +578,7 @@ const HELP_TEXT = [
   "                       Run P(Q(M)) versus Q(P(M)) under node-v2; both operands are required",
   "  --wasm-opt-bin <path> Binaryen wasm-opt executable. Default: wasm-opt",
   "  --require-binaryen-version <n>",
-  "                       Fail before generation unless wasm-opt reports this exact release",
+  "                       Fail before generation unless wasm-opt reports this exact release (default: 132)",
   "  --binaryen-validate-bin <path>",
   "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
   "  --wabt-validate-bin <path>",
@@ -720,8 +731,11 @@ function seedHex(seed: bigint): string {
   return `0x${seed.toString(16)}`;
 }
 
-function normalizeBinaryenPassFlag(flag: string): string {
-  return BINARYEN_FLAG_ALIASES.get(flag) ?? flag;
+function normalizeBinaryenPassFlag(flag: string): string[] {
+  // v132 registers dae2 only. Starshine's explicitly named optimizing variant
+  // is compared against the same upstream DAE2 plus cleanup sequence.
+  if (flag === "--dae2-optimizing") return ["--dae2", "--simplify-locals", "--vacuum"];
+  return [BINARYEN_FLAG_ALIASES.get(flag) ?? flag];
 }
 
 function supportedPassNames(): string[] {
@@ -982,11 +996,14 @@ async function runOrThrowAsync(
 }
 
 async function runValidateAsync(
-  wasmToolsBin: string,
+  options: Pick<PassFuzzCompareOptions, "primaryValidator" | "wasmOptBin" | "wasmToolsBin">,
   wasmPath: string,
   repoRoot: string,
 ): Promise<{ ok: boolean; stderr: string }> {
-  const result = await runProcess(wasmToolsBin, ["validate", "--features", "all", wasmPath], {
+  const binaryen = options.primaryValidator === "binaryen";
+  const command = binaryen ? options.wasmOptBin : options.wasmToolsBin;
+  const args = binaryen ? [wasmPath, "--all-features"] : ["validate", "--features", "all", wasmPath];
+  const result = await runProcess(command, args, {
     cwd: repoRoot,
     env: makeRepoTmpEnv(repoRoot),
   });
@@ -3305,7 +3322,7 @@ async function reduceSemanticV2FailureInput(
       const candidatePath = path.join(reductionDir, `candidate-${evaluation}.wasm`);
       const optimizedPath = path.join(reductionDir, `optimized-${evaluation}.wasm`);
       fs.writeFileSync(candidatePath, candidate);
-      if (!(await runValidateAsync(options.wasmToolsBin, candidatePath, repoRoot)).ok) return null;
+      if (!(await runValidateAsync(options, candidatePath, repoRoot)).ok) return null;
       try {
         await runStarshineWithRetry(
           starshineInvocation,
@@ -3324,7 +3341,7 @@ async function reduceSemanticV2FailureInput(
       } catch {
         return null;
       }
-      if (!(await runValidateAsync(options.wasmToolsBin, optimizedPath, repoRoot)).ok) return null;
+      if (!(await runValidateAsync(options, optimizedPath, repoRoot)).ok) return null;
       const report = await runNodeThreeWaySemanticOracleV2(candidatePath, optimizedPath, null, {
         seed: semanticSeed,
         policy: options.semanticPolicy,
@@ -3876,8 +3893,9 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let moonBin = resolveMoonBin();
   let starshineBin: string | null = null;
   let wasmOptBin = process.env.WASM_OPT_BIN || "wasm-opt";
-  let requiredBinaryenVersion: string | null = null;
+  let requiredBinaryenVersion: string | null = "132";
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
+  let primaryValidator: "wasm-tools" | "binaryen" = "wasm-tools";
   let binaryenValidateBin = process.env.BINARYEN_WASM_VALIDATE_BIN || "wasm-validate";
   let wabtValidateBin = process.env.WABT_WASM_VALIDATE_BIN || "wasm-validate";
   const externalValidators: ExternalValidatorKind[] = [];
@@ -3983,6 +4001,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         const value = argv[i + 1] ?? fail("missing value for --require-binaryen-version");
         if (!/^\d+$/.test(value)) fail("require-binaryen-version must be a decimal release number");
         requiredBinaryenVersion = value;
+        i += 2;
+        break;
+      }
+      case "--primary-validator": {
+        const value = argv[i + 1];
+        if (value !== "wasm-tools" && value !== "binaryen") fail("primary-validator must be wasm-tools or binaryen");
+        primaryValidator = value;
         i += 2;
         break;
       }
@@ -4393,6 +4418,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       wasmOptBin,
       requiredBinaryenVersion,
       wasmToolsBin,
+      primaryValidator,
       binaryenValidateBin,
       wabtValidateBin,
       externalValidators,
@@ -4468,7 +4494,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const toolchainPath = path.join(outDir, "toolchain.json");
   const binaryenPassFlags = [
     ...options.optimizerFlags,
-    ...options.passFlags.map(normalizeBinaryenPassFlag),
+    ...options.passFlags.flatMap(normalizeBinaryenPassFlag),
   ];
   const resolvedCacheDir = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
   const wasmToolsIdentity = readToolIdentity(options.wasmToolsBin, ["--version"], repoRoot);
@@ -4484,8 +4510,12 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   };
   const toolchainRecord = {
     schema: "starshine.optimizer-toolchain.v1",
+    primaryValidator: options.primaryValidator,
     requiredBinaryenVersion: options.requiredBinaryenVersion,
     binaryen: verifiedBinaryenTool,
+    semanticOracle: options.semanticOracle,
+    semanticExecutionContract: options.semanticOracle === "node-v2" ? SEMANTIC_EXECUTION_CONTRACT : null,
+    semanticRuntimeIdentity: options.semanticOracle === "node-v2" ? optimizerRuntimeIdentity() : null,
   };
   if (options.resume) {
     if (!fs.existsSync(toolchainPath)) {
@@ -4499,6 +4529,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       } catch (error) {
         fail(`failed to read saved optimizer toolchain ${toolchainPath}: ${commandFailureDetail(error)}`);
       }
+      if ((saved.primaryValidator ?? "wasm-tools") !== options.primaryValidator) {
+        fail(`--resume primary validator differs from ${toolchainPath}`);
+      }
       if (
         saved.schema !== toolchainRecord.schema ||
         saved.requiredBinaryenVersion !== toolchainRecord.requiredBinaryenVersion ||
@@ -4506,6 +4539,14 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         saved.binaryen?.sha256 !== verifiedBinaryenTool.sha256
       ) {
         fail(`--resume Binaryen identity differs from ${toolchainPath}`);
+      }
+      if (
+        (saved.semanticOracle ?? "off") !== options.semanticOracle ||
+        (options.semanticOracle === "node-v2" &&
+          (saved.semanticExecutionContract !== SEMANTIC_EXECUTION_CONTRACT ||
+            saved.semanticRuntimeIdentity !== toolchainRecord.semanticRuntimeIdentity))
+      ) {
+        fail(`--resume semantic execution contract differs from ${toolchainPath}; start a new output directory`);
       }
     }
   }
@@ -4656,6 +4697,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     genValidSelectedProfileCounts: {},
     genValidProfileCaseCounts: {},
     externalValidators: options.externalValidators,
+    primaryValidator: options.primaryValidator,
     runtimeExecution: options.runtimeExecution,
     propertyMode: options.propertyMode,
     propertyModes: options.propertyModes,
@@ -5026,7 +5068,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           );
           return outputPath;
         },
-        validate: async (modulePath) => (await runValidateAsync(options.wasmToolsBin, modulePath, repoRoot)).ok,
+        validate: async (modulePath) => (await runValidateAsync(options, modulePath, repoRoot)).ok,
         semanticCompare: async (originalPath, modulePath) => {
           const report = await runNodeThreeWaySemanticOracleV2(
             originalPath,
@@ -5208,7 +5250,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       inputEffectTrapFacts = scanEffectTrapFactsFromWasmBytes(fs.readFileSync(inputPath));
       noteInputEffectTrapFacts(summary, inputEffectTrapFacts);
 
-      const baselineValidation = await runValidateAsync(options.wasmToolsBin, inputPath, repoRoot);
+      const baselineValidation = await runValidateAsync(options, inputPath, repoRoot);
       if (!baselineValidation.ok) {
         summary.generatorFailureCount += 1;
         failures += 1;
@@ -5289,7 +5331,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       }
 
       const starshineValidation = await runValidateAsync(
-        options.wasmToolsBin,
+
+        options,
         starshineRawPath,
         repoRoot,
       );
@@ -5462,7 +5505,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             repoRoot,
             repoTmpEnv,
           );
-          const codecValidation = await runValidateAsync(options.wasmToolsBin, codecTwicePath, repoRoot);
+          const codecValidation = await runValidateAsync(options, codecTwicePath, repoRoot);
           if (!codecValidation.ok) {
             throw new Error(`codec output failed external validation: ${codecValidation.stderr || "unknown error"}`);
           }
@@ -5594,7 +5637,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             );
             return outputPath;
           },
-          validate: async (modulePath) => (await runValidateAsync(options.wasmToolsBin, modulePath, repoRoot)).ok,
+          validate: async (modulePath) => (await runValidateAsync(options, modulePath, repoRoot)).ok,
           semanticCompare: async (leftPath, rightPath) => {
             const report = await runNodeThreeWaySemanticOracleV2(
               leftPath,
@@ -5862,7 +5905,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             repoTmpEnv,
           );
           const idempotenceValidation = await runValidateAsync(
-            options.wasmToolsBin,
+            options,
             idempotenceRawPath,
             repoRoot,
           );
@@ -5972,7 +6015,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
               repoTmpEnv,
             );
             const compositionValidation = await runValidateAsync(
-              options.wasmToolsBin,
+              options,
               finalCompositionRawPath,
               repoRoot,
             );
@@ -6505,6 +6548,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   }
   process.stdout.write(`Wrote pass fuzz compare artifacts to ${outDir}\n`);
   process.stdout.write(`Jobs: ${summary.jobs}\n`);
+  process.stdout.write(`Primary validator: ${summary.primaryValidator}${summary.primaryValidator === "binaryen" ? " (comparison oracle; not independent validation)" : ""}\n`);
   process.stdout.write(`Compared cases: ${summary.comparedCount}/${summary.requestedCount}\n`);
   if (summary.resumedCaseCount > 0) {
     process.stdout.write(`Resumed completed cases: ${summary.resumedCaseCount}\n`);

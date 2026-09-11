@@ -57,7 +57,7 @@ export function runCiWorkflowContractTest(): void {
     ["--normalize unreachable-control-debris", "unreachable-debris normalization"],
     ["--starshine-bin _build/native/release/build/cmd/cmd.exe", "fresh native Starshine binary"],
     ["--wasm-opt-bin \"$BINARYEN_DIR/bin/wasm-opt\"", "pinned Binaryen oracle"],
-    ["--require-binaryen-version 131", "fail-closed Binaryen release guard"],
+    ["--require-binaryen-version 132", "fail-closed Binaryen release guard"],
     ["--no-reduce-mismatches", "bounded mismatch handling"],
   ];
   for (const [fragment, label] of requiredFragments) {
@@ -71,13 +71,13 @@ export function runCiWorkflowContractTest(): void {
   const fuzzWorkflow = fs.readFileSync(path.join(workflowDir, "fuzz.yml"), "utf8");
   for (const [fragment, label] of [
     ['WASM_TOOLS_VERSION: "1.251.0"', "pinned semantic wasm-tools"],
-    ['BINARYEN_VERSION: "131"', "pinned semantic Binaryen"],
+    ['BINARYEN_VERSION: "132"', "pinned semantic Binaryen"],
     ['Z3_VERSION: "4.13.3"', "pinned semantic Z3"],
     ['semantic-optimizer-smoke:', "semantic optimizer CI job"],
     ['moon build --target native --release src/fuzz', "prebuilt semantic GenValid command"],
     ['--gen-valid-bin _build/native/release/build/fuzz/fuzz.exe', "prebuilt semantic GenValid executable"],
     ['--gen-valid-profile semantic-optimizer-all', "semantic GenValid aggregate"],
-    ['--require-binaryen-version 131', "semantic Binaryen release guard"],
+    ['--require-binaryen-version 132', "semantic Binaryen release guard"],
     ['--require-feature semantic_effects:1', "semantic effects floor"],
     ['--semantic-oracle node-v2', "observation-v2 CI smoke"],
     ['--property semantic-idempotence', "semantic idempotence CI smoke"],

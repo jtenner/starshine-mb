@@ -18,9 +18,11 @@ interface core-ir {
     no-exn: static func() -> abs-heap-type;
     no-extern: static func() -> abs-heap-type;
     no-func: static func() -> abs-heap-type;
+    no-waitqueue: static func() -> abs-heap-type;
     none: static func() -> abs-heap-type;
     string-value: static func() -> abs-heap-type;
     struct: static func() -> abs-heap-type;
+    waitqueue: static func() -> abs-heap-type;
   }
 
   resource aggregate-atomic-rmw-op {
@@ -44,6 +46,7 @@ interface core-ir {
 
   resource atomic-order {
     acq-rel: static func() -> atomic-order;
+    relaxed: static func() -> atomic-order;
     seq-cst: static func() -> atomic-order;
   }
 
@@ -288,6 +291,7 @@ interface core-ir {
     array-atomic-get-s: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>) -> instruction;
     array-atomic-get-u: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>) -> instruction;
     array-atomic-rmw: static func(p0: borrow<aggregate-atomic-rmw-op>, p1: borrow<type-idx>, order: borrow<atomic-order>) -> instruction;
+    array-atomic-set: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>) -> instruction;
     array-copy: static func(p0: borrow<type-idx>, p1: borrow<type-idx>) -> instruction;
     array-fill: static func(p0: borrow<type-idx>) -> instruction;
     array-get: static func(p0: borrow<type-idx>) -> instruction;
@@ -296,14 +300,14 @@ interface core-ir {
     array-init-data: static func(p0: borrow<type-idx>, p1: borrow<data-idx>) -> instruction;
     array-init-elem: static func(p0: borrow<type-idx>, p1: borrow<elem-idx>) -> instruction;
     array-len: static func() -> instruction;
-    array-load: static func(p0: borrow<load-op>, p1: borrow<type-idx>) -> instruction;
+    array-load: static func(p0: borrow<load-op>, p1: borrow<type-idx>, memarg: borrow<mem-arg>) -> instruction;
     array-new: static func(p0: borrow<type-idx>) -> instruction;
     array-new-data: static func(p0: borrow<type-idx>, p1: borrow<data-idx>) -> instruction;
     array-new-default: static func(p0: borrow<type-idx>) -> instruction;
     array-new-elem: static func(p0: borrow<type-idx>, p1: borrow<elem-idx>) -> instruction;
     array-new-fixed: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
     array-set: static func(p0: borrow<type-idx>) -> instruction;
-    array-store: static func(p0: borrow<store-op>, p1: borrow<type-idx>) -> instruction;
+    array-store: static func(p0: borrow<store-op>, p1: borrow<type-idx>, memarg: borrow<mem-arg>) -> instruction;
     atomic-cmpxchg: static func(p0: borrow<atomic-cmpxchg-op>, p1: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
     atomic-fence: static func(order: borrow<atomic-order>) -> instruction;
     atomic-rmw: static func(p0: borrow<atomic-rmw-op>, p1: borrow<mem-arg>, order: borrow<atomic-order>) -> instruction;
@@ -794,6 +798,7 @@ interface core-ir {
     struct-atomic-get-s: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>, p2: borrow<u32-ir>) -> instruction;
     struct-atomic-get-u: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>, p2: borrow<u32-ir>) -> instruction;
     struct-atomic-rmw: static func(p0: borrow<aggregate-atomic-rmw-op>, p1: borrow<type-idx>, p2: borrow<u32-ir>, order: borrow<atomic-order>) -> instruction;
+    struct-atomic-set: static func(p0: borrow<atomic-order>, p1: borrow<type-idx>, p2: borrow<u32-ir>) -> instruction;
     struct-get: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
     struct-get-s: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
     struct-get-u: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
@@ -802,6 +807,7 @@ interface core-ir {
     struct-new-default-desc: static func(p0: borrow<type-idx>) -> instruction;
     struct-new-desc: static func(p0: borrow<type-idx>) -> instruction;
     struct-set: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
+    struct-wait: static func(p0: borrow<type-idx>, p1: borrow<u32-ir>) -> instruction;
     suspend: static func(p0: borrow<tag-idx>) -> instruction;
     table-copy: static func(p0: borrow<table-idx>, p1: borrow<table-idx>) -> instruction;
     table-fill: static func(p0: borrow<table-idx>) -> instruction;
@@ -845,6 +851,8 @@ interface core-ir {
     v128-store64-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
     v128-store8-lane: static func(p0: borrow<mem-arg>, p1: borrow<lane-idx>) -> instruction;
     v128-xor: static func() -> instruction;
+    waitqueue-new: static func() -> instruction;
+    waitqueue-notify: static func() -> instruction;
   }
 
   resource label-idx {

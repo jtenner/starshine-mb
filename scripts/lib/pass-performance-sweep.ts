@@ -695,8 +695,8 @@ export function assertStablePerformanceIdentity(
 }
 
 export function assertBinaryenPerformanceVersion(version: string): void {
-  if (!/\bversion 131\b/.test(version)) {
-    fail(`expected Binaryen v131 for performance evidence, got: ${version}`);
+  if (!/\bversion 132\b/.test(version)) {
+    fail(`expected Binaryen v132 for performance evidence, got: ${version}`);
   }
 }
 
@@ -1016,7 +1016,7 @@ export function runPassPerformanceSweep(
 function printHelp(): void {
   process.stdout.write(`Usage: bun scripts/pass-performance-sweep.ts \\
   --input <artifact.wasm> --passes <a,b,...> \\
-  --starshine-bin <current-native-cli> --wasm-opt-bin <verified-v131-wasm-opt> [options]
+  --starshine-bin <current-native-cli> --wasm-opt-bin <verified-v132-wasm-opt> [options]
 
 Runs bracketing references plus each direct pass serially, alternates pass order by round,
 requires traced/no-trace byte identity, and writes raw samples plus median timing,

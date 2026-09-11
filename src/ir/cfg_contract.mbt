@@ -120,6 +120,7 @@ fn cfg_op_is_terminator(op : HotOp) -> Bool {
     | HotOp::If
     | HotOp::Try
     | HotOp::TryTable
+    | HotOp::Continuation
     | HotOp::Br
     | HotOp::BrIf
     | HotOp::BrTable

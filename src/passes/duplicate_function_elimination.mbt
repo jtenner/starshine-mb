@@ -1338,6 +1338,56 @@ fn dfe_rewrite_instruction_type_idxs(
         dfe_rewrite_type_idx(type_idx, remap),
         field_idx,
       )
+    @lib.StructAtomicSet(order, type_idx, field_idx) =>
+      @lib.Instruction::struct_atomic_set(
+        order,
+        dfe_rewrite_type_idx(type_idx, remap),
+        field_idx,
+      )
+    @lib.ArrayAtomicSet(order, type_idx) =>
+      @lib.Instruction::array_atomic_set(
+        order,
+        dfe_rewrite_type_idx(type_idx, remap),
+      )
+    @lib.ArrayAtomicGet(order, type_idx) =>
+      @lib.Instruction::array_atomic_get(
+        order,
+        dfe_rewrite_type_idx(type_idx, remap),
+      )
+    @lib.ArrayAtomicGetS(order, type_idx) =>
+      @lib.Instruction::array_atomic_get_s(
+        order,
+        dfe_rewrite_type_idx(type_idx, remap),
+      )
+    @lib.ArrayAtomicGetU(order, type_idx) =>
+      @lib.Instruction::array_atomic_get_u(
+        order,
+        dfe_rewrite_type_idx(type_idx, remap),
+      )
+    @lib.ArrayAtomicRmw(order, op, type_idx) =>
+      @lib.Instruction::array_atomic_rmw(
+        op,
+        dfe_rewrite_type_idx(type_idx, remap),
+        order~,
+      )
+    @lib.ArrayAtomicCmpxchg(order, type_idx) =>
+      @lib.Instruction::array_atomic_cmpxchg(
+        dfe_rewrite_type_idx(type_idx, remap),
+        order~,
+      )
+    @lib.StructAtomicRmw(order, op, type_idx, field_idx) =>
+      @lib.Instruction::struct_atomic_rmw(
+        op,
+        dfe_rewrite_type_idx(type_idx, remap),
+        field_idx,
+        order~,
+      )
+    @lib.StructAtomicCmpxchg(order, type_idx, field_idx) =>
+      @lib.Instruction::struct_atomic_cmpxchg(
+        dfe_rewrite_type_idx(type_idx, remap),
+        field_idx,
+        order~,
+      )
     @lib.StructSet(type_idx, field_idx) =>
       @lib.Instruction::struct_set(
         dfe_rewrite_type_idx(type_idx, remap),
@@ -1694,6 +1744,87 @@ fn dfe_scan_rewrite_instruction_type_idxs(
         rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
           Some(next) =>
             Some(@lib.Instruction::struct_atomic_get_u(order, next, field_idx))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.StructAtomicSet(order, type_idx, field_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) =>
+            Some(@lib.Instruction::struct_atomic_set(order, next, field_idx))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.ArrayAtomicSet(order, type_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) => Some(@lib.Instruction::array_atomic_set(order, next))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.ArrayAtomicGet(order, type_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) => Some(@lib.Instruction::array_atomic_get(order, next))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.ArrayAtomicGetS(order, type_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) => Some(@lib.Instruction::array_atomic_get_s(order, next))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.ArrayAtomicGetU(order, type_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) => Some(@lib.Instruction::array_atomic_get_u(order, next))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.ArrayAtomicRmw(order, op, type_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) =>
+            Some(@lib.Instruction::array_atomic_rmw(op, next, order~))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.ArrayAtomicCmpxchg(order, type_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) =>
+            Some(@lib.Instruction::array_atomic_cmpxchg(next, order~))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.StructAtomicRmw(order, op, type_idx, field_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) =>
+            Some(
+              @lib.Instruction::struct_atomic_rmw(op, next, field_idx, order~),
+            )
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.StructAtomicCmpxchg(order, type_idx, field_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) =>
+            Some(
+              @lib.Instruction::struct_atomic_cmpxchg(next, field_idx, order~),
+            )
           None => None
         },
         mentions_type_idxs: true,
@@ -2134,6 +2265,54 @@ fn dfe_try_rewrite_instruction_type_idxs(
       match dfe_try_rewrite_type_idx(type_idx, remap) {
         Some(next) =>
           Some(@lib.Instruction::struct_atomic_get_u(order, next, field_idx))
+        None => None
+      }
+    @lib.StructAtomicSet(order, type_idx, field_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) =>
+          Some(@lib.Instruction::struct_atomic_set(order, next, field_idx))
+        None => None
+      }
+    @lib.ArrayAtomicSet(order, type_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::array_atomic_set(order, next))
+        None => None
+      }
+    @lib.ArrayAtomicGet(order, type_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::array_atomic_get(order, next))
+        None => None
+      }
+    @lib.ArrayAtomicGetS(order, type_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::array_atomic_get_s(order, next))
+        None => None
+      }
+    @lib.ArrayAtomicGetU(order, type_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::array_atomic_get_u(order, next))
+        None => None
+      }
+    @lib.ArrayAtomicRmw(order, op, type_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::array_atomic_rmw(op, next, order~))
+        None => None
+      }
+    @lib.ArrayAtomicCmpxchg(order, type_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::array_atomic_cmpxchg(next, order~))
+        None => None
+      }
+    @lib.StructAtomicRmw(order, op, type_idx, field_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) =>
+          Some(@lib.Instruction::struct_atomic_rmw(op, next, field_idx, order~))
+        None => None
+      }
+    @lib.StructAtomicCmpxchg(order, type_idx, field_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) =>
+          Some(@lib.Instruction::struct_atomic_cmpxchg(next, field_idx, order~))
         None => None
       }
     @lib.StructSet(type_idx, field_idx) =>

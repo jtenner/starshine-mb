@@ -204,7 +204,7 @@ pub fn CompilerFactIndex::new(
   for value in facts.tables {
     tables[value.table.reinterpret_as_int()] = Some(value)
   }
-  { facts, functions, bodies, signatures, types, globals, tables }
+  { facts, functions, bodies, signatures, types, globals, tables, }
 }
 
 ///|
@@ -568,7 +568,7 @@ fn compiler_fact_materializer_result_arity(
     | @lib.I64AtomicStore32(_, _)
     | @lib.StructSet(_, _)
     | @lib.ArraySet(_)
-    | @lib.ArrayStore(_, _)
+    | @lib.ArrayStore(_, _, _)
     | @lib.ArrayFill(_)
     | @lib.ArrayCopy(_, _)
     | @lib.ArrayInitData(_, _)
@@ -1086,13 +1086,13 @@ pub fn apply_compiler_facts(
         index,
       )
       stats.ignored_untrusted_assertions = stats.exact_call_target_facts_seen
-      return Ok({ module_, stats })
+      return Ok({ module_, stats, })
     }
     TrustAssertions => stats.trusted_assertion_facts = assertion_count
   }
   if section.version != 1U {
     stats.unsupported_versions = 1
-    return Ok({ module_, stats })
+    return Ok({ module_, stats, })
   }
   let env = @validate.Env::new().with_module(module_)
   stats.invalid_referenced_indices = compiler_fact_count_invalid_top_level_indices(
@@ -1100,7 +1100,7 @@ pub fn apply_compiler_facts(
     env,
   )
   if stats.invalid_referenced_indices > 0 {
-    return Ok({ module_, stats })
+    return Ok({ module_, stats, })
   }
   let imported = directize_imported_func_count(module_)
   let defined = match module_.code_sec {
@@ -1116,7 +1116,7 @@ pub fn apply_compiler_facts(
   let index = compiler_fact_index_bounded(section.facts, env)
   stats.exact_call_target_facts_seen = compiler_fact_count_exact_targets(index)
   match apply_compiler_facts_trusted(module_, section.version, index, stats) {
-    Ok(module_) => Ok({ module_, stats })
+    Ok(module_) => Ok({ module_, stats, })
     Err(err) => Err(err)
   }
 }

@@ -59,6 +59,7 @@ priv struct CfgBuilder {
   label_targets : Array[BlockId]
   conservative_exception_entries : Bool
   operand_seen : Array[Bool]?
+  continuation_targets : Array[Array[LabelId]?]
 }
 
 ///|
@@ -81,8 +82,13 @@ fn cfg_builder_new(
   expand_operand_control : Bool,
 ) -> CfgBuilder {
   let node_to_block : Array[BlockId] = []
-  for _ in 0..<hot_node_count(func) {
+  let mut has_continuations = false
+  for node in 0..<hot_node_count(func) {
     node_to_block.push(-1)
+    if hot_node_is_live(func, node) &&
+      hot_node_get(func, node).op == HotOp::Continuation {
+      has_continuations = true
+    }
   }
   let label_targets : Array[BlockId] = []
   for _ in 0..<func.labels.length() {
@@ -103,6 +109,11 @@ fn cfg_builder_new(
       Some(Array::make(hot_node_count(func), false))
     } else {
       None
+    },
+    continuation_targets: if has_continuations {
+      Array::make(hot_node_count(func), None)
+    } else {
+      []
     },
   }
 }
@@ -230,8 +241,28 @@ fn cfg_region_segment_break_after_drop_operand_control(
     return false
   }
   let child_id = hot_child_get(func, node_id, 0)
+  cfg_dropped_branch_operand(func, node_id) is Some(_) ||
   ssa_simple_drop_result_if_allowed(func, node_id, 0, child_id) ||
   ssa_simple_drop_value_block_allowed(func, node_id, 0, child_id)
+}
+
+///|
+fn cfg_dropped_branch_operand(func : HotFunc, node_id : NodeId) -> NodeId? {
+  if hot_node_get(func, node_id).op != HotOp::Drop {
+    return None
+  }
+  let child = hot_child_get(func, node_id, 0)
+  if child < 0 || !hot_node_is_live(func, child) {
+    return None
+  }
+  match hot_node_get(func, child).op {
+    HotOp::BrIf
+    | HotOp::BrOnNull
+    | HotOp::BrOnNonNull
+    | HotOp::BrOnCast
+    | HotOp::BrOnCastFail => Some(child)
+    _ => None
+  }
 }
 
 ///|
@@ -270,7 +301,12 @@ fn cfg_builder_region_segments(
       if hot_is_control_node(func, next) {
         break
       }
-      if cfg_region_segment_break_after_drop_operand_control(func, previous) {
+      if !cfg_expression_continuation_targets(
+          func,
+          previous,
+          builder.continuation_targets,
+        ).is_empty() ||
+        cfg_region_segment_break_after_drop_operand_control(func, previous) {
         break
       }
       end = end + 1
@@ -510,6 +546,21 @@ fn cfg_builder_process_block(
   }
   let last_node = segment.last_node
   let node = hot_node_get(func, last_node)
+  for root in builder.cfg.blocks[current_block].nodes {
+    for
+      label in cfg_expression_continuation_targets(
+        func,
+        root,
+        builder.continuation_targets,
+      ) {
+      cfg_builder_add_edge(
+        builder,
+        current_block,
+        cfg_builder_label_target_get(builder, label),
+        CfgEdgeKind::BranchEdge,
+      )
+    }
+  }
   match node.op {
     HotOp::Block => {
       let (continuation, synthetic_exit) = cfg_builder_maybe_continuation(
@@ -542,10 +593,12 @@ fn cfg_builder_process_block(
       }
     }
     HotOp::Loop => {
+      // The forced body entry is allocated next. Branches enter the body;
+      // they must not evaluate the initial stack arguments again.
       cfg_builder_label_target_set(
         builder,
         hot_control_node_label(func, last_node),
-        current_block,
+        builder.cfg.blocks.length(),
       )
       let body_build = cfg_builder_build_region(
         builder,
@@ -609,6 +662,25 @@ fn cfg_builder_process_block(
         )
         if synthetic_exit {
           exits.push(continuation.unwrap())
+        }
+      } else if cfg_dropped_branch_operand(func, last_node) is Some(branch) {
+        for target in cfg_builder_branch_targets(builder, func, branch) {
+          cfg_builder_add_edge(
+            builder,
+            current_block,
+            target,
+            CfgEdgeKind::BranchEdge,
+          )
+        }
+        match next_block {
+          Some(block_id) =>
+            cfg_builder_add_edge(
+              builder,
+              current_block,
+              block_id,
+              CfgEdgeKind::FallthroughEdge,
+            )
+          None => exits.push(current_block)
         }
       } else {
         match next_block {

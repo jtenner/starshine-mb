@@ -1492,7 +1492,7 @@ test "shared descriptor subtype uses v131 wrapper order" {
 test "decode reports invalid atomic.fence memory order" {
   assert_decode_err_contains(
     (
-      Decode::decode(b"\xFE\x03\x02", 0) :
+      Decode::decode(b"\xFE\x03\x03", 0) :
       Result[(Instruction, Int), BinaryDecodeError]),
     BinaryDecodeError::InvalidAtomicFenceImmediate,
   )
@@ -1665,7 +1665,7 @@ test "invalid decode vectors are table-driven across decoders" {
     ("unknown opcode", b"\xFF", BinaryDecodeError::InvalidInstruction),
     (
       "atomic.fence with invalid memory order",
-      b"\xFE\x03\x02",
+      b"\xFE\x03\x03",
       BinaryDecodeError::InvalidAtomicFenceImmediate,
     ),
   ]
@@ -2619,11 +2619,11 @@ test "descriptor branch cast instruction roundtrip" {
 test "GC backing-array multibyte load and store roundtrip" {
   let cases = [
     (
-      b"\x35\x20\x00",
+      b"\x35\x20\x00\x00",
       Instruction::array_load(@lib.LoadOp::i64_load32u(), TypeIdx::new(0U)),
     ),
     (
-      b"\x3e\x20\x00",
+      b"\x3e\x20\x00\x00",
       Instruction::array_store(@lib.StoreOp::i64_store32(), TypeIdx::new(0U)),
     ),
   ]
@@ -2692,7 +2692,7 @@ test "shared GC atomic order roundtrip" {
 }
 
 ///|
-test "relaxed linear-memory atomic order roundtrip" {
+test "acquire-release linear-memory atomic order roundtrip" {
   let memarg = MemArg::new(U32::new(2U), None, U64::new(0UL))
   let cases = [
     (

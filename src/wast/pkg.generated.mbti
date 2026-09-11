@@ -63,6 +63,7 @@ pub impl Show for Annotation
 pub enum AtomicOrder {
   SeqCst
   AcqRel
+  Relaxed
 } derive(Eq, @debug.Debug)
 
 pub struct BlockType {
@@ -99,6 +100,7 @@ pub impl Show for ElemInitExpr
 
 pub struct ElemSegment {
   id : String?
+  declarative : Bool
   table_index : Index
   offset : Array[Instruction]
   func_indices : Array[Index]
@@ -194,6 +196,9 @@ pub enum HeapTypeRef {
   NoFunc
   NoExtern
   NoExn
+  Waitqueue
+  NoWaitqueue
+  Shared(HeapTypeRef)
 } derive(Eq, @debug.Debug)
 pub impl Show for HeapTypeRef
 
@@ -242,12 +247,17 @@ pub enum Instruction {
   If(BlockType, Array[Instruction], Array[Instruction])
   Br(Index)
   BrIf(Index)
+  BrOnNull(Index)
+  BrOnNonNull(Index)
+  BrOnCastDescEq(Index, ValueType, ValueType)
+  BrOnCastDescEqFail(Index, ValueType, ValueType)
   BrTable(Array[Index], Index)
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
   ReturnCall(Index)
   ReturnCallIndirect(Index, TypeUse)
+  CallRef(TypeUse)
   ReturnCallRef(TypeUse)
   Throw(Index)
   ThrowRef
@@ -269,8 +279,12 @@ pub enum Instruction {
   TableCopy(Index, Index)
   TableInit(Index, Index)
   ElemDrop(Index)
+  MemoryAtomic(MemoryAtomicOp, AtomicOrder, Index?, MemArg)
+  AtomicFence(AtomicOrder)
   Load(Opcode, MemArg)
   Store(Opcode, MemArg)
+  ArrayLoad(Opcode, Index, MemArg)
+  ArrayStore(Opcode, Index, MemArg)
   MemorySize
   MemoryGrow
   MemoryFill
@@ -306,13 +320,21 @@ pub enum Instruction {
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
+  WaitqueueNew
+  WaitqueueNotify
+  StructWait(Index, UInt)
+  StructAtomicSet(AtomicOrder, Index, UInt)
+  ArrayAtomicSet(AtomicOrder, Index)
   StructAtomicGet(AtomicOrder, Index, UInt)
   StructAtomicGetS(AtomicOrder, Index, UInt)
   StructAtomicGetU(AtomicOrder, Index, UInt)
-  StructAtomicRmw(@lib.AggregateAtomicRmwOp, Index, UInt)
-  StructAtomicCmpxchg(Index, UInt)
-  ArrayAtomicRmw(@lib.AggregateAtomicRmwOp, Index)
-  ArrayAtomicCmpxchg(Index)
+  StructAtomicRmw(AtomicOrder, @lib.AggregateAtomicRmwOp, Index, UInt)
+  StructAtomicCmpxchg(AtomicOrder, Index, UInt)
+  ArrayAtomicGet(AtomicOrder, Index)
+  ArrayAtomicGetS(AtomicOrder, Index)
+  ArrayAtomicGetU(AtomicOrder, Index)
+  ArrayAtomicRmw(AtomicOrder, @lib.AggregateAtomicRmwOp, Index)
+  ArrayAtomicCmpxchg(AtomicOrder, Index)
   StructNewDesc(Index)
   StructNewDefaultDesc(Index)
   RefGetDesc(Index)
@@ -460,7 +482,82 @@ pub impl @lib.PrettyPrint for Memory
 pub impl Show for Memory
 pub impl @quickcheck.Arbitrary for Memory
 
-pub struct MemoryType(Limits) derive(Eq, @debug.Debug)
+pub enum MemoryAtomicOp {
+  I32AtomicLoad
+  I64AtomicLoad
+  I32AtomicLoad8U
+  I32AtomicLoad16U
+  I64AtomicLoad8U
+  I64AtomicLoad16U
+  I64AtomicLoad32U
+  I32AtomicStore
+  I64AtomicStore
+  I32AtomicStore8
+  I32AtomicStore16
+  I64AtomicStore8
+  I64AtomicStore16
+  I64AtomicStore32
+  I32AtomicRmwAdd
+  I64AtomicRmwAdd
+  I32AtomicRmw8AddU
+  I32AtomicRmw16AddU
+  I64AtomicRmw8AddU
+  I64AtomicRmw16AddU
+  I64AtomicRmw32AddU
+  I32AtomicRmwSub
+  I64AtomicRmwSub
+  I32AtomicRmw8SubU
+  I32AtomicRmw16SubU
+  I64AtomicRmw8SubU
+  I64AtomicRmw16SubU
+  I64AtomicRmw32SubU
+  I32AtomicRmwAnd
+  I64AtomicRmwAnd
+  I32AtomicRmw8AndU
+  I32AtomicRmw16AndU
+  I64AtomicRmw8AndU
+  I64AtomicRmw16AndU
+  I64AtomicRmw32AndU
+  I32AtomicRmwOr
+  I64AtomicRmwOr
+  I32AtomicRmw8OrU
+  I32AtomicRmw16OrU
+  I64AtomicRmw8OrU
+  I64AtomicRmw16OrU
+  I64AtomicRmw32OrU
+  I32AtomicRmwXor
+  I64AtomicRmwXor
+  I32AtomicRmw8XorU
+  I32AtomicRmw16XorU
+  I64AtomicRmw8XorU
+  I64AtomicRmw16XorU
+  I64AtomicRmw32XorU
+  I32AtomicRmwXchg
+  I64AtomicRmwXchg
+  I32AtomicRmw8XchgU
+  I32AtomicRmw16XchgU
+  I64AtomicRmw8XchgU
+  I64AtomicRmw16XchgU
+  I64AtomicRmw32XchgU
+  I32AtomicRmwCmpxchg
+  I64AtomicRmwCmpxchg
+  I32AtomicRmw8CmpxchgU
+  I32AtomicRmw16CmpxchgU
+  I64AtomicRmw8CmpxchgU
+  I64AtomicRmw16CmpxchgU
+  I64AtomicRmw32CmpxchgU
+  MemoryAtomicNotify
+  MemoryAtomicWait32
+  MemoryAtomicWait64
+} derive(Eq, @debug.Debug)
+
+pub struct MemoryType {
+  min : UInt64
+  max : UInt64?
+  shared : Bool
+  memory64 : Bool
+} derive(Eq, @debug.Debug)
+pub fn MemoryType::new(UInt64, max? : UInt64?, shared? : Bool, memory64? : Bool) -> Self
 pub impl @lib.PrettyPrint for MemoryType
 pub impl Show for MemoryType
 pub impl @quickcheck.Arbitrary for MemoryType
@@ -497,12 +594,17 @@ pub enum Opcode {
   Nop
   Br
   BrIf
+  BrOnNull
+  BrOnNonNull
+  BrOnCastDescEq
+  BrOnCastDescEqFail
   BrTable
   Return
   Call
   CallIndirect
   ReturnCall
   ReturnCallIndirect
+  CallRef
   ReturnCallRef
   Throw
   ThrowRef
@@ -537,6 +639,11 @@ pub enum Opcode {
   StructGet
   StructGetS
   StructGetU
+  WaitqueueNew
+  WaitqueueNotify
+  StructWait
+  StructAtomicSet
+  ArrayAtomicSet
   StructAtomicGet
   StructAtomicGetS
   StructAtomicGetU
@@ -547,6 +654,9 @@ pub enum Opcode {
   StructAtomicRmwXor
   StructAtomicRmwXchg
   StructAtomicRmwCmpxchg
+  ArrayAtomicGet
+  ArrayAtomicGetS
+  ArrayAtomicGetU
   ArrayAtomicRmwAdd
   ArrayAtomicRmwSub
   ArrayAtomicRmwAnd
@@ -577,6 +687,8 @@ pub enum Opcode {
   TableCopy
   TableInit
   ElemDrop
+  MemoryAtomic(MemoryAtomicOp)
+  AtomicFence
   I32Load
   I64Load
   F32Load
@@ -1174,6 +1286,7 @@ pub enum TypeDefBody {
   Func(FuncType)
   Struct(Array[StructFieldDef])
   Array(StructFieldDef)
+  Shared(TypeDefBody)
 } derive(Eq, @debug.Debug)
 pub impl Show for TypeDefBody
 

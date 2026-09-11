@@ -1102,11 +1102,22 @@ test "heap2local preserves mixed array scratch write order" {
         ),
       ]),
     )
-  let before = module_.pretty_print_func(@lib.FuncIdx::new(0U))
-  let after = heap2local_run_module(module_).pretty_print_func(
-    @lib.FuncIdx::new(0U),
-  )
-  assert_eq(after, before)
+  let output = heap2local_run_module(module_)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let allocations : Array[Int] = []
+  for instr in body {
+    match instr {
+      @lib.ArrayNewDefault(@lib.TypeIdx(index)) =>
+        allocations.push(index.to_int())
+      @lib.StructNew(@lib.TypeIdx(index)) =>
+        allocations.push(10 + index.to_int())
+      _ => ()
+    }
+  }
+  // The first wrapper must capture the reference array before scratch is
+  // overwritten by the integer array, regardless of added capture locals.
+  @debug.assert_eq(allocations, [0, 12, 1, 12, 13])
+  assert_true(@validate.validate_module(output) is Ok(_))
 }
 
 ///|

@@ -1135,3 +1135,110 @@ test "simplify-locals retains loop-carried counter and removes unrelated copies"
   assert_eq(counter_writes, 2)
   assert_eq(scratch_accesses, 0)
 }
+
+///|
+test "simplify-locals retains the lane identity of captured multi-result calls" {
+  let source =
+    #|(module
+    #|  (type (;0;) (func (param i32 i32 i32) (result i32)))
+    #|  (type (;1;) (func (result i32)))
+    #|  (type (;2;) (func (result i32 i32 i32)))
+    #|  (type (;3;) (func (result i32 i32 i32)))
+    #|  (global (;0;) (mut i32) i32.const 0)
+    #|  (export "effects" (global 0))
+    #|  (export "run" (func 2))
+    #|  (func (;0;) (type 3) (result i32 i32 i32)
+    #|    (local i32)
+    #|    global.get 0
+    #|    i32.const 1
+    #|    i32.add
+    #|    global.set 0
+    #|    i32.const 42
+    #|    i32.const 101
+    #|    i32.const 202
+    #|  )
+    #|  (func (;1;) (type 0) (param i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.const 31
+    #|    i32.mul
+    #|    i32.add
+    #|    local.get 2
+    #|    i32.const 997
+    #|    i32.mul
+    #|    i32.add
+    #|  )
+    #|  (func (;2;) (type 1) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    call 0
+    #|    local.set 11
+    #|    local.set 12
+    #|    local.set 13
+    #|    local.get 11
+    #|    local.set 6
+    #|    local.get 12
+    #|    local.set 5
+    #|    local.get 13
+    #|    local.set 8
+    #|    local.get 5
+    #|    local.set 7
+    #|    block (type 2) (result i32 i32 i32) ;; label = @1
+    #|      local.get 8
+    #|      local.get 7
+    #|      local.get 6
+    #|    end
+    #|    local.set 14
+    #|    local.set 15
+    #|    local.set 16
+    #|    local.get 14
+    #|    local.set 6
+    #|    local.get 15
+    #|    local.set 10
+    #|    local.get 16
+    #|    local.set 9
+    #|    local.get 9
+    #|    local.get 10
+    #|    local.get 6
+    #|    call 1
+    #|  )
+    #|)
+  let output = match pass_test_run_pipeline(source, ["simplify-locals"]) {
+    Ok(output) => output
+    Err(err) => fail("tuple capture cleanup failed: \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[2]
+  @debug.assert_eq(dae2_test_count_calls(body), 2)
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) => fail("invalid tuple capture output: \{err}")
+  }
+}
+
+///|
+test "simplify-locals pending effect prefilter includes every ordered mask pair" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  // The fast aggregate filter may overapproximate, but must never hide an
+  // ordering conflict from the exact test used to decide whether to sink.
+  for lhs_bit = 0; lhs_bit < 10; lhs_bit = lhs_bit + 1 {
+    for rhs_bit = 0; rhs_bit < 10; rhs_bit = rhs_bit + 1 {
+      let sinkables = simplify_locals_new_sinkables(func)
+      let effects : SimplifyLocalsEffects = {
+        mask: 1U << lhs_bit,
+        local_reads: [0],
+        local_writes: [0],
+        global_reads: [0],
+        global_writes: [0],
+      }
+      simplify_locals_sinkables_set(sinkables, 0, { node_id: 0, effects, })
+      let rhs = 1U << rhs_bit
+      if simplify_locals_effects_ordered_before(effects, rhs, 0, 0, 0, 0) {
+        assert_true(
+          simplify_locals_sinkables_may_conflict(sinkables, rhs, 0, 0),
+          msg="missing pending/rhs effect pair \{lhs_bit}/\{rhs_bit}",
+        )
+      }
+    }
+  }
+}

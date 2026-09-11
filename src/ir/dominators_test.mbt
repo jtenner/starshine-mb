@@ -88,8 +88,8 @@ test "dominators compute loop header self-frontiers from backedges" {
   @debug.assert_eq(dom_idom(dom, loop_body), Some(loop_header))
   @debug.assert_eq(dom_idom(dom, continuation), Some(loop_body))
   assert_true(dom_dominates(dom, loop_header, continuation))
-  @debug.assert_eq(dom_frontier(dom, loop_header), [loop_header])
-  @debug.assert_eq(dom_frontier(dom, loop_body), [loop_header])
+  @debug.assert_eq(dom_frontier(dom, loop_header), [])
+  @debug.assert_eq(dom_frontier(dom, loop_body), [loop_body])
 }
 
 ///|

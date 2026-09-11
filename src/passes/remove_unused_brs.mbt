@@ -10896,6 +10896,10 @@ fn remove_unused_brs_null_bottom_ref_type(
       @lib.HeapType::abs(@lib.AbsHeapType::no_exn())
     @lib.AbsHeapTypeHeapType(@lib.ContAbsHeapType | @lib.NoContAbsHeapType) =>
       @lib.HeapType::abs(@lib.AbsHeapType::no_cont())
+    @lib.AbsHeapTypeHeapType(
+      @lib.WaitqueueAbsHeapType
+      | @lib.NoWaitqueueAbsHeapType
+    ) => @lib.HeapType::abs(@lib.AbsHeapType::no_waitqueue())
     @lib.AbsHeapTypeHeapType(_) => @lib.HeapType::abs(@lib.AbsHeapType::none())
     _ => return None
   }

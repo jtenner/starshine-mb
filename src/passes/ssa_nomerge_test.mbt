@@ -23767,33 +23767,25 @@ test "ssa-nomerge LocalGraph straight-line stack-carried tee keeps later gets li
       fail("expected stack-carried local.tee ssa-nomerge success, got \{err}")
   }
 
-  let (locals, instrs) = try! ssa_test_defined_func(optimized, 3)
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-    ]),
-  )
-  @debug.assert_eq(instrs, [
-    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
-    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-    @lib.Instruction::i32_const(@lib.I32(100)),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
-    @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
-    @lib.Instruction::i32_const(@lib.I32(200)),
-    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
-    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
-    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
-  ])
+  let output = optimized.code_sec.unwrap().0[3]
+  for input in [0L, 7L, -19L] {
+    let dropped : Array[Int64] = []
+    let result = scalar_fixture_run(
+      output,
+      [input],
+      call_params=[1, 2, 1],
+      call=Some(fn(index, args) {
+        if index == 2U {
+          dropped.push(args[0])
+          []
+        } else {
+          [args[0]]
+        }
+      }),
+    )
+    @debug.assert_eq(result, [100L])
+    @debug.assert_eq(dropped, [input, 100L])
+  }
   assert_true(
     trace.any(fn(line) {
       line.contains(
@@ -27341,7 +27333,7 @@ test "ssa-nomerge fails closed instead of aborting on unsupported atomic debris"
 }
 
 ///|
-test "ssa-nomerge loop-backedge admission fails closed on unsupported atomic fence" {
+test "ssa-nomerge loop-backedge planning preserves supported atomic fences" {
   let input = ssa_test_decode_wasm_bytes([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 5, 4, 1, 3,
     1, 1, 10, 32, 1, 30, 1, 1, 127, 254, 3, 0, 65, 1, 33, 0, 3, 64, 32, 0, 26, 65,
@@ -27357,7 +27349,7 @@ test "ssa-nomerge loop-backedge admission fails closed on unsupported atomic fen
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected unsupported loop-backedge admission to fail closed, got \{err}",
+        "expected loop-backedge planning with a supported fence to succeed, got \{err}",
       )
   }
 
@@ -27365,7 +27357,7 @@ test "ssa-nomerge loop-backedge admission fails closed on unsupported atomic fen
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-hot-lift-unsupported-noop",
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-merge-localgraph-plan",
       )
     }),
     msg=trace.join("\n"),
@@ -27373,7 +27365,7 @@ test "ssa-nomerge loop-backedge admission fails closed on unsupported atomic fen
 }
 
 ///|
-test "ssa-nomerge one-arm admission fails closed on unsupported atomic fence" {
+test "ssa-nomerge one-arm planning preserves supported atomic fences" {
   let input = ssa_test_decode_wasm_bytes([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 127, 1, 127, 3, 2, 1, 0, 5, 4, 1,
     3, 1, 1, 10, 20, 1, 18, 1, 1, 127, 254, 3, 0, 32, 0, 4, 64, 65, 7, 33, 1, 11,
@@ -27388,14 +27380,16 @@ test "ssa-nomerge one-arm admission fails closed on unsupported atomic fence" {
     ) {
     Ok(mod_) => mod_
     Err(err) =>
-      fail("expected unsupported one-arm admission to fail closed, got \{err}")
+      fail(
+        "expected one-arm planning with a supported fence to succeed, got \{err}",
+      )
   }
 
   @debug.assert_eq(optimized, input)
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[ssa-nomerge]:skip-raw reason=structured-one-arm-hot-lift-unsupported-noop",
+        "pass[ssa-nomerge]:skip-raw reason=structured-one-arm-merge-localgraph-plan",
       )
     }),
     msg=trace.join("\n"),
@@ -27403,7 +27397,7 @@ test "ssa-nomerge one-arm admission fails closed on unsupported atomic fence" {
 }
 
 ///|
-test "ssa-nomerge multisource admission fails closed on unsupported atomic fence" {
+test "ssa-nomerge multisource planning preserves supported atomic fences" {
   let input = ssa_test_decode_wasm_bytes([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 127, 1, 127, 3, 2, 1, 0, 5, 4, 1,
     3, 1, 1, 10, 25, 1, 23, 1, 1, 127, 254, 3, 0, 32, 0, 4, 64, 65, 7, 33, 1, 5,
@@ -27419,7 +27413,7 @@ test "ssa-nomerge multisource admission fails closed on unsupported atomic fence
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected unsupported multisource admission to fail closed, got \{err}",
+        "expected multisource planning with a supported fence to succeed, got \{err}",
       )
   }
 
@@ -27427,7 +27421,7 @@ test "ssa-nomerge multisource admission fails closed on unsupported atomic fence
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-hot-lift-unsupported-noop",
+        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
       )
     }),
     msg=trace.join("\n"),

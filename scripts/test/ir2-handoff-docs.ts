@@ -37,8 +37,10 @@ export function runIr2HandoffDocsTest(): void {
   assert(!agentTodo.includes("IR2 - 310"), "agent-todo.md still references completed slice IR2-310");
   assert(!agentTodo.includes("IR2 - 320"), "agent-todo.md still references completed slice IR2-320");
   assert(
-    agentTodo.includes("## Binaryen v131 O4z Pass Ledger") && agentTodo.includes("[V131-OI]001"),
-    "agent-todo.md must expose the active v131 pass ledger and OptimizeInstructions reassessment",
+    agentTodo.includes("## v0.2.0 Binaryen 132 Upgrade") &&
+      agentTodo.includes("[IR2-V132]") &&
+      agentTodo.includes("docs/wiki/binaryen/version-132-upgrade.md"),
+    "agent-todo.md must expose the active Binaryen 132 slice and its durable upgrade contracts",
   );
 }
 

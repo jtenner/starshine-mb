@@ -26,14 +26,35 @@ import {
 } from "./pass-fuzz-compare-task";
 
 describe("pass-fuzz persistent cache options", () => {
-  test("parses and requires an exact Binaryen release when requested", () => {
+  test("accepts the dedicated constraint analysis GenValid aggregate", () => {
+    const parsed = parsePassFuzzCompareArgs(["--pass", "constraint-analysis", "--gen-valid-profile", "constraint-analysis"]);
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") expect(parsed.options.passFlags).toEqual(["--constraint-analysis"]);
+  });
+  test("accepts Binaryen 132 DAE2 and threads closed world mode to the optimizer contract", () => {
+    const parsed = parsePassFuzzCompareArgs(["--pass", "dae2", "--closed-world", "--gen-valid-profile", "dae2"]);
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.passFlags).toEqual(["--dae2"]);
+      expect(parsed.options.optimizerFlags).toEqual(["--closed-world"]);
+    }
+  });
+  test("keeps independent validation by default and permits an explicit Binaryen proposal oracle", () => {
+    const defaults = parsePassFuzzCompareArgs(["--pass", "precompute"]);
+    const explicit = parsePassFuzzCompareArgs(["--pass", "precompute", "--primary-validator", "binaryen"]);
+    if (defaults.kind === "run") expect(defaults.options.primaryValidator).toBe("wasm-tools");
+    if (explicit.kind === "run") expect(explicit.options.primaryValidator).toBe("binaryen");
+    expect(() => parsePassFuzzCompareArgs(["--primary-validator", "unknown"])).toThrow();
+  });
+
+  test("defaults to Binaryen 132 and permits explicit historical replay", () => {
     const defaults = parsePassFuzzCompareArgs(["--pass", "vacuum"]);
     const required = parsePassFuzzCompareArgs([
       "--pass", "vacuum", "--require-binaryen-version", "131",
     ]);
 
     expect(defaults.kind).toBe("run");
-    if (defaults.kind === "run") expect(defaults.options.requiredBinaryenVersion).toBeNull();
+    if (defaults.kind === "run") expect(defaults.options.requiredBinaryenVersion).toBe("132");
     expect(required.kind).toBe("run");
     if (required.kind === "run") expect(required.options.requiredBinaryenVersion).toBe("131");
     expect(parseBinaryenVersionOutputForTest("wasm-opt version 131 (version_131)\n")).toBe("131");
@@ -1671,5 +1692,71 @@ describe("runtime import stubs", () => {
     const result = await smokeExecuteNodeRuntime(wasmPath);
 
     expect(result).toMatchObject({ ok: true, unsupported: false });
+  });
+});
+
+describe("semantic execution contract resume guard", () => {
+  test("refuses completed observations produced by an older intrinsic adapter", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-semantic-resume-"));
+    try {
+      const oracle = path.join(root, "wasm-opt");
+      const source = "#!/usr/bin/env node\nprocess.stdout.write('wasm-opt version 132 (version_132)\\n');\n";
+      fs.writeFileSync(oracle, source, { mode: 0o755 });
+      const crypto = require("node:crypto");
+      fs.writeFileSync(path.join(root, "toolchain.json"), JSON.stringify({
+        schema: "starshine.optimizer-toolchain.v1", primaryValidator: "wasm-tools",
+        requiredBinaryenVersion: "132",
+        binaryen: { version: "132", sha256: crypto.createHash("sha256").update(source).digest("hex") },
+        semanticOracle: "node-v2", semanticExecutionContract: "pre-intrinsic-adapter",
+      }));
+      fs.writeFileSync(path.join(root, "cases.jsonl"), JSON.stringify({
+        caseIndex: 1, generator: "gen-valid", status: "match", detail: "old observation",
+        semanticV2Outcome: { primary: "semantic-match", pattern: "all-equal" },
+      }) + "\n");
+      const result = spawnSync("bun", [
+        path.resolve(import.meta.dir, "..", "pass-fuzz-compare.ts"),
+        "--resume", "--count", "1", "--out-dir", root,
+        "--pass", "dae2", "--semantic-oracle", "node-v2",
+        "--wasm-opt-bin", oracle, "--wasm-tools-bin", oracle,
+        "--starshine-bin", oracle, "--gen-valid-bin", oracle,
+        "--require-binaryen-version", "132",
+      ], { encoding: "utf8", timeout: 15000 });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("--resume semantic execution contract differs");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("refuses completed observations produced by a different execution host", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-semantic-resume-"));
+    try {
+      const oracle = path.join(root, "wasm-opt");
+      const source = "#!/usr/bin/env node\nprocess.stdout.write('wasm-opt version 132 (version_132)\\n');\n";
+      fs.writeFileSync(oracle, source, { mode: 0o755 });
+      const crypto = require("node:crypto");
+      fs.writeFileSync(path.join(root, "toolchain.json"), JSON.stringify({
+        schema: "starshine.optimizer-toolchain.v1", primaryValidator: "wasm-tools",
+        requiredBinaryenVersion: "132",
+        binaryen: { version: "132", sha256: crypto.createHash("sha256").update(source).digest("hex") },
+        semanticOracle: "node-v2", semanticExecutionContract: "node-v2-intrinsic-calls-v1", semanticRuntimeIdentity: "node:v26.3.0",
+      }));
+      fs.writeFileSync(path.join(root, "cases.jsonl"), JSON.stringify({
+        caseIndex: 1, generator: "gen-valid", status: "match", detail: "old observation",
+        semanticV2Outcome: { primary: "semantic-match", pattern: "all-equal" },
+      }) + "\n");
+      const result = spawnSync("bun", [
+        path.resolve(import.meta.dir, "..", "pass-fuzz-compare.ts"),
+        "--resume", "--count", "1", "--out-dir", root,
+        "--pass", "dae2", "--semantic-oracle", "node-v2",
+        "--wasm-opt-bin", oracle, "--wasm-tools-bin", oracle,
+        "--starshine-bin", oracle, "--gen-valid-bin", oracle,
+        "--require-binaryen-version", "132",
+      ], { encoding: "utf8", timeout: 15000 });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("--resume semantic execution contract differs");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });

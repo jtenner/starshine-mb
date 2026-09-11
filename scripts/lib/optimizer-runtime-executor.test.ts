@@ -150,6 +150,10 @@ describe("three-way Node semantic oracle v2", () => {
     );
 
     expect(report.schema).toBe("starshine.optimizer-three-way-runtime-report.v1");
+    const expectedHost = process.versions.bun === undefined
+      ? `node:${process.version}` : `bun:${process.versions.bun}:javascriptcore`;
+    expect(report.original.runtime.identity).toBe(expectedHost);
+    expect(report.starshine.runtime.identity).toBe(expectedHost);
     expect(report.classification.primary).toBe("starshine-semantic-mismatch");
     expect(report.classification.pattern).toBe("only-starshine-differs");
     expect(report.originalVsStarshine.classification).toBe("semantic-mismatch");
@@ -535,5 +539,47 @@ describe("Node observation process lifetime", () => {
     const observation = await executeNodeObservationV2WithTimeout(good.wasmPath, runtimeInterface, plan, { ...options, timeoutMs: 1000 });
     expect(observation.completeness).toBe("complete");
     expect(observation.blockedReasons).toEqual([]);
+  });
+});
+
+test("relaxed SIMD inference requires an allowed-result oracle before semantic signoff", async () => {
+  const { wasmPath } = compileWat(`(module (func (export "run") (result i32)
+    v128.const i32x4 0 0 0 0
+    v128.const i32x4 0 0 0 0
+    v128.const i32x4 0 0 0 0
+    i32x4.relaxed_dot_i8x16_i7x16_add_s
+    i32x4.extract_lane 0))`);
+  const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+  expect(runtimeInterface.features).toContain("relaxed-simd");
+  const plan = buildInvocationPlanV2(runtimeInterface, { seed: 0x5eedn, maxPairwise: 0 });
+  const observation = await executeNodeObservationV2WithTimeout(wasmPath, runtimeInterface, plan, {
+    mode: "independent", timeoutMs: 1000, memoryCapBytes: 1024, tableEntryCap: 16,
+  });
+  // Execution remains available for diagnosis. Exact equality is not a
+  // universal semantic oracle for this proposal's permitted nondeterminism.
+  expect(observation.compilation.status).toBe("succeeded");
+  expect(observation.steps.length).toBeGreaterThan(0);
+  expect(observation.completeness).toBe("incomplete");
+  expect(observation.blockedReasons).toContain("relaxed-simd-allowed-result-oracle-unavailable");
+});
+
+describe("Binaryen call.without.effects runtime contract", () => {
+  test("executes the target and compares lowered calls without inventing an imported event", async () => {
+    const original = compileWat(`(module
+      (import "binaryen-intrinsics" "call.without.effects" (func $invoke (param i32 funcref) (result i32)))
+      (func $target (param i32) (result i32) local.get 0 i32.const 1 i32.add)
+      (elem declare func $target)
+      (func (export "run") (param i32) (result i32)
+        local.get 0 ref.func $target call $invoke))`);
+    const lowered = compileWat(`(module
+      (func $target (param i32) (result i32) local.get 0 i32.const 1 i32.add)
+      (func (export "run") (param i32) (result i32) local.get 0 call $target))`);
+    const report = await runNodeThreeWaySemanticOracleV2(original.wasmPath, lowered.wasmPath, lowered.wasmPath, {
+      seed: 0x5eedn, policy: "strict", mode: "independent", timeoutMs: 1000,
+      memoryCapBytes: 1024, tableEntryCap: 16,
+    });
+    expect(report.originalVsStarshine.classification).toBe("semantic-match");
+    expect(report.original.importTrace).toEqual([]);
+    expect(report.original.completeness).toBe("complete");
   });
 });

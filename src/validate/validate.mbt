@@ -11,6 +11,7 @@ pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
 
 ///|
 pub enum ValidationIssue {
+  FeaturePolicy(String)
   TypeSection(String)
   ImportSection(String)
   FunctionSection(String)
@@ -46,7 +47,8 @@ pub fn ValidationDiagnostic::new(
 ///|
 pub fn validation_issue_message(issue : ValidationIssue) -> String {
   match issue {
-    TypeSection(msg)
+    FeaturePolicy(msg)
+    | TypeSection(msg)
     | ImportSection(msg)
     | FunctionSection(msg)
     | TableSection(msg)
@@ -905,12 +907,13 @@ pub impl Validate for TagType with fn validate(self, env) {
     return Err(t)
   }
   match env.resolve_comptype(tidx) {
-    Some(FuncCompType(params, results)) => {
-      if results.length() != 0 {
-        return Err("Tag type must have empty result list")
+    Some(FuncCompType(params, results)) =>
+      // Suspension tags carry return values. Exception-only instructions
+      // enforce their empty-result restriction at the use site.
+      match Validate::validate(params, env) {
+        Err(err) => Err(err)
+        Ok(_) => Validate::validate(results, env)
       }
-      Validate::validate(params, env)
-    }
     _ => Err("TagType not found or not a function type")
   }
 }
@@ -1011,6 +1014,7 @@ fn validate_const_instr(env : Env, ins : Instruction) -> Result[Unit, String] {
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => Ok(())
     RefNull(rt) => Validate::validate(rt, env)
     RefFunc(_) => Ok(())
+    WaitqueueNew => Ok(())
     StringConst(_) => Ok(())
     StructNew(type_idx)
     | StructNewDefault(type_idx)
@@ -3381,11 +3385,40 @@ fn validate_module_impl(
 }
 
 ///|
+fn validate_module_feature_policy(
+  m : Module,
+  disabled_features : Array[ProposalFeature],
+) -> Result[Unit, ValidationError] {
+  if !disabled_features.is_empty() {
+    for feature in module_proposal_features(m) {
+      if disabled_features.contains(feature) {
+        return Err(
+          ValidationError::Validation(
+            ValidationDiagnostic::new(
+              FeaturePolicy(
+                "module requires disabled feature " +
+                proposal_feature_name(feature),
+              ),
+            ),
+          ),
+        )
+      }
+    }
+  }
+  Ok(())
+}
+
+///|
 pub fn validate_module_with_trace(
   m : Module,
   trace : (String) -> Unit,
   trace_all_funcs? : Bool = false,
+  disabled_features? : Array[ProposalFeature] = [],
 ) -> Result[Unit, ValidationError] {
+  match validate_module_feature_policy(m, disabled_features) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
   match validate_module_impl(m, trace~, trace_all_funcs~, trace_enabled=true) {
     Ok(_) => Ok(())
     Err(diag) => Err(ValidationError::Validation(diag))
@@ -3393,7 +3426,14 @@ pub fn validate_module_with_trace(
 }
 
 ///|
-pub fn validate_module(m : Module) -> Result[Unit, ValidationError] {
+pub fn validate_module(
+  m : Module,
+  disabled_features? : Array[ProposalFeature] = [],
+) -> Result[Unit, ValidationError] {
+  match validate_module_feature_policy(m, disabled_features) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
   match validate_module_impl(m) {
     Ok(_) => Ok(())
     Err(diag) => Err(ValidationError::Validation(diag))
@@ -5298,7 +5338,7 @@ fn gen_valid_gc_surface_facts_instr(
         has_struct_get: true,
         has_struct_set: true,
       }
-    StructSet(_, _) =>
+    StructSet(_, _) | StructAtomicSet(_, _, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_struct_set: true, }
     ArrayNew(_) | ArrayNewDefault(_) | ArrayNewFixed(_, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_array_new: true, }
@@ -5336,7 +5376,7 @@ fn gen_valid_gc_surface_facts_instr(
         has_array_get: true,
         has_array_set: true,
       }
-    ArraySet(_) | ArrayFill(_) | ArrayCopy(_, _) =>
+    ArrayAtomicSet(_, _) | ArraySet(_) | ArrayFill(_) | ArrayCopy(_, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_array_set: true, }
     ArrayInitData(_, _) =>
       {

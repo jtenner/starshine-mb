@@ -13,13 +13,13 @@ import {
 } from "./pass-performance-sweep";
 
 describe("pass performance sweep", () => {
-  test("requires the repository's Binaryen v131 oracle", () => {
+  test("requires the repository's Binaryen v132 oracle", () => {
     expect(() =>
-      assertBinaryenPerformanceVersion("wasm-opt version 131 (version_131)")
+      assertBinaryenPerformanceVersion("wasm-opt version 132 (version_132)")
     ).not.toThrow();
     expect(() =>
       assertBinaryenPerformanceVersion("wasm-opt version 130 (version_130)")
-    ).toThrow("expected Binaryen v131");
+    ).toThrow("expected Binaryen v132");
   });
 
   test("rejects an input or executable identity change during a campaign", () => {
@@ -56,7 +56,7 @@ describe("pass performance sweep", () => {
       "--starshine-bin",
       "starshine",
       "--wasm-opt-bin",
-      "wasm-opt-v131",
+      "wasm-opt-v132",
       "--out-dir",
       ".tmp/perf",
       "--warmup",
@@ -86,7 +86,7 @@ describe("pass performance sweep", () => {
       "--starshine-bin",
       "starshine",
       "--wasm-opt-bin",
-      "wasm-opt-v131",
+      "wasm-opt-v132",
     ];
     expect(() =>
       parsePassPerformanceSweepArgs([...base, "--samples", "3x"])
@@ -105,7 +105,7 @@ describe("pass performance sweep", () => {
       "--starshine-bin",
       "starshine",
       "--wasm-opt-bin",
-      "wasm-opt-v131",
+      "wasm-opt-v132",
     ];
     expect(() =>
       parsePassPerformanceSweepArgs([...base, "--samples", "2"])
@@ -124,7 +124,7 @@ describe("pass performance sweep", () => {
       "--starshine-bin",
       "starshine",
       "--wasm-opt-bin",
-      "wasm-opt-v131",
+      "wasm-opt-v132",
     ]);
     const plan = buildPassPerformanceSweepPlan(options);
 

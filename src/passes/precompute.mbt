@@ -2527,7 +2527,7 @@ fn precompute_atomic_aggregate_read_can_fold(
 ) -> Bool {
   match order {
     @lib.SeqCst => false
-    @lib.AcqRel => {
+    @lib.AcqRel | @lib.Relaxed => {
       let module_ctx = match ctx.module_ctx {
         Some(module_ctx) => module_ctx
         None => return false
@@ -9061,6 +9061,9 @@ fn precompute_raw_instr_has_hot_only_candidate(
     | @lib.StructGet(_, _)
     | @lib.StructGetS(_, _)
     | @lib.StructGetU(_, _)
+    | @lib.StructAtomicGet(_, _, _)
+    | @lib.StructAtomicGetS(_, _, _)
+    | @lib.StructAtomicGetU(_, _, _)
     | @lib.ArrayGet(_)
     | @lib.ArrayGetS(_)
     | @lib.ArrayGetU(_)
@@ -11692,7 +11695,8 @@ fn precompute_propagate_prefix_fold_local_gets(
   // Scalar reaching writes must include control nested in value operands.
   // The root-only SSA graph can miss loop-body copies in those conditions.
   let graph = @ir.local_graph_build(
-    func, @ir.cfg_build(func, expand_operand_control=true),
+    func,
+    @ir.cfg_build(func, expand_operand_control=true),
   )
   let states = Array::make(@ir.hot_node_count(func), 0)
   let value_consts : Array[@ir.HotConstPayload?] = Array::make(

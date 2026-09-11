@@ -12654,6 +12654,9 @@ fn dae_collect_used_type_idx_instrs(
       | @lib.StructGet(type_idx, _)
       | @lib.StructGetS(type_idx, _)
       | @lib.StructGetU(type_idx, _)
+      | @lib.StructWait(type_idx, _)
+      | @lib.StructAtomicSet(_, type_idx, _)
+      | @lib.ArrayAtomicSet(_, type_idx)
       | @lib.StructAtomicGet(_, type_idx, _)
       | @lib.StructAtomicGetS(_, type_idx, _)
       | @lib.StructAtomicGetU(_, type_idx, _)
@@ -12665,8 +12668,9 @@ fn dae_collect_used_type_idx_instrs(
       | @lib.ArrayAtomicGetU(_, type_idx)
       | @lib.ArrayAtomicRmw(_, _, type_idx)
       | @lib.ArrayAtomicCmpxchg(_, type_idx)
-      | @lib.ArrayLoad(_, type_idx)
-      | @lib.ArrayStore(_, type_idx) => dae_mark_used_type_idx(type_idx, used)
+      | @lib.ArrayLoad(_, type_idx, _)
+      | @lib.ArrayStore(_, type_idx, _) =>
+        dae_mark_used_type_idx(type_idx, used)
       @lib.ContBind(source_type, target_type)
       | @lib.ArrayCopy(source_type, target_type) => {
         dae_mark_used_type_idx(source_type, used)
@@ -13021,7 +13025,10 @@ fn dae_comp_type_has_indexed_heap_type(comp_type : @lib.CompType) -> Bool {
 }
 
 ///|
-fn dae_prune_unused_simple_func_types(mod_ : @lib.Module) -> @lib.Module {
+fn dae_prune_unused_simple_func_types(
+  mod_ : @lib.Module,
+  preserve_names? : Bool = false,
+) -> @lib.Module {
   let rec_types = match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => rec_types
     None => return mod_
@@ -13163,6 +13170,56 @@ fn dae_prune_unused_simple_func_types(mod_ : @lib.Module) -> @lib.Module {
   let mut next = mod_
     .with_type_sec(@lib.TypeSec::new(next_types))
     .without_name_sec()
+  if preserve_names {
+    match mod_.name_sec {
+      Some(names) => {
+        let type_names = match names.type_names {
+          Some(names) => rl_rewrite_name_map(names, remap)
+          None => None
+        }
+        let field_names = match names.field_names {
+          Some(@lib.IndirectNameMap(entries)) => {
+            let kept : Array[@lib.IndirectNameAssoc] = []
+            for entry in entries {
+              let @lib.IndirectNameAssoc(type_idx, fields) = entry
+              let old_idx = type_idx.to_int()
+              if old_idx >= 0 && old_idx < remap.length() && remap[old_idx] >= 0 {
+                kept.push(
+                  @lib.IndirectNameAssoc::new(
+                    remap[old_idx].reinterpret_as_uint(),
+                    fields,
+                  ),
+                )
+              }
+            }
+            if kept.is_empty() {
+              None
+            } else {
+              Some(@lib.IndirectNameMap::new(kept))
+            }
+          }
+          None => None
+        }
+        next = next.with_name_sec(
+          @lib.NameSec::new(
+            module_name=names.module_name,
+            func_names=names.func_names,
+            local_names=names.local_names,
+            label_names=names.label_names,
+            type_names~,
+            table_names=names.table_names,
+            memory_names=names.memory_names,
+            global_names=names.global_names,
+            elem_names=names.elem_names,
+            data_names=names.data_names,
+            field_names~,
+            tag_names=names.tag_names,
+          ),
+        )
+      }
+      None => ()
+    }
+  }
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) => {
       let rewritten : Array[@lib.Import] = []
@@ -13712,6 +13769,9 @@ fn dae_instrs_reference_type_slot(
       | @lib.StructGet(type_idx, _)
       | @lib.StructGetS(type_idx, _)
       | @lib.StructGetU(type_idx, _)
+      | @lib.StructWait(type_idx, _)
+      | @lib.StructAtomicSet(_, type_idx, _)
+      | @lib.ArrayAtomicSet(_, type_idx)
       | @lib.StructAtomicGet(_, type_idx, _)
       | @lib.StructAtomicGetS(_, type_idx, _)
       | @lib.StructAtomicGetU(_, type_idx, _)
@@ -13723,8 +13783,8 @@ fn dae_instrs_reference_type_slot(
       | @lib.ArrayAtomicGetU(_, type_idx)
       | @lib.ArrayAtomicRmw(_, _, type_idx)
       | @lib.ArrayAtomicCmpxchg(_, type_idx)
-      | @lib.ArrayLoad(_, type_idx)
-      | @lib.ArrayStore(_, type_idx) =>
+      | @lib.ArrayLoad(_, type_idx, _)
+      | @lib.ArrayStore(_, type_idx, _) =>
         if dae_type_idx_references_slot(type_idx, target_slot, -1) {
           return true
         }
@@ -14257,12 +14317,13 @@ fn dae_lub_gc_candidate_ref_type(
 }
 
 ///|
-fn dae_refined_gc_candidate_ref_type(
+// Exact allocation facts are useful internally, but new annotations must stay
+// within the input module's reference-type capability.
+fn dae_gc_emitted_type(
   mod_ : @lib.Module,
-  old_type : @lib.ValType,
   candidate_type : @lib.ValType,
-) -> @lib.ValType? {
-  let candidate_type = match candidate_type {
+) -> @lib.ValType {
+  match candidate_type {
     @lib.RefTypeValType(ref_type) if ref_type.is_exact() &&
       !@lib.module_uses_custom_descriptors(mod_) =>
       @lib.ValType::ref_type(
@@ -14270,6 +14331,15 @@ fn dae_refined_gc_candidate_ref_type(
       )
     _ => candidate_type
   }
+}
+
+///|
+fn dae_refined_gc_candidate_ref_type(
+  mod_ : @lib.Module,
+  old_type : @lib.ValType,
+  candidate_type : @lib.ValType,
+) -> @lib.ValType? {
+  let candidate_type = dae_gc_emitted_type(mod_, candidate_type)
   match (old_type, candidate_type) {
     (
       @lib.RefTypeValType(
@@ -15187,11 +15257,12 @@ fn dae_single_result_control_pair_application_is_consistent(
 fn dae_apply_single_result_control_pair_gc_evidence(
   evidence : DaeSingleResultControlPairGcEvidence,
   result_is_void : Bool,
+  annotation_type? : @lib.ValType? = None,
 ) -> (@lib.Instruction, DaeSingleResultControlPairApplicationEvidence)? {
   let block_type = if result_is_void {
     @lib.BlockType::void_()
   } else {
-    @lib.BlockType::val_type(evidence.candidate)
+    @lib.BlockType::val_type(annotation_type.unwrap_or(evidence.candidate))
   }
   let application = {
     result_is_void,
@@ -15285,7 +15356,10 @@ fn dae_single_result_control_pair_repair_evidence(
         None => return None
       }
       let rewritten_else_body = match
-        dae_rewrite_single_result_null_body(else_body, nullable) {
+        dae_rewrite_single_result_null_body(
+          else_body,
+          dae_gc_emitted_type(mod_, nullable),
+        ) {
         Some(body) => body
         None => return None
       }
@@ -15305,7 +15379,10 @@ fn dae_single_result_control_pair_repair_evidence(
         None => return None
       }
       let rewritten_then_body = match
-        dae_rewrite_single_result_null_body(then_body, nullable) {
+        dae_rewrite_single_result_null_body(
+          then_body,
+          dae_gc_emitted_type(mod_, nullable),
+        ) {
         Some(body) => body
         None => return None
       }
@@ -15321,7 +15398,11 @@ fn dae_single_result_control_pair_repair_evidence(
     (None, None) => return None
   }
   let (rewritten, application) = match
-    dae_apply_single_result_control_pair_gc_evidence(pair, result_is_void) {
+    dae_apply_single_result_control_pair_gc_evidence(
+      pair,
+      result_is_void,
+      annotation_type=Some(dae_gc_emitted_type(mod_, pair.candidate)),
+    ) {
     Some(result) => result
     None => return None
   }
@@ -15567,7 +15648,7 @@ fn dae_single_result_control_gc_candidate_evidence(
     Some((candidate, rewritten_body_opt)) => {
       let rewrite = dae_single_body_control_rewrite_evidence(
         shape,
-        @lib.BlockType::val_type(candidate),
+        @lib.BlockType::val_type(dae_gc_emitted_type(mod_, candidate)),
         rewritten_body_opt,
       )
       Some({ candidate, rewrite, })
@@ -15776,7 +15857,7 @@ fn dae_direct_gc_result_candidate_instr(
               candidate,
               Some(
                 @lib.Instruction::try_(
-                  @lib.BlockType::val_type(candidate),
+                  @lib.BlockType::val_type(dae_gc_emitted_type(mod_, candidate)),
                   @lib.Expr::new(rewritten_body),
                   catches,
                   delegate~,
@@ -49266,15 +49347,15 @@ fn dae_count_touched(touched : Array[Bool]) -> Int {
 }
 
 ///|
-fn dae_val_type_is_exact_nonnull_ref(vt : @lib.ValType) -> Bool {
+fn dae_val_type_is_nonnull_ref(vt : @lib.ValType) -> Bool {
   match vt {
-    @lib.RefTypeValType(@lib.HeapTypeRefType(false, true, _)) => true
+    @lib.RefTypeValType(ref_type) => ref_type.is_non_nullable()
     _ => false
   }
 }
 
 ///|
-fn dae_fold_exact_nonnull_ref_is_null_func(
+fn dae_fold_nonnull_ref_is_null_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
 ) -> (@lib.Func, Bool) {
@@ -49284,7 +49365,7 @@ fn dae_fold_exact_nonnull_ref_is_null_func(
       let slot = dae_local_idx_slot(local_idx)
       if slot >= 0 &&
         slot < params.length() &&
-        dae_val_type_is_exact_nonnull_ref(params[slot]) {
+        dae_val_type_is_nonnull_ref(params[slot]) {
         return (
           @lib.Func::new(
             locals,
@@ -49300,7 +49381,7 @@ fn dae_fold_exact_nonnull_ref_is_null_func(
 }
 
 ///|
-fn dae_fold_touched_exact_nonnull_ref_is_null(
+fn dae_fold_touched_nonnull_ref_is_null(
   mod_ : @lib.Module,
   touched : Array[Bool],
 ) -> (@lib.Module, Bool) {
@@ -49319,7 +49400,7 @@ fn dae_fold_touched_exact_nonnull_ref_is_null(
         Some(@lib.FuncType(params, _)) => params
         None => []
       }
-      let (rewritten, func_changed) = dae_fold_exact_nonnull_ref_is_null_func(
+      let (rewritten, func_changed) = dae_fold_nonnull_ref_is_null_func(
         funcs[def_idx],
         params,
       )
@@ -49546,11 +49627,11 @@ fn dae_run_nested_cleanup(
   trace(
     "pass[dae-optimizing]:nested-cleanup touched=\{dae_count_touched(touched)} prefix=precompute-propagate",
   )
-  let (folded, folded_changed) = dae_fold_touched_exact_nonnull_ref_is_null(
+  let (folded, folded_changed) = dae_fold_touched_nonnull_ref_is_null(
     mod_, touched,
   )
   if folded_changed {
-    trace("pass[dae-optimizing]:nested-cleanup exact-ref-is-null-fold")
+    trace("pass[dae-optimizing]:nested-cleanup nonnull-ref-is-null-fold")
     return folded
   }
   // The active hot-pipeline runner is whole-module; Binaryen's helper is

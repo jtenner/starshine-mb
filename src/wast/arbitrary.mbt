@@ -101,10 +101,15 @@ fn wast_arbitrary_count_instructions(
       | If(_, _, _)
       | Br(_)
       | BrIf(_)
+      | BrOnNull(_)
+      | BrOnNonNull(_)
+      | BrOnCastDescEq(_, _, _)
+      | BrOnCastDescEqFail(_, _, _)
       | BrTable(_, _)
       | Return
       | Call(_)
-      | CallIndirect(_, _) =>
+      | CallIndirect(_, _)
+      | CallRef(_) =>
         { ..wast_arbitrary_empty_feature_stats(), control_ops: 1, }
       ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
         {
@@ -134,8 +139,23 @@ fn wast_arbitrary_count_instructions(
           table_ops: 1,
           bulk_table_ops: 1,
         }
-      Load(_, _) | Store(_, _) | MemorySize | MemoryGrow =>
-        { ..wast_arbitrary_empty_feature_stats(), memory_ops: 1, }
+      ArrayLoad(op, _, _) | ArrayStore(op, _, _) =>
+        {
+          ..wast_arbitrary_empty_feature_stats(),
+          reference_ops: 1,
+          memory_ops: 1,
+          simd_ops: if op is V128Load || op is V128Store {
+            1
+          } else {
+            0
+          },
+        }
+      MemoryAtomic(_, _, _, _)
+      | AtomicFence(_)
+      | Load(_, _)
+      | Store(_, _)
+      | MemorySize
+      | MemoryGrow => { ..wast_arbitrary_empty_feature_stats(), memory_ops: 1, }
       MemoryFill | MemoryCopy | MemoryInit(_) | DataDrop(_) =>
         {
           ..wast_arbitrary_empty_feature_stats(),
@@ -167,13 +187,21 @@ fn wast_arbitrary_count_instructions(
       | StructGet(_, _)
       | StructGetS(_, _)
       | StructGetU(_, _)
+      | WaitqueueNew
+      | WaitqueueNotify
+      | StructWait(_, _)
+      | StructAtomicSet(_, _, _)
+      | ArrayAtomicSet(_, _)
       | StructAtomicGet(_, _, _)
       | StructAtomicGetS(_, _, _)
       | StructAtomicGetU(_, _, _)
-      | StructAtomicRmw(_, _, _)
-      | StructAtomicCmpxchg(_, _)
-      | ArrayAtomicRmw(_, _)
-      | ArrayAtomicCmpxchg(_)
+      | StructAtomicRmw(_, _, _, _)
+      | StructAtomicCmpxchg(_, _, _)
+      | ArrayAtomicGet(_, _)
+      | ArrayAtomicGetS(_, _)
+      | ArrayAtomicGetU(_, _)
+      | ArrayAtomicRmw(_, _, _)
+      | ArrayAtomicCmpxchg(_, _)
       | StructNewDesc(_)
       | StructNewDefaultDesc(_)
       | RefGetDesc(_) =>
@@ -267,7 +295,7 @@ pub fn wast_arbitrary_feature_stats(mod : Module) -> WastArbitraryFeatureStats {
     let current = match field {
       TypeField(t) =>
         match t.body {
-          Struct(_) | Array(_) =>
+          Struct(_) | Array(_) | Shared(_) =>
             { ..wast_arbitrary_empty_feature_stats(), gc_type_fields: 1, }
           _ => wast_arbitrary_empty_feature_stats()
         }
@@ -717,7 +745,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
     MemoryField({
       id: Some("$mem0"),
       exports: [],
-      memory_type: MemoryType({ min: 1, max: Some(2), }),
+      memory_type: MemoryType::new(1UL, max=Some(2UL)),
     }),
   )
   fields.push(
@@ -777,6 +805,7 @@ fn gen_module(size : Int, st : RandomState) -> Module {
     fields.push(
       ElemField({
         id: None,
+        declarative: false,
         table_index: Num(0),
         offset: [Const(I32Const, "0")],
         func_indices: funcs,
@@ -914,7 +943,11 @@ pub impl Arbitrary for TableType with fn arbitrary(_, st) {
 
 ///|
 pub impl Arbitrary for MemoryType with fn arbitrary(_, st) {
-  MemoryType(Arbitrary::arbitrary(2, st))
+  let limits : Limits = Arbitrary::arbitrary(2, st)
+  MemoryType::new(
+    limits.min.to_uint64(),
+    max=limits.max.map(fn(value) { value.to_uint64() }),
+  )
 }
 
 ///|
@@ -1166,6 +1199,7 @@ pub impl Arbitrary for ElemSegment with fn arbitrary(size, st) {
   }
   {
     id: None,
+    declarative: false,
     table_index: Num(0),
     offset: [Const(I32Const, "0")],
     func_indices: funcs,

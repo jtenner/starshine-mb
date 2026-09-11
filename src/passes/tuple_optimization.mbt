@@ -2162,6 +2162,7 @@ fn tuple_optimization_find_overlap_lane_between_groups(
 
 ///|
 fn tuple_optimization_count_lane_traffic(
+  func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
@@ -2169,6 +2170,93 @@ fn tuple_optimization_count_lane_traffic(
   copy_read_nodes : @bitset.BitSet,
   copy_write_nodes : @bitset.BitSet,
 ) -> Unit {
+  // Lifting may materialize every lane before an overlapping destination
+  // write. A single-definition captured lane copied back to its exact source
+  // lane preserves that value; it is not an unrelated overwrite. Other writes
+  // still make the source group bad and propagate to its connected copies.
+  for group in groups {
+    let source = match group.copy_source {
+      Some(index) if index >= 0 && index < groups.length() => groups[index]
+      _ => continue
+    }
+    for lane in 0..<group.lane_locals.length() {
+      if lane >= source.lane_locals.length() {
+        continue
+      }
+      let payload = match group.copy_payload_locals {
+        Some(values) if lane < values.length() => values[lane]
+        _ => continue
+      }
+      if payload != source.lane_locals[lane] {
+        continue
+      }
+      let local_id = group.lane_locals[lane]
+      let writes = @ir.local_write_nodes_borrowed(use_def, local_id)
+      if writes.length() != 1 || writes[0] != group.defining_nodes[lane] {
+        continue
+      }
+      for read in @ir.local_read_nodes_borrowed(use_def, local_id) {
+        let sites = @ir.node_use_sites_borrowed(use_def, read)
+        if sites.length() != 1 {
+          continue
+        }
+        let site = sites[0]
+        if site.kind is @ir.HotUseSlotKind::ChildUseSlot {
+          let write = @ir.hot_node_get(func, site.user)
+          if write.op is @ir.HotOp::LocalSet &&
+            write.imm0 == source.lane_locals[lane] {
+            let first = match
+              tuple_optimization_find_root_slot_with_use_def(
+                func,
+                use_def,
+                writes[0],
+                lane,
+              ) {
+              Some(slot) => slot
+              None => continue
+            }
+            let last = match
+              tuple_optimization_find_root_slot_with_use_def(
+                func,
+                use_def,
+                site.user,
+                lane,
+              ) {
+              Some(slot) => slot
+              None => continue
+            }
+            if first.region_ref != last.region_ref ||
+              first.slot >= last.slot ||
+              last.slot - first.slot > 2 * group.lane_locals.length() {
+              continue
+            }
+            let mut unchanged = true
+            for index = first.slot + 1; index < last.slot; index = index + 1 {
+              let root = @ir.hot_region_get(func, first.region_ref, index)
+              let node = @ir.hot_node_get(func, root)
+              if node.op is @ir.HotOp::LocalSet &&
+                node.imm0 != write.imm0 &&
+                (
+                  group.defining_nodes.contains(root) ||
+                  (
+                    node.child_count == 1 &&
+                    @ir.hot_node_get(func, @ir.hot_child_get(func, root, 0)).op
+                    is @ir.HotOp::LocalGet
+                  )
+                ) {
+                continue
+              }
+              unchanged = false
+              break
+            }
+            if unchanged {
+              copy_write_nodes[site.user] = true
+            }
+          }
+        }
+      }
+    }
+  }
   for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
     for lane_idx = 0
         lane_idx < groups[group_id].lane_locals.length()
@@ -2390,7 +2478,7 @@ fn tuple_optimization_analyze_with_groups(
     perf, "detail:tuple-optimization:count-lane-traffic",
   )
   tuple_optimization_count_lane_traffic(
-    use_def, query_summary, groups, local_group_ids, copy_read_nodes, copy_write_nodes,
+    func, use_def, query_summary, groups, local_group_ids, copy_read_nodes, copy_write_nodes,
   )
   perf_stop_timer_opt(
     perf, "detail:tuple-optimization:count-lane-traffic", count_traffic_start_us,
@@ -5677,6 +5765,9 @@ fn tuple_optimization_rewrite_group_defs(
   elide_simple_drop_only_source? : Bool = false,
 ) -> Unit {
   let actual_host_lane = tuple_optimization_group_host_lane(group)
+  let original_def_orders = group.defining_nodes.map(fn(node) {
+    @ir.hot_node_get(func, node).order
+  })
   if elide_simple_drop_only_source {
     let elide_start_us = perf_start_timer_opt(
       ctx.perf,
@@ -6204,6 +6295,52 @@ fn tuple_optimization_rewrite_group_defs(
       }
     }
     _ => ()
+  }
+  // These reads now depend on the replacement carrier, whose definitions
+  // were built after the original reads. Refresh the read evaluation orders
+  // only for single-definition lanes copied by later roots in the same region.
+  if actual_host_lane is None && group.copy_source is Some(_) {
+    match no_host_root_carrier_slot {
+      Some(carrier) =>
+        for lane in 0..<group.lane_locals.length() {
+          let local_id = group.lane_locals[lane]
+          if @ir.local_write_nodes_borrowed(use_def, local_id).length() != 1 {
+            continue
+          }
+          for read in @ir.local_read_nodes_borrowed(use_def, local_id) {
+            if @ir.hot_node_get(func, read).order <= original_def_orders[lane] {
+              continue
+            }
+            let sites = @ir.node_use_sites_borrowed(use_def, read)
+            if sites.length() != 1 {
+              continue
+            }
+            let site = sites[0]
+            if !(site.kind is @ir.HotUseSlotKind::ChildUseSlot) ||
+              !(@ir.hot_node_get(func, site.user).op is @ir.HotOp::LocalSet) {
+              continue
+            }
+            match
+              tuple_optimization_find_root_slot_with_use_def(
+                func,
+                use_def,
+                site.user,
+                lane,
+              ) {
+              Some(slot) if slot.region_ref == carrier.region_ref &&
+                slot.slot > carrier.slot =>
+                tuple_optimization_replace_with_built(
+                  ctx,
+                  func,
+                  read,
+                  @ir.hot_build_local_get(func, local_id),
+                )
+              _ => ()
+            }
+          }
+        }
+      None => ()
+    }
   }
 }
 

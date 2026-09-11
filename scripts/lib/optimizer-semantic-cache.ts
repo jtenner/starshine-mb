@@ -1,6 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { optimizerRuntimeIdentity } from "./optimizer-runtime";
+
+// Shared by cache keys and resumable run manifests.
+export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-intrinsic-calls-v1";
 
 export type SemanticCacheKeyInput = {
   original: Uint8Array;
@@ -13,6 +17,7 @@ export type SemanticCacheKeyInput = {
   memoryCapBytes: number;
   tableEntryCap: number;
   runtimeVersion: string;
+  runtimeIdentity?: string;
 };
 
 type SemanticCacheEntry = {
@@ -28,6 +33,10 @@ function sha256(bytes: Uint8Array): string {
 export function buildSemanticCacheKey(input: SemanticCacheKeyInput): string {
   const identity = {
     schema: "starshine.optimizer-semantic-cache-key.v1",
+    // Bump when the adapter's observable semantics change. In particular,
+    // pre-132 intrinsic reports used ordinary import stubs instead of invoking
+    // the function reference and cannot establish current semantic equality.
+    executionContract: SEMANTIC_EXECUTION_CONTRACT,
     originalSha256: sha256(input.original),
     starshineSha256: sha256(input.starshine),
     binaryenSha256: input.binaryen === null ? null : sha256(input.binaryen),
@@ -38,6 +47,7 @@ export function buildSemanticCacheKey(input: SemanticCacheKeyInput): string {
     memoryCapBytes: input.memoryCapBytes,
     tableEntryCap: input.tableEntryCap,
     runtimeVersion: input.runtimeVersion,
+    runtimeIdentity: input.runtimeIdentity ?? optimizerRuntimeIdentity(),
   };
   return `sha256:${crypto.createHash("sha256").update(JSON.stringify(identity)).digest("hex")}`;
 }

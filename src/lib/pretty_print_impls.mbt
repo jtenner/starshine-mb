@@ -38,6 +38,8 @@ fn pretty_abs_heap_type(abs_heap_type : AbsHeapType) -> String {
     NoFuncAbsHeapType => "NoFunc"
     NoExnAbsHeapType => "NoExn"
     NoContAbsHeapType => "NoCont"
+    WaitqueueAbsHeapType => "Waitqueue"
+    NoWaitqueueAbsHeapType => "NoWaitqueue"
   }
 }
 

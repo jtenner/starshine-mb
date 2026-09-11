@@ -11741,7 +11741,7 @@ test "flatten intentionally defers value if results consumed by calls across glo
 }
 
 ///|
-test "flatten defers nested scalar producers carried across global writes" {
+test "flatten preserves nested scalar producers carried across global writes" {
   // WAGO fuzzcase 1793a carries the nested i64 producer beneath the first
   // global.set. Flatten's early spill insertion placed local.get before the
   // producer's local.set, preserving validation but deleting the b update.
@@ -11755,7 +11755,10 @@ test "flatten defers nested scalar producers carried across global writes" {
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+  assert_true(flatten_run(ctx, func).changed)
+  let globals = [0L, 0L]
+  @debug.assert_eq(scalar_fixture_run(@ir.hot_lower_func(func), [], globals~), [])
+  @debug.assert_eq(globals, [1065353216L, 1L])
 }
 
 ///|

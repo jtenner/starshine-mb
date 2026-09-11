@@ -150,3 +150,123 @@ test "hot lower respects an inserted definition before an existing consumer" {
     ]),
   )
 }
+
+///|
+test "lift preserves a pending throwing call before a conflicting local write" {
+  for capture_stack_locals in [false, true] {
+    let source =
+      #|(module
+      #|  (import "env" "may_throw" (func (result i32)))
+      #|  (func (param i32) (result i32)
+      #|    (try (result i32)
+      #|      (do call 0 local.get 0 i32.const 9 local.set 0 i32.add)
+      #|      (catch_all local.get 0))))
+    let input = @wast.wast_to_binary_module(source).unwrap()
+    let hot = hot_lift_func_with_context_result(
+      input,
+      @lib.FuncIdx::new(1U),
+      hot_module_context_from_module(input),
+      capture_stack_locals~,
+      materialize_multi_values=true,
+    ).unwrap()
+    let accesses = hot_lift_local_accesses(hot)
+    @debug.assert_eq(accesses.gets.length(), 2)
+    @debug.assert_eq(accesses.writes.length(), 1)
+    @debug.assert_eq(accesses.local_count, 1)
+    let @lib.Func(_, @lib.Expr(body)) = hot_lower_func(hot)
+    let events : Array[Int] = []
+    fn visit(body : Array[@lib.Instruction]) -> Unit {
+      for instruction in body {
+        match instruction {
+          @lib.Call(@lib.FuncIdx(0U)) => events.push(0)
+          @lib.LocalSet(@lib.LocalIdx(0U)) => events.push(1)
+          @lib.Block(_, @lib.Expr(nested))
+          | @lib.Try(_, @lib.Expr(nested), _, _)
+          | @lib.TryTable(_, _, @lib.Expr(nested)) => visit(nested)
+          _ => ()
+        }
+      }
+    }
+    visit(body)
+    // If the import throws, the handler must still observe the incoming local.
+    @debug.assert_eq(events, [0, 1])
+  }
+}
+
+///|
+test "hot lower keeps a later tee after an inserted earlier control root" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let early_read = hot_build_local_get(func, 0)
+  let early_store = hot_build_local_set(func, 1, early_read)
+  let later_write = hot_build_local_tee(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(2)),
+  )
+  let later_consumer = hot_build_drop(func, later_write)
+  // A pass wraps an existing earlier operation after the later nodes exist.
+  // Region order still places its read before the later write.
+  let earlier_control = hot_build_block(func, @lib.BlockType::void_(), [
+    early_store,
+  ])
+  hot_append_root(func, earlier_control)
+  hot_append_root(func, later_consumer)
+  let @lib.Expr(body) = hot_lower_body(func)
+  assert_true(body.length() > 0)
+  assert_true(body[0] is @lib.Block(_, _), msg=body.to_string())
+}
+
+///|
+test "hot lower respects an inserted write before a later existing tee" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let later_write = hot_build_local_tee(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(2)),
+  )
+  let later_consumer = hot_build_drop(func, later_write)
+  let inserted_write = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(42)),
+  )
+  hot_append_root(func, inserted_write)
+  hot_append_root(func, later_consumer)
+  let @lib.Expr(body) = hot_lower_body(func)
+  @debug.assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(42)))
+}
+
+///|
+test "hot lower preserves an old carried tee before a newly wrapped write" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let carried = hot_build_local_tee(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(2)),
+  )
+  let old_write = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(42)),
+  )
+  let consumer = hot_build_drop(func, carried)
+  let wrapper = hot_build_block(func, @lib.BlockType::void_(), [old_write])
+  hot_append_root(func, wrapper)
+  hot_append_root(func, consumer)
+  let @lib.Expr(body) = hot_lower_body(func)
+  @debug.assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(2)))
+}
+
+///|
+test "hot lower respects a newly inserted call before an existing consumer" {
+  let func = HotFunc::new()
+  let value = hot_build_call(func, 0, [@lib.ValType::i32()], [])
+  let consumer = hot_build_drop(func, value)
+  let inserted = hot_build_call(func, 1, [], [])
+  hot_append_root(func, inserted)
+  hot_append_root(func, consumer)
+  let @lib.Expr(body) = hot_lower_body(func)
+  @debug.assert_eq(body[0], @lib.Instruction::call(@lib.FuncIdx::new(1U)))
+}

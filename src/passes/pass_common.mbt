@@ -25,6 +25,10 @@ pub fn pass_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
           mark_label(label_id)
         }
       }
+      @ir.HotOp::Continuation =>
+        for label_id in @ir.hot_continuation_targets(func, node_id) {
+          mark_label(label_id)
+        }
       @ir.HotOp::TryTable => {
         let info = @ir.hot_catch_info_get(func, node.imm1)
         for catch_ in info.catches {
@@ -88,8 +92,8 @@ fn pass_effect_masks_can_reorder(
   let second_memory = second &
     (@ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_MEMORY_WRITE)
   if first_memory != 0U && second_memory != 0U {
-    // The boundary IR does not retain regular atomic ordering, so keep even
-    // read/read memory pairs ordered instead of accidentally crossing seqcst.
+    // This coarse motion check keeps all memory pairs ordered. Precise atomic
+    // consumers additionally use the shared directional order masks.
     return false
   }
   let first_table = first &
@@ -206,6 +210,8 @@ pub fn pass_raw_instr_is_branch_control(instr : @lib.Instruction) -> Bool {
     | @lib.Instruction::BrOnNonNull(_)
     | @lib.Instruction::BrOnCast(_, _, _, _)
     | @lib.Instruction::BrOnCastFail(_, _, _, _)
+    | @lib.Instruction::BrOnCastDescEq(_, _, _)
+    | @lib.Instruction::BrOnCastDescEqFail(_, _, _)
     | @lib.Instruction::Return
     | @lib.Instruction::ReturnCall(_)
     | @lib.Instruction::ReturnCallIndirect(_, _)
@@ -916,5 +922,27 @@ fn pass_value_operand_count(func : @ir.HotFunc, node_id : Int) -> Int {
       )
     @ir.HotOp::If => 1
     _ => @ir.hot_child_count(func, node_id)
+  }
+}
+
+///|
+fn pass_can_discard_unused_value(func : @ir.HotFunc, node : Int) -> Bool {
+  let op = @ir.hot_node_get(func, node).op
+  match op {
+    @ir.Nop
+    | @ir.Const
+    | @ir.LocalGet
+    | @ir.GlobalGet
+    | @ir.RefNull
+    | @ir.RefFunc
+    | @ir.Drop
+    | @ir.TupleMake
+    | @ir.TupleExtract => true
+    @ir.Unary | @ir.Compare | @ir.Select | @ir.RefIsNull | @ir.RefTest => true
+    @ir.Binary => vacuum_binary_is_nontrapping(func, node)
+    @ir.Convert =>
+      vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node))
+    @ir.Simd => vacuum_simd_is_nontrapping(@ir.hot_node_exact_instr(func, node))
+    _ => false
   }
 }

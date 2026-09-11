@@ -32,6 +32,69 @@ pub const EFFECT_MASK_TABLE_READ : EffectMask = 256U
 pub const EFFECT_MASK_TABLE_WRITE : EffectMask = 512U
 
 ///|
+pub const EFFECT_MASK_ATOMIC_READ : EffectMask = 1024U
+
+///|
+pub const EFFECT_MASK_ATOMIC_WRITE : EffectMask = 2048U
+
+///|
+pub const EFFECT_MASK_ACQUIRE : EffectMask = 4096U
+
+///|
+pub const EFFECT_MASK_RELEASE : EffectMask = 8192U
+
+///|
+pub const EFFECT_MASK_SEQ_CST : EffectMask = 16384U
+
+///|
+pub fn effects_atomic_order_mask(
+  order : @lib.AtomicOrder,
+  read~ : Bool,
+  write~ : Bool,
+) -> EffectMask {
+  let mut mask = 0U
+  if read {
+    mask = mask | EFFECT_MASK_ATOMIC_READ
+  }
+  if write {
+    mask = mask | EFFECT_MASK_ATOMIC_WRITE
+  }
+  match order {
+    @lib.Relaxed => ()
+    @lib.AcqRel => {
+      if read {
+        mask = mask | EFFECT_MASK_ACQUIRE
+      }
+      if write {
+        mask = mask | EFFECT_MASK_RELEASE
+      }
+    }
+    @lib.SeqCst => mask = mask | EFFECT_MASK_SEQ_CST
+  }
+  mask
+}
+
+///|
+// Whether the earlier expression must stay before the later expression due
+// to synchronization. Alias and trap checks remain independently required.
+// The v132 relaxed load/store edge applies even across disjoint heap classes.
+pub fn effects_atomic_orders_conflict(
+  earlier : EffectMask,
+  later : EffectMask,
+  earlier_shared~ : Bool,
+  later_shared~ : Bool,
+) -> Bool {
+  (
+    (earlier & EFFECT_MASK_ATOMIC_READ) != 0U &&
+    (later & EFFECT_MASK_ATOMIC_WRITE) != 0U
+  ) ||
+  ((earlier & EFFECT_MASK_ACQUIRE) != 0U && later_shared) ||
+  ((later & EFFECT_MASK_RELEASE) != 0U && earlier_shared) ||
+  ((earlier & EFFECT_MASK_SEQ_CST) != 0U && later_shared) ||
+  ((later & EFFECT_MASK_SEQ_CST) != 0U && earlier_shared)
+}
+
+///|
 fn effects_has(mask : EffectMask, bit : EffectMask) -> Bool {
   (mask & bit) != 0U
 }
@@ -60,39 +123,86 @@ fn effects_mask_for_flags(flags : UInt) -> EffectMask {
 ///|
 fn effects_mask_for_atomic_exact(instr : Instruction?) -> EffectMask {
   match instr {
-    Some(Instruction::MemoryAtomicNotify(_)) =>
-      EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
-    Some(Instruction::MemoryAtomicWait32(_))
-    | Some(Instruction::MemoryAtomicWait64(_))
-    | Some(Instruction::I32AtomicLoad(_, _))
-    | Some(Instruction::I64AtomicLoad(_, _))
-    | Some(Instruction::I32AtomicLoad8U(_, _))
-    | Some(Instruction::I32AtomicLoad16U(_, _))
-    | Some(Instruction::I64AtomicLoad8U(_, _))
-    | Some(Instruction::I64AtomicLoad16U(_, _))
-    | Some(Instruction::I64AtomicLoad32U(_, _))
-    | Some(Instruction::StructAtomicGet(_, _, _))
-    | Some(Instruction::StructAtomicGetS(_, _, _))
-    | Some(Instruction::StructAtomicGetU(_, _, _))
-    | Some(Instruction::ArrayAtomicGet(_, _))
-    | Some(Instruction::ArrayAtomicGetS(_, _))
-    | Some(Instruction::ArrayAtomicGetU(_, _)) =>
-      EFFECT_MASK_MEMORY_READ | EFFECT_MASK_TRAP
-    Some(Instruction::I32AtomicStore(_, _))
-    | Some(Instruction::I64AtomicStore(_, _))
-    | Some(Instruction::I32AtomicStore8(_, _))
-    | Some(Instruction::I32AtomicStore16(_, _))
-    | Some(Instruction::I64AtomicStore8(_, _))
-    | Some(Instruction::I64AtomicStore16(_, _))
-    | Some(Instruction::I64AtomicStore32(_, _)) =>
-      EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
-    Some(Instruction::AtomicRmw(_, _, _))
-    | Some(Instruction::AtomicCmpxchg(_, _, _))
-    | Some(Instruction::StructAtomicRmw(_, _, _, _))
-    | Some(Instruction::StructAtomicCmpxchg(_, _, _))
-    | Some(Instruction::ArrayAtomicRmw(_, _, _))
-    | Some(Instruction::ArrayAtomicCmpxchg(_, _)) =>
-      EFFECT_MASK_MEMORY_READ | EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
+    Some(Instruction::AtomicFence(_)) =>
+      // The released fence is a barrier across shared memory, structs and
+      // arrays for every spelling. Match upstream's conservative SeqCst
+      // summary while preserving its encoded order as an exact instruction.
+      EFFECT_MASK_MEMORY_READ |
+      EFFECT_MASK_MEMORY_WRITE |
+      EFFECT_MASK_ATOMIC_READ |
+      EFFECT_MASK_ATOMIC_WRITE |
+      EFFECT_MASK_SEQ_CST
+    Some(Instruction::StructWait(_, _)) =>
+      EFFECT_MASK_MEMORY_READ |
+      EFFECT_MASK_MEMORY_WRITE |
+      EFFECT_MASK_TRAP |
+      EFFECT_MASK_CONTROL |
+      EFFECT_MASK_SEQ_CST |
+      EFFECT_MASK_ATOMIC_READ |
+      EFFECT_MASK_ATOMIC_WRITE
+    Some(Instruction::WaitqueueNotify) =>
+      EFFECT_MASK_MEMORY_READ |
+      EFFECT_MASK_MEMORY_WRITE |
+      EFFECT_MASK_TRAP |
+      EFFECT_MASK_SEQ_CST |
+      EFFECT_MASK_ATOMIC_READ |
+      EFFECT_MASK_ATOMIC_WRITE
+    Some(Instruction::MemoryAtomicNotify(_))
+    | Some(Instruction::MemoryAtomicWait32(_))
+    | Some(Instruction::MemoryAtomicWait64(_)) =>
+      // Shared wait/notify operations mutate the address's waiter list.
+      // The common summary has no module sharedness context, so retain the
+      // synchronization even where a more precise unshared-memory proof could
+      // classify the operation as just a trap or a constant result.
+      EFFECT_MASK_MEMORY_READ |
+      EFFECT_MASK_MEMORY_WRITE |
+      EFFECT_MASK_TRAP |
+      effects_atomic_order_mask(
+        @lib.AtomicOrder::seq_cst(),
+        read=true,
+        write=true,
+      )
+    Some(Instruction::I32AtomicLoad(order, _))
+    | Some(Instruction::I64AtomicLoad(order, _))
+    | Some(Instruction::I32AtomicLoad8U(order, _))
+    | Some(Instruction::I32AtomicLoad16U(order, _))
+    | Some(Instruction::I64AtomicLoad8U(order, _))
+    | Some(Instruction::I64AtomicLoad16U(order, _))
+    | Some(Instruction::I64AtomicLoad32U(order, _))
+    | Some(Instruction::StructAtomicGet(order, _, _))
+    | Some(Instruction::StructAtomicGetS(order, _, _))
+    | Some(Instruction::StructAtomicGetU(order, _, _))
+    | Some(Instruction::ArrayAtomicGet(order, _))
+    | Some(Instruction::ArrayAtomicGetS(order, _))
+    | Some(Instruction::ArrayAtomicGetU(order, _)) =>
+      EFFECT_MASK_MEMORY_READ |
+      EFFECT_MASK_TRAP |
+      effects_atomic_order_mask(order, read=true, write=false)
+    Some(Instruction::StructAtomicSet(order, _, _))
+    | Some(Instruction::ArrayAtomicSet(order, _)) =>
+      EFFECT_MASK_MEMORY_WRITE |
+      EFFECT_MASK_TRAP |
+      effects_atomic_order_mask(order, read=false, write=true)
+    Some(Instruction::I32AtomicStore(order, _))
+    | Some(Instruction::I64AtomicStore(order, _))
+    | Some(Instruction::I32AtomicStore8(order, _))
+    | Some(Instruction::I32AtomicStore16(order, _))
+    | Some(Instruction::I64AtomicStore8(order, _))
+    | Some(Instruction::I64AtomicStore16(order, _))
+    | Some(Instruction::I64AtomicStore32(order, _)) =>
+      EFFECT_MASK_MEMORY_WRITE |
+      EFFECT_MASK_TRAP |
+      effects_atomic_order_mask(order, read=false, write=true)
+    Some(Instruction::AtomicRmw(order, _, _))
+    | Some(Instruction::AtomicCmpxchg(order, _, _))
+    | Some(Instruction::StructAtomicRmw(order, _, _, _))
+    | Some(Instruction::StructAtomicCmpxchg(order, _, _))
+    | Some(Instruction::ArrayAtomicRmw(order, _, _))
+    | Some(Instruction::ArrayAtomicCmpxchg(order, _)) =>
+      EFFECT_MASK_MEMORY_READ |
+      EFFECT_MASK_MEMORY_WRITE |
+      EFFECT_MASK_TRAP |
+      effects_atomic_order_mask(order, read=true, write=true)
     _ => EFFECT_MASK_MEMORY_READ | EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
   }
 }
@@ -129,14 +239,19 @@ fn effects_mask_for_heap_exact(instr : Instruction?) -> EffectMask {
     | Some(Instruction::ArrayGet(_))
     | Some(Instruction::ArrayGetS(_))
     | Some(Instruction::ArrayGetU(_))
+    | Some(Instruction::ArrayLoad(_, _, _))
     | Some(Instruction::ArrayLen)
     | Some(Instruction::RefGetDesc(_)) =>
       EFFECT_MASK_MEMORY_READ | EFFECT_MASK_TRAP
     Some(Instruction::StructSet(_, _))
     | Some(Instruction::ArraySet(_))
+    | Some(Instruction::ArrayStore(_, _, _))
     | Some(Instruction::ArrayFill(_)) =>
       EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
-    Some(Instruction::StructNew(_))
+    Some(Instruction::WaitqueueNew)
+    | Some(Instruction::StructNew(_))
+    | Some(Instruction::ContNew(_))
+    | Some(Instruction::ContBind(_, _))
     | Some(Instruction::StructNewDefault(_))
     | Some(Instruction::StructNewDesc(_))
     | Some(Instruction::StructNewDefaultDesc(_))

@@ -128,8 +128,12 @@ test "ssa local build inserts a loop-carried phi at loop headers" {
   let use_def = use_def_build(func, cfg=Some(cfg))
   let liveness = liveness_build(cfg, use_def)
   let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
-  let preheader_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 0).unwrap()
-  let loop_header = cfg_block_for_node(cfg, loop_id).unwrap()
+  let preheader_block = cfg_block_for_node(cfg, loop_id).unwrap()
+  let loop_header = cfg_block_for_region_root(
+    cfg,
+    hot_region_body_ref(func, loop_id),
+    0,
+  ).unwrap()
   let loop_body = cfg_block_for_region_root(
     cfg,
     hot_region_body_ref(func, loop_id),

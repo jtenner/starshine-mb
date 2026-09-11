@@ -42,16 +42,26 @@ priv struct HotLiftLabelFrames {
   local_count : Int
   gets : Array[(LocalId, NodeId)]
   writes : Array[(LocalId, NodeId)]
+  capture_stack_locals : Bool
+  materialize_multi_values : Bool
+  pending_effects : Array[Int]
 }
 
 ///|
-fn hot_lift_impl_new_label_frames(func : HotFunc) -> HotLiftLabelFrames {
+fn hot_lift_impl_new_label_frames(
+  func : HotFunc,
+  capture_stack_locals? : Bool = false,
+  materialize_multi_values? : Bool = false,
+) -> HotLiftLabelFrames {
   {
     active: [],
     legacy_catch_depth: 0,
     local_count: hot_local_count(func),
     gets: [],
     writes: [],
+    capture_stack_locals,
+    materialize_multi_values,
+    pending_effects: [],
   }
 }
 
@@ -720,8 +730,34 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
     | Some(HotOp::Convert) => Some(1)
     Some(HotOp::RefCastDescEq) => None
     Some(HotOp::Store) | Some(HotOp::Binary) | Some(HotOp::Compare) => Some(2)
+    Some(HotOp::Continuation) =>
+      match instr {
+        Instruction::Resume(type_idx, _) =>
+          match env.resolve_cont_functype(type_idx) {
+            Some(FuncType(params, _)) => Some(params.length() + 1)
+            None => None
+          }
+        Instruction::ResumeThrow(_, tag, _) =>
+          match env.resolve_tag_functype(tag) {
+            Some(FuncType(params, _)) => Some(params.length() + 1)
+            None => None
+          }
+        Instruction::ResumeThrowRef(_, _) => Some(2)
+        Instruction::Suspend(tag) =>
+          match env.resolve_tag_functype(tag) {
+            Some(FuncType(params, _)) => Some(params.length())
+            None => None
+          }
+        Instruction::StackSwitch(type_idx, _) =>
+          match env.resolve_cont_functype(type_idx) {
+            Some(FuncType(params, _)) => Some(params.length())
+            None => None
+          }
+        _ => None
+      }
     Some(HotOp::Heap) =>
       match instr {
+        Instruction::WaitqueueNew => Some(0)
         Instruction::StructGet(_, _)
         | Instruction::StructGetS(_, _)
         | Instruction::StructGetU(_, _)
@@ -731,17 +767,34 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
         | Instruction::ExternConvertAny
         | Instruction::RefI31
         | Instruction::I31GetS
-        | Instruction::I31GetU => Some(1)
+        | Instruction::I31GetU
+        | Instruction::ContNew(_) => Some(1)
+        Instruction::ContBind(source, target) =>
+          match
+            (
+              env.resolve_cont_functype(source),
+              env.resolve_cont_functype(target),
+            ) {
+            (Some(FuncType(source_params, _)), Some(FuncType(target_params, _))) =>
+              Some(source_params.length() - target_params.length() + 1)
+            _ => None
+          }
         Instruction::StructSet(_, _)
         | Instruction::ArrayGet(_)
         | Instruction::ArrayGetS(_)
         | Instruction::ArrayGetU(_)
+        | Instruction::ArrayLoad(_, _, _)
         | Instruction::RefEq => Some(2)
-        Instruction::ArraySet(_) => Some(3)
+        Instruction::ArraySet(_) | Instruction::ArrayStore(_, _, _) => Some(3)
         _ => None
       }
     Some(HotOp::Atomic) =>
       match instr {
+        Instruction::AtomicFence(_) => Some(0)
+        Instruction::StructAtomicSet(_, _, _) => Some(2)
+        Instruction::ArrayAtomicSet(_, _) => Some(3)
+        Instruction::WaitqueueNotify => Some(2)
+        Instruction::StructWait(_, _) => Some(4)
         Instruction::I32AtomicLoad(_, _)
         | Instruction::I64AtomicLoad(_, _)
         | Instruction::I32AtomicLoad8U(_, _)
@@ -851,6 +904,11 @@ fn hot_lift_impl_direct_family(instr : Instruction) -> HotOp? {
 ///|
 fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
   match instr {
+    Instruction::Resume(_, _)
+    | Instruction::ResumeThrow(_, _, _)
+    | Instruction::ResumeThrowRef(_, _)
+    | Instruction::Suspend(_)
+    | Instruction::StackSwitch(_, _) => Some(HotOp::Continuation)
     Instruction::Select(_) => Some(HotOp::Select)
     Instruction::I32Load(_)
     | Instruction::I64Load(_)
@@ -897,7 +955,10 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::StringNewWtf8Array
     | Instruction::StringEncodeLossyUtf8Array
     | Instruction::StringEncodeWtf8Array => Some(HotOp::StringOp)
-    Instruction::MemoryAtomicNotify(_)
+    Instruction::AtomicFence(_)
+    | Instruction::WaitqueueNotify
+    | Instruction::StructWait(_, _)
+    | Instruction::MemoryAtomicNotify(_)
     | Instruction::MemoryAtomicWait32(_)
     | Instruction::MemoryAtomicWait64(_)
     | Instruction::I32AtomicLoad(_, _)
@@ -907,6 +968,8 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::I64AtomicLoad8U(_, _)
     | Instruction::I64AtomicLoad16U(_, _)
     | Instruction::I64AtomicLoad32U(_, _)
+    | Instruction::StructAtomicSet(_, _, _)
+    | Instruction::ArrayAtomicSet(_, _)
     | Instruction::StructAtomicGet(_, _, _)
     | Instruction::StructAtomicGetS(_, _, _)
     | Instruction::StructAtomicGetU(_, _, _)
@@ -926,7 +989,10 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::I64AtomicStore32(_, _)
     | Instruction::AtomicRmw(_, _, _)
     | Instruction::AtomicCmpxchg(_, _, _) => Some(HotOp::Atomic)
-    Instruction::StructNew(_)
+    Instruction::WaitqueueNew
+    | Instruction::StructNew(_)
+    | Instruction::ContNew(_)
+    | Instruction::ContBind(_, _)
     | Instruction::StructNewDefault(_)
     | Instruction::StructNewDesc(_)
     | Instruction::StructNewDefaultDesc(_)
@@ -939,6 +1005,8 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::ArrayNewFixed(_, _)
     | Instruction::ArrayNewData(_, _)
     | Instruction::ArrayNewElem(_, _)
+    | Instruction::ArrayLoad(_, _, _)
+    | Instruction::ArrayStore(_, _, _)
     | Instruction::ArrayGet(_)
     | Instruction::ArrayGetS(_)
     | Instruction::ArrayGetU(_)
@@ -1527,7 +1595,12 @@ fn hot_lift_impl_exact_node_shape(
       let memarg_id = hot_alloc_memarg(func, HotMemArg::new(memarg))
       (op, ty, memarg_id, payload_id)
     }
-    Instruction::StructAtomicGet(_, _, _)
+    Instruction::AtomicFence(_)
+    | Instruction::WaitqueueNotify
+    | Instruction::StructWait(_, _)
+    | Instruction::StructAtomicSet(_, _, _)
+    | Instruction::ArrayAtomicSet(_, _)
+    | Instruction::StructAtomicGet(_, _, _)
     | Instruction::StructAtomicGetS(_, _, _)
     | Instruction::StructAtomicGetU(_, _, _)
     | Instruction::StructAtomicRmw(_, _, _, _)
@@ -1700,23 +1773,41 @@ fn hot_lift_impl_capture_before_local_access(
   operand_count : Int,
 ) -> Unit {
   let pending_count = values.length() - operand_count
-  let mut idx = 0
-  while idx < pending_count {
+  let mut last_conflict = -1
+  for idx = 0; idx < pending_count; idx = idx + 1 {
     let value_id = values[idx]
-    let mut end = idx + 1
-    while end < values.length() && values[end] == value_id {
-      end += 1
-    }
     if hot_lift_impl_value_conflicts_with_local_access(
         func, value_id, local_id, is_write,
       ) &&
       !roots.any(fn(root) {
         hot_lift_impl_value_contains_node(func, root, value_id)
       }) {
-      // A consumed tuple component already anchors its shared producer. Only
-      // producers that still exist entirely on the pending stack need capture.
-      // Tuple components share a producer ID; capture them in stack-pop order,
-      // including any component used by the current instruction's operands.
+      last_conflict = idx
+    }
+  }
+  if last_conflict < 0 {
+    return
+  }
+  let mut prefix_end = last_conflict + 1
+  while prefix_end < values.length() &&
+        values[prefix_end] == values[last_conflict] {
+    prefix_end += 1
+  }
+  // Capture the complete preceding stack prefix in evaluation order. An
+  // earlier call can throw into a handler that observes this local, even if
+  // that call's own operands do not mention the local being overwritten.
+  let mut idx = 0
+  while idx < prefix_end {
+    let value_id = values[idx]
+    let mut end = idx + 1
+    while end < prefix_end && values[end] == value_id {
+      end += 1
+    }
+    if !roots.any(fn(root) {
+        hot_lift_impl_value_contains_node(func, root, value_id)
+      }) {
+      // A consumed tuple lane already anchors its producer. Capture remaining
+      // producers once, consuming each producer's lanes in stack-pop order.
       for slot = end - 1; slot >= idx; slot = slot - 1 {
         let original_type = concrete_values[slot]
         let storage_type = match original_type {
@@ -1875,12 +1966,83 @@ fn hot_lift_impl_lift_region(
     initial_value_types,
   )
   for instr in instrs {
+    let old_root_count = roots.length()
+    let old_node_count = hot_node_count(func)
     match
       hot_lift_impl_lift_instruction(
         func, instr, tc_state, label_frames, label_stack_head, roots, values, concrete_values,
       ) {
       Ok(next) => tc_state = next
       Err(err) => return Err(err)
+    }
+    // Local operations already capture their conflicting prefix. Moving a
+    // newly created scratch read ahead of those captures would read its default.
+    let local_capture = instr is Instruction::LocalGet(_) ||
+      instr is Instruction::LocalSet(_) ||
+      instr is Instruction::LocalTee(_)
+    if label_frames.capture_stack_locals &&
+      !local_capture &&
+      roots.length() > old_root_count {
+      let mut last = -1
+      for slot = 0; slot < values.length(); slot = slot + 1 {
+        if values[slot] < old_node_count &&
+          hot_lift_impl_pending_observable(
+            func,
+            values[slot],
+            label_frames.pending_effects,
+            0,
+          ) {
+          last = slot
+        }
+      }
+      if last >= 0 {
+        while last + 1 < values.length() && values[last + 1] == values[last] {
+          last += 1
+        }
+        let following : Array[NodeId] = []
+        for slot = old_root_count; slot < roots.length(); slot = slot + 1 {
+          following.push(roots[slot])
+        }
+        while roots.length() > old_root_count {
+          ignore(roots.pop())
+        }
+        let mut slot = 0
+        while slot <= last {
+          let producer = values[slot]
+          let mut end = slot + 1
+          while end <= last && values[end] == producer {
+            end += 1
+          }
+          for lane = end - 1; lane >= slot; lane = lane - 1 {
+            let scratch = hot_append_body_local(func, concrete_values[lane])
+            roots.push(hot_build_local_set(func, scratch, producer))
+            values[lane] = hot_build_local_get(func, scratch)
+          }
+          slot = end
+        }
+        roots.append(following)
+      }
+    }
+    if label_frames.materialize_multi_values && values.length() > 1 {
+      let last = values.length() - 1
+      if values[last] == values[last - 1] {
+        // Consume complete tuple producers before a later expression can
+        // split their lanes across control regions or argument rewrites.
+        let mut slot = 0
+        while slot < values.length() {
+          let producer = values[slot]
+          let mut end = slot + 1
+          while end < values.length() && values[end] == producer {
+            end += 1
+          }
+          for lane = end - 1; lane >= slot; lane = lane - 1 {
+            let scratch = hot_append_body_local(func, concrete_values[lane])
+            roots.push(hot_build_local_set(func, scratch, producer))
+            values[lane] = hot_build_local_get(func, scratch)
+          }
+          slot = end
+        }
+      }
     }
   }
   for value in values {
@@ -2149,6 +2311,20 @@ fn hot_lift_impl_lift_control(
       Ok(after_state)
     }
     Instruction::Try(block_type, body, catches, delegate) => {
+      if catches.is_empty() && delegate is None {
+        // A handlerless legacy try has precisely a block's label and escape
+        // behavior. It does not install a handler or a rethrow scope.
+        return hot_lift_impl_lift_control(
+          func,
+          Instruction::block(block_type, body),
+          tc_state,
+          label_frames,
+          label_stack_head,
+          roots,
+          values,
+          concrete_values,
+        )
+      }
       if catches.length() > 1 || (catches.length() > 0 && delegate is Some(_)) {
         return Err(HotLiftError::UnsupportedInstruction(instr.to_string()))
       }
@@ -2400,15 +2576,13 @@ fn hot_lift_impl_lift_control(
           Err(err) => return Err(err)
         }
       }
-      let after_state = tc_state_push_types(
-        tc_state_new(
-          tc_state.env,
-          entry_state.stack,
-          body_exit_state.reachable,
-          body_exit_state.escape,
-        ),
-        results,
-      )
+      let after_state = match
+        @validate.tc_state_finish_try_table(
+          tc_state, entry_state, body_exit_state, results, catches,
+        ) {
+        Ok(state) => state
+        Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
+      }
       let catch_region = hot_lift_impl_make_region(func, [], result_arity)
       let catch_info_id = hot_alloc_catch_info(
         func,
@@ -3127,6 +3301,23 @@ fn hot_lift_impl_lift_instruction(
               )
             }
           }
+          if op == HotOp::Continuation {
+            let targets : Array[LabelId] = []
+            for handler in hot_continuation_handlers(instr) {
+              match handler {
+                @lib.ResumeOnLabel(_, label) =>
+                  match
+                    hot_lift_impl_resolve_label(
+                      label_frames, label_stack_head, label,
+                    ) {
+                    Ok(target) => targets.push(target)
+                    Err(err) => return Err(err)
+                  }
+                @lib.ResumeOnSwitch(_) => ()
+              }
+            }
+            hot_continuation_targets_set(func, node_id, targets)
+          }
           hot_lift_impl_push_node(
             roots, values, concrete_values, node_id, pushed_types,
           )
@@ -3213,6 +3404,8 @@ fn hot_lift_impl_body_with_context_result(
   validation_locals? : @lib.Locals? = None,
   known_return_types? : Array[ValType]? = None,
   env_build_visits? : Array[Int]? = None,
+  capture_stack_locals? : Bool = false,
+  materialize_multi_values? : Bool = false,
 ) -> Result[HotFunc, HotLiftError] {
   let return_types = match known_return_types {
     Some(types) => types
@@ -3253,7 +3446,11 @@ fn hot_lift_impl_body_with_context_result(
       return_types,
     ),
   )
-  let label_frames = hot_lift_impl_new_label_frames(func)
+  let label_frames = hot_lift_impl_new_label_frames(
+    func,
+    capture_stack_locals~,
+    materialize_multi_values~,
+  )
   let label_stack_head = hot_lift_impl_seed_function_label(label_frames)
   match
     hot_lift_impl_lift_region(
@@ -3325,6 +3522,8 @@ pub fn hot_lift_func_with_context_result(
   mod_ : Module,
   func_idx : FuncIdx,
   ctx : HotModuleContext,
+  capture_stack_locals? : Bool = false,
+  materialize_multi_values? : Bool = false,
 ) -> Result[HotFunc, HotLiftError] {
   let func_type = match hot_module_resolve_func_type(ctx, func_idx) {
     Some(type_) => type_
@@ -3370,6 +3569,8 @@ pub fn hot_lift_func_with_context_result(
         hot_lift_impl_validation_locals(params, body_locals),
       ),
       known_return_types=Some(results),
+      capture_stack_locals~,
+      materialize_multi_values~,
     ) {
     Ok(hot) => hot
     Err(err) => return Err(err)
@@ -3397,4 +3598,38 @@ pub fn hot_lift_func(mod_ : Module, func_idx : FuncIdx) -> HotFunc {
     func_idx,
     hot_module_context_from_module(mod_),
   )
+}
+
+///|
+fn hot_lift_impl_pending_observable(
+  func : HotFunc,
+  node : NodeId,
+  cache : Array[Int],
+  depth : Int,
+) -> Bool {
+  if node < 0 {
+    return false
+  }
+  if depth >= 512 {
+    return true
+  }
+  while cache.length() <= node {
+    cache.push(-1)
+  }
+  if cache[node] >= 0 {
+    return cache[node] == 1
+  }
+  let own = effects_mask_for_flags(hot_node_flags(func, node)) |
+    effects_mask_for_node_exact(func, node)
+  let mut observable = (own & (0xffffffffU ^ EFFECT_MASK_LOCAL_STATE)) != 0U
+  if !observable {
+    for child in hot_child_span(func, node) {
+      if hot_lift_impl_pending_observable(func, child, cache, depth + 1) {
+        observable = true
+        break
+      }
+    }
+  }
+  cache[node] = if observable { 1 } else { 0 }
+  observable
 }

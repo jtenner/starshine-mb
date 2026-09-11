@@ -121,6 +121,9 @@ pub enum HeapTypeRef {
   NoFunc
   NoExtern
   NoExn
+  Waitqueue
+  NoWaitqueue
+  Shared(HeapTypeRef)
 } derive(Eq, Debug)
 
 ///|
@@ -156,6 +159,13 @@ pub impl Show for HeapTypeRef with fn output(self, logger) {
     NoFunc => logger.write_string("NoFunc")
     NoExtern => logger.write_string("NoExtern")
     NoExn => logger.write_string("NoExn")
+    Waitqueue => logger.write_string("Waitqueue")
+    NoWaitqueue => logger.write_string("NoWaitqueue")
+    Shared(heap) => {
+      logger.write_string("Shared(")
+      heap.output(logger)
+      logger.write_char(')')
+    }
   }
 }
 
@@ -214,12 +224,17 @@ pub enum Opcode {
   Nop
   Br
   BrIf
+  BrOnNull
+  BrOnNonNull
+  BrOnCastDescEq
+  BrOnCastDescEqFail
   BrTable
   Return
   Call
   CallIndirect
   ReturnCall
   ReturnCallIndirect
+  CallRef
   ReturnCallRef
   Throw
   ThrowRef
@@ -256,6 +271,11 @@ pub enum Opcode {
   StructGet
   StructGetS
   StructGetU
+  WaitqueueNew
+  WaitqueueNotify
+  StructWait
+  StructAtomicSet
+  ArrayAtomicSet
   StructAtomicGet
   StructAtomicGetS
   StructAtomicGetU
@@ -266,6 +286,9 @@ pub enum Opcode {
   StructAtomicRmwXor
   StructAtomicRmwXchg
   StructAtomicRmwCmpxchg
+  ArrayAtomicGet
+  ArrayAtomicGetS
+  ArrayAtomicGetU
   ArrayAtomicRmwAdd
   ArrayAtomicRmwSub
   ArrayAtomicRmwAnd
@@ -304,6 +327,8 @@ pub enum Opcode {
   ElemDrop
 
   // ========== Memory Instructions ==========
+  MemoryAtomic(MemoryAtomicOp)
+  AtomicFence
   I32Load
   I64Load
   F32Load
@@ -770,12 +795,17 @@ pub impl Show for Opcode with fn output(self, logger) {
     Nop => logger.write_string("Nop")
     Br => logger.write_string("Br")
     BrIf => logger.write_string("BrIf")
+    BrOnNull => logger.write_string("BrOnNull")
+    BrOnNonNull => logger.write_string("BrOnNonNull")
+    BrOnCastDescEq => logger.write_string("BrOnCastDescEq")
+    BrOnCastDescEqFail => logger.write_string("BrOnCastDescEqFail")
     BrTable => logger.write_string("BrTable")
     Return => logger.write_string("Return")
     Call => logger.write_string("Call")
     CallIndirect => logger.write_string("CallIndirect")
     ReturnCall => logger.write_string("ReturnCall")
     ReturnCallIndirect => logger.write_string("ReturnCallIndirect")
+    CallRef => logger.write_string("CallRef")
     ReturnCallRef => logger.write_string("ReturnCallRef")
     Throw => logger.write_string("Throw")
     ThrowRef => logger.write_string("ThrowRef")
@@ -812,6 +842,11 @@ pub impl Show for Opcode with fn output(self, logger) {
     StructGet => logger.write_string("StructGet")
     StructGetS => logger.write_string("StructGetS")
     StructGetU => logger.write_string("StructGetU")
+    WaitqueueNew => logger.write_string("WaitqueueNew")
+    WaitqueueNotify => logger.write_string("WaitqueueNotify")
+    StructWait => logger.write_string("StructWait")
+    StructAtomicSet => logger.write_string("StructAtomicSet")
+    ArrayAtomicSet => logger.write_string("ArrayAtomicSet")
     StructAtomicGet => logger.write_string("StructAtomicGet")
     StructAtomicGetS => logger.write_string("StructAtomicGetS")
     StructAtomicGetU => logger.write_string("StructAtomicGetU")
@@ -822,6 +857,9 @@ pub impl Show for Opcode with fn output(self, logger) {
     StructAtomicRmwXor => logger.write_string("StructAtomicRmwXor")
     StructAtomicRmwXchg => logger.write_string("StructAtomicRmwXchg")
     StructAtomicRmwCmpxchg => logger.write_string("StructAtomicRmwCmpxchg")
+    ArrayAtomicGet => logger.write_string("ArrayAtomicGet")
+    ArrayAtomicGetS => logger.write_string("ArrayAtomicGetS")
+    ArrayAtomicGetU => logger.write_string("ArrayAtomicGetU")
     ArrayAtomicRmwAdd => logger.write_string("ArrayAtomicRmwAdd")
     ArrayAtomicRmwSub => logger.write_string("ArrayAtomicRmwSub")
     ArrayAtomicRmwAnd => logger.write_string("ArrayAtomicRmwAnd")
@@ -852,6 +890,8 @@ pub impl Show for Opcode with fn output(self, logger) {
     TableCopy => logger.write_string("TableCopy")
     TableInit => logger.write_string("TableInit")
     ElemDrop => logger.write_string("ElemDrop")
+    MemoryAtomic(op) => logger.write_string(memory_atomic_keyword(op))
+    AtomicFence => logger.write_string("AtomicFence")
     I32Load => logger.write_string("I32Load")
     I64Load => logger.write_string("I64Load")
     F32Load => logger.write_string("F32Load")

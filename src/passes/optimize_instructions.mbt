@@ -2,6 +2,8 @@
 pub fn optimize_instructions_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
     "optimize-instructions",
+    // SSA is intentionally lazy: only stored-scalar equality/default candidates
+    // need it. Eager SSA would add unrelated work and constrain shared DAG input.
     requires=[@ir.HotAnalysis::use_def(), @ir.HotAnalysis::effects()],
     invalidates=[
       @ir.HotAnalysis::cfg(),
@@ -4754,7 +4756,8 @@ fn OiRefCastSourceTargetRelationFact::from_target_fact(
           ),
           nullable_match_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNullableMatch,
-            local_relation.proves_nullable_matches_target(),
+            local_relation.proves_nullable_matches_target() ||
+            (ref_type.is_nullable() && relation.known_match_target()),
           ),
           nullable_exact_only_null_fact: OiRefTargetMatchProofFact::when_proven(
             RefTargetNullableExactOnlyNullMatch,
@@ -9443,26 +9446,52 @@ fn OiDroppedStructAtomicCmpxchgLoweringFact::from_drop_child(
   }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   let root_count = @ir.hot_region_root_count(func, body_ref)
-  if root_count != 6 {
+  if root_count != 5 {
     return None
   }
-  for slot = 0; slot < 4; slot = slot + 1 {
+  for slot = 0; slot < 3; slot = slot + 1 {
     let root_id = @ir.hot_region_get(func, body_ref, slot)
     match @ir.hot_node_get(func, root_id).op {
       @ir.HotOp::LocalSet => ()
       _ => return None
     }
   }
-  let set_id = @ir.hot_region_get(func, body_ref, 4)
-  match @ir.hot_node_get(func, set_id).op {
-    @ir.HotOp::Heap => ()
+  let if_id = @ir.hot_region_get(func, body_ref, 3)
+  if !(@ir.hot_node_get(func, if_id).op is @ir.HotOp::If) ||
+    @ir.hot_region_else_ref(func, if_id) is Some(_) {
+    return None
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  if @ir.hot_region_root_count(func, then_ref) != 1 {
+    return None
+  }
+  let set_id = @ir.hot_region_get(func, then_ref, 0)
+  if !(@ir.hot_node_exact_instr(func, set_id) is Some(@lib.StructSet(_, _))) {
+    return None
+  }
+  for child in @ir.hot_child_span(func, set_id) {
+    if !(@ir.hot_node_get(func, child).op is @ir.HotOp::LocalGet) {
+      return None
+    }
+  }
+  let condition = @ir.hot_child_get(func, if_id, 0)
+  match @ir.hot_node_exact_instr(func, condition) {
+    Some(@lib.I32Eq) | Some(@lib.I64Eq) => ()
     _ => return None
   }
-  match @ir.hot_node_exact_instr(func, set_id) {
-    Some(@lib.Instruction::StructSet(_, _)) => ()
-    _ => return None
+  let tee = @ir.hot_child_get(func, condition, 0)
+  if !(@ir.hot_node_get(func, tee).op is @ir.HotOp::LocalTee) ||
+    !(@ir.hot_node_get(func, @ir.hot_child_get(func, condition, 1)).op
+    is @ir.HotOp::LocalGet) {
+    return None
   }
-  let old_value_id = @ir.hot_region_get(func, body_ref, 5)
+  let read = @ir.hot_child_get(func, tee, 0)
+  if !(@ir.hot_node_exact_instr(func, read) is Some(@lib.StructGet(_, _))) ||
+    !(@ir.hot_node_get(func, @ir.hot_child_get(func, read, 0)).op
+    is @ir.HotOp::LocalGet) {
+    return None
+  }
+  let old_value_id = @ir.hot_region_get(func, body_ref, 4)
   match @ir.hot_node_get(func, old_value_id).op {
     @ir.HotOp::LocalGet => ()
     _ => return None
@@ -19637,6 +19666,7 @@ priv struct OiNodeEffectPurityFact {
 priv enum OiConsecutiveInputEqualityProofKind {
   ConsecutiveInputNoKnownEquality
   ConsecutiveInputLocalTeeAndGet
+  ConsecutiveInputStoredScalarValue
   ConsecutiveInputPureScalarTree
   ConsecutiveInputStableStateRead
   ConsecutiveInputStableStateScalarTree
@@ -20818,6 +20848,7 @@ fn OiConsecutiveInputEqualityProofFact::proves_equal(
   match self.kind {
     ConsecutiveInputNoKnownEquality => false
     ConsecutiveInputLocalTeeAndGet
+    | ConsecutiveInputStoredScalarValue
     | ConsecutiveInputPureScalarTree
     | ConsecutiveInputStableStateRead
     | ConsecutiveInputStableStateScalarTree
@@ -20845,6 +20876,44 @@ fn OiConsecutiveInputInterferenceFact::from_intervening_effect(
     ConsecutiveInputEffectsIndependent
   }
   { kind, }
+}
+
+///|
+// Resolve only the value stored at this read, never a function-wide current
+// value. SSA joins retain separate tokens, and the bound rejects copy cycles.
+fn oi_stored_scalar_source(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  input : Int,
+) -> Int? {
+  let ssa = pass_require_ssa(ctx, func)
+  let mut node = input
+  for _ in 0..<16 {
+    if node < 0 || !@ir.hot_node_is_live(func, node) {
+      return None
+    }
+    let data = @ir.hot_node_get(func, node)
+    match data.op {
+      @ir.HotOp::LocalGet => {
+        let value = @ir.ssa_value_for_local_get(ssa, node)
+        if value < 0 {
+          return None
+        }
+        match @ir.ssa_value_origin(ssa, value) {
+          @ir.LocalSetDef(write) | @ir.LocalTeeDef(write) => {
+            if @ir.hot_child_count(func, write) != 1 {
+              return None
+            }
+            node = @ir.hot_child_get(func, write, 0)
+          }
+          _ => return Some(-value - 1)
+        }
+      }
+      @ir.HotOp::LocalTee => node = @ir.hot_child_get(func, node, 0)
+      _ => return Some(node)
+    }
+  }
+  None
 }
 
 ///|
@@ -20895,10 +20964,27 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
   let idempotent_call_fact = OiIdempotentCallEqualityFact::from_nodes(
     ctx, func, left_fallthrough_id, right_fallthrough_id,
   )
-  let equality_proof = OiConsecutiveInputEqualityProofFact::from_source_facts(
+  let ordinary_proof = OiConsecutiveInputEqualityProofFact::from_source_facts(
     tee_and_get, scalar_tree_fact, stable_state_read_fact, state_scalar_tree_fact,
     stable_memory_read_fact, right_local_tee_fact, idempotent_call_fact,
   )
+  let equality_proof : OiConsecutiveInputEqualityProofFact = if !ordinary_proof.proves_equal() &&
+    left.op is @ir.HotOp::LocalGet &&
+    right.op is @ir.HotOp::LocalGet &&
+    @ir.hot_node_type(func, left_fallthrough_id) ==
+    @ir.hot_node_type(func, right_fallthrough_id) {
+    match
+      (
+        oi_stored_scalar_source(ctx, func, left_fallthrough_id),
+        oi_stored_scalar_source(ctx, func, right_fallthrough_id),
+      ) {
+      (Some(a), Some(b)) if a == b =>
+        { kind: ConsecutiveInputStoredScalarValue, }
+      _ => ordinary_proof
+    }
+  } else {
+    ordinary_proof
+  }
   let intervening_effect_fact = OiInterveningEffectFact::from_fallthrough_facts(
     left_fallthrough, right_fallthrough,
   )
@@ -22154,7 +22240,9 @@ fn OiMemoryOffsetFoldFact::from_node(
     None => return None
   }
   match instr {
-    @lib.Instruction::StructAtomicGet(_, _, _)
+    @lib.Instruction::WaitqueueNotify
+    | @lib.Instruction::StructWait(_, _)
+    | @lib.Instruction::StructAtomicGet(_, _, _)
     | @lib.Instruction::StructAtomicGetS(_, _, _)
     | @lib.Instruction::StructAtomicGetU(_, _, _)
     | @lib.Instruction::StructAtomicRmw(_, _, _, _)
@@ -22163,6 +22251,9 @@ fn OiMemoryOffsetFoldFact::from_node(
     | @lib.Instruction::ArrayAtomicGetS(_, _)
     | @lib.Instruction::ArrayAtomicGetU(_, _)
     | @lib.Instruction::ArrayAtomicRmw(_, _, _)
+    | @lib.Instruction::AtomicFence(_)
+    | @lib.Instruction::StructAtomicSet(_, _, _)
+    | @lib.Instruction::ArrayAtomicSet(_, _)
     | @lib.Instruction::ArrayAtomicCmpxchg(_, _) => return None
     _ => ()
   }
@@ -22787,6 +22878,7 @@ fn optimize_instructions_try_rewrite_struct_atomic_identity_get(
   dead : @bitset.BitSet,
   node_id : Int,
   field_fact : OiStructAtomicFieldFact,
+  order : @lib.AtomicOrder,
   receiver_fact : OiStructAtomicReceiverFact,
   operands_to_drop : Array[Int],
 ) -> Bool {
@@ -22798,18 +22890,27 @@ fn optimize_instructions_try_rewrite_struct_atomic_identity_get(
     }
     body.push(@ir.hot_build_drop(func, operand))
   }
-  body.push(
+  let read = if order == @lib.AtomicOrder::acq_rel() &&
+    optimize_instructions_struct_is_unshared(ctx, field_fact.type_idx) {
+    optimize_instructions_build_exact_heap(
+      func,
+      @lib.Instruction::struct_get(field_fact.type_idx, field_fact.field_idx),
+      Some(field_fact.value_type),
+      [receiver_fact.receiver_id],
+    )
+  } else {
     optimize_instructions_build_exact_atomic(
       func,
       @lib.Instruction::struct_atomic_get(
-        @lib.AtomicOrder::seq_cst(),
+        order,
         field_fact.type_idx,
         field_fact.field_idx,
       ),
       Some(field_fact.value_type),
       [receiver_fact.receiver_id],
-    ),
-  )
+    )
+  }
+  body.push(read)
   optimize_instructions_replace_with_value_block(
     ctx,
     func,
@@ -22912,10 +23013,20 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
+  order : @lib.AtomicOrder,
   op : @lib.AggregateAtomicRmwOp,
   field_fact : OiStructAtomicFieldFact,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  // A shared sequentially consistent RMW can synchronize even when it
+  // stores the old value. Other shared RMWs may only lose an identity write.
+  let unshared = optimize_instructions_struct_is_unshared(
+    ctx,
+    field_fact.type_idx,
+  )
+  if !unshared && order == @lib.AtomicOrder::seq_cst() {
     return false
   }
   let receiver_id = @ir.hot_child_get(func, node_id, 0)
@@ -22936,11 +23047,15 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
         dead,
         node_id,
         field_fact,
+        order,
         receiver_fact,
         [identity_fact.value_id],
       )
     }
     None => ()
+  }
+  if !unshared {
+    return false
   }
   let lowering_op = match OiStructAtomicRmwLoweringOpFact::from_op(op) {
     Some(fact) => fact
@@ -22968,18 +23083,9 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
     func,
     field_fact.value_type,
   )
-  let old_get_for_new = @ir.hot_build_local_get(func, old_local)
-  let value_get_for_new = @ir.hot_build_local_get(func, value_local)
-  let new_value = match
-    lowering_op.build_new_value(
-      func,
-      field_fact.value_type,
-      old_get_for_new,
-      value_get_for_new,
-    ) {
-    Some(id) => id
-    None => return false
-  }
+  // Build temporary definitions before their reads. HOT source order is also
+  // used to recover carried stack dependencies; prebuilding the arithmetic
+  // would make lowering preserve an extra evaluation before these writes.
   let body : Array[Int] = [
     @ir.hot_build_local_set(func, receiver_local, receiver_fact.receiver_id),
     @ir.hot_build_local_set(func, value_local, value_id),
@@ -22993,14 +23099,28 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
         [@ir.hot_build_local_get(func, receiver_local)],
       ),
     ),
+  ]
+  let old_get_for_new = @ir.hot_build_local_get(func, old_local)
+  let value_get_for_new = @ir.hot_build_local_get(func, value_local)
+  let new_value = match
+    lowering_op.build_new_value(
+      func,
+      field_fact.value_type,
+      old_get_for_new,
+      value_get_for_new,
+    ) {
+    Some(id) => id
+    None => return false
+  }
+  body.push(
     optimize_instructions_build_exact_heap(
       func,
       @lib.Instruction::struct_set(field_fact.type_idx, field_fact.field_idx),
       None,
       [@ir.hot_build_local_get(func, receiver_local), new_value],
     ),
-    @ir.hot_build_local_get(func, old_local),
-  ]
+  )
+  body.push(@ir.hot_build_local_get(func, old_local))
   optimize_instructions_replace_with_value_block(
     ctx,
     func,
@@ -23017,9 +23137,19 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
+  order : @lib.AtomicOrder,
   field_fact : OiStructAtomicFieldFact,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 3 {
+    return false
+  }
+  // A shared sequentially consistent RMW can synchronize even when it
+  // stores the old value. Other shared RMWs may only lose an identity write.
+  let unshared = optimize_instructions_struct_is_unshared(
+    ctx,
+    field_fact.type_idx,
+  )
+  if !unshared && order == @lib.AtomicOrder::seq_cst() {
     return false
   }
   let receiver_id = @ir.hot_child_get(func, node_id, 0)
@@ -23041,11 +23171,15 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
         dead,
         node_id,
         field_fact,
+        order,
         receiver_fact,
         [fact.expected_id, fact.replacement_id],
       )
     }
     None => ()
+  }
+  if !unshared {
+    return false
   }
   let receiver_fact = match
     OiStructAtomicReceiverFact::from_expr(func, receiver_id) {
@@ -23076,7 +23210,16 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
     func,
     field_fact.value_type,
   )
-  let old_for_compare = @ir.hot_build_local_get(func, old_local)
+  let old_for_compare = @ir.hot_build_local_tee(
+    func,
+    old_local,
+    optimize_instructions_build_exact_heap(
+      func,
+      @lib.Instruction::struct_get(field_fact.type_idx, field_fact.field_idx),
+      Some(field_fact.value_type),
+      [@ir.hot_build_local_get(func, receiver_local)],
+    ),
+  )
   let expected_for_compare = @ir.hot_build_local_get(func, expected_local)
   let condition = match
     optimize_instructions_build_exact_compare_for_value_type(
@@ -23090,33 +23233,27 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
     Some(id) => id
     None => return false
   }
-  let selected = @ir.hot_build_select(
+  let conditional_store = @ir.hot_build_if(
     func,
-    field_fact.value_type,
-    @ir.hot_build_local_get(func, replacement_local),
-    @ir.hot_build_local_get(func, old_local),
+    @lib.BlockType::void_(),
     condition,
+    [
+      optimize_instructions_build_exact_heap(
+        func,
+        @lib.Instruction::struct_set(field_fact.type_idx, field_fact.field_idx),
+        None,
+        [
+          @ir.hot_build_local_get(func, receiver_local),
+          @ir.hot_build_local_get(func, replacement_local),
+        ],
+      ),
+    ],
   )
   let body : Array[Int] = [
     @ir.hot_build_local_set(func, receiver_local, receiver_fact.receiver_id),
     @ir.hot_build_local_set(func, expected_local, expected_id),
     @ir.hot_build_local_set(func, replacement_local, replacement_id),
-    @ir.hot_build_local_set(
-      func,
-      old_local,
-      optimize_instructions_build_exact_heap(
-        func,
-        @lib.Instruction::struct_get(field_fact.type_idx, field_fact.field_idx),
-        Some(field_fact.value_type),
-        [@ir.hot_build_local_get(func, receiver_local)],
-      ),
-    ),
-    optimize_instructions_build_exact_heap(
-      func,
-      @lib.Instruction::struct_set(field_fact.type_idx, field_fact.field_idx),
-      None,
-      [@ir.hot_build_local_get(func, receiver_local), selected],
-    ),
+    conditional_store,
     @ir.hot_build_local_get(func, old_local),
   ]
   optimize_instructions_replace_with_value_block(
@@ -23127,6 +23264,21 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
     body,
   )
   true
+}
+
+///|
+fn optimize_instructions_struct_is_unshared(
+  ctx : HotPassContext,
+  type_idx : @lib.TypeIdx,
+) -> Bool {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
+    Some(subtype) => !subtype.metadata().is_shared()
+    None => false
+  }
 }
 
 ///|
@@ -23141,24 +23293,75 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
     None => return false
   }
   match instr {
-    @lib.Instruction::StructAtomicRmw(_, op, type_idx, field_idx) => {
+    @lib.Instruction::StructAtomicGet(@lib.AcqRel, type_idx, field_idx)
+    | @lib.Instruction::StructAtomicGetS(@lib.AcqRel, type_idx, field_idx)
+    | @lib.Instruction::StructAtomicGetU(@lib.AcqRel, type_idx, field_idx) => {
+      if !optimize_instructions_struct_is_unshared(ctx, type_idx) ||
+        @ir.hot_child_count(func, node_id) != 1 {
+        return false
+      }
+      let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
+      if results.length() != 1 {
+        return false
+      }
+      let ordinary = match instr {
+        @lib.Instruction::StructAtomicGetS(_, _, _) =>
+          @lib.Instruction::struct_get_s(type_idx, field_idx)
+        @lib.Instruction::StructAtomicGetU(_, _, _) =>
+          @lib.Instruction::struct_get_u(type_idx, field_idx)
+        _ => @lib.Instruction::struct_get(type_idx, field_idx)
+      }
+      let replacement = optimize_instructions_build_exact_heap(
+        func,
+        ordinary,
+        Some(results[0]),
+        [@ir.hot_child_get(func, node_id, 0)],
+      )
+      optimize_instructions_replace_with_node_id(
+        ctx, func, node_id, replacement,
+      )
+      true
+    }
+    @lib.Instruction::StructAtomicSet(@lib.AcqRel, type_idx, field_idx) => {
+      if !optimize_instructions_struct_is_unshared(ctx, type_idx) ||
+        @ir.hot_child_count(func, node_id) != 2 {
+        return false
+      }
+      // The v132 TODO does not authorize relaxing SeqCst or Relaxed here.
+      // Reuse both children in order so a nullable receiver still traps after
+      // evaluating the stored value, just as the original atomic store does.
+      let replacement = optimize_instructions_build_exact_heap(
+        func,
+        @lib.Instruction::struct_set(type_idx, field_idx),
+        None,
+        [
+          @ir.hot_child_get(func, node_id, 0),
+          @ir.hot_child_get(func, node_id, 1),
+        ],
+      )
+      optimize_instructions_replace_with_node_id(
+        ctx, func, node_id, replacement,
+      )
+      true
+    }
+    @lib.Instruction::StructAtomicRmw(order, op, type_idx, field_idx) => {
       let field_fact = match
         OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
         Some(fact) => fact
         None => return false
       }
       optimize_instructions_try_rewrite_struct_atomic_rmw(
-        ctx, func, dead, node_id, op, field_fact,
+        ctx, func, dead, node_id, order, op, field_fact,
       )
     }
-    @lib.Instruction::StructAtomicCmpxchg(_, type_idx, field_idx) => {
+    @lib.Instruction::StructAtomicCmpxchg(order, type_idx, field_idx) => {
       let field_fact = match
         OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
         Some(fact) => fact
         None => return false
       }
       optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
-        ctx, func, dead, node_id, field_fact,
+        ctx, func, dead, node_id, order, field_fact,
       )
     }
     @lib.Instruction::ArrayAtomicGet(_, _)
@@ -24916,10 +25119,20 @@ fn OiArrayDefaultValueFact::from_array_value(
     effects.node_masks,
     value_id,
   )
+  let fallthrough_id = fallthrough_fact.fallthrough_id()
+  let default_source = if @ir.hot_node_get(func, fallthrough_id).op
+    is @ir.HotOp::LocalGet {
+    match oi_stored_scalar_source(ctx, func, fallthrough_id) {
+      Some(node) if node >= 0 => node
+      _ => fallthrough_id
+    }
+  } else {
+    fallthrough_id
+  }
   if !OiArrayStorageDefaultValueFact::proves_value_default_for_storage(
       func,
       field.get_storage_type(),
-      fallthrough_fact.fallthrough_id(),
+      default_source,
     ) {
     return OiArrayDefaultValueFact::from_kind(ArrayDefaultStorageNonDefault)
   }
@@ -33231,8 +33444,28 @@ fn optimize_instructions_should_keep_i64_eq_zero_if_condition(
     !scratch.if_condition_nodes[node_id] {
     return false
   }
-  optimize_instructions_i64_const(func, dead, lhs_id) == Some(@lib.I64(0L)) ||
-  optimize_instructions_i64_const(func, dead, rhs_id) == Some(@lib.I64(0L))
+  let operand_id = if optimize_instructions_i64_const(func, dead, lhs_id) ==
+    Some(@lib.I64(0L)) {
+    rhs_id
+  } else if optimize_instructions_i64_const(func, dead, rhs_id) ==
+    Some(@lib.I64(0L)) {
+    lhs_id
+  } else {
+    return false
+  }
+  // The condition-shape guard must not suppress the existing constant
+  // fallthrough fold. The subsequent eqz rule preserves the complete wrapper
+  // evaluation, including local.tee writes and effectful block prefixes.
+  match
+    OiBooleanEqzFallthroughChainFact::from_operand(
+      func,
+      operand_id,
+      @lib.ValType::i64(),
+    ) {
+    Some(fact) =>
+      optimize_instructions_i64_const(func, dead, fact.value_id) is None
+    None => true
+  }
 }
 
 ///|
@@ -35965,7 +36198,15 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
     for root_idx = 0
         root_idx < @ir.hot_root_count(func)
         root_idx = root_idx + 1 {
-      if @ir.hot_root_get(func, root_idx) == descriptor_id {
+      let root_id = @ir.hot_root_get(func, root_idx)
+      if root_id == descriptor_id ||
+        (
+          @ir.hot_node_get(func, root_id).op is @ir.HotOp::LocalSet &&
+          @ir.hot_child_count(func, root_id) == 1 &&
+          @ir.hot_child_get(func, root_id, 0) == descriptor_id
+        ) {
+        // Lifetime capture stores a standalone result in a scratch local.
+        // That carrier does not change the descriptor's own null trap.
         is_standalone_root = true
         break
       }

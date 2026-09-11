@@ -73,9 +73,12 @@ pub fn decode_module(bytes : Bytes) -> Result[@lib.Module, DecodeError] {
 }
 
 ///|
-pub fn encode_module(mod : @lib.Module) -> Result[Bytes, EncodeError] {
+pub fn encode_module(
+  mod : @lib.Module,
+  compact_imports? : Bool = false,
+) -> Result[Bytes, EncodeError] {
   let buf = @buffer.new()
-  match Encode::encode(mod, buf) {
+  match encode_module_sections(mod, buf, compact_imports) {
     Ok(_) => Ok(buf.to_bytes())
     Err(err) => Err(EncodeError::Encode(err))
   }

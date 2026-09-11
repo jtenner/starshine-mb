@@ -17,6 +17,8 @@ pub fn build_validate_invalid_ast_minimal_repro_by_stable_id(String) -> Result[@
 
 pub fn check_validate_valid_feature_floors(GenValidFeatureStats, Array[ValidateValidFeatureFloor]) -> Array[ValidateValidFeatureFloorFailure]
 
+pub fn controlled_proposal_features() -> Array[ProposalFeature]
+
 pub fn default_gen_valid_config() -> GenValidConfig
 
 pub fn descriptor_compatible(@lib.RefType, @lib.RefType, Env) -> Bool
@@ -177,6 +179,12 @@ pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 
 pub fn make_state_owned(Env, Array[@lib.ValType]) -> TcState
 
+pub fn module_proposal_features(@lib.Module) -> Array[ProposalFeature]
+
+pub fn proposal_feature_by_name(String) -> ProposalFeature?
+
+pub fn proposal_feature_name(ProposalFeature) -> String
+
 pub fn run_validate_invalid_ast_fuzz(String, UInt64) -> Result[ValidateInvalidAstFuzzStats, String]
 
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
@@ -192,6 +200,8 @@ pub fn tc_state_finish_block(TcState, TcState, TcState, Array[@lib.ValType]) -> 
 pub fn tc_state_finish_if(TcState, TcState, TcState, TcState, Array[@lib.ValType]) -> Result[TcState, String]
 
 pub fn tc_state_finish_loop(TcState, TcState, TcState, Array[@lib.ValType]) -> Result[TcState, String]
+
+pub fn tc_state_finish_try_table(TcState, TcState, TcState, Array[@lib.ValType], Array[@lib.Catch]) -> Result[TcState, String]
 
 pub fn tc_state_merge_nonfallthrough_if_exits(TcEscape, TcEscape) -> TcEscape
 
@@ -247,9 +257,9 @@ pub fn validate_invalid_ast_strategy_spec_by_id(ValidateInvalidAstStrategyId) ->
 
 pub fn validate_memsec(@lib.MemSec?, Env) -> Result[Env, String]
 
-pub fn validate_module(@lib.Module) -> Result[Unit, ValidationError]
+pub fn validate_module(@lib.Module, disabled_features? : Array[ProposalFeature]) -> Result[Unit, ValidationError]
 
-pub fn validate_module_with_trace(@lib.Module, (String) -> Unit, trace_all_funcs? : Bool) -> Result[Unit, ValidationError]
+pub fn validate_module_with_trace(@lib.Module, (String) -> Unit, trace_all_funcs? : Bool, disabled_features? : Array[ProposalFeature]) -> Result[Unit, ValidationError]
 
 pub fn validate_startsec(@lib.StartSec?, Env) -> Result[Unit, String]
 
@@ -1230,6 +1240,39 @@ pub enum GenValidProfile {
   RseVacuumTailProfile
   PassDaeProfile
   DaeAllProfile
+  ConstraintAllProfile
+  ConstraintIntegerProfile
+  ConstraintJoinsProfile
+  ConstraintLoopsProfile
+  ConstraintTeesProfile
+  ConstraintWraparoundProfile
+  ConstraintI64Profile
+  ConstraintLogicalProfile
+  ConstraintReferencesProfile
+  ConstraintUnreachableProfile
+  ConstraintRelationsProfile
+  ConstraintEffectsProfile
+  ConstraintFloatBoundaryProfile
+  Binaryen132ArrayMemoryProfile
+  Binaryen132WaitqueueProfile
+  Binaryen132CompactImportsProfile
+  Binaryen132AtomicOrdersProfile
+  Binaryen132DescriptorBranchesProfile
+  Dae2AllProfile
+  Dae2ForwardedResultsProfile
+  Dae2CyclesProfile
+  Dae2ControlFlowProfile
+  Dae2EffectfulArgumentsProfile
+  Dae2TupleResultsProfile
+  Dae2TailCallsProfile
+  Dae2IndirectProfile
+  Dae2OpenWorldProfile
+  Dae2ReferenceTypesProfile
+  Dae2LocalsProfile
+  Dae2ContinuationsProfile
+  Dae2ExceptionsProfile
+  Dae2CallRefProfile
+  Dae2IntrinsicsProfile
   DaeUnusedParamsProfile
   DaeEffectfulArgsProfile
   DaeConstantArgsProfile
@@ -1749,6 +1792,14 @@ pub fn LabelStack::new() -> Self
 pub fn LabelStack::push(Self, Array[@lib.ValType]) -> Unit
 pub impl Show for LabelStack
 
+pub enum ProposalFeature {
+  AcquireReleaseAtomics
+  RelaxedAtomics
+  SharedEverything
+  Multibyte
+  RelaxedSimd
+} derive(Eq, @debug.Debug)
+
 pub enum TcEscape {
   NoTcEscape
   BranchTcEscape(Int)
@@ -2266,6 +2317,7 @@ pub fn ValidationDiagnostic::new(ValidationIssue, func_idx? : @lib.FuncIdx?) -> 
 pub impl Show for ValidationDiagnostic
 
 pub enum ValidationIssue {
+  FeaturePolicy(String)
   TypeSection(String)
   ImportSection(String)
   FunctionSection(String)
@@ -2286,6 +2338,7 @@ pub enum ValidationIssue {
 pub impl Show for ValidationIssue
 
 pub enum ValidationIssueFamily {
+  FeaturePolicyFamily
   TypeSectionFamily
   ImportSectionFamily
   FunctionSectionFamily

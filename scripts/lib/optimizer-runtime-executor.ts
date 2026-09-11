@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildInvocationPlanV2,
+  optimizerRuntimeIdentity,
   classifyThreeWaySemanticComparison,
   compareRuntimeObservationsV2,
   normalizeRuntimeTrap,
@@ -343,6 +344,7 @@ export function buildRuntimeInterfaceFromWasm(wasmPath: string, wasmToolsBin = "
   }
 
   const features = new Set<string>();
+  if (/^\s+(?:i\d+x\d+|f\d+x\d+)\.relaxed_/m.test(text)) features.add("relaxed-simd");
   if (imports.functions.length + imports.globals.length + imports.memories.length + imports.tables.length + (imports.tags?.length ?? 0) > 0) features.add("imports");
   if ((imports.tags?.length ?? 0) > 0) features.add("exceptions");
   if (forms.some((form) => form.startsWith("(start "))) features.add("start");
@@ -857,7 +859,19 @@ async function instantiateRuntime(
   const relations = new Map<object, string>();
   for (const imported of runtimeInterface.imports.functions) {
     const namespace = (imports[imported.module] ??= {});
-    if (signatureHasV128(imported.signature)) {
+    if (imported.module === "binaryen-intrinsics" && imported.field === "call.without.effects") {
+      // Binaryen intrinsic calls lower to their final funcref argument. They
+      // are not observable host-import events; operand calls still get traced.
+      // Do not substitute the ordinary deterministic import stub for this call.
+      if (signatureHasV128(imported.signature)) {
+        throw new Error("unsupported v128 call.without.effects execution adapter");
+      }
+      namespace[imported.field] = (...args: unknown[]) => {
+        const target = args[args.length - 1];
+        if (typeof target !== "function") throw new WebAssembly.RuntimeError("null function reference");
+        return target(...args.slice(0, -1));
+      };
+    } else if (signatureHasV128(imported.signature)) {
       namespace[imported.field] = await instantiateImportScalarAdapter(
         imported,
         trace,
@@ -1049,7 +1063,7 @@ export async function executeNodeObservationV2(
   };
   const observation: RuntimeObservationV2 = {
     schema: "starshine.optimizer-runtime-observation.v2",
-    runtime: { identity: `node:${process.version}`, timeoutMs: options.timeoutMs },
+    runtime: { identity: optimizerRuntimeIdentity(), timeoutMs: options.timeoutMs },
     mode: options.mode,
     compilation: { status: "not-attempted" },
     instantiation: { status: "not-attempted" },
@@ -1059,6 +1073,13 @@ export async function executeNodeObservationV2(
     importTrace: trace,
     resources: emptyState(),
   };
+  if (runtimeInterface.features.includes("relaxed-simd")) {
+    // Keep the observations, but do not certify arbitrary relaxed operations
+    // using exact cross-optimization equality. Their allowed result sets need
+    // an instruction-aware oracle, including values stored into memory.
+    observation.completeness = "incomplete";
+    observation.blockedReasons.push("relaxed-simd-allowed-result-oracle-unavailable");
+  }
   let module: WebAssembly.Module;
   try {
     module = await WebAssembly.compile(fs.readFileSync(wasmPath));

@@ -103,7 +103,22 @@ pub struct TableType {
 } derive(Eq, Debug)
 
 ///|
-pub struct MemoryType(Limits) derive(Eq, Debug)
+pub struct MemoryType {
+  min : UInt64
+  max : UInt64?
+  shared : Bool
+  memory64 : Bool
+} derive(Eq, Debug)
+
+///|
+pub fn MemoryType::new(
+  min : UInt64,
+  max? : UInt64? = None,
+  shared? : Bool = false,
+  memory64? : Bool = false,
+) -> MemoryType {
+  { min, max, shared, memory64, }
+}
 
 ///|
 pub struct GlobalType {
@@ -121,6 +136,7 @@ pub struct Local {
 pub enum AtomicOrder {
   SeqCst
   AcqRel
+  Relaxed
 } derive(Eq, Debug)
 
 ///|
@@ -184,6 +200,7 @@ pub enum TypeDefBody {
   Func(FuncType)
   Struct(Array[StructFieldDef])
   Array(StructFieldDef)
+  Shared(TypeDefBody)
 } derive(Eq, Debug)
 
 ///|
@@ -213,6 +230,7 @@ pub struct DataSegment {
 ///|
 pub struct ElemSegment {
   id : String?
+  declarative : Bool
   table_index : Index
   offset : Array[Instruction]
   func_indices : Array[Index]
@@ -372,12 +390,17 @@ pub enum Instruction {
   If(BlockType, Array[Instruction], Array[Instruction])
   Br(Index)
   BrIf(Index)
+  BrOnNull(Index)
+  BrOnNonNull(Index)
+  BrOnCastDescEq(Index, ValueType, ValueType)
+  BrOnCastDescEqFail(Index, ValueType, ValueType)
   BrTable(Array[Index], Index)
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
   ReturnCall(Index)
   ReturnCallIndirect(Index, TypeUse)
+  CallRef(TypeUse)
   ReturnCallRef(TypeUse)
   Throw(Index)
   ThrowRef
@@ -407,8 +430,12 @@ pub enum Instruction {
   ElemDrop(Index)
 
   // Memory
+  MemoryAtomic(MemoryAtomicOp, AtomicOrder, Index?, MemArg)
+  AtomicFence(AtomicOrder)
   Load(Opcode, MemArg)
   Store(Opcode, MemArg)
+  ArrayLoad(Opcode, Index, MemArg)
+  ArrayStore(Opcode, Index, MemArg)
   MemorySize
   MemoryGrow
   MemoryFill
@@ -448,13 +475,21 @@ pub enum Instruction {
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
+  WaitqueueNew
+  WaitqueueNotify
+  StructWait(Index, UInt)
+  StructAtomicSet(AtomicOrder, Index, UInt)
+  ArrayAtomicSet(AtomicOrder, Index)
   StructAtomicGet(AtomicOrder, Index, UInt)
   StructAtomicGetS(AtomicOrder, Index, UInt)
   StructAtomicGetU(AtomicOrder, Index, UInt)
-  StructAtomicRmw(@lib.AggregateAtomicRmwOp, Index, UInt)
-  StructAtomicCmpxchg(Index, UInt)
-  ArrayAtomicRmw(@lib.AggregateAtomicRmwOp, Index)
-  ArrayAtomicCmpxchg(Index)
+  StructAtomicRmw(AtomicOrder, @lib.AggregateAtomicRmwOp, Index, UInt)
+  StructAtomicCmpxchg(AtomicOrder, Index, UInt)
+  ArrayAtomicGet(AtomicOrder, Index)
+  ArrayAtomicGetS(AtomicOrder, Index)
+  ArrayAtomicGetU(AtomicOrder, Index)
+  ArrayAtomicRmw(AtomicOrder, @lib.AggregateAtomicRmwOp, Index)
+  ArrayAtomicCmpxchg(AtomicOrder, Index)
   StructNewDesc(Index)
   StructNewDefaultDesc(Index)
   RefGetDesc(Index)
@@ -811,17 +846,29 @@ fn WastParser::attach_annotations(
 }
 
 ///|
-fn WastParser::parse_annotated_module_field(
+fn WastParser::parse_annotated_module_fields(
   self : WastParser,
-) -> ModuleField raise ParserError {
+) -> Array[ModuleField] raise ParserError {
   let annotations : Array[Annotation] = []
   while self.check(LparAnn) {
     annotations.push(self.parse_annotation())
   }
   self.expect_lpar()
-  let field = self.parse_module_field()
-  self.expect_rpar()
-  self.attach_annotations(field, annotations)
+  if self.check(Import) {
+    let imports = self.parse_imports()
+    self.expect_rpar()
+    let fields : Array[ModuleField] = []
+    for im in imports {
+      fields.push(
+        self.attach_annotations(ModuleField::ImportField(im), annotations),
+      )
+    }
+    fields
+  } else {
+    let field = self.parse_module_field()
+    self.expect_rpar()
+    [self.attach_annotations(field, annotations)]
+  }
 }
 
 // ============================================================================
@@ -980,7 +1027,11 @@ fn WastParser::is_reserved_word(self : WastParser, word : String) -> Bool {
 
 ///|
 fn WastParser::try_parse_atomic_order(self : WastParser) -> AtomicOrder? {
-  if self.is_reserved_word("seq_cst") {
+  if self.is_reserved_word("relaxed") {
+    let _ = self.advance()
+    return Some(Relaxed)
+  }
+  if self.is_reserved_word("seq_cst") || self.is_reserved_word("seqcst") {
     let _ = self.advance()
     return Some(SeqCst)
   }
@@ -1047,6 +1098,8 @@ fn heap_type_ref_from_reserved_keyword(text : String) -> HeapTypeRef? {
     "nofunc" => Some(HeapTypeRef::NoFunc)
     "noextern" => Some(HeapTypeRef::NoExtern)
     "noexn" => Some(HeapTypeRef::NoExn)
+    "waitqueue" => Some(HeapTypeRef::Waitqueue)
+    "nowaitqueue" => Some(HeapTypeRef::NoWaitqueue)
     "struct" => Some(HeapTypeRef::Struct)
     _ => None
   }
@@ -1124,6 +1177,12 @@ fn WastParser::parse_heap_type_ref(
     }
     Lpar => {
       self.expect_lpar()
+      if self.is_reserved_word("shared") {
+        let _ = self.advance()
+        let heap = self.parse_heap_type_ref()
+        self.expect_rpar()
+        return HeapTypeRef::Shared(heap)
+      }
       if !self.is_reserved_word("exact") {
         raise UnexpectedToken(self.current, "expected heap type")
       }
@@ -1276,6 +1335,21 @@ fn WastParser::parse_limits(self : WastParser) -> Limits raise ParserError {
 // ============================================================================
 // Type Use Parsing
 // ============================================================================
+
+///|
+fn WastParser::parse_call_ref_type_use(
+  self : WastParser,
+) -> TypeUse raise ParserError {
+  match self.try_parse_index() {
+    Some(index) =>
+      {
+        type_index: Some(index),
+        func_type: { params: [], results: [], },
+        param_ids: [],
+      }
+    None => self.parse_type_use()
+  }
+}
 
 ///|
 fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
@@ -1897,6 +1971,20 @@ fn WastParser::parse_opcode_instruction(
     Nop => Nop
     Br => Br(self.parse_index())
     BrIf => BrIf(self.parse_index())
+    BrOnNull => BrOnNull(self.parse_index())
+    BrOnNonNull => BrOnNonNull(self.parse_index())
+    BrOnCastDescEq =>
+      BrOnCastDescEq(
+        self.parse_index(),
+        self.parse_value_type(),
+        self.parse_value_type(),
+      )
+    BrOnCastDescEqFail =>
+      BrOnCastDescEqFail(
+        self.parse_index(),
+        self.parse_value_type(),
+        self.parse_value_type(),
+      )
     BrTable => {
       let indices : Array[Index] = []
       while self.current.token_type is (Nat | Var) {
@@ -1921,7 +2009,8 @@ fn WastParser::parse_opcode_instruction(
       let type_use = self.parse_type_use()
       ReturnCallIndirect(table_index, type_use)
     }
-    ReturnCallRef => ReturnCallRef(self.parse_type_use())
+    CallRef => CallRef(self.parse_call_ref_type_use())
+    ReturnCallRef => ReturnCallRef(self.parse_call_ref_type_use())
     Throw => Throw(self.parse_index())
     ThrowRef => ThrowRef
     TryTable => self.parse_try_table_instruction(false)
@@ -1942,6 +2031,23 @@ fn WastParser::parse_opcode_instruction(
       let field_idx = self.parse_nat("expected struct field index")
       StructGetU(type_idx, field_idx)
     }
+    WaitqueueNew => WaitqueueNew
+    WaitqueueNotify => WaitqueueNotify
+    StructWait => {
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected field index")
+      StructWait(type_idx, field_idx)
+    }
+    StructAtomicSet => {
+      let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicSet(order, type_idx, field_idx)
+    }
+    ArrayAtomicSet => {
+      let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
+      ArrayAtomicSet(order, self.parse_index())
+    }
     StructAtomicGet => {
       let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
       let type_idx = self.parse_index()
@@ -1961,53 +2067,141 @@ fn WastParser::parse_opcode_instruction(
       StructAtomicGetU(order, type_idx, field_idx)
     }
     StructAtomicRmwAdd => {
+      let order = self.parse_atomic_order_pair()
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
-      StructAtomicRmw(@lib.AggregateAtomicRmwOp::add(), type_idx, field_idx)
+      StructAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::add(),
+        type_idx,
+        field_idx,
+      )
     }
     StructAtomicRmwSub => {
+      let order = self.parse_atomic_order_pair()
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
-      StructAtomicRmw(@lib.AggregateAtomicRmwOp::sub(), type_idx, field_idx)
+      StructAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::sub(),
+        type_idx,
+        field_idx,
+      )
     }
     StructAtomicRmwAnd => {
+      let order = self.parse_atomic_order_pair()
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
-      StructAtomicRmw(@lib.AggregateAtomicRmwOp::and_(), type_idx, field_idx)
+      StructAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::and_(),
+        type_idx,
+        field_idx,
+      )
     }
     StructAtomicRmwOr => {
+      let order = self.parse_atomic_order_pair()
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
-      StructAtomicRmw(@lib.AggregateAtomicRmwOp::or_(), type_idx, field_idx)
+      StructAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::or_(),
+        type_idx,
+        field_idx,
+      )
     }
     StructAtomicRmwXor => {
+      let order = self.parse_atomic_order_pair()
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
-      StructAtomicRmw(@lib.AggregateAtomicRmwOp::xor(), type_idx, field_idx)
+      StructAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::xor(),
+        type_idx,
+        field_idx,
+      )
     }
     StructAtomicRmwXchg => {
+      let order = self.parse_atomic_order_pair()
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
-      StructAtomicRmw(@lib.AggregateAtomicRmwOp::xchg(), type_idx, field_idx)
+      StructAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::xchg(),
+        type_idx,
+        field_idx,
+      )
     }
     StructAtomicRmwCmpxchg => {
+      let order = self.parse_atomic_order_pair()
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
-      StructAtomicCmpxchg(type_idx, field_idx)
+      StructAtomicCmpxchg(order, type_idx, field_idx)
     }
-    ArrayAtomicRmwAdd =>
-      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::add(), self.parse_index())
-    ArrayAtomicRmwSub =>
-      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::sub(), self.parse_index())
-    ArrayAtomicRmwAnd =>
-      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::and_(), self.parse_index())
-    ArrayAtomicRmwOr =>
-      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::or_(), self.parse_index())
-    ArrayAtomicRmwXor =>
-      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::xor(), self.parse_index())
-    ArrayAtomicRmwXchg =>
-      ArrayAtomicRmw(@lib.AggregateAtomicRmwOp::xchg(), self.parse_index())
-    ArrayAtomicRmwCmpxchg => ArrayAtomicCmpxchg(self.parse_index())
+    ArrayAtomicGet => {
+      let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
+      ArrayAtomicGet(order, self.parse_index())
+    }
+    ArrayAtomicGetS => {
+      let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
+      ArrayAtomicGetS(order, self.parse_index())
+    }
+    ArrayAtomicGetU => {
+      let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
+      ArrayAtomicGetU(order, self.parse_index())
+    }
+    ArrayAtomicRmwAdd => {
+      let order = self.parse_atomic_order_pair()
+      ArrayAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::add(),
+        self.parse_index(),
+      )
+    }
+    ArrayAtomicRmwSub => {
+      let order = self.parse_atomic_order_pair()
+      ArrayAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::sub(),
+        self.parse_index(),
+      )
+    }
+    ArrayAtomicRmwAnd => {
+      let order = self.parse_atomic_order_pair()
+      ArrayAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::and_(),
+        self.parse_index(),
+      )
+    }
+    ArrayAtomicRmwOr => {
+      let order = self.parse_atomic_order_pair()
+      ArrayAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::or_(),
+        self.parse_index(),
+      )
+    }
+    ArrayAtomicRmwXor => {
+      let order = self.parse_atomic_order_pair()
+      ArrayAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::xor(),
+        self.parse_index(),
+      )
+    }
+    ArrayAtomicRmwXchg => {
+      let order = self.parse_atomic_order_pair()
+      ArrayAtomicRmw(
+        order,
+        @lib.AggregateAtomicRmwOp::xchg(),
+        self.parse_index(),
+      )
+    }
+    ArrayAtomicRmwCmpxchg => {
+      let order = self.parse_atomic_order_pair()
+      ArrayAtomicCmpxchg(order, self.parse_index())
+    }
     StructNewDesc => StructNewDesc(self.parse_index())
     StructNewDefaultDesc => StructNewDefaultDesc(self.parse_index())
     RefGetDesc => RefGetDesc(self.parse_index())
@@ -2080,22 +2274,24 @@ fn WastParser::parse_opcode_instruction(
     ElemDrop => ElemDrop(self.parse_index())
 
     // Memory
-    I32Load => Load(op, self.parse_mem_arg(4))
-    I64Load => Load(op, self.parse_mem_arg(8))
-    F32Load => Load(op, self.parse_mem_arg(4))
-    F64Load => Load(op, self.parse_mem_arg(8))
-    I32Load8S | I32Load8U => Load(op, self.parse_mem_arg(1))
-    I32Load16S | I32Load16U => Load(op, self.parse_mem_arg(2))
-    I64Load8S | I64Load8U => Load(op, self.parse_mem_arg(1))
-    I64Load16S | I64Load16U => Load(op, self.parse_mem_arg(2))
-    I64Load32S | I64Load32U => Load(op, self.parse_mem_arg(4))
-    I32Store => Store(op, self.parse_mem_arg(4))
-    I64Store => Store(op, self.parse_mem_arg(8))
-    F32Store => Store(op, self.parse_mem_arg(4))
-    F64Store => Store(op, self.parse_mem_arg(8))
-    I32Store8 | I64Store8 => Store(op, self.parse_mem_arg(1))
-    I32Store16 | I64Store16 => Store(op, self.parse_mem_arg(2))
-    I64Store32 => Store(op, self.parse_mem_arg(4))
+    MemoryAtomic(op) => self.parse_memory_atomic(op)
+    AtomicFence => AtomicFence(self.try_parse_atomic_order().unwrap_or(SeqCst))
+    I32Load => self.parse_memory_access(op, 4, false)
+    I64Load => self.parse_memory_access(op, 8, false)
+    F32Load => self.parse_memory_access(op, 4, false)
+    F64Load => self.parse_memory_access(op, 8, false)
+    I32Load8S | I32Load8U => self.parse_memory_access(op, 1, false)
+    I32Load16S | I32Load16U => self.parse_memory_access(op, 2, false)
+    I64Load8S | I64Load8U => self.parse_memory_access(op, 1, false)
+    I64Load16S | I64Load16U => self.parse_memory_access(op, 2, false)
+    I64Load32S | I64Load32U => self.parse_memory_access(op, 4, false)
+    I32Store => self.parse_memory_access(op, 4, true)
+    I64Store => self.parse_memory_access(op, 8, true)
+    F32Store => self.parse_memory_access(op, 4, true)
+    F64Store => self.parse_memory_access(op, 8, true)
+    I32Store8 | I64Store8 => self.parse_memory_access(op, 1, true)
+    I32Store16 | I64Store16 => self.parse_memory_access(op, 2, true)
+    I64Store32 => self.parse_memory_access(op, 4, true)
     MemorySize => MemorySize
     MemoryGrow => MemoryGrow
     MemoryFill => MemoryFill
@@ -2425,6 +2621,15 @@ fn WastParser::parse_type_def_body(
   self : WastParser,
 ) -> TypeDefBody raise ParserError {
   self.expect_lpar()
+  if self.is_reserved_word("shared") {
+    let _ = self.advance()
+    let body = self.parse_type_def_body()
+    self.expect_rpar()
+    if body is TypeDefBody::Shared(_) {
+      raise InvalidInstruction("duplicate shared type wrapper")
+    }
+    return TypeDefBody::Shared(body)
+  }
   if self.check(Func) {
     let _ = self.advance()
     let func_type = self.parse_func_type_signature()
@@ -2824,8 +3029,8 @@ fn WastParser::parse_memory(self : WastParser) -> Memory raise ParserError {
     None
   }
   let exports = self.parse_inline_exports()
-  let limits = self.parse_limits()
-  { id, exports, memory_type: limits, }
+  let memory_type = self.parse_memory_type()
+  { id, exports, memory_type, }
 }
 
 ///|
@@ -2941,12 +3146,9 @@ fn WastParser::parse_global_type(
 }
 
 ///|
-fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
-  let _ = self.expect(Import, "expected 'import'")
-  let module_token = self.expect(Text, "expected module name")
-  let module_name = self.strip_quotes(self.get_text(module_token))
-  let field_token = self.expect(Text, "expected field name")
-  let field_name = self.strip_quotes(self.get_text(field_token))
+fn WastParser::parse_import_desc(
+  self : WastParser,
+) -> (ImportDesc, String?) raise ParserError {
   self.expect_lpar()
   let (desc, id) = match self.current.token_type {
     Func => {
@@ -2980,8 +3182,8 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
       } else {
         None
       }
-      let limits = self.parse_limits()
-      (ImportDesc::Memory(limits), mem_id)
+      let memory_type = self.parse_memory_type()
+      (ImportDesc::Memory(memory_type), mem_id)
     }
     Global => {
       let _ = self.advance()
@@ -3007,7 +3209,83 @@ fn WastParser::parse_import(self : WastParser) -> Import raise ParserError {
     _ => raise UnexpectedToken(self.current, "expected import descriptor")
   }
   self.expect_rpar()
-  { module_name, field_name, desc, id, annotations: [], }
+  (desc, id)
+}
+
+///|
+fn WastParser::parse_imports(
+  self : WastParser,
+) -> Array[Import] raise ParserError {
+  let _ = self.expect(Import, "expected 'import'")
+  let module_token = self.expect(Text, "expected module name")
+  let module_name = self.strip_quotes(self.get_text(module_token))
+  if self.check(Text) {
+    let field_token = self.advance()
+    let field_name = self.strip_quotes(self.get_text(field_token))
+    let (desc, id) = self.parse_import_desc()
+    return [{ module_name, field_name, desc, id, annotations: [], }]
+  }
+  let items : Array[(String, String?, ImportDesc?)] = []
+  let mut has_individual_desc = false
+  let mut has_shared_desc = false
+  while self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    if !self.check(Item) {
+      self.restore_lexer_state(saved_state)
+      self.current = saved_token
+      break
+    }
+    let _ = self.advance()
+    let id : String? = if self.check(Var) {
+      Some(self.get_text(self.advance()))
+    } else {
+      None
+    }
+    let token = self.expect(Text, "expected compact import item name")
+    let field_name = self.strip_quotes(self.get_text(token))
+    let desc : ImportDesc? = if self.check(Lpar) {
+      let (desc, desc_id) = self.parse_import_desc()
+      if desc_id is Some(_) {
+        raise Custom("compact import IDs belong on items")
+      }
+      has_individual_desc = true
+      Some(desc)
+    } else {
+      has_shared_desc = true
+      None
+    }
+    self.expect_rpar()
+    items.push((field_name, id, desc))
+  }
+  if has_individual_desc && has_shared_desc {
+    raise Custom("compact imports cannot mix individual and shared descriptors")
+  }
+  let common_desc : ImportDesc? = if has_shared_desc ||
+    (items.is_empty() && self.check(Lpar)) {
+    let (desc, id) = self.parse_import_desc()
+    if id is Some(_) {
+      raise Custom("compact import IDs belong on items")
+    }
+    Some(desc)
+  } else {
+    None
+  }
+  let out : Array[Import] = []
+  for item in items {
+    let (field_name, id, own_desc) = item
+    let desc = match own_desc {
+      Some(desc) => desc
+      None =>
+        match common_desc {
+          Some(desc) => desc
+          None => raise Custom("expected shared compact import descriptor")
+        }
+    }
+    out.push({ module_name, field_name, desc, id, annotations: [], })
+  }
+  out
 }
 
 ///|
@@ -3107,7 +3385,9 @@ fn WastParser::parse_module_command(
       // Regular module - parse fields
       let fields : Array[ModuleField] = []
       while self.check(Lpar) || self.check(LparAnn) {
-        fields.push(self.parse_annotated_module_field())
+        for field in self.parse_annotated_module_fields() {
+          fields.push(field)
+        }
       }
       WastCommand::Module({ id, fields, })
     }
@@ -3395,7 +3675,9 @@ fn WastParser::parse_module_def(
     _ => {
       let fields : Array[ModuleField] = []
       while self.check(Lpar) || self.check(LparAnn) {
-        fields.push(self.parse_annotated_module_field())
+        for field in self.parse_annotated_module_fields() {
+          fields.push(field)
+        }
       }
       WastModuleDef::Inline({ id: None, fields, })
     }
@@ -3495,29 +3777,31 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
     None
   }
 
-  // Declarative abbreviation: (elem declare func $f ...)
-  if self.check(Declare) {
+  // Declarative segments share both the index abbreviation and the typed
+  // expression grammar with passive segments, but have no table or offset.
+  let declarative = if self.check(Declare) {
     let _ = self.advance()
-    let _ = self.expect(Func, "expected 'func' in declarative elem segment")
-    let func_indices : Array[Index] = []
-    while self.current.token_type is (Nat | Var) {
-      func_indices.push(self.parse_index())
-    }
-    return {
-      id,
-      table_index: Index::Num(0),
-      offset: [],
-      func_indices,
-      elem_exprs: [],
-      elem_type: None,
-    }
+    true
+  } else {
+    false
   }
-
-  let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
+  if declarative && !self.can_start_value_type() {
+    raise UnexpectedToken(
+      self.current,
+      "expected func or reference type in declarative elem segment",
+    )
+  }
+  let table_index = if declarative {
+    Index::Num(0)
+  } else {
+    self.try_parse_index().unwrap_or(Index::Num(0))
+  }
   let mut elem_type : ValueType? = None
 
   // Offset expression
-  let offset = if self.check(Lpar) {
+  let offset = if declarative {
+    []
+  } else if self.check(Lpar) {
     let saved_state = self.save_lexer_state()
     let saved_token = self.current
     let parsed_elem_type : ValueType? = Some(self.parse_value_type()) catch {
@@ -3575,7 +3859,7 @@ fn WastParser::parse_elem(self : WastParser) -> ElemSegment raise ParserError {
   while self.check(Lpar) {
     elem_exprs.push(self.parse_elem_item_instrs())
   }
-  { id, table_index, offset, func_indices, elem_exprs, elem_type, }
+  { id, declarative, table_index, offset, func_indices, elem_exprs, elem_type, }
 }
 
 // ============================================================================
@@ -3596,7 +3880,6 @@ fn WastParser::parse_module_field(
     Table => ModuleField::TableField(self.parse_table())
     Memory => ModuleField::MemoryField(self.parse_memory())
     Global => ModuleField::GlobalField(self.parse_global())
-    Import => ModuleField::ImportField(self.parse_import())
     Export => ModuleField::ExportField(self.parse_export())
     Start => ModuleField::StartField(self.parse_start())
     Elem => ModuleField::ElemField(self.parse_elem())
@@ -3714,7 +3997,7 @@ fn WastParser::parse_simd_instruction(
     }
 
     // V128 Memory - Load
-    V128Load => V128Load(self.parse_simd_mem_arg(16))
+    V128Load => self.parse_memory_access(op, 16, false)
     V128Load8x8S => V128Load8x8S(self.parse_simd_mem_arg(8))
     V128Load8x8U => V128Load8x8U(self.parse_simd_mem_arg(8))
     V128Load16x4S => V128Load16x4S(self.parse_simd_mem_arg(8))
@@ -3727,7 +4010,7 @@ fn WastParser::parse_simd_instruction(
     V128Load64Splat => V128Load64Splat(self.parse_simd_mem_arg(8))
     V128Load32Zero => V128Load32Zero(self.parse_simd_mem_arg(4))
     V128Load64Zero => V128Load64Zero(self.parse_simd_mem_arg(8))
-    V128Store => V128Store(self.parse_simd_mem_arg(16))
+    V128Store => self.parse_memory_access(op, 16, true)
 
     // V128 Memory - Lane operations
     V128Load8Lane => {
@@ -4042,7 +4325,9 @@ pub fn WastParser::parse_module(self : WastParser) -> Module raise ParserError {
   }
   let fields : Array[ModuleField] = []
   while self.check(Lpar) || self.check(LparAnn) {
-    fields.push(self.parse_annotated_module_field())
+    for field in self.parse_annotated_module_fields() {
+      fields.push(field)
+    }
   }
   self.expect_rpar()
   { id, fields, }
@@ -6713,4 +6998,114 @@ pub impl Show for WastModuleDef with fn output(self, logger) {
 ///|
 pub impl Show for ParseError with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
+}
+
+///|
+fn WastParser::parse_memory_access(
+  self : WastParser,
+  op : Opcode,
+  align : UInt64,
+  store : Bool,
+) -> Instruction raise ParserError {
+  let mut array_type : Index? = None
+  if self.check(Lpar) {
+    let saved_state = self.save_lexer_state()
+    let saved_token = self.current
+    self.expect_lpar()
+    if self.check(Type) {
+      ignore(self.advance())
+      array_type = Some(self.parse_index())
+      self.expect_rpar()
+    } else {
+      self.restore_lexer_state(saved_state)
+      self.current = saved_token
+    }
+  }
+  let ma = self.parse_mem_arg(align)
+  match array_type {
+    Some(ti) =>
+      if store {
+        ArrayStore(op, ti, ma)
+      } else {
+        ArrayLoad(op, ti, ma)
+      }
+    None =>
+      match op {
+        V128Load => V128Load(ma)
+        V128Store => V128Store(ma)
+        _ => if store { Store(op, ma) } else { Load(op, ma) }
+      }
+  }
+}
+
+///|
+fn WastParser::parse_atomic_order_pair(
+  self : WastParser,
+) -> AtomicOrder raise ParserError {
+  let first = self.try_parse_atomic_order().unwrap_or(SeqCst)
+  let second = self.try_parse_atomic_order().unwrap_or(SeqCst)
+  if first != second {
+    raise UnexpectedToken(
+      self.current,
+      "aggregate atomic memory orders must be identical",
+    )
+  }
+  first
+}
+
+///|
+fn WastParser::parse_memory_type(
+  self : WastParser,
+) -> MemoryType raise ParserError {
+  let memory64 = self.current.token_type == ValueType(I64)
+  if memory64 || self.current.token_type == ValueType(I32) {
+    let _ = self.advance()
+  }
+  if !self.check(Nat) {
+    raise UnexpectedToken(self.current, "expected minimum limit")
+  }
+  let min = self.parse_memory_limit(memory64)
+  let max : UInt64? = if self.check(Nat) {
+    Some(self.parse_memory_limit(memory64))
+  } else {
+    None
+  }
+  let shared = self.is_reserved_word("shared")
+  if shared {
+    let _ = self.advance()
+  }
+  MemoryType::new(min, max~, shared~, memory64~)
+}
+
+///|
+fn WastParser::parse_memory_limit(
+  self : WastParser,
+  memory64 : Bool,
+) -> UInt64 raise ParserError {
+  let token = self.expect(Nat, "expected memory limit")
+  let text = self.get_literal_text(token)
+  let hex = text.has_prefix("0x") || text.has_prefix("0X")
+  let radix = if hex { 16UL } else { 10UL }
+  let limit = if memory64 { 18446744073709551615UL } else { 4294967295UL }
+  let mut value = 0UL
+  for i = (if hex { 2 } else { 0 }); i < text.length(); i = i + 1 {
+    let c = text[i]
+    if c == '_' {
+      continue
+    }
+    let digit = if c >= '0' && c <= '9' {
+      (c.to_int() - 48).to_uint64()
+    } else if c >= 'a' && c <= 'f' {
+      (c.to_int() - 87).to_uint64()
+    } else if c >= 'A' && c <= 'F' {
+      (c.to_int() - 55).to_uint64()
+    } else {
+      raise UnexpectedToken(token, "invalid memory limit")
+    }
+    if digit >= radix || value > (limit - digit) / radix {
+      raise UnexpectedToken(token, "memory limit exceeds address width")
+    }
+    value = value * radix + digit
+  }
+  value
 }

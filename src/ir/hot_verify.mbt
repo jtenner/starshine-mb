@@ -313,7 +313,12 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
           HotOp::Atomic =>
             if node.imm1 >= 0 && node.imm1 < func.instr_payloads.length() {
               match hot_instr_payload_get(func, node.imm1).instr {
-                Instruction::StructAtomicGet(_, _, _)
+                Instruction::AtomicFence(_)
+                | Instruction::WaitqueueNotify
+                | Instruction::StructWait(_, _)
+                | Instruction::StructAtomicSet(_, _, _)
+                | Instruction::ArrayAtomicSet(_, _)
+                | Instruction::StructAtomicGet(_, _, _)
                 | Instruction::StructAtomicGetS(_, _, _)
                 | Instruction::StructAtomicGetU(_, _, _)
                 | Instruction::StructAtomicRmw(_, _, _, _)
@@ -331,7 +336,8 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
           _ => false
         }
         if !skip_side_table {
-          let side_table_id = if node.op == HotOp::TryTable {
+          let side_table_id = if node.op == HotOp::TryTable ||
+            node.op == HotOp::Continuation {
             node.imm1
           } else {
             node.imm0
@@ -516,6 +522,26 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
               HotVerifyError::InvalidControlChild(node_id, slot, child_id),
             )
           }
+        }
+      }
+      HotOp::Continuation => {
+        for target in hot_continuation_targets(func, node_id) {
+          if target != HOT_IMPLICIT_FUNCTION_LABEL &&
+            !hot_verify_label_id_is_valid(func, target) {
+            return Err(HotVerifyError::InvalidBranchTarget(node_id, target))
+          }
+        }
+        let expected = hot_continuation_handlers(
+            hot_node_exact_instr(func, node_id).unwrap(),
+          )
+          .filter(fn(handler) { handler is @lib.ResumeOnLabel(_, _) })
+          .length()
+        if expected != hot_continuation_targets(func, node_id).length() {
+          return Err(
+            HotVerifyError::InvalidCatchPayload(
+              node_id, "continuation handler target count",
+            ),
+          )
         }
       }
       HotOp::TryTable => {

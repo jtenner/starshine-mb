@@ -22,7 +22,7 @@ pub fn decode_module(Bytes) -> Result[@lib.Module, DecodeError]
 
 pub fn decode_module_with_detail(Bytes, Int) -> Result[(@lib.Module, Int), ModuleDecodeErrorDetail]
 
-pub fn encode_module(@lib.Module) -> Result[Bytes, EncodeError]
+pub fn encode_module(@lib.Module, compact_imports? : Bool) -> Result[Bytes, EncodeError]
 
 pub fn size_signed(Int64, Int) -> Result[Int, BinaryEncodeError]
 

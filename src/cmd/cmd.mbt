@@ -3325,6 +3325,58 @@ test "explicit vacuum dispatches residual parity cleanup through cmd" {
 }
 
 ///|
+test "Binaryen 132 dae2 dispatch removes a result forwarded to an unused parameter" {
+  let source =
+    #|(module
+    #| (func $producer (param i32) (result i32) (local.get 0))
+    #| (func $sink (param i32))
+    #| (func (export "run") (call $sink (call $producer (i32.const 8)))))
+  let original = match @wast.wast_to_binary_module(source) {
+    Ok(value) => value
+    Err(err) => fail("invalid DAE2 command fixture: \{err}")
+  }
+  for pass in ["dae2", "dae2-optimizing"] {
+    let optimized = match
+      optimize_module_with_pass_flags(original, [pass], OptimizeOptions::new()) {
+      Ok(value) => value
+      Err(err) => fail("DAE2 command dispatch: \{err}")
+    }
+    let context = @validate.Env::new().with_module(optimized)
+    for index in [0U, 1U] {
+      @debug.assert_eq(
+        context.get_functype_by_funcidx(@lib.FuncIdx::new(index)),
+        Some(@lib.FuncType::new([], [])),
+      )
+    }
+  }
+}
+
+///|
+test "Binaryen 132 explicit precompute variants fold relaxed immutable struct reads through cmd" {
+  let source =
+    #|(module
+    #| (type (struct (field i32)))
+    #| (func (result i32)
+    #|  (struct.atomic.get relaxed 0 0 (struct.new 0 (i32.const 42)))))
+  let original = match @wast.wast_to_binary_module(source) {
+    Ok(value) => value
+    Err(err) => fail("expected relaxed atomic command fixture: \{err}")
+  }
+  for pass in ["precompute", "precompute-propagate"] {
+    let optimized = match
+      optimize_module_with_pass_flags(original, [pass], OptimizeOptions::new()) {
+      Ok(value) => value
+      Err(err) => fail("expected relaxed atomic command optimization: \{err}")
+    }
+    match optimized.code_sec {
+      Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+        @debug.assert_eq(body, [@lib.Instruction::i32_const(@lib.I32(42))])
+      _ => fail("expected one optimized function")
+    }
+  }
+}
+
+///|
 test "explicit vacuum removes unshared atomic gets through cmd" {
   let input = match
     @binary.decode_module(
@@ -3515,6 +3567,18 @@ fn cmd_build_help_text() -> String {
   append_help_line(
     out, "--validate", "Run module validation at that point in the pass queue.",
   )
+  append_help_line(
+    out, "--all-features", "Enable all accepted proposal slices (the default).",
+  )
+  for feature in @validate.controlled_proposal_features() {
+    let name = @validate.proposal_feature_name(feature)
+    append_help_line(out, "--enable-" + name, "Enable " + name + ".")
+    append_help_line(
+      out,
+      "--disable-" + name,
+      "Reject inputs or outputs requiring " + name + ".",
+    )
+  }
   append_help_line(
     out, "--print-type <name|index>", "Log a type entry from the current module state to stderr at that point in the pass queue.",
   )
@@ -5199,7 +5263,9 @@ pub fn run_cmd_with_adapter(
   let (optimize_level, shrink_level) = resolve_optimize_levels(
     merged.optimize_flags,
   )
-  let requested_pass_flags = resolve_pass_flags(merged)
+  let (requested_pass_flags, disabled_features) = cmd_extract_proposal_feature_flags(
+    resolve_pass_flags(merged),
+  )
   let pass_flags : Array[String] = []
   let mut zero_filled_memory = false
   for flag in requested_pass_flags {
@@ -5401,7 +5467,8 @@ pub fn run_cmd_with_adapter(
       "input \{input_path}:lowered bytes=\{wasm_bytes.length()}",
     )
 
-    if optimizer_report_mode is None &&
+    if disabled_features.is_empty() &&
+      optimizer_report_mode is None &&
       should_copy_wasm_noop_without_module_pipeline(
         format,
         resolved_passes,
@@ -5433,6 +5500,10 @@ pub fn run_cmd_with_adapter(
     let mod = match decode_module_for_pipeline(input_path, wasm_bytes) {
       Ok(mod) => mod
       Err(e) => return Err(e)
+    }
+    match cmd_validate_proposal_features(mod, disabled_features) {
+      Ok(_) => ()
+      Err(err) => return Err(err)
     }
     cmd_trace_timer_stop(io, trace_optimize, "decode", decode_start_us)
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
@@ -6668,6 +6739,16 @@ pub fn run_cmd_with_adapter(
       io, trace_optimize, "post-encode-validate", post_encode_validate_start_us,
     )
 
+    if !disabled_features.is_empty() {
+      let encoded = match decode_module_for_pipeline(input_path, out_bytes) {
+        Ok(encoded) => encoded
+        Err(err) => return Err(err)
+      }
+      match cmd_validate_proposal_features(encoded, disabled_features) {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+    }
     let write_start_us = cmd_trace_timer_start(trace_optimize)
     match
       write_output_bytes_for_input(
@@ -7645,4 +7726,377 @@ fn default_cmd_io() -> CmdIO {
     write_stderr=cmd_wasm_write_stderr,
     list_candidates=cmd_wasm_list_candidates,
   )
+}
+
+///|
+test "Binaryen 132 instruction command folds a constant tee zero comparison" {
+  let input = @wast.wast_to_binary_module(
+    "(module (global (mut i32) (i32.const 0)) (func (export \"run\") (param i64) (result i32) (if (result i32) (i64.eq (local.tee 0 (i64.const 0)) (i64.const 0)) (then (global.set 0 (i32.const 1)) (i64.eqz (local.get 0))) (else (i32.const 0)))))",
+  ).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["optimize-instructions"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_false(body.contains(@lib.Instruction::i64_eq()))
+}
+
+///|
+test "Binaryen 132 constraint analysis command dispatch folds an implied predicate" {
+  let source =
+    #|(module (func (export "run") (param i32) (result i32)
+    #| (if (result i32) (i32.eq (local.get 0) (i32.const 10))
+    #|  (then (i32.ne (local.get 0) (i32.const 0))) (else (i32.const 2)))))
+  let original = match @wast.wast_to_binary_module(source) {
+    Ok(value) => value
+    Err(err) => fail(err)
+  }
+  let optimized = match
+    optimize_module_with_pass_flags(
+      original,
+      ["constraint-analysis"],
+      OptimizeOptions::new(),
+    ) {
+    Ok(value) => value
+    Err(err) => fail(err)
+  }
+  fn count(instrs : Array[@lib.Instruction], wanted : @lib.Instruction) -> Int {
+    let mut found = 0
+    for instr in instrs {
+      if instr == wanted {
+        found += 1
+      }
+      match instr {
+        @lib.Instruction::Block(_, @lib.Expr(body))
+        | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+          found += count(body, wanted)
+        @lib.Instruction::If(_, yes, no) => {
+          found += count(yes, wanted)
+          match no {
+            Some(body) => found += count(body, wanted)
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
+    found
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => {
+      @debug.assert_eq(count(body, @lib.Instruction::i32_ne()), 0)
+      @debug.assert_eq(count(body, @lib.Instruction::i32_eq()), 1)
+    }
+    _ => fail("expected one constraint function")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("\{err}")
+  }
+}
+
+///|
+test "Binaryen 132 dae2 optimizing command removes unused continuation allocation but retains binds" {
+  let profile = @validate.gen_valid_profile_by_name("dae2-continuations").unwrap()
+  for seed in [0UL, 1UL] {
+    let input = @validate.gen_valid_module_from_seed(
+        seed,
+        @validate.GenValidConfig::for_profile(profile),
+      ).unwrap().wasm_module
+    let output = optimize_module_with_pass_flags(
+      input,
+      ["dae2-optimizing"],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let funcs = output.code_sec.unwrap().0
+    let @lib.Func(_, @lib.Expr(body)) = funcs[funcs.length() - 1]
+    if seed == 0UL {
+      assert_false(body.any(fn(instr) { instr is @lib.ContNew(_) }))
+    } else {
+      assert_true(body.any(fn(instr) { instr is @lib.ContBind(_, _) }))
+    }
+  }
+}
+
+///|
+test "Binaryen 132 nested descriptor branches retain observable writes through command dispatch" {
+  let profile = @validate.gen_valid_profile_by_name(
+    "binaryen132-descriptor-branches",
+  ).unwrap()
+  for seed in [64UL, 65UL] {
+    let original = @validate.gen_valid_module_from_seed(
+        seed,
+        @validate.GenValidConfig::for_profile(profile),
+      ).unwrap().wasm_module
+    for
+      pass in [
+        "ssa", "ssa-nomerge", "vacuum", "local-subtyping", "optimize-casts", "optimize-instructions",
+        "constraint-analysis", "dae2",
+      ] {
+      let output = match
+        optimize_module_with_pass_flags(
+          original,
+          [pass],
+          OptimizeOptions::new(),
+        ) {
+        Ok(output) => output
+        Err(err) => fail("descriptor command \{pass}: \{err}")
+      }
+      let decoded = @binary.decode_module(encode_module(output).unwrap()).unwrap()
+      assert_true(@validate.validate_module(decoded) is Ok(_))
+      let @lib.Func(_, @lib.Expr(body)) = decoded.code_sec.unwrap().0[0]
+      let work = [body]
+      let mut writes = 0
+      while !work.is_empty() {
+        for instr in work.pop().unwrap() {
+          match instr {
+            @lib.GlobalSet(_) => writes += 1
+            @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+              work.push(body)
+            @lib.If(_, yes, no) => {
+              work.push(yes)
+              if no is Some(body) {
+                work.push(body)
+              }
+            }
+            _ => ()
+          }
+        }
+      }
+      assert_eq(writes, 2, msg=pass)
+    }
+  }
+}
+
+///|
+test "Binaryen 132 array memory arguments survive active pass dispatch" {
+  let source =
+    #|(module (type $A (array (mut i32)))
+    #| (func (export "run") (param (ref null $A) i32 i32) (result i32)
+    #|  local.get 0 local.get 1 local.get 2 i32.store (type $A) offset=17 align=1
+    #|  local.get 0 local.get 1 i32.load (type $A) offset=17 align=1))
+  let original = @wast.wast_to_binary_module(source).unwrap()
+  for
+    pass in [
+      "precompute", "precompute-propagate", "optimize-instructions", "local-subtyping",
+      "vacuum", "local-cse", "constraint-analysis", "dae2",
+    ] {
+    let output = match
+      optimize_module_with_pass_flags(original, [pass], OptimizeOptions::new()) {
+      Ok(output) => output
+      Err(err) => fail("array command \{pass}: \{err}")
+    }
+    let bytes = encode_module(output).unwrap()
+    let decoded = @binary.decode_module(bytes).unwrap()
+    match @validate.validate_module(decoded) {
+      Ok(_) => ()
+      Err(err) => fail("array pass validation \{pass}: \{err}")
+    }
+    let @lib.CodeSec(bodies) = decoded.code_sec.unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = bodies[0]
+    let mut accesses = 0
+    fn inspect_array_ops(body : Array[@lib.Instruction]) -> Unit raise {
+      for instr in body {
+        match instr {
+          @lib.ArrayLoad(_, _, ma) | @lib.ArrayStore(_, _, ma) => {
+            @debug.assert_eq(ma, @lib.MemArg::new(0U, None, 17UL))
+            accesses += 1
+          }
+          @lib.Block(_, @lib.Expr(nested)) => inspect_array_ops(nested)
+          _ => ()
+        }
+      }
+    }
+    inspect_array_ops(body)
+    @debug.assert_eq(accesses, 2, msg=pass)
+  }
+}
+
+///|
+test "Binaryen 132 waitqueue operations survive active pass dispatch" {
+  let source =
+    #|(module (type $S (shared (struct (field (mut i32)))))
+    #| (func (export "run") (param (ref null $S)) (result i32)
+    #|  (drop (waitqueue.notify (waitqueue.new) (i32.const 1)))
+    #|  (struct.wait $S 0 (local.get 0) (waitqueue.new) (i32.const 0) (i64.const 0))))
+  let original = @wast.wast_to_binary_module(source).unwrap()
+  for
+    pass in [
+      "precompute", "precompute-propagate", "optimize-instructions", "local-subtyping",
+      "vacuum", "local-cse", "heap-store-optimization", "constraint-analysis", "dae2",
+    ] {
+    let output = match
+      optimize_module_with_pass_flags(original, [pass], OptimizeOptions::new()) {
+      Ok(output) => output
+      Err(err) => fail("waitqueue command \{pass}: \{err}")
+    }
+    let decoded = @binary.decode_module(encode_module(output).unwrap()).unwrap()
+    match @validate.validate_module(decoded) {
+      Ok(_) => ()
+      Err(err) => fail("\{err}")
+    }
+    let mut allocations = 0
+    let mut synchronization = 0
+    fn inspect_ops(ops : Array[@lib.Instruction]) -> Unit {
+      for op in ops {
+        match op {
+          @lib.WaitqueueNew => allocations += 1
+          @lib.WaitqueueNotify | @lib.StructWait(_, _) => synchronization += 1
+          @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+            inspect_ops(body)
+          _ => ()
+        }
+      }
+    }
+    let @lib.Func(_, @lib.Expr(body)) = decoded.code_sec.unwrap().0[0]
+    inspect_ops(body)
+    @debug.assert_eq((allocations, synchronization), (2, 2), msg=pass)
+  }
+}
+
+///|
+test "Binaryen 132 command DAE2 prunes declaration-only signatures" {
+  let source = "(module (func $target (param i32) (result i32) (local.get 0)) (elem declare funcref (ref.func $target)) (func (export \"run\") (result i32) (i32.const 42)))"
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["dae2"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  let index = match output.func_sec.unwrap().0[0] {
+    @lib.TypeIdx(index) => index
+    _ => fail("expected module type index")
+  }
+  let @lib.TypeSec(groups) = output.type_sec.unwrap()
+  let types : Array[@lib.SubType] = []
+  for group in groups {
+    match group {
+      @lib.SingleRecType(type_) => types.push(type_)
+      @lib.GroupRecType(group) => types.append(group)
+    }
+  }
+  @debug.assert_eq(
+    types[index.to_int()].get_comptype(),
+    @lib.CompType::func([], []),
+  )
+  assert_true(@validate.validate_module(output) is Ok(_))
+}
+
+///|
+test "Binaryen 132 optimizing command keeps a later tee after conditional calls" {
+  let source =
+    #|(module
+    #| (import "env" "observe" (func (param i32 i32)))
+    #| (global (export "observed") (mut i32) (i32.const 0))
+    #| (func (export "run") (param i32 i32) (result i32) (local i32)
+    #|   local.get 1
+    #|   if
+    #|     local.get 0 local.get 1 call 0
+    #|     local.get 1 local.set 2
+    #|   end
+    #|   i32.const 3 i32.const 4 call 0
+    #|   local.get 2 if local.get 2 global.set 0 end
+    #|   i32.const 2 local.tee 0 local.get 0 i32.add))
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["dae2-optimizing"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  // Before the repair, lowering emitted the final constant/tee at entry.
+  @debug.assert_eq(body[0], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+}
+
+///|
+test "Binaryen 132 optimizing command keeps a derived pointer after allocation" {
+  let source =
+    #|(module
+    #| (import "env" "alloc" (func (param i32) (result i32)))
+    #| (memory (export "memory") 1)
+    #| (func (export "run") (param i32) (result i32) (local i32 i32)
+    #|  i32.const 8 local.get 0 i32.add call 0 local.set 1
+    #|  local.get 1 i32.const 8 i32.add local.set 2
+    #|  local.get 1 i32.const 4 i32.store align=1
+    #|  local.get 2))
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["dae2-optimizing"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let mut called = false
+  for instruction in body {
+    match instruction {
+      @lib.Call(_) => called = true
+      @lib.LocalGet(@lib.LocalIdx(1U)) => assert_true(called)
+      _ => ()
+    }
+  }
+  assert_true(called)
+}
+
+///|
+test "Binaryen 132 simplify-locals command removes unused lowering scratch declarations" {
+  let source =
+    #|(module (memory 1)
+    #| (func (export "run") (param i32) (result i32) (local i32 i32)
+    #|  memory.size local.tee 1
+    #|  i32.const 0 i32.load local.get 1 i32.add i32.add))
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["simplify-locals"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(locals.length(), 2)
+}
+
+///|
+test "Binaryen 132 DAE2 command reuses an existing pruned signature" {
+  let source =
+    #|(module
+    #| (func (export "identity") (param i32) (result i32) local.get 0)
+    #| (func (param i32 i32) (result i32) local.get 0)
+    #| (func (export "run") (param i32) (result i32)
+    #|  local.get 0 i32.const 7 call 1))
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["dae2"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.FuncSec(indices) = output.func_sec.unwrap()
+  @debug.assert_eq(indices[1], indices[0])
+}
+
+///|
+test "Binaryen 132 simplify-locals command folds an adjacent allocation capture" {
+  let source =
+    #|(module
+    #| (import "env" "alloc" (func (param i32) (result i32)))
+    #| (memory 1)
+    #| (func (export "run") (param i32) (result i32) (local i32 i32)
+    #|  i32.const 8 local.get 0 i32.add call 0 local.set 1
+    #|  local.get 1 i32.const 8 i32.add local.set 2
+    #|  local.get 1 i32.const 4 i32.store align=1 local.get 2))
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["simplify-locals"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(body[3], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  @debug.assert_eq(body[4], @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)))
 }

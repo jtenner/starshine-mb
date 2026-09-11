@@ -1,5 +1,6 @@
 ///|
 pub enum ValidationIssueFamily {
+  FeaturePolicyFamily
   TypeSectionFamily
   ImportSectionFamily
   FunctionSectionFamily
@@ -23,6 +24,7 @@ pub fn validation_issue_family(
   issue : ValidationIssue,
 ) -> ValidationIssueFamily {
   match issue {
+    FeaturePolicy(_) => FeaturePolicyFamily
     TypeSection(_) => TypeSectionFamily
     ImportSection(_) => ImportSectionFamily
     FunctionSection(_) => FunctionSectionFamily
@@ -60,6 +62,7 @@ fn validation_issue_family_label(family : ValidationIssueFamily) -> String {
     CodeSectionFamily => "code"
     NameSectionFamily => "name"
     CompilerFactsSectionFamily => "compiler-facts"
+    FeaturePolicyFamily => "feature-policy"
     FunctionBodyFamily => "function-body"
   }
 }
@@ -617,8 +620,8 @@ fn validate_invalid_ast_registry_entries() -> Array[
     validate_invalid_ast_strategy_spec(
       InvalidImportedTagResultType,
       "invalid-imported-tag-result-type",
-      "imported tag type with non-empty result",
-      ImportSectionFamily,
+      "throw uses an imported suspension tag with results",
+      FunctionBodyFamily,
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
@@ -757,8 +760,8 @@ fn validate_invalid_ast_registry_entries() -> Array[
     validate_invalid_ast_strategy_spec(
       InvalidTagResultType,
       "invalid-tag-result-type",
-      "tag type with non-empty result",
-      TagSectionFamily,
+      "throw uses a suspension tag with results",
+      FunctionBodyFamily,
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
@@ -9723,13 +9726,27 @@ fn validate_invalid_ast_mutate_invalid_imported_tag_result_type(
       ExternType::tag(TagType::new(type_idx)),
     ),
   )
+  // A result-bearing tag is valid for suspension; throwing it is invalid.
+  let (mutated_module, _, _) = validate_invalid_ast_append_defined_func(
+    mod
+    .with_type_sec(TypeSec::new(types))
+    .with_import_sec(ImportSec::new(imports)),
+    [],
+    [],
+    Locals::from_types([]),
+    Expr::new([
+      Instruction::throw_(
+        TagIdx::new(
+          validate_invalid_ast_imported_tag_count(mod).reinterpret_as_uint(),
+        ),
+      ),
+    ]),
+  )
   {
     strategy: InvalidImportedTagResultType,
     applicable: true,
-    expected_family: ImportSectionFamily,
-    mutated_module: mod
-    .with_type_sec(TypeSec::new(types))
-    .with_import_sec(ImportSec::new(imports)),
+    expected_family: FunctionBodyFamily,
+    mutated_module,
   }
 }
 
@@ -10180,13 +10197,25 @@ fn validate_invalid_ast_mutate_invalid_tag_result_type(
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
   )
   tags.push(TagType::new(type_idx))
+  // A result-bearing tag is valid for suspension; throwing it is invalid.
+  let (mutated_module, _, _) = validate_invalid_ast_append_defined_func(
+    mod.with_type_sec(TypeSec::new(types)).with_tag_sec(TagSec::new(tags)),
+    [],
+    [],
+    Locals::from_types([]),
+    Expr::new([
+      Instruction::throw_(
+        TagIdx::new(
+          validate_invalid_ast_total_tag_count(mod).reinterpret_as_uint(),
+        ),
+      ),
+    ]),
+  )
   {
     strategy: InvalidTagResultType,
     applicable: true,
-    expected_family: TagSectionFamily,
-    mutated_module: mod
-    .with_type_sec(TypeSec::new(types))
-    .with_tag_sec(TagSec::new(tags)),
+    expected_family: FunctionBodyFamily,
+    mutated_module,
   }
 }
 
@@ -12590,12 +12619,12 @@ test "invalid tag type index strategy rejects with TagSection family" {
 }
 
 ///|
-test "invalid tag result type strategy rejects with TagSection family" {
+test "invalid tag result type strategy rejects at an exception use" {
   match
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidTagResultType,
       0x5ef8bUL,
-      TagSectionFamily,
+      FunctionBodyFamily,
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
@@ -12603,12 +12632,12 @@ test "invalid tag result type strategy rejects with TagSection family" {
 }
 
 ///|
-test "invalid imported tag result type strategy rejects with ImportSection family" {
+test "invalid imported tag result type strategy rejects at an exception use" {
   match
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidImportedTagResultType,
       0x5ef8cUL,
-      ImportSectionFamily,
+      FunctionBodyFamily,
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

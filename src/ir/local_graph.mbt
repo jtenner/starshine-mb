@@ -103,11 +103,22 @@ fn local_graph_union_into(target : Array[Int], src : Array[Int]) -> Bool {
 
 ///|
 fn local_graph_state_clone(state : Array[Array[Int]]) -> Array[Array[Int]] {
-  let out : Array[Array[Int]] = []
-  for sources in state {
-    out.push(sources.copy())
+  // State source sets are immutable. A transfer replaces the affected local's
+  // set; forks and block states can therefore share all unchanged sets.
+  state.copy()
+}
+
+///|
+fn local_graph_join_sources(lhs : Array[Int], rhs : Array[Int]) -> Array[Int] {
+  if lhs.is_empty() {
+    return rhs
   }
-  out
+  if rhs.all(fn(source) { local_graph_array_contains(lhs, source) }) {
+    return lhs
+  }
+  let merged = lhs.copy()
+  ignore(local_graph_union_into(merged, rhs))
+  merged
 }
 
 ///|
@@ -133,11 +144,7 @@ fn local_graph_state_equal(
 
 ///|
 fn local_graph_empty_state(local_count : Int) -> Array[Array[Int]] {
-  let state : Array[Array[Int]] = []
-  for _ in 0..<local_count {
-    state.push([])
-  }
-  state
+  Array::make(local_count, [])
 }
 
 ///|
@@ -168,7 +175,8 @@ fn local_graph_record_get_sources(
   write_influences : Array[Array[NodeId]]?,
 ) -> Unit {
   match get_sources {
-    Some(sources_by_node) => sources_by_node[get_id] = sources.copy()
+    Some(sources_by_node) =>
+      ignore(local_graph_union_into(sources_by_node[get_id], sources))
     None => ()
   }
   match write_influences {
@@ -191,9 +199,9 @@ fn local_graph_record_get_sources(
 }
 
 ///|
-// CFG blocks own structured roots, but a value-producing `block` may instead be
-// an operand nested under another root. Transfer only label-free nested blocks;
-// rejecting nested control and terminators avoids learning partial path facts.
+// CFG blocks own structured roots, but value-producing control may be nested
+// under another root. Straight-line transfer is exact; other regions must join
+// possible definitions instead of silently retaining only incoming facts.
 fn local_graph_nested_block_node_is_straight_line(
   func : HotFunc,
   node_id : NodeId,
@@ -316,6 +324,7 @@ fn local_graph_transfer_nested_region(
   state : Array[Array[Int]],
   get_sources : Array[Array[Int]]?,
   write_influences : Array[Array[NodeId]]?,
+  evaluated_tuples : Array[Bool],
 ) -> Unit {
   for idx = 0; idx < hot_region_root_count(func, region); idx = idx + 1 {
     local_graph_transfer_node(
@@ -326,6 +335,7 @@ fn local_graph_transfer_nested_region(
       get_sources,
       write_influences,
       true,
+      evaluated_tuples,
     )
   }
 }
@@ -339,11 +349,25 @@ fn local_graph_transfer_node(
   get_sources : Array[Array[Int]]?,
   write_influences : Array[Array[NodeId]]?,
   traverse_nested_blocks : Bool,
+  evaluated_tuples : Array[Bool],
 ) -> Unit {
   if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
     return
   }
   let node = hot_node_get(func, node_id)
+  // Multiple stack lanes name one evaluation of their producer. Replaying
+  // the producer per lane invents local definitions and expands tuple-valued
+  // control trees exponentially. Keep this state per execution path.
+  let is_tuple = match hot_type_get(func, node.ty) {
+    Results(values) | BlockResultResolved(_, _, values) => values.length() > 1
+    _ => false
+  }
+  if traverse_nested_blocks && is_tuple {
+    if evaluated_tuples[node_id] {
+      return
+    }
+    evaluated_tuples[node_id] = true
+  }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     if local_graph_is_region_slot(node.op, slot) {
       continue
@@ -356,43 +380,77 @@ fn local_graph_transfer_node(
       get_sources,
       write_influences,
       true,
+      evaluated_tuples,
     )
   }
-  if traverse_nested_blocks &&
-    (node.op == HotOp::Block || node.op == HotOp::If) &&
-    local_graph_nested_operand_can_transfer(func, node_id) {
+  if traverse_nested_blocks {
     match node.op {
-      HotOp::Block =>
-        local_graph_transfer_nested_region(
-          func,
-          local_count,
-          hot_region_body_ref(func, node_id),
-          state,
-          get_sources,
-          write_influences,
-        )
       HotOp::If => {
-        let then_state = local_graph_state_clone(state)
-        local_graph_transfer_nested_region(
-          func,
-          local_count,
-          hot_region_then_ref(func, node_id),
-          then_state,
-          get_sources,
-          write_influences,
-        )
-        // Keep the incoming state for an absent else arm.
-        match hot_region_else_ref(func, node_id) {
-          Some(region) =>
-            local_graph_transfer_nested_region(
-              func, local_count, region, state, get_sources, write_influences,
+        let yes = local_graph_state_clone(state)
+        let no = local_graph_state_clone(state)
+        let yes_tuples = evaluated_tuples.copy()
+        let no_tuples = evaluated_tuples.copy()
+        let yes_region = hot_region_then_ref(func, node_id)
+        for idx = 0
+            idx < hot_region_root_count(func, yes_region)
+            idx = idx + 1 {
+          local_graph_transfer_node(
+            func,
+            local_count,
+            hot_region_get(func, yes_region, idx),
+            yes,
+            get_sources,
+            write_influences,
+            true,
+            yes_tuples,
+          )
+        }
+        if hot_region_else_ref(func, node_id) is Some(no_region) {
+          for idx = 0
+              idx < hot_region_root_count(func, no_region)
+              idx = idx + 1 {
+            local_graph_transfer_node(
+              func,
+              local_count,
+              hot_region_get(func, no_region, idx),
+              no,
+              get_sources,
+              write_influences,
+              true,
+              no_tuples,
             )
-          None => ()
+          }
+        }
+        for id = 0; id < evaluated_tuples.length(); id = id + 1 {
+          evaluated_tuples[id] = yes_tuples[id] && no_tuples[id]
         }
         for local_id = 0; local_id < local_count; local_id = local_id + 1 {
-          ignore(local_graph_union_into(state[local_id], then_state[local_id]))
+          state[local_id] = local_graph_join_sources(
+            yes[local_id],
+            no[local_id],
+          )
         }
       }
+      HotOp::Block =>
+        if local_graph_nested_operand_can_transfer(func, node_id) {
+          local_graph_transfer_nested_region(
+            func,
+            local_count,
+            hot_region_body_ref(func, node_id),
+            state,
+            get_sources,
+            write_influences,
+            evaluated_tuples,
+          )
+        } else {
+          local_graph_transfer_unknown_control(
+            func, local_count, node_id, state, get_sources, write_influences,
+          )
+        }
+      HotOp::Loop | HotOp::Try | HotOp::TryTable =>
+        local_graph_transfer_unknown_control(
+          func, local_count, node_id, state, get_sources, write_influences,
+        )
       _ => ()
     }
   }
@@ -421,6 +479,7 @@ fn local_graph_transfer_block(
   write_influences : Array[Array[NodeId]]?,
 ) -> Array[Array[Int]] {
   let state = local_graph_state_clone(in_state)
+  let evaluated_tuples = Array::make(hot_node_count(func), false)
   for node_id in cfg_block_get(cfg, block_id).nodes {
     local_graph_transfer_node(
       func,
@@ -430,6 +489,7 @@ fn local_graph_transfer_block(
       get_sources,
       write_influences,
       false,
+      evaluated_tuples,
     )
   }
   state
@@ -450,7 +510,10 @@ fn local_graph_merge_predecessors(
     }
     let pred_state = out_states[pred.block]
     for local_id = 0; local_id < local_count; local_id = local_id + 1 {
-      ignore(local_graph_union_into(merged[local_id], pred_state[local_id]))
+      merged[local_id] = local_graph_join_sources(
+        merged[local_id],
+        pred_state[local_id],
+      )
     }
   }
   merged
@@ -469,13 +532,14 @@ fn local_graph_build_in_states(
     in_states.push(local_graph_empty_state(local_count))
     out_states.push(local_graph_empty_state(local_count))
   }
-  in_states[cfg_entry_block(cfg)] = local_graph_entry_state(local_count)
+  let entry_state = local_graph_entry_state(local_count)
+  in_states[cfg_entry_block(cfg)] = entry_state
   let mut changed = true
   while changed {
     changed = false
     for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
       let next_in = if block_id == cfg_entry_block(cfg) {
-        local_graph_entry_state(local_count)
+        entry_state
       } else {
         local_graph_merge_predecessors(
           cfg, block_id, local_count, out_states, include_exceptional,
@@ -1034,6 +1098,22 @@ fn local_graph_build_reverse_flow(
 ) -> HotLocalGraph {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
+  // Reverse scans require a complete linear action list for every CFG block.
+  // Nested branching operands have multiple paths and use the forward join.
+  for block in cfg.blocks {
+    for root in block.nodes {
+      let data = hot_node_get(func, root)
+      for slot = 0; slot < data.child_count; slot = slot + 1 {
+        if !local_graph_is_region_slot(data.op, slot) &&
+          !local_graph_nested_block_node_is_straight_line(
+            func,
+            hot_child_get(func, root, slot),
+          ) {
+          return local_graph_build_sparse_flow(func, cfg, include_exceptional)
+        }
+      }
+    }
+  }
   let actions = local_graph_reverse_action_sequences(func, cfg)
   let node_blocks = Array::make(node_count, -1)
   let node_positions = Array::make(node_count, -1)
@@ -1041,6 +1121,10 @@ fn local_graph_build_reverse_flow(
     for idx = 0; idx < actions[block_id].length(); idx = idx + 1 {
       let node_id = actions[block_id][idx]
       if node_id >= 0 && node_id < node_count {
+        if node_blocks[node_id] >= 0 {
+          // A shared expression can have several reaching contexts.
+          return local_graph_build_sparse_flow(func, cfg, include_exceptional)
+        }
         node_blocks[node_id] = block_id
         node_positions[node_id] = idx
       }
@@ -1224,4 +1308,49 @@ pub fn local_graph_can_move_set_past_node(
     }
   }
   out
+}
+
+///|
+// A nested region absent from the CFG can bypass assignments or repeat them.
+// Keep both incoming definitions and every contained write, including sources
+// for reads within that region. Ignoring the region is not an unknown summary.
+fn local_graph_transfer_unknown_control(
+  func : HotFunc,
+  local_count : Int,
+  node : NodeId,
+  state : Array[Array[Int]],
+  get_sources : Array[Array[Int]]?,
+  write_influences : Array[Array[NodeId]]?,
+) -> Unit {
+  let work = [node]
+  let seen = Array::make(hot_node_count(func), false)
+  let reads : Array[NodeId] = []
+  while !work.is_empty() {
+    let current = work.pop().unwrap()
+    if current < 0 || seen[current] {
+      continue
+    }
+    seen[current] = true
+    let data = hot_node_get(func, current)
+    match data.op {
+      HotOp::LocalSet | HotOp::LocalTee =>
+        state[data.imm0] = local_graph_join_sources(state[data.imm0], [
+          local_graph_set_source_id(local_count, current),
+        ])
+      HotOp::LocalGet => reads.push(current)
+      _ => ()
+    }
+    for child in hot_child_span(func, current) {
+      work.push(child)
+    }
+  }
+  for read in reads {
+    local_graph_record_get_sources(
+      local_count,
+      read,
+      state[hot_node_get(func, read).imm0],
+      get_sources,
+      write_influences,
+    )
+  }
 }

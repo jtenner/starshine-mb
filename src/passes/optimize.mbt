@@ -214,6 +214,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       precompute_descriptor(),
     ),
     pass_registry_entry_hot(
+      "constraint-analysis",
+      "Prove integer and reference predicates using bounded control-flow constraints.",
+      constraint_analysis_descriptor(),
+    ),
+    pass_registry_entry_hot(
       "precompute-propagate",
       precompute_propagate_summary(),
       precompute_propagate_descriptor(),
@@ -334,6 +339,12 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_module("dead-argument-elimination", dae_summary()),
     pass_registry_entry_module("dae", dae_summary()),
     pass_registry_entry_module("dae-optimizing", dae_optimizing_summary()),
+    pass_registry_entry_module(
+      "dae2", "Eliminate unused parameters and whole results with a shared fixed-point usage graph.",
+    ),
+    pass_registry_entry_module(
+      "dae2-optimizing", "Eliminate unused parameters and results, then simplify affected bodies.",
+    ),
     pass_registry_entry_module(
       "dead-argument-elimination-optimizing",
       dae_optimizing_summary(),

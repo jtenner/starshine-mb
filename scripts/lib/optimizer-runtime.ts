@@ -1,5 +1,15 @@
 import crypto from "node:crypto";
 
+// Bun exposes a compatibility Node version even though workers execute Wasm
+// in JavaScriptCore. Runtime reports and caches must identify the actual host.
+export function optimizerRuntimeIdentity(
+  versions: { node: string; bun?: string } = process.versions,
+): string {
+  return versions.bun === undefined
+    ? `node:v${versions.node}`
+    : `bun:${versions.bun}:javascriptcore`;
+}
+
 export type SemanticPolicy = "strict" | "canonical-nan" | "trap-aware";
 export type ObservationMode = "independent" | "stateful";
 export type RuntimeSupportClassification =

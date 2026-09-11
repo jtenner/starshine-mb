@@ -912,3 +912,75 @@ test "cfg build gives synthetic continuations a concrete insertion span" {
   }
   assert_true(found)
 }
+
+///|
+test "cfg includes taken and fallthrough edges for a dropped reference branch" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::nop(),
+      ]),
+    ),
+    @lib.Instruction::nop(),
+  ])
+  let func = hot_lift_body(
+    body,
+    HotLocals::new(param_count=1, params=[
+      @lib.ValType::ref_type(@lib.RefType::abs(@lib.AbsHeapType::any())),
+    ]),
+  )
+  let cfg = cfg_build(func)
+  let mut checked = false
+  for node = 0; node < hot_node_count(func); node = node + 1 {
+    if hot_node_get(func, node).op is HotOp::BrOnNull {
+      // CFG's node map contains region roots. The drop owns this branch's
+      // block while its operand supplies the branch edge.
+      let mut block = -1
+      for info in cfg.blocks {
+        for root in info.nodes {
+          if hot_node_get(func, root).op is HotOp::Drop &&
+            hot_child_get(func, root, 0) == node {
+            block = info.id
+          }
+        }
+      }
+      assert_true(block >= 0)
+      assert_true(
+        cfg_successors(cfg, block).any(fn(edge) {
+          edge.kind is CfgEdgeKind::BranchEdge
+        }),
+      )
+      assert_true(
+        cfg_successors(cfg, block).any(fn(edge) {
+          edge.kind is CfgEdgeKind::FallthroughEdge
+        }),
+      )
+      checked = true
+    }
+  }
+  assert_true(checked)
+}
+
+///|
+test "cfg loop backedge enters the body without repeating preceding assignments" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let setup = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(9)),
+  )
+  let loop_id = hot_build_loop(func, @lib.BlockType::void_(), [])
+  let branch = hot_build_br(func, hot_control_node_label(func, loop_id))
+  ignore(hot_replace_child_span(func, loop_id, [branch]))
+  hot_root_append(func, setup)
+  hot_root_append(func, loop_id)
+  let cfg = cfg_build(func)
+  let branch_block = cfg.node_to_block[branch]
+  let target = cfg.blocks[branch_block].succs[0].block
+  assert_false(cfg.blocks[target].nodes.contains(setup))
+  @debug.assert_eq(target, branch_block)
+}

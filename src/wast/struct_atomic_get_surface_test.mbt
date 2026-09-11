@@ -53,9 +53,9 @@ test "module_to_wast preserves struct atomic get instruction keywords" {
     Ok(t) => t
     Err(e) => fail("expected struct atomic get print success: \{e}")
   }
-  assert_true(text.contains("struct.atomic.get 0 0"))
-  assert_true(text.contains("struct.atomic.get_s 0 1"))
-  assert_true(text.contains("struct.atomic.get_u 0 2"))
+  assert_true(text.contains("struct.atomic.get acq_rel 0 0"))
+  assert_true(text.contains("struct.atomic.get_s seq_cst 0 1"))
+  assert_true(text.contains("struct.atomic.get_u acq_rel 0 2"))
 }
 
 ///|
@@ -92,7 +92,7 @@ test "wast_to_module parses aggregate atomic rmw cmpxchg instructions" {
         [
           LocalGet(Num(0U)),
           LocalGet(Num(1U)),
-          StructAtomicRmw(@lib.AggregateAtomicRmwAdd, Num(0U), 0U),
+          StructAtomicRmw(SeqCst, @lib.AggregateAtomicRmwAdd, Num(0U), 0U),
         ] => ()
         _ => fail("expected struct atomic rmw.add body")
       }
@@ -100,7 +100,7 @@ test "wast_to_module parses aggregate atomic rmw cmpxchg instructions" {
         [
           LocalGet(Num(0U)),
           LocalGet(Num(1U)),
-          StructAtomicRmw(@lib.AggregateAtomicRmwXchg, Num(0U), 0U),
+          StructAtomicRmw(SeqCst, @lib.AggregateAtomicRmwXchg, Num(0U), 0U),
         ] => ()
         _ => fail("expected struct atomic rmw.xchg body")
       }
@@ -109,7 +109,7 @@ test "wast_to_module parses aggregate atomic rmw cmpxchg instructions" {
           LocalGet(Num(0U)),
           LocalGet(Num(1U)),
           LocalGet(Num(2U)),
-          StructAtomicCmpxchg(Num(0U), 0U),
+          StructAtomicCmpxchg(SeqCst, Num(0U), 0U),
         ] => ()
         _ => fail("expected struct atomic cmpxchg body")
       }
@@ -118,7 +118,7 @@ test "wast_to_module parses aggregate atomic rmw cmpxchg instructions" {
           LocalGet(Num(0U)),
           LocalGet(Num(1U)),
           LocalGet(Num(2U)),
-          ArrayAtomicRmw(@lib.AggregateAtomicRmwAdd, Num(1U)),
+          ArrayAtomicRmw(SeqCst, @lib.AggregateAtomicRmwAdd, Num(1U)),
         ] => ()
         _ => fail("expected array atomic rmw.add body")
       }
@@ -128,7 +128,7 @@ test "wast_to_module parses aggregate atomic rmw cmpxchg instructions" {
           LocalGet(Num(1U)),
           LocalGet(Num(2U)),
           LocalGet(Num(3U)),
-          ArrayAtomicCmpxchg(Num(1U)),
+          ArrayAtomicCmpxchg(SeqCst, Num(1U)),
         ] => ()
         _ => fail("expected array atomic cmpxchg body")
       }

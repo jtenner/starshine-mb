@@ -220,6 +220,7 @@ fn cmd_optimizer_abs_heap_type_name(heap_type : @lib.AbsHeapType) -> String {
     @lib.ArrayAbsHeapType => "array"
     @lib.ExnAbsHeapType | @lib.NoExnAbsHeapType => "exn"
     @lib.ContAbsHeapType | @lib.NoContAbsHeapType => "cont"
+    @lib.WaitqueueAbsHeapType | @lib.NoWaitqueueAbsHeapType => "waitqueue"
     @lib.StringAbsHeapType => "string"
   }
 }
@@ -561,7 +562,9 @@ fn cmd_optimizer_runtime_interface_report_json(mod_ : Module) -> String {
       }
     None => ()
   }
-  let features : Array[String] = []
+  let features = @validate.module_proposal_features(mod_).map(
+    @validate.proposal_feature_name,
+  )
   if mod_.start_sec is Some(_) {
     features.push("start")
   }

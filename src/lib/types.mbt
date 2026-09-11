@@ -44,6 +44,8 @@ pub enum AbsHeapType {
   NoFuncAbsHeapType
   NoExnAbsHeapType
   NoContAbsHeapType
+  WaitqueueAbsHeapType
+  NoWaitqueueAbsHeapType
 } derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
@@ -486,6 +488,7 @@ pub struct MemArg(U32, MemIdx?, U64) derive(Hash, Debug)
 pub enum AtomicOrder {
   SeqCst
   AcqRel
+  Relaxed
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -496,6 +499,11 @@ pub fn AtomicOrder::seq_cst() -> AtomicOrder {
 ///|
 pub fn AtomicOrder::acq_rel() -> AtomicOrder {
   AcqRel
+}
+
+///|
+pub fn AtomicOrder::relaxed() -> AtomicOrder {
+  Relaxed
 }
 
 ///|
@@ -631,6 +639,9 @@ pub enum Instruction {
   ReturnCallIndirect(TypeIdx, TableIdx)
   CallRef(TypeIdx)
   ReturnCallRef(TypeIdx)
+  WaitqueueNew
+  WaitqueueNotify
+  StructWait(TypeIdx, U32)
   ContNew(TypeIdx)
   ContBind(TypeIdx, TypeIdx)
   Suspend(TagIdx)
@@ -860,6 +871,7 @@ pub enum Instruction {
   StructAtomicGetU(AtomicOrder, TypeIdx, U32)
   StructAtomicRmw(AtomicOrder, AggregateAtomicRmwOp, TypeIdx, U32)
   StructAtomicCmpxchg(AtomicOrder, TypeIdx, U32)
+  StructAtomicSet(AtomicOrder, TypeIdx, U32)
   StructSet(TypeIdx, U32)
   ArrayNew(TypeIdx)
   ArrayNewDefault(TypeIdx)
@@ -872,11 +884,12 @@ pub enum Instruction {
   ArrayAtomicGet(AtomicOrder, TypeIdx)
   ArrayAtomicGetS(AtomicOrder, TypeIdx)
   ArrayAtomicGetU(AtomicOrder, TypeIdx)
+  ArrayAtomicSet(AtomicOrder, TypeIdx)
   ArraySet(TypeIdx)
   ArrayAtomicRmw(AtomicOrder, AggregateAtomicRmwOp, TypeIdx)
   ArrayAtomicCmpxchg(AtomicOrder, TypeIdx)
-  ArrayLoad(LoadOp, TypeIdx)
-  ArrayStore(StoreOp, TypeIdx)
+  ArrayLoad(LoadOp, TypeIdx, MemArg)
+  ArrayStore(StoreOp, TypeIdx, MemArg)
   ArrayLen
   ArrayFill(TypeIdx)
   ArrayCopy(TypeIdx, TypeIdx)
@@ -4532,13 +4545,21 @@ pub fn Instruction::array_atomic_cmpxchg(
 }
 
 ///|
-pub fn Instruction::array_load(op : LoadOp, ti : TypeIdx) -> Instruction {
-  ArrayLoad(op, ti)
+pub fn Instruction::array_load(
+  op : LoadOp,
+  ti : TypeIdx,
+  memarg? : MemArg = MemArg::new(0, None, 0),
+) -> Instruction {
+  ArrayLoad(op, ti, memarg)
 }
 
 ///|
-pub fn Instruction::array_store(op : StoreOp, ti : TypeIdx) -> Instruction {
-  ArrayStore(op, ti)
+pub fn Instruction::array_store(
+  op : StoreOp,
+  ti : TypeIdx,
+  memarg? : MemArg = MemArg::new(0, None, 0),
+) -> Instruction {
+  ArrayStore(op, ti, memarg)
 }
 
 ///|
@@ -8949,4 +8970,46 @@ pub fn FuncType::new(
   results : Array[ValType],
 ) -> FuncType {
   FuncType(params, results)
+}
+
+///|
+pub fn AbsHeapType::waitqueue() -> AbsHeapType {
+  WaitqueueAbsHeapType
+}
+
+///|
+pub fn AbsHeapType::no_waitqueue() -> AbsHeapType {
+  NoWaitqueueAbsHeapType
+}
+
+///|
+pub fn Instruction::waitqueue_new() -> Instruction {
+  WaitqueueNew
+}
+
+///|
+pub fn Instruction::waitqueue_notify() -> Instruction {
+  WaitqueueNotify
+}
+
+///|
+pub fn Instruction::struct_wait(type_idx : TypeIdx, field : U32) -> Instruction {
+  StructWait(type_idx, field)
+}
+
+///|
+pub fn Instruction::struct_atomic_set(
+  order : AtomicOrder,
+  ty : TypeIdx,
+  field : U32,
+) -> Instruction {
+  StructAtomicSet(order, ty, field)
+}
+
+///|
+pub fn Instruction::array_atomic_set(
+  order : AtomicOrder,
+  ty : TypeIdx,
+) -> Instruction {
+  ArrayAtomicSet(order, ty)
 }

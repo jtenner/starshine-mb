@@ -573,6 +573,17 @@ pub fn wasmExportStaticAbsHeapTypeNoFunc() -> Int {
 }
 
 #doc(hidden)
+pub fn wasmExportStaticAbsHeapTypeNoWaitqueue() -> Int {
+
+      let (result) : (AbsHeapType) = AbsHeapType::no_waitqueue();
+
+      let AbsHeapType(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
 pub fn wasmExportStaticAbsHeapTypeNone() -> Int {
 
       let (result) : (AbsHeapType) = AbsHeapType::none();
@@ -598,6 +609,17 @@ pub fn wasmExportStaticAbsHeapTypeStringValue() -> Int {
 pub fn wasmExportStaticAbsHeapTypeStruct() -> Int {
 
       let (result) : (AbsHeapType) = AbsHeapType::struct_();
+
+      let AbsHeapType(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportStaticAbsHeapTypeWaitqueue() -> Int {
+
+      let (result) : (AbsHeapType) = AbsHeapType::waitqueue();
 
       let AbsHeapType(handle) = result
       let ret = handle
@@ -752,6 +774,17 @@ pub fn wasmExportStaticAtomicCmpxchgOpI648U() -> Int {
 pub fn wasmExportStaticAtomicOrderAcqRel() -> Int {
 
       let (result) : (AtomicOrder) = AtomicOrder::acq_rel();
+
+      let AtomicOrder(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportStaticAtomicOrderRelaxed() -> Int {
+
+      let (result) : (AtomicOrder) = AtomicOrder::relaxed();
 
       let AtomicOrder(handle) = result
       let ret = handle
@@ -2177,6 +2210,17 @@ pub fn wasmExportStaticInstructionArrayAtomicRmw(p0 : Int, p1 : Int, p2 : Int) -
 }
 
 #doc(hidden)
+pub fn wasmExportStaticInstructionArrayAtomicSet(p0 : Int, p1 : Int) -> Int {
+
+      let (result) : (Instruction) = Instruction::array_atomic_set(AtomicOrder::AtomicOrder(p0), TypeIdx::TypeIdx(p1));
+
+      let Instruction(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
 pub fn wasmExportStaticInstructionArrayCopy(p0 : Int, p1 : Int) -> Int {
 
       let (result) : (Instruction) = Instruction::array_copy(TypeIdx::TypeIdx(p0), TypeIdx::TypeIdx(p1));
@@ -2265,9 +2309,9 @@ pub fn wasmExportStaticInstructionArrayLen() -> Int {
 }
 
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayLoad(p0 : Int, p1 : Int) -> Int {
+pub fn wasmExportStaticInstructionArrayLoad(p0 : Int, p1 : Int, p2 : Int) -> Int {
 
-      let (result) : (Instruction) = Instruction::array_load(LoadOp::LoadOp(p0), TypeIdx::TypeIdx(p1));
+      let (result) : (Instruction) = Instruction::array_load(LoadOp::LoadOp(p0), TypeIdx::TypeIdx(p1), MemArg::MemArg(p2));
 
       let Instruction(handle) = result
       let ret = handle
@@ -2342,9 +2386,9 @@ pub fn wasmExportStaticInstructionArraySet(p0 : Int) -> Int {
 }
 
 #doc(hidden)
-pub fn wasmExportStaticInstructionArrayStore(p0 : Int, p1 : Int) -> Int {
+pub fn wasmExportStaticInstructionArrayStore(p0 : Int, p1 : Int, p2 : Int) -> Int {
 
-      let (result) : (Instruction) = Instruction::array_store(StoreOp::StoreOp(p0), TypeIdx::TypeIdx(p1));
+      let (result) : (Instruction) = Instruction::array_store(StoreOp::StoreOp(p0), TypeIdx::TypeIdx(p1), MemArg::MemArg(p2));
 
       let Instruction(handle) = result
       let ret = handle
@@ -7819,6 +7863,17 @@ pub fn wasmExportStaticInstructionStructAtomicRmw(p0 : Int, p1 : Int, p2 : Int, 
 }
 
 #doc(hidden)
+pub fn wasmExportStaticInstructionStructAtomicSet(p0 : Int, p1 : Int, p2 : Int) -> Int {
+
+      let (result) : (Instruction) = Instruction::struct_atomic_set(AtomicOrder::AtomicOrder(p0), TypeIdx::TypeIdx(p1), U32Ir::U32Ir(p2));
+
+      let Instruction(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
 pub fn wasmExportStaticInstructionStructGet(p0 : Int, p1 : Int) -> Int {
 
       let (result) : (Instruction) = Instruction::struct_get(TypeIdx::TypeIdx(p0), U32Ir::U32Ir(p1));
@@ -7899,6 +7954,17 @@ pub fn wasmExportStaticInstructionStructNewDesc(p0 : Int) -> Int {
 pub fn wasmExportStaticInstructionStructSet(p0 : Int, p1 : Int) -> Int {
 
       let (result) : (Instruction) = Instruction::struct_set(TypeIdx::TypeIdx(p0), U32Ir::U32Ir(p1));
+
+      let Instruction(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportStaticInstructionStructWait(p0 : Int, p1 : Int) -> Int {
+
+      let (result) : (Instruction) = Instruction::struct_wait(TypeIdx::TypeIdx(p0), U32Ir::U32Ir(p1));
 
       let Instruction(handle) = result
       let ret = handle
@@ -8397,6 +8463,28 @@ pub fn wasmExportStaticInstructionV128Store8Lane(p0 : Int, p1 : Int) -> Int {
 pub fn wasmExportStaticInstructionV128Xor() -> Int {
 
       let (result) : (Instruction) = Instruction::v128_xor();
+
+      let Instruction(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportStaticInstructionWaitqueueNew() -> Int {
+
+      let (result) : (Instruction) = Instruction::waitqueue_new();
+
+      let Instruction(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportStaticInstructionWaitqueueNotify() -> Int {
+
+      let (result) : (Instruction) = Instruction::waitqueue_notify();
 
       let Instruction(handle) = result
       let ret = handle
@@ -10708,27 +10796,11 @@ pub fn wasmExportValidateModulePostReturn(p0 : Int) -> Unit {
 }
 
 ///|
-extern "wasm" fn mbt_ffi_free(position : Int) =
-#|(func (param i32) local.get 0 call $moonbit.decref)
-
-///|
 extern "wasm" fn mbt_ffi_ptr2bytes(ptr : Int, len : Int) -> FixedArray[Byte] =
 #|(func (param i32) (param i32) (result i32)
 #| local.get 0
 #| local.get 1 call $moonbit.init_array8
 #| local.get 0)
-
-///|
-extern "wasm" fn mbt_ffi_store8(offset : Int, value : Int) =
-#|(func (param i32) (param i32) local.get 0 local.get 1 i32.store8)
-
-///|
-extern "wasm" fn mbt_ffi_load8_u(offset : Int) -> Int =
-#|(func (param i32) (result i32) local.get 0 i32.load8_u)
-
-///|
-extern "wasm" fn mbt_ffi_load32(offset : Int) -> Int =
-#|(func (param i32) (result i32) local.get 0 i32.load)
 
 ///|
 extern "wasm" fn mbt_ffi_ptr2str(ptr : Int, len : Int) -> String =
@@ -10738,8 +10810,30 @@ extern "wasm" fn mbt_ffi_ptr2str(ptr : Int, len : Int) -> String =
 #| local.get 0)
 
 ///|
+#owned(str)
+extern "wasm" fn mbt_ffi_str2ptr(str : String) -> Int =
+#|(func (param i32) (result i32) local.get 0)
+
+///|
+extern "wasm" fn mbt_ffi_store8(offset : Int, value : Int) =
+#|(func (param i32) (param i32) local.get 0 local.get 1 i32.store8)
+
+///|
+extern "wasm" fn mbt_ffi_load32(offset : Int) -> Int =
+#|(func (param i32) (result i32) local.get 0 i32.load)
+
+///|
 extern "wasm" fn mbt_ffi_store32(offset : Int, value : Int) =
 #|(func (param i32) (param i32) local.get 0 local.get 1 i32.store)
+
+///|
+extern "wasm" fn mbt_ffi_free(position : Int) =
+#|(func (param i32) local.get 0 call $moonbit.decref)
+
+///|
+#owned(bytes)
+extern "wasm" fn mbt_ffi_bytes2ptr(bytes : FixedArray[Byte]) -> Int =
+#|(func (param i32) (result i32) local.get 0)
 
 ///|
 extern "wasm" fn mbt_ffi_malloc(size : Int) -> Int =
@@ -10749,11 +10843,5 @@ extern "wasm" fn mbt_ffi_malloc(size : Int) -> Int =
 #| local.get 1)
 
 ///|
-#owned(str)
-extern "wasm" fn mbt_ffi_str2ptr(str : String) -> Int =
-#|(func (param i32) (result i32) local.get 0)
-
-///|
-#owned(bytes)
-extern "wasm" fn mbt_ffi_bytes2ptr(bytes : FixedArray[Byte]) -> Int =
-#|(func (param i32) (result i32) local.get 0)
+extern "wasm" fn mbt_ffi_load8_u(offset : Int) -> Int =
+#|(func (param i32) (result i32) local.get 0 i32.load8_u)

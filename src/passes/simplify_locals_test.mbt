@@ -2999,7 +2999,7 @@ test "simplify-locals drops redundant self-tee sets" {
 }
 
 ///|
-test "simplify-locals keeps multivalue local-set producers out of tee rewrites" {
+test "simplify-locals tees only the retained scalar of a single multivalue producer" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32 i32 i32) (result i32 i32 i32) local.get 0 local.get 1 local.get 2) (func (param i32 i32 i32) (result i32) (local i32 i32 i32) local.get 0 local.get 1 local.get 2 call 0 local.set 5 local.set 4 local.set 3 local.get 3 local.get 3 i32.add))",
@@ -3010,10 +3010,23 @@ test "simplify-locals keeps multivalue local-set producers out of tee rewrites" 
       fail("expected multivalue producer simplify-locals success, got \{err}")
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("call"), msg=pretty)
-  assert_true(pretty.contains("local.set (Local 3)"), msg=pretty)
-  assert_false(pretty.contains("local.tee (Local 3)"), msg=pretty)
+  @validate.validate_module(optimized).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[1]
+  // The HOT producer still has three results and must never be cloned into a
+  // scalar use. After lowering, two drops leave one scalar for this tee.
+  @debug.assert_eq(body[3], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  @debug.assert_eq(body[4], @lib.Instruction::drop())
+  @debug.assert_eq(body[5], @lib.Instruction::drop())
+  @debug.assert_eq(body[6], @lib.Instruction::local_tee(@lib.LocalIdx::new(3U)))
+  @debug.assert_eq(body[7], @lib.Instruction::local_get(@lib.LocalIdx::new(3U)))
+  @debug.assert_eq(body[8], @lib.Instruction::i32_add())
+  let mut calls = 0
+  for instr in body {
+    if instr is @lib.Call(_) {
+      calls += 1
+    }
+  }
+  @debug.assert_eq(calls, 1)
 }
 
 ///|
@@ -3399,11 +3412,12 @@ test "simplify-locals keeps later reads alive when lifting if results" {
       fail("expected multi-read if-return simplify-locals success, got \{err}")
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("select"), msg=pretty)
-  assert_false(pretty.contains("if I32"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
-  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  @validate.validate_module(optimized).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  @debug.assert_eq(body[3], @lib.Instruction::select())
+  @debug.assert_eq(body[4], @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)))
+  @debug.assert_eq(body[5], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+  @debug.assert_eq(body[6], @lib.Instruction::i32_add())
 }
 
 ///|
@@ -4111,4 +4125,157 @@ test "simplify-locals-notee-nostructure preserves catch-observed local write" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+}
+
+///|
+test "simplify-locals keeps a later parameter tee after an earlier conditional call" {
+  let input =
+    #|(module
+    #| (import "env" "observe" (func (param i32 i32)))
+    #| (global (export "observed") (mut i32) (i32.const 0))
+    #| (func (export "run") (param i32 i32) (result i32) (local i32)
+    #|   local.get 1
+    #|   if
+    #|     local.get 0 local.get 1 call 0
+    #|     local.get 1 local.set 2
+    #|   end
+    #|   i32.const 3 i32.const 4 call 0
+    #|   local.get 2 if local.get 2 global.set 0 end
+    #|   i32.const 2 local.tee 0 local.get 0 i32.add))
+  for pass in ["simplify-locals", "dae2-optimizing"] {
+    let optimized = pass_test_run_pipeline(input, [pass]).unwrap()
+    ignore(@validate.validate_module(optimized).unwrap())
+    let @lib.CodeSec(funcs) = optimized.code_sec.unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = funcs[0]
+    let events : Array[String] = []
+    fn visit(body : Array[@lib.Instruction]) -> Unit {
+      for instruction in body {
+        match instruction {
+          @lib.Call(_) => events.push("call")
+          @lib.LocalSet(@lib.LocalIdx(0U)) | @lib.LocalTee(@lib.LocalIdx(0U)) =>
+            events.push("write")
+          @lib.If(_, yes, no) => {
+            visit(yes)
+            if no is Some(other) {
+              visit(other)
+            }
+          }
+          @lib.Block(_, @lib.Expr(nested)) | @lib.Loop(_, @lib.Expr(nested)) =>
+            visit(nested)
+          _ => ()
+        }
+      }
+    }
+    visit(body)
+    @debug.assert_eq(events, ["call", "call", "write"])
+  }
+}
+
+///|
+test "simplify-locals keeps a conditional call before an observable global write" {
+  let source =
+    #|(module
+    #| (import "env" "observe" (func (param i32 i32)))
+    #| (global (export "observed") (mut i32) (i32.const 17))
+    #| (func (export "run") (param i32 i32) (result i32) (local i32)
+    #|  local.get 1 if
+    #|    local.get 0 local.get 1 call 0
+    #|    local.get 1 local.set 2
+    #|  end
+    #|  i32.const 0 global.set 0
+    #|  local.get 2 if local.get 2 global.set 0 end
+    #|  i32.const 2 local.tee 0 local.get 0 i32.add))
+  for pass in ["simplify-locals", "dae2-optimizing"] {
+    let optimized = pass_test_run_pipeline(source, [pass]).unwrap()
+    ignore(@validate.validate_module(optimized).unwrap())
+    let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+    let events : Array[String] = []
+    fn visit(body : Array[@lib.Instruction]) -> Unit {
+      for instruction in body {
+        match instruction {
+          @lib.Call(_) => events.push("call")
+          @lib.GlobalSet(_) => events.push("write")
+          @lib.If(_, yes, no) => {
+            visit(yes)
+            if no is Some(other) {
+              visit(other)
+            }
+          }
+          @lib.Block(_, @lib.Expr(nested)) | @lib.Loop(_, @lib.Expr(nested)) =>
+            visit(nested)
+          _ => ()
+        }
+      }
+    }
+    visit(body)
+    @debug.assert_eq(events, ["call", "write", "write"])
+  }
+}
+
+///|
+test "simplify-locals keeps a derived pointer read after its allocation" {
+  let source =
+    #|(module
+    #| (import "env" "alloc" (func (param i32) (result i32)))
+    #| (memory (export "memory") 1)
+    #| (func (export "run") (param i32) (result i32) (local i32 i32)
+    #|  i32.const 8 local.get 0 i32.add call 0 local.set 1
+    #|  local.get 1 i32.const 8 i32.add local.set 2
+    #|  local.get 1 i32.const 4 i32.store align=1
+    #|  local.get 2))
+  for pass in ["simplify-locals", "dae2-optimizing"] {
+    let output = pass_test_run_pipeline(source, [pass]).unwrap()
+    @validate.validate_module(output).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    let mut called = false
+    for instruction in body {
+      match instruction {
+        @lib.Call(_) => called = true
+        @lib.LocalGet(@lib.LocalIdx(1U)) =>
+          assert_true(called, msg=body.to_string())
+        _ => ()
+      }
+    }
+    assert_true(called)
+  }
+}
+
+///|
+test "simplify-locals removes unused lowering scratch declarations" {
+  let source =
+    #|(module (memory 1)
+    #| (func (export "run") (param i32) (result i32) (local i32 i32)
+    #|  memory.size local.tee 1
+    #|  i32.const 0 i32.load local.get 1 i32.add i32.add))
+  let output = pass_test_run_pipeline(source, ["simplify-locals"]).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(locals.length(), 2)
+}
+
+///|
+test "simplify-locals folds an adjacent lowered allocation capture into a tee" {
+  let source =
+    #|(module
+    #| (import "env" "alloc" (func (param i32) (result i32)))
+    #| (memory 1)
+    #| (func (export "run") (param i32) (result i32) (local i32 i32)
+    #|  i32.const 8 local.get 0 i32.add call 0 local.set 1
+    #|  local.get 1 i32.const 8 i32.add local.set 2
+    #|  local.get 1 i32.const 4 i32.store align=1 local.get 2))
+  let trace : Array[String] = []
+  let output = pass_test_run_pipeline(
+    source,
+    ["simplify-locals"],
+    options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(body[3], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  assert_true(
+    body[4] == @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    msg="\{trace}\n\{body}",
+  )
+  @debug.assert_eq(body[5], @lib.Instruction::nop())
+  @debug.assert_eq(body[6], @lib.Instruction::i32_const(@lib.I32::new(4)))
 }

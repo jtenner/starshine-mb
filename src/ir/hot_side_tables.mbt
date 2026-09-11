@@ -200,6 +200,7 @@ fn hot_exact_instr_payload_id_for_op(node : HotNode) -> SideTableId? {
     | HotOp::BrOnCastFail => Some(node.imm1)
     HotOp::Select
     | HotOp::Heap
+    | HotOp::Continuation
     | HotOp::Unary
     | HotOp::Binary
     | HotOp::Compare
@@ -246,7 +247,8 @@ pub fn hot_side_table_kind_for_op(op : HotOp) -> HotSideTableKind? {
     HotOp::Const | HotOp::RefNull => Some(HotSideTableKind::ConstPayloadTable)
     HotOp::Load | HotOp::Store | HotOp::Atomic =>
       Some(HotSideTableKind::MemArgTable)
-    HotOp::BrTable => Some(HotSideTableKind::BranchTableTable)
+    HotOp::BrTable | HotOp::Continuation =>
+      Some(HotSideTableKind::BranchTableTable)
     HotOp::TryTable => Some(HotSideTableKind::CatchInfoTable)
     HotOp::CallIndirect
     | HotOp::CallRef

@@ -2117,12 +2117,46 @@ test "remove-unused-brs preserves stack-carried condition operand local order" {
     Ok(mod_) => mod_
     Err(err) => fail("expected condition operand ordering success, got \{err}")
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(
-    pretty.contains("(if I32") || pretty.contains("(if (I32)"),
-    msg=pretty,
-  )
-  assert_false(pretty.contains("select"), msg=pretty)
+  let output = optimized.code_sec.unwrap().0[2]
+  for address in [0L, 4L, 8L] {
+    for memory_value in [0L, 7L] {
+      let observations : Array[Int64] = []
+      let result = scalar_fixture_run(
+        output,
+        [address, 123L],
+        call_params=[2, 1],
+        call=Some(fn(index, args) {
+          if index == 0U {
+            [args[0]]
+          } else {
+            observations.push(-args[0])
+            []
+          }
+        }),
+        load=Some(fn(pointer) {
+          observations.push(pointer)
+          memory_value
+        }),
+      )
+      @debug.assert_eq(result, [
+        if address == 0L {
+          0L
+        } else if memory_value == 0L {
+          1L
+        } else {
+          0L
+        },
+      ])
+      @debug.assert_eq(
+        observations,
+        if address == 0L {
+          []
+        } else {
+          [address, -address]
+        },
+      )
+    }
+  }
 }
 
 ///|

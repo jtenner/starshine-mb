@@ -72,6 +72,7 @@ pub enum HotOp {
   RefTestDesc
   RefCastDescEq
   Heap
+  Continuation
   Unary
   Binary
   Compare

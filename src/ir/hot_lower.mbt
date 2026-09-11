@@ -173,6 +173,10 @@ fn hot_lower_impl_build_used_labels(func : HotFunc) -> @bitset.BitSet {
           mark(target)
         }
       }
+      HotOp::Continuation =>
+        for target in hot_continuation_targets(func, node_id) {
+          mark(target)
+        }
       HotOp::TryTable => {
         let info = hot_catch_info_get(func, node.imm1)
         for catch_ in info.catches {
@@ -738,28 +742,34 @@ fn hot_lower_impl_collect_preceding_dependency(
   func : HotFunc,
   node_id : NodeId,
   before_node_id : NodeId,
+  consumer_id : NodeId,
   value_orders : Array[Int],
   node_effects : Array[EffectMask],
-  seen : Array[Bool],
+  seen_consumer : Array[Int],
+  consumer_bounds : Array[Int],
   out : Array[NodeId],
 ) -> Unit {
   if node_id < 0 ||
-    node_id >= seen.length() ||
-    seen[node_id] ||
+    node_id >= seen_consumer.length() ||
+    seen_consumer[node_id] <= consumer_id ||
     !hot_node_is_live(func, node_id) {
     return
   }
-  seen[node_id] = true
+  seen_consumer[node_id] = consumer_id
   if value_orders[node_id] < before_node_id &&
     hot_node_result_arity(func, node_id) > 0 &&
     !effects_is_pure(node_effects[node_id]) {
-    out.push(node_id)
+    if consumer_bounds[node_id] < 0 {
+      out.push(node_id)
+    }
+    consumer_bounds[node_id] = consumer_id
     return
   }
   let inputs = hot_lower_impl_input_info(func, node_id)
   for input_id in inputs.nodes {
     hot_lower_impl_collect_preceding_dependency(
-      func, input_id, before_node_id, value_orders, node_effects, seen, out,
+      func, input_id, before_node_id, consumer_id, value_orders, node_effects, seen_consumer,
+      consumer_bounds, out,
     )
   }
 }
@@ -973,34 +983,38 @@ fn hot_lower_impl_future_dependency_suffix_minima(
 }
 
 ///|
-fn hot_lower_impl_accesses_written_local(
+fn hot_lower_impl_first_written_local_access_order(
   func : HotFunc,
   node_id : NodeId,
   writes : Array[Bool],
   seen : Array[Bool],
-) -> Bool {
+) -> Int {
+  let none = hot_node_count(func)
   if node_id < 0 ||
     node_id >= seen.length() ||
     seen[node_id] ||
     !hot_node_is_live(func, node_id) {
-    return false
+    return none
   }
   seen[node_id] = true
   let node = hot_node_get(func, node_id)
-  match node.op {
+  let mut first = match node.op {
     HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee if node.imm0 >= 0 &&
       node.imm0 < writes.length() &&
-      writes[node.imm0] => return true
-    _ => ()
+      writes[node.imm0] => node.order
+    _ => none
   }
   let child_count = hot_lower_impl_local_state_child_count(func, node_id)
   for slot = 0; slot < child_count; slot = slot + 1 {
     let input_id = hot_child_get(func, node_id, slot)
-    if hot_lower_impl_accesses_written_local(func, input_id, writes, seen) {
-      return true
+    let input_first = hot_lower_impl_first_written_local_access_order(
+      func, input_id, writes, seen,
+    )
+    if input_first < first {
+      first = input_first
     }
   }
-  false
+  first
 }
 
 ///|
@@ -1009,6 +1023,8 @@ fn hot_lower_impl_carried_local_write_conflicts(
   carried_id : NodeId,
   current_root : NodeId,
   after_order? : Int = -1,
+  before_access_order? : Int = -1,
+  access_before_order? : Int? = None,
 ) -> Bool {
   let writes = Array::make(hot_local_count(func), false)
   hot_lower_impl_mark_local_writes(
@@ -1021,12 +1037,14 @@ fn hot_lower_impl_carried_local_write_conflicts(
   if !writes.any(fn(written) { written }) {
     return false
   }
-  hot_lower_impl_accesses_written_local(
+  let first_access = hot_lower_impl_first_written_local_access_order(
     func,
     current_root,
     writes,
     Array::make(hot_node_count(func), false),
   )
+  first_access < access_before_order.or(hot_node_count(func)) &&
+  first_access > before_access_order
 }
 
 ///|
@@ -1044,7 +1062,6 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   extra_locals : Array[ValType],
   options : HotLowerOptions,
 ) -> Unit {
-  let current_order = hot_node_get(func, current_root).order
   let call_order_required = hot_node_result_arity(func, current_root) == 0 &&
     (match hot_query_op(func, current_root) {
       HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => true
@@ -1066,25 +1083,28 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
     Some(suffix_minima) =>
       if future_start < 0 ||
         future_start >= suffix_minima.length() ||
-        suffix_minima[future_start] >= current_order {
+        suffix_minima[future_start] >= current_root {
         return
       }
     None => ()
   }
-  let seen = Array::make(hot_node_count(func), false)
+  let seen_consumer = Array::make(hot_node_count(func), hot_node_count(func))
+  let consumer_bounds = Array::make(hot_node_count(func), -1)
   let carried : Array[NodeId] = []
-  // Use source order, not allocation IDs: a set split from a tee has a
-  // newer ID while retaining the original write's execution position.
+  // An inserted root can have a newer ID than the consumer it precedes.
+  // That order comes from the region, not from a former stack lifetime.
   // Infer an anti-dependence only within the value/current/consumer interval.
   for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
-    if hot_node_get(func, future_roots[idx]).order > current_order {
+    if future_roots[idx] > current_root {
       hot_lower_impl_collect_preceding_dependency(
         func,
         future_roots[idx],
-        current_order,
+        current_root,
+        future_roots[idx],
         label_frames.value_orders,
         label_frames.node_effects,
-        seen,
+        seen_consumer,
+        consumer_bounds,
         carried,
       )
     }
@@ -1094,14 +1114,16 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
     anti_dependencies[node_id] = true
   }
   for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
-    if hot_node_get(func, future_roots[idx]).order <= current_order {
+    if future_roots[idx] <= current_root {
       hot_lower_impl_collect_preceding_dependency(
         func,
         future_roots[idx],
-        current_order,
+        current_root,
+        future_roots[idx],
         label_frames.value_orders,
         label_frames.node_effects,
-        seen,
+        seen_consumer,
+        consumer_bounds,
         carried,
       )
     }
@@ -1111,25 +1133,30 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   })
   for node_id in carried {
     if (
-      // Compare with the first effect actually emitted by this root. A
-      // fresh drop/set wrapper can have a late ID around an earlier call;
-      // a later pending call must not jump ahead of that operand.
         (
+          anti_dependencies[node_id] &&
           label_frames.value_orders[node_id] <
           label_frames.first_effect_orders[current_root] &&
           (
             call_order_required ||
             (
               effect_order_required &&
-              anti_dependencies[node_id] &&
               hot_lower_impl_has_external_effects(
                 label_frames.node_effects[node_id],
               )
             )
           )
         ) ||
+        // A new wrapper can have a higher allocation order than a later
+        // value. Its old child accesses still precede that value: a forward
+        // dependency requires value < child access < existing consumer. The
+        // upper bound distinguishes a new write from a wrapped old write.
         hot_lower_impl_carried_local_write_conflicts(
-          func, node_id, current_root,
+          func,
+          node_id,
+          current_root,
+          before_access_order=label_frames.value_orders[node_id],
+          access_before_order=Some(consumer_bounds[node_id]),
         ) ||
         // A stack value can read a local before a later root overwrites it.
         // Preserve this anti-dependence as well as writes consumed by roots.
@@ -1846,6 +1873,18 @@ fn hot_lower_impl_emit_instruction(
     | HotOp::StringOp
     | HotOp::Atomic
     | HotOp::Simd => out.push(hot_lower_impl_exact_instr(func, id))
+    HotOp::Continuation => {
+      let targets = hot_continuation_targets(func, id)
+      let depths = targets.map(fn(target) {
+        hot_lower_impl_label_depth(label_frames, label_stack_head, target)
+      })
+      out.push(
+        hot_continuation_with_handler_labels(
+          hot_lower_impl_exact_instr(func, id),
+          depths,
+        ),
+      )
+    }
     HotOp::Throw =>
       out.push(
         Instruction::throw_(TagIdx::new(node.imm0.reinterpret_as_uint())),

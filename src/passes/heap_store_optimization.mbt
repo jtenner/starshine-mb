@@ -39,6 +39,7 @@ priv struct HsoOrderEffects {
   mut acquire_read : Bool
   mut release_write : Bool
   mut seq_cst : Bool
+  mut atomic_order_mask : @ir.EffectMask
 }
 
 ///|
@@ -69,6 +70,7 @@ fn hso_new_order_effects() -> HsoOrderEffects {
     acquire_read: false,
     release_write: false,
     seq_cst: false,
+    atomic_order_mask: 0U,
   }
 }
 
@@ -102,6 +104,8 @@ fn hso_order_effects_merge(
   effects.acquire_read = effects.acquire_read || other.acquire_read
   effects.release_write = effects.release_write || other.release_write
   effects.seq_cst = effects.seq_cst || other.seq_cst
+  effects.atomic_order_mask = effects.atomic_order_mask |
+    other.atomic_order_mask
 }
 
 ///|
@@ -109,7 +113,10 @@ fn hso_order_effects_note_read_order(
   effects : HsoOrderEffects,
   order : @lib.AtomicOrder,
 ) -> Unit {
+  effects.atomic_order_mask = effects.atomic_order_mask |
+    @ir.effects_atomic_order_mask(order, read=true, write=false)
   match order {
+    @lib.Relaxed => ()
     @lib.AcqRel => effects.acquire_read = true
     @lib.SeqCst => effects.seq_cst = true
   }
@@ -120,7 +127,10 @@ fn hso_order_effects_note_write_order(
   effects : HsoOrderEffects,
   order : @lib.AtomicOrder,
 ) -> Unit {
+  effects.atomic_order_mask = effects.atomic_order_mask |
+    @ir.effects_atomic_order_mask(order, read=false, write=true)
   match order {
+    @lib.Relaxed => ()
     @lib.AcqRel => effects.release_write = true
     @lib.SeqCst => effects.seq_cst = true
   }
@@ -174,6 +184,12 @@ fn hso_order_effects_note_exact_instr(
       hso_order_effects_note_read_order(effects, order)
       hso_order_effects_note_write_order(effects, order)
     }
+    @lib.WaitqueueNotify | @lib.StructWait(_, _) => {
+      effects.shared_struct_read = true
+      effects.shared_struct_write = true
+      hso_order_effects_note_read_order(effects, @lib.AtomicOrder::seq_cst())
+      hso_order_effects_note_write_order(effects, @lib.AtomicOrder::seq_cst())
+    }
     @lib.MemoryAtomicWait32(_)
     | @lib.MemoryAtomicWait64(_)
     | @lib.MemoryAtomicNotify(_)
@@ -192,6 +208,10 @@ fn hso_order_effects_note_exact_instr(
       if hso_type_is_shared(module_ctx, type_idx) {
         effects.shared_struct_write = true
       }
+    @lib.StructAtomicSet(order, _, _) => {
+      effects.shared_struct_write = true
+      hso_order_effects_note_write_order(effects, order)
+    }
     @lib.StructAtomicGet(order, _, _)
     | @lib.StructAtomicGetS(order, _, _)
     | @lib.StructAtomicGetU(order, _, _) => {
@@ -215,6 +235,10 @@ fn hso_order_effects_note_exact_instr(
       if hso_type_is_shared(module_ctx, type_idx) {
         effects.shared_array_write = true
       }
+    @lib.ArrayAtomicSet(order, _) => {
+      effects.shared_array_write = true
+      hso_order_effects_note_write_order(effects, order)
+    }
     @lib.ArrayAtomicGet(order, _)
     | @lib.ArrayAtomicGetS(order, _)
     | @lib.ArrayAtomicGetU(order, _) => {
@@ -371,6 +395,12 @@ fn hso_order_effects_ordered_before(
 ) -> Bool {
   let first_shared = hso_order_effects_accesses_shared(first)
   let second_shared = hso_order_effects_accesses_shared(second)
+  @ir.effects_atomic_orders_conflict(
+    first.atomic_order_mask,
+    second.atomic_order_mask,
+    earlier_shared=first_shared,
+    later_shared=second_shared,
+  ) ||
   (second.release_write && first_shared) ||
   (first.acquire_read && second_shared) ||
   (first.seq_cst && second_shared) ||
@@ -2195,6 +2225,9 @@ fn hso_nodes_can_reorder(
   let release_gc_allowed_mask = @ir.EFFECT_MASK_LOCAL_STATE |
     @ir.EFFECT_MASK_MEMORY_READ |
     @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_ATOMIC_READ |
+    @ir.EFFECT_MASK_ATOMIC_WRITE |
+    @ir.EFFECT_MASK_RELEASE |
     @ir.EFFECT_MASK_TRAP
   if (
       (barrier_reorder_mask | moved_reorder_mask) ^
@@ -3170,7 +3203,8 @@ fn hso_struct_set_parts(
     return None
   }
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::StructSet(type_idx, field_idx)) => {
+    Some(@lib.Instruction::StructSet(type_idx, field_idx))
+    | Some(@lib.Instruction::StructAtomicSet(_, type_idx, field_idx)) => {
       let @lib.U32(raw_field_idx) = field_idx
       Some(
         (
@@ -4888,7 +4922,7 @@ fn hso_process_region(
     let root_id = roots[idx]
     let root_node = @ir.hot_node_get(func, root_id)
     match root_node.op {
-      @ir.HotOp::Heap => {
+      @ir.HotOp::Heap | @ir.HotOp::Atomic => {
         let tee_local_id = hso_tee_wrapped_struct_set_local_id(func, root_id)
         let skip_tee_fold = match tee_local_id {
           Some(local_id) =>

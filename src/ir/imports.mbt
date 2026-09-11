@@ -44,7 +44,6 @@ using @validate {
   tc_state_new,
   tc_state_pop_expect,
   tc_state_pop_types,
-  tc_state_push_types,
   tc_state_typecheck_catch_clause,
   tc_state_validate_end_stack,
   tc_state_with_stack,

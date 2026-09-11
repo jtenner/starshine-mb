@@ -616,6 +616,7 @@ fn invalid_fuzz_family_label(
     CodeSectionFamily => "code"
     NameSectionFamily => "name"
     CompilerFactsSectionFamily => "compiler-facts"
+    FeaturePolicyFamily => "feature-policy"
     FunctionBodyFamily => "function-body"
   }
 }

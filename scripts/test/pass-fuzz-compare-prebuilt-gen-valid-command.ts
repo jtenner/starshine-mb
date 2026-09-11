@@ -43,11 +43,18 @@ const out = args[args.indexOf("--out") + 1]; fs.mkdirSync(path.dirname(out), { r
 `);
   const fakeWasmOpt = makeExecutable(path.join(tmpdir, "fake-wasm-opt"), `
 const fs = require("node:fs"); const path = require("node:path"); const args = process.argv.slice(2);
-if (args.includes("--version")) { console.log("wasm-opt version 131 (version_131)"); process.exit(0); }
+if (args.includes("--version")) { console.log("wasm-opt version 132 (version_132)"); process.exit(0); }
+if (!args.includes("-o")) {
+  if (process.env.PRIMARY_VALIDATOR_LOG) fs.appendFileSync(process.env.PRIMARY_VALIDATOR_LOG, JSON.stringify(args) + "\\n");
+  process.exit(process.env.PRIMARY_VALIDATOR_REJECT === "1" ? 1 : 0);
+}
 const out = args[args.indexOf("-o") + 1]; fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, args.includes("-S") ? "(module)\\n" : "output");
 `);
-  const fakeWasmTools = makeExecutable(path.join(tmpdir, "fake-wasm-tools"), `process.exit(0);`);
+  const fakeWasmTools = makeExecutable(path.join(tmpdir, "fake-wasm-tools"), `
+if (process.env.PRIMARY_VALIDATOR_LOG && process.argv.includes("validate")) process.exit(97);
+process.exit(0);
+`);
 
   const result = spawnSync("bun", [
     path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
@@ -58,7 +65,7 @@ fs.writeFileSync(out, args.includes("-S") ? "(module)\\n" : "output");
     "--gen-valid-bin", fakeGenerator,
     "--starshine-bin", fakeStarshine,
     "--wasm-opt-bin", fakeWasmOpt,
-    "--require-binaryen-version", "131",
+    "--require-binaryen-version", "132",
     "--wasm-tools-bin", fakeWasmTools,
     "--no-reduce-mismatches",
     "--pass", "vacuum",
@@ -78,6 +85,45 @@ fs.writeFileSync(out, args.includes("-S") ? "(module)\\n" : "output");
   };
   assert(summary.genValidBin === fakeGenerator, `unexpected generator identity ${summary.genValidBin}`);
   assert(summary.comparedCount === 1, `expected one comparison, got ${summary.comparedCount}`);
+  const primaryLog = path.join(tmpdir, "primary-validator.jsonl");
+  for (const reject of [false, true]) {
+    const primaryOut = path.join(tmpdir, reject ? "invalid-primary" : "binaryen-primary");
+    const primary = spawnSync("bun", [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count", "1", "--min-compared", "1", "--out-dir", primaryOut,
+      "--moon", fakeMoon, "--gen-valid-bin", fakeGenerator,
+      "--starshine-bin", fakeStarshine, "--wasm-opt-bin", fakeWasmOpt,
+      "--wasm-tools-bin", fakeWasmTools, "--primary-validator", "binaryen",
+      "--pass", "vacuum", "--no-cache", "--no-reduce-mismatches",
+    ], {
+      cwd: repoRoot,
+      env: { ...process.env, GENERATOR_LOG: generatorLog, MOON_MARKER: moonMarker,
+        PRIMARY_VALIDATOR_LOG: primaryLog, PRIMARY_VALIDATOR_REJECT: reject ? "1" : "0" },
+      encoding: "utf8",
+    });
+    const report = JSON.parse(fs.readFileSync(path.join(primaryOut, "result.json"), "utf8"));
+    const toolchain = JSON.parse(fs.readFileSync(path.join(primaryOut, "toolchain.json"), "utf8"));
+    assert(report.primaryValidator === "binaryen" && toolchain.primaryValidator === "binaryen", "primary oracle must be recorded");
+    if (reject) {
+      // Intentionally invalid input: validator rejection must not count as a comparison.
+      assert(primary.status !== 0 && report.generatorFailureCount === 1 && report.comparedCount === 0, "primary validation failure must remain visible");
+    } else {
+      assert(primary.status === 0 && report.comparedCount === 1, `explicit primary validator failed: ${primary.stderr}`);
+      const calls = fs.readFileSync(primaryLog, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+      assert(calls.length >= 2 && calls.every((args) => args.includes("--all-features")), "primary validator must check input and optimized output with proposal features");
+      assert(primary.stdout.includes("not independent validation"), "primary oracle caveat must be visible");
+    }
+  }
+  const changedValidator = spawnSync("bun", [
+    path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+    "--count", "1", "--out-dir", path.join(tmpdir, "binaryen-primary"), "--resume",
+    "--moon", fakeMoon, "--gen-valid-bin", fakeGenerator, "--starshine-bin", fakeStarshine,
+    "--wasm-opt-bin", fakeWasmOpt, "--wasm-tools-bin", fakeWasmTools,
+    "--primary-validator", "wasm-tools", "--pass", "vacuum",
+  ], { cwd: repoRoot, encoding: "utf8" });
+  assert(changedValidator.status !== 0 && changedValidator.stderr.includes("primary validator differs"), "resume must reject a changed primary validation oracle");
+  fs.rmSync(tmpdir, { recursive: true, force: true });
+
 }
 
 if (import.meta.main) {

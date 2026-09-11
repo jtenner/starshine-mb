@@ -210,13 +210,17 @@ test "merge-blocks preserves stack-carried accumulator read before sibling local
     Err(err) =>
       fail("expected stack-carried accumulator preservation, got \{err}")
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(
-    pretty.contains(
-      "(local.get (Local 1))(local.get (Local 2))i64.add(local.get (Local 2))(local.set (Local 1))(local.set (Local 2))",
-    ),
-    msg=pretty,
-  )
+  let output = optimized.code_sec.unwrap().0[0]
+  for n = 0; n <= 10; n = n + 1 {
+    let mut a = 0L
+    let mut b = 1L
+    for _ in 0..<n {
+      let next = a + b
+      a = b
+      b = next
+    }
+    @debug.assert_eq(scalar_fixture_run(output, [n.to_int64()]), [a])
+  }
 }
 
 ///|

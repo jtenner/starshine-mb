@@ -5016,6 +5016,11 @@ pub fn AbsHeapType::no_func() -> AbsHeapType {
 }
 
 ///|
+pub fn AbsHeapType::no_waitqueue() -> AbsHeapType {
+  core_ir_abs_heap_type_store(@lib.AbsHeapType::no_waitqueue())
+}
+
+///|
 pub fn AbsHeapType::none() -> AbsHeapType {
   core_ir_abs_heap_type_store(@lib.AbsHeapType::none())
 }
@@ -5028,6 +5033,11 @@ pub fn AbsHeapType::string_value() -> AbsHeapType {
 ///|
 pub fn AbsHeapType::struct_() -> AbsHeapType {
   core_ir_abs_heap_type_store(@lib.AbsHeapType::struct_())
+}
+
+///|
+pub fn AbsHeapType::waitqueue() -> AbsHeapType {
+  core_ir_abs_heap_type_store(@lib.AbsHeapType::waitqueue())
 }
 
 ///|
@@ -5098,6 +5108,11 @@ pub fn AtomicCmpxchgOp::i64_8_u() -> AtomicCmpxchgOp {
 ///|
 pub fn AtomicOrder::acq_rel() -> AtomicOrder {
   core_ir_atomic_order_store(@lib.AtomicOrder::acq_rel())
+}
+
+///|
+pub fn AtomicOrder::relaxed() -> AtomicOrder {
+  core_ir_atomic_order_store(@lib.AtomicOrder::relaxed())
 }
 
 ///|
@@ -5834,6 +5849,14 @@ pub fn Instruction::array_atomic_rmw(
 }
 
 ///|
+pub fn Instruction::array_atomic_set(
+  p0 : AtomicOrder,
+  p1 : TypeIdx
+) -> Instruction {
+  core_ir_instruction_store(@lib.Instruction::array_atomic_set(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1)))
+}
+
+///|
 pub fn Instruction::array_copy(
   p0 : TypeIdx,
   p1 : TypeIdx
@@ -5893,9 +5916,10 @@ pub fn Instruction::array_len() -> Instruction {
 ///|
 pub fn Instruction::array_load(
   p0 : LoadOp,
-  p1 : TypeIdx
+  p1 : TypeIdx,
+  memarg : MemArg
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_load(core_ir_load_op_get(p0), core_ir_type_idx_get(p1)))
+  core_ir_instruction_store(@lib.Instruction::array_load(core_ir_load_op_get(p0), core_ir_type_idx_get(p1), memarg=core_ir_mem_arg_get(memarg)))
 }
 
 ///|
@@ -5946,9 +5970,10 @@ pub fn Instruction::array_set(
 ///|
 pub fn Instruction::array_store(
   p0 : StoreOp,
-  p1 : TypeIdx
+  p1 : TypeIdx,
+  memarg : MemArg
 ) -> Instruction {
-  core_ir_instruction_store(@lib.Instruction::array_store(core_ir_store_op_get(p0), core_ir_type_idx_get(p1)))
+  core_ir_instruction_store(@lib.Instruction::array_store(core_ir_store_op_get(p0), core_ir_type_idx_get(p1), memarg=core_ir_mem_arg_get(memarg)))
 }
 
 ///|
@@ -8727,6 +8752,15 @@ pub fn Instruction::struct_atomic_rmw(
 }
 
 ///|
+pub fn Instruction::struct_atomic_set(
+  p0 : AtomicOrder,
+  p1 : TypeIdx,
+  p2 : U32Ir
+) -> Instruction {
+  core_ir_instruction_store(@lib.Instruction::struct_atomic_set(core_ir_atomic_order_get(p0), core_ir_type_idx_get(p1), core_ir_u32_get(p2)))
+}
+
+///|
 pub fn Instruction::struct_get(
   p0 : TypeIdx,
   p1 : U32Ir
@@ -8784,6 +8818,14 @@ pub fn Instruction::struct_set(
   p1 : U32Ir
 ) -> Instruction {
   core_ir_instruction_store(@lib.Instruction::struct_set(core_ir_type_idx_get(p0), core_ir_u32_get(p1)))
+}
+
+///|
+pub fn Instruction::struct_wait(
+  p0 : TypeIdx,
+  p1 : U32Ir
+) -> Instruction {
+  core_ir_instruction_store(@lib.Instruction::struct_wait(core_ir_type_idx_get(p0), core_ir_u32_get(p1)))
 }
 
 ///|
@@ -9097,6 +9139,16 @@ pub fn Instruction::v128_store8_lane(
 ///|
 pub fn Instruction::v128_xor() -> Instruction {
   core_ir_instruction_store(@lib.Instruction::v128_xor())
+}
+
+///|
+pub fn Instruction::waitqueue_new() -> Instruction {
+  core_ir_instruction_store(@lib.Instruction::waitqueue_new())
+}
+
+///|
+pub fn Instruction::waitqueue_notify() -> Instruction {
+  core_ir_instruction_store(@lib.Instruction::waitqueue_notify())
 }
 
 ///|

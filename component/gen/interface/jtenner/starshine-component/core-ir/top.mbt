@@ -2228,11 +2228,15 @@ declare pub fn AbsHeapType::no_extern() -> AbsHeapType
 ///|
 declare pub fn AbsHeapType::no_func() -> AbsHeapType
 ///|
+declare pub fn AbsHeapType::no_waitqueue() -> AbsHeapType
+///|
 declare pub fn AbsHeapType::none() -> AbsHeapType
 ///|
 declare pub fn AbsHeapType::string_value() -> AbsHeapType
 ///|
 declare pub fn AbsHeapType::struct_() -> AbsHeapType
+///|
+declare pub fn AbsHeapType::waitqueue() -> AbsHeapType
 ///|
 declare pub fn AggregateAtomicRmwOp::add() -> AggregateAtomicRmwOp
 ///|
@@ -2261,6 +2265,8 @@ declare pub fn AtomicCmpxchgOp::i64_32_u() -> AtomicCmpxchgOp
 declare pub fn AtomicCmpxchgOp::i64_8_u() -> AtomicCmpxchgOp
 ///|
 declare pub fn AtomicOrder::acq_rel() -> AtomicOrder
+///|
+declare pub fn AtomicOrder::relaxed() -> AtomicOrder
 ///|
 declare pub fn AtomicOrder::seq_cst() -> AtomicOrder
 ///|
@@ -2492,6 +2498,8 @@ declare pub fn Instruction::array_atomic_get_u(p0 : AtomicOrder, p1 : TypeIdx) -
 ///|
 declare pub fn Instruction::array_atomic_rmw(p0 : AggregateAtomicRmwOp, p1 : TypeIdx, order : AtomicOrder) -> Instruction
 ///|
+declare pub fn Instruction::array_atomic_set(p0 : AtomicOrder, p1 : TypeIdx) -> Instruction
+///|
 declare pub fn Instruction::array_copy(p0 : TypeIdx, p1 : TypeIdx) -> Instruction
 ///|
 declare pub fn Instruction::array_fill(p0 : TypeIdx) -> Instruction
@@ -2508,7 +2516,7 @@ declare pub fn Instruction::array_init_elem(p0 : TypeIdx, p1 : ElemIdx) -> Instr
 ///|
 declare pub fn Instruction::array_len() -> Instruction
 ///|
-declare pub fn Instruction::array_load(p0 : LoadOp, p1 : TypeIdx) -> Instruction
+declare pub fn Instruction::array_load(p0 : LoadOp, p1 : TypeIdx, memarg : MemArg) -> Instruction
 ///|
 declare pub fn Instruction::array_new(p0 : TypeIdx) -> Instruction
 ///|
@@ -2522,7 +2530,7 @@ declare pub fn Instruction::array_new_fixed(p0 : TypeIdx, p1 : U32Ir) -> Instruc
 ///|
 declare pub fn Instruction::array_set(p0 : TypeIdx) -> Instruction
 ///|
-declare pub fn Instruction::array_store(p0 : StoreOp, p1 : TypeIdx) -> Instruction
+declare pub fn Instruction::array_store(p0 : StoreOp, p1 : TypeIdx, memarg : MemArg) -> Instruction
 ///|
 declare pub fn Instruction::atomic_cmpxchg(p0 : AtomicCmpxchgOp, p1 : MemArg, order : AtomicOrder) -> Instruction
 ///|
@@ -3504,6 +3512,8 @@ declare pub fn Instruction::struct_atomic_get_u(p0 : AtomicOrder, p1 : TypeIdx, 
 ///|
 declare pub fn Instruction::struct_atomic_rmw(p0 : AggregateAtomicRmwOp, p1 : TypeIdx, p2 : U32Ir, order : AtomicOrder) -> Instruction
 ///|
+declare pub fn Instruction::struct_atomic_set(p0 : AtomicOrder, p1 : TypeIdx, p2 : U32Ir) -> Instruction
+///|
 declare pub fn Instruction::struct_get(p0 : TypeIdx, p1 : U32Ir) -> Instruction
 ///|
 declare pub fn Instruction::struct_get_s(p0 : TypeIdx, p1 : U32Ir) -> Instruction
@@ -3519,6 +3529,8 @@ declare pub fn Instruction::struct_new_default_desc(p0 : TypeIdx) -> Instruction
 declare pub fn Instruction::struct_new_desc(p0 : TypeIdx) -> Instruction
 ///|
 declare pub fn Instruction::struct_set(p0 : TypeIdx, p1 : U32Ir) -> Instruction
+///|
+declare pub fn Instruction::struct_wait(p0 : TypeIdx, p1 : U32Ir) -> Instruction
 ///|
 declare pub fn Instruction::suspend(p0 : TagIdx) -> Instruction
 ///|
@@ -3605,6 +3617,10 @@ declare pub fn Instruction::v128_store64_lane(p0 : MemArg, p1 : LaneIdx) -> Inst
 declare pub fn Instruction::v128_store8_lane(p0 : MemArg, p1 : LaneIdx) -> Instruction
 ///|
 declare pub fn Instruction::v128_xor() -> Instruction
+///|
+declare pub fn Instruction::waitqueue_new() -> Instruction
+///|
+declare pub fn Instruction::waitqueue_notify() -> Instruction
 ///|
 declare pub fn LabelIdx::create(p0 : UInt) -> LabelIdx
 ///|

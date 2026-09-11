@@ -227,6 +227,8 @@ pub impl Decode for HeapType with fn decode(bytes, i) {
 ///|
 pub impl Decode for AbsHeapType with fn decode(bytes, i) {
   match bytes.get(i) {
+    Some(0x5c) => Ok((AbsHeapType::waitqueue(), i + 1))
+    Some(0x5b) => Ok((AbsHeapType::no_waitqueue(), i + 1))
     Some(0x67) => Ok((AbsHeapType::string_(), i + 1))
     Some(0x68) => Ok((AbsHeapType::cont(), i + 1))
     Some(0x69) => Ok((AbsHeapType::exn(), i + 1))
@@ -411,6 +413,7 @@ pub impl Decode for AtomicOrder with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) => Ok((AtomicOrder::seq_cst(), i + 1))
     Some(0x01) => Ok((AtomicOrder::acq_rel(), i + 1))
+    Some(0x02) => Ok((AtomicOrder::relaxed(), i + 1))
     Some(_) => Err(BinaryDecodeError::InvalidAtomicInstruction)
     None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
@@ -424,6 +427,7 @@ fn decode_aggregate_atomic_rmw_order(
   match bytes.get(i) {
     Some(0x00) => Ok((AtomicOrder::seq_cst(), i + 1))
     Some(0x11) => Ok((AtomicOrder::acq_rel(), i + 1))
+    Some(0x22) => Ok((AtomicOrder::relaxed(), i + 1))
     Some(_) => Err(BinaryDecodeError::InvalidAtomicInstruction)
     None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
@@ -2274,9 +2278,88 @@ pub impl Decode for ExternType with fn decode(bytes, i) {
 
 ///|
 pub impl Decode for ImportSec with fn decode(bytes, i) {
-  match decode_section_vector_payload(bytes, i, 2) {
-    Ok((content, next)) => Ok((ImportSec::new(content), next))
-    Err(t) => Err(t)
+  if bytes.get(i) != Some(2) {
+    return Err(BinaryDecodeError::InvalidSectionHeader)
+  }
+  let (U32(len), start) = match Decode::decode(bytes, i + 1) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  if len > (bytes.length() - start).reinterpret_as_uint() {
+    return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
+  }
+  let end = start + len.reinterpret_as_int()
+  // Bound every nested string/type/vector read to this section.
+  let payload = bytes[start:end].to_owned()
+  let (U32(count), after_count) = match Decode::decode(payload, 0) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let imports : Array[Import] = []
+  let mut next = after_count
+  for _ in 0U..<count {
+    let (module_name, after_module) : (Name, Int) = match
+      Decode::decode(payload, next) {
+      Ok(value) => value
+      Err(err) => return Err(err)
+    }
+    let (field_name, after_field) : (Name, Int) = match
+      Decode::decode(payload, after_module) {
+      Ok(value) => value
+      Err(err) => return Err(err)
+    }
+    let kind = payload.get(after_field)
+    if field_name == Name::new("") && (kind == Some(0x7f) || kind == Some(0x7e)) {
+      next = after_field + 1
+      let common_type : ExternType? = if kind == Some(0x7e) {
+        let (ty, after_type) = match Decode::decode(payload, next) {
+          Ok(value) => value
+          Err(err) => return Err(err)
+        }
+        next = after_type
+        Some(ty)
+      } else {
+        None
+      }
+      let (U32(group_count), after_group_count) = match
+        Decode::decode(payload, next) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      next = after_group_count
+      for _ in 0U..<group_count {
+        let (name, after_name) : (Name, Int) = match
+          Decode::decode(payload, next) {
+          Ok(value) => value
+          Err(err) => return Err(err)
+        }
+        next = after_name
+        let ty = match common_type {
+          Some(ty) => ty
+          None => {
+            let (ty, after_type) = match Decode::decode(payload, next) {
+              Ok(value) => value
+              Err(err) => return Err(err)
+            }
+            next = after_type
+            ty
+          }
+        }
+        imports.push(Import::new(module_name, name, ty))
+      }
+    } else {
+      let (ty, after_type) = match Decode::decode(payload, after_field) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      imports.push(Import::new(module_name, field_name, ty))
+      next = after_type
+    }
+  }
+  if next != payload.length() {
+    Err(BinaryDecodeError::InvalidSectionPayloadTrailingBytes)
+  } else {
+    Ok((ImportSec::new(imports), end))
   }
 }
 
@@ -2547,7 +2630,7 @@ pub impl Decode for CastOp with fn decode(bytes, i) {
 ///|
 pub impl Decode for MemArg with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
-    Ok((@lib.U32(n), i)) if n >= 64 && n < 128 =>
+    Ok((@lib.U32(n), i)) if n >= 64 && n <= 72 =>
       match Decode::decode(bytes, i) {
         Ok((x, i)) =>
           match Decode::decode(bytes, i) {
@@ -2556,7 +2639,7 @@ pub impl Decode for MemArg with fn decode(bytes, i) {
           }
         Err(t) => Err(t)
       }
-    Ok((@lib.U32(n), i)) if n < 64 =>
+    Ok((@lib.U32(n), i)) if n <= 8 =>
       match Decode::decode(bytes, i) {
         Ok((@lib.U64(m), i)) => Ok((MemArg::new(n, None, m), i))
         Err(t) => Err(t)
@@ -3160,157 +3243,97 @@ fn decode_instruction_with_depth(
         Err(t) => Err(t)
       }
     Some(0x28) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i32_load(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i32_load(), fn(ma) {
+        Instruction::i32_load(ma)
+      })
     Some(0x29) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_load(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i64_load(), fn(ma) {
+        Instruction::i64_load(ma)
+      })
     Some(0x2A) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::f32_load(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::f32_load(), fn(ma) {
+        Instruction::f32_load(ma)
+      })
     Some(0x2B) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::f64_load(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::f64_load(), fn(ma) {
+        Instruction::f64_load(ma)
+      })
     Some(0x2C) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i32_load8s(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i32_load8s(), fn(ma) {
+        Instruction::i32_load8s(ma)
+      })
     Some(0x2D) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i32_load8u(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i32_load8u(), fn(ma) {
+        Instruction::i32_load8u(ma)
+      })
     Some(0x2E) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i32_load16s(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i32_load16s(), fn(ma) {
+        Instruction::i32_load16s(ma)
+      })
     Some(0x2F) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i32_load16u(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i32_load16u(), fn(ma) {
+        Instruction::i32_load16u(ma)
+      })
     Some(0x30) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_load8s(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i64_load8s(), fn(ma) {
+        Instruction::i64_load8s(ma)
+      })
     Some(0x31) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_load8u(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i64_load8u(), fn(ma) {
+        Instruction::i64_load8u(ma)
+      })
     Some(0x32) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_load16s(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i64_load16s(), fn(ma) {
+        Instruction::i64_load16s(ma)
+      })
     Some(0x33) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_load16u(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i64_load16u(), fn(ma) {
+        Instruction::i64_load16u(ma)
+      })
     Some(0x34) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_load32s(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i64_load32s(), fn(ma) {
+        Instruction::i64_load32s(ma)
+      })
     Some(0x35) =>
-      match
-        (
-          Decode::decode(bytes, i + 1) :
-          Result[(@lib.U32, Int), BinaryDecodeError]) {
-        Ok((@lib.U32(0x20U), next)) =>
-          match Decode::decode(bytes, next) {
-            Ok((type_idx, next)) =>
-              Ok(
-                (
-                  Instruction::array_load(@lib.LoadOp::i64_load32u(), type_idx),
-                  next,
-                ),
-              )
-            Err(t) => Err(t)
-          }
-        _ =>
-          match Decode::decode(bytes, i + 1) {
-            Ok((m, i)) => Ok((Instruction::i64_load32u(m), i))
-            Err(t) => Err(t)
-          }
-      }
+      decode_memory_load(bytes, i + 1, @lib.LoadOp::i64_load32u(), fn(ma) {
+        Instruction::i64_load32u(ma)
+      })
     Some(0x36) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i32_store(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_store(bytes, i + 1, @lib.StoreOp::i32_store(), fn(ma) {
+        Instruction::i32_store(ma)
+      })
     Some(0x37) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_store(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_store(bytes, i + 1, @lib.StoreOp::i64_store(), fn(ma) {
+        Instruction::i64_store(ma)
+      })
     Some(0x38) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::f32_store(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_store(bytes, i + 1, @lib.StoreOp::f32_store(), fn(ma) {
+        Instruction::f32_store(ma)
+      })
     Some(0x39) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::f64_store(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_store(bytes, i + 1, @lib.StoreOp::f64_store(), fn(ma) {
+        Instruction::f64_store(ma)
+      })
     Some(0x3A) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i32_store8(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_store(bytes, i + 1, @lib.StoreOp::i32_store8(), fn(ma) {
+        Instruction::i32_store8(ma)
+      })
     Some(0x3B) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i32_store16(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_store(bytes, i + 1, @lib.StoreOp::i32_store16(), fn(ma) {
+        Instruction::i32_store16(ma)
+      })
     Some(0x3C) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_store8(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_store(bytes, i + 1, @lib.StoreOp::i64_store8(), fn(ma) {
+        Instruction::i64_store8(ma)
+      })
     Some(0x3D) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_store16(m), i))
-        Err(t) => Err(t)
-      }
+      decode_memory_store(bytes, i + 1, @lib.StoreOp::i64_store16(), fn(ma) {
+        Instruction::i64_store16(ma)
+      })
     Some(0x3E) =>
-      match
-        (
-          Decode::decode(bytes, i + 1) :
-          Result[(@lib.U32, Int), BinaryDecodeError]) {
-        Ok((@lib.U32(0x20U), next)) =>
-          match Decode::decode(bytes, next) {
-            Ok((type_idx, next)) =>
-              Ok(
-                (
-                  Instruction::array_store(
-                    @lib.StoreOp::i64_store32(),
-                    type_idx,
-                  ),
-                  next,
-                ),
-              )
-            Err(t) => Err(t)
-          }
-        _ =>
-          match Decode::decode(bytes, i + 1) {
-            Ok((m, i)) => Ok((Instruction::i64_store32(m), i))
-            Err(t) => Err(t)
-          }
-      }
+      decode_memory_store(bytes, i + 1, @lib.StoreOp::i64_store32(), fn(ma) {
+        Instruction::i64_store32(ma)
+      })
     Some(0x3F) =>
       match Decode::decode(bytes, i + 1) {
         Ok((x, i)) => Ok((Instruction::memory_size(x), i))
@@ -3965,6 +3988,18 @@ fn decode_instruction_with_depth(
             Ok((order, i)) => Ok((Instruction::atomic_fence(order~), i))
             Err(_) => Err(BinaryDecodeError::InvalidAtomicFenceImmediate)
           }
+        Ok((@lib.U32(5), i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((type_idx, i)) =>
+              match Decode::decode(bytes, i) {
+                Ok((field, i)) =>
+                  Ok((Instruction::struct_wait(type_idx, field), i))
+                Err(err) => Err(err)
+              }
+            Err(err) => Err(err)
+          }
+        Ok((@lib.U32(6), i)) => Ok((Instruction::waitqueue_notify(), i))
+        Ok((@lib.U32(7), i)) => Ok((Instruction::waitqueue_new(), i))
         Ok((@lib.U32(16), i)) =>
           match decode_atomic_memarg(bytes, i, false) {
             Ok((order, m, i)) =>
@@ -4007,7 +4042,7 @@ fn decode_instruction_with_depth(
               Ok((Instruction::i64_atomic_load32_u(m, order~), i))
             Err(t) => Err(t)
           }
-        Ok((@lib.U32(id), i)) if id >= 0x5C && id <= 0x5E =>
+        Ok((@lib.U32(id), i)) if id >= 0x5C && id <= 0x5F =>
           match Decode::decode(bytes, i) {
             Ok((order, i)) =>
               match Decode::decode(bytes, i) {
@@ -4021,6 +4056,10 @@ fn decode_instruction_with_depth(
                           )
                         0x5D =>
                           Instruction::struct_atomic_get_s(
+                            order, type_idx, field_idx,
+                          )
+                        0x5F =>
+                          Instruction::struct_atomic_set(
                             order, type_idx, field_idx,
                           )
                         _ =>
@@ -4101,7 +4140,7 @@ fn decode_instruction_with_depth(
               }
             Err(t) => Err(t)
           }
-        Ok((@lib.U32(id), i)) if id >= 0x67 && id <= 0x69 =>
+        Ok((@lib.U32(id), i)) if id >= 0x67 && id <= 0x6A =>
           match Decode::decode(bytes, i) {
             Ok((order, i)) =>
               match Decode::decode(bytes, i) {
@@ -4109,6 +4148,7 @@ fn decode_instruction_with_depth(
                   let instr = match id {
                     0x67 => Instruction::array_atomic_get(order, type_idx)
                     0x68 => Instruction::array_atomic_get_s(order, type_idx)
+                    0x6A => Instruction::array_atomic_set(order, type_idx)
                     _ => Instruction::array_atomic_get_u(order, type_idx)
                   }
                   Ok((instr, i))
@@ -4284,10 +4324,9 @@ fn decode_instruction_with_depth(
     Some(0xFD) =>
       match Decode::decode(bytes, i + 1) {
         Ok((@lib.U32(0), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::v128_load(m), i))
-            Err(t) => Err(t)
-          }
+          decode_memory_load(bytes, i, @lib.LoadOp::v128_load(), fn(ma) {
+            Instruction::v128_load(ma)
+          })
         Ok((U32(1), i)) =>
           match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((Instruction::v128_load8x8s(m), i))
@@ -4339,10 +4378,9 @@ fn decode_instruction_with_depth(
             Err(t) => Err(t)
           }
         Ok((U32(11), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((m, i)) => Ok((Instruction::v128_store(m), i))
-            Err(t) => Err(t)
-          }
+          decode_memory_store(bytes, i, @lib.StoreOp::v128_store(), fn(ma) {
+            Instruction::v128_store(ma)
+          })
         Ok((U32(12), i)) =>
           // 16 bytes const
           if bytes.length() >= i + 16 {
@@ -4833,6 +4871,79 @@ pub impl[T : Decode] Decode for Array[T] with fn decode(bytes, i) {
         }
       }
       Ok((result, pos))
+    }
+  }
+}
+
+///|
+fn decode_array_memory_argument(
+  bytes : Bytes,
+  i : Int,
+) -> Result[(MemArg, @lib.TypeIdx, Int), BinaryDecodeError] {
+  let (@lib.U32(flags), next) = match Decode::decode(bytes, i) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  if (flags & 0xfffffff0U) != 0x20U || (flags & 15U) > 8U {
+    return Err(BinaryDecodeError::InvalidMemArg)
+  }
+  let (@lib.U32(offset), next) = match Decode::decode(bytes, next) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  match Decode::decode(bytes, next) {
+    Ok((ti, next)) =>
+      Ok((MemArg::new(flags & 15U, None, offset.to_uint64()), ti, next))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn decode_memory_load(
+  bytes : Bytes,
+  i : Int,
+  op : @lib.LoadOp,
+  linear : (MemArg) -> Instruction,
+) -> Result[(Instruction, Int), BinaryDecodeError] {
+  let (@lib.U32(flags), _) = match Decode::decode(bytes, i) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  if (flags & 0x20U) != 0U {
+    match decode_array_memory_argument(bytes, i) {
+      Ok((ma, ti, next)) =>
+        Ok((Instruction::array_load(op, ti, memarg=ma), next))
+      Err(err) => Err(err)
+    }
+  } else {
+    match Decode::decode(bytes, i) {
+      Ok((ma, next)) => Ok((linear(ma), next))
+      Err(err) => Err(err)
+    }
+  }
+}
+
+///|
+fn decode_memory_store(
+  bytes : Bytes,
+  i : Int,
+  op : @lib.StoreOp,
+  linear : (MemArg) -> Instruction,
+) -> Result[(Instruction, Int), BinaryDecodeError] {
+  let (@lib.U32(flags), _) = match Decode::decode(bytes, i) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  if (flags & 0x20U) != 0U {
+    match decode_array_memory_argument(bytes, i) {
+      Ok((ma, ti, next)) =>
+        Ok((Instruction::array_store(op, ti, memarg=ma), next))
+      Err(err) => Err(err)
+    }
+  } else {
+    match Decode::decode(bytes, i) {
+      Ok((ma, next)) => Ok((linear(ma), next))
+      Err(err) => Err(err)
     }
   }
 }

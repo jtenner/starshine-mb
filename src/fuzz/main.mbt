@@ -3786,7 +3786,11 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
       artifact_module = transformed.wasm_module
       artifact_transform_id = Some(transformed.transform_id)
     }
-    let bytes = match encode_module(artifact_module) {
+    let bytes = match
+      encode_module(
+        artifact_module,
+        compact_imports=generated.config_label == "binaryen132-compact-imports",
+      ) {
       Ok(v) => v
       Err(err) =>
         return Err(
@@ -3808,7 +3812,12 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
     }
     match base_file_name {
       Some(base_name) =>
-        match encode_module(generated.wasm_module) {
+        match
+          encode_module(
+            generated.wasm_module,
+            compact_imports=generated.config_label ==
+              "binaryen132-compact-imports",
+          ) {
           Ok(base_bytes) => artifacts.push((base_name, base_bytes))
           Err(err) =>
             return Err(
@@ -3956,7 +3965,11 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
       artifact_module = transformed.wasm_module
       artifact_transform_id = Some(transformed.transform_id)
     }
-    let bytes = match encode_module(artifact_module) {
+    let bytes = match
+      encode_module(
+        artifact_module,
+        compact_imports=generated.config_label == "binaryen132-compact-imports",
+      ) {
       Ok(v) => v
       Err(err) =>
         return Err(
@@ -3978,7 +3991,12 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
     }
     match base_file_name {
       Some(base_name) =>
-        match encode_module(generated.wasm_module) {
+        match
+          encode_module(
+            generated.wasm_module,
+            compact_imports=generated.config_label ==
+              "binaryen132-compact-imports",
+          ) {
           Ok(base_bytes) => artifacts.push((base_name, base_bytes))
           Err(err) =>
             return Err(
@@ -4072,7 +4090,11 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
           "gen-valid batch produced invalid module at index \{i + 1}: \{validation_error_message(err)}",
         )
     }
-    let bytes = match encode_module(generated.wasm_module) {
+    let bytes = match
+      encode_module(
+        generated.wasm_module,
+        compact_imports=generated.config_label == "binaryen132-compact-imports",
+      ) {
       Ok(v) => v
       Err(err) =>
         return Err("gen-valid batch encode failed at index \{i + 1}: \{err}")
@@ -6085,7 +6107,12 @@ fn emit_gen_valid_batch_to_dir(
         Err(e) => return Err(e)
       }
       artifact_transform_id = Some(transformed.transform_id)
-      metamorphic_base_bytes = match encode_module(generated.wasm_module) {
+      metamorphic_base_bytes = match
+        encode_module(
+          generated.wasm_module,
+          compact_imports=generated.config_label ==
+            "binaryen132-compact-imports",
+        ) {
         Ok(v) => Some(v)
         Err(err) =>
           return Err(
@@ -6094,7 +6121,11 @@ fn emit_gen_valid_batch_to_dir(
       }
       artifact_module = transformed.wasm_module
     }
-    let bytes = match encode_module(artifact_module) {
+    let bytes = match
+      encode_module(
+        artifact_module,
+        compact_imports=generated.config_label == "binaryen132-compact-imports",
+      ) {
       Ok(v) => v
       Err(err) =>
         return Err(

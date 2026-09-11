@@ -18,6 +18,7 @@ fn invalid_binary_test_validation_family_label(
     CodeSectionFamily => "code"
     NameSectionFamily => "name"
     CompilerFactsSectionFamily => "compiler-facts"
+    FeaturePolicyFamily => "feature-policy"
     FunctionBodyFamily => "function-body"
   }
 }

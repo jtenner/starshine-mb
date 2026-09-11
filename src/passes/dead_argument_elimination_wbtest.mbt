@@ -4169,7 +4169,7 @@ test "dae GC result evidence refines try_table fallthrough controls" {
   )
   let body = [@lib.Instruction::struct_new_default(leaf_type)]
   let instr = @lib.Instruction::try_table(
-    @lib.BlockType::val_type(base_ref),
+    @lib.BlockType::val_type(dae_test_ref_exactness(base_ref, false)),
     [],
     @lib.Expr::new(body),
   )
@@ -4179,7 +4179,7 @@ test "dae GC result evidence refines try_table fallthrough controls" {
       assert_eq(
         rewritten,
         @lib.Instruction::try_table(
-          @lib.BlockType::val_type(leaf_ref),
+          @lib.BlockType::val_type(dae_test_ref_exactness(leaf_ref, false)),
           [],
           @lib.Expr::new(body),
         ),
@@ -4214,7 +4214,7 @@ test "dae GC result evidence refines legacy try normal fallthrough" {
     @lib.LegacyCatch::all(@lib.Expr::new([@lib.Instruction::unreachable_()])),
   ]
   let instr = @lib.Instruction::try_(
-    @lib.BlockType::val_type(base_ref),
+    @lib.BlockType::val_type(dae_test_ref_exactness(base_ref, false)),
     @lib.Expr::new(body),
     catches,
   )
@@ -4224,7 +4224,7 @@ test "dae GC result evidence refines legacy try normal fallthrough" {
       assert_eq(
         rewritten,
         @lib.Instruction::try_(
-          @lib.BlockType::val_type(leaf_ref),
+          @lib.BlockType::val_type(dae_test_ref_exactness(leaf_ref, false)),
           @lib.Expr::new(body),
           catches,
         ),
@@ -4233,7 +4233,7 @@ test "dae GC result evidence refines legacy try normal fallthrough" {
     _ => fail("expected legacy try result refinement evidence")
   }
   let wider_catch = @lib.Instruction::try_(
-    @lib.BlockType::val_type(base_ref),
+    @lib.BlockType::val_type(dae_test_ref_exactness(base_ref, false)),
     @lib.Expr::new(body),
     [
       @lib.LegacyCatch::all(
@@ -4258,7 +4258,7 @@ test "dae control result GC evidence centralizes lane candidates and rewrites" {
     @lib.RefType::new(true, @lib.HeapType::new(base_type)),
   )
   let expected_leaf_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=false),
   )
   let mod_ = @lib.Module::new().with_type_sec(
     @lib.TypeSec::new([
@@ -4294,8 +4294,14 @@ test "dae control result GC evidence centralizes lane candidates and rewrites" {
     Some(evidence) => {
       assert_true(evidence.saw_candidate)
       assert_true(evidence.body_changed)
-      assert_eq(evidence.candidates[0], Some(expected_leaf_ref))
-      assert_eq(evidence.candidates[1], Some(expected_leaf_ref))
+      assert_eq(
+        evidence.candidates[0],
+        Some(dae_test_ref_exactness(expected_leaf_ref, true)),
+      )
+      assert_eq(
+        evidence.candidates[1],
+        Some(dae_test_ref_exactness(expected_leaf_ref, true)),
+      )
       assert_eq(evidence.refined_candidates[0], Some(expected_leaf_ref))
       assert_eq(evidence.refined_candidates[1], Some(expected_leaf_ref))
       assert_eq(evidence.rewritten_body[0], body[0])
@@ -4579,13 +4585,13 @@ test "dae control result pair GC evidence centralizes terminal arm LUB rewrites"
   )
   let then_body = [
     @lib.Instruction::block(
-      @lib.BlockType::val_type(base_ref),
+      @lib.BlockType::val_type(dae_test_ref_exactness(base_ref, false)),
       @lib.Expr::new([@lib.Instruction::struct_new_default(left_type)]),
     ),
   ]
   let else_body = [
     @lib.Instruction::block(
-      @lib.BlockType::val_type(base_ref),
+      @lib.BlockType::val_type(dae_test_ref_exactness(base_ref, false)),
       @lib.Expr::new([@lib.Instruction::struct_new_default(right_type)]),
     ),
   ]
@@ -4639,14 +4645,18 @@ test "dae control result pair GC evidence centralizes terminal arm LUB rewrites"
       assert_eq(
         evidence.rewritten_then_body[0],
         @lib.Instruction::block(
-          @lib.BlockType::val_type(expected_left_ref),
+          @lib.BlockType::val_type(
+            dae_test_ref_exactness(expected_left_ref, false),
+          ),
           @lib.Expr::new([@lib.Instruction::struct_new_default(left_type)]),
         ),
       )
       assert_eq(
         evidence.rewritten_else_body[0],
         @lib.Instruction::block(
-          @lib.BlockType::val_type(expected_right_ref),
+          @lib.BlockType::val_type(
+            dae_test_ref_exactness(expected_right_ref, false),
+          ),
           @lib.Expr::new([@lib.Instruction::struct_new_default(right_type)]),
         ),
       )
@@ -4983,7 +4993,7 @@ test "dae control result single refinement application centralizes next-result r
     @lib.RefType::new(true, @lib.HeapType::new(base_type)),
   )
   let leaf_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=false),
   )
   let mod_ = @lib.Module::new().with_type_sec(
     @lib.TypeSec::new([
@@ -5035,7 +5045,7 @@ test "dae parametric typeidx arm evidence reuses control result GC carrier" {
     @lib.RefType::new(true, @lib.HeapType::new(base_type)),
   )
   let expected_leaf_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=false),
   )
   let mod_ = @lib.Module::new().with_type_sec(
     @lib.TypeSec::new([
@@ -5068,8 +5078,14 @@ test "dae parametric typeidx arm evidence reuses control result GC carrier" {
       assert_true(evidence.saw_candidate)
       assert_true(evidence.body_changed)
       assert_eq(evidence.result_start, 1)
-      assert_eq(evidence.candidates[0], Some(expected_leaf_ref))
-      assert_eq(evidence.candidates[1], Some(expected_leaf_ref))
+      assert_eq(
+        evidence.candidates[0],
+        Some(dae_test_ref_exactness(expected_leaf_ref, true)),
+      )
+      assert_eq(
+        evidence.candidates[1],
+        Some(dae_test_ref_exactness(expected_leaf_ref, true)),
+      )
       assert_eq(evidence.refined_candidates[0], Some(expected_leaf_ref))
       assert_eq(evidence.refined_candidates[1], Some(expected_leaf_ref))
       assert_eq(evidence.body, arm_body)
@@ -5371,7 +5387,7 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
     ]),
   )
   let nested_old_block = @lib.Instruction::block(
-    @lib.BlockType::val_type(base_ref),
+    @lib.BlockType::val_type(dae_test_ref_exactness(base_ref, false)),
     @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
   )
   let body = [nested_old_block]
@@ -5381,7 +5397,7 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
       [],
       None,
       @lib.Instruction::block(
-        @lib.BlockType::val_type(base_ref),
+        @lib.BlockType::val_type(dae_test_ref_exactness(base_ref, false)),
         @lib.Expr::new(body),
       ),
       base_ref,
@@ -5397,11 +5413,11 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
     @lib.Instruction::struct_new_default(leaf_type),
   )
   let expected_rewritten_block = @lib.Instruction::block(
-    @lib.BlockType::val_type(expected_leaf_ref),
+    @lib.BlockType::val_type(dae_test_ref_exactness(expected_leaf_ref, false)),
     @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
   )
   let expected_rewritten_loop = @lib.Instruction::loop_(
-    @lib.BlockType::val_type(expected_leaf_ref),
+    @lib.BlockType::val_type(dae_test_ref_exactness(expected_leaf_ref, false)),
     @lib.Expr::new([@lib.Instruction::struct_new_default(leaf_type)]),
   )
   match dae_apply_single_body_control_rewrite_evidence(evidence.rewrite) {
@@ -5415,7 +5431,7 @@ test "dae single-result control GC evidence centralizes block and loop rewrites"
       [],
       None,
       @lib.Instruction::loop_(
-        @lib.BlockType::val_type(base_ref),
+        @lib.BlockType::val_type(dae_test_ref_exactness(base_ref, false)),
         @lib.Expr::new(body),
       ),
       base_ref,
@@ -6077,7 +6093,7 @@ test "dae mixed return-arm rewrite evidence centralizes refined slot repairs" {
     @lib.RefType::new(true, @lib.HeapType::new(base_type)),
   )
   let leaf_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type)),
   )
   let mod_ = @lib.Module::new().with_type_sec(
     @lib.TypeSec::new([
@@ -6157,10 +6173,10 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
     @lib.RefType::new(true, @lib.HeapType::new(base_type)),
   )
   let expected_leaf_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=false),
   )
   let expected_nullable_leaf_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=true),
+    @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=false),
   )
   let mod_ = @lib.Module::new().with_type_sec(
     @lib.TypeSec::new([
@@ -6229,7 +6245,10 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
       rewrite_type=Some(expected_nullable_leaf_ref),
     ) {
     Some(evidence) => {
-      assert_eq(evidence.candidate, expected_nullable_leaf_ref)
+      assert_eq(
+        evidence.candidate,
+        dae_test_ref_exactness(expected_nullable_leaf_ref, true),
+      )
       assert_eq(evidence.refined_candidate, None)
       let select = match evidence.select {
         Some(select) => select
@@ -6244,7 +6263,7 @@ test "dae GC actual shape evidence centralizes control and select repairs" {
         select.gc.left_rewrite,
         Some(
           @lib.Instruction::ref_null_type(
-            @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=true),
+            @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=false),
           ),
         ),
       )
@@ -6267,7 +6286,7 @@ test "dae GC actual shape discovery separates target refinement" {
     @lib.RefType::new(true, @lib.HeapType::new(base_type)),
   )
   let nullable_leaf_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=true),
+    @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=false),
   )
   let unrelated_ref = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(unrelated_type)),
@@ -6312,7 +6331,10 @@ test "dae GC actual shape discovery separates target refinement" {
     Some(evidence) => evidence
     None => fail("expected direct target-specific GC evidence")
   }
-  assert_eq(direct_type.refined_candidate, Some(direct_type.candidate))
+  assert_eq(
+    direct_type.refined_candidate,
+    Some(dae_test_ref_exactness(direct_type.candidate, false)),
+  )
   assert_true(direct_type.select is None)
   assert_eq(direct_type.terminal_rewrite, None)
 
@@ -6387,7 +6409,10 @@ test "dae GC actual shape discovery separates target refinement" {
     Some(evidence) => evidence
     None => fail("expected candidate-only select evidence")
   }
-  assert_eq(candidate_only.candidate, nullable_leaf_ref)
+  assert_eq(
+    candidate_only.candidate,
+    dae_test_ref_exactness(nullable_leaf_ref, true),
+  )
   assert_eq(candidate_only.refined_candidate, None)
   assert_eq(candidate_only.terminal_rewrite, None)
   let rewrite = match
@@ -8804,7 +8829,7 @@ test "dae GC result slot evidence centralizes candidate refinement and rewrite" 
     @lib.RefType::new(true, @lib.HeapType::new(base_type)),
   )
   let leaf_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=false),
   )
   let mod_ = @lib.Module::new().with_type_sec(
     @lib.TypeSec::new([
@@ -8830,7 +8855,7 @@ test "dae GC result slot evidence centralizes candidate refinement and rewrite" 
       require_refined=true,
     ) {
     Some(evidence) => {
-      assert_eq(evidence.candidate, leaf_ref)
+      assert_eq(evidence.candidate, dae_test_ref_exactness(leaf_ref, true))
       assert_eq(evidence.refined_candidate, Some(leaf_ref))
       assert_eq(
         evidence.rewrite,
@@ -8936,12 +8961,12 @@ test "dae GC select actual evidence centralizes nullable refinement and rewrites
     @lib.RefType::new(true, @lib.HeapType::new(base_type)),
   )
   let expected_leaf_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=true),
+    @lib.RefType::new(true, @lib.HeapType::new(leaf_type), exact=false),
   )
   let expected_leaf_rt = @lib.RefType::new(
     true,
     @lib.HeapType::new(leaf_type),
-    exact=true,
+    exact=false,
   )
   let mod_ = @lib.Module::new().with_type_sec(
     @lib.TypeSec::new([
@@ -8977,7 +9002,10 @@ test "dae GC select actual evidence centralizes nullable refinement and rewrites
     Some(evidence) => {
       assert_eq(evidence.slices.condition.start, 2)
       assert_eq(evidence.slices.condition.end, 5)
-      assert_eq(evidence.gc.candidate, expected_leaf_ref)
+      assert_eq(
+        evidence.gc.candidate,
+        dae_test_ref_exactness(expected_leaf_ref, true),
+      )
       assert_eq(evidence.gc.refined_candidate, Some(expected_leaf_ref))
       assert_eq(
         evidence.gc.left_rewrite,
@@ -16390,7 +16418,7 @@ test "dae GC parameter refinement work commits through dispatcher" {
         @lib.RefType::new(
           false,
           @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-          exact=true,
+          exact=false,
         ),
       )
       let type_indices = dae_collect_func_type_indices(application.mod_out)
@@ -16495,7 +16523,7 @@ test "dae GC parameter LUB evidence is complete and fail closed" {
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   let evidence = dae_apply_gc_parameter_lub_evidence(
@@ -16568,7 +16596,7 @@ test "dae GC parameter refinement repairs reused old-type parameters with a loca
               @lib.RefType::new(
                 false,
                 @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-                exact=true,
+                exact=false,
               ),
             ),
           )
@@ -18018,7 +18046,7 @@ test "dae direct GC batch transaction is definition-count independent" {
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   let type_indices = dae_collect_func_type_indices(application.mod_out)
@@ -18246,7 +18274,7 @@ test "dae GC result refinement work commits through dispatcher" {
           @lib.RefType::new(
             false,
             @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-            exact=true,
+            exact=false,
           ),
         )
         let type_indices = dae_collect_func_type_indices(application.mod_out)
@@ -19643,7 +19671,7 @@ test "dae GC parameter and result refinement builds a combined signature plan" {
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   assert_eq(plan.parameter_actions, [DaeRefineParameterType(expected)])
@@ -19829,7 +19857,7 @@ test "dae GC result refinement follows direct tail calls" {
 }
 
 ///|
-test "dae GC result refinement derives exact ref.func return types" {
+test "dae GC result refinement derives concrete ref.func return types" {
   let source =
     #|(module
     #|  (type $sig (func (result funcref)))
@@ -19855,7 +19883,7 @@ test "dae GC result refinement derives exact ref.func return types" {
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-      exact=true,
+      exact=false,
     ),
   )
   match dae_resolve_func_type(result.mod_out, type_indices, 1) {
@@ -19953,7 +19981,7 @@ test "dae GC result refinement joins nullable explicit-return branches" {
     @lib.RefType::new(
       true,
       @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-      exact=true,
+      exact=false,
     ),
   )
   match dae_resolve_func_type(result.mod_out, type_indices, 0) {
@@ -19970,7 +19998,7 @@ test "dae GC result refinement joins nullable explicit-return branches" {
 }
 
 ///|
-test "dae GC parameter refinement derives exact ref.func actual types" {
+test "dae GC parameter refinement derives concrete ref.func actual types" {
   let source =
     #|(module
     #|  (type $sig (func))
@@ -20003,7 +20031,7 @@ test "dae GC parameter refinement derives exact ref.func actual types" {
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-      exact=true,
+      exact=false,
     ),
   )
   match dae_resolve_func_type(result.mod_out, type_indices, 2) {
@@ -20056,7 +20084,7 @@ test "dae GC result worklist traverses terminal dependencies beyond sixteen" {
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   let type_indices = dae_collect_func_type_indices(application.mod_out)
@@ -20075,7 +20103,7 @@ test "dae GC result worklist traverses terminal dependencies beyond sixteen" {
 }
 
 ///|
-test "dae GC result worklist follows nested exact result dependencies" {
+test "dae GC result worklist follows nested concrete result dependencies" {
   let source =
     #|(module
     #|  (type $base (sub (struct)))
@@ -20101,7 +20129,7 @@ test "dae GC result worklist follows nested exact result dependencies" {
     @lib.RefType::new(
       false,
       @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-      exact=true,
+      exact=false,
     ),
   )
   let type_indices = dae_collect_func_type_indices(application.mod_out)
@@ -24183,7 +24211,26 @@ test "DAEO direct cleanup does not recursively reenter the DAE core" {
   let target = optimized.pretty_print_defined_func(0U)
   assert_true(target.contains("i32.const I32(0)"), msg=target)
   assert_true(
-    trace.contains("pass[dae-optimizing]:nested-cleanup exact-ref-is-null-fold"),
+    trace.contains(
+      "pass[dae-optimizing]:nested-cleanup nonnull-ref-is-null-fold",
+    ),
     msg=trace.to_string(),
   )
+}
+
+///|
+// Allocation evidence may know an exact runtime type while rewriting an
+// ordinary GC module must preserve its broader source feature capability.
+fn dae_test_ref_exactness(value : @lib.ValType, exact : Bool) -> @lib.ValType {
+  match value {
+    @lib.RefTypeValType(ref_type) =>
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          ref_type.is_nullable(),
+          ref_type.get_heap_type(),
+          exact~,
+        ),
+      )
+    _ => abort("reference fixture expected")
+  }
 }

@@ -169,6 +169,7 @@ priv struct SimplifyLocalsSinkables {
   scratch_local_read_stamps : Array[Int]
   scratch_local_write_stamps : Array[Int]
   mut next_scratch_stamp : Int
+  source_gets : Array[Array[(Int, Int)]]
 }
 
 ///|
@@ -197,7 +198,33 @@ priv struct SimplifyLocalsStackedForwarderTail {
 }
 
 ///|
-fn simplify_locals_new_sinkables(func : @ir.HotFunc) -> SimplifyLocalsSinkables {
+fn simplify_locals_new_sinkables(
+  func : @ir.HotFunc,
+  source_gets? : Array[Array[(Int, Int)]]? = None,
+) -> SimplifyLocalsSinkables {
+  let source_gets = match source_gets {
+    Some(reads) => reads
+    None => {
+      let reads : Array[Array[(Int, Int)]] = Array::makei(
+        @ir.hot_local_count(func),
+        fn(_) { [] },
+      )
+      for id = 0; id < @ir.hot_node_count(func); id = id + 1 {
+        if @ir.hot_node_is_live(func, id) {
+          let node = @ir.hot_node_get(func, id)
+          if node.op is @ir.HotOp::LocalGet &&
+            node.imm0 >= 0 &&
+            node.imm0 < reads.length() {
+            reads[node.imm0].push((node.order, id))
+          }
+        }
+      }
+      for local_reads in reads {
+        local_reads.sort_by(fn(a, b) { a.0.compare(b.0) })
+      }
+      reads
+    }
+  }
   {
     entries: Array::make(@ir.hot_local_count(func), None),
     active_pos: Array::make(@ir.hot_local_count(func), -1),
@@ -208,7 +235,43 @@ fn simplify_locals_new_sinkables(func : @ir.HotFunc) -> SimplifyLocalsSinkables 
     scratch_local_read_stamps: Array::make(@ir.hot_local_count(func), 0),
     scratch_local_write_stamps: Array::make(@ir.hot_local_count(func), 0),
     next_scratch_stamp: 1,
+    source_gets,
   }
+}
+
+///|
+fn simplify_locals_has_earlier_source_read(
+  func : @ir.HotFunc,
+  sinkables : SimplifyLocalsSinkables,
+  local_id : Int,
+  definition_order : Int,
+  current_order : Int,
+) -> Bool {
+  let reads = sinkables.source_gets[local_id]
+  let mut lo = 0
+  let mut hi = reads.length()
+  while lo < hi {
+    let mid = lo + (hi - lo) / 2
+    if reads[mid].0 <= definition_order {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  while lo < reads.length() && reads[lo].0 < current_order {
+    let id = reads[lo].1
+    if @ir.hot_node_is_live(func, id) {
+      let read = @ir.hot_node_get(func, id)
+      if read.op is @ir.HotOp::LocalGet &&
+        read.imm0 == local_id &&
+        read.order > definition_order &&
+        read.order < current_order {
+        return true
+      }
+    }
+    lo += 1
+  }
+  false
 }
 
 ///|
@@ -318,6 +381,16 @@ fn simplify_locals_sinkables_may_conflict(
       rhs_mask,
       @ir.EFFECT_MASK_CONTROL | @ir.EFFECT_MASK_THROW | @ir.EFFECT_MASK_TRAP,
     ) {
+    return true
+  }
+
+  // Pending calls can observe any nonlocal state; pending control, throws,
+  // and traps can determine whether a later effect executes at all. Consult
+  // the exact ordering check even when the RHS has no matching effect bit.
+  if simplify_locals_sinkables_have_effect(sinkables, @ir.EFFECT_MASK_CALL) ||
+    simplify_locals_sinkables_have_effect(sinkables, @ir.EFFECT_MASK_CONTROL) ||
+    simplify_locals_sinkables_have_effect(sinkables, @ir.EFFECT_MASK_THROW) ||
+    simplify_locals_sinkables_have_effect(sinkables, @ir.EFFECT_MASK_TRAP) {
     return true
   }
 
@@ -1274,6 +1347,17 @@ fn simplify_locals_effects_ordered_before(
   rhs_global_read : Int,
   rhs_global_write : Int,
 ) -> Bool {
+  // An unrelated local read neither traps nor changes observable state.
+  // It may precede a pending control/call value when that value cannot change
+  // the read local. Writes need the full ordering and exception checks below.
+  if rhs_mask == @ir.EFFECT_MASK_LOCAL_STATE &&
+    rhs_local_read >= 0 &&
+    rhs_local_write < 0 &&
+    !simplify_locals_effects_conflict_exact_local(
+      lhs, rhs_local_read, rhs_local_write,
+    ) {
+    return false
+  }
   let lhs_has_call = simplify_locals_effects_has(lhs.mask, @ir.EFFECT_MASK_CALL)
   let rhs_has_call = simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_CALL)
   if lhs_has_call || rhs_has_call {
@@ -2490,6 +2574,12 @@ fn simplify_locals_value_can_clone_node(
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
   }
+  // A local consumes one lane of a shared multi-result producer. Copying
+  // that producer into the local's read repeats the entire operation and
+  // loses the lane selected by the original stack consumption.
+  if @ir.hot_node_result_arity(func, node_id) != 1 {
+    return false
+  }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Load => false
     _ => !@ir.hot_node_kind_is_control(func, node_id)
@@ -2772,6 +2862,11 @@ fn simplify_locals_try_inline_following_local_get(
   allow_nesting : Bool,
   detached : Array[Int],
 ) -> Bool {
+  if replacement_id < 0 ||
+    !@ir.hot_node_is_live(func, replacement_id) ||
+    @ir.hot_node_result_arity(func, replacement_id) != 1 {
+    return false
+  }
   let next_idx = match
     simplify_locals_region_next_live_non_nop_root_idx(
       func, parent_region, root_idx,
@@ -3567,7 +3662,10 @@ fn simplify_locals_scan_node(
       return changed
     }
     @ir.HotOp::Loop => {
-      let loop_sinkables = simplify_locals_new_sinkables(func)
+      let loop_sinkables = simplify_locals_new_sinkables(
+        func,
+        source_gets=Some(sinkables.source_gets),
+      )
       if simplify_locals_scan_region(
           func,
           @ir.hot_region_body_ref(func, node_id),
@@ -3622,7 +3720,10 @@ fn simplify_locals_scan_node(
         changed = true
       }
       simplify_locals_clear_sinkables(sinkables)
-      let then_sinkables = simplify_locals_new_sinkables(func)
+      let then_sinkables = simplify_locals_new_sinkables(
+        func,
+        source_gets=Some(sinkables.source_gets),
+      )
       if simplify_locals_scan_region(
           func,
           @ir.hot_region_then_ref(func, node_id),
@@ -3639,7 +3740,10 @@ fn simplify_locals_scan_node(
       }
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_ref) => {
-          let else_sinkables = simplify_locals_new_sinkables(func)
+          let else_sinkables = simplify_locals_new_sinkables(
+            func,
+            source_gets=Some(sinkables.source_gets),
+          )
           if simplify_locals_scan_region(
               func, else_ref, else_sinkables, first_cycle, get_counts, detached,
               policy, protect_control_embedded_local_tee, true, deferred_sets,
@@ -3692,7 +3796,10 @@ fn simplify_locals_scan_node(
       simplify_locals_clear_sinkables(sinkables)
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_ref) => {
-          let catch_sinkables = simplify_locals_new_sinkables(func)
+          let catch_sinkables = simplify_locals_new_sinkables(
+            func,
+            source_gets=Some(sinkables.source_gets),
+          )
           if simplify_locals_scan_region(
               func, catch_ref, catch_sinkables, first_cycle, get_counts, detached,
               policy, protect_control_embedded_local_tee, true, deferred_sets,
@@ -3724,7 +3831,10 @@ fn simplify_locals_scan_node(
         changed = true
       }
       simplify_locals_clear_sinkables(sinkables)
-      let catch_sinkables = simplify_locals_new_sinkables(func)
+      let catch_sinkables = simplify_locals_new_sinkables(
+        func,
+        source_gets=Some(sinkables.source_gets),
+      )
       if simplify_locals_scan_region(
           func,
           @ir.hot_region_catch_list_ref(func, node_id),
@@ -3802,6 +3912,23 @@ fn simplify_locals_scan_node(
             let pending_node = @ir.hot_node_get(func, info.node_id)
             match pending_node.op {
               @ir.HotOp::LocalSet => {
+                // A previous cycle can place an older read in a later root's
+                // operand tree. Do not sink its definition into the first read
+                // visited by tree order if that would cross the older read.
+                if get_counts[local_id] > 1 &&
+                  simplify_locals_has_earlier_source_read(
+                    func,
+                    sinkables,
+                    local_id,
+                    pending_node.order,
+                    current.order,
+                  ) {
+                  simplify_locals_sinkables_clear_local(sinkables, local_id)
+                  simplify_locals_invalidate_sinkables(
+                    func, node_id, current, sinkables,
+                  )
+                  return changed
+                }
                 let value_id = @ir.hot_child_get(func, info.node_id, 0)
                 let one_use = first_cycle || get_counts[local_id] == 1
                 let pending_copy_local = simplify_locals_direct_local_get_value(
@@ -6161,12 +6288,6 @@ fn simplify_locals_run_dead_cleanup(
           node_id < one_armed_if_tail_sets.length() &&
           one_armed_if_tail_sets[node_id] {
           continue
-        }
-        if value_id >= 0 && @ir.hot_node_is_live(func, value_id) {
-          match @ir.hot_node_get(func, value_id).op {
-            @ir.HotOp::If => continue
-            _ => ()
-          }
         }
         if simplify_locals_value_is_pure(func, value_id) {
           @ir.hot_replace_node(func, node_id, simplify_locals_make_nop(func))

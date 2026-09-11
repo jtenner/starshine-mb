@@ -115,6 +115,9 @@ fn split_first_underscore(s : String) -> (String, String?) {
 
 ///|
 fn keyword_from_opcode(op : Opcode) -> String {
+  if op is MemoryAtomic(memory_op) {
+    return memory_atomic_keyword(memory_op)
+  }
   let raw = lower_snake_from_pascal("\{op}")
   let (head, tail) = split_first_underscore(raw)
   match tail {
@@ -139,6 +142,9 @@ fn keyword_from_heap_type_ref(ht : HeapTypeRef) -> String {
     NoFunc => "nofunc"
     NoExtern => "noextern"
     NoExn => "noexn"
+    Waitqueue => "waitqueue"
+    NoWaitqueue => "nowaitqueue"
+    Shared(heap) => "(shared \{keyword_from_heap_type_ref(heap)})"
     Struct => "struct"
   }
 }
@@ -184,6 +190,15 @@ fn index_text(idx : Index) -> String {
   match idx {
     Num(n) => "\{n}"
     Id(name) => name
+  }
+}
+
+///|
+fn atomic_order_text(order : AtomicOrder) -> String {
+  match order {
+    SeqCst => "seq_cst"
+    AcqRel => "acq_rel"
+    Relaxed => "relaxed"
   }
 }
 
@@ -264,6 +279,7 @@ fn render_type_metadata(metadata : TypeDefMetadata) -> String {
 ///|
 fn render_type_def_body(body : TypeDefBody) -> String {
   match body {
+    TypeDefBody::Shared(body) => "(shared \{render_type_def_body(body)})"
     TypeDefBody::Func(func_type) => {
       let tu = { type_index: None, func_type, param_ids: [], }
       "(func\{render_type_use(tu)})"
@@ -361,6 +377,12 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     Nop => "nop"
     Br(idx) => "br \{index_text(idx)}"
     BrIf(idx) => "br_if \{index_text(idx)}"
+    BrOnNull(idx) => "br_on_null \{index_text(idx)}"
+    BrOnNonNull(idx) => "br_on_non_null \{index_text(idx)}"
+    BrOnCastDescEq(idx, source, target) =>
+      "br_on_cast_desc_eq \{index_text(idx)} \{keyword_from_value_type(source)} \{keyword_from_value_type(target)}"
+    BrOnCastDescEqFail(idx, source, target) =>
+      "br_on_cast_desc_eq_fail \{index_text(idx)} \{keyword_from_value_type(source)} \{keyword_from_value_type(target)}"
     BrTable(targets, fallback) => {
       let out = StringBuilder::new()
       out.write_string("br_table")
@@ -379,7 +401,16 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     ReturnCall(idx) => "return_call \{index_text(idx)}"
     ReturnCallIndirect(table_idx, type_use) =>
       "return_call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"
-    ReturnCallRef(type_use) => "return_call_ref\{render_type_use(type_use)}"
+    CallRef(type_use) =>
+      match type_use.type_index {
+        Some(index) => "call_ref \{index_text(index)}"
+        None => "call_ref\{render_type_use(type_use)}"
+      }
+    ReturnCallRef(type_use) =>
+      match type_use.type_index {
+        Some(index) => "return_call_ref \{index_text(index)}"
+        None => "return_call_ref\{render_type_use(type_use)}"
+      }
     Throw(idx) => "throw \{index_text(idx)}"
     ThrowRef => "throw_ref"
     Rethrow(idx) => "rethrow \{index_text(idx)}"
@@ -409,6 +440,8 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     TableInit(table_idx, elem_idx) =>
       "table.init \{index_text(table_idx)} \{index_text(elem_idx)}"
     ElemDrop(idx) => "elem.drop \{index_text(idx)}"
+    ArrayLoad(op, ti, ma) | ArrayStore(op, ti, ma) =>
+      "\{keyword_from_opcode(op)} (type \{wt_index_text(ti)})\{render_memarg(ma)}"
     Load(op, ma) => "\{keyword_from_opcode(op)}\{render_memarg(ma)}"
     Store(op, ma) => "\{keyword_from_opcode(op)}\{render_memarg(ma)}"
     MemorySize => "memory.size"
@@ -446,19 +479,36 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     StructGet(idx, field_idx) => "struct.get \{index_text(idx)} \{field_idx}"
     StructGetS(idx, field_idx) => "struct.get_s \{index_text(idx)} \{field_idx}"
     StructGetU(idx, field_idx) => "struct.get_u \{index_text(idx)} \{field_idx}"
-    StructAtomicGet(_, idx, field_idx) =>
-      "struct.atomic.get \{index_text(idx)} \{field_idx}"
-    StructAtomicGetS(_, idx, field_idx) =>
-      "struct.atomic.get_s \{index_text(idx)} \{field_idx}"
-    StructAtomicGetU(_, idx, field_idx) =>
-      "struct.atomic.get_u \{index_text(idx)} \{field_idx}"
-    StructAtomicRmw(op, idx, field_idx) =>
-      "struct.atomic.rmw.\{aggregate_atomic_rmw_suffix(op)} \{index_text(idx)} \{field_idx}"
-    StructAtomicCmpxchg(idx, field_idx) =>
-      "struct.atomic.rmw.cmpxchg \{index_text(idx)} \{field_idx}"
-    ArrayAtomicRmw(op, idx) =>
-      "array.atomic.rmw.\{aggregate_atomic_rmw_suffix(op)} \{index_text(idx)}"
-    ArrayAtomicCmpxchg(idx) => "array.atomic.rmw.cmpxchg \{index_text(idx)}"
+    MemoryAtomic(op, order, memory, ma) =>
+      render_memory_atomic(op, order, memory, ma)
+    AtomicFence(order) => "atomic.fence \{atomic_order_text(order)}"
+    WaitqueueNew => "waitqueue.new"
+    WaitqueueNotify => "waitqueue.notify"
+    StructWait(idx, field_idx) => "struct.wait \{index_text(idx)} \{field_idx}"
+    StructAtomicSet(order, idx, field_idx) =>
+      "struct.atomic.set \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
+    ArrayAtomicSet(order, idx) =>
+      "array.atomic.set \{atomic_order_text(order)} \{index_text(idx)}"
+    StructAtomicGet(order, idx, field_idx) =>
+      "struct.atomic.get \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
+    StructAtomicGetS(order, idx, field_idx) =>
+      "struct.atomic.get_s \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
+    StructAtomicGetU(order, idx, field_idx) =>
+      "struct.atomic.get_u \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
+    StructAtomicRmw(order, op, idx, field_idx) =>
+      "struct.atomic.rmw.\{aggregate_atomic_rmw_suffix(op)}\{atomic_order_pair_text(order)} \{index_text(idx)} \{field_idx}"
+    StructAtomicCmpxchg(order, idx, field_idx) =>
+      "struct.atomic.rmw.cmpxchg\{atomic_order_pair_text(order)} \{index_text(idx)} \{field_idx}"
+    ArrayAtomicGet(order, idx) =>
+      "array.atomic.get \{atomic_order_text(order)} \{index_text(idx)}"
+    ArrayAtomicGetS(order, idx) =>
+      "array.atomic.get_s \{atomic_order_text(order)} \{index_text(idx)}"
+    ArrayAtomicGetU(order, idx) =>
+      "array.atomic.get_u \{atomic_order_text(order)} \{index_text(idx)}"
+    ArrayAtomicRmw(order, op, idx) =>
+      "array.atomic.rmw.\{aggregate_atomic_rmw_suffix(op)}\{atomic_order_pair_text(order)} \{index_text(idx)}"
+    ArrayAtomicCmpxchg(order, idx) =>
+      "array.atomic.rmw.cmpxchg\{atomic_order_pair_text(order)} \{index_text(idx)}"
     StructNewDesc(idx) => "struct.new_desc \{index_text(idx)}"
     StructNewDefaultDesc(idx) => "struct.new_default_desc \{index_text(idx)}"
     RefGetDesc(idx) => "ref.get_desc \{index_text(idx)}"
@@ -834,10 +884,16 @@ fn write_module_field(
         out.write_string(id)
       }
       write_inline_exports(out, mem.exports)
-      let lim = mem.memory_type.0
+      let lim = mem.memory_type
+      if lim.memory64 {
+        out.write_string(" i64")
+      }
       out.write_string(" \{lim.min}")
       if lim.max is Some(max) {
         out.write_string(" \{max}")
+      }
+      if lim.shared {
+        out.write_string(" shared")
       }
       out.write_string(")\n")
     }
@@ -903,10 +959,16 @@ fn write_module_field(
             out.write_char(' ')
             out.write_string(id)
           }
-          let lim = mt.0
+          let lim = mt
+          if lim.memory64 {
+            out.write_string(" i64")
+          }
           out.write_string(" \{lim.min}")
           if lim.max is Some(max) {
             out.write_string(" \{max}")
+          }
+          if lim.shared {
+            out.write_string(" shared")
           }
         }
         Global(gt) => {
@@ -950,6 +1012,12 @@ fn write_module_field(
       if elem.id is Some(id) {
         out.write_char(' ')
         out.write_string(id)
+      }
+      if elem.declarative {
+        out.write_string(" declare")
+        if elem.elem_type is None {
+          out.write_string(" func")
+        }
       }
       if elem.offset.length() > 0 {
         out.write_char(' ')
@@ -1256,5 +1324,13 @@ pub fn wast_to_script(
       )
     ParserError::InvalidInstruction(msg) => Err(msg)
     ParserError::Custom(msg) => Err(msg)
+  }
+}
+
+///|
+fn atomic_order_pair_text(order : AtomicOrder) -> String {
+  match order {
+    SeqCst => ""
+    _ => " \{atomic_order_text(order)} \{atomic_order_text(order)}"
   }
 }

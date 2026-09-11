@@ -857,7 +857,7 @@ test "gen_invalid_ast_generate supports tag-section result type strategy" {
       let family = validation_issue_family(
         validation_error_diagnostic(err).issue,
       )
-      assert_true(family == TagSectionFamily)
+      assert_true(family == FunctionBodyFamily)
     }
   }
 }
@@ -885,7 +885,7 @@ test "gen_invalid_ast_generate supports imported tag result type strategy" {
       let family = validation_issue_family(
         validation_error_diagnostic(err).issue,
       )
-      assert_true(family == ImportSectionFamily)
+      assert_true(family == FunctionBodyFamily)
     }
   }
 }

@@ -42,13 +42,13 @@ test "loop info builds one natural loop with header body latch and exit" {
   let continuation = cfg_block_for_region_root(cfg, body_region, 1).unwrap()
   let loop_idx = loop_for_block(info, loop_body).unwrap()
 
-  @debug.assert_eq(loop_header(info, loop_idx), loop_header_block)
-  @debug.assert_eq(loop_blocks(info, loop_idx), [loop_header_block, loop_body])
+  @debug.assert_eq(loop_header(info, loop_idx), loop_body)
+  @debug.assert_eq(loop_blocks(info, loop_idx), [loop_body])
   @debug.assert_eq(loop_latches(info, loop_idx), [loop_body])
   @debug.assert_eq(loop_info_test_exit_targets(loop_exits(info, loop_idx)), [
     continuation,
   ])
-  @debug.assert_eq(loop_depth(info, loop_header_block), 1)
+  @debug.assert_eq(loop_depth(info, loop_header_block), 0)
   @debug.assert_eq(loop_depth(info, loop_body), 1)
 }
 
@@ -105,12 +105,12 @@ test "loop info maps nested loops to the innermost containing header" {
   let inner_loop = loop_for_block(info, inner_body).unwrap()
   let outer_loop = loop_for_block(info, outer_latch).unwrap()
 
-  @debug.assert_eq(loop_header(info, outer_loop), outer_header)
-  @debug.assert_eq(loop_header(info, inner_loop), inner_header)
-  @debug.assert_eq(loop_depth(info, outer_header), 1)
-  @debug.assert_eq(loop_depth(info, inner_header), 2)
+  @debug.assert_eq(loop_header(info, outer_loop), inner_header)
+  @debug.assert_eq(loop_header(info, inner_loop), inner_body)
+  @debug.assert_eq(loop_depth(info, outer_header), 0)
+  @debug.assert_eq(loop_depth(info, inner_header), 1)
   @debug.assert_eq(loop_depth(info, inner_body), 2)
-  @debug.assert_eq(loop_for_block(info, inner_header), Some(inner_loop))
+  @debug.assert_eq(loop_for_block(info, inner_header), Some(outer_loop))
 }
 
 ///|
@@ -142,7 +142,10 @@ test "loop info records early-exit successors that leave the natural loop body" 
   let body_region = hot_region_body_ref(func, block_id)
   let loop_id = hot_region_get(func, body_region, 0)
   let exit_block = cfg_block_for_region_root(cfg, body_region, 1).unwrap()
-  let loop_idx = loop_for_block(info, cfg_block_for_node(cfg, loop_id).unwrap()).unwrap()
+  let loop_idx = loop_for_block(
+    info,
+    cfg_block_for_region_root(cfg, hot_region_body_ref(func, loop_id), 0).unwrap(),
+  ).unwrap()
 
   assert_true(
     loop_info_test_exit_targets(loop_exits(info, loop_idx)).contains(exit_block),

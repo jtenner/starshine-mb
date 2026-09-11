@@ -36,6 +36,7 @@ fn ls_abs_heap_is_subtype(
     | (@lib.NoneAbsHeapType, @lib.StringAbsHeapType)
     | (@lib.NoFuncAbsHeapType, @lib.FuncAbsHeapType)
     | (@lib.NoContAbsHeapType, @lib.ContAbsHeapType)
+    | (@lib.NoWaitqueueAbsHeapType, @lib.WaitqueueAbsHeapType)
     | (@lib.StringAbsHeapType, @lib.ExternAbsHeapType)
     | (@lib.NoExternAbsHeapType, @lib.ExternAbsHeapType)
     | (@lib.NoExnAbsHeapType, @lib.ExnAbsHeapType)
@@ -1348,6 +1349,10 @@ fn ls_ref_null_normalized_type(ref_type : @lib.RefType) -> @lib.ValType {
       @lib.HeapType::abs(@lib.AbsHeapType::no_exn())
     @lib.AbsHeapTypeHeapType(@lib.ContAbsHeapType | @lib.NoContAbsHeapType) =>
       @lib.HeapType::abs(@lib.AbsHeapType::no_cont())
+    @lib.AbsHeapTypeHeapType(
+      @lib.WaitqueueAbsHeapType
+      | @lib.NoWaitqueueAbsHeapType
+    ) => @lib.HeapType::abs(@lib.AbsHeapType::no_waitqueue())
     @lib.AbsHeapTypeHeapType(_) => @lib.HeapType::abs(@lib.AbsHeapType::none())
     other => other
   }
@@ -1834,19 +1839,23 @@ fn ls_rewrite_func(
   mod_ : @lib.Module,
   module_ctx : @ir.HotModuleContext,
 ) -> (@lib.Func, Bool) {
-  let @lib.Func(body_locals, original_body) = func
+  let (prepared, descriptor_changed) = pass_refinalize_descriptor_func(
+    mod_, func_idx, func, module_ctx,
+  )
+  let @lib.Func(body_locals, original_body) = prepared
   let (raw_param_count, param_types) = match
     @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(params, _)) => (params.length(), params)
     None => (-1, [])
   }
-  let (body, control_changed) = if raw_param_count >= 0 {
+  let (body, control_refined) = if raw_param_count >= 0 {
     ls_refine_control_results_expr(
       original_body, param_types, body_locals, module_ctx,
     )
   } else {
     (original_body, false)
   }
+  let control_changed = descriptor_changed || control_refined
   let ref_body_locals = match ls_ref_body_local_mask(body_locals) {
     Some(mask) => mask
     None =>

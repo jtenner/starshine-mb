@@ -3712,7 +3712,7 @@ test "simplify-globals-optimizing drops effectful result-if after removing guard
   match instrs {
     [
       @lib.LocalGet(_),
-      @lib.If(@lib.VoidBlockType, [@lib.Call(_), @lib.Drop], Some([])),
+      @lib.If(@lib.VoidBlockType, [@lib.Call(_), @lib.Drop], None),
     ] => ()
     other =>
       fail(

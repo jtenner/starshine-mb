@@ -84,6 +84,8 @@ fn gr_ref_null_result_type(
       let bottom = match abs {
         @lib.FuncAbsHeapType => @lib.AbsHeapType::no_func()
         @lib.NoFuncAbsHeapType => @lib.AbsHeapType::no_func()
+        @lib.WaitqueueAbsHeapType | @lib.NoWaitqueueAbsHeapType =>
+          @lib.AbsHeapType::no_waitqueue()
         @lib.ContAbsHeapType => @lib.AbsHeapType::no_cont()
         @lib.NoContAbsHeapType => @lib.AbsHeapType::no_cont()
         @lib.ExternAbsHeapType => @lib.AbsHeapType::no_extern()

@@ -69,6 +69,16 @@ fn wt_resolve_heap_type_ref(
     NoFunc => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_func()), false))
     NoExtern => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_extern()), false))
     NoExn => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_exn()), false))
+    Waitqueue => Ok((@lib.HeapType::abs(@lib.AbsHeapType::waitqueue()), false))
+    NoWaitqueue =>
+      Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_waitqueue()), false))
+    Shared(heap) =>
+      match wt_resolve_heap_type_ref(ctx, heap) {
+        Ok((@lib.AbsHeapTypeHeapType(abs), false)) =>
+          Ok((@lib.HeapType::shared_abs(abs), false))
+        Ok(_) => Err("shared heap wrapper requires an abstract heap type")
+        Err(err) => Err(err)
+      }
     Struct => Ok((@lib.HeapType::abs(@lib.AbsHeapType::struct_()), false))
   }
 }
@@ -369,6 +379,7 @@ fn wt_comp_type(
   body : TypeDefBody,
 ) -> Result[@lib.CompType, String] {
   match body {
+    TypeDefBody::Shared(body) => wt_comp_type(ctx, body)
     TypeDefBody::Func(ft) => {
       let (params, results) = match wt_func_sig(ctx, ft) {
         Ok(v) => v
@@ -410,6 +421,7 @@ fn wt_sub_type(ctx : WTLowerCtx, td : TypeDef) -> Result[@lib.SubType, String] {
     Ok(v) => v
     Err(e) => return Err(e)
   }
+  let metadata = metadata.with_shared(td.body is TypeDefBody::Shared(_))
   let comp_type = match wt_comp_type(ctx, td.body) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -1681,6 +1693,10 @@ fn wt_instr_to_lib(
   match instr {
     Unreachable => Ok(@lib.Instruction::unreachable_())
     Nop => Ok(@lib.Instruction::nop())
+    MemoryAtomic(op, order, memory, ma) =>
+      wt_memory_atomic(ctx, op, order, memory, ma)
+    AtomicFence(order) =>
+      Ok(@lib.Instruction::atomic_fence(order=wt_atomic_order(order)))
     Block(bt, body) => {
       let next_labels = labels.copy()
       next_labels.push(bt.label)
@@ -1746,6 +1762,51 @@ fn wt_instr_to_lib(
         Err(e) => return Err(e)
       }
       Ok(@lib.Instruction::br_if(@lib.LabelIdx::new(depth)))
+    }
+    BrOnCastDescEq(idx, source, target)
+    | BrOnCastDescEqFail(idx, source, target) => {
+      let depth = match wt_resolve_label(idx, labels) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      let source = match wt_value_type(ctx, source) {
+        Ok(@lib.RefTypeValType(value)) => value
+        Ok(_) => return Err("descriptor branch source must be a reference type")
+        Err(err) => return Err(err)
+      }
+      let target = match wt_value_type(ctx, target) {
+        Ok(@lib.RefTypeValType(value)) => value
+        Ok(_) => return Err("descriptor branch target must be a reference type")
+        Err(err) => return Err(err)
+      }
+      if instr is BrOnCastDescEq(_, _, _) {
+        Ok(
+          @lib.Instruction::br_on_cast_desc_eq(
+            @lib.LabelIdx::new(depth),
+            source,
+            target,
+          ),
+        )
+      } else {
+        Ok(
+          @lib.Instruction::br_on_cast_desc_eq_fail(
+            @lib.LabelIdx::new(depth),
+            source,
+            target,
+          ),
+        )
+      }
+    }
+    BrOnNull(idx) | BrOnNonNull(idx) => {
+      let depth = match wt_resolve_label(idx, labels) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      if instr is BrOnNull(_) {
+        Ok(@lib.Instruction::br_on_null(@lib.LabelIdx::new(depth)))
+      } else {
+        Ok(@lib.Instruction::br_on_non_null(@lib.LabelIdx::new(depth)))
+      }
     }
     BrTable(targets, fallback) => {
       let ls : Array[@lib.LabelIdx] = []
@@ -1832,6 +1893,13 @@ fn wt_instr_to_lib(
           @lib.TableIdx::new(tbl),
         ),
       )
+    }
+    CallRef(type_use) => {
+      let ti = match wt_resolve_type_use(ctx, type_use) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::call_ref(@lib.TypeIdx::new(ti)))
     }
     ReturnCallRef(type_use) => {
       let ti = match wt_resolve_type_use(ctx, type_use) {
@@ -2142,6 +2210,8 @@ fn wt_instr_to_lib(
       Ok(@lib.Instruction::elem_drop(@lib.ElemIdx::new(ei)))
     }
     Load(op, ma) | Store(op, ma) => wt_load_store(op, ma)
+    ArrayLoad(op, ti, ma) | ArrayStore(op, ti, ma) =>
+      wt_array_memory(ctx, op, ti, ma)
     MemorySize => Ok(@lib.Instruction::memory_size(@lib.MemIdx::new(0)))
     MemoryGrow => Ok(@lib.Instruction::memory_grow(@lib.MemIdx::new(0)))
     MemoryFill => Ok(@lib.Instruction::memory_fill(@lib.MemIdx::new(0)))
@@ -2306,6 +2376,25 @@ fn wt_instr_to_lib(
         _ => Err("internal error: unexpected struct access instruction")
       }
     }
+    WaitqueueNew => Ok(@lib.Instruction::waitqueue_new())
+    WaitqueueNotify => Ok(@lib.Instruction::waitqueue_notify())
+    StructWait(idx, field_idx) =>
+      match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(ti) =>
+          Ok(
+            @lib.Instruction::struct_wait(
+              @lib.TypeIdx::new(ti),
+              @lib.U32(field_idx),
+            ),
+          )
+        Err(err) => Err(err)
+      }
     StructAtomicGet(order, idx, field_idx)
     | StructAtomicGetS(order, idx, field_idx)
     | StructAtomicGetU(order, idx, field_idx) => {
@@ -2324,6 +2413,7 @@ fn wt_instr_to_lib(
       let lib_order = match order {
         SeqCst => @lib.AtomicOrder::seq_cst()
         AcqRel => @lib.AtomicOrder::acq_rel()
+        Relaxed => @lib.AtomicOrder::relaxed()
       }
       match instr {
         StructAtomicGet(_, _, _) =>
@@ -2347,7 +2437,44 @@ fn wt_instr_to_lib(
         _ => Err("internal error: unexpected struct atomic access instruction")
       }
     }
-    StructAtomicRmw(op, idx, field_idx) => {
+    StructAtomicSet(order, idx, field_idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      Ok(
+        @lib.Instruction::struct_atomic_set(
+          wt_atomic_order(order),
+          @lib.TypeIdx::new(ti),
+          @lib.U32(field_idx),
+        ),
+      )
+    }
+    ArrayAtomicSet(order, idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      Ok(
+        @lib.Instruction::array_atomic_set(
+          wt_atomic_order(order),
+          @lib.TypeIdx::new(ti),
+        ),
+      )
+    }
+    StructAtomicRmw(order, op, idx, field_idx) => {
       let ti = match
         wt_resolve_named_or_num_index(
           idx,
@@ -2363,10 +2490,11 @@ fn wt_instr_to_lib(
           op,
           @lib.TypeIdx::new(ti),
           @lib.U32(field_idx),
+          order=wt_atomic_order(order),
         ),
       )
     }
-    StructAtomicCmpxchg(idx, field_idx) => {
+    StructAtomicCmpxchg(order, idx, field_idx) => {
       let ti = match
         wt_resolve_named_or_num_index(
           idx,
@@ -2381,10 +2509,11 @@ fn wt_instr_to_lib(
         @lib.Instruction::struct_atomic_cmpxchg(
           @lib.TypeIdx::new(ti),
           @lib.U32(field_idx),
+          order=wt_atomic_order(order),
         ),
       )
     }
-    ArrayAtomicRmw(op, idx) => {
+    ArrayAtomicGet(order, idx) => {
       let ti = match
         wt_resolve_named_or_num_index(
           idx,
@@ -2392,12 +2521,53 @@ fn wt_instr_to_lib(
           ctx.type_recs.length().reinterpret_as_uint(),
           "type",
         ) {
-        Ok(v) => v
-        Err(e) => return Err(e)
+        Ok(value) => value
+        Err(err) => return Err(err)
       }
-      Ok(@lib.Instruction::array_atomic_rmw(op, @lib.TypeIdx::new(ti)))
+      Ok(
+        @lib.Instruction::array_atomic_get(
+          wt_atomic_order(order),
+          @lib.TypeIdx::new(ti),
+        ),
+      )
     }
-    ArrayAtomicCmpxchg(idx) => {
+    ArrayAtomicGetS(order, idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      Ok(
+        @lib.Instruction::array_atomic_get_s(
+          wt_atomic_order(order),
+          @lib.TypeIdx::new(ti),
+        ),
+      )
+    }
+    ArrayAtomicGetU(order, idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      Ok(
+        @lib.Instruction::array_atomic_get_u(
+          wt_atomic_order(order),
+          @lib.TypeIdx::new(ti),
+        ),
+      )
+    }
+    ArrayAtomicRmw(order, op, idx) => {
       let ti = match
         wt_resolve_named_or_num_index(
           idx,
@@ -2408,7 +2578,31 @@ fn wt_instr_to_lib(
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      Ok(@lib.Instruction::array_atomic_cmpxchg(@lib.TypeIdx::new(ti)))
+      Ok(
+        @lib.Instruction::array_atomic_rmw(
+          op,
+          @lib.TypeIdx::new(ti),
+          order=wt_atomic_order(order),
+        ),
+      )
+    }
+    ArrayAtomicCmpxchg(order, idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(
+        @lib.Instruction::array_atomic_cmpxchg(
+          @lib.TypeIdx::new(ti),
+          order=wt_atomic_order(order),
+        ),
+      )
     }
     RefGetDesc(idx) =>
       match
@@ -2926,7 +3120,12 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
               @lib.Import::new(
                 @lib.Name::new(im.module_name),
                 @lib.Name::new(im.field_name),
-                @lib.ExternType::mem(@lib.MemType::new(wt_limits(mt.0))),
+                @lib.ExternType::mem(
+                  match wt_memory_type(mt) {
+                    Ok(value) => value
+                    Err(err) => return Err(err)
+                  },
+                ),
               ),
             )
             match im.id {
@@ -3035,6 +3234,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
                 }
             }
             elem_defs_raw.push({
+              declarative: false,
               id: None,
               table_index: Num(table_idx),
               offset: t.elem_offset.unwrap_or([Const(I32Const, "0")]),
@@ -3195,7 +3395,12 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
 
   let mem_defs : Array[@lib.MemType] = []
   for m in mem_defs_raw {
-    mem_defs.push(@lib.MemType::new(wt_limits(m.memory_type.0)))
+    mem_defs.push(
+      match wt_memory_type(m.memory_type) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      },
+    )
   }
 
   let global_defs : Array[@lib.Global] = []
@@ -3317,7 +3522,9 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
       }
       funcs_from_indices.push(@lib.FuncIdx::new(fi))
     }
-    let mode = if e.offset.length() == 0 {
+    let mode = if e.declarative {
+      @lib.ElemMode::declarative()
+    } else if e.offset.length() == 0 {
       @lib.ElemMode::passive()
     } else {
       let table_idx = match
@@ -7344,4 +7551,168 @@ test "wast_to_binary_module lowers string.const literals" {
     Ok(_) => ()
     Err(e) => fail("expected lowered string.const fixture to validate: \{e}")
   }
+}
+
+///|
+fn wt_array_memory(
+  ctx : WTLowerCtx,
+  op : Opcode,
+  ti : Index,
+  ma : MemArg,
+) -> Result[@lib.Instruction, String] {
+  let index = match
+    wt_resolve_named_or_num_index(ti, ctx.type_ids, 0U, "type") {
+    Ok(index) => @lib.TypeIdx::new(index)
+    Err(err) => return Err(err)
+  }
+  if ma.offset > 0xffffffffUL {
+    return Err("array memory offset exceeds u32")
+  }
+  let memarg = match wt_mem_arg(ma) {
+    Ok(ma) => ma
+    Err(err) => return Err(err)
+  }
+  match op {
+    I32Load =>
+      Ok(@lib.Instruction::array_load(@lib.LoadOp::i32_load(), index, memarg~))
+    I64Load =>
+      Ok(@lib.Instruction::array_load(@lib.LoadOp::i64_load(), index, memarg~))
+    F32Load =>
+      Ok(@lib.Instruction::array_load(@lib.LoadOp::f32_load(), index, memarg~))
+    F64Load =>
+      Ok(@lib.Instruction::array_load(@lib.LoadOp::f64_load(), index, memarg~))
+    I32Load8S =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i32_load8s(), index, memarg~),
+      )
+    I32Load8U =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i32_load8u(), index, memarg~),
+      )
+    I32Load16S =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i32_load16s(), index, memarg~),
+      )
+    I32Load16U =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i32_load16u(), index, memarg~),
+      )
+    I64Load8S =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i64_load8s(), index, memarg~),
+      )
+    I64Load8U =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i64_load8u(), index, memarg~),
+      )
+    I64Load16S =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i64_load16s(), index, memarg~),
+      )
+    I64Load16U =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i64_load16u(), index, memarg~),
+      )
+    I64Load32S =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i64_load32s(), index, memarg~),
+      )
+    I64Load32U =>
+      Ok(
+        @lib.Instruction::array_load(@lib.LoadOp::i64_load32u(), index, memarg~),
+      )
+    V128Load =>
+      Ok(@lib.Instruction::array_load(@lib.LoadOp::v128_load(), index, memarg~))
+    I32Store =>
+      Ok(
+        @lib.Instruction::array_store(@lib.StoreOp::i32_store(), index, memarg~),
+      )
+    I64Store =>
+      Ok(
+        @lib.Instruction::array_store(@lib.StoreOp::i64_store(), index, memarg~),
+      )
+    F32Store =>
+      Ok(
+        @lib.Instruction::array_store(@lib.StoreOp::f32_store(), index, memarg~),
+      )
+    F64Store =>
+      Ok(
+        @lib.Instruction::array_store(@lib.StoreOp::f64_store(), index, memarg~),
+      )
+    I32Store8 =>
+      Ok(
+        @lib.Instruction::array_store(
+          @lib.StoreOp::i32_store8(),
+          index,
+          memarg~,
+        ),
+      )
+    I32Store16 =>
+      Ok(
+        @lib.Instruction::array_store(
+          @lib.StoreOp::i32_store16(),
+          index,
+          memarg~,
+        ),
+      )
+    I64Store8 =>
+      Ok(
+        @lib.Instruction::array_store(
+          @lib.StoreOp::i64_store8(),
+          index,
+          memarg~,
+        ),
+      )
+    I64Store16 =>
+      Ok(
+        @lib.Instruction::array_store(
+          @lib.StoreOp::i64_store16(),
+          index,
+          memarg~,
+        ),
+      )
+    I64Store32 =>
+      Ok(
+        @lib.Instruction::array_store(
+          @lib.StoreOp::i64_store32(),
+          index,
+          memarg~,
+        ),
+      )
+    V128Store =>
+      Ok(
+        @lib.Instruction::array_store(
+          @lib.StoreOp::v128_store(),
+          index,
+          memarg~,
+        ),
+      )
+    _ => wt_unsupported("array memory opcode \{op}")
+  }
+}
+
+///|
+fn wt_atomic_order(order : AtomicOrder) -> @lib.AtomicOrder {
+  match order {
+    SeqCst => @lib.AtomicOrder::seq_cst()
+    AcqRel => @lib.AtomicOrder::acq_rel()
+    Relaxed => @lib.AtomicOrder::relaxed()
+  }
+}
+
+///|
+fn wt_memory_type(memory : MemoryType) -> Result[@lib.MemType, String] {
+  let limits = if memory.memory64 {
+    @lib.Limits::i64(memory.min, memory.max)
+  } else {
+    if memory.min > 4294967295UL ||
+      (memory.max is Some(max) && max > 4294967295UL) {
+      return Err("memory32 limit exceeds address width")
+    }
+    @lib.Limits::i32(
+      memory.min.to_uint(),
+      memory.max.map(fn(value) { value.to_uint() }),
+    )
+  }
+  Ok(@lib.MemType::new(limits, shared=memory.shared))
 }

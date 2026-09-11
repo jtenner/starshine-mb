@@ -16939,7 +16939,7 @@ test "all SimplifyLocals variants resolve family-targeted aggregate profiles" {
     Ok(profile) => {
       @debug.assert_eq(profile, SimplifyLocalsAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
-      @debug.assert_eq(gen_valid_profile_members(profile).length(), 6)
+      @debug.assert_eq(gen_valid_profile_members(profile).length(), 7)
     }
     Err(msg) => fail(msg)
   }

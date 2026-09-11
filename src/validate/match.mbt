@@ -662,6 +662,7 @@ pub impl Match for AbsHeapType with fn matches(self, other, _) {
     // nofunc <: func, nocont <: cont
     (NoFuncAbsHeapType, FuncAbsHeapType) => true
     (NoContAbsHeapType, ContAbsHeapType) => true
+    (NoWaitqueueAbsHeapType, WaitqueueAbsHeapType) => true
 
     // string/noextern <: extern
     (StringAbsHeapType, ExternAbsHeapType) => true

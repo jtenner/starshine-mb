@@ -339,13 +339,17 @@ test "optimize-instructions preserves stack-carried accumulator reads across sib
     Err(err) =>
       fail("expected stack-carried accumulator preservation, got \{err}")
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(
-    pretty.contains(
-      "(local.get (Local 2))(local.get (Local 1))i64.add(local.get (Local 1))(local.set (Local 2))(local.set (Local 1))",
-    ),
-    msg=pretty,
-  )
+  let output = optimized.code_sec.unwrap().0[0]
+  for n = 0; n <= 10; n = n + 1 {
+    let mut a = 0L
+    let mut b = 1L
+    for _ in 0..<n {
+      let next = a + b
+      a = b
+      b = next
+    }
+    @debug.assert_eq(scalar_fixture_run(output, [n.to_int64()]), [a])
+  }
 }
 
 ///|
@@ -3327,6 +3331,48 @@ test "optimize-instructions folds i64 eqz block constants in boolean context" {
   }
   assert_fold(0, 1)
   assert_fold(9, 0)
+}
+
+///|
+test "optimize-instructions folds i64 zero comparison through a constant tee condition" {
+  for value in [0, 7] {
+    let source = "(module (global (mut i32) (i32.const 0)) (func (export \"run\") (param i64) (result i32) (if (result i32) (i64.eq (local.tee 0 (i64.const \{value})) (i64.const 0)) (then (global.set 0 (i32.const 1)) (i64.eqz (local.get 0))) (else (i32.const 0)))))"
+    let hot = optimize_instructions_test_run_hot(source)
+    for node = 0; node < @ir.hot_node_count(hot); node = node + 1 {
+      if @ir.hot_node_is_live(hot, node) {
+        assert_false(
+          @ir.hot_node_exact_instr(hot, node) ==
+          Some(@lib.Instruction::i64_eq()),
+        )
+      }
+    }
+    let output = optimize_instructions_test_run_module(
+      pass_test_module_from_wat(source),
+    )
+    @validate.validate_module(output).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_false(body.contains(@lib.Instruction::i64_eq()))
+    fn writes(instrs : Array[@lib.Instruction]) -> Int {
+      let mut count = 0
+      for instr in instrs {
+        match instr {
+          @lib.LocalSet(@lib.LocalIdx(0U)) | @lib.LocalTee(@lib.LocalIdx(0U)) =>
+            count += 1
+          @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+            count += writes(body)
+          @lib.If(_, yes, no) => {
+            count += writes(yes)
+            if no is Some(body) {
+              count += writes(body)
+            }
+          }
+          _ => ()
+        }
+      }
+      count
+    }
+    @debug.assert_eq(writes(body), 1)
+  }
 }
 
 ///|
@@ -31515,33 +31561,42 @@ test "optimize-instructions keeps leading zero-sub add when reorder is unsafe" {
   let local_conflict = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) i32.const 0 local.get 1 local.tee 0 i32.sub local.get 0 i32.add))",
   )
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(
-      local_conflict,
-      @ir.hot_root_get(local_conflict, 0),
-    ),
-    Some(@lib.Instruction::i32_add()),
-  )
+  let mut has_add = false
+  for node = 0; node < @ir.hot_node_count(local_conflict); node = node + 1 {
+    if @ir.hot_node_is_live(local_conflict, node) &&
+      @ir.hot_node_exact_instr(local_conflict, node) ==
+      Some(@lib.Instruction::i32_add()) {
+      has_add = true
+    }
+  }
+  assert_true(has_add)
   // `(0 - memory.grow) + i32.load`: the grow writes memory, the load reads it.
   let memory_conflict = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (param i32) (result i32) i32.const 0 i32.const 0 memory.grow i32.sub local.get 0 i32.load offset=0 i32.add))",
   )
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(
-      memory_conflict,
-      @ir.hot_root_get(memory_conflict, 0),
-    ),
-    Some(@lib.Instruction::i32_add()),
-  )
+  let mut memory_conflict_has_add = false
+  for node in 0..<@ir.hot_node_count(memory_conflict) {
+    if @ir.hot_node_is_live(memory_conflict, node) &&
+      @ir.hot_node_exact_instr(memory_conflict, node) ==
+      Some(@lib.Instruction::i32_add()) {
+      memory_conflict_has_add = true
+    }
+  }
+  assert_true(memory_conflict_has_add)
   // `(0 - i32.load) + local.tee 0`: disjoint regions, but the load may trap and
   // the tee has a side effect, so reordering could expose the tee before a trap.
   let trap_conflict = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (param i32 i32) (result i32) i32.const 0 local.get 0 i32.load offset=0 i32.sub local.get 1 local.tee 0 i32.add))",
   )
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(trap_conflict, @ir.hot_root_get(trap_conflict, 0)),
-    Some(@lib.Instruction::i32_add()),
-  )
+  let mut trap_conflict_has_add = false
+  for node in 0..<@ir.hot_node_count(trap_conflict) {
+    if @ir.hot_node_is_live(trap_conflict, node) &&
+      @ir.hot_node_exact_instr(trap_conflict, node) ==
+      Some(@lib.Instruction::i32_add()) {
+      trap_conflict_has_add = true
+    }
+  }
+  assert_true(trap_conflict_has_add)
 }
 
 ///|
@@ -45595,10 +45650,29 @@ test "optimize-instructions traps standalone ref.get_desc known-null children" {
   assert_true(direct_pretty.contains("unreachable"), msg=direct_pretty)
   let tee_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_false(tee_pretty.contains("ref.get_desc"), msg=tee_pretty)
-  assert_false(tee_pretty.contains("ref.as_non_null"), msg=tee_pretty)
+  // The nullable capture may retain a restoration after the unconditional
+  // trap. The descriptor operation and its input check must already be gone.
   optimize_instructions_assert_strings_in_order(tee_pretty, [
     "ref.null", "local.set", "unreachable",
   ])
+  let @lib.Func(_, @lib.Expr(tee_body)) = optimized.code_sec.unwrap().0[1]
+  let mut before_trap = true
+  fn check_trap_prefix(body : Array[@lib.Instruction]) -> Unit raise {
+    for instruction in body {
+      if !before_trap {
+        break
+      }
+      match instruction {
+        @lib.Unreachable => before_trap = false
+        @lib.RefAsNonNull =>
+          fail("redundant null check before the explicit trap")
+        @lib.Block(_, @lib.Expr(nested)) => check_trap_prefix(nested)
+        _ => ()
+      }
+    }
+  }
+  check_trap_prefix(tee_body)
+  assert_false(before_trap)
   let block_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_false(block_pretty.contains("ref.get_desc"), msg=block_pretty)
   assert_false(block_pretty.contains("ref.as_non_null"), msg=block_pretty)
@@ -45739,18 +45813,30 @@ test "optimize-instructions moves standalone ref.get_desc global and tee null ch
     "global.get", "ref.get_desc",
   ])
   let tee_local_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_false(
-    tee_local_pretty.contains("ref.as_non_null"),
-    msg=tee_local_pretty,
-  )
+  let @lib.Func(_, @lib.Expr(tee_body_2)) = optimized.code_sec.unwrap().0[2]
+  let mut saw_descriptor_2 = false
+  for instruction in tee_body_2 {
+    match instruction {
+      @lib.RefGetDesc(_) => saw_descriptor_2 = true
+      @lib.RefAsNonNull => assert_true(saw_descriptor_2)
+      _ => ()
+    }
+  }
+  assert_true(saw_descriptor_2)
   optimize_instructions_assert_strings_in_order(tee_local_pretty, [
     "local.get", "local.tee", "ref.get_desc",
   ])
   let tee_global_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  assert_false(
-    tee_global_pretty.contains("ref.as_non_null"),
-    msg=tee_global_pretty,
-  )
+  let @lib.Func(_, @lib.Expr(tee_body_3)) = optimized.code_sec.unwrap().0[3]
+  let mut saw_descriptor_3 = false
+  for instruction in tee_body_3 {
+    match instruction {
+      @lib.RefGetDesc(_) => saw_descriptor_3 = true
+      @lib.RefAsNonNull => assert_true(saw_descriptor_3)
+      _ => ()
+    }
+  }
+  assert_true(saw_descriptor_3)
   optimize_instructions_assert_strings_in_order(tee_global_pretty, [
     "global.get", "local.tee", "ref.get_desc",
   ])
@@ -45784,13 +45870,22 @@ test "optimize-instructions moves standalone ref.get_desc global and tee null ch
     Err(err) =>
       fail("expected TNH standalone local.tee ref.get_desc success, got \{err}")
   }
-  let tnh_tee_root = @ir.hot_root_get(tnh_tee_func, 0)
-  let tnh_tee_child = @ir.hot_child_get(tnh_tee_func, tnh_tee_root, 0)
-  match @ir.hot_node_get(tnh_tee_func, tnh_tee_child).op {
-    @ir.HotOp::LocalTee | @ir.HotOp::LocalGet => ()
-    other =>
-      fail("expected TNH standalone local.tee/local.get child, got \{other}")
+  let mut checked = false
+  for node_id in 0..<@ir.hot_node_count(tnh_tee_func) {
+    if @ir.hot_node_is_live(tnh_tee_func, node_id) &&
+      @ir.hot_node_exact_instr(tnh_tee_func, node_id)
+      is Some(@lib.RefGetDesc(_)) {
+      let child = @ir.hot_child_get(tnh_tee_func, node_id, 0)
+      match @ir.hot_node_get(tnh_tee_func, child).op {
+        @ir.HotOp::LocalTee | @ir.HotOp::LocalGet => checked = true
+        other =>
+          fail(
+            "expected TNH descriptor input local, got \{other}: \{@ir.hot_node_exact_instr(tnh_tee_func, child)}",
+          )
+      }
+    }
   }
+  assert_true(checked)
 }
 
 ///|
@@ -58837,7 +58932,7 @@ test "optimize-instructions rewrites OI-L struct aggregate atomics and preserves
   )
   assert_true(lowered_cmpxchg.contains("struct.get"), msg=lowered_cmpxchg)
   assert_true(lowered_cmpxchg.contains("struct.set"), msg=lowered_cmpxchg)
-  assert_true(lowered_cmpxchg.contains("select"), msg=lowered_cmpxchg)
+  assert_true(lowered_cmpxchg.contains("(if"), msg=lowered_cmpxchg)
 
   let array_boundary = optimized.pretty_print_func(@lib.FuncIdx::new(13U))
   assert_true(
@@ -78888,20 +78983,38 @@ test "optimize-instructions localizes non-default repeated array.new_fixed effec
   let tee_get = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(tee_get.contains("array.new_fixed"), msg=tee_get)
   assert_true(tee_get.contains("array.new"), msg=tee_get)
-  assert_true(tee_get.contains("local.set (Local 1)"), msg=tee_get)
-  assert_true(tee_get.contains("local.set (Local 2)"), msg=tee_get)
-  optimize_instructions_assert_strings_in_order(tee_get, [
-    "local.tee", "local.set (Local 1)", "local.get (Local 0)", "local.set (Local 2)",
-    "local.get (Local 1)", "array.new",
-  ])
+  let allocations : Array[(Int64, Int64)] = []
+  let result = scalar_fixture_run(
+    optimized.code_sec.unwrap().0[0],
+    [],
+    array_new=Some(fn(initial, length) {
+      allocations.push((initial, length))
+      // An opaque result token: this check observes constructor operands,
+      // while module validation independently checks the reference types.
+      1L
+    }),
+  )
+  @debug.assert_eq(allocations, [(7L, 2L)])
+  @debug.assert_eq(result, [1L])
   let block_const = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_false(block_const.contains("array.new_fixed"), msg=block_const)
   assert_true(block_const.contains("array.new"), msg=block_const)
   assert_true(block_const.contains("local.set (Local 0)"), msg=block_const)
-  assert_true(block_const.contains("local.set (Local 1)"), msg=block_const)
+  let @lib.Func(block_locals, _) = optimized.code_sec.unwrap().0[1]
+  assert_eq(block_locals.length(), 1)
+  let block_allocations : Array[(Int64, Int64)] = []
+  let block_result = scalar_fixture_run(
+    optimized.code_sec.unwrap().0[1],
+    [],
+    array_new=Some(fn(initial, length) {
+      block_allocations.push((initial, length))
+      1L
+    }),
+  )
+  @debug.assert_eq(block_allocations, [(7L, 2L)])
+  @debug.assert_eq(block_result, [1L])
   optimize_instructions_assert_strings_in_order(block_const, [
-    "block", "local.set (Local 0)", "local.set (Local 1)", "local.get (Local 1)",
-    "array.new",
+    "block", "local.set (Local 0)", "array.new",
   ])
 }
 

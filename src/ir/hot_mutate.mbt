@@ -1622,6 +1622,10 @@ fn hot_mutate_node_targets_marked_label(
       }
       false
     }
+    HotOp::Continuation =>
+      hot_continuation_targets(func, node_id).any(fn(target) {
+        target >= 0 && target < func.labels.length() && label_marks[target]
+      })
     HotOp::TryTable => {
       for catch_arm in hot_catch_info_get(func, node.imm1).catches {
         let target = match catch_arm {
