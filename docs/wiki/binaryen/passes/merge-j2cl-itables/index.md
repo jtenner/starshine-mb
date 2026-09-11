@@ -21,6 +21,8 @@ related:
 
 # `merge-j2cl-itables`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Status
 
 `merge-j2cl-itables` is a public, J2CL-specific Binaryen GC module pass. It embeds interface dispatch-table fields into virtual dispatch tables to reduce per-class dispatch metadata.

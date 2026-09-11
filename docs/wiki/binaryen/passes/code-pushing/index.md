@@ -28,6 +28,8 @@ supersedes:
 
 # `code-pushing`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Binaryen v131 renewal status
 
 The 2026-07-26 renewal is complete for the represented surface. Binaryen v130, v131, and current-main `CodePushing.cpp` are byte-identical at SHA-256 `ed4ce60cc1cc0ae836fddb83b6e8c58dec36e196e74e5a514dd3f5b34f4f401c`; the reviewed v131 and current-main lit fixtures are also identical. The only v130-to-v131 fixture drift found was the TNH expected form changing one `local.tee` to `local.set`, which Starshine now matches.

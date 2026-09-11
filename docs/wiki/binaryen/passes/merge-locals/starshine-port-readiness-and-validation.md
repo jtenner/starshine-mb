@@ -21,6 +21,8 @@ related:
 
 # Starshine validation and reopening guide for `merge-locals`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page formerly tracked a partial forward-only port. That status is superseded: Starshine now implements the Binaryen-v131 graph algorithm for HOT-admitted control and a safe raw regional bridge for legacy EH.
 
 ## Closed implementation surface

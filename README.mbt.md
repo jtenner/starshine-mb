@@ -2,6 +2,8 @@
 
 MoonBit toolkit for parsing, validating, and rewriting WebAssembly.
 
+Optimizer comparisons target **Binaryen 132**. The [upgrade record](docs/wiki/binaryen/version-132-upgrade.md) tracks implemented release changes, GenValid coverage, remaining parity work, and runtime support boundaries.
+
 For JavaScript/npm usage, see [node/README.md](./node/README.md).
 
 ## Install in MoonBit
@@ -172,7 +174,7 @@ fn parse_validate_encode(source : String) -> Bool {
 ## Pipeline Note
 
 - `--optimize`, `--shrink`, `--ssa`, `--ssa-nomerge`, `--vacuum`, `--dead-code-elimination`, `--remove-unused-names`, `--remove-unused-brs`, `--optimize-instructions`, `--pick-load-signs`, `--heap-store-optimization`, `--simplify-locals`, `--simplify-locals-notee`, and `--simplify-locals-nonesting` now route through the real IR2 pass pipeline in `jtenner/starshine/passes`.
-- The current public registry is still intentionally small while pass migration is in progress: the active module passes are `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `duplicate-function-elimination`, and `remove-unused-module-elements`, the active hot passes include `ssa`, `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `simplify-locals`, `simplify-locals-notee`, and `simplify-locals-nonesting`, and both presets now expand to that implemented mixed module/hot sequence.
+- The [live registry map](docs/wiki/ir2/registry-map.md) lists runnable HOT and module passes. This upgrade adds real `dae2` / `dae2-optimizing` module implementations and opt-in `constraint-analysis`; ordinary DAE remains available. New passes do not change presets automatically.
 - CLI pass queues may now interleave `--dump <file.wasm|file.wat>` snapshots, ordered `--print-{type,func,import,table,memory,global,export,tag,elem,data} <name|index>` stderr log steps, and explicit `--validate` checkpoints with optimizer passes, so workflows like "dump before, print, run one pass, print again, then validate" stay ordered and observable.
 - `global-struct-inference` is currently a conservative closed-world slice: it folds direct immutable `global.get -> struct.get*` chains backed by top-level `struct.new*` globals and leaves broader type-wide struct inference for later parity work.
 - The registry now keeps explicit `boundary-only` and `removed` mappings for legacy names so planning and diagnostics stay explicit while help output remains limited to the active pass surface.

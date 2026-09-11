@@ -26,6 +26,8 @@ related:
 
 # Binaryen `remove-unused-module-elements` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 Use Binaryen `version_129` for the original graph-algorithm walkthrough and `version_131` for the released table semantics. V131 treats table default initializers as possible callees and conservatively retains element writes when defaults or overlapping segments mean pruning could eliminate an indirect-call trap.

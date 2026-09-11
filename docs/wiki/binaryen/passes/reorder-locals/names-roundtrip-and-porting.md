@@ -24,6 +24,8 @@ related:
 
 # `reorder-locals`: names, roundtrips, and porting boundaries
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page explains the half of `reorder-locals` that is easiest to underestimate.
 It should now be read together with the official `version_131` closeout in [`./parity.md`](./parity.md), the retained v130 unchanged-contract source refresh at [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md), and the Starshine validation bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

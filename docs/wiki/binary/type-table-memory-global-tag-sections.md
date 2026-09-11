@@ -47,6 +47,8 @@ related:
 
 # Binary Type, Table, Memory, Global, Tag, And Stringrefs Sections
 
+> **Tag validation update — September 10, 2026:** result-bearing tag declarations and imports are accepted. Exception instruction uses still require empty results. The [regressions](../../../src/validate/binaryen132_continuation_wbtest.mbt) supersede older stricter-declaration claims below; historical diagnostics remain source evidence.
+
 ## Overview
 
 This page is the shared Starshine guide for the core module-definition sections that are not already covered by the function/body, instruction-expression, segment, or metadata pages. For the whole-module stream order and cross-section rewrite checklist, see [`module-section-map.md`](module-section-map.md). For the byte-level expression/immediate contract inside initializers and instructions, see [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). This page covers:

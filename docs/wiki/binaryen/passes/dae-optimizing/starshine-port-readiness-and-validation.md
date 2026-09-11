@@ -87,6 +87,8 @@ related:
 
 # Starshine `dae-optimizing` port readiness and validation
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page records the implementation-readiness and validation contract for `dae-optimizing`.
 As of 2026-07-21, DAE-owned behavior is locally release-complete: Starshine exposes the exact upstream spelling `dae-optimizing` plus `dead-argument-elimination-optimizing`, schedules the canonical pass once in public optimize/shrink/O4z, and has current Binaryen-v131 behavior, artifact, performance, and repository-gate evidence. Retained guards omit only optional expensive nested cleanup; the remaining canonical artifact gap is assigned to shared neighboring local-cleanup passes rather than hidden as a DAE win.
 

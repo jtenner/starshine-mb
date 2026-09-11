@@ -20,6 +20,8 @@ related:
 
 # `inlining` WAT Shapes
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 The examples below are conceptual. Binaryen may print wrapper blocks, fresh locals, drops, label scaffolding, or post-repair type forms. Plain `inlining` deliberately leaves more debris than `inlining-optimizing`. The older recheck still supports these shape families, while v131 adds an exact function-level policy spelling: `(@binaryen.inline "\00")` means NeverInline and `(@binaryen.inline "\7f")` means AlwaysInline. See [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md).
 
 ## Shape 1: tiny no-param helper disappears

@@ -22,6 +22,8 @@ related:
 
 # Starshine Strategy For `inlining`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Current status
 
 `inlining` is an active, supported module pass with no open Binaryen v131 pass-owned behavior gap. It shares its planner and rewrite engine with `inlining-optimizing` and `inline-main`, while preserving each public pass's distinct chooser and cleanup contract.

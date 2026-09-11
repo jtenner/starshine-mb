@@ -11,9 +11,11 @@ related:
 
 # Binaryen v131 `local-subtyping` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Source baseline
 
-The current oracle is official Binaryen `version_131`. The July 26, 2026 refresh read:
+New comparisons use Binaryen 132. The historical July 26, 2026 source refresh used official Binaryen `version_131` and read:
 
 - `src/passes/LocalSubtyping.cpp`;
 - `src/ir/local-structural-dominance.h`;

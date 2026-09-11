@@ -20,6 +20,17 @@ related:
 
 # `precompute-propagate` fuzzing
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## Binaryen 132 refresh
+
+Use the broader `precompute-all` aggregate for dedicated signoff, including all
+three atomic orders. New comparisons require Binaryen 132. The
+[release regressions](../../../../../src/passes/binaryen132_precompute_test.mbt)
+exercise both registered precompute variants through the same evaluator guards.
+The [upgrade record](../../version-132-upgrade.md) owns current results; dated
+v131 campaigns below remain historical evidence.
+
 ## 2026-08-30 batched writeback-validation safety lane
 
 The regular explicit-v131 lane after batching changed-definition validation is `.tmp/optimization-campaign-20260830/pass-fuzz-precompute-propagate-regular-10000`. It compares `10000/10000`: `504` direct normalized plus `9,496` cleanup-normalized matches, zero mismatches, and zero validation, property, generator, or command failures. Canonical sizes total 717,790 Starshine bytes versus 3,235,768 Binaryen bytes, split 9,496 smaller, 504 equal, and zero larger outputs.
@@ -86,7 +97,7 @@ bun scripts/pass-fuzz-compare.ts \
   --out-dir .tmp/pass-fuzz-precompute-propagate-smoke \
   --jobs auto \
   --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt \
+  --wasm-opt-bin .tmp/binaryen-version_132/bin/wasm-opt \
   --max-failures 1000 --keep-going-after-command-failures
 ```
 

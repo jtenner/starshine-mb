@@ -23,6 +23,8 @@ related:
 
 # Starshine strategy for `propagate-globals-globally`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Current status
 
 Starshine implements `propagate-globals-globally` as an active direct module pass. It has a module registry entry and dispatcher case, but no public preset slot.

@@ -22,6 +22,8 @@ related:
 
 # `precompute-propagate`: implementation structure and tests
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the file-and-test map for Binaryen `version_130` and the active Starshine public port. The retained older research preserves provenance; the current implementation and signoff map is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md).
 
 ## Core source files

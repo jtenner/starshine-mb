@@ -1,3 +1,4 @@
+- 2026-09-11: Renewed Binaryen 132 above fetched master `5f74d54b…`. The final source passes 11,228 default tests; renew25 also passes full CI fuzz, 304 upstream structural cases, 52 explicit Node lifetime comparisons and 20 functional invocations of optimized compilers. Three 10,000-case local-lifetime lanes pass execution/validation/property checks. Follow-up output review removes unused lowering scratch locals, folds a lowered set/nop/get capture to a tee, and reuses identical DAE2-pruned signatures. Fresh native campaigns and isolated performance remain tracked in the [upgrade ledger](binaryen/version-132-upgrade.md).
 - 2026-09-10: Repaired CoalesceLocals parameter interference for branch-visible body-local defaults. The repeated deep-core map case now passes Node and Wago; see [the entry-default proof](binaryen/passes/coalesce-locals/index.md#september-2026-entry-default-repair).
 - 2026-09-10: Fixed OptimizeCasts refinement lifetime across a local overwrite whose operand contains a cast. The saved old object is no longer reused for the new local value; see [the runtime regression](binaryen/passes/optimize-casts/index.md#september-2026-local-overwrite-repair).
 - 2026-09-10: Fixed branch-depth rebasing when HOT lowering adds a value wrapper. Inner exits keep their original targets, closing MergeLocals JSON reader and two late Heap2Local failures; see [the reduced branch proof](binaryen/passes/merge-locals/index.md#september-2026-nested-branch-repair).
@@ -3035,6 +3036,10 @@
 - 2026-06-26: Added OI-F identical local-local select-arm slice `1255`, documenting Binaryen direct `i32.add(local.get, local.get)` oracle evidence, red-first Starshine implementation, and retained commuted/arbitrary-equality boundaries.
 - 2026-06-26: Added OI-M tuple-optimization sixty-effect boundary slice `1254`, documenting Binaryen `tuple.make 61` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical SIMD splat select-arm slice `1253`, documenting Binaryen direct `i8x16.splat(local.get)` oracle evidence, Starshine red-first coverage, implementation scope, and retained SIMD/arbitrary-equality boundaries.
+
+- 2026-09-10: Runtime-driven renewal passes `11,060/11,060` wasm-gc tests after reduced DAE2 nested-control/capture-order defects and a constraint pending-call defect. Local-flow summaries join nested control definitions and retain shared-expression contexts; dead-block rewriting combines reachability before editing a physical region. The new `binaryen132-array-memory` profile covers all 25 scalar/vector access forms through released offsets/alignment, numeric storage validation, HOT effects and type remapping. Native compiler execution and final generated campaigns remain pending; earlier validating compiler outputs trapped and are not signoff. See [the upgrade evidence](binaryen/version-132-upgrade.md).
+
+- 2026-09-10: The next Binaryen 132 correctness slice passes `11,038/11,038` Moon tests and `75/75` comparison/performance-tool unit tests. DAE2 now materializes tuple lanes once, follows local reaching definitions and retains exception/continuation payload signatures; shared block/try-table completion and resume operations preserve handler escape edges. Effectful producer/handler regressions exposed mistakes masked by the first pure GenValid runs, so those runs are not final signoff. The fresh native CLI `6240c1e0ab834d2336e6540df05cb1cfb52850448525ac913e84a761cb3c033e` validates all 296 DAE2 and eight constraint open/closed upstream intake cases with both Binaryen 132 and wasm-tools. Constraint transitive/copy facts and converged unreachable-block removal are implemented; nested unmodeled handler edges conservatively decline proofs. Renewed observable GenValid campaigns and proposal compatibility work remain active in [the upgrade](binaryen/version-132-upgrade.md).
 
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-nine-effect boundary
 
@@ -23634,3 +23639,79 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Focused checks: interface generation 0.729 seconds, API test 0.009 seconds,
   and all seven Core bridge tests 6.037 seconds. Consumer binding regeneration
   and broad signoff follow in the parent repository.
+
+## 2026-09-10 — Binaryen 132 comparison baseline and upgrade intake
+
+- Reproduced the exact v131-to-v132 tags, 59 commits, 220 files and 25 pass-file changes; captured the immutable source inventory and [upgrade contracts](binaryen/version-132-upgrade.md).
+- Switched current oracle guidance to v132 across living docs, CI and comparison tooling. Historical v131 sources, artifacts and measured signoffs keep their original identities; no v132 signoff is inferred from them.
+- Opened `[IR2-V132]` for implementation and proposal boundaries. The initial relaxed-order codec/parser/folding and directional-order regressions failed before implementation; the compact-import positive initially rejected its released group header.
+
+The implementation follow-up adds Relaxed core/codec/struct-WAST/HOT coverage, the released `seqcst` alias, shared directional HSO ordering, immutable/unshared precompute admission, compact import parsing and opt-in binary grouping, and refreshed component bindings. Final checks: 10,974 wasm-gc tests, 80 tooling units, three 10,000-case v132 aggregate comparisons with zero mismatches/failures, six CLI order cases, and sixteen independent ordinary-runtime observations. The explicit Binaryen primary-validator adapter records the wasm-tools order-2 boundary without counting unsupported independent checks as passed. [Validation evidence](raw/binaryen/2026-09-10-v132-validation.json) and [selected test intake](raw/binaryen/2026-09-10-v132-regression-intake.json) retain exact scope; DAE2, constraint analysis and unfinished proposal slices remain active in the upgrade backlog.
+
+The fixed 1,000-function GC benchmark produces identical 14,728-byte canonical output, with precompute/precompute-propagate medians of 3.862/6.055 ms versus Binaryen 0.363/0.531 ms. This is subsecond but substantially slower in relative pass cost; the [upgrade page](binaryen/version-132-upgrade.md) and backlog retain that limitation without changing presets.
+
+The next implementation slice registers real DAE2 parameter/result usage analysis
+and opt-in integer/reference constraint analysis. Fourteen DAE2 and twelve
+constraint GenValid families cover the released changes and later correctness
+guardrails. Continuation intake required stable resume-handler targets in HOT,
+call/control effects, suspension-tag result validation, and conservative handling
+of missing LocalGraph sources. DAE2 remaps retained local/type/field names;
+stack-local capture is explicit for the new analyses, preserving existing pass
+lifting contracts. The full suite passed 11,020 tests before these final
+continuation and metadata additions; final rebuild and 10,000-case campaigns
+remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
+
+### 2026-09-10 — Binaryen 132 waitqueues and compiler regression coverage
+
+- Added the v132 waitqueue model, codecs, WAST, typing, HOT/effects, liveness, and
+  dedicated GenValid profile; refreshed the shared-everything boundary page.
+- Repaired LocalGraph tuple evaluation and loop CFG/parameter analysis; the
+  renewed suite passed 11,079 tests and both optimized compilers passed four
+  functional probes. A further nested parameter-scope regression remains under
+  focused verification. See [the upgrade evidence](binaryen/version-132-upgrade.md).
+- Regenerated component bindings for waitqueues, Relaxed order, and array
+  memory arguments; the component array constructors now take a memarg resource.
+
+
+### 2026-09-10 — Binaryen 132 atomic stores and renewed aggregate comparisons
+
+- Added all linear-memory atomic WAST operators, checked shared/memory64 limits,
+  matched aggregate order pairs, GC atomic stores and aggregate type remapping.
+  Component bindings regenerate/build; all 11,101 default wasm-gc tests pass.
+- Completed ten 10,000-case GenValid lanes on recorded native binaries, including
+  strengthened DAE2 and constraint runtime cases, both precompute variants, HSO,
+  compact imports, waitqueues and multibyte arrays. There are no validation,
+  generator, command, determinism, codec or observed semantic failures; new-pass
+  output/size gaps and unsupported runtime slices remain explicit.
+- Added the atomic-order aggregate and focused output-quality corrections. See
+  [the upgrade record](binaryen/version-132-upgrade.md) for exact scope, hashes,
+  outstanding comparisons and compiler-cost work.
+
+### 2026-09-10 — Binaryen 132 native compiler renewal and intrinsic oracle
+
+- The 11,127-test source checkpoint passes. Native `5cb9a4d0…` resolves the
+  constraint relevant-local traversal crash on absent else regions, and both
+  optimized compiler artifacts pass both validators, startup and five functional
+  probes. Relevant-local storage reduces the exploratory constraint run from
+  about 71 to 11 CPU seconds while preserving output; DAE2 resource cost remains
+  open. See [the upgrade evidence](binaryen/version-132-upgrade.md).
+- Vacuum now preserves argument effects when removing an unused
+  `call.without.effects`, and removes unused function declarations under explicit
+  reference/index guards. WAST retains `declare func` mode through lowering;
+  printing and precise descriptor-local refinement are the next test intake.
+- The runtime adapter now invokes the intrinsic's target reference. Semantic
+  cache keys include the changed execution contract, invalidating older generic
+  import-stub reports. All 89 focused harness/runtime/cache/OI-sweep tests pass.
+  The OI sweep matrix now targets v132 while retaining historical row evidence.
+
+- 2026-09-11: Continued the [Binaryen 132 upgrade](binaryen/version-132-upgrade.md) with precise descriptor bottom/local/control typing, a reduced borrowed-label-payload double-evaluation fix, unread result-if local cleanup, and common atomic order/waiter effects. The full suite exposed a release-order HSO admission mask regression; the focused repair passes with the generator checks (438 tests). DAE2 now releases HOT bodies between analysis iterations; native memory and campaign renewal remain pending. The aggregate seed audit found that named constraint/DAE2 leaves omitted important variants; bounded aggregate tests now require logical AND/OR, exception and pending-call cases. Semantic resume records reject the older intrinsic execution contract (66 harness tests pass). Historical campaign counts retain their original coverage limits.
+
+- 2026-09-11: Fast-forwarded local master by 51 remote commits to `5f74d54b1` and restored the uncommitted [Binaryen 132 upgrade](binaryen/version-132-upgrade.md). Reconciled local-access source ordinals, lifetime capture, tuple-aware conditional local flow and documentation. Incoming correctness regressions remain enabled; old checkpoint results do not establish combined-source signoff.
+
+- 2026-09-11: The renewed [Binaryen 132](binaryen/version-132-upgrade.md) overlap generator exposes a true DAE2 → SimplifyLocals semantic fault: a scalar local read was replaced by a whole shared tuple call, repeating effects and corrupting lane values. The reduced test is red before scalar-only substitution and green afterward; native replay is pending. Renew15's 23 pilot lanes and compiler resource/functional probes are recorded in the validation ledger. Compact text imports pass item-name and forward-type mapping tests; upstream parser-position bookkeeping is internal to its reparse architecture.
+
+- 2026-09-11: Renew16 passes all 11,183 Moon tests. Native `7012cc5f…` repairs the tuple fault in 24 independent lifetime comparisons and two 256-case campaigns. The dedicated compiler resource check remains red at 3.04 GiB; profiling isolates a 25-second forward LocalGraph function. Immutable definition-set sharing now passes the full suite and awaits native remeasurement. See [the upgrade evidence](binaryen/version-132-upgrade.md).
+
+- 2026-09-11: The continued [Binaryen 132 renewal](binaryen/version-132-upgrade.md) completes 36 DAE2, 279 descriptor and two constraint-lowering focused tests after fixing declaration-only exposure, balanced stack capture cleanup and dead-tail validation under non-null bottom blocks. Typed declarative WAST elements roundtrip, and GenValid varies their representation alongside nested descriptor targets with observable writes. The old descriptor/local-subtyping campaign exposed 2,501 validation failures; it remains failed evidence until fresh native replay, never a skipped success. Typed-loop CA cases have a measured 12-byte raw Starshine advantage and identical downstream `vacuum`/`-Oz` output across all 61 cases; the earlier extra-Starshine-wrapper interpretation is superseded.
+
+- 2026-09-11: Expanded native pilots pass 256 cases in each of 13 CA/DAE2/descriptor lanes, including all descriptor/local-subtyping cases that previously failed validation. Native `6b3497fa…` passes 30 explicit Node lifetime checks and all 304 upstream structural cases; both optimized self-compilers match the original on 15 functional invocations. Shared balanced-stack capture cleanup now also covers tuple optimization and OptimizeInstructions; its red regressions become green. Runtime metadata/cache guards now distinguish Bun/JavaScriptCore from Node, correcting the compatibility-version label in earlier `node-v2` reports. The 256 Bun library tests pass. See [the upgrade ledger](binaryen/version-132-upgrade.md) for pending full-gate and 10,000-case renewals.

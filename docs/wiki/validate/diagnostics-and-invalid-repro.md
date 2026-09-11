@@ -31,6 +31,8 @@ related:
 
 # Validation Diagnostics And Invalid Repros
 
+> **Tag validation update — September 10, 2026:** result-bearing tag declarations and imports are accepted. Exception instruction uses still require empty results. The [regressions](../../../src/validate/binaryen132_continuation_wbtest.mbt) supersede older stricter-declaration claims below; historical diagnostics remain source evidence.
+
 ## Overview
 
 Starshine's validator has two related but separate contracts:

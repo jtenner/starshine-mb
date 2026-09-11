@@ -20,6 +20,8 @@ related:
 
 # IR2 Execution Plan
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Durable Conclusions
 
 - `HotFunc` is the only owned optimizer body representation.

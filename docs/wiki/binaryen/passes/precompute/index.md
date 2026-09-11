@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-03
+last_reviewed: 2026-09-11
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
@@ -55,6 +55,23 @@ related:
 ---
 
 # `precompute`
+
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## Binaryen 132 update
+
+Both public variants now accept `Relaxed` alongside `AcqRel` for eligible
+unshared struct/array reads. Shared reads and `SeqCst` reads remain nonconstant;
+all three orders retain their distinct codec, validation and effect contracts.
+The direction-sensitive load-before-store rule applies across heap classes.
+Tests live in [`binaryen132_precompute_test.mbt`](../../../../../src/passes/binaryen132_precompute_test.mbt),
+[`binaryen132_atomic_set_test.mbt`](../../../../../src/passes/binaryen132_atomic_set_test.mbt)
+and the shared effects fixtures. Reachable fences retain their ordering role;
+Binaryen's constant interpreter dropping a fence does not establish that removing
+an observable ordering barrier is sound. The renewed atomic GenValid lanes and
+explicit draft-runtime exclusions are tracked in the
+[upgrade](../../version-132-upgrade.md). The older measurements below keep their
+original oracle and source checkpoint.
 
 ## Role
 

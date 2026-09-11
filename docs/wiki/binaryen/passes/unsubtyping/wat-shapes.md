@@ -17,6 +17,8 @@ related:
 
 # `unsubtyping` WAT shapes
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the beginner-friendly shape catalog for Binaryen `unsubtyping`.
 Use it with the retained relation/cast research follow-up in [research note 0444](./index.md), the released v131 world-policy fixture [`unsubtyping-open-world.wast`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast), the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md), and the port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

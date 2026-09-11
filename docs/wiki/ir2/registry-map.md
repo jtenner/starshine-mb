@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-02
+last_reviewed: 2026-09-10
 sources:
   - ../binaryen/passes/reorder-locals/index.md
   - ../../../src/passes/optimize.mbt
@@ -14,6 +14,8 @@ related:
 ---
 
 # IR2 Registry Map
+
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 ## Durable Conclusions
 
@@ -34,13 +36,13 @@ related:
 
 These have `HotPass` category and a hot descriptor where applicable:
 
-The registry currently has 28 hot entries: `flatten`, `ssa-nomerge`, `ssa`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `precompute-propagate`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-notee`, `simplify-locals-no-tee`, `simplify-locals-nonesting`, `simplify-locals-no-nesting`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-locals`, `merge-blocks`, and `redundant-set-elimination`.
+The registry currently has 29 hot entries: `flatten`, `ssa-nomerge`, `ssa`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `constraint-analysis`, `precompute-propagate`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-notee`, `simplify-locals-no-tee`, `simplify-locals-nonesting`, `simplify-locals-no-nesting`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-locals`, `merge-blocks`, `redundant-set-elimination`.
 
 ### Active module passes
 
 These have `ModulePass` category and are runnable through the same pass request path, but apply module-level logic or module-shaped adapters:
 
-The registry currently has 31 module entries: `local-cse`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `merge-similar-functions`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `global-struct-inference-desc-cast`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `strip-debug`, `simplify-globals-optimizing`, `dead-argument-elimination`, `dae`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inline-main`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, and `directize`.
+The registry currently has 36 module entries: `local-cse`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `merge-similar-functions`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `global-struct-inference-desc-cast`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `coalesce-locals-cfg`, `duplicate-import-elimination`, `strip-debug`, `simplify-globals-optimizing`, `propagate-globals-globally`, `dead-argument-elimination`, `dae`, `dae-optimizing`, `dae2`, `dae2-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inline-main`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, `apply-compiler-facts`, `directize`.
 
 ### Active presets
 

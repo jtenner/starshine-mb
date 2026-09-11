@@ -40,6 +40,8 @@ related:
 
 # WAST Resource Declaration Authoring
 
+The September 10 Binaryen 132 update adds shared and memory64 WAST memory declarations/imports, with checked 64-bit limits and explicit `MemoryType` fields. This supersedes earlier memory64/shared parser-gap statements on this page. See [atomic authoring](atomic-memory-instruction-authoring.md) and [fixtures](../../../src/wast/binaryen132_atomic_test.mbt).
+
 ## Overview
 
 Use this page when writing or debugging WAST module fields that **declare table, memory, or global resources**:

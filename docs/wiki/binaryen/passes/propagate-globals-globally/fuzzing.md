@@ -11,6 +11,8 @@ sources:
 
 # `propagate-globals-globally` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Dedicated profiles
 
 Use `propagate-globals-globally-all` for ordinary dedicated signoff. The aliases `propagate-globals-globally`, `propagate-globals-globally-closeout`, `propagate-globals-globally-all-profiles`, `pgg`, and `pgg-closeout` resolve to the same equal-weight aggregate.

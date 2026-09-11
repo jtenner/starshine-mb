@@ -27,6 +27,8 @@ related:
 
 # `propagate-globals-globally`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Role
 
 `propagate-globals-globally` is an active Starshine module pass that implements Binaryen's narrow startup-only contract for supported literal initializer facts: it substitutes earlier known literal globals into later defined-global initializers and active data/element offsets, then stops before ordinary function bodies.

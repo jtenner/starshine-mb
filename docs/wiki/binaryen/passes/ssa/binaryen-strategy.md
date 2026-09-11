@@ -24,6 +24,8 @@ related:
 
 # Binaryen `ssa` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 Use Binaryen `version_129` / `version_130` as the released source oracle for this pass. The committed research manifests preserve the tagged contract. A 2026-07-11 reread of current-main [`SSAify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and [`ssa.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast) confirms that the shared `SSAify(bool allowMerges)` algorithm and scheduler split remain as described below. It is a dated source reading, not a claim of byte-for-byte trunk equivalence.

@@ -18,6 +18,8 @@ related:
 
 # Binaryen `code-folding` Strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 - Use Binaryen `version_131` as the repo-wide public release baseline. This page's detailed owner contract remains grounded in the reviewed v130/v129 evidence until the targeted v131 renewal in `[V131-SPOT]001` is complete.

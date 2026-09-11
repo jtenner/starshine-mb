@@ -15,6 +15,8 @@ related:
 
 # `duplicate-import-elimination`: implementation structure and tests
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the compact source-confirmed map for how Binaryen `version_131` implements `duplicate-import-elimination` and where the shipped tests pin that behavior down. The v131 owner, rewrite helper, and dedicated input fixture are byte-identical to the retained v130 hashes.
 
 ## Why this page exists

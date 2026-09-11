@@ -17,6 +17,8 @@ related:
 
 # `remove-unused-types` WAT shapes
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the beginner-friendly module-shape catalog for Binaryen `remove-unused-types`.
 Binaryen v131 keeps these survivor/rebuild families and adds a released open-world distinction: exposed types and required identity relatives stay public, while unrelated private types may still be removed or regrouped.
 

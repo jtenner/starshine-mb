@@ -15,6 +15,8 @@ related:
 
 # Binaryen `simplify-locals-notee` fuzzing
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-28 performance-change renewal
 
 Final native SHA-256 `58fde6321d2ae50a492f55346047a2d0ba5d0c91e035605046be5cb6e9a1d537` completed the required matrix with bounded eight-worker execution and at most 20 persisted mismatch artifacts:

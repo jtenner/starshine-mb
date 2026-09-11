@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-01
+last_reviewed: 2026-09-11
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -11,6 +11,42 @@ sources:
 ---
 
 # `tuple-optimization` Fuzzing Profile
+
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 11 shared capture renewal
+
+Remote local-lifetime fixes introduce complete tuple captures before overlapping
+local writes. The upgrade regression checks distinct values in all three lanes,
+including a swapped copy-back. Same-lane copy-backs are recognized only with a
+single definition, a direct matching source payload, and a bounded straight-line
+root interval with no conflicting write. Reads of the replacement carrier are
+refreshed only when they follow their original definition and feed later scalar
+writes in the same region. This prevents lowering a read before its replacement
+definition; the failed version returned `[42, 0, 202]`.
+
+Native `7738a54f…` completes two renewed 10,000-case campaigns: the DAE2 tuple
+member and the ordinary `tuple-optimization-all` aggregate. Both have 10,000
+original-primary Bun/JavaScriptCore runtime matches, deterministic reruns and
+codec roundtrips, with zero validation, command, generator or property failures.
+All 10,000 outputs in each lane are canonically smaller than Binaryen. The
+ordinary aggregate is also smaller in all raw outputs; the DAE2 tuple lane has
+8,750 smaller and 1,250 larger raw outputs. Balanced capture cleanup closes the
+5,000 canonical size losses found in the earlier renew18 tuple lane. Single
+producer evaluation, overlapping local writes and distinct weighted lane values
+remain the transform contract behind these size measurements.
+
+The tuple member now also varies label metadata on both overlap forms. A focused
+regression exposed stale label indices after DAE2 removed a tuple forwarding
+block. Cleanup drops label names from changed functions and retains names for
+unchanged functions. The generator and four-pass metadata regression pass; fresh
+native comparison of these named variants is in progress. Exact evidence lives
+in the [upgrade ledger](../../../raw/binaryen/2026-09-10-v132-validation.json).
+
+Sources: [implementation](../../../../../src/passes/tuple_optimization.mbt),
+[tests](../../../../../src/passes/tuple_optimization_wbtest.mbt),
+[GenValid](../../../../../src/validate/gen_valid_dae2.mbt), and
+[runtime comparisons](../../../../../scripts/test/binaryen132-lifetime-runtime.ts).
 
 ## 2026-09-01 candidate-free raw-gate renewal
 
@@ -115,3 +151,18 @@ The pre-collect root fast-path slice reran the ordinary direct smoke at `.tmp/pa
 The direct root fast-path slice reran the ordinary direct smoke at `.tmp/pass-fuzz-tuple-optimization-genvalid-1000-direct-root-fast`: `1000 / 1000` compared, `1000` normalized matches, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `1000 / 0`. It also reran a bounded dedicated profile lane at `.tmp/pass-fuzz-tuple-optimization-genvalid-profile-100-direct-root-fast`: stopped at the mismatch cap after `80 / 100` compared, `80` raw mismatches, zero validation/generator/property/command failures, Binaryen cache `80 / 0`, selected/profile labels spill `33`, tee `12`, copy-chain `35`. Agent classification is unchanged: same known simple type-indexed pure/drop-only scalar-spelling residual surface; this direct no-seed-group-allocation performance slice is superseded by the final closeout lanes above.
 
 See [research note 1358](./index.md), [research note 1359](./index.md), [research note 1360](./index.md), [research note 1361](./index.md), [research note 1362](./index.md), [research note 1363](./index.md), [research note 1364](./index.md), [research note 1365](./index.md), [research note 1366](./index.md), [research note 1367](./index.md), [research note 1368](./index.md), [research note 1369](./index.md), [research note 1370](./index.md), [research note 1371](./index.md), [research note 1372](./index.md), [research note 1373](./index.md), [research note 1374](./index.md), [research note 1375](./index.md), [research note 1376](./index.md), [research note 1377](./index.md), [research note 1378](./index.md), [research note 1379](./index.md), [research note 1380](./index.md), [research note 1381](./index.md), [research note 1382](./index.md), [research note 1383](./index.md), [research note 1384](./index.md), and [research note 1385](./index.md), and [research note 1386](./index.md).
+
+### September 11 capture renewal
+
+Native `7738a54f…` completes 10,000 `dae2-tuple-results` comparisons after the
+balanced stack-capture repair. All 10,000 outputs are canonically smaller than
+Binaryen; 8,750 are also raw-smaller and 1,250 raw-larger. All 10,000 independent
+Bun/JavaScriptCore observations, deterministic replays and codec roundtrips pass,
+with no validity, generator, command or property failures. This supersedes the
+prior 5,000 canonical size losses. The agent classification is a measured
+canonical-size win for these generated families, supported by the single-
+evaluation contract and observable producer/consumer state. The separate
+`tuple-optimization-all` aggregate also completes 10,000 comparisons with all
+outputs smaller in both raw and canonical encoding, all runtime observations
+matching, and no failures. See the
+[upgrade ledger](../../../raw/binaryen/2026-09-10-v132-validation.json).

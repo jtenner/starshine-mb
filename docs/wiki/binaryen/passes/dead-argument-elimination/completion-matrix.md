@@ -24,6 +24,8 @@ related:
 
 # Binaryen v131 DAE completion matrix
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This is the authoritative release ledger for plain `dead-argument-elimination` / `dae` and `dae-optimizing` / `dead-argument-elimination-optimizing`. The row-level lifecycle reconciliation was renewed through the 2026-07-23 canonical-core production-diagnostics slice; older hashes and counts below remain historical evidence checkpoints rather than current closure claims.
 
 It supersedes older prose that called selected DAE slices “closed” while the complete generic pass remained open. A row is closed only when its source-owned behavior is generic or narrowly classified, has focused positive and negative coverage, has current Binaryen-v131 generated evidence, and has no correctness-critical selected-definition dependency.

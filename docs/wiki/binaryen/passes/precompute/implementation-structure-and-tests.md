@@ -18,7 +18,9 @@ related:
 
 # `precompute`: implementation structure and tests
 
-This page is the compact source-confirmed map for Binaryen plain `precompute`. Its detailed owner/test reading originated at `version_129`; the repo-wide public release baseline is now `version_131`, while this map's latest focused freshness read remains v130/current-main.
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+This page is the compact source-confirmed map for Binaryen plain `precompute`. Its detailed owner/test reading originated at `version_129`; the repo-wide public release baseline is now `version_132`, while this map's latest focused freshness read remains v130/current-main.
 The focused v130/current-main reread, together with this page's direct tagged URLs, preserves the historical owner/test provenance after the duplicate `version_129` manifest is consumed. The focused reread left this owner/test map unchanged on reviewed surfaces; it does not claim a full source diff.
 
 Its main job is to answer two practical questions:

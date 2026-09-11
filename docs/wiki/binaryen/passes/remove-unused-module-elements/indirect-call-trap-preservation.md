@@ -21,6 +21,8 @@ related:
 
 # RUME, table defaults, overlaps, and `call_indirect` traps
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## The short rule
 
 Binaryen v131 asks whether removing an element write can change a trapping `call_indirect` into a successful call. A table-level `ref.func` initializer is a possible callee. If an element segment overwrites that default with null or a wrong-type function, the write may be needed solely to preserve the trap. Likewise, overlapping segments can overwrite a callable value with null or a wrong-type value.

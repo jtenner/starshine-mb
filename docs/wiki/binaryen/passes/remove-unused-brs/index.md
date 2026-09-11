@@ -43,6 +43,8 @@ related:
 
 # `remove-unused-brs`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-31 Moon benchmark and HOT lower follow-up
 
 The calibrated 3,000-block literal-multivalue fixture separated the previously dominant aggregate into HOT lift, HOT lower, and end-to-end pass-pipeline benchmarks. Five matched native-release runs against clean commit `eea94de18` measured median HOT lower `1120.00ms` and pipeline `1260.00ms`. The lowerer was scanning every live node for each block-label-use query and scanning all future roots even when the current root had neither call-order obligations nor any local read that could conflict with a carried producer.

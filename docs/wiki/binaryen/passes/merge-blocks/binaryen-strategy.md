@@ -18,6 +18,8 @@ related:
 
 # Binaryen `merge-blocks` Strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Correct current-source model
 
 Binaryen `merge-blocks` is a function-local structured-cleanup pass with three connected routes:

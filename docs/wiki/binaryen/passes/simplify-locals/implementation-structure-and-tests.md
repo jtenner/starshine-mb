@@ -14,6 +14,8 @@ related:
 
 # Binaryen `simplify-locals` implementation structure and tests
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## V131 implementation/test renewal
 
 The v130/v131 owner and reviewed helper surfaces are byte-identical. Starshine's renewal added binary-decoded regression fixtures for return-suffix stackification and branch-result carriers, plus focused pure-drop and default-GC cleanup tests. The July 28 follow-up adds deterministic `SL-01`–`SL-35` coverage and repairs postorder structure formation, unique Hot IR control/value ownership, payload-bearing `br_if` statement lowering, aggregate first-cycle deferral, no-tee/no-structure policy, transparent copy cleanup, and refined fallthrough equivalence. Current integrated focused counts are `75/75` main, `21/21` variants, `81/81` no-structure, and `19/19` simplify-locals whitebox.

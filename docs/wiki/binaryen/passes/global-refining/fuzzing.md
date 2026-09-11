@@ -9,6 +9,8 @@ sources:
 
 # `global-refining` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-21 nominal-ancestry scratch renewal
 
 The pass-scoped ancestry scratch and first-common-declared-ancestor search preserve the nominal sibling-join behavior while eliminating per-query traversal arrays. Rebuilt native SHA-256 is `438531b72a40f9afbda4f12b768e036470f7302cdc01e950c2160cacb11feb0c`. The ordinary explicit-v131 GenValid lane at `.tmp/pass-fuzz-global-refining-ancestry-scratch-10000-20260821` compared **10,000/10,000** with **10,000 normalized matches**, zero compare-normalized matches, mismatches, validation failures, property failures, generator failures, or command failures. Binaryen cache counters were 2 hits / 9,998 misses; Binaryen failure cache counters were 0/0. The oracle was `.tmp/binaryen-version-131-bin/bin/wasm-opt`, version 131, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.

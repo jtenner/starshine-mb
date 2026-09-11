@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-09-10
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - ../custom-descriptors/descriptor-instruction-surface.md
@@ -35,6 +35,16 @@ related:
 ---
 
 # WAST Reference-Instruction Authoring
+
+## Binaryen 132 text update
+
+The September 10 parser accepts `call_ref`/`return_call_ref`, `br_on_null`,
+`br_on_non_null`, `br_on_cast_desc_eq` and `br_on_cast_desc_eq_fail`. The descriptor
+forms preserve both explicit reference annotations, including exact heap types.
+This supersedes the broader June text-gap descriptions below; ordinary
+`br_on_cast`/`br_on_cast_fail` remain a separate text boundary. See the
+[descriptor instruction contract](../custom-descriptors/descriptor-instruction-surface.md)
+and [reference-call tests](../../../src/wast/binaryen132_call_ref_test.mbt).
 
 ## Overview
 

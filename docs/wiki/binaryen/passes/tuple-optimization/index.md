@@ -38,6 +38,8 @@ related:
 
 # `tuple-optimization`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-09-01 production candidate-free raw gate
 
 The canonical 4,977,401-byte artifact contained thousands of scalar-only functions that could not form a TupleOptimization seed group, but the dispatcher still lifted each function, built use-def, and ran both root-group scans. A new fail-closed raw classifier recursively checks every nested instruction sequence for a static multi-result producer. It resolves direct and indirect/reference call signatures plus type-indexed `block`, `loop`, `if`, and `try_table` results through the cached module context; any unresolved signature is treated as a possible candidate and falls back to the full HOT path.

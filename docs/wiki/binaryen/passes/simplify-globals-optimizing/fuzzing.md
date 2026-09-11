@@ -11,6 +11,8 @@ sources:
 
 # `simplify-globals-optimizing` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-21 stateful suffix-deferral smoke
 
 Native SHA-256 `dcfc1383f399312fa1dc3fce21a84ed6a0bf6ba607d47ec78464a7a3a633c093` defers the broad final suffix only for O4z executions on the exact 44/50-function stateful Emscripten export family. Ordinary generated direct-pass cases retain the existing suffix and parity surface.

@@ -42,6 +42,8 @@ related:
 
 # Validator Fuzz Hardening
 
+> **Tag validation update — September 10, 2026:** result-bearing tag declarations and imports are accepted. Exception instruction uses still require empty results. The [regressions](../../../src/validate/binaryen132_continuation_wbtest.mbt) supersede older stricter-declaration claims below; historical diagnostics remain source evidence.
+
 ## Reader Map
 
 Use this page as the durable, living answer for Starshine validator fuzzing. The historical execution plan in research note 0089 is now archived source material rather than the active task list: its suite-surface, valid-generator, invalid-lane, repro, and wrapper alignment slices are all landed, and new work should start from the live runner/API surfaces below plus [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md), and [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).

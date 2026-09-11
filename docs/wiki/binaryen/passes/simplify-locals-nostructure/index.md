@@ -27,6 +27,8 @@ related:
 
 # `simplify-locals-nostructure`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 The 2026-09-10 [loop-counter repair](./implementation-structure-and-tests.md#aliased-loop-counter-repair-2026-09-10)
 fixes a runtime hang that validation did not detect. A following-expression
 walker must not treat a loop body as an ordinary expression input.

@@ -30,6 +30,8 @@ related:
 
 # Starshine port-readiness and validation for `unsubtyping`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Use this page together with the overview in [`./index.md`](./index.md), the Binaryen strategy in [`./binaryen-strategy.md`](./binaryen-strategy.md), the implementation-and-test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), the descriptor and JS boundary guide in [`./descriptor-squares-casts-and-js-boundaries.md`](./descriptor-squares-casts-and-js-boundaries.md), the shape catalog in [`./wat-shapes.md`](./wat-shapes.md), and the current Starshine status map in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 This page answers a narrower question: **what is the safest route from today's boundary-only Starshine status to a validated future port?**

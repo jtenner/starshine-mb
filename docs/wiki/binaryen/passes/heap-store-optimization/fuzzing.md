@@ -12,6 +12,18 @@ sources:
 
 # `heap-store-optimization` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## Binaryen 132 refresh
+
+The shared order summary now prevents an earlier Relaxed-or-stronger atomic
+load from crossing a later atomic store, including disjoint memory/struct/array
+classes. The reverse direction remains separately checked. The
+[order matrix](../../../../../src/passes/binaryen132_effects_wbtest.mbt) covers
+plain and all atomic orders, summary merges, fences and traps. New dedicated
+`heap-store-optimization` campaigns use Binaryen 132; current results live in the
+[upgrade record](../../version-132-upgrade.md).
+
 ## 2026-09-01 parity closure and ordered-path renewal
 
 The dedicated side-effects residual was an HSO discardability bug, not generic cleanup drift. Binaryen's `EffectAnalyzer::hasUnremovableSideEffects()` recognizes a result-block-wrapped constant division such as `block(result i32, 36 / 3)` as nontrapping and removes it when a later `struct.set` overwrites that constructor field. Starshine already refined the exact division node, but the enclosing HOT block retained the descendant trap bit in its aggregate mask before recursively checking the known-safe child. HSO now removes only inherited trap bits from `drop` and structured-control wrappers whose descendants are checked individually. Red-first tests prove that the safe result-block division disappears while a zero-divisor sibling remains under `drop` after the store fold.

@@ -2,6 +2,8 @@
 
 MoonBit toolkit for parsing, validating, and rewriting WebAssembly.
 
+Current comparison target: **Binaryen 132**. See the [upgrade status and feature boundaries](docs/wiki/binaryen/version-132-upgrade.md); historical v131 measurements retain their original version.
+
 For JavaScript/npm usage, see [node/README.md](./node/README.md).
 
 For language-neutral WIT bindings and the Component Model artifact, see [component/README.md](./component/README.md).
@@ -195,7 +197,7 @@ fn parse_validate_encode(source : String) -> Bool {
 ## Pipeline Note
 
 - `--optimize`, `--shrink`, `--ssa`, `--ssa-nomerge`, `--vacuum`, `--dead-code-elimination`, `--remove-unused-names`, `--remove-unused-brs`, `--optimize-instructions`, `--pick-load-signs`, `--heap-store-optimization`, `--simplify-locals`, `--simplify-locals-notee`, and `--simplify-locals-nonesting` now route through the real IR2 pass pipeline in `jtenner/starshine/passes`.
-- The current public registry is still intentionally small while pass migration is in progress: the active module passes are `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `duplicate-function-elimination`, and `remove-unused-module-elements`, the active hot passes include `ssa`, `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `simplify-locals`, `simplify-locals-notee`, and `simplify-locals-nonesting`, and both presets now replay `remove-unused-names` in all three currently-modeled RUN slots inside that implemented mixed module/hot sequence.
+- The [live registry map](docs/wiki/ir2/registry-map.md) lists runnable HOT and module passes. This upgrade adds real `dae2` / `dae2-optimizing` module implementations and opt-in `constraint-analysis`; ordinary DAE remains available. New passes do not change presets automatically.
 - CLI pass queues may now interleave `--dump <file.wasm|file.wat>` snapshots, ordered `--print-{type,func,import,table,memory,global,export,tag,elem,data} <name|index>` stderr log steps, and explicit `--validate` checkpoints with optimizer passes, so workflows like "dump before, print, run one pass, print again, then validate" stay ordered and observable.
 - CLI transform queues also support `--extract-functions <index,index,...>` as an ordered module-replacement step that rewrites the module down to the selected functions, reindexes the surviving function space, and trims other live sections through `remove-unused-module-elements`.
 - A wasm input with no scheduled passes and no ordered inspection steps is treated as a raw byte copy; add `--validate`, `--dump`, `--print-*`, `--extract-functions`, or any optimizer pass when the command should decode and inspect the module.
@@ -252,11 +254,11 @@ bun fuzz run --list-suites
 bun fuzz run --list-profiles
 bun fuzz run --help
 moon build --target native --release src/cmd
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --out-dir tmp/pass-fuzz --pass remove-unused-brs --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --out-dir tmp/pass-fuzz --pass remove-unused-brs --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 bun scripts/pass-fuzz-compare.ts --list-passes
-bun fuzz compare-pass --count 10000 --seed 0x5eed --pass remove-unused-brs --out-dir tmp/pass-fuzz --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun fuzz compare-pass --count 10000 --seed 0x5eed --pass remove-unused-brs --out-dir tmp/pass-fuzz --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 bun validate coverage
 bun validate readme-api-sync
 ```
 
-`pass-fuzz-compare.ts` generates in-repo `gen_valid` modules by default, runs the selected Starshine pass flags and the corresponding `wasm-opt` flags, validates Starshine's output with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` text output for parity. Add `--wasm-smith` for the separate external `wasm-tools smith` lane. Use `--pass <name>` for canonical pass selection, `--list-passes` to discover supported passes, or `bun fuzz compare-pass ...` as the standard wrapper entrypoint. For long parity lanes, build `src/cmd` once and pass both `--jobs auto` and `--starshine-bin target/native/release/build/cmd/cmd.exe` explicitly.
+`pass-fuzz-compare.ts` generates in-repo `gen_valid` modules by default, runs the selected Starshine pass flags and the corresponding `wasm-opt` flags, validates Starshine's output with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` text output for parity. Add `--wasm-smith` for the separate external `wasm-tools smith` lane. Use `--pass <name>` for canonical pass selection, `--list-passes` to discover supported passes, or `bun fuzz compare-pass ...` as the standard wrapper entrypoint. For long parity lanes, build `src/cmd` once and pass `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20` and `--starshine-bin _build/native/release/build/cmd/cmd.exe` explicitly. The comparison baseline is Binaryen 132; dedicated `dae2` and `constraint-analysis` GenValid aggregates cover the new optimizers.

@@ -19,13 +19,15 @@ related:
 
 # `flatten` Fuzzing Status
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## September runtime renewal remains open
 
 The earlier direct-pass closeout below is historical. Dewdrop found a carried
 call moved across a GC field write. The repair and current native/runtime
 checks are in [the prelude contract](./flat-ir-contract-and-preludes.md#carried-calls-before-gc-writes).
 Fresh regular and `flatten-all` 10,000-case lanes use the documented three
-normalizers, explicit Binaryen 131, real Node (`node-v2`), strict execution
+normalizers, explicit Binaryen 132, real Node (`node-v2`), strict execution
 comparison, external validation, determinism and codec checks. They are queued;
 no generated or full-pipeline closeout is claimed for the repair yet.
 

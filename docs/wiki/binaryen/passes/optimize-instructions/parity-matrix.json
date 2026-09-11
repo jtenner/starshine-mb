@@ -2,8 +2,9 @@
   "schemaVersion": 1,
   "kind": "starshine.optimize-instructions.parity-matrix",
   "pass": "optimize-instructions",
-  "binaryenVersion": "version_131",
-  "lastReviewed": "2026-07-19",
+  "binaryenVersion": "version_132",
+  "lastReviewed": "2026-09-10",
+  "baselineNote": "New sweeps target version_132. Existing row evidence and version_131 source audits retain their recorded provenance; v132 adds only two TODO comments to OptimizeInstructions.cpp. Shared descriptor and atomic changes are tracked in version-132-upgrade.md.",
   "statusVocabulary": [
     "covered",
     "mismatch",
@@ -1417,7 +1418,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT; branch-hint rows remain representation boundary until Starshine models code metadata",
       "starshineStatus": "blocked-surface",
       "priority": "P1",
-      "blockerBoundaryReason": "The representable v131 OI-F surface is covered: equal-reference evaluation, identical-select localization/barriers, non-concrete bailout, idempotent call-parent/child ordering, and precomputed select fast paths have focused tests and explicit-v131 four-lane/O4z evidence. The row remains blocked-surface only for two representation/option boundaries: branch-hint/code-metadata plus optimize-instructions-never-fold-or-reorder plumbing, and the v131 acquire/release global-effects fixture's ordered memory-atomic `acqrel` representation. Starshine cannot faithfully decode that fixture today; do not approximate its synchronization semantics inside OI.",
+      "blockerBoundaryReason": "Historical v131 OI-F evidence covers reference evaluation, identical-select barriers, non-concrete bailout, idempotent call ordering and select fast paths. Branch-hint/code-metadata and never-fold-or-reorder option plumbing remain older boundaries. The September v132 model now represents ordered linear atomics and shared GC forms; global-effect generation remains separate, and deep-effect compatibility must be renewed against that model.",
       "lastCheckedEvidence": [
         "2026-07-19 v131 focused tests cover one/two-evaluation ref.eq, trap-sensitive cast peeling, scratch-local and conflicting identical selects, non-concrete nofunc bailout, idempotent mutable-global child ordering, raw double-eqz completion, and both generated select fast paths.",
         "2026-07-19 explicit-v131 closeout: regular 10000/10000 with all canonical outputs 2..4 bytes smaller; pass-oi-all 8920 normalized plus 1080 strictly smaller tuple wins; random-all 7379 normalized plus 2621 canonical equal-or-smaller residuals; wasm-smith 9953/9956 normalized plus three smaller dead-prefix wins and 44 Binaryen/tool failures.",

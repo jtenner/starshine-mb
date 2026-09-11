@@ -13,6 +13,8 @@ sources:
 
 # `once-reduction` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Use a freshly built native CLI and the explicit official Binaryen v131 oracle. The PATH `wasm-opt` may be TinyGo's stale Binaryen v116.
 
 ## Pass-owned profile

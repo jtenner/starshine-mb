@@ -19,6 +19,8 @@ related:
 
 # Binaryen `heap2local` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 Use Binaryen `version_131` as the released source oracle for this pass. The original `version_129` walkthrough remains useful for the core algorithm, but v131 adds per-allocation analysis resets and fixture-backed multi-allocation/cmpxchg correctness that the older contract did not include.

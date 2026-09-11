@@ -12,6 +12,8 @@ sources:
 
 # `dead-argument-elimination` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## August 28, 2026 performance-only renewal
 
 Final native SHA-256 `3139521cb86ec4fbca113b7abcbf6cd51ba265ae656971294927bfd8585d6405` completed the required direct-DAE matrix with `drop-consts` and `unreachable-control-debris` normalization:

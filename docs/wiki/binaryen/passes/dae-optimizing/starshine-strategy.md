@@ -107,6 +107,8 @@ related:
 
 # Starshine strategy for `dae-optimizing`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Current status
 
 Starshine has a **release-signed module-pass implementation** for Binaryen's upstream `dae-optimizing` pass on the current v0.1.1 surface. `[DAE]003` and `[DAE]004` are closed by research notes `0661` and `0687`; reopen only for a new semantic mismatch, validation failure, or measured DAE-owned regression. The recovered current `optimize` and `shrink` preset tables both schedule `dae-optimizing` once in Binaryen's late post-pass neighborhood, immediately after `heap-store-optimization` and before `inlining-optimizing`; exact registry/runtime order coverage locks that placement. Explicit `--dae-optimizing` / `--dead-argument-elimination-optimizing` requests remain supported. The current raw-cleanup policy is explicit: correctness comes first; audited pure/nontrapping cleanup is useful and should be kept when semantically proved; Binaryen-shape debris preservation is narrow and only justified by a documented diagnostic or active artifact frontier. Possibly trapping or effectful operand stacks must remain live, and any future policy-changing cleanup needs focused tests plus size/mismatch evidence from the relevant compare lane. This closes `[DAE]009` as a policy/backlog task; future raw-cleanup work should reopen only for a concrete implementation, measurement, or frontier need.

@@ -23,6 +23,8 @@ related:
 
 # Starshine Port Readiness And Validation For `code-pushing`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Current local status
 
 `code-pushing` is an active direct HOT pass. Its earlier v0.1.0 direct-pass acceptance is now superseded by the broader active `[O4Z-AUDIT-CP]` behavior-audit track in `agent-todo.md`; future closure must satisfy the repo's current pass-audit standard rather than relying only on the older 2026-05-09 direct revalidation. As of 2026-05-09, direct debug-artifact compare for `tests/node/dist/starshine-debug-wasi.wasm --code-pushing` was semantically/canonically green through the self-opt compare canonical-function fallback (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`). Raw canonical wasm/text still differed because HOT lowering and Binaryen choose different temporary-local / expression-stack shapes.

@@ -29,6 +29,8 @@ related:
 
 # `memory-packing`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Binaryen v131 status
 
 Direct parity is **closed for the represented Binaryen-v131 surface**. The 2026-07-26 renewal added active `memory.init` destination-bounds preservation, memory64-aware passive replacement locals and lengths, decoded legacy-`try` traversal, fail-closed operand extraction, Binaryen's referrer-sensitive passive profitability thresholds, family-based GenValid profiles, imported-option compare forwarding, and a data-op-free code-clone fast path. Focused and repository tests are green; the required regular `100000`, dedicated `10000`, random-all `10000`, imported-overlap `10000`, wasm-smith, and rebuilt O4z slot evidence are recorded in [`./fuzzing.md`](./fuzzing.md).

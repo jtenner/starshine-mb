@@ -28,6 +28,8 @@ related:
 
 # Starshine Port Readiness And Validation For `remove-unused-types`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page turns the existing source-correct `remove-unused-types` dossier into an implementation-readiness checklist. The current Starshine status is still **boundary-only and unimplemented**; this page says how to move safely from that state to a faithful module pass when the repo chooses to build shared closed-world type-graph infrastructure.
 Binaryen v131 keeps the module-pass sequencing and resolves the older admission uncertainty: explicit open-world runs are supported through mode-aware public-type retention.
 

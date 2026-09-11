@@ -41,6 +41,8 @@ related:
 
 # `simplify-locals`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Binaryen v131 renewal status
 
 The five-variant Binaryen-v131 renewal is closed. `SimplifyLocals.cpp` and the reviewed locals helpers are unchanged from v130; the relevant released drift is confined to shared pass/global-effect behavior and expected outputs. The audit nevertheless found and repaired four Starshine cleanup gaps: discarded `struct.new_default`, pure dropped local reads, return-local carriers separated by inert code and unreachable suffixes, and branch-result block carriers. Native SHA-256 `5935985cb02530a77aba751dd88f0103a3eadc6ada8e4a0c0b040c878ba4e5bf` was compared with official `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.

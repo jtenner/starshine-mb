@@ -57,6 +57,8 @@ related:
 
 # Module Validation Phases
 
+> **Tag validation update — September 10, 2026:** result-bearing tag declarations and imports are accepted. Exception instruction uses still require empty results. The [regressions](../../../src/validate/binaryen132_continuation_wbtest.mbt) supersede older stricter-declaration claims below; historical diagnostics remain source evidence.
+
 ## Overview
 
 Starshine validates a module by building a WebAssembly validation context, checking cross-section invariants, and then typechecking every defined function body against that completed context. The official WebAssembly validation model is context-driven: module fields create entries such as types, functions, tables, memories, globals, tags, elements, data segments, exports, and declared function references, while instructions are checked with a typed operand stack and control-label stack. The current `ref.func`/start boundary is documented in [`ref-func-declarations.md`](ref-func-declarations.md); the older module-phase snapshot remains useful implementation history.
@@ -214,3 +216,15 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - Implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Invalid fuzzing and trace: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt)
 - Related pages: [`./import-export-and-external-type-matching.md`](./import-export-and-external-type-matching.md), [`./ref-func-declarations.md`](./ref-func-declarations.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md), [`./fuzz-hardening.md`](./fuzz-hardening.md), [`./trace-benchmark-baseline.md`](./trace-benchmark-baseline.md), [`./memory-table-address-widths.md`](./memory-table-address-widths.md), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md), [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md), [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md), [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), [`../tooling/validation-gates.md`](../tooling/validation-gates.md)
+
+## Selected proposal feature policy
+
+`validate_module` and `validate_module_with_trace` accept an optional
+`disabled_features` list. The controlled features are acquire-release atomics,
+relaxed atomics, shared-everything, multibyte arrays and relaxed SIMD. The default
+empty list preserves existing acceptance. Requirements are inferred throughout
+declarations, local types and expressions before ordinary validity checks;
+disabling a required slice produces a `FeaturePolicy` diagnostic. This is not
+an MVP-only validator mode or a claim that every older proposal has a gate.
+See [the implementation](../../../src/validate/proposal_features.mbt) and
+[tests](../../../src/validate/proposal_features_wbtest.mbt).

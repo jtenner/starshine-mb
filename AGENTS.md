@@ -2,6 +2,7 @@
 
 - MoonBit workspace under `moon.mod`; `src/` contains one folder for each package.
 - Review `.mbti` diffs for public API changes.
+- Binaryen 132 is the current comparison target; require a verified v132 oracle for new evidence and preserve historical results under their original versions.
 - `docs/README.md` is the canonical docs and wiki schema; keep it in sync with this file.
 - Keep active backlog, wiki index/log, and local-only notes aligned with the docs schema.
 

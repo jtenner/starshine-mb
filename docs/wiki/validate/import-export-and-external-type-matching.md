@@ -31,6 +31,8 @@ related:
 
 # Import, Export, And External-Type Matching
 
+> **Tag validation update — September 10, 2026:** result-bearing tag declarations and imports are accepted. Exception instruction uses still require empty results. The [regressions](../../../src/validate/binaryen132_continuation_wbtest.mbt) supersede older stricter-declaration claims below; historical diagnostics remain source evidence.
+
 ## Overview
 
 Use this page when changing or debugging the boundary where a module names values outside itself or exposes values to the host:

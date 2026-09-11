@@ -1,0 +1,581 @@
+{
+  "baseline": {
+    "tag": "version_131",
+    "commit": "1f903c14babf829745b421b92ff0f286e93e4209"
+  },
+  "target": {
+    "tag": "version_132",
+    "commit": "79dfe6b412a3c22bfdb190ed6a4d79adf734db5d"
+  },
+  "date": "2026-09-10",
+  "inventory_test_path_count": 83,
+  "interpretation": "Results describe selected semantic adaptations, not wholesale execution of upstream test files. Not-selected entries are visible intake work and never counted as passed.",
+  "changed_test_paths": [
+    {
+      "path": "test/binaryen.js/gc.js",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/binaryen.js/gc.js.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/binaryen.js/kitchen-sink.js",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/binaryen.js/kitchen-sink.js.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/example/c-api-kitchen-sink.c",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/example/c-api-kitchen-sink.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/gtest/CMakeLists.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/gtest/abstract.cpp",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/gtest/constraint.cpp",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/gtest/inplace_vector.cpp",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/gtest/matchers/effects.h",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/gtest/type-domains.cpp",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/gtest/type-updating.cpp",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/array-multibyte.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/basic/compact-imports.wast",
+      "selection": "adapted-subset"
+    },
+    {
+      "path": "test/lit/basic/relaxed-atomics.wast",
+      "selection": "adapted-subset"
+    },
+    {
+      "path": "test/lit/basic/unreachable-br-on-cast-desc.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/ctor-eval/memory64-massive.wast",
+      "selection": "adapted-subset",
+      "result": "pass-structural",
+      "evidence": "src/passes/memory_packing_wbtest.mbt",
+      "execution": "Preserves massive empty-segment offset and instantiation-trap precondition; no ctor-eval tool or giant allocation is performed."
+    },
+    {
+      "path": "test/lit/d8/fuzz_shell_exceptions.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/debug/control-flow-wrappers.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/debug/control-flow-wrappers.test.wasm",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/extern-conversions.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/fuzz-types.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm-as.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm-ctor-eval.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm-dis.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm-emscripten-finalize.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm-merge.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm-metadce.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm-opt.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm-reduce.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm-split.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/help/wasm2js.test",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/parse-bad-array-multibyte-memidx.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/passes/constraint-analysis-loops.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 1,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/constraint-analysis.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 1,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/dae2-results-cont.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 2,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/dae2-results-control-flow.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 8,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/dae2-results-cycles.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 6,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/dae2-results-indirect.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 12,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/dae2-results-intrinsics.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 3,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/dae2-results-open-world.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 3,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/dae2-results-returns.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 12,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/dae2-results.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 15,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/dae2.wast",
+      "selection": "executed-adapted-binary-modules",
+      "result": "pass-structural",
+      "module_count": 77,
+      "worlds": [
+        "open",
+        "closed"
+      ],
+      "validators": [
+        "Starshine",
+        "Binaryen 132",
+        "wasm-tools"
+      ],
+      "evidence": "starshine-renew5.json under .tmp/binaryen132-dae2-intake or .tmp/binaryen132-constraint-intake",
+      "execution": "Structural validation only; generated runtime evidence is recorded separately."
+    },
+    {
+      "path": "test/lit/passes/instrument-locals_effects.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/passes/local-subtyping-desc.wast",
+      "selection": "adapted-subset"
+    },
+    {
+      "path": "test/lit/passes/make-shared-objects.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/passes/monomorphize-desc.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/passes/safe-heap_enable-threads_enable-simd64_enable-relaxed-atomics.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/passes/safe-heap_enable-threads_enable-simd_enable-relaxed-atomics.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/passes/safe-heap_low-memory-unused_enable-threads_enable-simd_enable-relaxed-atomics.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/passes/simplify-locals-atomic-effects.wast",
+      "selection": "adapted-subset"
+    },
+    {
+      "path": "test/lit/passes/vacuum-desc.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/ref-cast-desc.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/validation/acquire-release-atomics.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/validation/array-multibyte-invalid.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/validation/relaxed-atomics.wast",
+      "selection": "adapted-subset"
+    },
+    {
+      "path": "test/lit/validation/waitqueue.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/waitqueue.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/lit/wasm2c/minimal.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/dwarf-local-order.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/dwarf_with_exceptions.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/epilogue_begin_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/fannkuch0_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/fannkuch3_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/fannkuch3_manyopts_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/fib2_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/fib2_emptylocspan_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/fib_nonzero-low-pc_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/ignore_missing_func_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/inlined_to_start_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/multi_line_table_dwarf.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/print_g.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/reverse_dwarf_abbrevs.bin.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/strip-target-features_roundtrip_print-features_all-features.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/passes/translate-to-fuzz_all-features_metrics_noprint.txt",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/spec/relaxed-atomics.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/spec/waitqueue.wast",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/unit/input/reference_types_target_feature.wasm",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/unit/test_compact_imports.py",
+      "selection": "adapted-subset"
+    },
+    {
+      "path": "test/unit/test_features.py",
+      "selection": "not-selected-for-execution"
+    },
+    {
+      "path": "test/unit/test_fuzz_preserve.py",
+      "selection": "not-selected-for-execution"
+    }
+  ],
+  "selected_adaptations": [
+    {
+      "upstream": "test/lit/basic/compact-imports.wast",
+      "scope": "Both item-based group forms, names, mixed imported resources and logical indices",
+      "starshine_tests": [
+        "src/wast/binaryen132_imports_test.mbt"
+      ],
+      "result": "pass",
+      "runtime": "not-executed; structural and validation checks only",
+      "whole_upstream_file_executed": false
+    },
+    {
+      "upstream": "test/unit/test_compact_imports.py",
+      "scope": "Both binary group forms, consecutive-run writer and malformed groups",
+      "starshine_tests": [
+        "src/binary/binaryen132_imports_wbtest.mbt"
+      ],
+      "result": "pass",
+      "runtime": "not-executed; structural and validation checks only",
+      "whole_upstream_file_executed": false
+    },
+    {
+      "upstream": "test/lit/basic/relaxed-atomics.wast",
+      "scope": "Exact released Relaxed order encoding and represented struct-read text",
+      "starshine_tests": [
+        "src/binary/binaryen132_atomic_wbtest.mbt",
+        "src/wast/binaryen132_atomic_test.mbt"
+      ],
+      "result": "pass",
+      "runtime": "not-executed; structural and validation checks only",
+      "whole_upstream_file_executed": false
+    },
+    {
+      "upstream": "test/lit/validation/relaxed-atomics.wast",
+      "scope": "Released order decoding, reserved-order rejection, distinct feature gates, and natural-alignment validation",
+      "starshine_tests": [
+        "src/binary/binaryen132_atomic_wbtest.mbt",
+        "src/binary/tests_wbtest.mbt",
+        "src/validate/proposal_features_wbtest.mbt"
+      ],
+      "result": "pass",
+      "runtime": "not-executed; structural and validation checks only",
+      "whole_upstream_file_executed": false
+    },
+    {
+      "upstream": "test/lit/passes/local-subtyping-desc.wast",
+      "scope": "Nonnullable bottom local and control results; both branch polarities; borrowed multivalue payloads and exactly-once operand calls; reachable descriptor block exits remain branches",
+      "starshine_tests": [
+        "src/passes/binaryen132_descriptor_test.mbt"
+      ],
+      "result": "pass",
+      "runtime": "not-executed; structural and validation checks only",
+      "whole_upstream_file_executed": false
+    },
+    {
+      "upstream": "test/lit/passes/simplify-locals-atomic-effects.wast",
+      "scope": "Shared directional load/store rule including disjoint heap classes; exact order, fence and trap matrix",
+      "starshine_tests": [
+        "src/passes/binaryen132_effects_wbtest.mbt"
+      ],
+      "result": "pass",
+      "runtime": "not-executed; structural and validation checks only",
+      "whole_upstream_file_executed": false
+    }
+  ],
+  "additional_release_regressions": [
+    {
+      "pr": 8984,
+      "tests": [
+        "src/passes/binaryen132_precompute_test.mbt",
+        "src/cmd/cmd.mbt",
+        "src/validate/binaryen132_gen_valid_wbtest.mbt"
+      ],
+      "result": "pass",
+      "scope": "Both registered precompute variants fold immutable unshared Relaxed struct reads; mutable reads remain nonconstant; dedicated generator covers all orders."
+    }
+  ],
+  "open_intake": [
+    "Renew DAE2 open/closed/optimizing campaigns after streaming body analysis and aggregate seed correction; resolve remaining EH/tuple output-size gaps",
+    "Renew constraint campaign after aggregate seed correction to cover AND, parameter loops, handlers and pending calls; finish fixed-corpus cost checks",
+    "Renew atomic consumer campaigns after common order effects and identity-RMW completion; classify fence differences with ordering evidence",
+    "Renew expanded descriptor profile; independent proposal execution remains unavailable",
+    "Module-wide indirect effect summaries if global-effects is introduced; broader older type-remapping metadata boundaries",
+    "Compact import source spans and exact-function import type support remain older representation boundaries",
+    "Optional MakeSharedObjects, SafeHeap and DeAlign remain separate feature-scoped tools"
+  ],
+  "renewal_note": "September 11 native c447149a296af162affa93979eec06bd8a998fb504be64fcf2aff369d41e952a passes 296 DAE2 and 8 constraint world/module cases, with zero CLI, Binaryen-validation or wasm-tools-validation failures. This is structural execution of adapted inputs, not upstream textual output parity or execution of original lit RUN lines.",
+  "last_updated": "2026-09-11"
+}

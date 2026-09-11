@@ -23,6 +23,8 @@ related:
 
 # `remove-unused-module-elements` Binaryen v131 Parity
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Current status
 
 RUME is **closed again after correctness repair and renewed verification on 2026-07-27**. Review found two source-confirmed Binaryen-v131 gaps in the prior closeout:

@@ -46,6 +46,8 @@ related:
 
 # `heap-store-optimization`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-09-01 parity closure and ordered fail-closed benchmark
 
 The dedicated side-effects residual came from block-level trap overapproximation. Binaryen removes an overwritten old constructor field when a result block contains only a proven nontrapping constant division, but Starshine's aggregate effect mask retained the child's trap bit at the enclosing block even after the exact division was refined safe. HSO now removes only inherited trap bits from `drop` and structured-control wrappers whose descendants are recursively checked. Red-first regressions prove `block(result i32, 36 / 3)` is discarded while a zero-divisor sibling remains preserved under `drop`.

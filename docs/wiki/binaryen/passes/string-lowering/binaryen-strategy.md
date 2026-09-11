@@ -19,6 +19,8 @@ related:
 
 # Binaryen `string-lowering` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 Use Binaryen `version_129` as the original detailed tagged oracle for this folder, with `version_131` as the current public release baseline. V131 additionally rewrites string-bearing tag signatures through the same singleton-signature type fixup used for functions; older pages that described only functions are incomplete.

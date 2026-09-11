@@ -36,6 +36,8 @@ related:
 
 # Starshine Strategy For `remove-unused-types`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Use this page together with the retained 2026-04-24 correction research, Binaryen's v131 owner/open-world fixture, and the local registry/harness sources cited below.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve. V131 leaves the local boundary-only status unchanged while making open-world public-type retention a required future policy surface rather than an unresolved upstream question.
 

@@ -17,6 +17,8 @@ related:
 
 # Binaryen `merge-locals` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Source rule
 
 Use released Binaryen `version_131` as the source oracle for this page.

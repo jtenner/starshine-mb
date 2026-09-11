@@ -20,6 +20,8 @@ related:
 
 # Binaryen `print-boundary`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Overview
 
 `print-boundary` is Binaryen's public **diagnostic reporting** pass. It emits a machine-readable description of the module's import and export boundary; it is not an optimizer, a validator, or a feature-lowering pass. The released v131 owner, registration, and fixture are [`PrintBoundary.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/PrintBoundary.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp), and the [focused fixture](https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/print-boundary.wast).

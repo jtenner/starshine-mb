@@ -16,6 +16,8 @@ related:
 
 # Binaryen `propagate-globals-globally` Strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 Use Binaryen `version_129` as the reviewed tagged source oracle for this pass. Direct URLs below retain the release page, `SimplifyGlobals.cpp`, `pass.cpp`, and dedicated lit-file provenance; the 2026-04-24 source correction and retained 2026-05-05 research mirror preserve the reviewed conclusions and freshness layer: [research note 0459](./index.md).

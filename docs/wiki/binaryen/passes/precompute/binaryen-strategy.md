@@ -18,6 +18,8 @@ related:
 
 # Binaryen `precompute` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 Use Binaryen `version_131` as the repo-wide public release baseline. The detailed algorithm reading on this page was initially captured from `version_129`; the 2026-07-11 v130/current-main owner review found no behavior-bearing drift, and the 2026-07-26 explicit-v131 source/test and four-lane renewal now closes `[V131-SPOT]001` for this family.

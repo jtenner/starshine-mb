@@ -18,6 +18,8 @@ related:
 
 # `string-lowering`: implementation structure and tests
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the compact source-confirmed map of which Binaryen files own `string-lowering` and which shipped tests prove the important contract surfaces.
 Binaryen v131 preserves the phase, helper, JSON/magic-import, and test-map contract while expanding the source-backed type-repair scope from public singleton function types to tags too. It adds the resulting Starshine validation requirement in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

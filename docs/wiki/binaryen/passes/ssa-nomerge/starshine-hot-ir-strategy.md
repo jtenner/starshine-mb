@@ -25,6 +25,8 @@ related:
 
 # Starshine `ssa-nomerge` HOT-IR strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `SSAify(false)` contract.
 
 ## 2026-08-16 O4z post-canonical size candidate

@@ -115,7 +115,7 @@ The export marks `$f` in the declaration bitmap before the body scan, so the bod
   (elem declare func $f))
 ```
 
-The element function-index payload declares `$f` even though the segment is not an active table initializer. This is the beginner-friendly purpose of declarative elements: they can make function references valid without exporting the function. In current Starshine, direct core/binary declarative segments preserve that distinction, while WAST text lowering parses this narrow syntax but currently lowers it through the passive empty-offset path. Official typed declarative element text is broader than this local branch; use [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md) before treating text roundtrips as declarative-mode evidence.
+The element function-index payload declares `$f` even though the segment is not an active table initializer. This is the beginner-friendly purpose of declarative elements: they can make function references valid without exporting the function. The September v132 upgrade preserves this distinction in WAST as well as core/binary: the parser records `ElemSegment.declarative` and lowering emits the declarative mode. This supersedes the earlier passive empty-offset behavior. Official typed declarative element text is broader than this local branch; use [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md) before treating text roundtrips as declarative-mode evidence.
 
 ### Start-only metadata does not declare a reference
 

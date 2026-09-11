@@ -31,6 +31,8 @@ related:
 
 # Linear-Memory Threads And Shared-Memory Boundary
 
+The September 10 Binaryen 132 update adds the linear-atomic WAST surface, including named/numeric memory selection, memory64/shared declarations and all three orders. Earlier text-parser-gap statements below are superseded by [atomic authoring](wast/atomic-memory-instruction-authoring.md). External execution support remains proposal-specific.
+
 ## Overview
 
 Use this page when a Starshine claim mentions **linear shared memory**, **ordinary threads atomics**, or the local `shared` bit on a WebAssembly memory type. It is the living router between:

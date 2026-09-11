@@ -15,6 +15,8 @@ related:
 
 # `code-pushing` Segment Selection And Barriers
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Corrected framing
 
 The v0.1.0 release-gating closeout for `[O4Z-AUDIT-CP]` is recorded in [research note 0892](./index.md). This page remains the movement/barrier guide and reopening checklist: future `code-pushing` work should start here if a new Binaryen-positive probe, generated mismatch, validation failure, source drift, or preset-neighborhood requirement appears.

@@ -110,6 +110,8 @@ related:
 
 # Starshine `flatten` port readiness and validation
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Use this page after reading the overview in [`./index.md`](./index.md), the upstream strategy in [`./binaryen-strategy.md`](./binaryen-strategy.md), the concrete shape catalog in [`./wat-shapes.md`](./wat-shapes.md), and the current local status map in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 This page preserves the staged proof history for the question: **what did the first Starshine implementation slices need to prove before `flatten` stopped being a removed-name placeholder?**

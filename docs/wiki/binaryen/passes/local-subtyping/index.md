@@ -23,6 +23,8 @@ related:
 
 # `local-subtyping`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Status
 
 `local-subtyping` is an active Starshine module pass and is behavior-closed for the represented Binaryen v131 surface as of July 26, 2026.
@@ -100,3 +102,14 @@ with the correct nullability. Independent validation rejected the old reduced
 output as uninitialized; the repaired focused test and all LocalSubtyping tests
 pass in the 1,200-test shared repair lane. Full corpus and generated-lane
 signoff remain in progress.
+
+## Binaryen 132 descriptor refinement
+
+Descriptor branches with trapping descriptor inputs now give non-nullable bottom
+results to local and structured-control refinement. The shared recomputation
+helper preserves operand order and evaluates borrowed multivalue label payloads
+once. Reachable exits from a descriptor-producing block prevent a false bottom
+proof. [Focused regressions](../../../../../src/passes/binaryen132_descriptor_test.mbt)
+and the expanded [GenValid profile](fuzzing.md) cover both branch polarities.
+The dedicated v132 campaign is being renewed; this supersedes the earlier
+validity-only descriptor check without claiming an unavailable runtime oracle.

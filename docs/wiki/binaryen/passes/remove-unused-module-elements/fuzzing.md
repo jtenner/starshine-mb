@@ -13,6 +13,8 @@ sources:
 
 # `remove-unused-module-elements` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-21 composite `ref.func` repair
 
 Runtime-used typed element expressions now recursively contribute nested `ref.func` references, and declaration-only composite expressions retain every function index inside the same indivisible expression while still pruning independent entries. Native SHA-256 is `fa740eba2fb1b5b1c167cc75c682b265995e19cffbc241567cfcb0f436ae8884`.

@@ -233,10 +233,20 @@ it must not align raw instruction cursors with HOT creation order. The mapping
 is valid only while the lifted function's revision is unchanged.
 
 Pending stack expressions carry local dependencies. Before a later access can
-conflict, lift captures the pending value in a fresh local. This preserves both
-reads before overwrites and tee writes before later reads. Reference storage is
-nullable; a non-null read restores the known result type. A shared tuple producer
-already anchored by an earlier root must not be captured again.
+conflict, lift captures the complete stack prefix through the last conflicting
+value, in evaluation order. Capturing only the conflicting read can move an
+older throwing call past the write and change a handler's local value. Complete
+tuple groups are captured together; producers already anchored by an earlier
+root are not evaluated again. Reference storage is nullable, with a non-null
+restoration on reads when required by the result type. Raw source access maps
+exclude all these synthetic accesses.
+
+The shared prefix rule applies with either value of `capture_stack_locals`;
+that option additionally captures pending effects at general roots. The
+[throwing-call regression](../../../src/ir/hot_lower_local_lifetime_test.mbt)
+checks both modes and original read/write ordinals. GenValid's constraint effects
+family includes a throwing call before a handler-visible conflicting local write,
+with an unused callee parameter for the DAE2 comparison lane.
 
 The positive scalar Flatten regression returns 7 (the old output returned 0).
 The aggregate SimplifyLocals regression keeps the earlier value 4. Raw SSA tests
@@ -327,3 +337,33 @@ requires the carried call to run once, before the later call; the array-pop
 execution regression also checks the value and memory writes. See the
 [SimplifyLocals ordering dossier](../binaryen/passes/simplify-locals/effect-ordering-and-barriers.md)
 for measured validation and remaining gates.
+
+Carried Fibonacci, call arguments and load addresses now have bounded behavior
+assertions rather than exact scratch layouts. The focused stack-carried suite
+passes 40/40 after remote integration. Full combined-source and native generated
+signoff are pending; the earlier 99/100 lift/lower result is historical. Broad
+capture size/performance measurements remain open.
+
+Forward LocalGraph states now share immutable reaching-definition sets for
+unchanged locals. Every write and join replaces its local's set, so a branch
+cannot mutate its sibling or a predecessor's recorded facts. This targets the
+compiler function whose former deep state copies drove DAE2 above 3 GiB. The
+[dedicated compiler resource lane](../../../scripts/test/binaryen132-compiler-cost.ts)
+records binary/input/output identities, CPU time and peak RSS against an explicit
+budget; it is outside default tests. Native `7fb86dfa…` passes the 1 GiB check:
+peak RSS falls from 3,188,972 to 683,456 KiB and wall time from 65.91 to 22.82
+seconds with identical output (`645c4281…`). These concurrent exploratory runs
+do not close the remaining pass-local performance gap.
+
+Full-flow queries use symbolic per-block entry sources when reverse scanning
+cannot linearize a nested conditional or shared expression. Block transfer keeps
+only changed-local summaries; each demanded entry is resolved through complete
+predecessor closure, including requested exception edges, before caching. This
+avoids retaining a full function state at every block. The standard converged
+forward solver remains an independent comparison implementation. Both source and
+write-influence sets agree on four targeted fixtures and the dedicated 5,000-module
+GenValid lane in `local_graph_sparse_wbtest.mbt`; that sweep is skipped by default.
+Native `c447149a…` completes the same compiler DAE2 probe in 7.53 seconds /
+451,280 KiB with the same output hash. The 304 adapted upstream module/world
+cases and 24 independent lifetime comparisons pass. Pass-level campaigns and
+isolated performance attribution remain pending.

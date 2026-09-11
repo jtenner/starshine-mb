@@ -18,6 +18,8 @@ related:
 
 # Binaryen strategy for `instrument-memory`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## What the pass really is
 
 The reviewed implementation is a small public **instrumentation** pass.
@@ -324,7 +326,7 @@ This is the same basic instrumentation-story neighborhood as `instrument-locals`
 
 ## Release provenance and current-main spot check
 
-The retained 2026-04-24 source review anchors historical teaching detail to Binaryen `version_129`; the repo-wide public release baseline is now `version_131`, while this pass's latest focused owner/fixture review remains the 2026-07-11 v130/current-main no-drift check.
+The retained 2026-04-24 source review anchors historical teaching detail to Binaryen `version_129`; the repo-wide public release baseline is now `version_132`, while this pass's latest focused owner/fixture review remains the 2026-07-11 v130/current-main no-drift check.
 
 A focused 2026-07-11 reread of `version_130` and current-`main` `InstrumentMemory.cpp`, `pass.cpp`, `passes.h`, and the four dedicated lit files found no behavior-bearing contract drift. It supersedes the 2026-04-26 freshness statement, not that capture's historical port-readiness reasoning. Both reviews are narrower than a full upstream history audit, so keep future source corrections explicit if Binaryen changes the pass.
 

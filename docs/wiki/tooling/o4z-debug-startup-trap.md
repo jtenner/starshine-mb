@@ -20,6 +20,8 @@ related:
 
 # O4z Debug Startup Trap
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Overview
 
 This page records `o4z` startup-trap investigations and the permanent guards that keep debug and self-optimized WASI artifacts honest. The fast-path and path-normalization work still belong in [`cli-startup-path.md`](./cli-startup-path.md); this page covers optimizer-induced startup corruption and the separate stale-debug-artifact regression sentinel.

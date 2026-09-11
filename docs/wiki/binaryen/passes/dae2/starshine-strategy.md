@@ -1,150 +1,63 @@
 ---
-kind: concept
-status: supported
-last_reviewed: 2026-07-18
+kind: entity
+status: working
+last_reviewed: 2026-09-10
 sources:
-  - ./index.md
-  - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/cmd/cmd.mbt
-  - ../../../../../src/lib/types.mbt
-  - ../../../../../src/validate/typecheck.mbt
-  - ../../../../../src/validate/validate.mbt
-  - ../../../../../src/wast/
-  - ../../../../../agent-todo.md
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
+  - https://github.com/WebAssembly/binaryen/pull/8903
+  - https://github.com/WebAssembly/binaryen/pull/8994
+  - ../../../../../src/passes/dead_argument_elimination2.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_types.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_legacy.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_intake_wbtest.mbt
 related:
   - ./index.md
-  - ./binaryen-strategy.md
-  - ./implementation-structure-and-tests.md
-  - ./fixed-point-forwarding-type-trees-and-expression-removal.md
-  - ./wat-shapes.md
-  - ./starshine-port-readiness-and-validation.md
-  - ../dead-argument-elimination/starshine-strategy.md
-  - ../dae-optimizing/starshine-strategy.md
+  - ./fuzzing.md
+  - ../../version-132-upgrade.md
 ---
 
-# Starshine strategy for `dae2`
+# Starshine DAE2 implementation
 
-## Current status
+This page describes the implemented Binaryen 132 port, superseding the earlier
+proposal to leave `dae2` unknown or to add only parameter forwarding.
 
-Starshine does **not** currently implement Binaryen's `dae2` pass.
+The module pass owns a short-lived usage graph. Each function parameter and
+whole result tuple has a location; HOT expression values have locations too.
+Type-family locations connect referenced functions to indirect calls. Observable
+uses seed the graph, and a queue visits each live location at most once.
 
-This matters because the pass is not just a spelling variant of the existing local `dead-argument-elimination` boundary-only name. Upstream `dae2` is a separate experimental engine with backward forwarding-graph analysis and optional referenced function-type-tree rewriting. See the source-backed upstream summary in [`./binaryen-strategy.md`](./binaryen-strategy.md); its absorbed 2026-05-05 current-main spotcheck found no teaching-relevant drift.
+Direct call arguments depend on the corresponding callee parameter. A used call
+value depends on the callee result. Returns connect to the enclosing result.
+Tail calls connect caller and callee result liveness in both directions. Local
+flow distinguishes entry parameters from overwritten locals; branch payloads
+and the result types of their targets remain valid.
 
-For a concrete future implementation sequence and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This status page stays focused on current local truth.
+Each HOT body is released after analysis and relifted only for mutation. LocalGraph
+uses symbolic block-entry sources and sparse changed-local summaries when a
+linear reverse scan cannot represent nested control. It resolves complete
+predecessor closures before caching, preserving loops and exception paths.
+The new solver matches the converged forward reference on 5,000 GenValid modules.
 
-## Exact local code map
+After solving, the pass builds new signatures, preserves argument evaluation
+order with typed temporary locals when necessary, removes unused pure values,
+and keeps their effectful or trapping descendants. It rewrites functions,
+call sites, returns and eligible type families as one candidate module, verifies
+HOT and validates the completed module. The dispatcher rebuilds module analyses.
 
-| Local surface | Current role for `dae2` | What to read |
-| --- | --- | --- |
-| `src/passes/optimize.mbt:127-149,517-587` | Registry source of truth. `dae2` is absent from the active, boundary-only, removed, and preset names, so requests still take the `unknown pass flag` path in `run_hot_pipeline_expand_passes(...)`. | `pass_registry_boundary_only_names()`, `pass_registry_removed_names()`, `run_hot_pipeline_expand_passes(...)` |
-| `src/passes/pass_manager.mbt:8915-8947` | Active module dispatcher. It handles the current implemented module-pass set only; there is no DAE/DAE2 signature-rewrite dispatcher case. | `run_module_pass(...)` |
-| `src/cmd/cmd.mbt:1151-1158,1357-1362,1512-1517` | CLI and config plumbing. It reports unknown pass flags and already threads `closed_world` into `HotPipelineOptions`; that is a prerequisite, not a DAE2 implementation. | `cmd_error_message(...)`, `resolve_closed_world(...)`, optimizer option assembly |
-| `src/lib/types.mbt` | Core module/IR representation. It already has function types and the call/reference instructions a future pass must analyze and rewrite. | `FuncType`, `Instruction::call`, `CallIndirect`, `CallRef`, `ReturnCall*`, `RefFunc` |
-| `src/validate/typecheck.mbt` | Validation surface for direct calls, indirect calls, reference calls, and `ref.func` result typing. Useful for tests after any future rewrite. | `typecheck_call*`, `typecheck_call_ref`, `typecheck_ref_func` |
-| `src/validate/validate.mbt` | Module-level validation of declared function references. Useful for the referenced-function and element/declaration boundaries. | declared-`ref.func` checks |
-| `src/wast/` | Text parser/lowering surface for fixtures containing typed `ref.func` and element-segment references. | `keywords.mbt`, `parser.mbt`, `lower_to_lib.mbt`, `module_wast*.mbt` |
-| `agent-todo.md` | Active backlog source. No dedicated `dae2` slice exists today. | Current parity/backlog sections |
+Referenced type families retain subtype/recursion metadata. Open-world type
+exposure pins signatures; a private unreferenced sibling can receive a distinct
+signature even when its former type also describes a continuation or export.
+The intrinsic `binaryen-intrinsics` / `call.without.effects` pins its target's
+signature. Ordinary DAE remains available for independent comparison.
 
-## Request behavior today
+Legacy catch payloads are captured at handler entry before call-argument wrappers
+can change their stack position. Multiple handlers are represented through
+`try_table` with explicit handler labels. Ordinary catches retain only payloads;
+functions with a rethrow use `catch_ref` and capture exception identity, including
+rethrows that target an outer handler. A handler executes outside its protected body, so a throw
+inside one handler is not accidentally caught by its sibling.
 
-Because `dae2` is not registered at all, the user-visible behavior differs from tracked-but-unimplemented DAE-family names:
-
-- `dead-argument-elimination` is boundary-only in `src/passes/optimize.mbt`;
-- `dead-argument-elimination-optimizing` is boundary-only in `src/passes/optimize.mbt`;
-- `dae2` is unknown.
-
-That means a future pass owner must decide whether to:
-
-1. add `dae2` as an upstream-exact public name;
-2. add a descriptive local alias; or
-3. keep it upstream-only and leave the name unknown.
-
-Until that choice is explicit, this wiki page should keep saying **unknown pass**, not boundary-only or removed.
-
-## Why `dae2` is not a HOT peephole
-
-A faithful local port would need module-wide analysis and rewrite machinery:
-
-- function signature and local-index rewrites;
-- direct-call argument rewrites;
-- `call_ref` and `call_indirect` type-tree analysis;
-- function-type replacement and global type-holder repair;
-- public/root type, tag, continuation, JS-called, and `call.without.effects` blockers;
-- effect-preserving expression removal;
-- validation and refinalization after type changes.
-
-The current HOT pass infrastructure is useful for local expression rewrites, but it is not enough by itself for the upstream `dae2` contract. The closer local building blocks are module-pass infrastructure plus the existing function/type/call representation and validator surfaces listed above.
-
-## Beginner-to-advanced implementation roadmap
-
-The detailed slice order now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The summary below remains as the short orientation.
-
-### 1. Name and scope decision
-
-Decide whether Starshine wants upstream-exact `dae2` support. If yes, add a registry entry with an honest category before adding any preset placement.
-
-Do **not** silently alias this to plain [`../dead-argument-elimination/index.md`](../dead-argument-elimination/index.md) or [`../dae-optimizing/index.md`](../dae-optimizing/index.md): upstream uses a different file and a different algorithm.
-
-### 2. Direct unreferenced-function subset
-
-The smallest useful subset would still need to:
-
-- scan all function bodies;
-- distinguish incoming params from overwritten local slots;
-- build direct forwarding edges;
-- compute the reverse fixed point;
-- rewrite function params, locals, and direct-call operands;
-- preserve side effects and control scaffolding around removed operands.
-
-If this subset lands before referenced-function support, docs and tests must say it is **not full Binaryen `dae2` parity**.
-
-### 3. Referenced function-type-tree mode
-
-The hard upstream half requires `--closed-world` plus GC-like type infrastructure:
-
-- group functions by root function-type tree;
-- prove which parameter positions are used tree-wide;
-- rewrite referenced function types and all holders;
-- route unreferenced siblings through replacement types before the global rewrite;
-- preserve public, tag, continuation, and intrinsic boundaries.
-
-This is closer to future closed-world type-graph work than to current local DAE boundary tracking.
-
-### 4. Validation and proof
-
-A future implementation should validate at three layers:
-
-- focused WAT fixtures mirroring [`./wat-shapes.md`](./wat-shapes.md);
-- source-backed lit-family comparisons against Binaryen's `dae2.wast` positive and bailout clusters;
-- direct request behavior tests proving `dae2` is no longer unknown only after a real owner exists.
-
-## Non-goals to preserve
-
-Current upstream `dae2` explicitly does **not** yet provide:
-
-- dropped-result optimization;
-- constant actual propagation;
-- param/result type propagation.
-
-Those features belong to the plain DAE-family pages today. If upstream grows them later, update [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./wat-shapes.md`](./wat-shapes.md), and this page explicitly instead of implying parity from the shared name.
-
-## Cross-links for the pass family
-
-- [`./index.md`](./index.md) - `dae2` overview.
-- [`./wat-shapes.md`](./wat-shapes.md) - concrete before/after families.
-- [`./fixed-point-forwarding-type-trees-and-expression-removal.md`](./fixed-point-forwarding-type-trees-and-expression-removal.md) - core mechanics.
-- [`./binaryen-strategy.md`](./binaryen-strategy.md) - upstream algorithm map.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - source/test map.
-- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - first-slice implementation and validation ladder.
-- [`../dead-argument-elimination/index.md`](../dead-argument-elimination/index.md) - plain DAE sibling.
-- [`../dae-optimizing/index.md`](../dae-optimizing/index.md) - optimizing DAE sibling.
-
-## Sources
-
-- Port-readiness research note: [research note 0410](./index.md)
-- Research follow-up: [research note 0337](./index.md)
-- Starshine registry: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- Starshine module dispatcher: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-- Starshine CLI/options: [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
-- Starshine core types: [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
+This is implementation evidence, not a claim that every upstream output shape
+or every proposal already matches. The [validation page](starshine-port-readiness-and-validation.md)
+and [upgrade ledger](../../version-132-upgrade.md) track the remaining signoff.

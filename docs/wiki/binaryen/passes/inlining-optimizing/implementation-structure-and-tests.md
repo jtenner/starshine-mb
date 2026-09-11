@@ -18,6 +18,8 @@ related:
 
 # `inlining-optimizing`: implementation structure and tests
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Shared engine
 
 All direct planning, splitting, rewrite, EH repair, root survival, removal, and metadata behavior lives in `src/passes/inlining.mbt` and is shared with plain `inlining`. See [`../inlining/implementation-structure-and-tests.md`](../inlining/implementation-structure-and-tests.md) for that map.

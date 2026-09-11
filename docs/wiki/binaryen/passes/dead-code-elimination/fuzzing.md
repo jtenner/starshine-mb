@@ -10,6 +10,8 @@ sources:
 
 # `dead-code-elimination` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Recommended smoke lane for future DCE changes: run the ordinary GenValid compare-pass lane for this pass, adding the documented `local-cleanup-debris` normalizer when the expected raw diff is Starshine-only local/no-op cleanup:
 
 ```sh
@@ -33,7 +35,7 @@ The production candidate-scan closure was renewed against the explicitly verifie
 
 The dedicated mismatches retain their existing agent classification as measured Starshine wins; they are not hidden behind a broad normalizer. This renewal specifically proves that the branch-aware candidate scan, exact bounded call-result lifetime fact, and precomputed-fact reuse preserve the established pass behavior.
 
-Dedicated GenValid profile status: **closed for the current Binaryen `version_131` DCE audit.** The aggregate has twelve leaves; the count-10000 `dead-code-elimination-all` lane completes with every mismatch classified; fixed split-local-set remains green at scale; branch-payload-forwarder plus pure/effectful structured-prefix mismatches are measured Starshine wins; prefix-to-branch-payload is normalized-green; explicit count-10000 wasm-smith, broad random-all-profiles, bounded O4z/neighborhood DCE-slot evidence, and the fresh regular direct count-100000 lane with `local-cleanup-debris` are classified. Legacy `try`, old-EH `pop`/nested-pop, and stack-switching remain documented local representation/tool boundaries with reopening criteria, not hidden parity claims.
+Dedicated GenValid profile status: **closed for the recorded Binaryen `version_131` DCE audit.** The aggregate has twelve leaves; the count-10000 `dead-code-elimination-all` lane completes with every mismatch classified; fixed split-local-set remains green at scale; branch-payload-forwarder plus pure/effectful structured-prefix mismatches are measured Starshine wins; prefix-to-branch-payload is normalized-green; explicit count-10000 wasm-smith, broad random-all-profiles, bounded O4z/neighborhood DCE-slot evidence, and the fresh regular direct count-100000 lane with `local-cleanup-debris` are classified. Legacy `try`, old-EH `pop`/nested-pop, and stack-switching remain documented local representation/tool boundaries with reopening criteria, not hidden parity claims.
 
 `dead-code-elimination-all` now exists as a composite GenValid profile. Its current deterministic leaves are:
 

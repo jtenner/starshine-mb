@@ -17,6 +17,8 @@ related:
 
 # Binaryen strategy for `dataflow-optimization` / `dfo`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Use this page together with the current [`version_130` owner](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp), [current-main owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/DataFlowOpts.cpp), and the older retained manifests as historical provenance.
 Use Binaryen `version_131` as the repo-wide public release baseline. This pass's latest bounded owner/graph evidence remains the 2026-07-11 `version_130`/current-`main` reread, which found no behavior-bearing drift in the reviewed surfaces: this remains a flat-input DataFlow SSA IR simplifier, not a broader dataflow optimizer. For Starshine implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

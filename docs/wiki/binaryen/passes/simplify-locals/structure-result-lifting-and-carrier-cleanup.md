@@ -18,6 +18,8 @@ related:
 
 # `simplify-locals` structure-result lifting and carrier cleanup
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 The v131 renewal adds an exact direct-carrier subfamily: an inert root prefix followed by a result-producing structured expression, `local.set`, and the matching final `local.get` can become `nop` plus the structured producer. Encoded-byte tests cover both direct block results and branches to the owning block; a later-read guard and inert-prefix restriction keep the rewrite narrow.
 
 ## Why this page exists

@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-02
+last_reviewed: 2026-09-10
 sources:
+  - https://github.com/WebAssembly/binaryen/releases/tag/version_132
+  - https://github.com/WebAssembly/binaryen/compare/version_131...version_132
+  - version-132-upgrade.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_131
   - https://github.com/WebAssembly/binaryen/compare/version_130...version_131
   - https://github.com/WebAssembly/binaryen/commit/1251efbc1ea471c1311d2726b2bbe061ff2a291c
@@ -33,14 +36,16 @@ Use it when you need to answer a basic question like:
 - Which source should we trust when the public tag and current trunk disagree?
 - When should a pass dossier stay anchored to an older tag on purpose?
 
-The current answer is:
+The current comparison baseline is **`version_132`**, published **2026-08-12**
+at `79dfe6b412a3c22bfdb190ed6a4d79adf734db5d`. New correctness and performance
+comparisons use a verified v132 binary. The [v132 upgrade](version-132-upgrade.md)
+records the reproduced 59-commit / 220-file delta and implementation boundaries.
+Version 131 remains the historical source of existing measurements and signoffs;
+none of those results is silently relabeled v132. Post-tag fixes remain a separate
+intake, including DAE2 #8994 and constraint correctness guardrails. The v132 tag
+does not add constraint analysis to default optimization presets.
 
-- the newest public Binaryen release baseline is `version_131`, published on **2026-07-15** and resolving to commit `1f903c14babf829745b421b92ff0f286e93e4209`;
-- the v130-to-v131 range contains `92` commits, adds public `constraint-analysis` plus hidden test pass `remove-start`, and leaves the default optimization scheduler unchanged;
-- the v131 audit reopened `optimize-instructions`, `memory-packing`, `remove-unused-module-elements`, `directize`, `heap2local`, and the shared `inlining` / `inlining-optimizing` engine; the represented/direct surfaces for the first five are now reclosed, while deferred inlining breadth remains explicitly separate from the current scheduler integration;
-- `pick-load-signs` and the later targeted owner reviews remain closed unless new v131 evidence meets their dossier reopening criteria;
-- the live `main` changelog and pass-specific current-main reads are now the drift watch for anything beyond `version_131`;
-- detailed pass pages may still stay anchored to `version_129`, `version_130`, or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
+The following v131 context is retained as historical evidence:
 
 The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel `atomic.fence`, the JS parser API merge, and the new [`constraint-analysis`](passes/constraint-analysis/index.md) pass; the full tag diff also contains released pass behavior changes beyond the short changelog. Newly refreshed upstream-only routes include open-world [`remove-unused-types`](passes/remove-unused-types/index.md), open-world [`unsubtyping`](passes/unsubtyping/index.md), recursion-safe [`print-boundary`](passes/print-boundary/index.md), non-shared-atomic [`safe-heap`](passes/safe-heap/index.md), and public-type-safe [`merge-j2cl-itables`](passes/merge-j2cl-itables/index.md). Keep this page as the release-horizon anchor, but send exact algorithm questions to the owning dossier and the v131 release-impact audit.
 
@@ -52,14 +57,16 @@ The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel
 - 2026-07-15: Binaryen published `version_131` at tag commit `1f903c14babf829745b421b92ff0f286e93e4209`.
 - 2026-07-18: research note 1573 audited the complete v130-to-v131 range, confirmed the default pass order is unchanged, added the new pass to the tracker, and reopened the six affected Starshine implementation areas. This supersedes v130 for current release-horizon decisions.
 
+- 2026-09-10: the verified v132 tag and exact v131-to-v132 inventory supersede v131 as the comparison baseline; historical pass signoffs retain their original oracle.
+
 ## Source hierarchy
 
 | Layer | Preferred source | What it is good for |
 | --- | --- | --- |
-| Public release baseline | Official GitHub release page for `version_131` | The newest tagged public release horizon. |
+| Public release baseline | Official GitHub release page for `version_132` | The newest tagged public release horizon. |
 | Oracle/security boundary | Official Binaryen commit `1251efb` | The `IRBuilder::makeBrOn` reachable-assertion fix; classify matching older-Binaryen crashes as tool/oracle failures unless a fixed-build replay proves otherwise. |
-| Durable local evidence | research note 1573 plus the official release/compare/changelog URLs below | The retained repo-authored summary, pass-impact classification, and reopening decisions for the latest release. |
-| Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past `version_131` in a way that matters to the docs. |
+| Durable local evidence | research note 1573 plus the official release/compare/changelog URLs below | The retained repo-authored summary, pass-impact classification, and reopening decisions for the historical v131 release; use the v132 upgrade for the current release. |
+| Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past `version_132` in a way that matters to the docs. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
 | Superseded correction | `docs/wiki/binaryen/release-horizon-and-oracles.md` | Provenance for the temporary `version_125` correction; not the current baseline after 0704. |
 | Historical bridge | 2026-06-01 capture (ingested and removed) | Earlier `version_130` bridge; its useful facts are retained by the stronger 2026-06-04 recheck. |
@@ -70,7 +77,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## How to read Binaryen pages
 
-1. **If the question is "what is the latest public Binaryen release?"** use `version_131` and this page.
+1. **If the question is "what is the latest public Binaryen release?"** use `version_132` and this page.
 2. **If the question is "did trunk drift after the latest tag?"** use the official `main` changelog first, then the Chromium mirror as corroboration.
 3. **If the question is "what does this pass actually do?"** use the pass-specific dossier and its raw research notes, not the release-horizon page.
 4. **If the question is "what should I update in the wiki when a new release lands?"** update this page, the top-level catalog, the pass catalog/tracker pages, and any dossier that explicitly names the newest public tag.
@@ -78,11 +85,17 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## Current state
 
-Direct official sources establish `version_131` as the newest public tag. The v131 audit found no default scheduler change, so the no-DWARF 56-slot O4z roster remains current. Starshine's O4z scheduler now locks those 56 slots and appends `strip-debug`; lower public levels and nested reruns are generated from the same level- and feature-aware scheduler rather than inheriting the O4z list.
+Version 132 is the comparison and research baseline. The current release inventory
+and source-derived work are in [version-132-upgrade.md](version-132-upgrade.md).
+Keep detailed pass dossiers anchored to their actually reviewed source tags until
+they are re-audited. A newer comparison target is not proof of new optimizer or
+proposal support, nor does it invalidate historical measured v131 results.
 
-The key wiki-maintenance consequence is that `version_131` is the public release baseline, but it does **not** force every detailed pass dossier to pretend it has been re-audited. Keep older source anchors explicit until a dedicated v131 read exists. Current-main findings already captured before the release—such as `memory-packing` imported overlap, open-world `unsubtyping`, recursive-safe `print-boundary`, and toolchain inline hints—should now be relabeled as released v131 behavior rather than post-v130 drift.
-
-The local `wasm-opt` on `PATH` reported `version_116` on 2026-07-18. V131 parity evidence must use an explicit verified official v131 binary through `--wasm-opt-bin`; bare PATH resolution is not a valid oracle for this baseline.
+Use `.tmp/binaryen-version_132/bin/wasm-opt` or another explicitly verified v132
+binary. CI and performance sweeps require v132; compare-pass defaults to requiring
+132 and supports an explicit historical version for replay. Record the resolved
+path, version and executable hash. Bare PATH resolution is not evidence of the
+correct oracle version.
 
 ## BrOn Assertion And Oracle-Failure Boundary
 

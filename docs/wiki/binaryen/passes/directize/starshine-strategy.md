@@ -36,6 +36,8 @@ related:
 
 # Starshine Strategy For `directize`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Use this page together with the retained 2026-05-05 current-main recheck in [research note 0476](./index.md) and the 2026-04-26 port-readiness digest in [research note 0380](./index.md), which preserve direct tagged and current source/test URLs for the documented contract.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 For the first-slice order and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

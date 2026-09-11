@@ -12,6 +12,8 @@ sources:
 
 # `local-subtyping` fuzzing
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Dedicated family aggregate
 
 Use `local-subtyping-all` for development and closeout. The aggregate records `selected_profile` and samples seven behavior families:
@@ -46,3 +48,17 @@ bun scripts/pass-fuzz-compare.ts --wasm-smith --count 10000 --seed 0x5eed --pass
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --gen-valid-profile local-subtyping-all --out-dir .tmp/pass-fuzz-local-subtyping-v131-closeout-profile-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures --no-reduce-mismatches
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass local-subtyping --gen-valid-profile random-all-profiles --out-dir .tmp/pass-fuzz-local-subtyping-audit-random-all-10000-v2 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures --no-reduce-mismatches
 ```
+
+## Binaryen 132 descriptor renewal
+
+`binaryen132-descriptor-branches` covers both branch polarities, exactness,
+nullable targets, null descriptors and unreachable sources. Seed bit 5 adds the
+v132 non-nullable-local regression: a descriptor block traps while producing a
+reference, and local-subtyping must retain the uninhabitable `(ref none)` result.
+The bounded [generator tests](../../../../../src/validate/gen_valid_descriptor_branches_wbtest.mbt)
+and [pass tests](../../../../../src/passes/binaryen132_descriptor_test.mbt) also
+check extra label payloads and operand calls. A label payload is borrowed from
+the surrounding stack and must not be evaluated again by a branch replacement.
+A reachable branch out of the descriptor-producing block prevents a false
+nonreturning proof. External execution is unavailable for this proposal; record
+structural validation separately when renewing the dedicated 10,000-case lane.

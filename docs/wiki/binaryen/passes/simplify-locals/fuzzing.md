@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-20
+last_reviewed: 2026-09-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -13,6 +13,44 @@ sources:
 ---
 
 # SimplifyLocals family fuzzing profiles
+
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## Inserted control and call ordering — 2026-09-11
+
+`simplify-locals-all` now includes `dae2-locals` at weight one. Its new variants
+expose a later parameter write moving before an earlier conditional call and a
+conditional call moving across an exported-global write. A third variant derives
+a pointer from an allocation result before writing its header; it detects a
+definition sunk across an older read stored in a later root. They supplement the
+35 source-owned family rows with compiler-derived composition cases. Direct
+lowering, public pass and command regressions accompany the observable fixtures
+in [the runtime lane](../../../../../scripts/test/binaryen132-lifetime-runtime.ts).
+Native `766c3e35…` passes 10,000/10,000 `dae2-locals` execution, validation,
+determinism and codec checks. The 6,717 output residuals include 4,201 equal-size
+cases; an unused lowering scratch declaration is a parity gap, not a measured
+win. A red-first declaration-count regression and suffix-only compaction address
+that family. Follow-up review identifies the derived-pointer family's adjacent
+lowered `local.set`/`local.get` as an equal-size gap: two removed nops merely
+cancel the extra local access bytes. A red-first regression now folds that
+adjacent pair to `local.tee` after lowering, preserving the allocation's position
+and local assignment. Full aggregate renewal remains required; see the
+[upgrade status](../../version-132-upgrade.md).
+
+## Binaryen 132 tuple capture regression — 2026-09-11
+
+The renewed `dae2` GenValid aggregate includes private three-result producers,
+overlapping lane copy-backs and an observable call counter. Composing DAE2 with
+SimplifyLocals exposed a whole-tuple substitution into a scalar read: the reduced
+module called its producer three times and returned 207858 instead of one call
+and 204567. Scalar local substitution and adjacent-read inlining now require a
+single-result source. The captured producer remains shared while ordinary scalar
+copy cleanup proceeds. Adjacent tests in `simplify_locals_wbtest.mbt` and
+`dead_argument_elimination2_wbtest.mbt` count the producer/consumer calls; the
+[independent runtime check](../../../../../scripts/test/binaryen132-lifetime-runtime.ts)
+also checks values and effects. All 24 independent lifetime comparisons pass
+on fresh native `c447149a…`; the 10,000-case aggregate renewals are running;
+this does not close the older size/shape gaps below.
 
 ## Tail-call nonfallthrough resultification — 2026-08-20
 

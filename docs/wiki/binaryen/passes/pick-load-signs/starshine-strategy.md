@@ -23,6 +23,8 @@ related:
 
 # Starshine strategy for `pick-load-signs`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Status
 
 `pick-load-signs` is an active hot/function pass and is closed at Binaryen-v131-or-better behavior parity.

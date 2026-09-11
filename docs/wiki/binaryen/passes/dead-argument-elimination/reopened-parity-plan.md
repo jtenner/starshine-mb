@@ -22,6 +22,8 @@ related:
 
 # Reopened Binaryen-v131 DAE and DAEO parity plan
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Release note
 
 The repository currently labels the active release line as `v0.1.1`, while the requested product goal is the initial `0.1.0` release. This plan does not change package versions. It treats the work below as blocking the next unpublished initial `0.1.x` release until the release number is resolved separately.

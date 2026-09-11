@@ -30,6 +30,8 @@ related:
 
 # Upstream implementation structure and test map for `remove-unused-module-elements`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Why this page exists
 
 The old RUME folder had the high-level idea, but it did not have one compact page answering these practical questions together:

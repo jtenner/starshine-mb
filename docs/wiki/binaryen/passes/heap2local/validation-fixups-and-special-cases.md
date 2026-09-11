@@ -17,6 +17,8 @@ related:
 
 # `heap2local` validation fixups and special cases
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page covers the part of `heap2local` that is easiest to misunderstand. The older source map still explains the core repair families, while v131 adds the correctness-critical per-allocation analysis reset and unreachable-flow bailout described below. The owner/test/code map lives at [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 This page focuses on:

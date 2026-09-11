@@ -28,6 +28,8 @@ related:
 
 # `inlining`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Status
 
 Starshine's plain `inlining` pass is supported at Binaryen `version_131` behavior parity for the represented direct-inliner surface. The July 19, 2026 audit accounts for every v131 transform and policy family in `Inlining.cpp`:

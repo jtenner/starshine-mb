@@ -24,6 +24,8 @@ related:
 
 # `remove-unused`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Role
 
 - `remove-unused` is **not** a current public Binaryen pass name. The 2026-06-02 v130/current-main spelling recheck established the modern roster, and the complete v130-to-v131 registration audit found no reintroduction.

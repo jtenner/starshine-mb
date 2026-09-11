@@ -19,6 +19,8 @@ related:
 
 # Binaryen `unsubtyping` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 Use Binaryen `version_129` for the original detailed relation-fixed-point walkthrough and `version_131` for the released world-policy contract. The v131 owner and open-world fixture supersede the earlier trunk-only admission wording.

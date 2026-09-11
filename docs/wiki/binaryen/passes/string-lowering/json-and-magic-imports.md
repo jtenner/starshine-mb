@@ -16,6 +16,8 @@ related:
 
 # `string-lowering`: JSON custom sections and magic imports
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page covers the most non-obvious part of Binaryen `string-lowering`: how literal payloads survive after defining string globals stop being real `StringConst` initializers.
 For Starshine implementation sequencing, especially the split between default JSON, magic imports, and assert mode, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

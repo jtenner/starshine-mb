@@ -11,6 +11,8 @@ sources:
 
 # `merge-blocks` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-28 shared-context performance renewal
 
 Final native SHA-256 `fe5b224539b5bb7c31d3dd0e0efd92693cac6a162a9ac2979bea4624ee8201b1` completed the required matrix:

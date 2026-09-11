@@ -20,6 +20,8 @@ related:
 
 # `remove-unused-types`: closed-world visibility and private-group rewrite rules
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page covers the part of `remove-unused-types` that is easiest to misunderstand.
 Binaryen v131 preserves this public/private rebuild model and releases the world-mode distinction: closed world anchors directly exposed reachable groups, while open world also protects identity-sensitive subtype/exposure closure.
 

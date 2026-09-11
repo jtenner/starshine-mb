@@ -10,6 +10,29 @@ sources:
 
 # `vacuum` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 11 Binaryen 132 continuation renewal
+
+Vacuum removes an unused `cont.new` only when its function reference is
+nonnullable. It retains effectful operand evaluation, nullable allocation traps,
+and `cont.bind`, which consumes continuation state. Focused core/HOT and command
+tests cover these distinctions; continuation WAST text grammar remains an older
+interface boundary.
+
+Native `91301a24…` completes 10,000 `dae2-continuations` comparisons with exact
+canonical matches and zero validation, generator, command or property failures.
+All continuation runtime checks remain explicitly unsupported. The ordinary
+`vacuum` aggregate completes another 10,000 cases with 10,000 runtime matches,
+7,830 canonical matches and 2,170 smaller outputs. The smaller families remove
+one or two `nop`s in otherwise empty helper functions, saving 3,250 raw and
+canonical bytes in aggregate. All 20 retained mismatch artifacts differ only by
+these no-effect instructions. This is an agent-classified size win based on the
+instruction contract and inspected differences, not merely successful validation.
+Both campaigns pass all 10,000 determinism and codec checks. See the
+[upgrade ledger](../../../raw/binaryen/2026-09-10-v132-validation.json) and
+`.tmp/binaryen132-renew22-campaigns/vacuum-all/agent-classification.json`.
+
 ## Generic dropped parents and result control — 2026-09-01
 
 A source-led probe of Binaryen v131's generic `optimize(...)` helper exposed a direct parity gap: Starshine retained removable parents such as `i32.add` when one or more children had calls or traps. Vacuum now recursively strips only removable ordinary value wrappers, preserves nonremovable children as ordered drops, and retains Binaryen's defaultable-result bailout for multiple children. Paired boundaries cover two calls, one call plus a pure sibling, one call plus a trapping division, nested unary/binary wrappers, effectful `select`, and a nondefaultable reference-result `select` that must remain. A former SIMD-tee preservation test was corrected after direct v131 comparison proved the intended output is `local.set` plus the later observed read, with the shuffle shell removed.

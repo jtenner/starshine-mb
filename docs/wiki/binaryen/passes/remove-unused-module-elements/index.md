@@ -28,6 +28,8 @@ related:
 
 # `remove-unused-module-elements`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Binaryen v131 status
 
 Direct Binaryen v131 behavior parity is **closed after renewed correctness verification on 2026-07-27 and the composite-`ref.func` repair on 2026-08-21**. The earlier review found that tail direct calls bypassed special-import liveness and that configureAll used a non-stack-exact expression accumulator. The later repair closes nested function-index liveness in extended-const typed elem expressions: runtime-used composite payloads recursively contribute every embedded `ref.func`, while declaration-only indivisible expressions retain sibling function indices without retaining unrelated entries. Red-first focused evidence, native/wasm-gc tests and builds, deterministic CI fuzz suites, the explicit-v131 matrix, composite external validation/runtime, four independent high-risk singleton lanes, and fresh performance evidence are green or fully classified. The second early optimize/shrink slot remains scheduled after `global-struct-inference`. Exact evidence is recorded in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).

@@ -18,6 +18,8 @@ related:
 
 # `simplify-locals` Effect Ordering And Barriers
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 The v131 renewal did not weaken this barrier model. New direct carrier rewrites are limited to inert prefixes, exact adjacent ownership, dead later reads, and either dupable values or a structured producer whose whole result is forwarded; focused branch-exit and nondefaultable-local tests guard those boundaries.
 
 ## Why This Page Exists

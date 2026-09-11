@@ -20,6 +20,8 @@ related:
 
 # Binaryen `optimize-instructions` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 This page's explanatory strategy prose was originally written against Binaryen `version_129` and remains useful for the broad pass model. For release-gating work, use Binaryen `version_131`. The 2026-07-19 refresh closes the representable v131 changes to equal-input `ref.eq`, identical-arm `select`, idempotent parent/child effect ordering, and directional trap/effect movement. The acquire/release-specific global-effects fixture remains blocked on ordered memory-atomic representation, not deferred optimizer logic.

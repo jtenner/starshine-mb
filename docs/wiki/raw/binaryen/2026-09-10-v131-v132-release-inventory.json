@@ -1,0 +1,1470 @@
+{
+  "baseline": {
+    "tag": "version_131",
+    "commit": "1f903c14babf829745b421b92ff0f286e93e4209"
+  },
+  "target": {
+    "tag": "version_132",
+    "commit": "79dfe6b412a3c22bfdb190ed6a4d79adf734db5d"
+  },
+  "starshine_review_commit": "7a58886305102c0575949cefc790a3678c0be292",
+  "starshine_upgrade_start_commit": "a1d2f889528ee0d17724e91bea92e133d8dd14b1",
+  "commits": [
+    {
+      "commit": "74c39b9bc3e518e1af327f33b9afb4c2ae38c4db",
+      "pr": 8900,
+      "subject": "ConstraintAnalysis: Sort constraints internally (#8900)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8900"
+    },
+    {
+      "commit": "1377e422f5210a4d75a76c1e2c6f5941a1004a70",
+      "pr": 8912,
+      "subject": "ConstraintAnalysis: Remove older redundant constraints (#8912)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8912"
+    },
+    {
+      "commit": "64e066e9ed2b32cd5852e544d90606ed47474867",
+      "pr": 8903,
+      "subject": "Remove unused results in DAE2 (#8903)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8903"
+    },
+    {
+      "commit": "ebd74547228cffaf20e5609e600e40cdcce7ed61",
+      "pr": 8915,
+      "subject": "[cmake] Simplify C++ standard enforcement using target_compile_features (#8915)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8915"
+    },
+    {
+      "commit": "17ed400b7b0c8c738bbd4ddf7208af4f8df9f475",
+      "pr": 8918,
+      "subject": "[test] Improve run_example_tests. NFC (#8918)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8918"
+    },
+    {
+      "commit": "acfdce94eae7c3ab365a659e4451dc0d7467d87f",
+      "pr": 8916,
+      "subject": "[support] ParentIndexIterator: Add subscript and friend plus operators (#8916)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8916"
+    },
+    {
+      "commit": "9563498db90252316b04164884f2c4f66d254cb9",
+      "pr": 8914,
+      "subject": "Update DAE_STATS to handle results (#8914)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8914"
+    },
+    {
+      "commit": "04bed6a0f86d4bd9d16aecd3b9337a406448658d",
+      "pr": 8913,
+      "subject": "ConstraintAnalysis: Return a bool from approximateOr (#8913)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8913"
+    },
+    {
+      "commit": "e273451a2cda8acf2875ba84417f9c45b7c979e3",
+      "pr": 8919,
+      "subject": "[NFC] ConstraintAnalysis: Avoid a copy when there are no interesting branch constraints (#8919)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8919"
+    },
+    {
+      "commit": "74ff1eb9cc8393f16854014667e540a3ba883b97",
+      "pr": 8922,
+      "subject": "Cleanup shared constants. NFC (#8922)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8922"
+    },
+    {
+      "commit": "c7ae8fbdd09831c607625f9541c0e9301763548a",
+      "pr": 8920,
+      "subject": "wasm-ctor-eval: Do not try to flatten segments with huge offsets (#8920)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8920"
+    },
+    {
+      "commit": "108e796b9b0450e30f510a2f86974f6d4809e600",
+      "pr": 8921,
+      "subject": "ConstraintAnalysis: Track relevant locals (#8921)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8921"
+    },
+    {
+      "commit": "acf302c4ea3b3b36b3e2e0892a9f6be25d2ea04c",
+      "pr": 8923,
+      "subject": "[multibyte] Support offset and align for array load and store (#8923)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8923"
+    },
+    {
+      "commit": "cdf3bfc51cbaaf784999c267cb33e09cb188007e",
+      "pr": 8874,
+      "subject": "Fix type updating for indirect call effects (#8874)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8874"
+    },
+    {
+      "commit": "355863c2168e3cc11bf3cf3644985d2f4487dd89",
+      "pr": 8930,
+      "subject": "Re-enable fuzzing for relaxed atomics (#8930)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8930"
+    },
+    {
+      "commit": "a54b20b51a6182d4b5728b6f8b94005fb00fccbf",
+      "pr": 8924,
+      "subject": "ConstraintAnalysis: Add inequality comparisons to constants (#8924)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8924"
+    },
+    {
+      "commit": "e88a1b545f30b8e8ef7c9d1beeda70d5534c3077",
+      "pr": 8929,
+      "subject": "[multibyte] Expand array load and store validation (#8929)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8929"
+    },
+    {
+      "commit": "bbeae83f84559bae4d5bfd5207a23dfbbb6495c5",
+      "pr": 8931,
+      "subject": "[NFC] Track grammar of definitions in parser (#8931)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8931"
+    },
+    {
+      "commit": "0a7b1713b9e17be07d4239af069e6005065edaf2",
+      "pr": 8672,
+      "subject": "Updated waitqueue support (#8672)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8672"
+    },
+    {
+      "commit": "87da91d0d94807335a00ff8c6d651b9747c3318b",
+      "pr": 8936,
+      "subject": "ConstraintAnalysis: Add OR fusing of { x == C || x > C } => x >= C (#8936)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8936"
+    },
+    {
+      "commit": "2e035664a74d90f6a5365d6461e23488481bb72a",
+      "pr": 8925,
+      "subject": "Parse text format for compact import sections (#8925)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8925"
+    },
+    {
+      "commit": "ad13059866f26f7ece55fd754f6196c90b0d5faa",
+      "pr": 8937,
+      "subject": "ConstraintAnalysis: Add AND fusing of { x <= C && x < C } => x < C  (#8937)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8937"
+    },
+    {
+      "commit": "51db22337dea271c580414c39f6fe02398a533e7",
+      "pr": 8926,
+      "subject": "Opportunisticly emit compact imports (#8926)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8926"
+    },
+    {
+      "commit": "84529ec807ced4e7db3fc4bff8d517ca20d59759",
+      "pr": 8935,
+      "subject": "Fuzzer support for br_on_cast_desc_eq (#8935)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8935"
+    },
+    {
+      "commit": "0c633e76d977ad82f475254ae690a1002e9b87f6",
+      "pr": 8941,
+      "subject": "Remove deprecated instruction mneumonics (#8941)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8941"
+    },
+    {
+      "commit": "55dff6b2430aee4fee7e5cf748af07222b079742",
+      "pr": 8942,
+      "subject": "Remove use of std::aligned_storage. NFC (#8942)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8942"
+    },
+    {
+      "commit": "a57023617dbcba31727211d312cec8835602894a",
+      "pr": 8938,
+      "subject": "[multibyte] Disable multibyte load/store until interpreter is ready. (#8938)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8938"
+    },
+    {
+      "commit": "bbfbb2531cdf32fb65b8e3754e440f687df00767",
+      "pr": 8948,
+      "subject": "Fix unreachable br_on_cast parse bug (#8948)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8948"
+    },
+    {
+      "commit": "15bd4f0602725b4c63546686cbb9fae51a83396d",
+      "pr": 8951,
+      "subject": "[JS API] Expose BinaryenStringConst (#8951)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8951"
+    },
+    {
+      "commit": "e336c23bb32ec63e8e2ba4913e131f9582de6f02",
+      "pr": 8952,
+      "subject": "Update ruff to v0.16.0 (#8952)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8952"
+    },
+    {
+      "commit": "0430c35a1e311020996865129c9fd0958ed90bb8",
+      "pr": 8944,
+      "subject": "Fix binary spans on wrapper blocks in IRBuilder (#8944)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8944"
+    },
+    {
+      "commit": "ecb3d997e8810d560248518e27738fa8ffafcc4b",
+      "pr": 8946,
+      "subject": "[NFC] Add file-level comments to IRBuilder (#8946)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8946"
+    },
+    {
+      "commit": "a9791003a3632e7e80dc73fa6b253816f1079343",
+      "pr": 8763,
+      "subject": "[wasm2c] Add the very beginning of a wasm2c implementation and test harness (#8763)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8763"
+    },
+    {
+      "commit": "16272bac649b8f93682cebd0cd7fce6e3834c286",
+      "pr": 8956,
+      "subject": "Fix determinism bug when mapping type names (#8956)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8956"
+    },
+    {
+      "commit": "26d46edccf594f4cb22b4897407157f95e4aa4a5",
+      "pr": 8953,
+      "subject": "Add a MakeSharedObjects pass (#8953)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8953"
+    },
+    {
+      "commit": "d78c2455f33ef13a57840eb480e7843db246d332",
+      "pr": 8959,
+      "subject": "[wasm2c] Only run clang-tidy-diff on files that are compiled (#8959)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8959"
+    },
+    {
+      "commit": "9c108679d63bef60a44b1e21d3b2ee6bc3747f57",
+      "pr": 8955,
+      "subject": "ConstraintAnalysis: Add more simple inequalities (#8955)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8955"
+    },
+    {
+      "commit": "b8f91600f5476f7e65e8b5f5a445face9b262b6c",
+      "pr": 8954,
+      "subject": "[JS API] Merge `Module['readBinaryWithFeatures']` into `Module['readBinary']` (#8954)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8954"
+    },
+    {
+      "commit": "33abc59a3ba7eb86149b7d019d51cb820b13e63b",
+      "pr": 8961,
+      "subject": "Fix alignment in relaxed atomics spec test (#8961)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8961"
+    },
+    {
+      "commit": "8e444fc6f5cfc59d22ecc02be5ea17d9cb86290f",
+      "pr": 8963,
+      "subject": "ConstraintAnalysis: Add missing unsigned cases (#8963)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8963"
+    },
+    {
+      "commit": "fc8f31cfe291cb7a7305cd845de6b68708046f2c",
+      "pr": 8967,
+      "subject": "[Relaxed SIMD] Fix validation and fuzzer handling (#8967)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8967"
+    },
+    {
+      "commit": "e821d1759676e6402ba9359c01871a909c24fb13",
+      "pr": 8972,
+      "subject": "Remove unused variables. NFC (#8972)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8972"
+    },
+    {
+      "commit": "b97310a2f0c5db3ae30e5e52d4430d3e82acfd56",
+      "pr": 8973,
+      "subject": "Add BYN_WARN_UNUSED macro and apply to Name and IString (#8973)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8973"
+    },
+    {
+      "commit": "a0463cbeae1e06434caadc2866ad538b21936095",
+      "pr": 8974,
+      "subject": "Fix ReFinalize in MakeSharedObjects (#8974)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8974"
+    },
+    {
+      "commit": "042f47fd01a27c3a866fe69cd6d76b60d919685e",
+      "pr": 8977,
+      "subject": "Consistent header guards. NFC (#8977)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8977"
+    },
+    {
+      "commit": "e27398d8e52a01e6cf1b5b5c91d1aabdb76d960c",
+      "pr": 8969,
+      "subject": "ConstraintAnalysis: Increment constants (#8969)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8969"
+    },
+    {
+      "commit": "f1b0e46c248cb136095d88d6db9f3b62eca38844",
+      "pr": 8970,
+      "subject": "Fix untaken BrOn branch analysis (#8970)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8970"
+    },
+    {
+      "commit": "ab7d0f5965f2e38c62db2c3aada18e208102273e",
+      "pr": 8982,
+      "subject": "Rename relaxed-atomics to acquire-release-atomics (#8982)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8982"
+    },
+    {
+      "commit": "efe5df1714bd4c01f6de19d12c908759e720dc55",
+      "pr": 8975,
+      "subject": "[CustomDescriptors] Ensure a non-nullable type for br_on_cast_desc_eq on null (#8975)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8975"
+    },
+    {
+      "commit": "6906bf011c45d647b4d2876943eafaab069d2c90",
+      "pr": 8980,
+      "subject": "ConstraintAnalysis: Optimize loops (#8980)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8980"
+    },
+    {
+      "commit": "b3e9b4fbe69de607832498869b4ab8e57300c996",
+      "pr": 8971,
+      "subject": "Fix inplace_vector test on 32-bit (#8971)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8971"
+    },
+    {
+      "commit": "302396a676433152a32375a81d71e74687c97a1b",
+      "pr": 8987,
+      "subject": "Fuzzing: Prioritize RefCast (#8987)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8987"
+    },
+    {
+      "commit": "86a7c4c7cc5151052ffbec5384ea3c9dcbe12067",
+      "pr": 8983,
+      "subject": "Add relaxed-atomics feature flag (#8983)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8983"
+    },
+    {
+      "commit": "d8c6b2abe35ef09be794f310d54d419a39fe8b6d",
+      "pr": 8984,
+      "subject": "Add a \"relaxed\" memory order (#8984)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8984"
+    },
+    {
+      "commit": "2a03c015ee53f1dd6e1de842a04099f9e8360ffc",
+      "pr": 8989,
+      "subject": "Generate more descriptor types in the fuzzer (#8989)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8989"
+    },
+    {
+      "commit": "23b17a19c86f0b941f162e4a6546cd7ad6d62fc2",
+      "pr": 8993,
+      "subject": "Add Abstract::flipRelational (#8993)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8993"
+    },
+    {
+      "commit": "37f9eb33befdc0d77632344757fec7a62a605e0a",
+      "pr": 8988,
+      "subject": "ConstraintAnalysis: Handle cases with extra constraints (#8988)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8988"
+    },
+    {
+      "commit": "7c4c160281aa04df0165d6a29549161af80dc221",
+      "pr": 8995,
+      "subject": "Do not fuzz relaxed-atomics on V8 yet (#8995)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8995"
+    },
+    {
+      "commit": "79dfe6b412a3c22bfdb190ed6a4d79adf734db5d",
+      "pr": 8997,
+      "subject": "Version 132 (#8997)",
+      "url": "https://github.com/WebAssembly/binaryen/pull/8997"
+    }
+  ],
+  "files": [
+    {
+      "path": ".gitignore",
+      "added": "1",
+      "removed": "0"
+    },
+    {
+      "path": ".gitmodules",
+      "added": "6",
+      "removed": "0"
+    },
+    {
+      "path": ".ruff.toml",
+      "added": "32",
+      "removed": "27"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "added": "11",
+      "removed": "2"
+    },
+    {
+      "path": "CMakeLists.txt",
+      "added": "5",
+      "removed": "13"
+    },
+    {
+      "path": "check.py",
+      "added": "21",
+      "removed": "11"
+    },
+    {
+      "path": "requirements-dev.txt",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "scripts/bundle_clusterfuzz.py",
+      "added": "6",
+      "removed": "4"
+    },
+    {
+      "path": "scripts/clang-tidy-diff.sh",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "scripts/clusterfuzz/run.py",
+      "added": "3",
+      "removed": "2"
+    },
+    {
+      "path": "scripts/fuzz_opt.py",
+      "added": "18",
+      "removed": "15"
+    },
+    {
+      "path": "scripts/fuzz_relooper.py",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "scripts/gen-s-parser.py",
+      "added": "3",
+      "removed": "7"
+    },
+    {
+      "path": "scripts/test/generate_atomic_spec_test.py",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "scripts/test/shared.py",
+      "added": "3",
+      "removed": "0"
+    },
+    {
+      "path": "scripts/test/wasm2c.py",
+      "added": "67",
+      "removed": "0"
+    },
+    {
+      "path": "src/asmjs/shared-constants.cpp",
+      "added": "0",
+      "removed": "21"
+    },
+    {
+      "path": "src/asmjs/shared-constants.h",
+      "added": "0",
+      "removed": "21"
+    },
+    {
+      "path": "src/binaryen-c.cpp",
+      "added": "14",
+      "removed": "2"
+    },
+    {
+      "path": "src/binaryen-c.h",
+      "added": "5",
+      "removed": "1"
+    },
+    {
+      "path": "src/cfg/Relooper.cpp",
+      "added": "0",
+      "removed": "1"
+    },
+    {
+      "path": "src/compiler-support.h",
+      "added": "6",
+      "removed": "0"
+    },
+    {
+      "path": "src/gen-s-parser.inc",
+      "added": "59",
+      "removed": "103"
+    },
+    {
+      "path": "src/interpreter/interpreter.cpp",
+      "added": "2",
+      "removed": "1"
+    },
+    {
+      "path": "src/ir/ReFinalize.cpp",
+      "added": "4",
+      "removed": "1"
+    },
+    {
+      "path": "src/ir/abstract.h",
+      "added": "30",
+      "removed": "0"
+    },
+    {
+      "path": "src/ir/child-typer.h",
+      "added": "14",
+      "removed": "17"
+    },
+    {
+      "path": "src/ir/constraint.cpp",
+      "added": "378",
+      "removed": "43"
+    },
+    {
+      "path": "src/ir/constraint.h",
+      "added": "52",
+      "removed": "3"
+    },
+    {
+      "path": "src/ir/cost.h",
+      "added": "5",
+      "removed": "3"
+    },
+    {
+      "path": "src/ir/effects.h",
+      "added": "15",
+      "removed": "13"
+    },
+    {
+      "path": "src/ir/features.h",
+      "added": "2",
+      "removed": "1"
+    },
+    {
+      "path": "src/ir/match.h",
+      "added": "19",
+      "removed": "0"
+    },
+    {
+      "path": "src/ir/memory-utils.cpp",
+      "added": "10",
+      "removed": "3"
+    },
+    {
+      "path": "src/ir/memory-utils.h",
+      "added": "4",
+      "removed": "0"
+    },
+    {
+      "path": "src/ir/module-utils.cpp",
+      "added": "0",
+      "removed": "1"
+    },
+    {
+      "path": "src/ir/possible-constant.h",
+      "added": "0",
+      "removed": "3"
+    },
+    {
+      "path": "src/ir/possible-contents.cpp",
+      "added": "2",
+      "removed": "2"
+    },
+    {
+      "path": "src/ir/properties.cpp",
+      "added": "4",
+      "removed": "1"
+    },
+    {
+      "path": "src/ir/subtype-exprs.h",
+      "added": "2",
+      "removed": "1"
+    },
+    {
+      "path": "src/ir/table-utils.h",
+      "added": "5",
+      "removed": "0"
+    },
+    {
+      "path": "src/ir/type-updating.cpp",
+      "added": "108",
+      "removed": "48"
+    },
+    {
+      "path": "src/js/binaryen.js-post.js",
+      "added": "20",
+      "removed": "16"
+    },
+    {
+      "path": "src/literal.h",
+      "added": "1",
+      "removed": "0"
+    },
+    {
+      "path": "src/parser/context-decls.cpp",
+      "added": "19",
+      "removed": "12"
+    },
+    {
+      "path": "src/parser/context-defs.cpp",
+      "added": "4",
+      "removed": "2"
+    },
+    {
+      "path": "src/parser/contexts.h",
+      "added": "91",
+      "removed": "45"
+    },
+    {
+      "path": "src/parser/parse-5-defs.cpp",
+      "added": "7",
+      "removed": "5"
+    },
+    {
+      "path": "src/parser/parsers.h",
+      "added": "149",
+      "removed": "52"
+    },
+    {
+      "path": "src/parser/wat-parser-internal.h",
+      "added": "6",
+      "removed": "5"
+    },
+    {
+      "path": "src/passes/Asyncify.cpp",
+      "added": "15",
+      "removed": "15"
+    },
+    {
+      "path": "src/passes/CMakeLists.txt",
+      "added": "1",
+      "removed": "0"
+    },
+    {
+      "path": "src/passes/ConstraintAnalysis.cpp",
+      "added": "313",
+      "removed": "27"
+    },
+    {
+      "path": "src/passes/DeAlign.cpp",
+      "added": "4",
+      "removed": "0"
+    },
+    {
+      "path": "src/passes/DeadArgumentElimination.cpp",
+      "added": "5",
+      "removed": "2"
+    },
+    {
+      "path": "src/passes/DeadArgumentElimination2.cpp",
+      "added": "555",
+      "removed": "268"
+    },
+    {
+      "path": "src/passes/GenerateDynCalls.cpp",
+      "added": "0",
+      "removed": "1"
+    },
+    {
+      "path": "src/passes/GlobalEffects.cpp",
+      "added": "8",
+      "removed": "6"
+    },
+    {
+      "path": "src/passes/InstrumentBranchHints.cpp",
+      "added": "2",
+      "removed": "2"
+    },
+    {
+      "path": "src/passes/InstrumentLocals.cpp",
+      "added": "15",
+      "removed": "15"
+    },
+    {
+      "path": "src/passes/InstrumentMemory.cpp",
+      "added": "30",
+      "removed": "30"
+    },
+    {
+      "path": "src/passes/LegalizeJSInterface.cpp",
+      "added": "4",
+      "removed": "4"
+    },
+    {
+      "path": "src/passes/LogExecution.cpp",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "src/passes/MakeSharedObjects.cpp",
+      "added": "401",
+      "removed": "0"
+    },
+    {
+      "path": "src/passes/OptimizeInstructions.cpp",
+      "added": "2",
+      "removed": "0"
+    },
+    {
+      "path": "src/passes/Precompute.cpp",
+      "added": "4",
+      "removed": "0"
+    },
+    {
+      "path": "src/passes/Print.cpp",
+      "added": "26",
+      "removed": "8"
+    },
+    {
+      "path": "src/passes/RemoveNonJSOps.cpp",
+      "added": "16",
+      "removed": "0"
+    },
+    {
+      "path": "src/passes/ReorderLocals.cpp",
+      "added": "0",
+      "removed": "1"
+    },
+    {
+      "path": "src/passes/SafeHeap.cpp",
+      "added": "21",
+      "removed": "11"
+    },
+    {
+      "path": "src/passes/TrapMode.cpp",
+      "added": "8",
+      "removed": "4"
+    },
+    {
+      "path": "src/passes/TypeGeneralizing.cpp",
+      "added": "3",
+      "removed": "1"
+    },
+    {
+      "path": "src/passes/call-utils.h",
+      "added": "3",
+      "removed": "3"
+    },
+    {
+      "path": "src/passes/pass.cpp",
+      "added": "8",
+      "removed": "0"
+    },
+    {
+      "path": "src/passes/passes.h",
+      "added": "1",
+      "removed": "0"
+    },
+    {
+      "path": "src/shared-constants.h",
+      "added": "0",
+      "removed": "8"
+    },
+    {
+      "path": "src/support/inplace_vector.h",
+      "added": "17",
+      "removed": "2"
+    },
+    {
+      "path": "src/support/istring.h",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "src/support/name.h",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "src/support/parent_index_iterator.h",
+      "added": "25",
+      "removed": "2"
+    },
+    {
+      "path": "src/support/small_vector.h",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "src/tools/CMakeLists.txt",
+      "added": "1",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/fuzzing/fuzzing.cpp",
+      "added": "26",
+      "removed": "8"
+    },
+    {
+      "path": "src/tools/fuzzing/heap-types.cpp",
+      "added": "17",
+      "removed": "16"
+    },
+    {
+      "path": "src/tools/tool-options.h",
+      "added": "3",
+      "removed": "1"
+    },
+    {
+      "path": "src/tools/wasm-ctor-eval.cpp",
+      "added": "0",
+      "removed": "2"
+    },
+    {
+      "path": "src/tools/wasm-metadce.cpp",
+      "added": "0",
+      "removed": "2"
+    },
+    {
+      "path": "src/tools/wasm-opt.cpp",
+      "added": "0",
+      "removed": "1"
+    },
+    {
+      "path": "src/tools/wasm-shell.cpp",
+      "added": "0",
+      "removed": "3"
+    },
+    {
+      "path": "src/tools/wasm2c/CMakeLists.txt",
+      "added": "15",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/README.md",
+      "added": "722",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/assertion-emitter.cpp",
+      "added": "117",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/assertion-emitter.h",
+      "added": "42",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/c-printer.h",
+      "added": "60",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/prebuilt/wasm2c_atomicops_source_declarations.cpp",
+      "added": "238",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/prebuilt/wasm2c_header_bottom.cpp",
+      "added": "4",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/prebuilt/wasm2c_header_top.cpp",
+      "added": "20",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/prebuilt/wasm2c_simd_source_declarations.cpp",
+      "added": "345",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/prebuilt/wasm2c_source_declarations.cpp",
+      "added": "727",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/prebuilt/wasm2c_source_includes.cpp",
+      "added": "17",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/prebuilt/wasm2c_spec_top.cpp",
+      "added": "504",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm-rt/wasm-rt-exceptions-impl.c",
+      "added": "67",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm-rt/wasm-rt-exceptions.h",
+      "added": "140",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm-rt/wasm-rt-impl-tableops.inc",
+      "added": "85",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm-rt/wasm-rt-impl.c",
+      "added": "399",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm-rt/wasm-rt-impl.h",
+      "added": "69",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm-rt/wasm-rt-mem-impl-helper.inc",
+      "added": "197",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm-rt/wasm-rt-mem-impl.c",
+      "added": "162",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm-rt/wasm-rt.h",
+      "added": "728",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm2c-builder.cpp",
+      "added": "141",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm2c-builder.h",
+      "added": "46",
+      "removed": "0"
+    },
+    {
+      "path": "src/tools/wasm2c/wasm2c.cpp",
+      "added": "143",
+      "removed": "0"
+    },
+    {
+      "path": "src/wasm-annotations.h",
+      "added": "3",
+      "removed": "3"
+    },
+    {
+      "path": "src/wasm-binary.h",
+      "added": "24",
+      "removed": "20"
+    },
+    {
+      "path": "src/wasm-builder.h",
+      "added": "20",
+      "removed": "5"
+    },
+    {
+      "path": "src/wasm-delegations-fields.def",
+      "added": "12",
+      "removed": "5"
+    },
+    {
+      "path": "src/wasm-delegations.def",
+      "added": "2",
+      "removed": "1"
+    },
+    {
+      "path": "src/wasm-features.h",
+      "added": "19",
+      "removed": "9"
+    },
+    {
+      "path": "src/wasm-interpreter.h",
+      "added": "17",
+      "removed": "8"
+    },
+    {
+      "path": "src/wasm-ir-builder.h",
+      "added": "15",
+      "removed": "6"
+    },
+    {
+      "path": "src/wasm-stack.h",
+      "added": "3",
+      "removed": "3"
+    },
+    {
+      "path": "src/wasm-traversal.h",
+      "added": "2",
+      "removed": "1"
+    },
+    {
+      "path": "src/wasm-type.h",
+      "added": "25",
+      "removed": "9"
+    },
+    {
+      "path": "src/wasm.h",
+      "added": "26",
+      "removed": "7"
+    },
+    {
+      "path": "src/wasm/literal.cpp",
+      "added": "73",
+      "removed": "3"
+    },
+    {
+      "path": "src/wasm/wasm-binary.cpp",
+      "added": "207",
+      "removed": "67"
+    },
+    {
+      "path": "src/wasm/wasm-emscripten.cpp",
+      "added": "2",
+      "removed": "0"
+    },
+    {
+      "path": "src/wasm/wasm-ir-builder.cpp",
+      "added": "119",
+      "removed": "58"
+    },
+    {
+      "path": "src/wasm/wasm-stack.cpp",
+      "added": "21",
+      "removed": "11"
+    },
+    {
+      "path": "src/wasm/wasm-type.cpp",
+      "added": "37",
+      "removed": "25"
+    },
+    {
+      "path": "src/wasm/wasm-validator.cpp",
+      "added": "84",
+      "removed": "23"
+    },
+    {
+      "path": "src/wasm/wasm.cpp",
+      "added": "29",
+      "removed": "14"
+    },
+    {
+      "path": "src/wasm2js.h",
+      "added": "5",
+      "removed": "1"
+    },
+    {
+      "path": "test/binaryen.js/gc.js",
+      "added": "5",
+      "removed": "2"
+    },
+    {
+      "path": "test/binaryen.js/gc.js.txt",
+      "added": "3",
+      "removed": "0"
+    },
+    {
+      "path": "test/binaryen.js/kitchen-sink.js",
+      "added": "5",
+      "removed": "4"
+    },
+    {
+      "path": "test/binaryen.js/kitchen-sink.js.txt",
+      "added": "4",
+      "removed": "3"
+    },
+    {
+      "path": "test/example/c-api-kitchen-sink.c",
+      "added": "84",
+      "removed": "3"
+    },
+    {
+      "path": "test/example/c-api-kitchen-sink.txt",
+      "added": "41",
+      "removed": "3"
+    },
+    {
+      "path": "test/gtest/CMakeLists.txt",
+      "added": "3",
+      "removed": "1"
+    },
+    {
+      "path": "test/gtest/abstract.cpp",
+      "added": "98",
+      "removed": "0"
+    },
+    {
+      "path": "test/gtest/constraint.cpp",
+      "added": "441",
+      "removed": "2"
+    },
+    {
+      "path": "test/gtest/inplace_vector.cpp",
+      "added": "40",
+      "removed": "2"
+    },
+    {
+      "path": "test/gtest/matchers/effects.h",
+      "added": "51",
+      "removed": "0"
+    },
+    {
+      "path": "test/gtest/type-domains.cpp",
+      "added": "8",
+      "removed": "0"
+    },
+    {
+      "path": "test/gtest/type-updating.cpp",
+      "added": "235",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/array-multibyte.wast",
+      "added": "307",
+      "removed": "9"
+    },
+    {
+      "path": "test/lit/basic/compact-imports.wast",
+      "added": "91",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/basic/relaxed-atomics.wast",
+      "added": "22",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/basic/unreachable-br-on-cast-desc.wast",
+      "added": "41",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/ctor-eval/memory64-massive.wast",
+      "added": "24",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/d8/fuzz_shell_exceptions.wast",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "test/lit/debug/control-flow-wrappers.test",
+      "added": "73",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/debug/control-flow-wrappers.test.wasm",
+      "added": "-",
+      "removed": "-"
+    },
+    {
+      "path": "test/lit/extern-conversions.wast",
+      "added": "4",
+      "removed": "38"
+    },
+    {
+      "path": "test/lit/fuzz-types.test",
+      "added": "48",
+      "removed": "52"
+    },
+    {
+      "path": "test/lit/help/wasm-as.test",
+      "added": "7",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/help/wasm-ctor-eval.test",
+      "added": "7",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/help/wasm-dis.test",
+      "added": "7",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/help/wasm-emscripten-finalize.test",
+      "added": "7",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/help/wasm-merge.test",
+      "added": "7",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/help/wasm-metadce.test",
+      "added": "12",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/help/wasm-opt.test",
+      "added": "12",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/help/wasm-reduce.test",
+      "added": "7",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/help/wasm-split.test",
+      "added": "7",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/help/wasm2js.test",
+      "added": "12",
+      "removed": "3"
+    },
+    {
+      "path": "test/lit/parse-bad-array-multibyte-memidx.wast",
+      "added": "10",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/constraint-analysis-loops.wast",
+      "added": "786",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/constraint-analysis.wast",
+      "added": "952",
+      "removed": "5"
+    },
+    {
+      "path": "test/lit/passes/dae2-results-cont.wast",
+      "added": "101",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/dae2-results-control-flow.wast",
+      "added": "281",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/dae2-results-cycles.wast",
+      "added": "155",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/dae2-results-indirect.wast",
+      "added": "589",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/dae2-results-intrinsics.wast",
+      "added": "114",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/dae2-results-open-world.wast",
+      "added": "80",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/dae2-results-returns.wast",
+      "added": "389",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/dae2-results.wast",
+      "added": "354",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/dae2.wast",
+      "added": "78",
+      "removed": "135"
+    },
+    {
+      "path": "test/lit/passes/instrument-locals_effects.wast",
+      "added": "66",
+      "removed": "23"
+    },
+    {
+      "path": "test/lit/passes/local-subtyping-desc.wast",
+      "added": "68",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/make-shared-objects.wast",
+      "added": "1446",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/monomorphize-desc.wast",
+      "added": "65",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/safe-heap_enable-threads_enable-simd64_enable-relaxed-atomics.wast",
+      "added": "229",
+      "removed": "229"
+    },
+    {
+      "path": "test/lit/passes/safe-heap_enable-threads_enable-simd_enable-relaxed-atomics.wast",
+      "added": "229",
+      "removed": "229"
+    },
+    {
+      "path": "test/lit/passes/safe-heap_low-memory-unused_enable-threads_enable-simd_enable-relaxed-atomics.wast",
+      "added": "229",
+      "removed": "229"
+    },
+    {
+      "path": "test/lit/passes/simplify-locals-atomic-effects.wast",
+      "added": "1194",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/passes/vacuum-desc.wast",
+      "added": "2",
+      "removed": "2"
+    },
+    {
+      "path": "test/lit/ref-cast-desc.wast",
+      "added": "0",
+      "removed": "62"
+    },
+    {
+      "path": "test/lit/validation/acquire-release-atomics.wast",
+      "added": "21",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/validation/array-multibyte-invalid.wast",
+      "added": "31",
+      "removed": "0"
+    },
+    {
+      "path": "test/lit/validation/relaxed-atomics.wast",
+      "added": "3",
+      "removed": "4"
+    },
+    {
+      "path": "test/lit/validation/waitqueue.wast",
+      "added": "6",
+      "removed": "6"
+    },
+    {
+      "path": "test/lit/waitqueue.wast",
+      "added": "50",
+      "removed": "62"
+    },
+    {
+      "path": "test/lit/wasm2c/minimal.wast",
+      "added": "802",
+      "removed": "0"
+    },
+    {
+      "path": "test/passes/dwarf-local-order.bin.txt",
+      "added": "76",
+      "removed": "76"
+    },
+    {
+      "path": "test/passes/dwarf_with_exceptions.bin.txt",
+      "added": "62",
+      "removed": "62"
+    },
+    {
+      "path": "test/passes/epilogue_begin_dwarf.bin.txt",
+      "added": "1",
+      "removed": "1"
+    },
+    {
+      "path": "test/passes/fannkuch0_dwarf.bin.txt",
+      "added": "1780",
+      "removed": "1780"
+    },
+    {
+      "path": "test/passes/fannkuch3_dwarf.bin.txt",
+      "added": "850",
+      "removed": "850"
+    },
+    {
+      "path": "test/passes/fannkuch3_manyopts_dwarf.bin.txt",
+      "added": "812",
+      "removed": "812"
+    },
+    {
+      "path": "test/passes/fib2_dwarf.bin.txt",
+      "added": "30",
+      "removed": "30"
+    },
+    {
+      "path": "test/passes/fib2_emptylocspan_dwarf.bin.txt",
+      "added": "30",
+      "removed": "30"
+    },
+    {
+      "path": "test/passes/fib_nonzero-low-pc_dwarf.bin.txt",
+      "added": "32",
+      "removed": "32"
+    },
+    {
+      "path": "test/passes/ignore_missing_func_dwarf.bin.txt",
+      "added": "166",
+      "removed": "166"
+    },
+    {
+      "path": "test/passes/inlined_to_start_dwarf.bin.txt",
+      "added": "22",
+      "removed": "22"
+    },
+    {
+      "path": "test/passes/multi_line_table_dwarf.bin.txt",
+      "added": "9",
+      "removed": "9"
+    },
+    {
+      "path": "test/passes/print_g.bin.txt",
+      "added": "78",
+      "removed": "78"
+    },
+    {
+      "path": "test/passes/reverse_dwarf_abbrevs.bin.txt",
+      "added": "841",
+      "removed": "841"
+    },
+    {
+      "path": "test/passes/strip-target-features_roundtrip_print-features_all-features.txt",
+      "added": "2",
+      "removed": "1"
+    },
+    {
+      "path": "test/passes/translate-to-fuzz_all-features_metrics_noprint.txt",
+      "added": "81",
+      "removed": "82"
+    },
+    {
+      "path": "test/spec/relaxed-atomics.wast",
+      "added": "303",
+      "removed": "303"
+    },
+    {
+      "path": "test/spec/waitqueue.wast",
+      "added": "73",
+      "removed": "46"
+    },
+    {
+      "path": "test/unit/input/reference_types_target_feature.wasm",
+      "added": "-",
+      "removed": "-"
+    },
+    {
+      "path": "test/unit/test_compact_imports.py",
+      "added": "73",
+      "removed": "0"
+    },
+    {
+      "path": "test/unit/test_features.py",
+      "added": "2",
+      "removed": "1"
+    },
+    {
+      "path": "test/unit/test_fuzz_preserve.py",
+      "added": "1",
+      "removed": "2"
+    },
+    {
+      "path": "third_party/CMakeLists.txt",
+      "added": "6",
+      "removed": "0"
+    },
+    {
+      "path": "third_party/llvm-project/include/llvm/ADT/FunctionExtras.h",
+      "added": "1",
+      "removed": "2"
+    },
+    {
+      "path": "third_party/picosha2",
+      "added": "1",
+      "removed": "0"
+    },
+    {
+      "path": "third_party/simde",
+      "added": "1",
+      "removed": "0"
+    }
+  ]
+}

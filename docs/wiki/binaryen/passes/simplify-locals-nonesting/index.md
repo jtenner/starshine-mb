@@ -35,6 +35,8 @@ related:
 
 # `simplify-locals-nonesting`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Binaryen-v131 renewal
 
 Closed on 2026-07-27. The refreshed aggregate completed `10000/10000`: `7684` exact matches and `2316` strictly smaller Starshine outputs (`-6..-2` bytes), with zero validation, property, generator, or command failures. Idempotence is `1000/1000`.

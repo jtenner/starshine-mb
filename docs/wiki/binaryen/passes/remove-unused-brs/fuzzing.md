@@ -14,6 +14,8 @@ sources:
 
 # `remove-unused-brs` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-31 shared HOT lower performance renewal
 
 The explicit current native binary compared `10000/10000` regular GenValid cases with `--normalize local-cleanup-debris --normalize unreachable-control-debris`, `--jobs auto`, and `--max-subprocesses 8`: all `10000` are compare-normalized matches, with zero mismatches, validation failures, property failures, generator failures, or command failures. Starshine is canonically smaller in all `10000` cases: `41,528,182` versus Binaryen `42,007,429` bytes. Evidence: `.tmp/pass-fuzz-rub-hot-lower-20260831/`.

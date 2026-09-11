@@ -27,6 +27,8 @@ related:
 
 # `duplicate-import-elimination`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Role and status
 
 `duplicate-import-elimination` is a late module pass that collapses duplicate imported **functions**. Starshine exposes it as an active direct pass, and the 2026-07-28 Binaryen-v131 renewal closes its behavior parity after the legacy-EH and raw-name repairs.

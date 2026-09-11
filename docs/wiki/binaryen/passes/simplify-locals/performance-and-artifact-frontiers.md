@@ -18,6 +18,8 @@ related:
 
 # `simplify-locals` Performance And Artifact Frontiers
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-28 no-tee direct-pass checkpoint
 
 On the canonical production artifact, `simplify-locals-notee` fell from `15,124.449ms` to `906.936ms` pass-local while Binaryen v131 measured `787.321ms`, reducing the pass ratio from `19.06x` to `1.152x`. The command fell from `17,507.965ms` to `2,980.543ms` versus Binaryen `1,284.329ms`. Exact output remains 4,893,604 bytes, SHA-256 `058f0ee1fe372c253f30b5ab7fc23464ce647caeefc86d87b4c0dc1ac941fe27`.

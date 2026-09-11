@@ -12,6 +12,8 @@ sources:
 
 # `heap2local` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-21 packed local-read correctness repair
 
 Native SHA-256 `de2470509283618793ca6103b0e64ce33a5c14c3e67c4fae1436fb3a56b19a67` repairs mutable packed arrays scalarized into i32 locals. The local-owner path previously replaced `array.get`, `array.get_s`, and `array.get_u` uniformly with `local.get`. Because array writes keep the raw i32 producer in the scalar local, signed and unsigned packed reads still require Wasm storage conversion: i8/i16 signed reads now append `i32.extend8_s` / `i32.extend16_s`, while unsigned reads append `& 0xff` / `& 0xffff`. Unpacked value arrays retain the direct local read.

@@ -30,6 +30,8 @@ supersedes:
 
 # `merge-blocks`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-28 artifact-scale command parity
 
 Fresh one-warmup/three-sample baseline medians on the canonical 4,977,401-byte artifact were `11,062.681ms` Starshine command and `33.222ms` pass-local versus Binaryen v131 at `1,196.765ms` and `693.539ms`. Attribution showed the MergeBlocks transform was already much faster than Binaryen. Almost the entire `10,170.084ms` function envelope came from two raw helpers rebuilding `HotModuleContext` from the full module for every one of 11,999 functions: dropped literal multivalue probing cost `8,300.787ms`, and flat call/drop-prefix probing cost `1,683.742ms`.

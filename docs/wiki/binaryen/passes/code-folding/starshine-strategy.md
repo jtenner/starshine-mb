@@ -27,6 +27,8 @@ related:
 
 # Starshine Strategy For `code-folding`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 > **Superseding status (2026-07-19):** direct `code-folding` semantics, external validity, both public-preset slots, and pass-local performance are closed against Binaryen v131. The externally validated four-lane matrix is green for every compared case, the dedicated `code-folding-all` aggregate covers six pass-owned families, and the exact late slot is protected by a focused order test. Final five-run timing medians are `1.70x` Binaryen on the exact-equality candidate fixture and `1.98x` on the large debug artifact, whose Starshine canonical output is `1.35%` smaller. See [`./fuzzing.md`](./fuzzing.md), [`./index.md`](./index.md), and [`../../../log.md`](../../../log.md). Statements below describing an active narrow subset, missing preset slot, or open timing blocker are retained historical audit progression and are superseded by this notice. Remaining neighborhood differences belong to neighboring cleanup shape parity.
 
 Use this page together with the direct `version_129` source list in [`./binaryen-strategy.md`](./binaryen-strategy.md), the retained 2026-05-05 research recheck, the retained 2026-04-25 port-readiness research, the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness ladder in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

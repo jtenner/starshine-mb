@@ -27,6 +27,8 @@ related:
 
 # Starshine HOT-IR Strategy For `remove-unused-brs`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Use this page together with the direct Binaryen `version_131` source/test URLs and the 2026-07-30 closeout evidence cited by the living dossier.
 For the compact strategy overview, see [`./starshine-strategy.md`](./starshine-strategy.md).
 The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives and how the raw-plus-HOT split is wired today.

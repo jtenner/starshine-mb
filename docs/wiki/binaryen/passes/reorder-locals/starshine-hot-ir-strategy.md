@@ -24,6 +24,8 @@ related:
 
 # Starshine module-pass strategy for `reorder-locals`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `ReorderLocals.cpp` contract. For signoff sequencing and the distinction between explicit-pass correctness and preset-readiness, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The 2026-07-12 public-scheduling update keeps the current policy explicit: the standalone module pass is active, and public `optimize` / `shrink` now schedule the Binaryen-shaped three-slot cleanup story that the repo already had ordered-neighborhood evidence for. The early one-slot reconciliation note [`0709`](./index.md) is now superseded for live preset state by [`1561`](./index.md).

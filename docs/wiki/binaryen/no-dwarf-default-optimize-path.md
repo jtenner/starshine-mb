@@ -17,6 +17,8 @@ related:
 
 # Binaryen No-DWARF Default Optimize Path
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Durable Conclusions
 
 - For Binaryen v131, `-O` / `-O2` use `optimizeLevel=2, shrinkLevel=0`; `-Os` uses `(2, 1)`; and `-Oz` uses `(2, 2)`. Starshine accepts the same literal `-Os` / `-Oz` spellings; its `--optimize` and `--shrink` shortcuts resolve to O2 and Oz respectively.
@@ -27,7 +29,7 @@ related:
 - The MoonBit debug artifact at `tests/node/dist/starshine-debug-wasi.wasm` has a `name` section but no `.debug_*` sections, so Binaryen takes the unrestricted no-DWARF path.
 - Feature gates matter. The observed artifact enables the GC-, multivalue-, and string-gated passes that appear in the real pathway.
 - A `2026-04-09` source review found the open-world no-DWARF `-O` / `-Os` path for this artifact unchanged between the archived `version_125` note and upstream `version_129`.
-- The public Binaryen release horizon is now `version_131`. The v130-to-v131 `pass.cpp` diff changes only pass registration (`constraint-analysis` and hidden `remove-start`), so the default no-DWARF optimization order and the 56-slot O4z roster are unchanged.
+- The public Binaryen release horizon is now `version_132`. The v130-to-v131 `pass.cpp` diff changes only pass registration (`constraint-analysis` and hidden `remove-start`), so the default no-DWARF optimization order and the 56-slot O4z roster are unchanged.
 
 ## Canonical Full Top-Level Shape
 
@@ -98,10 +100,10 @@ The JSON-AS `strip-debug` investigation established two durable boundaries. Dire
 ## Current Project Rule
 
 - Keep this pathway as the main orientation page for Binaryen optimize parity.
-- Use Binaryen `version_131` as the upstream release baseline for new pass research; research note 1573 supersedes v130 for current release decisions while preserving older pass-specific source anchors as historical evidence.
+- Use Binaryen `version_132` as the upstream release baseline for new pass research; research note 1573 supersedes v130 for current release decisions while preserving older pass-specific source anchors as historical evidence.
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
-- The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_131` release baseline and the release-horizon note first.
+- The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_132` release baseline and the release-horizon note first.
 - On 2026-07-18, bare `wasm-opt --version` resolved to TinyGo's `version_116`. Current v131 evidence must pass an explicit verified official v131 binary through `--wasm-opt-bin`.
 - Earlier command-based evidence tied to `version_125`, `version_129`, or `version_130` remains historical until rerun against the explicit v131 oracle when the owning pass changed.
 - The post-SGO late-tail neighborhood `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` is directly oracle-proven for v0.1.0 scheduling purposes: the 10k ordered-neighborhood fuzz lane is green, same-input RUME comparisons are canonical-green on both SGO-side artifact inputs, and the remaining debug-artifact first diff is inherited SGO representation/function-layout drift feeding RUME before the later string/reorder/directize tail changes anything. Public `optimize` and `shrink` now append this accepted suffix; see [research note 0571](./passes/late-pipeline-dispatch.md) and [research note 0572](./passes/late-pipeline-dispatch.md).

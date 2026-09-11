@@ -23,6 +23,8 @@ related:
 
 # `once-reduction` Binaryen parity
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Durable conclusions
 
 - Binaryen `version_130` `once-reduction` is a module-level once-bit plus direct-call optimization pass, not a generic repeated-call eliminator.

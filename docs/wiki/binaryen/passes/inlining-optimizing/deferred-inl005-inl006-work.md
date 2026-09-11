@@ -1,5 +1,7 @@
 # INL005 / INL006 Closeout And Shared-Metadata Boundaries
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Last updated: 2026-07-19.
 
 This page supersedes the former v0.2.0 deferral. The Binaryen v131 inlining-family audit implemented `[INL]005`, closed the pass-owned portions of `[INL]006`, and removed the former EH tail-hoisting boundary.

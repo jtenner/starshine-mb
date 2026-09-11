@@ -31,6 +31,8 @@ related:
 
 # Starshine `precompute` strategy today
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page describes the **current in-tree Starshine implementation** against the maintained Binaryen `version_131` contract. The detailed historical algorithm reading began at `version_129`; focused v130/current-main review found no behavior-bearing drift, and the 2026-07-26 explicit-v131 renewal is recorded in the shared research note. For the validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Short version

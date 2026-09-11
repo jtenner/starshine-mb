@@ -17,6 +17,8 @@ related:
 
 # `merge-locals` WAT shapes
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the beginner-friendly shape catalog for upstream Binaryen `merge-locals`.
 Examples are intentionally small and conceptual; exact final WAT can differ after later cleanup. Starshine now covers these released-v131 orientation, control, type, rollback, and unreachable families; decoded legacy `Try` uses a narrower region-local bridge described in [`starshine-strategy.md`](starshine-strategy.md).
 

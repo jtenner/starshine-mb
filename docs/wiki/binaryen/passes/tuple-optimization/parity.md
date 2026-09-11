@@ -22,6 +22,8 @@ related:
 
 # `tuple-optimization` Binaryen Parity
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Durable Conclusions
 
 - The 2026-09-01 fail-closed raw candidate classifier preserves exact production output while skipping scalar-only functions before HOT lift. Regular explicit-v131 GenValid is `10000/10000` canonical-equal; the dedicated 10,000-case spill/tee/copy profile remains the established uniformly smaller pure/drop-only scalar-spelling Starshine-win family. The canonical command median is `897.562ms` versus Binaryen v131 `501.621ms`, closing `[P0-WALL-TUPLE]` under the `<=1.053s` absolute gate.

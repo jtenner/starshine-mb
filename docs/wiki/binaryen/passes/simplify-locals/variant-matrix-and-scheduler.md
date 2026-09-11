@@ -15,6 +15,8 @@ related:
 
 # Binaryen `simplify-locals` variant matrix and scheduler
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Binaryen-v131 renewal verdict
 
 The public five-name matrix and scheduler placements are unchanged in v131. The 2026-07-27 Starshine renewal reran every canonical aggregate and idempotence lane; no variant produced a validation failure, semantic mismatch, or output larger than Binaryen. See [`./fuzzing.md`](./fuzzing.md) for the refreshed counts.

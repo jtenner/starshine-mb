@@ -17,6 +17,8 @@ related:
 
 # `print-boundary` Validation Status
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Current Status: Planned Only
 
 Do **not** run or advertise `bun fuzz compare-pass --pass print-boundary` as current evidence. `print-boundary` is absent from the harness `SUPPORTED_PASS_FLAGS` list and has no Starshine registry/dispatcher implementation. The harness would reject the flag before generating a module or invoking either tool.

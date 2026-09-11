@@ -24,6 +24,8 @@ related:
 
 # Binaryen pass: `asyncify`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Binaryen v131 note
 
 V131's Asyncify owner stops pre-escaping user list names before matching them against internal `Name` values. Exact names and wildcard patterns now use the corrected internal representation, and missing-name/nonmatching-pattern diagnostics quote the user spelling directly. This is an upstream-only dossier refresh; Starshine still has no Asyncify pass.

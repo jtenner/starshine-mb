@@ -14,6 +14,8 @@ sources:
 
 # `reorder-locals` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Dedicated GenValid aggregate: `reorder-locals-all`. It selects among ten transform-family leaves:
 
 - `reorder-locals-hot-sort` for high-index hot locals, unequal repeated access counts, parameter stability, and tee coverage;

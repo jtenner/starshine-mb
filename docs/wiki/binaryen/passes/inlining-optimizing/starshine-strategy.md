@@ -19,6 +19,8 @@ related:
 
 # Starshine Strategy For `inlining-optimizing`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Current status
 
 `inlining-optimizing` is an active, supported module pass. Its direct engine is the same v131-aligned engine documented for plain [`inlining`](../inlining/starshine-strategy.md). Optimizing mode adds touched-function cleanup in Binaryen's v131 order.

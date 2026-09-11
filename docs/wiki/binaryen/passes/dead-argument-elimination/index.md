@@ -29,6 +29,17 @@ related:
 
 # `dead-argument-elimination`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## Binaryen 132 update
+
+The normal DAE release change adds removed-result statistics; its optimization
+algorithm does not change. Upstream DAE2 is a distinct parameter/result usage
+fixed-point solver and remains absent from Starshine's registry. It must not be
+exposed as an alias for ordinary DAE. The [upgrade contract](../../version-132-upgrade.md)
+tracks DAE2 result tuples, cycles, open-world/reference restrictions and required
+post-tag indirect-tail-call correction #8994 separately from this implementation.
+
 ## August 28, 2026 final absolute-time reduction
 
 Fresh medians on the canonical 4,977,401-byte module were `2,132.324ms` Starshine pass-local and `3,321.786ms` command versus Binaryen v131 at `451.903ms` and `1,051.796ms`. The remaining time was not one monolithic DAE core: boundary analysis rebuilt call facts after already collecting them, uniform-actual resolution rescanned stable callers and recomputed forwarded parameter facts, cycle admission ran one DFS per candidate, every dropped-result wave rescanned all definitions, and the atomic fallback performed a second full-module validation.

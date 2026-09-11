@@ -19,9 +19,11 @@ related:
 
 # Binaryen `inlining` Strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Source rule
 
-Use Binaryen `version_129` for the original detailed inliner walkthrough and `version_131` for the released toolchain policy. V131 gives `toolchainInlineHint` an exact `@binaryen.inline` WAT/binary producer and consumes it before generic full-inline profitability. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
+Use Binaryen `version_129` for the original detailed inliner walkthrough and `version_131` for the source review of compilation-hint policy introduced there. New comparisons use `version_132`; the release delta does not change the inlining owner. V131 gives `toolchainInlineHint` an exact `@binaryen.inline` WAT/binary producer and consumes it before generic full-inline profitability. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
 
 Primary upstream URLs:
 

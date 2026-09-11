@@ -24,6 +24,8 @@ related:
 
 # `remove-unused-brs` Pattern Catalog
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the exhaustive rewrite inventory for the current tree.
 
 - If a helper mutates control structure for RUB, it should appear here.
@@ -37,7 +39,7 @@ This page is the exhaustive rewrite inventory for the current tree.
 - "Preserve" means the pass recognized the family but intentionally left it alone.
 - Test names below refer to focused regressions in [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt) unless a perf or CLI file is named explicitly.
 
-The `[O4Z-AUDIT-RUB-A]` source-refresh matrix in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md#rub-a-version_131-behavior-matrix) is the current Binaryen `version_131` phase-to-Starshine coverage map. This catalog remains the exhaustive **current Starshine** inventory. The absorbed RUB-R-through-W notes leave these maintained contracts:
+The `[O4Z-AUDIT-RUB-A]` source-refresh matrix in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md#rub-a-version_131-behavior-matrix) records the Binaryen `version_131` phase-to-Starshine coverage audit. This catalog remains the exhaustive **current Starshine** inventory. The absorbed RUB-R-through-W notes leave these maintained contracts:
 
 - `remove_unused_brs_prune_dead_suffix_after_nonfallthrough(...)` intentionally deletes side-effect-free dead block/unreachable shells after branch/table cleanup, while preserving result suffixes required after void structured terminals in result-typed functions;
 - exact `v128.const` payloads are reorder-safe for the same-target value-`br_table` collapse, eliminating the former raw-size residue;

@@ -32,13 +32,15 @@ related:
 
 # Pass Fuzz Compare Harness
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Overview
 
 `bun fuzz compare-pass` is Starshine's pass-local optimizer correctness and Binaryen oracle lane. Use it when an optimizer pass changes semantics, scheduler placement, supported syntax, or pass registry wiring. It is deliberately separate from `bun fuzz run`: ordinary fuzz suites prove Starshine's generators and validators keep working, while compare-pass can now prove independent Starshine properties before asking whether one or more Starshine pass flags produce the same normalized output as Binaryen.
 
 The oracle ladder is explicit and non-interchangeable: input validation; optional `semantic:self` execution of original input versus Starshine output; Starshine internal/external output validity; codec stability; fresh-run optimizer determinism; optimizer idempotence when requested; then `semantic:binaryen` runtime smoke and normalized Binaryen comparison. A green self-semantic result does not excuse unexplained Binaryen drift, and a normalized Binaryen match does not replace before/after execution.
 
-This workflow is grounded in the Binaryen and `wasm-tools` projects, the WebAssembly validation specification, and the local script/test sources listed below. `wasm-smith` generated inputs remain independently validated before comparison. The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) adds a concrete tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while the current public `version_131` baseline is after the fix. On 2026-07-18 bare `wasm-opt` resolved to TinyGo's Binaryen v116, so v131 evidence must pass an explicit verified official binary with `--wasm-opt-bin`. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
+This workflow is grounded in the Binaryen and `wasm-tools` projects, the WebAssembly validation specification, and the local script/test sources listed below. `wasm-smith` generated inputs remain independently validated before comparison. The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) adds a concrete tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while both the former `version_131` baseline and current `version_132` target include the fix. On 2026-07-18 bare `wasm-opt` resolved to TinyGo's Binaryen v116, so v131 evidence must pass an explicit verified official binary with `--wasm-opt-bin`. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
 
 Beginner mental model:
 
@@ -123,6 +125,21 @@ Binaryen oracle path note: release evidence must state the exact `--wasm-opt-bin
 
 Native binary path note: Starshine's current native-release policy is to pass `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. Both `_build/...` and older `target/native/...` artifacts can exist in a worktree; existence alone does not prove freshness. Do not use `target/native/release/build/cmd/cmd.exe` for signoff unless its timestamp or hash proves it is the same freshly built executable. This is local artifact policy, not a generic MoonBit CLI output-path guarantee; see [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md), and the harness implementation.
 
+## Proposal validation oracle
+
+The required validator defaults to `wasm-tools`. `--primary-validator binaryen`
+selects the verified `--wasm-opt-bin` for both input and output validation when an
+upstream draft is ahead of wasm-tools. This is an explicit comparison-oracle
+check, not independent validation. Results and toolchain records preserve the
+choice, and resume rejects a changed validator choice. Optional external
+validators and runtime execution remain separate checks.
+
+Binaryen 132's Relaxed order byte 2 is one such boundary: installed wasm-tools
+1.251 and the inspected 1.258 decoder accept only orders 0/1. The
+[release intake](../binaryen/version-132-upgrade.md) records structural checks and
+runtime-unverified coverage separately. Default validation rejections remain failure records;
+there is no automatic fallback or success-on-unsupported path.
+
 ## Input Generators
 
 Compare-pass lanes are intentionally split by generator. The default is a GenValid-only lane; run wasm-smith only by passing `--wasm-smith` for a separate external-generator lane. The legacy `--generator wasm-smith|gen-valid` spelling remains accepted, but the harness no longer has a mixed alternating generator mode.
@@ -144,7 +161,7 @@ Compare-pass uses a persistent cache by default at `.tmp/pass-fuzz-cache`; overr
 - Binaryen oracle results are stored under `binaryen/schema-v1/wasm-opt-<tool-hash>/passes-<pass-hash>/input-<input-sha>/` with `binaryen.raw.wasm`, canonical `binaryen.wasm`, printed `binaryen.wat`, and a completion marker. The key includes the input bytes, Binaryen tool identity, and normalized Binaryen pass flags.
 - Deterministic Binaryen/canonicalization command failures are cached as `failure.json` for the same input/tool/pass tuple, so repeated lanes do not spend time reproducing the same oracle failure before counting it as a command failure.
 
-Observation-v2 reports use a separate `semantic-v2` cache keyed by raw original/Starshine/Binaryen bytes, seed, policy, observation mode, timeout, memory/table caps, runtime version, and Binaryen diagnostic state. `result.json` records `semanticHits` and `semanticMisses` alongside the wasm-smith and Binaryen counters. Cache hits still validate inputs and regenerate Starshine outputs; Starshine outputs themselves are never cached.
+Observation-v2 reports use a separate `semantic-v2` cache keyed by raw original/Starshine/Binaryen bytes, seed, policy, observation mode, timeout, memory/table caps, runtime version, execution-contract revision, and Binaryen diagnostic state. The September 132 revision invalidates reports made with the old `call.without.effects` import stub; the adapter now invokes the target reference without inventing an import event. Start a new output directory when changing the execution contract rather than resuming historical case records. `result.json` records `semanticHits` and `semanticMisses` alongside the wasm-smith and Binaryen counters. Cache hits still validate inputs and regenerate Starshine outputs; Starshine outputs themselves are never cached.
 
 ## Interrupted-Run Resume
 
@@ -324,7 +341,6 @@ The version 2 runtime, semantic-idempotence/convergence, commutator, emitted Gen
 - Shared gates: [`validation-gates.md`](validation-gates.md), [`fuzz-runner.md`](fuzz-runner.md)
 - Pass queues and oracle context: [`../binaryen/passes/tracker.md`](../binaryen/passes/tracker.md), [`../binaryen/no-dwarf-default-optimize-path.md`](../binaryen/no-dwarf-default-optimize-path.md)
 
-
 ### Explicit Node execution and timeout cleanup
 
 The `node-v2` oracle runs each observation in an explicit `node` child process,
@@ -354,3 +370,18 @@ Blocked originals remain incomplete evidence.
 Sources: `scripts/lib/optimizer-runtime-executor.ts`,
 `scripts/lib/optimizer-runtime-v2-worker.ts`, and
 `scripts/lib/optimizer-runtime-executor.test.ts`.
+
+### Semantic resume identity
+
+`node-v2` cache entries and `toolchain.json` include the intrinsic-call execution
+contract, Node process adapter version, and installed Node version. A resumed run
+must use the same semantic mode and contract; missing or older node-v2 contracts
+require a fresh output directory. This check runs before generation or reuse of
+completed journal rows. See
+[`optimizer-semantic-cache.ts`](../../../scripts/lib/optimizer-semantic-cache.ts)
+and [`the resume regression`](../../../scripts/lib/pass-fuzz-compare-task.test.ts).
+
+Use `--runtime-timeout-ms 10000` for the new DAE2, constraint and proposal
+campaigns. Preserve timed-out observations as incomplete evidence. Changing the
+budget or passing structural checks never turns a timeout into successful runtime
+verification. See the [upgrade ledger](../raw/binaryen/2026-09-10-v132-validation.json).

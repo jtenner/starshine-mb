@@ -20,6 +20,8 @@ related:
 
 # Binaryen `inlining-optimizing` Strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Source rule
 
 Use Binaryen `version_129` for the original detailed suffix walkthrough and `version_131` for the released shared-inliner policy. V131 consumes function-level `@binaryen.inline` `NeverInline` (`"\00"`) / `AlwaysInline` (`"\7f"`) before generic full-inline profitability. The owner is shared `src/passes/Inlining.cpp`; the unique optimizing suffix remains in `src/passes/opt-utils.h`.

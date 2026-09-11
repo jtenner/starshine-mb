@@ -33,6 +33,8 @@ related:
 
 # Binaryen-v131 original DAE source-case map
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This is the active source-to-Starshine map for the original `dead-argument-elimination` engine and its `dae-optimizing` wrapper. It excludes `dae2.wast`: `dae2` is a different experimental pass and is not evidence for this engine.
 
 ## Status vocabulary

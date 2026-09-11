@@ -18,6 +18,8 @@ related:
 
 # Binaryen `optimize-added-constants` Strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 - Use Binaryen `version_131` as the repo-wide release baseline for new research; this page's detailed implementation notes remain anchored to the reviewed `version_129` source set and later current-main recheck until a behavior-specific v131 reread replaces them.

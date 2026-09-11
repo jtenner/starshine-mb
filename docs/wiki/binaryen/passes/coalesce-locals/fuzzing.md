@@ -12,6 +12,8 @@ sources:
 
 # `coalesce-locals` Fuzzing Profile
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## 2026-08-27 bit-matrix and control-summary renewal
 
 Final native SHA-256 `02bdbe741b1be767422f41ed40bc90ee93878f0dd4ec670edccaff454d4e457a` replaces dense interference/hazard booleans with a triangular `BitSet`, copy weights with sparse weighted adjacency, duplicate coloring candidates with stable exact-order deduplication, and recursive dense-tee fallthrough queries with one-visit branch-depth/escape summaries.

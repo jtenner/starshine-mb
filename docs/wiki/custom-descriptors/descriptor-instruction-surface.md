@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-09-10
 sources:
   - https://github.com/WebAssembly/proposals
   - https://raw.githubusercontent.com/WebAssembly/custom-descriptors/main/proposals/custom-descriptors/Overview.md
@@ -40,11 +40,24 @@ Use this page when a fixture, validator change, generator change, or pass touche
 
 - allocation forms: `struct.new_desc` and `struct.new_default_desc`;
 - descriptor retrieval: `ref.get_desc`;
+- descriptor branches: `br_on_cast_desc_eq` and `br_on_cast_desc_eq_fail`;
 - descriptor-aware reference predicate/cast forms: `ref.test_desc`, `ref.test_desc_null`, `ref.cast_desc_eq`, and `ref.cast_desc_eq_null`.
 
 The concept is easiest to learn in two steps. First, a **described struct** points at a **descriptor struct** through type metadata. Second, descriptor-specific instructions preserve the exact relationship between those two structs so a runtime cannot allocate or cast a described base type with a descriptor belonging to an incompatible subtype.
 
-The retained primary evidence is the custom-descriptors proposal, its `ref.get_desc` bottom-input issue and V8 fix, and the current Starshine WAST/core/binary/validator/generator sources cited below. Keep the feature-status caveat visible: **Custom Descriptors is still an active Phase-3 proposal, not stable Core WebAssembly 3.0.** Starshine implements a useful local/proposal-shaped instruction subset, while broader JS prototype behavior and branch descriptor-cast forms remain undocumented local support.
+The retained primary evidence is the custom-descriptors proposal, its `ref.get_desc` bottom-input issue and V8 fix, and the current Starshine WAST/core/binary/validator/generator sources cited below. Keep the feature-status caveat visible: **Custom Descriptors is still an active Phase-3 proposal, not stable Core WebAssembly 3.0.** Starshine implements a useful local/proposal-shaped instruction subset, while broader JS prototype behavior remains outside this instruction contract.
+
+## Binaryen 132 branch update
+
+The September 10 implementation supersedes the earlier branch-text gap.
+[`binaryen132_descriptor_test.mbt`](../../../src/wast/binaryen132_descriptor_test.mbt)
+checks both branch spellings, label resolution, exact/nullable annotations and
+text roundtrips. The validator now preserves exactness when checking branch
+labels and fallthrough types; the regression formerly rejected a Binaryen-valid
+exact target. [`gen_valid_descriptor_branches.mbt`](../../../src/validate/gen_valid_descriptor_branches.mbt)
+varies polarity, exactness, nullability and bottom/unreachable inputs. Runtime
+support and optimizer refinement are tracked separately in the
+[132 upgrade](../binaryen/version-132-upgrade.md).
 
 ## Beginner Mental Model
 
@@ -88,7 +101,7 @@ Ordinary `struct.new` is intentionally not enough for descriptor-bearing structs
 | `ref.get_desc $T` | Yes | Yes | reference-or-bottom compatible with `$T` | non-null descriptor ref; exact iff operand is exact/bottom | Immediate names the described type `$T`, not the descriptor type. |
 | `ref.test_desc[_null] ht` | Yes | Yes | concrete reference operand | `i32` | Predicate form: no stack-polymorphic bottom shortcut in reachable code; target and operand must be descriptor-compatible. |
 | `ref.cast_desc_eq[_null] ht` | Yes | Yes | reference-or-bottom operand | target reference type | Trapping/refining cast form: accepts unreachable bottom, otherwise checks descriptor compatibility. |
-| Proposal branch descriptor casts | No documented Starshine WAST/core support | No focused local evidence | N/A | N/A | Do not infer support from non-branch `ref.cast_desc_eq` or from Binaryen descriptor-cast pass docs. |
+| `br_on_cast_desc_eq[_fail] label source target` | Yes | Yes | reference operand, then descriptor operand | branch/fallthrough reference types from the two annotations | Preserves nullable and exact annotations; target must have a descriptor type. |
 
 For ordinary official `ref.test` / `ref.cast` and `br_on_*`, use [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md). For ordinary GC struct and array instructions, use [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md). Descriptor instructions are a proposal/local lane with stricter descriptor metadata and exactness rules.
 

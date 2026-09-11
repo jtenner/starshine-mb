@@ -15,6 +15,8 @@ related:
 
 # `pick-load-signs`: implementation structure and tests
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the compact source-confirmed map for Binaryen `version_131` `pick-load-signs`.
 
 Its main job is to answer two practical questions:

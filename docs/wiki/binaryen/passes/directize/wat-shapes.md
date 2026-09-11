@@ -15,6 +15,8 @@ related:
 
 # `directize` WAT shapes
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 A focused 2026-05-05 current-`main` source bridge now confirms no teaching-relevant shape drift in `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, or the dedicated `directize*` lit files.
 The 2026-04-26 Starshine port-readiness bridge maps these shapes into the local validation ladder in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

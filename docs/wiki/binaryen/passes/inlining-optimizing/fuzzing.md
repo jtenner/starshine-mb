@@ -14,6 +14,8 @@ related:
 
 # `inlining-optimizing` fuzzing and performance
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Current official-v131 closeout
 
 The August 12 guarded-large-module refresh uses native SHA-256 `04c07833321cb6b6013f3ae2cbba4dc692ea802ff6f5a04810b2640120768c10` and the same explicit verified Binaryen v131 oracle. The dedicated `inlining-optimizing-all` lane at `.tmp/pass-fuzz-inlining-optimizing-v131-onecaller4-10000-20260812` compares and normalizes `10000/10000`, with zero mismatches and zero validation/property/generator/command failures. Binaryen cache is `9984` hits / `16` misses. This directly refreshes the pass after the O4z-only 286+-definition call/bulk-memory fallback admitted shrinking-trivial helpers, the default two-instruction always-inline class, and one-caller helpers through four instructions; the generated aggregate remains exact because its direct modules do not require the production guard.

@@ -19,6 +19,8 @@ related:
 
 # Starshine validation for `merge-similar-functions`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Implemented surface
 
 The former removed/boundary-only plan is complete. Starshine has an active module owner, registry entry, dispatcher arm, focused tests, dedicated GenValid profiles, compare-pass support, and O4z portfolio integration.

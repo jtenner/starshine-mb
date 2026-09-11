@@ -38,6 +38,8 @@ related:
 
 # WAST Code Metadata And Function Annotations
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Overview
 
 Use this page when a fixture, pass, or CLI policy mentions `(@...)`, `@metadata.code.inline`, v131 `@binaryen.inline`, `@metadata.code.branch_hint`, `@binaryen.idempotent`, `@binaryen.js.called`, or Starshine's internal no-inline markers. The important split is:

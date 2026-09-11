@@ -26,6 +26,8 @@ related:
 
 # Semantic Optimizer Campaign Components
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Oracle policy
 
 The original module is the primary semantic oracle. A Starshine output is correct only when it preserves the original module's observable behavior under the selected invocation plan and semantic policy. Binaryen remains an independent optimizer and diagnostic oracle; agreement between Starshine and Binaryen cannot excuse disagreement with the original.

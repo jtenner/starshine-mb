@@ -24,6 +24,8 @@ related:
 
 # Starshine `coalesce-locals` port readiness and validation matrix
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the implementation-readiness and validation bridge for the active local `coalesce-locals` pass.
 It does not replace the upstream strategy or shape catalog.
 Instead, it answers: which Starshine surfaces are now active, which placement/artifact caveats remain, and which Binaryen shape families are locked by tests first?

@@ -30,6 +30,8 @@ related:
 
 # Current Starshine `remove-unused-brs` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the local strategy overview for the Binaryen-v131 closeout, the 2026-07-31 condition-evaluation review reclose, and the completed 2026-08-01 performance re-signoff. For the helper walk and raw/HOT wiring, use [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
 
 ## Short version

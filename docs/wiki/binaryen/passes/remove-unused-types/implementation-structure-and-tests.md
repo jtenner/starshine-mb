@@ -17,6 +17,8 @@ related:
 
 # `remove-unused-types`: implementation structure and tests
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page exists because `RemoveUnusedTypes.cpp` is much smaller than the real pass contract.
 Binaryen v131 keeps the wrapper/helper split but releases the corrected interface: the wrapper passes pass-option world mode to `GlobalTypeRewriter`, and a dedicated open-world fixture locks the resulting visibility policy.
 The corrected implementation map is:

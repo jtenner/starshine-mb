@@ -25,6 +25,8 @@ related:
 
 # Current Starshine `heap2local` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the local “what is actually implemented today?” companion to the upstream Binaryen strategy page.
 The 2026-04-25 refresh turns the earlier helper-name map into exact MoonBit line ranges so readers can move quickly from the wiki to the implementation. The source-confirmed owner/test map lives in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 

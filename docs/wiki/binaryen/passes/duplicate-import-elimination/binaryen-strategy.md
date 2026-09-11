@@ -16,6 +16,8 @@ related:
 
 # Binaryen `duplicate-import-elimination` strategy
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Upstream source rule
 
 - Use official Binaryen `version_131` as the current source oracle; see the [2026-07-28 source refresh](../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md).

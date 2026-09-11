@@ -40,6 +40,8 @@ related:
 
 # Upstream implementation structure and test map for `remove-unused-brs`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Why this page exists
 
 The older RUB folder already had many local family pages, but it still lacked one compact source-backed page answering these practical questions together:

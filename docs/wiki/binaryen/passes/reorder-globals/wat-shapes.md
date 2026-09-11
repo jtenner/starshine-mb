@@ -14,6 +14,8 @@ related:
 
 # `reorder-globals` WAT Shapes
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the beginner-friendly shape catalog for Binaryen’s `reorder-globals` pass.
 
 The shape families below were rechecked on 2026-07-29 against official Binaryen `version_131`. The refresh preserved the existing positive, negative, and bailout examples and added the imported-within-prefix family that exposed the Starshine parity repair. For proof ownership, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).

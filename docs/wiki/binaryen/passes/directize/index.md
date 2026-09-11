@@ -28,6 +28,8 @@ related:
 
 # `directize`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Binaryen v131 status
 
 Default direct-pass Binaryen v131 parity is **closed and renewed on 2026-07-30**. Starshine classifies full-width table32/table64 constant targets using sparse element facts plus declared table defaults: segment or `ref.func` targets become direct calls, absent-initializer holes and non-growable out-of-range indexes become traps, explicit non-`ref.func` initializers (including explicit `ref.null`), imported defaults, and `global.get` defaults remain unknown, and element segments override defaults. Select lowering covers known/trap arms and multivalue results; legacy-EH traversal covers protected bodies, typed catches, catch-all, delegates, and `try_table`. Optional `directize-initial-contents-immutable` pass-arg support remains separate.

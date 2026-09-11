@@ -17,6 +17,8 @@ related:
 
 # Implementation structure and test map for `instrument-memory`
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Core upstream implementation files
 
 ## `src/passes/InstrumentMemory.cpp`
@@ -149,7 +151,7 @@ Why this order helps:
 
 ## Release provenance and current-main spot check
 
-The retained 2026-04-24 source review anchors this page's historical `version_129` evidence; the repo-wide public release baseline is `version_131`, while the reviewed implementation map is still grounded in the 2026-07-11 v130/current-main reread.
+The retained 2026-04-24 source review anchors this page's historical `version_129` evidence; the repo-wide public release baseline is `version_132`, while the reviewed implementation map is still grounded in the 2026-07-11 v130/current-main reread.
 
 A focused 2026-07-11 reread of the `version_130` and current-`main` owner, registration, factory, and four dedicated lit fixtures found no behavior-bearing contract drift. It supersedes the 2026-04-26 freshness claim; both rechecks are focused source reads, not full upstream history audits.
 

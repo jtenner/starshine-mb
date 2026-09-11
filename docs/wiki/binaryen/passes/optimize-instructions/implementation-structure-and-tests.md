@@ -19,6 +19,8 @@ related:
 
 # `optimize-instructions`: implementation structure and tests
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 This page is the compact source-confirmed map for Binaryen `optimize-instructions`. Most explanatory prose still comes from the reviewed `version_129` dossier, but the release-gating O4z owner map is now the 2026-06-19 `version_130` source/lit matrix in [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md).
 
 Its main job is to answer two practical questions:

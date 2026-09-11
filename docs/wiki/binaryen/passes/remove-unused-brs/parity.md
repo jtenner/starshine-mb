@@ -27,6 +27,8 @@ related:
 
 # `remove-unused-brs` Binaryen Parity
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 ## Durable Conclusions
 
 - The 2026-07-30 closeout supersedes all earlier open direct and scheduler statements. Against official Binaryen v131, regular `100000`, wasm-smith `10000`, expanded dedicated `10000`, and random-all `10000` have zero Starshine failures and no unclassified size loss. The dedicated residuals are all smaller by `-51852` bytes aggregate; random-all residuals are all smaller by `-3638` bytes. A separate O4z-option direct lane is `6853` canonical byte matches plus `3147` strictly smaller Starshine outputs (`-54270` bytes), with no larger or equal-size-different-byte outputs. The public scheduler exactly matches Binaryen's 56 slots with RUB at indices `13`, `24`, and `39`; `strip-debug` is the documented Starshine-only 57th slot.

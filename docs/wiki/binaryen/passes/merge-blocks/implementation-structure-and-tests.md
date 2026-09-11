@@ -24,6 +24,8 @@ related:
 
 # `merge-blocks` Implementation Structure And Tests
 
+> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
 Use this page to map current upstream owner/test evidence to the active Starshine HOT pass. The 2026-07-11 review corrects an incomplete owner map: Binaryen retains dedicated drop/if/throw visitors while also using generic non-control expression-child extraction for ordinary operands.
 
 ## Upstream Binaryen owner
