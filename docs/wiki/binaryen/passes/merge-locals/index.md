@@ -122,3 +122,19 @@ Reopen for a semantic or validation failure, an uncovered v131 source family, a 
 - Binaryen `version_129` source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeLocals.cpp>
 - Binaryen released-v131 source: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp>
 - Binaryen lit test: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-locals.wast>
+
+## September 2026 nested-branch repair
+
+The JSON reader mismatch came from shared HOT lowering. Wrapping a value in a
+new block must increase only depths that escape that wrapper. The previous
+helper used the same threshold inside every nested block, so it retargeted
+branches that should remain inside their original child region. The helper
+now tracks nesting depth and preserves cast-branch exactness flags.
+
+[`merge_locals_dew_regression_test.mbt`](../../../../../src/passes/merge_locals_dew_regression_test.mbt)
+protects the inner exit after writing seven. The old output returned nine on
+that path; the repaired output returns seven. The positive regression and
+100 HOT lowering checks passed before later independent lift changes; the
+regression remains green in the 1,200-test repair run. JSON reader execution
+now matches in Node and Wago, including the affected late Heap2Local order.
+Broad generated-pass validation remains pending.

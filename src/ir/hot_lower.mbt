@@ -3046,24 +3046,73 @@ fn hot_lower_impl_expand_branch_depths_above_instr(
       Instruction::br_on_non_null(
         hot_lower_impl_expand_branch_depth_above(li, min_depth),
       )
+    BrOnCast(
+      li,
+      @lib.CastOp(source_null, target_null, source_exact, target_exact),
+      source,
+      target
+    ) =>
+      Instruction::br_on_cast(
+        hot_lower_impl_expand_branch_depth_above(li, min_depth),
+        source_null,
+        source,
+        target_null,
+        target,
+        source_exact~,
+        target_exact~,
+      )
+    BrOnCastFail(
+      li,
+      @lib.CastOp(source_null, target_null, source_exact, target_exact),
+      source,
+      target
+    ) =>
+      Instruction::br_on_cast_fail(
+        hot_lower_impl_expand_branch_depth_above(li, min_depth),
+        source_null,
+        source,
+        target_null,
+        target,
+        source_exact~,
+        target_exact~,
+      )
+    BrOnCastDescEq(li, source, target) =>
+      Instruction::br_on_cast_desc_eq(
+        hot_lower_impl_expand_branch_depth_above(li, min_depth),
+        source,
+        target,
+      )
+    BrOnCastDescEqFail(li, source, target) =>
+      Instruction::br_on_cast_desc_eq_fail(
+        hot_lower_impl_expand_branch_depth_above(li, min_depth),
+        source,
+        target,
+      )
     Block(bt, Expr(body)) =>
       Instruction::block(
         bt,
-        Expr::new(hot_lower_impl_expand_branch_depths_above(body, min_depth)),
+        Expr::new(
+          hot_lower_impl_expand_branch_depths_above(body, min_depth + 1),
+        ),
       )
     Loop(bt, Expr(body)) =>
       Instruction::loop_(
         bt,
-        Expr::new(hot_lower_impl_expand_branch_depths_above(body, min_depth)),
+        Expr::new(
+          hot_lower_impl_expand_branch_depths_above(body, min_depth + 1),
+        ),
       )
     If(bt, then_, else_) =>
       Instruction::if_(
         bt,
-        hot_lower_impl_expand_branch_depths_above(then_, min_depth),
+        hot_lower_impl_expand_branch_depths_above(then_, min_depth + 1),
         match else_ {
           Some(else_body) =>
             Some(
-              hot_lower_impl_expand_branch_depths_above(else_body, min_depth),
+              hot_lower_impl_expand_branch_depths_above(
+                else_body,
+                min_depth + 1,
+              ),
             )
           None => None
         },
@@ -3078,7 +3127,9 @@ fn hot_lower_impl_expand_branch_depths_above_instr(
       Instruction::try_table(
         bt,
         shifted_catches,
-        Expr::new(hot_lower_impl_expand_branch_depths_above(body, min_depth)),
+        Expr::new(
+          hot_lower_impl_expand_branch_depths_above(body, min_depth + 1),
+        ),
       )
     }
     _ => instr
@@ -4851,7 +4902,7 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                                     HotLowerOptions::new(),
                                   )
                                   let wrapped_body = hot_lower_impl_expand_branch_depths_above(
-                                    wrapped_body, 1,
+                                    wrapped_body, -1,
                                   )
                                   rewritten.push(
                                     Instruction::block(
