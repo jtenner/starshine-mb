@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-11
 sources:
   - ./index.md
 related:
@@ -350,3 +350,52 @@ Evidence is in Dewdrop `.tmp/starshine-pass-repairs/`:
 `coalesce-tail-tee-native-{red,green,family}.log`,
 `full-replay-regression-wave23/report.json`, `coalesce-loop-stages.json`,
 `array-comparator-wave22/color-groups.json`, and `json-reader-wave23/report.json`.
+
+## Carried control must use emitted source order
+
+The remaining array-comparator fault came from two correct components using
+different instruction orders. The operand-expanded CFG visited a later call's
+local read before a stack-carried result block. HOT lowering emitted the block
+first, as required by Wasm stack order. CoalesceLocals therefore believed that
+two reference locals did not overlap and assigned them the same slot. Lifting
+and ineffective-write cleanup both ran correctly; the output changed behavior
+only after coloring merged original locals 6 and 9.
+
+The source-order dependency selector used by HOT lowering now lives in
+`hot_source_order.mbt`. Lowering and the expanded CFG share its value orders,
+effect masks, local-access cache, and preceding-dependency proof. Before the CFG
+assigns operand nodes to blocks, it inserts the same carried dependencies that
+lowering will emit first. This removes the second, inconsistent order model.
+The default CFG path is unchanged; only `expand_operand_control=true` uses the
+shared facts. CoalesceLocals and Precompute are the two production consumers.
+
+The red-first tests cover both sides of the contract. The IR test requires the
+source local to remain live after the carried block. The pass test executes four
+input values through original and transformed functions, checks both registered
+CoalesceLocals names, and still requires profitable local compaction. Both tests
+failed before the repair and pass after it.
+
+Validation for the rebased repair:
+
+- IR native tests: 398/398.
+- CoalesceLocals native tests: 119/119.
+- Precompute native tests: 179/179.
+- Exact reduced and array-comparator outputs validate and run in Node and Wago.
+- Full Dewdrop wave 25 on remote master `3dc72fd2d`: 961/1000 pass in
+  106.483 seconds, with 39 known failures. It repairs array-comparator O4z,
+  text-hash O4z, and JSON-reader `deep-both-no-shrink` relative to that exact
+  baseline. The five other wave-25 failures also fail with the unchanged
+  remote-baseline binary, so the repair adds no failure in this comparison.
+
+The rebased debug build took 17.717 seconds. In the pre-rebase wave-24
+checkpoint, 20 command-level runs on the exact array-comparator prefix measured
+9.9 +/- 0.8 ms before and 10.4 +/- 0.4 ms after the repair. The 0.5 ms cost buys
+matching CFG/emission order and correct execution; it is not a pipeline speed
+win.
+
+Evidence is in Dewdrop `.tmp/starshine-pass-repairs/`:
+`cfg-carried-control-native-{red,green}.log`,
+`cfg-source-order-{ir,coalesce,precompute}-native.log`,
+`cfg-source-order-array-benchmark.json`, and
+`full-replay-regression-wave25/report.json`. Exact remote-baseline attribution
+is in `remote-baseline-selected/report.json`.

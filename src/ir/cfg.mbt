@@ -59,6 +59,7 @@ priv struct CfgBuilder {
   label_targets : Array[BlockId]
   conservative_exception_entries : Bool
   operand_seen : Array[Bool]?
+  source_order : HotSourceOrderFacts?
   continuation_targets : Array[Array[LabelId]?]
 }
 
@@ -107,6 +108,11 @@ fn cfg_builder_new(
     conservative_exception_entries,
     operand_seen: if expand_operand_control {
       Some(Array::make(hot_node_count(func), false))
+    } else {
+      None
+    },
+    source_order: if expand_operand_control {
+      Some(HotSourceOrderFacts::new(func))
     } else {
       None
     },
@@ -276,13 +282,38 @@ fn cfg_builder_region_segments(
   let root_count = hot_region_root_count(func, region_ref)
   let ordered_nodes : Array[NodeId] = []
   let root_slots : Array[Int] = []
+  let roots : Array[NodeId] = []
+  let suffix_minima = match builder.source_order {
+    Some(facts) => {
+      for slot = 0; slot < root_count; slot = slot + 1 {
+        roots.push(hot_region_get(func, region_ref, slot))
+      }
+      hot_source_order_future_suffix_minima(func, roots, facts)
+    }
+    None => None
+  }
   for slot = 0; slot < root_count; slot = slot + 1 {
     let root_id = hot_region_get(func, region_ref, slot)
     match builder.operand_seen {
-      Some(seen) =>
+      Some(seen) => {
+        let facts = builder.source_order.unwrap()
+        for
+          dependency in hot_source_order_preceding_dependencies(
+            func,
+            root_id,
+            roots,
+            slot + 1,
+            suffix_minima,
+            facts,
+          ) {
+          cfg_builder_collect_operand_nodes(
+            func, dependency, slot, seen, ordered_nodes, root_slots,
+          )
+        }
         cfg_builder_collect_operand_nodes(
           func, root_id, slot, seen, ordered_nodes, root_slots,
         )
+      }
       None => {
         ordered_nodes.push(root_id)
         root_slots.push(slot)
