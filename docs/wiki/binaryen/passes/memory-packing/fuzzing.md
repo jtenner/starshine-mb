@@ -13,6 +13,55 @@ sources:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## September 12, 2026 size-parity follow-up
+
+The 2,021 constant-passive-copy gaps from the initial repair below are now
+normalized matches. Their 54,567-byte canonical cost is eliminated. The same
+verified v132 aggregate was rerun with the fresh indexed-analysis native CLI:
+
+```sh
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass memory-packing --gen-valid-profile memory-packing-all --out-dir .tmp/mp-size-fast-10000 --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --gen-valid-bin _build/native/release/build/fuzz/fuzz.exe --require-binaryen-version 132 --max-failures 20000 --keep-going-after-command-failures --no-reduce-mismatches
+```
+
+Results: 10,000 requested/compared, 7,288 normalized matches, zero cleanup
+normalizations, and 2,712 remaining differences. Validation, generator,
+property, and command failures: zero. Binaryen cache: 10,000 hits / zero
+misses; other cache hit/miss counters: zero. Twenty mismatch bundles retained,
+2,692 suppressed. Selected subprofile counts are unchanged from the prior run.
+
+Agent classifications: 1,382 active zero-length checks remain smaller
+correctness wins (-8,292 bytes versus v132); 1,330 dynamic Memory64 checks
+remain correctness wins with a size cost (+57,190 bytes) because removing
+complete destination preflight recreates observed partial writes before traps.
+The latter cost fell from 57 to 43 bytes per case. All 2,021 constant passive
+copies now match; no size-only parity gap from this investigation remains.
+
+Raw totals: Starshine 601,960 / Binaryen 551,138 bytes; smaller/equal/larger
+5,940/2,021/2,039. Canonical totals: 600,036 / 551,138 bytes;
+1,382/7,288/1,330. Both Starshine totals fall 73,187 bytes from the initial
+repair's final run. This is a canonical comparison, not execution of 10,000
+modules; [runtime regressions](../../../../../scripts/test/optimizer-correctness-runtime.ts)
+separately validate and execute original/output modules and compare observable
+state. The suite now has 133 cases, adding growth-sensitive constants and
+repeated retained-copy/drop calls for both address widths. All 20 previously
+saved cases were also re-optimized and validated, then executed over 120 calls
+per implementation with complete memory observations. Starshine matched every
+original; Binaryen matched 15/20, preserving the known five partial-write
+counterexamples. Fresh replay artifacts: `.tmp/mp-size-fast-runtime-replay`.
+
+Focused tests: 13 memory-packing helpers, 41 public pass tests, and 320 CLI
+tests passed. The full default `moon test` passed 11,322/11,322 tests. The
+compact-copy regression failed before implementation; all 133 execution
+regressions pass with the final binary. `moon info`, `moon fmt --check`,
+`moon check --target wasm-gc`, README API sync, and CI workflow contract pass.
+`bun fuzz run --suite all --profile ci --target wasm-gc --seed 117260405384703254`
+passes all 14 suites / 100,768 attempts, including WAST roundtrip and validator
+lanes. No public `.mbti` changes.
+
+See [current lifetime/bounds proofs](./segment-op-rewrites-and-traps.md#september-12-correctness-invariants)
+and [serial performance measurements](./parity.md#september-12-size-and-scalability-follow-up).
+
 ## September 12, 2026 correctness repair evidence
 
 The verified Binaryen 132 aggregate command is:
@@ -58,8 +107,9 @@ contains the original 125 cases plus two imported-global alias regressions. It
 also covers active runtime emptiness, zero-byte storage, independent drops,
 omitted/retained ranges, operand effects, and full 4 GiB Memory32 boundaries.
 See [the semantic contract](./segment-op-rewrites-and-traps.md#september-12-correctness-invariants)
-for the arithmetic proof and explicit Binaryen counterexamples. Keep the
-constant-copy size gap open; this repair does not claim complete output parity.
+for the arithmetic proof and explicit Binaryen counterexamples. This initial
+repair left the constant-copy gap open; the size-parity follow-up above closes
+that gap without claiming complete output parity.
 
 
 ## Required ordinary lane

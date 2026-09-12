@@ -11250,3 +11250,41 @@ test "memory-packing dispatcher preserves active runtime source traps" {
     _ => fail("expected one optimized function")
   }
 }
+
+///|
+test "memory-packing dispatcher omits proven constant-copy guards" {
+  let zeros = "\\00".repeat(64)
+  let input = @passes.pass_test_module_from_wat(
+    "(module (memory 1) (data \"A\{zeros}B\") (func (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 66)) (data.drop 0)))",
+  )
+  let writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(_) { Ok(encode_module_bytes(input)) },
+    write_file=fn(_, bytes) {
+      writes.push(bytes)
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      ["--memory-packing", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(err) => fail(err.to_string())
+  }
+  assert_eq(writes.length(), 1)
+  let output = decode_module_bytes(writes[0])
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) => fail(err.to_string())
+  }
+  assert_eq(output.global_sec, None)
+  match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      assert_eq(body.length(), 14)
+    _ => fail("expected one optimized function")
+  }
+}

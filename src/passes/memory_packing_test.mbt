@@ -1383,7 +1383,7 @@ test "memory-packing expands data.drop over passive split survivors" {
 }
 
 ///|
-test "memory-packing adds a lazy drop-state global for fill-first passive replacements" {
+test "memory-packing probes retained lifetime before fill-first passive replacements" {
   let input = @lib.Module::new()
     .with_mem_sec(
       @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
@@ -1415,16 +1415,14 @@ test "memory-packing adds a lazy drop-state global for fill-first passive replac
     )
 
   let optimized = memory_packing_run_module_pass(input)
-  match optimized.global_sec {
-    Some(_) => ()
-    None =>
-      fail("expected fill-first passive replacement to add a drop-state global")
-  }
-  if !mp_test_instrs_have_global_get(mp_test_first_func_body(optimized)) {
-    fail(
-      "expected fill-first passive replacement to check the drop-state global",
-    )
-  }
+  assert_eq(optimized.global_sec, None)
+  let body = mp_test_first_func_body(optimized)
+  assert_eq(body[0:4].to_array(), [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::memory_init(@lib.DataIdx::new(0U), @lib.MemIdx::new(0U)),
+  ])
 }
 
 ///|

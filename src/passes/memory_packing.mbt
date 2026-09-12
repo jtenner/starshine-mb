@@ -1027,123 +1027,84 @@ fn mp_defined_func_param_counts(mod_ : @lib.Module) -> Array[Int] {
 }
 
 ///|
-fn mp_passive_user_scan_instrs(
+fn mp_collect_segment_user_instrs(
   instrs : Array[@lib.Instruction],
-  target : Int,
-) -> MpPassiveUserScan {
-  let mut scan = MpPassiveUserScan::new()
+  scans : Array[MpPassiveUserScan],
+) -> Unit {
+  fn record(idx : @lib.DataIdx, usage : MpPassiveUserScan) -> Unit {
+    let slot = mp_data_idx_slot(idx)
+    if slot >= 0 && slot < scans.length() {
+      scans[slot] = mp_passive_scan_merge(scans[slot], usage)
+    }
+  }
   for i = 0; i < instrs.length(); i = i + 1 {
-    let instr = instrs[i]
-    match instr {
-      @lib.MemoryInit(idx, _) if mp_data_idx_slot(idx) == target => {
-        let has_const_source_size = i >= 2 &&
-          mp_instr_is_i32_const(instrs[i - 2]) &&
-          mp_instr_is_i32_const(instrs[i - 1])
-        scan = mp_passive_scan_merge(
-          scan,
+    match instrs[i] {
+      @lib.MemoryInit(idx, _) =>
+        record(
+          idx,
           MpPassiveUserScan::new(
             has_memory_init=true,
-            all_memory_init_const=has_const_source_size,
+            all_memory_init_const=i >= 2 &&
+              mp_instr_is_i32_const(instrs[i - 2]) &&
+              mp_instr_is_i32_const(instrs[i - 1]),
             memory_init_count=1,
           ),
         )
-      }
-      @lib.DataDrop(idx) if mp_data_idx_slot(idx) == target =>
-        scan = mp_passive_scan_merge(
-          scan,
-          MpPassiveUserScan::new(data_drop_count=1),
-        )
-      @lib.ArrayNewData(_, idx) =>
-        if mp_data_idx_slot(idx) == target {
-          scan = mp_passive_scan_merge(
-            scan,
-            MpPassiveUserScan::new(has_array_data=true),
-          )
-        }
-      @lib.ArrayInitData(_, idx) =>
-        if mp_data_idx_slot(idx) == target {
-          scan = mp_passive_scan_merge(
-            scan,
-            MpPassiveUserScan::new(has_array_data=true),
-          )
-        }
-      @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) => {
-        let @lib.Expr(body_instrs) = body
-        scan = mp_passive_scan_merge(
-          scan,
-          mp_passive_user_scan_instrs(body_instrs, target),
-        )
-      }
+      @lib.DataDrop(idx) =>
+        record(idx, MpPassiveUserScan::new(data_drop_count=1))
+      @lib.ArrayNewData(_, idx) | @lib.ArrayInitData(_, idx) =>
+        record(idx, MpPassiveUserScan::new(has_array_data=true))
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        mp_collect_segment_user_instrs(body, scans)
       @lib.Try(_, @lib.Expr(body), catches, _) => {
-        scan = mp_passive_scan_merge(
-          scan,
-          mp_passive_user_scan_instrs(body, target),
-        )
+        mp_collect_segment_user_instrs(body, scans)
         for catch_ in catches {
-          let catch_body = match catch_ {
-            @lib.LegacyCatch(_, @lib.Expr(catch_body))
-            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          let body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(body))
+            | @lib.LegacyCatchAll(@lib.Expr(body)) => body
           }
-          scan = mp_passive_scan_merge(
-            scan,
-            mp_passive_user_scan_instrs(catch_body, target),
-          )
+          mp_collect_segment_user_instrs(body, scans)
         }
       }
       @lib.If(_, then_body, else_body) => {
-        scan = mp_passive_scan_merge(
-          scan,
-          mp_passive_user_scan_instrs(then_body, target),
-        )
-        match else_body {
-          Some(body) =>
-            scan = mp_passive_scan_merge(
-              scan,
-              mp_passive_user_scan_instrs(body, target),
-            )
-          None => ()
+        mp_collect_segment_user_instrs(then_body, scans)
+        if else_body is Some(body) {
+          mp_collect_segment_user_instrs(body, scans)
         }
       }
       _ => ()
     }
   }
-  scan
 }
 
 ///|
-fn mp_passive_user_scan(mod_ : @lib.Module, target : Int) -> MpPassiveUserScan {
-  let mut scan = MpPassiveUserScan::new()
-  match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
-      for func_ in funcs {
-        let @lib.Func(_, @lib.Expr(instrs)) = func_
-        scan = mp_passive_scan_merge(
-          scan,
-          mp_passive_user_scan_instrs(instrs, target),
-        )
-      }
-    None => ()
+// One complete traversal indexed by original segment, shared by eligibility,
+// split profitability, and active GC-identity checks. Never rescan per segment.
+fn mp_collect_segment_users(
+  mod_ : @lib.Module,
+  count : Int,
+) -> Array[MpPassiveUserScan] {
+  let scans = Array::make(count, MpPassiveUserScan::new())
+  if mod_.code_sec is Some(@lib.CodeSec(funcs)) {
+    for func_ in funcs {
+      let @lib.Func(_, @lib.Expr(body)) = func_
+      mp_collect_segment_user_instrs(body, scans)
+    }
   }
-  scan
-}
-
-///|
-fn mp_passive_can_split(mod_ : @lib.Module, target : Int) -> Bool {
-  let scan = mp_passive_user_scan(mod_, target)
-  scan.has_memory_init && scan.all_memory_init_const && !scan.has_array_data
+  scans
 }
 
 ///|
 fn mp_passive_split_parts(
-  mod_ : @lib.Module,
-  target : Int,
+  scan : MpPassiveUserScan,
   bytes : Bytes,
   first_new_idx : Int,
 ) -> (Array[MpSplitPart], Bool) {
   if bytes.length() == 0 {
     return ([], false)
   }
-  let scan = mp_passive_user_scan(mod_, target)
   let threshold = 2 + scan.memory_init_count * 19 + scan.data_drop_count * 3
   let edge_threshold = scan.memory_init_count * 9
   let edge_merged = mp_collect_ranges(bytes)
@@ -1442,6 +1403,7 @@ fn mp_emit_destination_preflight(
   mem_idx : @lib.MemIdx,
   tmp : @lib.LocalIdx?,
   address_type : MpMemoryAddressType,
+  initial_pages? : UInt64 = 0UL,
 ) -> Unit {
   let constant_offset = match (tmp, dest) {
     (None, @lib.I32Const(@lib.I32(value))) =>
@@ -1462,6 +1424,10 @@ fn mp_emit_destination_preflight(
       1UL << 48
     } else {
       (end_ >> 16) + (if (end_ & 65535UL) == 0UL { 0UL } else { 1UL })
+    }
+    // Memory can grow but cannot shrink below its declared minimum.
+    if pages <= initial_pages {
+      return
     }
     match address_type {
       I32Address => out.push(mp_i32_const(pages.to_int()))
@@ -1544,14 +1510,43 @@ fn mp_append_passive_memory_init_replacement(
   tmp : @lib.LocalIdx?,
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
+  initial_pages? : UInt64 = 0UL,
 ) -> Unit {
   if src_start != 0 || size != 0 {
     match global_idx {
       Some(gi) => mp_emit_drop_state_check(out, gi)
-      None => ()
+      None => {
+        // Every retained part shares the original segment's drop lifetime.
+        // A leading nonempty copy checks it before its first write. Otherwise
+        // probe one-past-zero with length zero: valid live, trapping dropped,
+        // and never a memory mutation (even when memory has zero pages).
+        let starts_with_copy = size > 0 &&
+          plan.split_parts.any(part => {
+            part.start <= src_start && src_start < part.end_
+          })
+        if !starts_with_copy && !plan.split_parts.is_empty() {
+          out.push(mp_address_const(address_type, 0))
+          out.push(mp_i32_const(1))
+          out.push(mp_i32_const(0))
+          out.push(
+            @lib.Instruction::memory_init(
+              mp_data_idx_from_int(plan.split_parts[0].data_idx),
+              mem_idx,
+            ),
+          )
+        }
+      }
     }
   }
-  mp_emit_destination_preflight(out, dest, size, mem_idx, tmp, address_type)
+  mp_emit_destination_preflight(
+    out,
+    dest,
+    size,
+    mem_idx,
+    tmp,
+    address_type,
+    initial_pages~,
+  )
   if size <= 0 {
     out.push(@lib.Instruction::nop())
     return
@@ -2135,6 +2130,7 @@ fn mp_rewrite_active_memory_init(
   param_count : Int,
   mem_idx : @lib.MemIdx,
   address_type : MpMemoryAddressType,
+  initial_pages? : UInt64 = 0UL,
 ) -> Bool {
   let operands = match mp_pop_three_operands(out) {
     Some(operands) => operands
@@ -2159,7 +2155,15 @@ fn mp_rewrite_active_memory_init(
     return true
   }
   if mp_memory_init_dest_is_const(operands, address_type) is Some(dest) {
-    mp_emit_destination_preflight(out, dest, 0, mem_idx, None, address_type)
+    mp_emit_destination_preflight(
+      out,
+      dest,
+      0,
+      mem_idx,
+      None,
+      address_type,
+      initial_pages~,
+    )
     return true
   }
   let tmp = mp_local_idx_from_int(param_count + locals.length())
@@ -2173,6 +2177,7 @@ fn mp_rewrite_active_memory_init(
     mem_idx,
     Some(tmp),
     address_type,
+    initial_pages~,
   )
   true
 }
@@ -2186,6 +2191,7 @@ fn mp_rewrite_passive_split_memory_init(
   mem_idx : @lib.MemIdx,
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
+  initial_pages? : UInt64 = 0UL,
 ) -> Bool {
   let operands = match mp_pop_three_operands(out) {
     Some(operands) => operands
@@ -2225,7 +2231,16 @@ fn mp_rewrite_passive_split_memory_init(
   }
   let effective_global = mp_plan_drop_global(plan, global_idx)
   mp_append_passive_memory_init_replacement(
-    out, plan, dest, src, size, mem_idx, tmp, effective_global, address_type,
+    out,
+    plan,
+    dest,
+    src,
+    size,
+    mem_idx,
+    tmp,
+    effective_global,
+    address_type,
+    initial_pages~,
   )
   true
 }
@@ -2263,6 +2278,7 @@ fn mp_rewrite_instrs_full(
   param_count : Int,
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
+  initial_pages? : UInt64 = 0UL,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -2272,7 +2288,13 @@ fn mp_rewrite_instrs_full(
           @lib.Instruction::block(
             block_type,
             mp_rewrite_expr_full(
-              body, plans, locals, param_count, global_idx, address_type,
+              body,
+              plans,
+              locals,
+              param_count,
+              global_idx,
+              address_type,
+              initial_pages~,
             ),
           ),
         )
@@ -2281,7 +2303,13 @@ fn mp_rewrite_instrs_full(
           @lib.Instruction::loop_(
             block_type,
             mp_rewrite_expr_full(
-              body, plans, locals, param_count, global_idx, address_type,
+              body,
+              plans,
+              locals,
+              param_count,
+              global_idx,
+              address_type,
+              initial_pages~,
             ),
           ),
         )
@@ -2294,7 +2322,13 @@ fn mp_rewrite_instrs_full(
                 @lib.LegacyCatch::tagged(
                   tag_idx,
                   mp_rewrite_expr_full(
-                    catch_body, plans, locals, param_count, global_idx, address_type,
+                    catch_body,
+                    plans,
+                    locals,
+                    param_count,
+                    global_idx,
+                    address_type,
+                    initial_pages~,
                   ),
                 ),
               )
@@ -2302,7 +2336,13 @@ fn mp_rewrite_instrs_full(
               rewritten_catches.push(
                 @lib.LegacyCatch::all(
                   mp_rewrite_expr_full(
-                    catch_body, plans, locals, param_count, global_idx, address_type,
+                    catch_body,
+                    plans,
+                    locals,
+                    param_count,
+                    global_idx,
+                    address_type,
+                    initial_pages~,
                   ),
                 ),
               )
@@ -2312,7 +2352,13 @@ fn mp_rewrite_instrs_full(
           @lib.Instruction::try_(
             block_type,
             mp_rewrite_expr_full(
-              body, plans, locals, param_count, global_idx, address_type,
+              body,
+              plans,
+              locals,
+              param_count,
+              global_idx,
+              address_type,
+              initial_pages~,
             ),
             rewritten_catches,
             delegate~,
@@ -2325,19 +2371,37 @@ fn mp_rewrite_instrs_full(
             block_type,
             catches,
             mp_rewrite_expr_full(
-              body, plans, locals, param_count, global_idx, address_type,
+              body,
+              plans,
+              locals,
+              param_count,
+              global_idx,
+              address_type,
+              initial_pages~,
             ),
           ),
         )
       @lib.If(block_type, then_body, else_body) => {
         let rewritten_then = mp_rewrite_instrs_full(
-          then_body, plans, locals, param_count, global_idx, address_type,
+          then_body,
+          plans,
+          locals,
+          param_count,
+          global_idx,
+          address_type,
+          initial_pages~,
         )
         let rewritten_else = match else_body {
           Some(body) =>
             Some(
               mp_rewrite_instrs_full(
-                body, plans, locals, param_count, global_idx, address_type,
+                body,
+                plans,
+                locals,
+                param_count,
+                global_idx,
+                address_type,
+                initial_pages~,
               ),
             )
           None => None
@@ -2366,7 +2430,12 @@ fn mp_rewrite_instrs_full(
           let plan = plans[slot]
           if plan.is_active {
             if !mp_rewrite_active_memory_init(
-                out, locals, param_count, mem_idx, address_type,
+                out,
+                locals,
+                param_count,
+                mem_idx,
+                address_type,
+                initial_pages~,
               ) {
               out.push(
                 @lib.Instruction::memory_init(
@@ -2377,7 +2446,14 @@ fn mp_rewrite_instrs_full(
             }
           } else if plan.was_split {
             if !mp_rewrite_passive_split_memory_init(
-                out, plan, locals, param_count, mem_idx, global_idx, address_type,
+                out,
+                plan,
+                locals,
+                param_count,
+                mem_idx,
+                global_idx,
+                address_type,
+                initial_pages~,
               ) {
               out.push(
                 @lib.Instruction::memory_init(
@@ -2427,11 +2503,18 @@ fn mp_rewrite_expr_full(
   param_count : Int,
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
+  initial_pages? : UInt64 = 0UL,
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   @lib.Expr::new(
     mp_rewrite_instrs_full(
-      instrs, plans, locals, param_count, global_idx, address_type,
+      instrs,
+      plans,
+      locals,
+      param_count,
+      global_idx,
+      address_type,
+      initial_pages~,
     ),
   )
 }
@@ -2443,6 +2526,10 @@ fn mp_rewrite_code_sec_full(
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
 ) -> @lib.CodeSec? {
+  let initial_pages = match mp_sole_memory_type(mod_) {
+    Some((mem_type, _)) => mp_memory_initial_pages(mem_type)
+    None => 0UL
+  }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let param_counts = mp_defined_func_param_counts(mod_)
@@ -2459,7 +2546,13 @@ fn mp_rewrite_code_sec_full(
           @lib.Func::new(
             next_locals,
             mp_rewrite_expr_full(
-              body, plans, next_locals, param_count, global_idx, address_type,
+              body,
+              plans,
+              next_locals,
+              param_count,
+              global_idx,
+              address_type,
+              initial_pages~,
             ),
           ),
         )
@@ -2502,6 +2595,11 @@ pub fn memory_packing_run_module_pass(
   } else {
     Array::make(datas.length(), MpDataUsage::new(false, false))
   }
+  let user_scans = if segment_op_preflight.has_data_ops {
+    mp_collect_segment_users(mod_, datas.length())
+  } else {
+    Array::make(datas.length(), MpPassiveUserScan::new())
+  }
   let data_remap = Array::make(datas.length(), -1)
   let plans = Array::make(
     datas.length(),
@@ -2517,10 +2615,7 @@ pub fn memory_packing_run_module_pass(
     match data {
       @lib.Data(@lib.Active(mem_idx, expr), bytes) => {
         let next = if mp_should_skip_data_rewrite(mod_, idx) ||
-          (
-            segment_op_preflight.has_data_ops &&
-            mp_passive_user_scan(mod_, idx).has_array_data
-          ) {
+          (segment_op_preflight.has_data_ops && user_scans[idx].has_array_data) {
           [data]
         } else {
           mp_active_rewrite(mod_, mem_idx, expr, bytes, traps_never_happen)
@@ -2587,10 +2682,11 @@ pub fn memory_packing_run_module_pass(
             false,
             bytes.length(),
           )
-        } else if mp_passive_can_split(mod_, idx) {
+        } else if user_scans[idx].has_memory_init &&
+          user_scans[idx].all_memory_init_const &&
+          !user_scans[idx].has_array_data {
           let (parts, omitted_zero) = mp_passive_split_parts(
-            mod_,
-            idx,
+            user_scans[idx],
             bytes,
             rewritten.length(),
           )
@@ -2611,11 +2707,13 @@ pub fn memory_packing_run_module_pass(
               parts,
               false,
               true,
-              true,
+              parts.is_empty() && usage.has_drop,
               bytes.length(),
             )
-            plans[idx].drop_state_offset = need_drop_state
-            need_drop_state += 1
+            if plans[idx].needs_drop_state {
+              plans[idx].drop_state_offset = need_drop_state
+              need_drop_state += 1
+            }
             let first_new_idx = rewritten.length()
             for part in plans[idx].split_parts {
               rewritten.push(

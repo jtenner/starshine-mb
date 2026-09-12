@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-12
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
@@ -22,6 +22,58 @@ related:
 # `memory-packing` Binaryen parity
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 12 size and scalability follow-up
+
+The prior constant-copy gap is addressed by declared-minimum destination proofs
+and retained-part lifetime checks; see [the current semantic contract](./segment-op-rewrites-and-traps.md#september-12-correctness-invariants).
+Eligibility, profitability, and active GC checks now share one complete indexed
+user traversal instead of rescanning every function twice per passive segment.
+That analysis is O(instructions + segments), rather than their product. The
+existing nested control-flow, dynamic-source rejection, and GC-user restrictions
+are preserved by [focused tests](../../../../../src/passes/memory_packing_wbtest.mbt).
+
+Serial native benchmarks used two warmups and five measured runs per input/tool,
+with no concurrent compiler, tests, or fuzz processes. Reported pass times are
+medians in milliseconds; the numbers in parentheses are median absolute deviations.
+Starshine uses `STARSHINE_TRACING=pass` / `pass:memory-packing`; verified Binaryen
+132 (`version_132-49-gd03c25ea4`) uses its `--debug` pass timer. Whole-command
+latency includes parsing, serialization, process startup, and tracing, and is
+reported separately below. The final output for every input/tool was validated
+with wasm-tools.
+
+| Input | Before | After | Binaryen 132 |
+| --- | ---: | ---: | ---: |
+| 256 passive segments | 2.539 (0.062) | 0.172 (0.006) | 0.349 (0.018) |
+| 1,024 passive segments | 38.355 (0.264) | 0.651 (0.038) | 1.237 (0.019) |
+| 16 MiB debug WASI artifact | 61.688 (0.169) | 61.146 (0.881) | 61.790 (1.193) |
+
+The passive cases improve 14.8x and 58.9x, respectively; the new pass is about
+1.9–2.0x faster than Binaryen on these inputs. The real artifact is effectively
+unchanged within measurement variation and remains comparable to Binaryen.
+Whole-command medians before/after/Binaryen: 6.07/2.78/5.35 ms (256 segments),
+45.24/5.43/8.05 ms (1,024), and 1,014.97/991.38/863.80 ms (real artifact).
+Do not attribute the remaining real-artifact command gap to pass-local time.
+
+Synthetic inputs contain one one-page memory, N passive segments of
+`"A" + 64 zero bytes + "B"`, and N functions, each copying its complete segment
+to constant destination 0 then dropping it. Raw outputs now exactly equal
+Binaryen: 12,838 bytes (256) and 52,007 bytes (1,024), down from 19,243 and
+78,380. The real artifact's Starshine output is byte-identical before/after.
+Benchmark inputs: `.tmp/mp-speed/passive-{256,1024}.wasm` and
+`tests/node/dist/starshine-debug-wasi.wasm`. Fixture construction, serial runner,
+raw samples, traces, and outputs are retained locally under `.tmp/mp-speed/`.
+The runner invokes `--memory-packing --out OUTPUT INPUT` for Starshine and
+`INPUT --all-features --memory-packing --debug -o OUTPUT` for Binaryen.
+
+Input SHA-256, in table order:
+`3398fe645888cad51e5bc8072ca1f21cf6d7723c02210b02aeaa8d3a22eaf2c8`,
+`9f875fcf30b9f5f6a9279d4e278742bcc82322eac02b6bf39d8954041894c683`,
+`325868be2d636390ef19fc78bb26a2239b8e734086b69f4fe27003afc20cfe88`.
+Before CLI SHA-256: `3ee24d47d316d3e25dcea5d75fab0a418099c489d9b0c9b8f29e72addcd20533`
+(from `bdca13ad7`); after CLI:
+`242a0cdbb388f8b328cc8e487da8d3bcbdce154a646ff0cb645514565b4e2ebe`.
+
 
 ## Durable conclusions
 

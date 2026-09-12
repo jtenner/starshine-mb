@@ -23858,3 +23858,10 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   permits crossing; defined globals remain eligible. Both failing-first cases
   now pass in the expanded 127-case execution suite. See
   [imported-global aliasing](binaryen/passes/code-pushing/segment-selection-and-barriers.md#imported-global-aliasing-follow-up).
+
+- 2026-09-12: Closed all 2,021 memory-packing constant-copy size gaps using
+  declared-minimum bounds and retained-part lifetime proofs. Replaced repeated
+  module user scans with one indexed traversal; the 1,024-passive-segment
+  benchmark improves from 38.355 ms to 0.651 ms, with real-artifact pass time
+  unchanged. See [differential evidence](binaryen/passes/memory-packing/fuzzing.md#september-12-2026-size-parity-follow-up)
+  and [benchmark protocol/results](binaryen/passes/memory-packing/parity.md#september-12-size-and-scalability-follow-up).

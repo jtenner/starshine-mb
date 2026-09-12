@@ -54,6 +54,14 @@ for (const m64 of [false, true]) {
   const memory = `(memory (export "memory") ${m64 ? "i64 " : ""}1)`;
   const init = (dst: string, src: number, len: number, seg = 0) => `(memory.init ${seg} ${dst} (i32.const ${src}) (i32.const ${len}))`;
   const c = (n: number) => `(${t}.const ${n})`;
+  for (const grow of [false, true]) {
+    check(`constant-growth-${suffix}-${grow}`, `(module ${memory} (data "A${zeros}B")
+      (func (export "run") ${grow ? `(drop (memory.grow ${c(1)}))` : ""}
+        ${init(c(65536),0,66)}))`, "memory-packing", !grow);
+  }
+  check(`retained-repeated-drop-${suffix}`, `(module ${memory} (data "A${zeros}B")
+    (func $copy ${init(c(0),0,66)} (data.drop 0))
+    (func (export "run") (call $copy) (call $copy)))`, "memory-packing", true);
   for (const [src, len, dst, trap] of [[0,1,0,true],[0,0,0,false],[0,0,65536,false],[0,0,65537,true],[1,0,0,true]] as const) {
     check(`active-${suffix}-${src}-${len}-${dst}`, `(module ${memory} (data (${t}.const 0) "x") (func (export "run") ${init(c(dst),src,len)}))`, "memory-packing", trap);
   }

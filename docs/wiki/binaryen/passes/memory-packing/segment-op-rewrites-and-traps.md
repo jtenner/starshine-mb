@@ -29,17 +29,28 @@ checks to the first retained range. Active runtime source length is zero after
 instantiation. Initialization bytes and retained physical ranges do not represent
 runtime liveness.
 
-Every split passive segment has an independent generated drop-state global,
-including segments represented entirely by fills. Every nonempty logical read,
-and every zero-length read with a nonzero source offset, checks that state before
-writing. Dropping one segment cannot affect another.
+Every split passive segment has an independent lifetime. The initial repair
+represented each with a generated global. The size follow-up supersedes that
+storage choice: retained data parts carry the lifetime because every original
+`data.drop` drops all its parts. A leading nonempty retained copy checks lifetime
+before its own first write. If reconstruction starts with a fill, or a nonzero
+source offset has zero length, a zero-length `memory.init` at destination 0,
+source 1 probes a retained part first. Retained parts have at least one byte
+while live; after drop the same probe traps without writing. Source 0/length 0
+needs no lifetime check. Byte-free segments still get independent globals when
+any `data.drop` exists; without a drop instruction they remain live forever.
+This is a per-operation proof, not an assumption about the full segment's first
+range. No calls or original operand evaluations intervene between preflight and
+replacement writes. Dropping one segment cannot affect another.
 
 For dynamic destinations, the preflight first checks `destination >> 16 <= memory.size`, then
 checks `ceil(((destination & 65535) + length) / 65536)` against the remaining
 pages. This avoids computing an unrepresentable full memory byte size, handles
 Memory32 and Memory64 at their unsigned limits, and checks zero-length offsets.
 For constant destinations, the optimizer computes the full required page count
-and emits one comparison with `memory.size`; it separately handles an endpoint
+and omits the runtime check only when the memory's declared minimum proves the
+complete range fits (memory can grow but cannot shrink). Otherwise it emits one
+comparison with `memory.size`; it separately handles an endpoint
 of exactly 2^64 and rejects larger endpoints without wrapping.
 Source constants are checked against the complete original live segment length.
 All checks precede the first write; destination expressions are evaluated once.

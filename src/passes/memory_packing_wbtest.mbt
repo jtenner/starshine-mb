@@ -216,7 +216,7 @@ test "memory-packing all-zero split keeps independent logical lifetimes" {
   assert_true(
     body.contains(@lib.Instruction::global_get(@lib.GlobalIdx::new(1U))),
   )
-  // Lifetime and complete destination checks precede each reconstruction write.
+  // Constant destinations are proven in bounds; lifetime checks still precede writes.
   let mut checks = 0
   let mut fills = 0
   for instr in body {
@@ -224,7 +224,7 @@ test "memory-packing all-zero split keeps independent logical lifetimes" {
       @lib.If(_, _, _) => checks += 1
       @lib.MemoryFill(_) => {
         fills += 1
-        assert_true(checks >= 2 * fills)
+        assert_true(checks >= fills)
       }
       _ => ()
     }
@@ -330,5 +330,88 @@ test "memory-packing constant preflight represents unsigned memory limits exactl
       I32Address,
     )
     assert_eq(out32[0], mp_i32_const(if size == 2 { 65537 } else { 65536 }))
+  }
+}
+
+///|
+test "memory-packing constant split uses proven bounds and retained lifetime" {
+  let zeros = "\\00".repeat(64)
+  for memory in ["1", "i64 1"] {
+    let addr = if memory == "1" { "i32" } else { "i64" }
+    let input = pass_test_module_from_wat(
+      "(module (memory \{memory}) (data \"A\{zeros}B\") (func (memory.init 0 (\{addr}.const 0) (i32.const 0) (i32.const 66)) (data.drop 0)))",
+    )
+    assert_true(@validate.validate_module(input) is Ok(_))
+    let output = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
+      Ok(output) => output
+      Err(err) => fail(err)
+    }
+    assert_true(@validate.validate_module(output) is Ok(_))
+    assert_eq(output.global_sec, None)
+    let body = mp_wbtest_first_func_body(output)
+    assert_false(
+      body.contains(@lib.Instruction::memory_size(@lib.MemIdx::new(0U))),
+    )
+    assert_eq(body.length(), 14)
+  }
+}
+
+///|
+test "memory-packing indexed user analysis isolates nested segment users" {
+  let input = pass_test_module_from_wat(
+    "(module (memory 1) (data \"a\") (data \"b\") (data \"c\") (func (param i32) (block (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 1))) (if (local.get 0) (then (data.drop 1)) (else (memory.init 1 (i32.const 0) (local.get 0) (i32.const 1)))) (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 0))))",
+  )
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let scans = mp_collect_segment_users(input, 3)
+  assert_eq(scans[0].memory_init_count, 2)
+  assert_true(scans[0].all_memory_init_const)
+  assert_eq(scans[0].data_drop_count, 0)
+  assert_eq(scans[1].memory_init_count, 1)
+  assert_false(scans[1].all_memory_init_const)
+  assert_eq(scans[1].data_drop_count, 1)
+  assert_false(scans[2].has_memory_init)
+  assert_true(scans[2].all_memory_init_const)
+  assert_eq(scans[2].data_drop_count, 0)
+}
+
+///|
+test "memory-packing minimum-page proofs preserve endpoints and overflow guards" {
+  for
+    entry in [
+      (65535, 1, true),
+      (65536, 0, true),
+      (65535, 2, false),
+      (65537, 0, false),
+    ] {
+    let (offset, size, proven) = entry
+    let out : Array[@lib.Instruction] = []
+    mp_emit_destination_preflight(
+      out,
+      mp_i32_const(offset),
+      size,
+      @lib.MemIdx::new(0U),
+      None,
+      I32Address,
+      initial_pages=1UL,
+    )
+    assert_eq(out.is_empty(), proven)
+  }
+  for size in [0, 1, 2] {
+    let out : Array[@lib.Instruction] = []
+    mp_emit_destination_preflight(
+      out,
+      @lib.Instruction::i64_const(@lib.I64(-1L)),
+      size,
+      @lib.MemIdx::new(0U),
+      None,
+      I64Address,
+      initial_pages=1UL << 48,
+    )
+    if size == 2 {
+      assert_eq(out, [@lib.Instruction::unreachable_()])
+    } else {
+      assert_true(out.is_empty())
+    }
   }
 }
