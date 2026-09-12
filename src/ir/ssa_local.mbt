@@ -558,25 +558,36 @@ fn ssa_local_sort_phi_inputs(
   ssa : HotLocalSsa,
 ) -> Unit {
   let pred_order = Array::make(cfg_block_count(cfg), -1)
+  let pred_cursor = Array::make(cfg_block_count(cfg), -1)
   for block_id = 0; block_id < ssa.block_phis.length(); block_id = block_id + 1 {
     let preds = ssa_local_normal_predecessors(cfg, dom, block_id)
     for predecessor in preds {
       pred_order[predecessor] = -1
     }
-    for idx = 0; idx < preds.length(); idx = idx + 1 {
+    // Link every incoming edge position, including repeated predecessors.
+    let next_position = Array::make(preds.length(), -1)
+    for idx = preds.length() - 1; idx >= 0; idx = idx - 1 {
+      next_position[idx] = pred_order[preds[idx]]
       pred_order[preds[idx]] = idx
     }
     for phi_id in ssa.block_phis[block_id] {
       let current = ssa.phi_inputs[phi_id]
+      if current.length() != preds.length() {
+        ssa_local_phi_alignment_abort(ssa, block_id, phi_id, preds, current)
+      }
       if current.length() == 0 {
         continue
+      }
+      // Each phi consumes its own copy of the predecessor position cursors.
+      for predecessor in preds {
+        pred_cursor[predecessor] = pred_order[predecessor]
       }
       let ordered = Array::make(current.length(), current[0])
       let filled = Array::make(current.length(), false)
       for input in current {
         let idx = if input.predecessor >= 0 &&
           input.predecessor < pred_order.length() {
-          pred_order[input.predecessor]
+          pred_cursor[input.predecessor]
         } else {
           -1
         }
@@ -585,6 +596,7 @@ fn ssa_local_sort_phi_inputs(
         }
         ordered[idx] = input
         filled[idx] = true
+        pred_cursor[input.predecessor] = next_position[idx]
       }
       for is_filled in filled {
         if !is_filled {

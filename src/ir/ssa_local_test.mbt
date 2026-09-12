@@ -47,6 +47,68 @@ fn ssa_local_has_local_get_use(
 }
 
 ///|
+test "ssa local build sorts repeated predecessor edges independently for two phis" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let a0 = hot_build_local_set(func, 0, hot_build_const_i32(func, 10))
+  let a1 = hot_build_local_set(func, 1, hot_build_const_i32(func, 11))
+  let b0 = hot_build_local_set(func, 0, hot_build_const_i32(func, 20))
+  let b1 = hot_build_local_set(func, 1, hot_build_const_i32(func, 21))
+  let branch = hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    hot_build_const_i32(func, 1),
+    [a0, a1],
+    else_body=Some([b0, b1]),
+  )
+  let gets = [hot_build_local_get(func, 0), hot_build_local_get(func, 1)]
+  hot_root_append(func, branch)
+  for get in gets {
+    hot_root_append(func, hot_build_drop(func, get))
+  }
+  let cfg = cfg_build(func)
+  let join = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  let preds = cfg.blocks[join].preds
+  @debug.assert_eq(preds.length(), 2)
+  let a = preds[0].block
+  let b = preds[1].block
+  // Model a second normal edge from A without changing either definition.
+  // Preserve successor/predecessor multiplicity and interleave [A, B, A].
+  preds.push(preds[0])
+  cfg.blocks[a].succs.push(cfg.blocks[a].succs[0])
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let phis = ssa_phis_for_block(ssa, join)
+  @debug.assert_eq(phis.length(), 2)
+  for phi in phis {
+    let local_id = ssa_phi_local(ssa, phi)
+    let inputs = ssa_phi_inputs(ssa, phi)
+    @debug.assert_eq(inputs.length(), 3)
+    @debug.assert_eq(inputs.map(fn(input) { input.predecessor }), [a, b, a])
+    for index, input in inputs {
+      let predecessor = if index == 1 { b } else { a }
+      let writes = if cfg_block_for_node(cfg, a0).unwrap() == predecessor {
+        [a0, a1]
+      } else {
+        [b0, b1]
+      }
+      @debug.assert_eq(
+        ssa_value_origin(ssa, input.value_id),
+        ssa_local_set_def(writes[local_id]),
+      )
+    }
+    @debug.assert_eq(
+      ssa_value_origin(ssa, ssa_value_for_local_get(ssa, gets[local_id])),
+      ssa_phi_def(phi),
+    )
+  }
+  @debug.assert_eq(cfg_predecessors(cfg, join).length(), 3)
+}
+
+///|
 test "ssa local build inserts a join phi for diamond local merges" {
   let func = hot_lift_body(
     @lib.Expr::new([
