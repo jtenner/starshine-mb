@@ -114,6 +114,12 @@ fn flatten_node_is_simple_operand(func : @ir.HotFunc, node_id : Int) -> Bool {
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefFunc
     | @ir.HotOp::GlobalGet => true
+    @ir.HotOp::Simd =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)) =>
+          true
+        _ => false
+      }
     @ir.HotOp::Unary =>
       @ir.hot_node_exact_instr(func, node_id) ==
       Some(@lib.Instruction::ref_as_non_null())

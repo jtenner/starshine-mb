@@ -23765,3 +23765,10 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   equality in raw and HOT PrecomputePropagation joins. Require identical float
   bits; three execution checks and 62 neighbors pass. Saved direct math now
   passes Node and Wago. See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: Flatten now treats v128.const as a simple operand. Multiwindow
+  output drops from 6,257 to four v128 locals and executes within Wago's frame
+  limit. All seven saved timeout cases pass Node/Wago in debug replay. Reduced
+  vector-store test red/green; 389 neighbors and both bounded wide-array lanes
+  pass. Final release/full verification and 56 baseline tests remain open.
+  See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).

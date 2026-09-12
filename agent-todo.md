@@ -4,35 +4,18 @@
 
 - **Current repair checkpoint (September 12):** clean starting master
   `93f11e3b7c20c4151975db7bb9ad689c79e8d102` reproduces 38 Dewdrop failures
-  (962/1,000 pass) and the same 56 full-suite failures (11,216/11,272 pass).
-  Shared lowering now retains tee initialization required by emitted dead-tail
-  reference reads. String-builder now externally validates and preserves runtime output. SimplifyLocals now repairs reference initialization
-  after sinking across block scopes; derive-hash passes validation, Node and
-  Wago. RSE float keys now preserve signed-zero and NaN bits; the saved
-  numeric math no-shrink case returns `numeric:math` again in Node. The
-  inlining heap-identity fix repairs most runtime failures: the debug subset
-  passes 14/19, with array-methods, defer and three trap-message cases open.
-  The raw SSA dispatcher now isolates arm aliases (reduced execution red/green),
-  and MergeLocals now respects carried block writes through exact expanded-CFG
-  LocalGraph transfer. With the paired Flatten repair, array-methods and defer
-  pass; runtime subset 16/19 leaves only three exact trap-diagnostic differences. Abort, timeout and
-  baseline-suite families remain open; the paired OI/Heap2Local repairs
-  eliminate all 12 saved aborts. Nine cases pass execution; circular-buffer,
-  deque and queue expose a carried-read result promotion defect at SimplifyLocals.
-  That prefix is repaired with execution regressions; their next failing prefix
-  was Vacuum: shared lifting now retains carried region results before later
-  effects. All three collections pass Node and Wago. Seven timeout cases and
-  the 56 baseline suite failures still require investigation. The WASI timeout
-  cause is per-pair whole-function allocation in source-order conflict analysis;
-  sparse cached accesses pass the reduced bounded perf test. Saved timeout
-  signoff awaits release replay. Numeric timeouts are isolated to SimplifyLocals
-  exact cleanup: NaN equality prevented fixed-point detection. That loop is
-  repaired with f32/f64 execution regressions. Both numeric O4z cases pass;
-  direct math inlining's subsequent signed-zero join bug is repaired in both
-  raw and HOT PrecomputePropagation. It now passes Node and Wago. WASI boundary
-  direct Flatten passes; multiwindow direct output exceeds Wago native-frame
-  headroom, while the two O4z debug timeouts still need release profiling. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
-  and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
+  (962/1,000 pass) and 56 full-suite failures (11,216/11,272 pass). Reduced
+  regressions now cover validation, runtime, abort and timeout producers.
+  All 12 saved abort cases and all seven timeout cases pass Node and Wago in
+  debug checkpoint replays, including subsequently exposed collection and math
+  runtime defects. Three guaranteed-trap cases still differ only in exact
+  diagnostic labels; retain their raw harness failures and source-backed
+  classification. Next: reproduce/group the 50 SSA, four CodePushing, one
+  SimplifyLocals and one DAE baseline failures; investigate the shared generated
+  WebAssembly local-count limit. Final release build, focused tests, harness,
+  smoke fuzz, full suite and complete 1,000-case replay remain pending. See
+  [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  and `.tmp/correctness-repair-20260911/` for exact commands and evidence.
 
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56
   wasm-gc test failures (50 SSA-no-merge, four CodePushing, one SimplifyLocals,

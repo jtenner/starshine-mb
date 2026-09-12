@@ -35,3 +35,14 @@ test "flatten keeps SIMD constants nullary after a branch-table merge" {
   })
   @debug.assert_eq(vectors.length(), 1)
 }
+
+///|
+test "flatten treats vector literals as simple operands without spill locals" {
+  let input = @binary.decode_module(
+    b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x04\x01\x60\x00\x00\x03\x02\x01\x00\x05\x03\x01\x00\x01\x0a\x1c\x01\x1a\x00\x41\x00\xfd\x0c\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\xfd\x0b\x04\x00\x0b",
+  ).unwrap()
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["flatten"]).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(locals.length(), 0)
+}

@@ -409,6 +409,21 @@ f32/f64 branch and loop execution checks now pass. All 62 neighboring tests pass
 and direct math inlining again prints numeric:math in Node and Wago. See
 [`precompute-signed-zero-join.test.ts`](../../../tests/optimizer/regressions/precompute-signed-zero-join.test.ts).
 
+The remaining WASI cost and frame overflow were caused by Flatten classifying
+v128.const as a rich SIMD operand, although scalar constants were already simple.
+Recognize that exact nullary opcode as simple. A reduced vector-store dispatcher
+fixture fails with an unnecessary local before repair and needs none afterward.
+The multiwindow direct output drops from 6,257 to four v128 locals and from
+150,907 to 113,617 bytes; it now executes in pinned Wago. Verified Binaryen 132
+Flatten has nine v128 locals (its Wago comparison is blocked by unsupported exact
+reference types). All seven saved timeout cases now finish and pass Node/Wago
+in the debug replay. All 389 neighboring tests pass. Dedicated wide-array tests
+retain the five-second limit and check contents as well as length: literal
+operands finish in 0.17s and computed operands in 2.09s, including Node and
+validation. Final release replay remains pending. See
+[`flatten_dew_simd_operand_test.mbt`](../../../src/passes/flatten_dew_simd_operand_test.mbt)
+and [`flatten-wide-array.test.ts`](../../../tests/optimizer/perf/flatten-wide-array.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.
