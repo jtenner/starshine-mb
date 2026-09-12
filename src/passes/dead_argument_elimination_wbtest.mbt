@@ -23444,7 +23444,16 @@ test "dae ordinary unused-parameter path uses classified actions publicly" {
     ),
   )
   let ret_out = dae_run_module_pass(ret)
-  assert_eq(dae_wb_param_count(ret_out, 1), 1)
+  // Tail-call actuals participate in constant specialization too: the live
+  // argument becomes 41 in the callee, so neither parameter remains.
+  assert_eq(dae_wb_param_count(ret_out, 1), 0)
+  match ret_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(target_body)) = funcs[0]
+      @debug.assert_eq(target_body, [@lib.Instruction::i32_const(@lib.I32(41))])
+    }
+    None => fail("expected specialized target body")
+  }
   match @validate.validate_module(ret_out) {
     Ok(_) => ()
     Err(err) =>

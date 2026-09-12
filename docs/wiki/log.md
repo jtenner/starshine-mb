@@ -23791,3 +23791,8 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   void blocks. Reduced cleanup regression red/green, branch boundary retained;
   all 493 neighboring tests pass, including the baseline constant-copy failure.
   See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: classify the DAE baseline failure as a stale parameter-count
+  expectation after tail-call constant specialization. Assert zero parameters
+  and exact body 41; all 434 whitebox tests and Node execution pass. No code
+  change. See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).

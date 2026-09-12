@@ -451,6 +451,14 @@ regression fails before repair; branching blocks remain a boundary. All 493
 dispatcher/SimplifyLocals neighbors pass. See
 [`simplify-empty-block.test.ts`](../../../tests/optimizer/regressions/simplify-empty-block.test.ts).
 
+The remaining DAE assertion expected one parameter after a tail call supplied
+constants 31 and 41. Existing tail-call constant specialization correctly leaves
+a zero-parameter callee returning 41. Update that stale test to require both the
+zero-parameter signature and the exact constant body; retain the pure, effectful
+and live-parameter neighboring assertions. All 434 DAE whitebox tests pass and
+Node returns 41 before and after optimization. No implementation change. See
+[`dae-tail-constant.test.ts`](../../../tests/optimizer/regressions/dae-tail-constant.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

@@ -12,7 +12,8 @@
   diagnostic labels; retain their raw harness failures and source-backed
   classification. The current full suite reproduces the same 56 failing names.
   The four CodePushing cases are repaired (166 neighbors pass). Next: resolve
-  50 SSA and one DAE baseline failures. SimplifyLocals constant-copy cleanup
+  50 SSA baseline failures. The DAE expectation is corrected with exact
+  constant-body and execution checks (434 neighbors pass). SimplifyLocals constant-copy cleanup
   across inert void blocks is repaired (493 neighbors pass). The shared default
   WebAssembly compile limit is repaired by partitioning the exact-opcode counter
   without changing counts (168 GenValid and 132 binary default-backend tests pass). Final release build, focused tests, harness,
