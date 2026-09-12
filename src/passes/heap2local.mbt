@@ -1979,6 +1979,9 @@ fn h2l_try_fold_direct_struct_get(
     detached_nodes.push(passthrough_node)
   }
   detached_nodes.push(alloc_node_id)
+  // Replacing the read copies this value's payload. Dispose of the original
+  // wrapper after its allocation owner, before a later fold deletes its child.
+  detached_nodes.push(replacement)
   true
 }
 
@@ -2085,6 +2088,9 @@ fn h2l_try_fold_direct_array_get(
   }
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
   detached_nodes.push(alloc_node_id)
+  // Replacing the read copies this value's payload. Dispose of the original
+  // wrapper after its allocation owner, before a later fold deletes its child.
+  detached_nodes.push(replacement)
   detached_nodes.push(index_node_id)
   match @ir.hot_node_exact_instr(func, alloc_node_id) {
     Some(@lib.Instruction::ArrayNew(_))

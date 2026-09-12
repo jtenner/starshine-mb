@@ -339,6 +339,16 @@ optimize; nine pass Node/Wago and circular-buffer/deque/queue expose runtime
 mismatches. Those three remain open and have no passing final signoff. See
 [`oi-nested-select.test.ts`](../../../tests/optimizer/regressions/oi-nested-select.test.ts).
 
+The other four aborts (nested-common-subexpression and nested structs, two
+profiles each) came from Heap2Local cloning a field value into a read while
+leaving the original wrapper alive. A later fold deleted the wrapper's child,
+triggering the attached-child assertion. Direct struct and array folds now queue
+the copied source wrapper after its old allocation owner for strict deletion.
+The deletion assertions are unchanged. Both reduced nested-aggregate Node tests
+abort before repair and return 21 afterward; all 32 Heap2Local tests pass. All
+four saved cases now pass Node and Wago. See
+[`heap-nested-struct.test.ts`](../../../tests/optimizer/regressions/heap-nested-struct.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

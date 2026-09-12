@@ -1143,3 +1143,25 @@ test "heap2local leaves parameter-backed ownership unchanged" {
   assert_true(pretty.contains("struct.new_default"), msg=pretty)
   assert_true(pretty.contains("struct.get"), msg=pretty)
 }
+
+///|
+test "heap2local folds nested struct fields without leaving cloned wrappers attached" {
+  let input = @binary.decode_module(
+    b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x0e\x03\x5f\x01\x7f\x00\x5f\x01\x64\x00\x00\x60\x00\x01\x7f\x03\x02\x01\x02\x07\x08\x01\x04\x6d\x61\x69\x6e\x00\x00\x0a\x1d\x01\x1b\x00\x41\x15\xfb\x00\x00\xfb\x16\x00\xfb\x00\x01\xfb\x16\x01\xfb\x02\x01\x00\xfb\x16\x00\xfb\x02\x00\x00\x0b\x00\x16\x04\x6e\x61\x6d\x65\x04\x0f\x02\x00\x05\x69\x6e\x6e\x65\x72\x01\x05\x6f\x75\x74\x65\x72",
+  ).unwrap()
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["heap2local"]).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.contains(@lib.Instruction::i32_const(@lib.I32(21))))
+  ignore(@validate.validate_module(output).unwrap())
+}
+
+///|
+test "heap2local folds nested array fields without leaving cloned wrappers attached" {
+  let input = @binary.decode_module(
+    b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x0d\x03\x5f\x01\x7f\x00\x5e\x64\x00\x00\x60\x00\x01\x7f\x03\x02\x01\x02\x07\x08\x01\x04\x6d\x61\x69\x6e\x00\x00\x0a\x1c\x01\x1a\x00\x41\x15\xfb\x00\x00\xfb\x16\x00\xfb\x08\x01\x01\x41\x00\xfb\x0b\x01\xfb\x16\x00\xfb\x02\x00\x00\x0b\x00\x16\x04\x6e\x61\x6d\x65\x04\x0f\x02\x00\x05\x69\x6e\x6e\x65\x72\x01\x05\x61\x72\x72\x61\x79",
+  ).unwrap()
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["heap2local"]).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.contains(@lib.Instruction::i32_const(@lib.I32(21))))
+  ignore(@validate.validate_module(output).unwrap())
+}
