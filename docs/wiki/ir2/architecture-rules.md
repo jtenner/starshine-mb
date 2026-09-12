@@ -599,6 +599,30 @@ Release fuzz SHA-256:
 Oracle, pinned Wago and replay-runner hashes in `verified-tools.json` match the
 baseline tool setup. Its source-tree hashes identify the final tested revision.
 
+
+### Remaining diagnostic reductions
+
+A continuation from clean master `12862e4ec` locates the first changed diagnostic
+at top-level O4z prefix 48, `inlining-optimizing`, for both saved fixtures.
+The nullable-reference direct profile changes at its sole optimizing-inlining
+pass. Two single-function reductions isolate the nested producers:
+`ref.null; ref.as_non_null` folds to unreachable in OptimizeInstructions;
+`array.new_fixed` of length one followed by `array.get` at index one folds to
+unreachable in Heap2Local. Ordinary `array.new` does not trigger this reduced
+Heap2Local fold.
+
+Verified Binaryen 132 optimizing inlining produces the same changed diagnostics
+on both valid pre-prefix inputs. Existing tests explicitly require these folds:
+[known-null refinement](../../../src/passes/optimize_instructions_test.mbt) and
+[fixed-array out-of-bounds access](../../../src/passes/heap2local_test.mbt).
+Preserving exact engine messages would change this tested optimization contract;
+it is not a repair of a newly identified core execution defect. The diagnostic
+contract decision remains open, with no optimizer or harness changes made.
+Local reduced inputs, exact commands and observations are retained in
+`.tmp/trap-diagnostics-20260912/{prefix-report.json,direct-and-oracle.json,reduced-results.json,array-fixed-results.json}`.
+The final-source test results above remain applicable because this investigation
+changes only documentation.
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

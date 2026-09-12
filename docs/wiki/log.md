@@ -23820,3 +23820,10 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   diagnostics remain raw harness failures. All requested checks ran after the
   final code change; no confirmed implementation defect remains open in the
   reproduced corpus. See [final verification](ir2/architecture-rules.md#final-source-verification-fbd1936d8).
+
+- September 12: reduce the three remaining exact-diagnostic mismatches to
+  OptimizeInstructions known-null folding and Heap2Local fixed-array OOB
+  folding inside optimizing inlining. Verified Binaryen 132 produces the same
+  diagnostic changes, and existing Starshine tests require both folds. No code
+  or harness change; exact-message compatibility remains a contract decision.
+  See [diagnostic reductions](ir2/architecture-rules.md#remaining-diagnostic-reductions).
