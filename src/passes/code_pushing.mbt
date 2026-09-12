@@ -233,6 +233,31 @@ fn code_pushing_node_is_pure_nop_or_drop_const(
 }
 
 ///|
+fn code_pushing_subtree_writes_global(
+  func : @ir.HotFunc,
+  node_id : Int,
+  global_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return true
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if node.op is @ir.HotOp::GlobalSet && node.imm0 == global_id {
+    return true
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if code_pushing_subtree_writes_global(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        global_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn code_pushing_direct_global_set_disjoint_from_global_get(
   func : @ir.HotFunc,
   node_id : Int,
@@ -248,6 +273,11 @@ fn code_pushing_direct_global_set_disjoint_from_global_get(
         if code_pushing_node_has_call_or_nonglobal_write_effect(
             func,
             @ir.hot_child_get(func, node_id, slot),
+          ) ||
+          code_pushing_subtree_writes_global(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+            value_global_id,
           ) {
           return false
         }
@@ -525,7 +555,10 @@ fn code_pushing_node_writes_local_deep_limited(
   local_id : Int,
   depth : Int,
 ) -> Bool {
-  if depth <= 0 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+  if depth <= 0 {
+    return true
+  }
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -600,6 +633,9 @@ fn code_pushing_count_local_gets_in_node(
 }
 
 ///|
+// Stop only when BOTH queries exceed their budgets. Until then, a component
+// below its budget still requires exhaustive traversal (especially zero writes).
+// Early exits return both sentinels, never a partial negative proof.
 fn code_pushing_count_local_gets_writes_in_node_bounded(
   func : @ir.HotFunc,
   node_id : Int,
@@ -620,8 +656,8 @@ fn code_pushing_count_local_gets_writes_in_node_bounded(
     @ir.HotOp::LocalTee if node.imm0 == local_id => 1
     _ => 0
   }
-  if gets > max_gets || writes > max_writes {
-    return (gets, writes)
+  if gets > max_gets && writes > max_writes {
+    return (max_gets + 1, max_writes + 1)
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let (child_gets, child_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
@@ -633,8 +669,8 @@ fn code_pushing_count_local_gets_writes_in_node_bounded(
     )
     gets += child_gets
     writes += child_writes
-    if gets > max_gets || writes > max_writes {
-      break
+    if gets > max_gets && writes > max_writes {
+      return (max_gets + 1, max_writes + 1)
     }
   }
   (gets, writes)
@@ -680,8 +716,8 @@ fn code_pushing_count_local_gets_writes_in_region_prefix_bounded(
     )
     gets += root_gets
     writes += root_writes
-    if gets > max_gets || writes > max_writes {
-      break
+    if gets > max_gets && writes > max_writes {
+      return (max_gets + 1, max_writes + 1)
     }
   }
   (gets, writes)
@@ -728,8 +764,8 @@ fn code_pushing_count_local_gets_writes_in_region_suffix_bounded(
     )
     gets += root_gets
     writes += root_writes
-    if gets > max_gets || writes > max_writes {
-      break
+    if gets > max_gets && writes > max_writes {
+      return (max_gets + 1, max_writes + 1)
     }
     idx += 1
   }
@@ -744,7 +780,7 @@ fn code_pushing_region_writes_local_deep_limited(
   depth : Int,
 ) -> Bool {
   if depth <= 0 {
-    return false
+    return true
   }
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if code_pushing_node_writes_local_deep_limited(
@@ -848,8 +884,8 @@ fn code_pushing_count_unique_local_gets_writes_in_node_bounded(
       writes += 1
     _ => ()
   }
-  if gets > max_gets || writes > max_writes {
-    return (gets, writes)
+  if gets > max_gets && writes > max_writes {
+    return (max_gets + 1, max_writes + 1)
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let (child_gets, child_writes) = code_pushing_count_unique_local_gets_writes_in_node_bounded(
@@ -862,8 +898,8 @@ fn code_pushing_count_unique_local_gets_writes_in_node_bounded(
     )
     gets += child_gets
     writes += child_writes
-    if gets > max_gets || writes > max_writes {
-      return (gets, writes)
+    if gets > max_gets && writes > max_writes {
+      return (max_gets + 1, max_writes + 1)
     }
   }
   (gets, writes)
@@ -890,8 +926,8 @@ fn code_pushing_count_unique_total_local_gets_writes_bounded(
     )
     gets += root_gets
     writes += root_writes
-    if gets > max_gets || writes > max_writes {
-      return (gets, writes)
+    if gets > max_gets && writes > max_writes {
+      return (max_gets + 1, max_writes + 1)
     }
   }
   (gets, writes)

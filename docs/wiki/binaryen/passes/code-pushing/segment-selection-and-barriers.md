@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-22
+last_reviewed: 2026-09-12
 sources:
   - ./index.md
 related:
@@ -16,6 +16,32 @@ related:
 # `code-pushing` Segment Selection And Barriers
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 12 movement-proof correction
+
+A disjoint outer `global.set` is insufficient evidence: all nested writes must
+also be disjoint from the moved global read. The implementation now traverses
+that subtree, retaining the optimization when nested writes are actually
+disjoint.
+
+Bounded count scans stop early only after both components exceed their respective
+budgets, then return both sentinels. A single exceeded budget does not prevent
+the other query from establishing absence through complete traversal. This contract applies to node, prefix, suffix, and unique
+scans: neither partial component can prove absence. Depth-limited write queries
+also report potential writes on exhaustion. Earlier negative results on exhausted
+scans were unsound and are superseded by these rules.
+
+See [implementation](../../../../../src/passes/code_pushing.mbt),
+[direct helper regressions](../../../../../src/passes/code_pushing_wbtest.mbt), and
+[executed optimizer regressions](../../../../../scripts/test/optimizer-correctness-runtime.ts).
+Unknown or incomplete analysis blocks movement; the pass still moves reads
+across subtrees proven disjoint.
+
+The repair passes 18 helper tests and 154 code-pushing tests. The shared
+125-case runtime matrix verifies the saved local copy and nested global-write
+results and exported global state. The full wasm-gc gate passes 11,311 tests;
+its 14 CI fuzz suites pass 100,772 attempts. The final default `moon test` also
+passes 11,316/11,316.
 
 ## Corrected framing
 

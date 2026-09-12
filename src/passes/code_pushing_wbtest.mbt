@@ -609,3 +609,105 @@ test "code-pushing keeps SFA set before br_on_non_null guard that reads it" {
     "drop",
   )
 }
+
+///|
+test "code-pushing bounded scans cannot prove absence after early exit" {
+  let func = code_pushing_wbtest_lift_hot_raw(
+    "(module (func (local i32) (block (drop (local.get 0)) (local.set 0 (i32.const 2)))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let (_, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+    func, root, 0, 0, 0,
+  )
+  assert_true(writes > 0)
+  let (gets, _) = code_pushing_count_local_gets_writes_in_node_bounded(
+    func, root, 0, 0, 0,
+  )
+  assert_true(gets > 0)
+}
+
+///|
+test "code-pushing disjoint outer global set cannot hide nested writes" {
+  let func = code_pushing_wbtest_lift_hot_raw(
+    "(module (global (mut i32) (i32.const 1)) (global (mut i32) (i32.const 0)) (func (global.set 1 (block (result i32) (global.set 0 (i32.const 2)) (i32.const 0)))))",
+  )
+  assert_false(
+    code_pushing_direct_global_set_disjoint_from_global_get(
+      func,
+      @ir.hot_root_get(func, 0),
+      0,
+    ),
+  )
+}
+
+///|
+test "code-pushing exhausted write depth is unknown and unsafe" {
+  let func = code_pushing_wbtest_lift_hot_raw(
+    "(module (func (local i32) (block (local.set 0 (i32.const 2)))))",
+  )
+  assert_true(
+    code_pushing_node_writes_local_deep_limited(
+      func,
+      @ir.hot_root_get(func, 0),
+      0,
+      0,
+    ),
+  )
+}
+
+///|
+test "code-pushing bounded region and unique scans reject partial negative proofs" {
+  for
+    body in [
+      "(drop (local.get 0)) (local.set 0 (i32.const 2))", "(local.set 0 (i32.const 2)) (drop (local.get 0))",
+    ] {
+    let func = code_pushing_wbtest_lift_hot_raw(
+      "(module (func (local i32) \{body}))",
+    )
+    let root = @ir.HotRegionRef::root()
+    for
+      counts in [
+        code_pushing_count_local_gets_writes_in_region_prefix_bounded(
+          func, root, 0, 2, 0, 0,
+        ),
+        code_pushing_count_local_gets_writes_in_region_suffix_bounded(
+          func, root, 0, 0, 0, 0,
+        ),
+        code_pushing_count_unique_total_local_gets_writes_bounded(func, 0, 0, 0),
+      ] {
+      let (gets, writes) = counts
+      assert_true(gets > 0)
+      assert_true(writes > 0)
+    }
+  }
+}
+
+///|
+test "code-pushing proves nested disjoint global writes precisely" {
+  let func = code_pushing_wbtest_lift_hot_raw(
+    "(module (global (mut i32) (i32.const 1)) (global (mut i32) (i32.const 0)) (func (global.set 1 (block (result i32) (global.set 1 (i32.const 2)) (global.get 0)))))",
+  )
+  assert_true(
+    code_pushing_direct_global_set_disjoint_from_global_get(
+      func,
+      @ir.hot_root_get(func, 0),
+      0,
+    ),
+  )
+}
+
+///|
+test "code-pushing bounded scans complete the other query after one budget expires" {
+  let func = code_pushing_wbtest_lift_hot_raw(
+    "(module (func (local i32) (block (drop (local.get 0)) (drop (local.get 0)))))",
+  )
+  let (gets, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+    func,
+    @ir.hot_root_get(func, 0),
+    0,
+    0,
+    0,
+  )
+  assert_true(gets > 0)
+  assert_eq(writes, 0)
+}
