@@ -702,22 +702,52 @@ fn compiler_fact_truth_instruction(
 }
 
 ///|
+// Track a known suffix of the operand stack. Unknown stack effects discard the
+// suffix, rather than guessing from instruction adjacency. Nested regions start
+// with no known producers; their parameters are deliberately not inferred.
+fn compiler_fact_operand_pop_count(
+  instruction : @lib.Instruction,
+  env : @validate.Env,
+) -> Int? {
+  match instruction {
+    @lib.Call(function) =>
+      match env.get_functype_by_funcidx(function) {
+        Some(@lib.FuncType(params, _)) => Some(params.length())
+        None => None
+      }
+    @lib.CallIndirect(type_, _) | @lib.CallRef(type_) =>
+      match env.resolve_functype(type_) {
+        Some(@lib.FuncType(params, _)) => Some(params.length() + 1)
+        None => None
+      }
+    @lib.Block(type_, _)
+    | @lib.Loop(type_, _)
+    | @lib.If(type_, _, _)
+    | @lib.Try(type_, _, _, _)
+    | @lib.TryTable(type_, _, _) =>
+      match env.expand_blocktype(type_) {
+        Ok((params, _)) => {
+          let condition = if instruction is @lib.If(_, _, _) { 1 } else { 0 }
+          Some(params.length() + condition)
+        }
+        Err(_) => None
+      }
+    _ => directize_fast_pop_count(instruction)
+  }
+}
+
+///|
 fn compiler_fact_integer_operand_domain(
   ctx : CompilerFactRewriteContext,
-  root : (@representation.CodeSite, @lib.Instruction),
+  root : (@representation.ValueSite, @lib.Instruction),
   expected : @lib.ValType,
 ) -> (CompilerFactIntegerDomain?, Bool) {
   match compiler_fact_integer_domain_from_const(root.1) {
     Some(domain) => (Some(domain), false)
     None => {
-      let arity = compiler_fact_materializer_result_arity(root.1, ctx.query.env)
-      if arity != Some(1U) {
-        ctx.stats.type_mismatches += 1
-        return (None, false)
-      }
       let domain = ctx.query.integer_domain(
         ctx.function,
-        @representation.ValueSite::new(root.0),
+        root.0,
         root.1,
         expected,
       )
@@ -749,42 +779,24 @@ fn compiler_fact_rewrite_region(
   ctx : CompilerFactRewriteContext,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
-  let mut previous_root : (@representation.CodeSite, @lib.Instruction)? = None
-  let mut before_previous_root : (@representation.CodeSite, @lib.Instruction)? = None
+  let values : Array[(@representation.ValueSite, @lib.Instruction)] = []
   for original in instrs {
     let ordinal = ctx.cursor.val
     if ordinal < 0 || ordinal >= ctx.sites.length() {
       out.push(original)
+      values.clear()
       continue
     }
     let offset = ctx.sites[ordinal].0
     ctx.cursor.val += 1
     let site = @representation.CodeSite::new(ctx.function, offset)
     let current = compiler_fact_rewrite_nested_instruction(original, ctx)
+    let right_operand = values.last()
+    let left_operand = values.get(values.length() - 2)
     let mut rewritten = false
     match current {
       @lib.CallRef(_) | @lib.ReturnCallRef(_) => {
-        let target_value = match previous_root {
-          Some((previous_site, previous_instruction)) =>
-            match
-              compiler_fact_materializer_result_arity(
-                previous_instruction,
-                ctx.query.env,
-              ) {
-              Some(arity) if arity > 0U =>
-                Some(
-                  (
-                    @representation.ValueSite::new(
-                      previous_site,
-                      result=arity - 1U,
-                    ),
-                    previous_instruction,
-                  ),
-                )
-              _ => None
-            }
-          None => None
-        }
+        let target_value = right_operand
         let target = ctx.query.exact_call_target(
           ctx.function,
           site,
@@ -819,7 +831,7 @@ fn compiler_fact_rewrite_region(
         }
       }
       @lib.I32Eqz | @lib.I64Eqz =>
-        match previous_root {
+        match right_operand {
           Some(root) => {
             let expected = if current is @lib.I32Eqz {
               @lib.ValType::i32()
@@ -847,14 +859,18 @@ fn compiler_fact_rewrite_region(
           None => ()
         }
       @lib.RefIsNull =>
-        match previous_root {
+        match right_operand {
           Some(root) =>
             match
-              compiler_fact_query_single_result_type(root.1, ctx.query.env) {
+              compiler_fact_query_result_type(
+                root.1,
+                root.0.result,
+                ctx.query.env,
+              ) {
               Some(expected) => {
                 let truth = ctx.query.null_test(
                   ctx.function,
-                  @representation.ValueSite::new(root.0),
+                  root.0,
                   root.1,
                   expected,
                 )
@@ -873,7 +889,7 @@ fn compiler_fact_rewrite_region(
       _ =>
         match compiler_fact_compare_expected_type(current) {
           Some(expected) =>
-            match (before_previous_root, previous_root) {
+            match (left_operand, right_operand) {
               (Some(left_root), Some(right_root)) => {
                 let (left, left_fact) = compiler_fact_integer_operand_domain(
                   ctx, left_root, expected,
@@ -905,8 +921,23 @@ fn compiler_fact_rewrite_region(
     if !rewritten {
       out.push(current)
     }
-    before_previous_root = previous_root
-    previous_root = Some((site, original))
+    match
+      (
+        compiler_fact_operand_pop_count(original, ctx.query.env),
+        compiler_fact_materializer_result_arity(original, ctx.query.env),
+      ) {
+      (Some(pops), Some(results)) => {
+        for _ in 0..<pops {
+          ignore(values.pop())
+        }
+        for lane in 0U..<results {
+          values.push(
+            (@representation.ValueSite::new(site, result=lane), original),
+          )
+        }
+      }
+      _ => values.clear()
+    }
   }
   out
 }

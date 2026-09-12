@@ -1317,3 +1317,60 @@ test "serialized compiler fact drives branch cleanup through the normal pipeline
     @binary.decode_module(@binary.encode_module(optimized).unwrap()).unwrap(),
   )
 }
+
+///|
+test "trusted comparisons use the call operands consumed from the stack" {
+  for op in ["i32.eq", "i32.ge_s", "i32.ge_u"] {
+    let base = pass_test_module_from_wat(
+      "(module (func $two (param i32) (result i32) i32.const 2) (func (export \"run\") (result i32) i32.const 2 i32.const 1 call $two \{op}))",
+    )
+    let input = compiler_fact_test_attach_value_fact(
+      base,
+      1U,
+      compiler_fact_test_i32_exact(2UL),
+    )
+    let result = apply_compiler_facts(
+      input,
+      CompilerFactUsePolicy::trust_assertions(),
+    ).unwrap()
+    assert_true(@validate.validate_module(result.module_) is Ok(_))
+    let @lib.Func(_, @lib.Expr(body)) = result.module_.code_sec.unwrap().0[1]
+    @debug.assert_eq(
+      body.last(),
+      Some(@lib.Instruction::i32_const(@lib.I32(1))),
+    )
+    @debug.assert_eq(result.stats.integer_comparisons_folded, 1)
+  }
+}
+
+///|
+test "trusted comparison distinguishes both result lanes of one producer" {
+  let base = pass_test_module_from_wat(
+    "(module (func $pair (param i32) (result i32 i32) i32.const 2 i32.const 3) (func (export \"run\") (result i32) i32.const 1 call $pair i32.lt_s))",
+  )
+  let site = compiler_fact_test_first_plain_call_site(base, 1U)
+  let input = base.with_compiler_fact_custom_section(
+    @representation.CompilerFactCustomSection::new(
+      @representation.OptimizationFactsSec::new(bodies=[
+        @representation.FunctionBodyFacts::new(1U, sites=[
+          @representation.ExpressionFact::new(
+            @representation.ValueSite::new(site),
+            compiler_fact_test_i32_exact(2UL),
+          ),
+          @representation.ExpressionFact::new(
+            @representation.ValueSite::new(site, result=1U),
+            compiler_fact_test_i32_exact(3UL),
+          ),
+        ]),
+      ]),
+    ),
+  )
+  let result = apply_compiler_facts(
+    input,
+    CompilerFactUsePolicy::trust_assertions(),
+  ).unwrap()
+  assert_true(@validate.validate_module(result.module_) is Ok(_))
+  let @lib.Func(_, @lib.Expr(body)) = result.module_.code_sec.unwrap().0[1]
+  @debug.assert_eq(body.last(), Some(@lib.Instruction::i32_const(@lib.I32(1))))
+  @debug.assert_eq(result.stats.integer_comparisons_folded, 1)
+}

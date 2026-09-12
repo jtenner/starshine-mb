@@ -305,17 +305,6 @@ fn compiler_fact_query_result_type(
 }
 
 ///|
-fn compiler_fact_query_single_result_type(
-  instruction : @lib.Instruction,
-  env : @validate.Env,
-) -> @lib.ValType? {
-  match compiler_fact_materializer_result_arity(instruction, env) {
-    Some(1U) => compiler_fact_query_result_type(instruction, 0U, env)
-    _ => None
-  }
-}
-
-///|
 priv struct CompilerFactQuery {
   version : UInt
   policy : CompilerFactUsePolicy

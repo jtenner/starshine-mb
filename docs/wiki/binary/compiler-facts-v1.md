@@ -333,6 +333,8 @@ The first implementation intentionally handles adjacent original single-result r
 
 A central query layer checks version 1, invocation trust, exact body/site identity, result ordinal, actual and expected Wasm type, integer width, signed versus unsigned domain, range order/domain, and referenced function, global, table, memory, nominal type, and heap-type indices before returning knowledge. Module-bounded indexes prevent malformed indices from driving allocation. Missing, stale, incompatible, contradictory, impossible, or unsupported facts return unknown and increment a rejection counter.
 
+Operand identities come from a known suffix of the abstract operand stack, with a distinct `ValueSite` for each produced result lane. Calls consume their parameters plus the indirect table index or reference operand; structured instructions consume their declared inputs and any condition. Unknown stack effects clear producer knowledge, and nested regions do not infer parameter producers from surrounding instruction positions. This rule also covers zero/null tests and reference-call targets.
+
 All opcode offsets are computed once from the original immutable module. Replacements are built into new instruction arrays while queries continue to refer only to that original map; no rewritten instruction position is interpreted as a fact site. After trusted body-relative facts are materialized, the compiler-facts section is cleared before ordinary rewrites can stale offsets. Other index/body-changing `Module` helpers also clear facts conservatively. There is no general fact remapping framework in version 1.
 
 Absent-section fast path:
