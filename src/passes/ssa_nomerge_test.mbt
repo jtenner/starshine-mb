@@ -33108,3 +33108,44 @@ test "ssa-nomerge preserves the incoming alias in the else arm" {
   @debug.assert_eq(read, initial)
   ignore(@validate.validate_module(output).unwrap())
 }
+
+///|
+test "ssa-nomerge retains the reaching write on an enclosing block exit" {
+  let input =
+    #|(module
+    #|  (func (export "main") (result i32) (local i32 i32)
+    #|    i32.const 0 local.set 0
+    #|    i32.const 0 local.set 1
+    #|    block
+    #|      loop
+    #|        block
+    #|          local.get 1 i32.const 3 i32.lt_s
+    #|          if
+    #|            local.get 1 i32.const 1 i32.add local.set 1
+    #|            br 2
+    #|            br 1
+    #|          end
+    #|          local.get 1 i32.const 3 i32.eq
+    #|          if
+    #|            local.get 1 local.set 0
+    #|            br 3
+    #|            br 1
+    #|          end
+    #|          unreachable
+    #|          nop
+    #|        end
+    #|        unreachable
+    #|      end
+    #|      unreachable
+    #|    end
+    #|    local.get 0))
+  let output = pass_test_run_pipeline(input, ["ssa-nomerge"]).unwrap()
+  let (_, body) = ssa_test_first_defined_func(output)
+  let writes = ssa_test_local_set_indices(body)
+  let read = match body[body.length() - 1] {
+    @lib.LocalGet(@lib.LocalIdx(index)) => index
+    _ => fail("expected result read")
+  }
+  @debug.assert_eq(read, writes[writes.length() - 1])
+  ignore(@validate.validate_module(output).unwrap())
+}

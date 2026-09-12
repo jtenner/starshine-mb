@@ -23802,3 +23802,11 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   All 497 SSA tests pass; unconditional-loop fixtures have bounded variants.
   No production SSA change. Ten measured size parity gaps remain distinct from
   correctness defects. See [SSA expectation resolution](binaryen/passes/ssa-nomerge/merge-shapes-and-canonical-slots.md#september-12-baseline-expectation-resolution).
+
+- September 12: the 4ccd09078 release replay found two new iter-combinator
+  failures in SSA-no-merge. Honor the LocalGraph reaching write after enclosing
+  block exits, tracking actually freshened writes instead of lexical aliases.
+  Reduced execution/direct/command tests fail before repair; 1,172 neighbors
+  and 54 execution tests pass afterward. Both saved cases now pass Node/Wago.
+  Repeat all final gates; the 995/1,000 release checkpoint is superseded for
+  signoff. See [enclosing-exit follow-up](ir2/architecture-rules.md#enclosing-exit-ssa-follow-up).

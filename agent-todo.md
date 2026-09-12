@@ -1,102 +1,39 @@
 # Agent Tasks
 
-## Dewdrop runtime composition faults (September 2026)
+## v0.1.1 — Dewdrop correctness verification [IR2-CORRECTNESS]
 
-- **Current repair checkpoint (September 12):** clean starting master
-  `93f11e3b7c20c4151975db7bb9ad689c79e8d102` reproduces 38 Dewdrop failures
-  (962/1,000 pass) and 56 full-suite failures (11,216/11,272 pass). Reduced
-  regressions now cover validation, runtime, abort and timeout producers.
-  All 12 saved abort cases and all seven timeout cases pass Node and Wago in
-  debug checkpoint replays, including subsequently exposed collection and math
-  runtime defects. Three guaranteed-trap cases still differ only in exact
-  diagnostic labels; retain their raw harness failures and source-backed
-  classification. The current full suite reproduces the same 56 failing names.
-  The four CodePushing and one SimplifyLocals implementation gaps are repaired;
-  the DAE and 50 SSA assertions are corrected against the current contracts,
-  exact encodings and execution evidence. The shared default WebAssembly
-  local-count compile failure is repaired without changing generator counts.
-  All 497 SSA tests and 138 bounded Node probes pass at this checkpoint.
-  Ten measured SSA size differences remain parity gaps, not confirmed runtime
-  defects. Final release build, focused tests, harness, smoke fuzz, full suite
-  and complete 1,000-case replay remain pending. See
-  [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
-  and `.tmp/correctness-repair-20260911/` for exact commands and evidence.
-
-- **September 11 stability baseline:** master `3dc72fd2d` reproduces 56
-  wasm-gc test failures (50 SSA-no-merge, four CodePushing, one SimplifyLocals,
-  one DAE). The three shared-IR stability regressions pass after their fixes;
-  the complete suite changes from 11,211/11,267 to 11,214/11,270 with exactly
-  the same failing test names. Keep these independent failures open; do not
-  weaken branch-copy, transform, or signature assertions. Plain `moon test`
-  also hits the same generated-validator WebAssembly local-count engine limit
-  on both revisions. The full CI wrapper stops at the test gate before fuzzing.
-  Complete saved Dewdrop replay improves from 958/1,000 to 959/1,000: the O4z
-  binary-heap case is repaired, with no passing-to-failing cases. The remaining
-  41 failures reproduce on the same untouched master (18 runtime mismatches,
-  14 optimizer command failures, seven timeouts, two validation failures).
-  This supersedes older wave counts for the current-source checkpoint, without
-  closing their owners. See [stability verification](docs/wiki/ir2/architecture-rules.md#september-2026-stability-verification).
-- **Goal:** repair transformations exposed by the complete 461-fixture Dewdrop
-  source sweep, using execution in Node and Wago as the primary check.
-- **Closed shapes:** shared HOT stack/control lifetimes, reference initialization,
-  CoalesceLocals operand CFG, nested SSA branch joins, transitive branch-copy
-  destinations, and SimplifyLocals conditional-result source order have positive
-  regression fixes. OptimizeCasts also retains pending call order when removing
-  redundant refinements. Vacuum retains a dropped tee write's source order.
-  PrecomputePropagation uses operand-expanded scalar flow facts for loop copies.
-  SimplifyLocals retains tee write order; lowering reuses buried carried reads.
-  DAE constant specialization includes ordinary and tail-call actuals.
-  Flatten retains carried call results before GC writes and moves split-tee
-  prerequisites with their captures; its IR/native gate passes 924/924.
-  Operand-expanded CFG and HOT lowering now share carried source order, which
-  repairs reference-slot coloring in array-comparator and two related cases.
-  See the relevant pass dossiers.
-- **Open:** full wave 25 on remote master `3dc72fd2d` passes 961/1000 original
-  fixture/order pairs and fails 39. It repairs array-comparator O4z, text-hash
-  O4z, and JSON-reader `deep-both-no-shrink` against that exact baseline. The
-  five other changed wave-25 failures also fail on the unchanged baseline, so
-  this repair adds no failure in the selected comparison. IR, CoalesceLocals,
-  and Precompute native gates pass 398/398, 119/119, and 179/179.
-- **Assertions (13):** eight unmapped SSA local-get failures affect
-  array-pop-empty, circular-buffer, deque, queue, JSON runtime, using O4z and
-  direct optimizing inlining, and text ordering direct optimizing inlining.
-  Binary-heap O4z has a repeated-predecessor SSA phi mismatch. Nested common
-  subexpression and nested struct each hit attached-child deletion assertions
-  in both `deep-late-ssa` and `deep-twice`.
-- **Runtime faults (17):** O4z traps or produces the wrong result for array
-  methods, fixed-array out-of-bounds, defer, let-bound nominal arguments,
-  bloom duplicate, JSON core, compiler diagnostics, the three show fixtures,
-  string-builder scalar, string-builder, string compact, and string slice.
-  Nullable `ref.as_non_null` has the wrong trap in O4z and direct optimizing
-  inlining. Numeric math produces `FAIL` in `deep-both-no-shrink`.
-- **Timeouts (7):** float specials O4z; numeric math O4z and direct optimizing
-  inlining; and both O4z and direct Flatten for boundary-65521 and
-  multiwindow-100000 exceed the 30-second failure limit.
-- **Invalid outputs (2):** string-builder O4z fails validation in function 10;
-  derive-hash `deep-both-no-shrink` fails validation in function 3.
-- **Evidence:** exact commands and diagnostics are in Dewdrop
-  `.tmp/starshine-pass-repairs/full-replay-regression-wave25/report.json`.
-  Fresh pass-generated and full-source gates remain required; a case name is
-  not proof of its owning pass.
-- **Native gate:** SSA has one pre-existing stack-carried-tee count assertion;
-  improved branch liveness exposes 50 further old fresh-local/branch-copy shape
-  assertions. Compare their semantics and size before changing expectations.
-  OptimizeInstructions assertion/transform follow-ups remain open. DAE native
-  families pass 736/790: 53 assertion follow-ups and the definition-range
-  materialization timeout remain open. The native
-  SimplifyLocals family now passes 282/282: ordinary typed-reference assertions
-  retain positive carrier cleanup checks, and the pending-effects unit builds
-  the intended subtree directly rather than depending on lift capture layout. Full native, all 461 source fixtures, and generated gates are
-  required before selecting the CLI speed schedule.
-- **Deliverables / tests:** reduce each first failing prefix, add positive
-  transform and bounded original/output execution tests, repair the owner, and
-  replay all source fixtures plus required pass-specific generated lanes.
-  Keep faulty compositions out of the speed profile until these checks pass.
-- **Invariant:** a validating output is not runtime proof. Do not replace these
-  faults with fixture names, module-size guards, or tests that accept a no-op.
-- **Dependencies / exit:** LocalGraph, CFG local lifetimes, GC scalar replacement,
-  and structured lowering; zero wrong outputs/traps and bounded compile time on
-  the cited shapes, with the ordinary dedicated-pass signoff evidence recorded.
+- **Goal / why:** finish final-source verification of the repaired Dewdrop
+  transformation, metadata, analysis and termination failures before using the
+  complete pipeline as a speed candidate.
+- **Checkpoint:** starting master `93f11e3b7` reproduced 38/1,000 replay failures
+  and 56 full-suite failures. Code/test source `4ccd09078` passes focused
+  IR/direct-pass 1,358/1,358, harness 65/65, full wasm-gc 11,293/11,293,
+  and plain default-backend tests 11,296/11,296.
+  Shared default-backend opcode-counter resource growth is repaired. Historical
+  wave failure lists are superseded for this task; durable causes and regressions
+  are in [correctness follow-up](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up).
+- **Remaining tasks / deliverables:** the 4ccd09078 release replay completed
+  995/1,000, exposing two new iter-combinator failures in SSA-no-merge (speed
+  prefix 5 and optimizing-inlining nested prefix 4). Repair the enclosing-exit
+  reaching-write loss, then rerun every final gate on the repaired source.
+  The preceding green suite counts and all `final-*` artifacts are checkpoints,
+  not verification of that subsequent repair. Record final binary/tool hashes
+  and classify every remaining raw report.
+- **Known diagnostic contract:** three guaranteed-trap cases retain different
+  exact engine messages after unreachable folding. Keep their raw failures
+  visible; only classify them using inspected trap/effect evidence. Do not
+  normalize arbitrary traps or suppress engine/validation errors.
+- **Separate parity follow-up:** ten SSA fixture size differences remain open
+  (typed loop proxies, reference/cast lowering, branch-table cleanup). They are
+  not confirmed execution defects. See [SSA evidence](docs/wiki/binaryen/passes/ssa-nomerge/merge-shapes-and-canonical-slots.md#september-12-baseline-expectation-resolution).
+- **APIs / dependencies / invariants:** LocalGraph and CFG preserve repeated
+  edges, canonical merge slots and source evaluation order; loop inputs retain
+  branch arity; reference types retain canonical recursive-group identity.
+  Keep all assertions and external validation enabled.
+- **Exit / suggested tests:** no unexplained original/optimized behavior
+  difference; bounded optimization on saved abort/timeout shapes; final focused,
+  harness, smoke, full-suite and replay evidence on the final code revision.
+  Exact commands and artifacts are in `.tmp/correctness-repair-20260911/`.
 
 ## Scope And Rules
 
@@ -112,13 +49,9 @@ All new comparisons and acceptance reruns in this backlog target verified Binary
 
 ## Current Pipeline Facts
 
-- Dewdrop runtime follow-up: use the complete wave 13 failure ledger at
-  `.tmp/starshine-pass-repairs/full-replay-regression-wave13/report.json` in
-  Dewdrop. Earlier standalone OptimizeCasts and Heap2Local fault counts are
-  superseded by the repairs and complete replay. Current direct failures include
-  short-circuit cleanup, tail-recursion DAE, math inlining time, JSON bloom at
-  optimize level 4/shrink level 1, nullable-reference trap behavior, and large
-  WASI Flatten. Isolate the first changed behavior before naming an owner.
+- Dewdrop correctness status is tracked in [IR2-CORRECTNESS] above. Earlier
+  wave-13 through wave-25 failure counts are historical evidence in the wiki;
+  they do not describe the repaired current source.
 
 - Dewdrop pipeline screen (2026-09-10): the aliased-counter SLNS hang, four
   additional SLNS local-lifetime/branch-join faults, and the fixed-array

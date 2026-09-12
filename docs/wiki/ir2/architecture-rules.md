@@ -468,6 +468,60 @@ fixtures; timeout pairs are not counted as runtime passes. Ten measured Binaryen
 132 size differences remain output-shape parity gaps, not confirmed execution
 defects. See [SSA expectation resolution](../binaryen/passes/ssa-nomerge/merge-shapes-and-canonical-slots.md#september-12-baseline-expectation-resolution).
 
+
+### Repair commits and regression coverage
+
+All implementation rows below have a failing reduced regression recorded before
+the change and a passing regression afterward. The DAE and canonical-merge rows correct test
+contracts with inspected output and execution evidence; they change no optimizer
+implementation. Development checkpoint counts in the preceding paragraphs are
+historical; the subsequent verification checkpoint below records the remaining work.
+
+| Confirmed cause | Commit | Regression / check |
+| --- | --- | --- |
+| Reference initialization removed before retained dead-tail reads | `630b219bc` | [Non-null initialization and external validation](../../../tests/optimizer/regressions/lower-reference-scopes.test.ts) |
+| Sunk reference initialization lost lexical scope | `232cf433e` | [Nullable storage and non-null read refinements](../../../tests/optimizer/regressions/simplify-reference-scopes.test.ts) |
+| RSE conflated float bits | `367d8d542` | [Signed zero and NaN payload keys](../../../tests/optimizer/regressions/rse-float-bits.test.ts) |
+| OI mistook canonical equivalent heap types for disjoint types | `be2cd4fbc` | [Successful casts and distinct recursive groups](../../../tests/optimizer/regressions/duplicate-type-cast.test.ts) |
+| SSA reused then-arm aliases in the else arm | `ae4e84593` | [Independent arm aliases and merge reads](../../../tests/optimizer/regressions/ssa-else-read.test.ts) |
+| MergeLocals missed carried writes; LocalGraph revisited operands | `3b742bfe5` | [Expanded flow and original result 1](../../../tests/optimizer/regressions/merge-result-block-write.test.ts) |
+| Flatten reordered a carried result block | `b02b17b85` | [Effect order 45 and returned value](../../../tests/optimizer/regressions/flatten-carried-block-order.test.ts) |
+| OI asked root-only SSA about nested local reads | `848ef91a1` | [Reaching-definition lookup without assertion failure](../../../tests/optimizer/regressions/oi-nested-select.test.ts) |
+| Heap2Local left copied field wrappers attached | `3705a1dbc` | [Strict deletion and struct/array result 21](../../../tests/optimizer/regressions/heap-nested-struct.test.ts) |
+| SimplifyLocals moved carried reads during result promotion | `b88e01819` | [Two-arm, one-arm and local-read execution](../../../tests/optimizer/regressions/simplify-carried-tail.test.ts) |
+| Lifting appended carried results after later effects | `8d3a74a82` | [Roundtrip and composed-pass result 7](../../../tests/optimizer/regressions/vacuum-carried-result.test.ts) |
+| Lowering repeatedly allocated whole-function conflict arrays | `ff1c18b92` | [Sparse local access cache; 2,048-element bounded perf lane](../../../tests/optimizer/perf/flatten-wide-array.test.ts) |
+| NaN equality prevented cleanup convergence | `75e687807` | [Bit-exact fixed point and f32/f64 termination](../../../tests/optimizer/regressions/simplify-nan-termination.test.ts) |
+| PrecomputePropagation joins conflated signed zeros | `9c0d0eaed` | [Raw/HOT branch and loop bit preservation](../../../tests/optimizer/regressions/precompute-signed-zero-join.test.ts) |
+| Flatten spilled simple vector literals | `f9b57a52e` | [No unnecessary vector locals; bounded literal/computed arrays](../../../tests/optimizer/regressions/flatten-vector-literals.test.ts) |
+| Lowering undid proven CodePushing global-read motion | `29f42a303` | [New source identity, opcode order and both branch paths](../../../tests/optimizer/regressions/code-pushing-global-motion.test.ts) |
+| Exact-opcode record copies exceeded default engine local count | `78f637e6d` | [Unchanged counter mappings; 162,413 to 25,795 generated locals](../../../src/validate/gen_valid_wbtest.mbt) |
+| SimplifyLocals missed dead pairs across inert blocks | `9e5fd5a90` | [Constant 32 and retained branching boundary](../../../tests/optimizer/regressions/simplify-empty-block.test.ts) |
+| DAE test expected an unspecialized tail-call parameter | `275c556d7` | [Zero parameters, exact constant body and result 41](../../../tests/optimizer/regressions/dae-tail-constant.test.ts) |
+| SSA tests required obsolete merge-copy layouts | `4ccd09078` | [Exact encodings and 138 original/optimized probes](../../../tests/optimizer/regressions/ssa-canonical-merges/execution.test.ts) |
+
+
+### Enclosing-exit SSA follow-up
+
+Release checkpoint `4ccd09078` passed focused tests (1,358), harness tests (65),
+wasm-gc full tests (11,293), default tests (11,296), execution/performance tests
+(81 tests / 169 probes), and smoke fuzzing (3,773 attempts, seed 24301).
+The 1,000-case replay passed 995 cases, retaining three exact trap-message
+mismatches and exposing two new iter-combinator failures. This checkpoint is
+not final verification of the follow-up repair.
+
+The first bad pass is SSA-no-merge: speed prefix 5 and optimizing-inlining
+nested prefix 4. The structured rewrite's lexical alias merge loses the write
+on a branch exiting an enclosing block. The LocalGraph plan already identifies
+that reaching write. Use its planned fresh local when the producer was actually
+freshened; preserve canonical reads for writes kept canonical. This also keeps
+the earlier else-arm fix's behavior without reconstructing control flow from
+lexical alias state. The reduced loop returns 3 originally and 0 before repair;
+its unreachable suffix triggers the same debris-collapse replanning route.
+See [execution regression](../../../tests/optimizer/regressions/ssa-enclosing-exit.test.ts)
+and the direct/command tests in `ssa_nomerge_test.mbt` and `cmd.mbt`.
+All final gates must be repeated after the repair.
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

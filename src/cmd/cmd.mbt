@@ -8100,3 +8100,48 @@ test "Binaryen 132 simplify-locals command folds an adjacent allocation capture"
   @debug.assert_eq(body[3], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
   @debug.assert_eq(body[4], @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)))
 }
+
+///|
+test "ssa-nomerge command reads the write that exits an enclosing block" {
+  let source =
+    #|(module
+    #|  (func (export "main") (result i32) (local i32 i32)
+    #|    i32.const 0 local.set 0
+    #|    i32.const 0 local.set 1
+    #|    block
+    #|      loop
+    #|        block
+    #|          local.get 1 i32.const 3 i32.lt_s
+    #|          if
+    #|            local.get 1 i32.const 1 i32.add local.set 1
+    #|            br 2
+    #|            br 1
+    #|          end
+    #|          local.get 1 i32.const 3 i32.eq
+    #|          if
+    #|            local.get 1 local.set 0
+    #|            br 3
+    #|            br 1
+    #|          end
+    #|          unreachable
+    #|          nop
+    #|        end
+    #|        unreachable
+    #|      end
+    #|      unreachable
+    #|    end
+    #|    local.get 0))
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["ssa-nomerge"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  // Local 2 holds the initial zero; local 3 holds the exiting write of three.
+  @debug.assert_eq(
+    body[body.length() - 1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+  )
+}

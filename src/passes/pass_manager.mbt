@@ -27970,7 +27970,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
   cursor : SsaNoMergeRawRewriteCursor,
   extra_local_types : Array[@lib.ValType],
   base_local_count : Int,
-  fresh_aliases : Array[Int],
+  emitted_fresh_locals : Array[Bool],
   in_branching_value_block : Bool,
   force_keep_write : Bool,
 ) -> @lib.Instruction {
@@ -27984,19 +27984,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
           original_local,
         ) {
         Some(SsaNoMergeGetDecision::Retarget(fresh_local_id)) => {
-          let current_alias = if original_local >= 0 &&
-            original_local < fresh_aliases.length() {
-            fresh_aliases[original_local]
-          } else {
-            -1
-          }
-          if current_alias >= 0 {
+          // LocalGraph identifies the reaching write across enclosing exits.
+          // Track whether that write was actually freshened, not the last
+          // alias visited while walking the structured instruction tree.
+          let fresh_index = fresh_local_id - base_local_count
+          if fresh_index >= 0 &&
+            fresh_index < emitted_fresh_locals.length() &&
+            emitted_fresh_locals[fresh_index] {
             cursor.changed = true
             @lib.Instruction::local_get(
-              @lib.LocalIdx::new(current_alias.reinterpret_as_uint()),
+              @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
             )
           } else {
-            ignore(fresh_local_id)
             instr
           }
         }
@@ -28025,18 +28024,12 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         ) {
         Some(SsaNoMergeWriteDecision::Freshen(fresh_local_id)) =>
           if force_keep_write {
-            if original_local >= 0 && original_local < fresh_aliases.length() {
-              fresh_aliases[original_local] = -1
-            }
             instr
           } else if in_branching_value_block {
             run_hot_pipeline_raw_ssa_nomerge_append_planned_fresh_local(
               extra_local_types, params, locals, base_local_count, original_local,
               fresh_local_id,
             )
-            if original_local >= 0 && original_local < fresh_aliases.length() {
-              fresh_aliases[original_local] = -1
-            }
             cursor.changed = true
             instr
           } else {
@@ -28044,20 +28037,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
               extra_local_types, params, locals, base_local_count, original_local,
               fresh_local_id,
             )
-            if original_local >= 0 && original_local < fresh_aliases.length() {
-              fresh_aliases[original_local] = fresh_local_id
-            }
+            emitted_fresh_locals[fresh_local_id - base_local_count] = true
             cursor.changed = true
             @lib.Instruction::local_set(
               @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
             )
           }
-        Some(SsaNoMergeWriteDecision::KeepCanonical) => {
-          if original_local >= 0 && original_local < fresh_aliases.length() {
-            fresh_aliases[original_local] = -1
-          }
-          instr
-        }
+        Some(SsaNoMergeWriteDecision::KeepCanonical) => instr
         None => instr
       }
       cursor.write_cursor = cursor.write_cursor + 1
@@ -28072,18 +28058,12 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         ) {
         Some(SsaNoMergeWriteDecision::Freshen(fresh_local_id)) =>
           if force_keep_write {
-            if original_local >= 0 && original_local < fresh_aliases.length() {
-              fresh_aliases[original_local] = -1
-            }
             instr
           } else if in_branching_value_block {
             run_hot_pipeline_raw_ssa_nomerge_append_planned_fresh_local(
               extra_local_types, params, locals, base_local_count, original_local,
               fresh_local_id,
             )
-            if original_local >= 0 && original_local < fresh_aliases.length() {
-              fresh_aliases[original_local] = -1
-            }
             cursor.changed = true
             instr
           } else {
@@ -28091,20 +28071,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
               extra_local_types, params, locals, base_local_count, original_local,
               fresh_local_id,
             )
-            if original_local >= 0 && original_local < fresh_aliases.length() {
-              fresh_aliases[original_local] = fresh_local_id
-            }
+            emitted_fresh_locals[fresh_local_id - base_local_count] = true
             cursor.changed = true
             @lib.Instruction::local_tee(
               @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
             )
           }
-        Some(SsaNoMergeWriteDecision::KeepCanonical) => {
-          if original_local >= 0 && original_local < fresh_aliases.length() {
-            fresh_aliases[original_local] = -1
-          }
-          instr
-        }
+        Some(SsaNoMergeWriteDecision::KeepCanonical) => instr
         None => instr
       }
       cursor.write_cursor = cursor.write_cursor + 1
@@ -28123,7 +28096,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
             cursor,
             extra_local_types,
             base_local_count,
-            fresh_aliases,
+            emitted_fresh_locals,
             run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
               block_type, body, false, in_branching_value_block,
             ),
@@ -28131,9 +28104,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         ),
       )
     @lib.If(block_type, then_body, else_body) => {
-      // Both arms start with the incoming aliases; neither executes after the other.
-      let then_aliases = fresh_aliases.copy()
-      let else_aliases = fresh_aliases.copy()
       let rewritten_then = run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
         then_body,
         params,
@@ -28143,7 +28113,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         cursor,
         extra_local_types,
         base_local_count,
-        then_aliases,
+        emitted_fresh_locals,
         run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
           block_type, then_body, false, in_branching_value_block,
         ),
@@ -28160,36 +28130,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
               cursor,
               extra_local_types,
               base_local_count,
-              else_aliases,
+              emitted_fresh_locals,
               run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
                 block_type, body, false, in_branching_value_block,
               ),
             ),
           )
         None => None
-      }
-      let then_reaches_join = run_hot_pipeline_dce_raw_body_may_fallthrough(
-          then_body,
-        ) ||
-        run_hot_pipeline_dce_raw_instrs_branch_to_depth(then_body, 0)
-      let else_reaches_join = match else_body {
-        Some(body) =>
-          run_hot_pipeline_dce_raw_body_may_fallthrough(body) ||
-          run_hot_pipeline_dce_raw_instrs_branch_to_depth(body, 0)
-        None => true
-      }
-      for local_id = 0
-          local_id < fresh_aliases.length()
-          local_id = local_id + 1 {
-        fresh_aliases[local_id] = if !then_reaches_join {
-          else_aliases[local_id]
-        } else if !else_reaches_join ||
-          then_aliases[local_id] == else_aliases[local_id] {
-          then_aliases[local_id]
-        } else {
-          // The LocalGraph plan keeps multisource merge traffic canonical.
-          -1
-        }
       }
       @lib.Instruction::if_(block_type, rewritten_then, rewritten_else)
     }
@@ -28206,7 +28153,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
             cursor,
             extra_local_types,
             base_local_count,
-            fresh_aliases,
+            emitted_fresh_locals,
             run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
               block_type, body, true, in_branching_value_block,
             ),
@@ -28227,7 +28174,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
             cursor,
             extra_local_types,
             base_local_count,
-            fresh_aliases,
+            emitted_fresh_locals,
             run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
               block_type, body, false, in_branching_value_block,
             ),
@@ -28248,7 +28195,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
   cursor : SsaNoMergeRawRewriteCursor,
   extra_local_types : Array[@lib.ValType],
   base_local_count : Int,
-  fresh_aliases : Array[Int],
+  emitted_fresh_locals : Array[Bool],
   in_branching_value_block : Bool,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
@@ -28270,7 +28217,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
     out.push(
       run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         instr, params, locals, plan, written_locals, cursor, extra_local_types, base_local_count,
-        fresh_aliases, in_branching_value_block, force_keep_write,
+        emitted_fresh_locals, in_branching_value_block, force_keep_write,
       ),
     )
   }
@@ -28292,10 +28239,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_planned_structured(
   let written_locals = @bitset.BitSet::new(base_local_count)
   run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(instrs, written_locals)
   let cursor = { write_cursor: 0, get_cursor: 0, changed: false, }
-  let fresh_aliases = Array::make(base_local_count, -1)
+  let emitted_fresh_locals = Array::make(plan.write_rewrites.length(), false)
   let rewritten_instrs = run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
     instrs, params, locals, plan, written_locals, cursor, extra_local_types, base_local_count,
-    fresh_aliases, false,
+    emitted_fresh_locals, false,
   )
   if !cursor.changed {
     return (func, false)
