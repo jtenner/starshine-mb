@@ -147,6 +147,21 @@ When adding a new invariant, prefer a focused module or the existing focused own
 
 ## Correctness Constraints
 
+- **Loop input arity:** both `hot_control_result_type_set` and batched
+  `hot_replace_child_spans_and_control_result_type` preserve a loop's own label
+  branch arity while visiting its body region. Branches to that label carry
+  loop inputs, even when the loop has a different result arity. The zero-input,
+  one-result replacement regression in
+  [`hot_mutate_test.mbt`](../../../src/ir/hot_mutate_test.mbt) verifies the child,
+  both arities, HOT invariants, and lowered module validation.
+- **Dead-tee value order:** callers must prove the `local.tee` write dead before
+  invoking `hot_replace_local_tee_with_value`. It forwards the already evaluated
+  operand with `hot_replace_node(..., preserve_value_order=true)`. An earlier
+  local read must retain its source order across an intervening overwrite. The
+  regression in [`hot_mutate_test.mbt`](../../../src/ir/hot_mutate_test.mbt)
+  checks the dead definition's uses, opcode, local index, order, validation,
+  and scalar execution (old value 7, later local value 99).
+
 - **Single owned body:** a pass may use raw `@lib.Module` for module-level facts, but function-body optimizer mutation should converge on `HotFunc`, not on a second owned function IR.
 - **Public mutation only:** direct writes to HOT storage are architecture debt unless they are inside the owning IR module. Shared mutation helpers exist so revisioning, tombstones, labels, and region membership stay consistent.
 - **Analysis invalidation by revision:** never carry `BlockId`, dominance facts, liveness bitsets, effect masks, SSA value ids, or phi ids across a revision-changing mutation.
@@ -167,6 +182,45 @@ For a simple peephole that deletes a pure redundant wrapper inside one function:
 7. Verify, lower, validate, and then run pass-specific oracle/signoff if the pass has a Binaryen equivalent.
 
 That example is deliberately ordinary: most IR2 bugs come from skipping one boring step, such as reusing stale liveness after a mutation or preserving a side-table payload without checking the exact lowered opcode.
+
+## September 2026 Stability Verification
+
+On master `3dc72fd2d`, all three regressions first failed: repeated-edge phi
+alignment aborted, the batched loop's input arity became 1, and the forwarded
+read's order became the tee's later order. After the fixes, the two touched
+test files pass 43/43. Focused wasm-gc IR, SSA, DCE, TupleOptimization and
+CoalesceLocals tests pass 644/644. `moon info`, `moon fmt`, native release
+builds, README/API sync, and 65 comparison-harness tests pass; no `.mbti`
+changes occur.
+
+The complete wasm-gc suite is 11,214/11,270. A detached build of untouched
+master is 11,211/11,267, with the same 56 failures and diagnostics (ignoring
+generated function IDs). Plain `moon test` hits the same generated-validator
+engine local-count limit on both revisions. `bun validate full --profile ci
+--target wasm-gc` therefore stops before its fuzz stage. These results do not
+renew the earlier all-green upgrade checkpoint; active failures remain in
+[`agent-todo.md`](../../../agent-todo.md).
+
+Eight quick GenValid sweeps use verified Binaryen 132, explicit native CLI and
+generator binaries, eight workers, and `--debug-serial-passes`. Each pass runs
+100 aggregate-profile cases at `0x5eed` and 100 regular cases at `0x5555`.
+Aggregate normalized matches/mismatches are SSA-no-merge 39/61, DCE 80/20,
+TupleOptimization 0/100, and CoalesceLocals 37/63; each regular lane is 0/100.
+All 800 validate, with zero generator or command failures. Re-running both
+revisions on every input produces byte-identical outputs (800/800), establishing
+that all 644 Binaryen output differences predate these repairs. They are not
+blanket semantic-parity evidence: inspected no-op/dropped-constant cleanup
+examples are smaller, but unreviewed families remain parity gaps. The separate
+existing fuzz smoke lane passes all 14 suites, totaling 3,773 attempts.
+
+Dewdrop's saved 39-case failure subset passes 1/39 after repair. The complete
+1,000-case replay improves from baseline 958/1,000 to 959/1,000, repairing
+`discovery/O4z/collections/binary-heap-runtime`; no previously passing case
+regresses. Twelve other outputs change but still pass Node, Wago and external
+validation. All 41 remaining failures reproduce on baseline: 18 runtime
+mismatches, 14 optimizer command failures, seven timeouts and two validation
+failures. Local evidence is retained under `.tmp/stability-dewdrop-*`,
+`.tmp/stability-fuzz-*`, and `.tmp/stability-baseline-compare/report.json`.
 
 ## Practical Rules
 

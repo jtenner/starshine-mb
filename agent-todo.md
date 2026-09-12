@@ -2,6 +2,20 @@
 
 ## Dewdrop runtime composition faults (September 2026)
 
+- **September 11 stability baseline:** master `3dc72fd2d` reproduces 56
+  wasm-gc test failures (50 SSA-no-merge, four CodePushing, one SimplifyLocals,
+  one DAE). The three shared-IR stability regressions pass after their fixes;
+  the complete suite changes from 11,211/11,267 to 11,214/11,270 with exactly
+  the same failing test names. Keep these independent failures open; do not
+  weaken branch-copy, transform, or signature assertions. Plain `moon test`
+  also hits the same generated-validator WebAssembly local-count engine limit
+  on both revisions. The full CI wrapper stops at the test gate before fuzzing.
+  Complete saved Dewdrop replay improves from 958/1,000 to 959/1,000: the O4z
+  binary-heap case is repaired, with no passing-to-failing cases. The remaining
+  41 failures reproduce on the same untouched master (18 runtime mismatches,
+  14 optimizer command failures, seven timeouts, two validation failures).
+  This supersedes older wave counts for the current-source checkpoint, without
+  closing their owners. See [stability verification](docs/wiki/ir2/architecture-rules.md#september-2026-stability-verification).
 - **Goal:** repair transformations exposed by the complete 461-fixture Dewdrop
   source sweep, using execution in Node and Wago as the primary check.
 - **Closed shapes:** shared HOT stack/control lifetimes, reference initialization,
