@@ -24,6 +24,7 @@ function facts(offset: number, lanes: number[]): Uint8Array {
   return Uint8Array.from([0, ...uleb(payload.length), ...payload]);
 }
 const cases = [
+  {name: "adjacent constants", params: "", prefix: "i32.const 2", offset: 2, call: "i32.const 2", constant: true},
   {name: "one parameter", params: "i32", prefix: "i32.const 2 i32.const 1", offset: 4, call: "call $two"},
   {name: "two parameters", params: "i32 i32", prefix: "i32.const 2 i32.const 0 i32.const 1", offset: 6, call: "call $two"},
   {name: "zero parameters", params: "", prefix: "i32.const 2", offset: 2, call: "call $two"},
@@ -60,9 +61,13 @@ for (const c of cases) {
         const observe = (path: string) => execFileSync("node", ["-e", `const fs=require('fs'); const i=new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(process.argv[1]))); console.log(i.exports.main());`, path], {encoding: "utf8"}).trim();
         execFileSync("wasm-tools", ["validate", "--features", "all", input]);
         expect(observe(input)).toBe("1");
-        execFileSync(binary, ["--compiler-facts=trust", "--apply-compiler-facts", input, "-o", output], {timeout: 10_000});
+        execFileSync(binary, ["--compiler-facts=trust", "--apply-compiler-facts", ...(c.constant ? ["--precompute"] : []), input, "-o", output], {timeout: 10_000});
         execFileSync("wasm-tools", ["validate", "--features", "all", output]);
         expect(observe(output)).toBe("1");
+        if (c.constant) {
+          const text = execFileSync("wasm-tools", ["print", output], {encoding: "utf8"});
+          expect(text.split("\n").some(line => line.trim() === op)).toBe(false);
+        }
       } finally { rmSync(dir, {recursive: true, force: true}); }
     });
   }
