@@ -9,7 +9,9 @@
   reference reads. String-builder externally validates but still traps in
   optimizing inlining. SimplifyLocals now repairs reference initialization
   after sinking across block scopes; derive-hash passes validation, Node and
-  Wago. The broader inlining runtime family remains open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  Wago. RSE float keys now preserve signed-zero and NaN bits; the saved
+  numeric math no-shrink case returns `numeric:math` again in Node. The
+  broader inlining runtime family remains open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
 
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56

@@ -221,8 +221,24 @@ fn rse_record_branch_table_exits(
 }
 
 ///|
+fn rse_f32_key(value : @lib.F32) -> String {
+  "f32:\{value.0.reinterpret_as_uint()}"
+}
+
+///|
+fn rse_f64_key(value : @lib.F64) -> String {
+  "f64:\{value.0.reinterpret_as_uint64()}"
+}
+
+///|
 fn rse_node_const_key(func : @ir.HotFunc, node : @ir.HotNode) -> String {
-  "const:\{node.ty}:\{@debug.to_string(@ir.hot_const_get(func, node.imm0))}"
+  let payload = @ir.hot_const_get(func, node.imm0)
+  let key = match payload {
+    @ir.HotConstPayload::F32Const(value) => rse_f32_key(value)
+    @ir.HotConstPayload::F64Const(value) => rse_f64_key(value)
+    _ => @debug.to_string(payload)
+  }
+  "const:\{node.ty}:\{key}"
 }
 
 ///|
@@ -751,8 +767,10 @@ fn rse_raw_default_key_for_type(ty : @lib.ValType) -> String? {
   match ty {
     @lib.NumTypeValType(@lib.I32NumType) => Some("i32:\{@lib.I32::new(0)}")
     @lib.NumTypeValType(@lib.I64NumType) => Some("i64:\{@lib.I64::new(0L)}")
-    @lib.NumTypeValType(@lib.F32NumType) => Some("f32:\{@lib.F32::new(0.0)}")
-    @lib.NumTypeValType(@lib.F64NumType) => Some("f64:\{@lib.F64::new(0.0)}")
+    @lib.NumTypeValType(@lib.F32NumType) =>
+      Some(rse_f32_key(@lib.F32::new(0.0)))
+    @lib.NumTypeValType(@lib.F64NumType) =>
+      Some(rse_f64_key(@lib.F64::new(0.0)))
     @lib.RefTypeValType(ref_type) if ref_type.is_nullable() =>
       Some("ref.null:\{rse_raw_default_ref_null_type(ref_type)}")
     _ => None
@@ -775,8 +793,8 @@ fn rse_raw_default_instr_key(instr : @lib.Instruction) -> String? {
   match instr {
     @lib.Instruction::I32Const(value) => Some("i32:\{value}")
     @lib.Instruction::I64Const(value) => Some("i64:\{value}")
-    @lib.Instruction::F32Const(value) => Some("f32:\{value}")
-    @lib.Instruction::F64Const(value) => Some("f64:\{value}")
+    @lib.Instruction::F32Const(value) => Some(rse_f32_key(value))
+    @lib.Instruction::F64Const(value) => Some(rse_f64_key(value))
     @lib.Instruction::RefNull(ref_type) => Some("ref.null:\{ref_type}")
     _ => None
   }
@@ -1423,11 +1441,11 @@ fn rse_raw_rewrite_expr_scoped(
       }
       @lib.Instruction::F32Const(value) => {
         out.push(instr)
-        rse_raw_push(state, rse_raw_intern_value(state, "f32:\{value}"))
+        rse_raw_push(state, rse_raw_intern_value(state, rse_f32_key(value)))
       }
       @lib.Instruction::F64Const(value) => {
         out.push(instr)
-        rse_raw_push(state, rse_raw_intern_value(state, "f64:\{value}"))
+        rse_raw_push(state, rse_raw_intern_value(state, rse_f64_key(value)))
       }
       @lib.Instruction::RefNull(ref_type) => {
         out.push(instr)

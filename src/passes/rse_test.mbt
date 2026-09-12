@@ -1547,3 +1547,95 @@ test "rse removes unread structured-result local.set while preserving rhs" {
       )
   }
 }
+
+///|
+test "redundant-set-elimination distinguishes floating-point bit patterns" {
+  for
+    row in [
+      (
+        @lib.ValType::f32(),
+        @lib.Instruction::f32_const(@lib.F32::new(0.0)),
+        @lib.Instruction::f32_const(
+          @lib.F32::new(0x80000000U.reinterpret_as_float()),
+        ),
+        1,
+      ),
+      (
+        @lib.ValType::f64(),
+        @lib.Instruction::f64_const(@lib.F64::new(0.0)),
+        @lib.Instruction::f64_const(
+          @lib.F64::new(0x8000000000000000UL.reinterpret_as_double()),
+        ),
+        1,
+      ),
+      (
+        @lib.ValType::f32(),
+        @lib.Instruction::f32_const(
+          @lib.F32::new(0x7fc00001U.reinterpret_as_float()),
+        ),
+        @lib.Instruction::f32_const(
+          @lib.F32::new(0x7fc00002U.reinterpret_as_float()),
+        ),
+        2,
+      ),
+      (
+        @lib.ValType::f64(),
+        @lib.Instruction::f64_const(
+          @lib.F64::new(0x7ff8000000000001UL.reinterpret_as_double()),
+        ),
+        @lib.Instruction::f64_const(
+          @lib.F64::new(0x7ff8000000000002UL.reinterpret_as_double()),
+        ),
+        2,
+      ),
+    ] {
+    let (ty, first, second, expected_sets) = row
+    let input = @lib.Module::new()
+      .with_type_sec(
+        @lib.TypeSec::new([
+          @lib.RecType::new(
+            @lib.SubType::comp_type(@lib.CompType::func([], [ty])),
+          ),
+        ]),
+      )
+      .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+      .with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(
+            @lib.Locals::from_types([ty]),
+            @lib.Expr::new([
+              first,
+              @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              second,
+              @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            ]),
+          ),
+        ]),
+      )
+    let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "redundant-set-elimination",
+    ]).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    @debug.assert_eq(
+      body.filter(fn(instr) { instr is @lib.LocalSet(_) }).length(),
+      expected_sets,
+    )
+    let hot = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+    let ctx = HotPassContext::new(
+      rse_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+    )
+    ignore(hot_pass_run(ctx, hot).unwrap())
+    let mut sets = 0
+    for root in @ir.hot_root_span(hot) {
+      if @ir.hot_node_get(hot, root).op is @ir.HotOp::LocalSet {
+        sets += 1
+      }
+    }
+    @debug.assert_eq(sets, 2)
+  }
+}

@@ -256,6 +256,16 @@ The execution regression covers both the full and no-structure dispatcher
 variants in [`simplify-reference-scopes.test.ts`](../../../tests/optimizer/regressions/simplify-reference-scopes.test.ts).
 No branch arities, defaults, or validation bypasses are introduced.
 
+The numeric-math no-shrink replay first changes behavior at pass 19,
+`redundant-set-elimination`. Float display keys conflate negative zero with
+the default positive zero and conflate distinct NaN payloads. Raw and HOT value
+keys now use IEEE bits, including default-value keys. The bit-pattern regression
+fails before repair; all 43 RSE tests pass afterward, and the independent native
+Node regression returns 1 instead of 0. The saved math case returns
+`numeric:math` again. These are focused development results, not final replay
+signoff. Tests: [`rse_test.mbt`](../../../src/passes/rse_test.mbt) and
+[`rse-float-bits.test.ts`](../../../tests/optimizer/regressions/rse-float-bits.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.
