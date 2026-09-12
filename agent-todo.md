@@ -12,7 +12,9 @@
   numeric math no-shrink case returns `numeric:math` again in Node. The
   inlining heap-identity fix repairs most runtime failures: the debug subset
   passes 14/19, with array-methods, defer and three trap-message cases open.
-  Abort, timeout and baseline-suite families remain open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  The raw SSA dispatcher now isolates arm aliases (reduced execution red/green),
+  but saved array-methods and defer still fail later. Abort, timeout and
+  baseline-suite families remain open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
 
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56

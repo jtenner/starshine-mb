@@ -281,6 +281,18 @@ this does not establish release performance or final full verification. See
 [`duplicate-type-cast.test.ts`](../../../tests/optimizer/regressions/duplicate-type-cast.test.ts)
 and [`optimize_instructions_test.mbt`](../../../src/passes/optimize_instructions_test.mbt).
 
+The array-methods nested SSA pass also exposes an independent raw dispatcher
+fault: the planned rewrite reused the then arm's mutable alias array when
+entering the else arm. A reduced integer fixture changes 0 to 1 before repair.
+Each arm now starts from a copy of incoming aliases, and the join retains the
+common alias or the sole continuing arm. Multisource traffic stays canonical
+under the existing LocalGraph plan. The reduced dispatcher and independent Node
+regression pass; execution neighbors cover both arms, no else, nesting and early
+return. The SSA/IR neighborhood is 489/539, with exactly the same 50 baseline
+SSA failures. The complete array-methods and defer cases still trap later in
+optimizing inlining; their owners remain open. Tests:
+[`ssa-else-read.test.ts`](../../../tests/optimizer/regressions/ssa-else-read.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

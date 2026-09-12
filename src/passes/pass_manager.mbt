@@ -28131,6 +28131,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         ),
       )
     @lib.If(block_type, then_body, else_body) => {
+      // Both arms start with the incoming aliases; neither executes after the other.
+      let then_aliases = fresh_aliases.copy()
+      let else_aliases = fresh_aliases.copy()
       let rewritten_then = run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
         then_body,
         params,
@@ -28140,7 +28143,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         cursor,
         extra_local_types,
         base_local_count,
-        fresh_aliases,
+        then_aliases,
         run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
           block_type, then_body, false, in_branching_value_block,
         ),
@@ -28157,13 +28160,36 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
               cursor,
               extra_local_types,
               base_local_count,
-              fresh_aliases,
+              else_aliases,
               run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
                 block_type, body, false, in_branching_value_block,
               ),
             ),
           )
         None => None
+      }
+      let then_reaches_join = run_hot_pipeline_dce_raw_body_may_fallthrough(
+          then_body,
+        ) ||
+        run_hot_pipeline_dce_raw_instrs_branch_to_depth(then_body, 0)
+      let else_reaches_join = match else_body {
+        Some(body) =>
+          run_hot_pipeline_dce_raw_body_may_fallthrough(body) ||
+          run_hot_pipeline_dce_raw_instrs_branch_to_depth(body, 0)
+        None => true
+      }
+      for local_id = 0
+          local_id < fresh_aliases.length()
+          local_id = local_id + 1 {
+        fresh_aliases[local_id] = if !then_reaches_join {
+          else_aliases[local_id]
+        } else if !else_reaches_join ||
+          then_aliases[local_id] == else_aliases[local_id] {
+          then_aliases[local_id]
+        } else {
+          // The LocalGraph plan keeps multisource merge traffic canonical.
+          -1
+        }
       }
       @lib.Instruction::if_(block_type, rewritten_then, rewritten_else)
     }

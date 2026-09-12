@@ -33688,3 +33688,30 @@ test "ssa-nomerge preserves local merges written by both if arms" {
     msg=trace.join("\n"),
   )
 }
+
+///|
+test "ssa-nomerge preserves the incoming alias in the else arm" {
+  let input = ssa_test_decode_wasm_bytes([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 7, 8, 1, 4,
+    109, 97, 105, 110, 0, 0, 10, 32, 1, 30, 1, 1, 127, 65, 2, 33, 0, 65, 0, 32, 0,
+    79, 4, 64, 65, 1, 33, 0, 5, 65, 1, 32, 0, 79, 33, 0, 11, 32, 0, 11,
+  ])
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "ssa-nomerge",
+  ]).unwrap()
+  let (_, body) = ssa_test_first_defined_func(output)
+  let initial = match body[1] {
+    @lib.LocalSet(index) => index
+    _ => fail("expected initial write")
+  }
+  let else_body = match body[5] {
+    @lib.If(_, _, Some(body)) => body
+    _ => fail("expected branch")
+  }
+  let read = match else_body[1] {
+    @lib.LocalGet(index) => index
+    _ => fail("expected else read")
+  }
+  @debug.assert_eq(read, initial)
+  ignore(@validate.validate_module(output).unwrap())
+}
