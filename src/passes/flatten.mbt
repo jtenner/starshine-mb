@@ -9176,38 +9176,15 @@ fn flatten_place_unreachable_control_placeholder(
 }
 
 ///|
-fn flatten_spill_scalar_operand(
+fn flatten_insert_early_source_preludes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
   owner_region : @ir.HotRegionRef,
-  parent_id : Int,
-  slot : Int,
   child_id : Int,
   preludes : Array[Int],
-) -> Bool {
+) -> Unit {
   let child = @ir.hot_node_get(func, child_id)
-  let parent = @ir.hot_node_get(func, parent_id)
-  let child_is_tee = match child.op {
-    @ir.HotOp::LocalTee => true
-    _ => false
-  }
-  let parent_allows_rich_value = match parent.op {
-    @ir.HotOp::LocalSet => !flatten_op_is_control_structure(child.op)
-    _ => false
-  }
-  if flatten_node_is_simple_operand(func, child_id) ||
-    @ir.hot_node_kind_is_control(func, child_id) ||
-    child_is_tee ||
-    parent_allows_rich_value {
-    return false
-  }
-  let result_types = flatten_type_results(func, child.ty, state=Some(state))
-  if result_types.length() != 1 {
-    return false
-  }
-  let local_id = @ir.hot_append_body_local(func, result_types[0])
-  let set_id = @ir.hot_build_local_set_from_value(func, local_id, child_id)
   let mut early_insert_idx = -1
   if child_id < state.use_count_node_limit &&
     owner_region.holder == state.active_region_holder &&
@@ -9245,16 +9222,53 @@ fn flatten_spill_scalar_operand(
   if early_insert_idx >= 0 {
     // Operand preludes can initialize locals consumed by this value (for
     // example a split tee feeding a cast). Move the dependency chain with it.
-    preludes.push(set_id)
     let inserted = preludes.length()
     ignore(
       pass_splice_region(ctx, func, owner_region, early_insert_idx, 0, preludes),
     )
     preludes.clear()
     state.active_early_insertions = state.active_early_insertions + inserted
-  } else {
-    preludes.push(set_id)
   }
+}
+
+///|
+fn flatten_spill_scalar_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  owner_region : @ir.HotRegionRef,
+  parent_id : Int,
+  slot : Int,
+  child_id : Int,
+  preludes : Array[Int],
+) -> Bool {
+  let child = @ir.hot_node_get(func, child_id)
+  let parent = @ir.hot_node_get(func, parent_id)
+  let child_is_tee = match child.op {
+    @ir.HotOp::LocalTee => true
+    _ => false
+  }
+  let parent_allows_rich_value = match parent.op {
+    @ir.HotOp::LocalSet => !flatten_op_is_control_structure(child.op)
+    _ => false
+  }
+  if flatten_node_is_simple_operand(func, child_id) ||
+    @ir.hot_node_kind_is_control(func, child_id) ||
+    child_is_tee ||
+    parent_allows_rich_value {
+    return false
+  }
+  let result_types = flatten_type_results(func, child.ty, state=Some(state))
+  if result_types.length() != 1 {
+    return false
+  }
+  let local_id = @ir.hot_append_body_local(func, result_types[0])
+  let set_id = @ir.hot_build_local_set_from_value(func, local_id, child_id)
+  preludes.push(set_id)
+  flatten_insert_early_source_preludes(
+    ctx, func, state, owner_region, child_id, preludes,
+  )
+
   @ir.hot_child_set(
     func,
     parent_id,
@@ -9468,6 +9482,9 @@ fn flatten_rewrite_operand_slot(
   match flatten_try_route_scalar_control(ctx, func, state, child_id) {
     Some(local_id) => {
       preludes.push(child_id)
+      flatten_insert_early_source_preludes(
+        ctx, func, state, owner_region, child_id, preludes,
+      )
       @ir.hot_child_set(
         func,
         parent_id,

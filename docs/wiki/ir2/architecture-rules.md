@@ -300,13 +300,33 @@ another shared analysis fault: LocalGraph recursively revisited operands already
 listed as CFG nodes, letting a read see its own later write. `HotCfg` now records
 readonly `operands_expanded`; forward/full-flow construction and local path
 sequences respect the explicit execution list. The reviewed API diff adds that
-field. A direct graph regression is red before repair; all48graph/MergeLocals
+field. A direct graph regression is red before repair; all48 graph/MergeLocals
 tests pass afterward, including the existing across-if optimization. The reduced
-Node test again observes1, not7. With the paired Flatten repair,825IR/direct-pass
+Node test again observes1, not7. With the paired Flatten repair,825 IR/direct-pass
 neighbors pass and the saved runtime subset is16/19. The three remaining raw
 failures compare trap diagnostics; complete final release verification is pending.
 See [`local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt) and
 [`merge-result-block-write.test.ts`](../../../tests/optimizer/regressions/merge-result-block-write.test.ts).
+
+Defer's first bad nested pass is Flatten (dump5): it placed an extracted carried
+result block after a later call. The original effects 4 then 5 became 5 then 4. Scalar
+control routing now uses the same existing source-position prelude insertion as
+ordinary scalar spills, retaining prerequisite operations with the extracted
+value. The reduced Node regression fails 45 versus 54 before repair and passes 45
+afterward; the returned 9 is checked too. The dispatcher asserts block-before-call
+ordering, and the825 neighbor gate passes. Saved array-methods and defer now match
+in both Node and Wago. See
+[`flatten-carried-block-order.test.ts`](../../../tests/optimizer/regressions/flatten-carried-block-order.test.ts).
+
+The remaining three runtime subset failures are diagnostic-contract differences:
+nullable-ref-as-non-null (two profiles) calls a pure null producer then immediately
+traps before an empty callee; fixed-array-get-oob creates a length-1 array then
+reads index 1. Both optimized mains contain only unreachable. The originals have
+no imports or exported state and no observable effects before the guaranteed
+trap. The [core result grammar](https://webassembly.github.io/spec/core/exec/runtime.html#syntax-result)
+has one trap form. This agent classification is grounded in these specific
+programs; the unchanged harness continues to report their differing diagnostic
+labels. No blanket trap normalization or engine-defect claim is made.
 
 ## Practical Rules
 
