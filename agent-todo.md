@@ -10,9 +10,11 @@
   debug checkpoint replays, including subsequently exposed collection and math
   runtime defects. Three guaranteed-trap cases still differ only in exact
   diagnostic labels; retain their raw harness failures and source-backed
-  classification. Next: reproduce/group the 50 SSA, four CodePushing, one
-  SimplifyLocals and one DAE baseline failures; investigate the shared generated
-  WebAssembly local-count limit. Final release build, focused tests, harness,
+  classification. The current full suite reproduces the same 56 failing names.
+  The four CodePushing cases are repaired (166 neighbors pass). Next: resolve
+  50 SSA, one SimplifyLocals and one DAE baseline failures. The shared default
+  WebAssembly compile limit is isolated to the exact-opcode counter's 162,413
+  compiler-generated locals; split its record-copy match without changing counts. Final release build, focused tests, harness,
   smoke fuzz, full suite and complete 1,000-case replay remain pending. See
   [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/` for exact commands and evidence.

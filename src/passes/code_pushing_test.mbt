@@ -6385,3 +6385,29 @@ test "code-pushing moves SFA set past caught legacy try delegate" {
     _ => fail("expected local.set after caught legacy delegate and br_if")
   }
 }
+
+///|
+test "code-pushing keeps a moved disjoint global read after its branch when lowered" {
+  let source =
+    #|(module (global (mut i32) (i32.const 1)) (global (mut i32) (i32.const 2))
+    #| (func (param i32) (local i32)
+    #|  block global.get 0 local.set 1 i32.const 3 global.set 1
+    #|   local.get 0 br_if 0 local.get 1 drop end))
+  let output = pass_test_run_pipeline(source, ["code-pushing"]).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let events : Array[String] = []
+  fn visit(body : Array[@lib.Instruction]) -> Unit {
+    for instruction in body {
+      match instruction {
+        @lib.GlobalGet(_) => events.push("read")
+        @lib.GlobalSet(_) => events.push("write")
+        @lib.BrIf(_) => events.push("branch")
+        @lib.Block(_, @lib.Expr(nested)) => visit(nested)
+        _ => ()
+      }
+    }
+  }
+  visit(body)
+  @debug.assert_eq(events, ["write", "branch", "read"])
+}

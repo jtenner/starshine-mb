@@ -969,7 +969,19 @@ fn code_pushing_make_local_set_clone(
   local_id : Int,
   value_id : Int,
 ) -> Int {
-  @ir.hot_build_local_set(func, local_id, value_id)
+  // Motion was proven safe by the caller. Give a moved global read its new
+  // evaluation position so lowering does not recover its former stack lifetime.
+  let value = @ir.hot_node_get(func, value_id)
+  let moved_value = if value.op is @ir.HotOp::GlobalGet {
+    @ir.hot_build_global_get(
+      func,
+      value.imm0,
+      @ir.hot_type_results(func, value.ty)[0],
+    )
+  } else {
+    value_id
+  }
+  @ir.hot_build_local_set(func, local_id, moved_value)
 }
 
 ///|

@@ -23772,3 +23772,11 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   vector-store test red/green; 389 neighbors and both bounded wide-array lanes
   pass. Final release/full verification and 56 baseline tests remain open.
   See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: current full suite has exactly the original 56 failures,
+  11,234/11,290 pass. Repair the four CodePushing motion-contract failures by
+  giving safely moved global reads their new evaluation identity; reduced
+  opcode order red/green, 166 neighbors and both-branch Node check pass.
+  The shared default-engine failure is isolated to 162,413 generated locals in
+  exact opcode counting; remaining baseline work and final gates stay open.
+  See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).

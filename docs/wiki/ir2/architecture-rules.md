@@ -424,6 +424,16 @@ validation. Final release replay remains pending. See
 [`flatten_dew_simd_operand_test.mbt`](../../../src/passes/flatten_dew_simd_operand_test.mbt)
 and [`flatten-wide-array.test.ts`](../../../tests/optimizer/perf/flatten-wide-array.test.ts).
 
+The post-replay full suite reproduces exactly the original 56 failing names
+(11,234/11,290 pass, no new failures). The four CodePushing failures are one
+implementation gap: safe motion past a disjoint global write retained the read's
+old source identity, so lowering hoisted it back before the branch. A moved
+GlobalGet now receives a fresh evaluation node after the caller's existing motion
+proofs. The reduced opcode-order regression fails before repair; all 166
+CodePushing tests and a Node test covering both branch paths pass afterward.
+These were optimization-contract failures, not observed runtime-result defects.
+See [`code-pushing-global-motion.test.ts`](../../../tests/optimizer/regressions/code-pushing-global-motion.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.
