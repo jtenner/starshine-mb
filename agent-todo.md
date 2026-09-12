@@ -6,23 +6,27 @@
   transformation, metadata, analysis and termination failures before using the
   complete pipeline as a speed candidate.
 - **Checkpoint:** starting master `93f11e3b7` reproduced 38/1,000 replay failures
-  and 56 full-suite failures. Code/test source `4ccd09078` passes focused
-  IR/direct-pass 1,358/1,358, harness 65/65, full wasm-gc 11,293/11,293,
-  and plain default-backend tests 11,296/11,296.
-  Shared default-backend opcode-counter resource growth is repaired. Historical
-  wave failure lists are superseded for this task; durable causes and regressions
-  are in [correctness follow-up](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up).
-- **Remaining tasks / deliverables:** the 4ccd09078 release replay completed
-  995/1,000, exposing two new iter-combinator failures in SSA-no-merge (speed
-  prefix 5 and optimizing-inlining nested prefix 4). Repair the enclosing-exit
-  reaching-write loss, then rerun every final gate on the repaired source.
-  The preceding green suite counts and all `final-*` artifacts are checkpoints,
-  not verification of that subsequent repair. Record final binary/tool hashes
-  and classify every remaining raw report.
-- **Known diagnostic contract:** three guaranteed-trap cases retain different
-  exact engine messages after unreachable folding. Keep their raw failures
-  visible; only classify them using inspected trap/effect evidence. Do not
-  normalize arbitrary traps or suppress engine/validation errors.
+  and 56 full-suite failures. All confirmed implementation causes have reduced
+  regressions. The final enclosing-exit SSA repair is `fbd1936d8`: focused
+  IR/direct-pass 2,170/2,170, harness 65/65, full wasm-gc 11,295/11,295,
+  and plain default-backend tests 11,298/11,298 pass on this source.
+  Shared default-backend opcode-counter resource growth is repaired. Durable
+  causes and regressions are in [correctness follow-up](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up).
+- **Final verification:** fresh release execution/performance 83 tests / 171
+  probes, smoke 3,773 attempts, and all 800 generated outputs validate. Full
+  Dewdrop replay is 997/1,000 with no passing-to-failing cases from the starting
+  baseline. All requested checks ran after the final code change; exact commands,
+  hashes and results are in `.tmp/correctness-repair-20260911/verified-*`.
+- **Remaining compatibility work:** the raw replay still fails the three
+  diagnostic comparisons below. Keep these visible until the required external
+  diagnostic contract is settled; do not claim an all-green 1,000-case gate.
+  No confirmed implementation defect remains open in the reproduced corpus.
+- **Known diagnostic contract:** fixed-array-get-oob `O4z` changes
+  `array-out-of-bounds` to `unreachable`; nullable-ref-as-non-null `O4z` and
+  `direct-inlining-optimizing` change `null-reference` to `unreachable`.
+  Original and optimized programs have no pre-trap observable effects. Both
+  Node and Wago confirm these exact diagnostic differences; no engine defect or
+  blanket trap normalization is claimed. See [final verification](docs/wiki/ir2/architecture-rules.md#final-source-verification-fbd1936d8).
 - **Separate parity follow-up:** ten SSA fixture size differences remain open
   (typed loop proxies, reference/cast lowering, branch-table cleanup). They are
   not confirmed execution defects. See [SSA evidence](docs/wiki/binaryen/passes/ssa-nomerge/merge-shapes-and-canonical-slots.md#september-12-baseline-expectation-resolution).

@@ -23810,3 +23810,13 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   and 54 execution tests pass afterward. Both saved cases now pass Node/Wago.
   Repeat all final gates; the 995/1,000 release checkpoint is superseded for
   signoff. See [enclosing-exit follow-up](ir2/architecture-rules.md#enclosing-exit-ssa-follow-up).
+
+- September 12: final-source verification on `fbd1936d8` passes focused
+  2,170/2,170, harness 65/65, full wasm-gc 11,295/11,295, default
+  11,298/11,298, execution/performance 83 tests / 171 probes, and smoke 3,773
+  attempts. All 800 generated outputs validate; 644 Binaryen shape mismatches
+  remain separate from correctness claims. Fresh 1,000-case release replay
+  improves 962 to 997 passes with no new failures. Three inspected exact trap
+  diagnostics remain raw harness failures. All requested checks ran after the
+  final code change; no confirmed implementation defect remains open in the
+  reproduced corpus. See [final verification](ir2/architecture-rules.md#final-source-verification-fbd1936d8).

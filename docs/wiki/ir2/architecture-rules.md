@@ -499,6 +499,7 @@ historical; the subsequent verification checkpoint below records the remaining w
 | SimplifyLocals missed dead pairs across inert blocks | `9e5fd5a90` | [Constant 32 and retained branching boundary](../../../tests/optimizer/regressions/simplify-empty-block.test.ts) |
 | DAE test expected an unspecialized tail-call parameter | `275c556d7` | [Zero parameters, exact constant body and result 41](../../../tests/optimizer/regressions/dae-tail-constant.test.ts) |
 | SSA tests required obsolete merge-copy layouts | `4ccd09078` | [Exact encodings and 138 original/optimized probes](../../../tests/optimizer/regressions/ssa-canonical-merges/execution.test.ts) |
+| SSA lexical aliases lost enclosing-block exit writes | `fbd1936d8` | [Loop result 3, simple exit 7, and existing arm/merge neighbors](../../../tests/optimizer/regressions/ssa-enclosing-exit.test.ts) |
 
 
 ### Enclosing-exit SSA follow-up
@@ -520,7 +521,83 @@ lexical alias state. The reduced loop returns 3 originally and 0 before repair;
 its unreachable suffix triggers the same debris-collapse replanning route.
 See [execution regression](../../../tests/optimizer/regressions/ssa-enclosing-exit.test.ts)
 and the direct/command tests in `ssa_nomerge_test.mbt` and `cmd.mbt`.
-All final gates must be repeated after the repair.
+The repair is committed as `fbd1936d8`. The verification below was rerun after
+this final code/test change; it supersedes every development checkpoint above.
+
+### Final-source verification: fbd1936d8
+
+Starting commit: `93f11e3b7c20c4151975db7bb9ad689c79e8d102`.
+Tested code/test commit: `fbd1936d8a7c4815dfd42cdffe80bab35296df90` on master.
+Subsequent verification documentation changes do not change the tested source,
+tests, scripts, or binaries. No rebase occurred.
+
+| Final check | Result |
+| --- | --- |
+| `moon info`, `moon fmt`, README API sync | Pass; no new API diff in the final SSA fix |
+| Focused IR/direct-pass, all SSA and command tests | 2,170/2,170 pass |
+| Fuzz-harness tests | 65/65 pass |
+| Full `moon test --target wasm-gc --jobs 16` | 11,295/11,295 pass |
+| Plain `moon test` | 11,298/11,298 pass; 532s, no local-count compile failure |
+| Fresh native release CLI and fuzz build | Pass |
+| Native original/optimized execution and bounded performance regressions | 83 tests / 171 probes pass; wide literal/computed arrays 113ms/715ms with unchanged 5s optimizer limit |
+| Smoke, all 14 suites, seed 24301 | 3,773 attempts pass |
+| Eight saved 100-case GenValid lanes, verified Binaryen 132 | 800 validate; zero generator, command, validation or property failures; 156 normalized matches / 644 output mismatches |
+| Full saved Dewdrop replay, pinned Node/Wago and 30s limits | 997/1,000 pass in 39.39s; three diagnostic-contract failures below |
+
+The generated comparison lanes have runtime execution disabled; their validating
+outputs and mismatch counts are not semantic correctness evidence. Execution
+claims come from the independent original/optimized regression probes and
+Dewdrop replay. No byte-parity claim is made for the 644 output mismatches.
+
+The fresh starting baseline has 38 failures: 16 result/trap mismatches, one Node
+illegal-cast error, 12 aborts, seven timeouts and two validation failures. These
+counts supersede the earlier historical inventory for this starting commit.
+All 1,000 optimized modules pass external validation. All 962 initially passing
+cases still pass. Thirteen result/trap cases, the Node error, all 12 aborts,
+all seven timeouts and both validation cases now pass.
+The two iter-combinator regressions exposed at the intermediate release
+checkpoint also pass. All input hashes match the baseline replay.
+
+The 56 full-suite failures are resolved: four CodePushing and one SimplifyLocals
+implementation gaps; one stale DAE specialization assertion; 50 obsolete SSA
+merge-copy expectations, replaced by exact encodings and execution probes.
+The separate shared local-count failure came from generated record copies in
+exact-opcode counting, repaired without changing seeds, counts or engine limits.
+
+Remaining raw replay failures, confirmed in both Node and Wago with the same
+settings for original and optimized execution:
+
+| Fixture | Profile | Original diagnostic → optimized diagnostic |
+| --- | --- | --- |
+| `collections/fixed-array-get-oob-trap` | `O4z` | `array-out-of-bounds` → `unreachable` |
+| `wasmgc/nullable-ref-as-non-null-trap` | `O4z` | `null-reference` → `unreachable` |
+| `wasmgc/nullable-ref-as-non-null-trap` | `direct-inlining-optimizing` | `null-reference` → `unreachable` |
+
+These are the inspected guaranteed-trap programs described above: no imports,
+exported state, or observable effects precede their traps. This is an agent
+classification of a diagnostic-contract difference, not an engine-defect claim.
+The unchanged harness still reports all three as failures; no blanket trap
+normalization was added. Ten measured SSA size gaps remain separate parity
+follow-ups. No requested verification command is blocked, and no confirmed
+implementation defect remains unresolved in the reproduced corpus. The raw
+replay is not an all-green gate.
+
+Exact commands and results are local in `.tmp/correctness-repair-20260911/`:
+`verified-commands.json`, `verified-runtime-commands.json`,
+`verified-generated-lanes.json`, `verified-gates.json`,
+`verified-runtime-gates.json`, `verified-replay/report.json`,
+`verified-replay-comparison.json`, `verified-trap-contracts.json`,
+`verified-tools.json`, and `verification.md`. Original inputs remain in Dewdrop's
+`.tmp/starshine-deep-logs/{discovery,ordered-screen,ordered-wave2,ordered-wave3,ordered-wave4}/`
+reports and snapshot directories. The replay checks each saved input hash.
+
+Tools remain Node v26.8.2, Bun 1.4.2, Moon 0.1.20260827 (d0aaa07), wasm-tools
+1.251.0, and Binaryen 132. Release CLI SHA-256:
+`4370cc62bbdfb5261cd279723ebe176658aedf204214078f2a841a14046387fa`.
+Release fuzz SHA-256:
+`6c50d1bfc1588dad4e2354470f0820069bfc374aa4fa2aae10cdc4055fd9543b`.
+Oracle, pinned Wago and replay-runner hashes in `verified-tools.json` match the
+baseline tool setup. Its source-tree hashes identify the final tested revision.
 
 ## Practical Rules
 
