@@ -797,11 +797,13 @@ Separate 100-case three-way semantic lanes give 100/100 for once reduction and
 blocked observations are continuation cases that default Node refuses because
 stack switching is disabled. An additional paired run with
 `--experimental-wasm-wasmfx` and a separate cache verifies 100/100 open and
-99/100 closed on both revisions. **One check remains blocked:** closed DAE2
+99/100 closed on both revisions. **At that checkpoint one check remained blocked:** closed DAE2
 case 15 exits with Node `SIGSEGV` while executing the original input. This is an
 engine failure, not evidence of an optimizer mismatch. Across the three sampled
 lanes, 299/300 cases have execution evidence with the stated engine settings;
-full semantic signoff remains blocked for that one case.
+semantic signoff at that checkpoint remained blocked for that one case. The
+explicit alternate-engine verification below supersedes that blocker; the
+original Node reports remain unchanged.
 
 `dedicated-commands.json`, `dedicated-gates.json`, `dedicated-summary.json`,
 `wasmfx-commands.json`, `wasmfx-gates.json`, and `wasmfx-summary.json` preserve the
@@ -809,6 +811,52 @@ exact commands and paired results. An exploratory full-size semantic run was
 stopped after 3,480 repeated observations and superseded by the completed
 10,000-case comparison plus bounded semantic lanes; it is not counted as a
 completed gate (`partial-runtime-note.json`).
+
+### Continuation semantic check with Binaryen 132
+
+Starting from `1a4ba91f77a8eba87e7e4222892ccac653fe8fce`, the remaining
+closed-world DAE2 sample (seed `0x5eed`, index 15, profile `dae2-continuations`)
+now has execution evidence under `wasm-shell version 132 (version_132)`.
+Its original binary SHA-256 is
+`a5ca385f43e2248a675048ab34c32ce379366f27d29e3ea956adc101cbaa522a`.
+All six saved binaries (original/Starshine/Binaryen on baseline/current)
+validate with `wasm-tools validate --features all` and satisfy WAST
+`assert_exception (invoke "run")`. The runner embeds the exact binary bytes;
+it does not reparse or alter the input. Shell SHA-256:
+`4a9affc9e6089c6a4ac5c5591198bf44a94b54492b332a68edb424eefe514108`.
+Exact saved commands, hashes and results are in
+`.tmp/semantic-check-repair-20260912/saved-replay.json`.
+
+The [execution regression](../../../tests/optimizer/regressions/dae2-resume-throw.test.ts)
+keeps the original binary plus readable WAT and regenerates both optimizer
+outputs for plain/optimizing DAE2 in open/closed worlds. The explicit
+[shell runner](../../../tests/optimizer/regressions/shell-execution.ts) verifies
+version 132, validates every module, bounds subprocess execution and requires
+an uncaught exception. Normal return and trap controls must fail the assertion.
+Run with:
+
+```sh
+STARSHINE_BIN=_build/native/release/build/cmd/cmd.exe BINARYEN_BIN=.tmp/binaryen-version_132/bin/wasm-opt BINARYEN_SHELL=.tmp/binaryen-version_132/bin/wasm-shell bun test tests/optimizer/regressions/dae2-resume-throw.test.ts
+```
+
+The expected exception follows from throwing tag 0 into the fresh continuation:
+there is no handler or observable imported state. Binaryen's
+[version-132 interpreter](https://github.com/WebAssembly/binaryen/blob/version_132/src/wasm-interpreter.h)
+handles this through `doResume` and `maybeThrowAfterResuming`; its
+[shell assertion](https://github.com/WebAssembly/binaryen/blob/version_132/src/tools/wasm-shell.cpp)
+distinguishes exceptions, traps and normal results.
+This closes the bounded sample's missing execution check: all 300 sampled cases
+have evidence under the explicitly recorded engines, with zero mismatches.
+It does not repair Node, change the generic Node harness, provide independent
+engine agreement for this particular sample, or establish a full 10,000-case
+semantic campaign. No optimizer implementation changed in this follow-up.
+
+Follow-up verification: all 11,303 default MoonBit tests, 181 execution/performance
+tests (including these six), and 65 fuzz-harness tests pass. `moon info`,
+`moon fmt`, README API sync and staged whitespace checks pass; no `.mbti`
+changes. Logs are under `.tmp/semantic-check-repair-20260912/`. The earlier
+large campaigns above remain evidence for the unchanged optimizer source;
+this test-only follow-up did not rerun them.
 
 ### Separate frontend findings
 
