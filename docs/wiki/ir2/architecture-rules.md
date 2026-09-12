@@ -241,9 +241,9 @@ pass after the paired scope repairs. See
 [`hot_lift_test.mbt`](../../../src/ir/hot_lift_test.mbt),
 [`coalesce_locals_test.mbt`](../../../src/passes/coalesce_locals_test.mbt), and
 [`lower-reference-scopes.test.ts`](../../../tests/optimizer/regressions/lower-reference-scopes.test.ts).
-External validation of the saved string-builder output now passes; its original
-`builder` output still becomes an unreachable trap in optimizing inlining.
-Runtime repair and final full verification remain open.
+External validation of the saved string-builder output now passes. Its runtime
+failure is also repaired by the heap-identity correction below; final full
+verification remains open.
 
 Derive-hash first becomes invalid at its eleventh explicit pass,
 `simplify-locals-nostructure`: sinking a reference assignment into an inner
@@ -265,6 +265,21 @@ Node regression returns 1 instead of 0. The saved math case returns
 `numeric:math` again. These are focused development results, not final replay
 signoff. Tests: [`rse_test.mbt`](../../../src/passes/rse_test.mbt) and
 [`rse-float-bits.test.ts`](../../../tests/optimizer/regressions/rse-float-bits.test.ts).
+
+OptimizeInstructions incorrectly classified structurally equivalent canonical
+heap types as disjoint when their type indices differed, replacing successful
+casts by unreachable. The first bad nominal-argument nested cleanup is its third
+OptimizeInstructions invocation inside optimizing inlining. HOT module context
+now retains recursion groups, and OI uses the validator's existing heap matcher
+with those groups intact. Flattened structural equality would be wrong for a
+member of a larger recursion group. The reviewed public API change adds readonly
+`HotModuleContext.type_groups`. The duplicate-array/struct cast regression fails
+before repair and executes to 7 afterward; a distinct-group ref.test remains 0.
+All 1,466 neighboring context/OI/RSE tests pass. A debug native replay subset
+passes 14/19, leaving array-methods, defer and three trap-message differences;
+this does not establish release performance or final full verification. See
+[`duplicate-type-cast.test.ts`](../../../tests/optimizer/regressions/duplicate-type-cast.test.ts)
+and [`optimize_instructions_test.mbt`](../../../src/passes/optimize_instructions_test.mbt).
 
 ## Practical Rules
 

@@ -1364,13 +1364,28 @@ fn OiHeapSubtypeFact::from_heaps(
 }
 
 ///|
+fn optimize_instructions_module_heap_matches(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> Bool {
+  // Canonical identity includes recursion-group size and member position.
+  // Comparing only indices or flattened definitions loses that identity.
+  let env = @validate.Env::{
+    ..@validate.Env::new().with_types(module_ctx.subtypes),
+    rec_stack: module_ctx.type_groups,
+  }
+  @validate.Match::matches(source, target, env)
+}
+
+///|
 fn OiHeapSubtypeFact::proves_subtype_with_fuel(
   module_ctx : @ir.HotModuleContext,
   source : @lib.HeapType,
   target : @lib.HeapType,
   fuel : Int,
 ) -> Bool {
-  if source == target {
+  if optimize_instructions_module_heap_matches(module_ctx, source, target) {
     return true
   }
   if fuel <= 0 {
@@ -1765,7 +1780,7 @@ fn OiModuleHeapTargetFact::from_heaps(
   // Source-backed equivalent of Binaryen's heap-target compatibility walk: fast
   // abstract-heap lattice facts first, then bounded module subtype traversal.
   let source_fact = OiModuleHeapSourceFact::from_heaps(source, target)
-  if source == target {
+  if optimize_instructions_module_heap_matches(module_ctx, source, target) {
     return {
       evidence: { kind: ModuleHeapTargetSameHeap, source: source_fact, },
     }

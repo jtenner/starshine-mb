@@ -86079,3 +86079,19 @@ test "optimize-instructions preserves try-table prefix witnesses" {
     )
   }
 }
+
+///|
+test "optimize-instructions preserves casts between equivalent duplicate heap definitions" {
+  let input = @binary.decode_module(
+    b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x19\x05\x5e\x7f\x00\x5e\x7f\x00\x5f\x02\x64\x00\x00\x7f\x00\x5f\x02\x64\x01\x00\x7f\x00\x60\x00\x01\x7f\x03\x02\x01\x04\x07\x08\x01\x04\x6d\x61\x69\x6e\x00\x00\x0a\x1c\x01\x1a\x01\x01\x64\x02\x41\x00\xfb\x07\x00\x41\x07\xfb\x00\x02\x21\x00\x20\x00\xfb\x16\x03\xfb\x02\x03\x01\x0b\x00\x14\x04\x6e\x61\x6d\x65\x04\x0d\x04\x00\x01\x61\x01\x01\x62\x02\x01\x73\x03\x01\x74",
+  ).unwrap()
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "optimize-instructions",
+  ]).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_false(
+    body.any(fn(instr) { instr is @lib.Unreachable }),
+    msg="equivalent heap definitions must not become a guaranteed trap",
+  )
+  ignore(@validate.validate_module(output).unwrap())
+}

@@ -1,6 +1,7 @@
 ///|
 pub struct HotModuleContext {
   subtypes : Array[SubType]
+  type_groups : Array[Array[SubType]]
   func_type_idxs : Array[TypeIdx]
   func_types : Array[FuncType]
   func_type_slots : Array[TypeIdx?]
@@ -243,9 +244,21 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
   }
 
   let subtypes = hot_module_context_flatten_subtypes(mod_.type_sec)
+  let type_groups : Array[Array[SubType]] = []
+  match mod_.type_sec {
+    Some(@lib.TypeSec(groups)) =>
+      for group in groups {
+        match group {
+          @lib.SingleRecType(subtype) => type_groups.push([subtype])
+          @lib.GroupRecType(subtypes) => type_groups.push(subtypes)
+        }
+      }
+    None => ()
+  }
 
   {
     subtypes,
+    type_groups,
     func_type_idxs,
     func_types: hot_module_context_resolve_func_types(subtypes, func_type_idxs),
     func_type_slots: hot_module_context_func_type_slots(func_type_idxs),

@@ -6,12 +6,13 @@
   `93f11e3b7c20c4151975db7bb9ad689c79e8d102` reproduces 38 Dewdrop failures
   (962/1,000 pass) and the same 56 full-suite failures (11,216/11,272 pass).
   Shared lowering now retains tee initialization required by emitted dead-tail
-  reference reads. String-builder externally validates but still traps in
-  optimizing inlining. SimplifyLocals now repairs reference initialization
+  reference reads. String-builder now externally validates and preserves runtime output. SimplifyLocals now repairs reference initialization
   after sinking across block scopes; derive-hash passes validation, Node and
   Wago. RSE float keys now preserve signed-zero and NaN bits; the saved
   numeric math no-shrink case returns `numeric:math` again in Node. The
-  broader inlining runtime family remains open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  inlining heap-identity fix repairs most runtime failures: the debug subset
+  passes 14/19, with array-methods, defer and three trap-message cases open.
+  Abort, timeout and baseline-suite families remain open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
 
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56

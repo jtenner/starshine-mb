@@ -1334,6 +1334,7 @@ pub impl Show for HotMemArg
 
 pub struct HotModuleContext {
   subtypes : Array[@lib.SubType]
+  type_groups : Array[Array[@lib.SubType]]
   func_type_idxs : Array[@lib.TypeIdx]
   func_types : Array[@lib.FuncType]
   func_type_slots : Array[@lib.TypeIdx?]
