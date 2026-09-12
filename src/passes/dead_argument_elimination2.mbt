@@ -67,6 +67,23 @@ fn dae2_node_location(info : Dae2Function, node : Int) -> Int {
 }
 
 ///|
+fn dae2_observe_branch_target(
+  graph : Dae2Graph,
+  info : Dae2Function,
+  func : @ir.HotFunc,
+  target : @ir.LabelId,
+) -> Unit {
+  if target == @ir.HOT_IMPLICIT_FUNCTION_LABEL {
+    graph.observe(info.result_location)
+    return
+  }
+  if !@ir.hot_label_is_live(func, target) {
+    abort("DAE2 branch target is not a live ordinary label")
+  }
+  graph.observe(dae2_node_location(info, @ir.hot_label_get(func, target).owner))
+}
+
+///|
 fn dae2_removable_node(func : @ir.HotFunc, node : Int) -> Bool {
   let op = @ir.hot_node_get(func, node).op
   // Local writes require DAE2's reaching-definition liveness proof. They
@@ -195,13 +212,7 @@ fn dae2_analyze_function(
             | @ir.HotCatchArm::CatchAllArm(label)
             | @ir.HotCatchArm::CatchAllRefArm(label) => label
           }
-          if label == @ir.HOT_IMPLICIT_FUNCTION_LABEL {
-            graph.observe(info.result_location)
-          } else {
-            graph.observe(
-              dae2_node_location(info, @ir.hot_label_get(func, label).owner),
-            )
-          }
+          dae2_observe_branch_target(graph, info, func, label)
         }
       }
       @ir.Continuation => {
@@ -209,13 +220,7 @@ fn dae2_analyze_function(
           graph.observe(dae2_node_location(info, child))
         }
         for label in @ir.hot_continuation_targets(func, node) {
-          if label == @ir.HOT_IMPLICIT_FUNCTION_LABEL {
-            graph.observe(info.result_location)
-          } else {
-            graph.observe(
-              dae2_node_location(info, @ir.hot_label_get(func, label).owner),
-            )
-          }
+          dae2_observe_branch_target(graph, info, func, label)
         }
       }
       @ir.Br
@@ -231,14 +236,10 @@ fn dae2_analyze_function(
         // Branch payload types stay fixed. A result-bearing target therefore
         // keeps its fallthrough value as well as its incoming branch values.
         for label in @ir.hot_branch_table_targets_for_node(func, node) {
-          let owner = @ir.hot_label_get(func, label).owner
-          graph.observe(dae2_node_location(info, owner))
+          dae2_observe_branch_target(graph, info, func, label)
         }
         match @ir.hot_branch_target(func, node) {
-          Some(label) =>
-            graph.observe(
-              dae2_node_location(info, @ir.hot_label_get(func, label).owner),
-            )
+          Some(label) => dae2_observe_branch_target(graph, info, func, label)
           None => ()
         }
       }

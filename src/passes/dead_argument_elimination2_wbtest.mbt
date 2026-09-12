@@ -873,3 +873,60 @@ test "dae2 reuses an existing identical pruned function signature" {
     @debug.assert_eq(indices[1], indices[0])
   }
 }
+
+///|
+test "dae2 observes implicit function exits and preserves their payloads" {
+  let zero = @lib.LabelIdx::new(0U)
+  let one = @lib.LabelIdx::new(1U)
+  let value = @lib.Instruction::i32_const(@lib.I32(42))
+  let bodies = [
+    [value, @lib.Instruction::br(zero)],
+    [
+      value,
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::br_if(zero),
+    ],
+    [
+      value,
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::br_if(zero),
+    ],
+    [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          value,
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::br_table([one], zero),
+        ]),
+      ),
+    ],
+    [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          value,
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_table([zero], one),
+        ]),
+      ),
+    ],
+  ]
+  for body in bodies {
+    // Construct label immediates directly: the WAT frontend currently rejects
+    // numeric references to the implicit function label.
+    let base = pass_test_module_from_wat(
+      "(module (func $exit (result i32) i32.const 42) (func (export \"run\") call $exit drop))",
+    )
+    let functions = base.code_sec.unwrap().0.copy()
+    functions[0] = @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body))
+    let input = base.with_code_sec(@lib.CodeSec::new(functions))
+    assert_true(@validate.validate_module(input) is Ok(_))
+    let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["dae2"]).unwrap()
+    assert_true(@validate.validate_module(output) is Ok(_))
+    @debug.assert_eq(
+      dae2_test_signature(output, 0),
+      @lib.FuncType::new([], [@lib.ValType::i32()]),
+    )
+  }
+}

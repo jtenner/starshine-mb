@@ -5,7 +5,9 @@
 - **Goal / why:** preserve catch destinations, actual stack operand identities, and implicit function-label result liveness. Start: `e53ec910e5ccc9d8f43342c2b598d29ff30d81ba` (master and origin/master).
 - **Delivered:** common cleanup preserves all four try_table catch forms; 24 original/optimized execution checks and seven common-helper tests pass after failing-first regressions.
 - **Delivered:** compiler-fact folding now tracks actual stack producers and individual result lanes, including call parameters, indirect/ref operands and structured inputs. All 51 execution comparisons pass (15 baseline wrong results); all 32 fact unit tests pass.
-- **Remaining:** DAE2 function exits, final focused/full tests, external execution/validation, bounded fuzz and formatting.
+- **Delivered:** DAE2 uses one target observer for ordinary branches, every branch-table entry/default, catch arms and continuation targets. The implicit function label observes the result location; invalid ordinary labels still abort. All 14 branch execution checks pass after baseline aborts; focused private-result and command-dispatch tests pass.
+- **Remaining:** final focused/full tests, fresh release external execution/validation, bounded fuzz and formatting.
+- **Separate findings outside these local fixes:** WAT parsing rejects numeric implicit-function-label references; the name-section decoder reads beyond its section when another custom section follows. Binary fixtures/direct constructors and stripped names isolate the requested pass tests. These frontend/decoder issues remain open.
 - **Invariants / exit:** trusted facts attach to actual result lanes; function exits observe result locations; all assertions remain enabled. No final signoff until every requested check passes.
 - **Evidence:** `.tmp/three-correctness-20260912/`; regressions in `tests/optimizer/regressions/try-table-*` and `src/passes/pass_common_test.mbt`.
 

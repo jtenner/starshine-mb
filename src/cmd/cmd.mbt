@@ -8145,3 +8145,53 @@ test "ssa-nomerge command reads the write that exits an enclosing block" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
   )
 }
+
+///|
+test "dae2 command dispatch preserves implicit function-label payloads" {
+  for results in [[], [@lib.ValType::i32()]] {
+    let input = @lib.Module::new()
+      .with_type_sec(
+        @lib.TypeSec::new([
+          @lib.RecType::new(
+            @lib.SubType::comp_type(@lib.CompType::func([], results)),
+          ),
+        ]),
+      )
+      .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+      .with_export_sec(
+        @lib.ExportSec::new([
+          @lib.Export::new(
+            @lib.Name::new("run"),
+            @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+          ),
+        ]),
+      )
+    let body = if results.is_empty() {
+      [@lib.Instruction::br(@lib.LabelIdx::new(0U))]
+    } else {
+      [
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ]
+    }
+    let input = input.with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body)),
+      ]),
+    )
+    for pass in ["dae2", "dae2-optimizing"] {
+      let output = optimize_module_with_pass_flags(
+        input,
+        [pass],
+        OptimizeOptions::new(),
+      ).unwrap()
+      assert_true(@validate.validate_module(output) is Ok(_))
+      @debug.assert_eq(
+        @validate.Env::new()
+        .with_module(output)
+        .get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+        Some(@lib.FuncType::new([], results)),
+      )
+    }
+  }
+}
