@@ -233,16 +233,43 @@ fn code_pushing_node_is_pure_nop_or_drop_const(
 }
 
 ///|
+fn code_pushing_globals_are_disjoint(
+  module_ctx : @ir.HotModuleContext?,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  if lhs == rhs || lhs < 0 || rhs < 0 {
+    return false
+  }
+  let module_ctx = match module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  let lhs = @lib.GlobalIdx::new(lhs.to_uint())
+  let rhs = @lib.GlobalIdx::new(rhs.to_uint())
+  if @ir.hot_module_resolve_global_type(module_ctx, lhs) is None ||
+    @ir.hot_module_resolve_global_type(module_ctx, rhs) is None {
+    return false
+  }
+  // Defined globals own fresh storage. Two imports can name the same host
+  // global instance, regardless of their distinct indices or import names.
+  @ir.hot_module_resolve_global_init(module_ctx, lhs) is Some(_) ||
+  @ir.hot_module_resolve_global_init(module_ctx, rhs) is Some(_)
+}
+
+///|
 fn code_pushing_subtree_writes_global(
   func : @ir.HotFunc,
   node_id : Int,
   global_id : Int,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
   }
   let node = @ir.hot_node_get(func, node_id)
-  if node.op is @ir.HotOp::GlobalSet && node.imm0 == global_id {
+  if node.op is @ir.HotOp::GlobalSet &&
+    !code_pushing_globals_are_disjoint(module_ctx, node.imm0, global_id) {
     return true
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
@@ -250,6 +277,7 @@ fn code_pushing_subtree_writes_global(
         func,
         @ir.hot_child_get(func, node_id, slot),
         global_id,
+        module_ctx~,
       ) {
       return true
     }
@@ -262,13 +290,18 @@ fn code_pushing_direct_global_set_disjoint_from_global_get(
   func : @ir.HotFunc,
   node_id : Int,
   value_global_id : Int,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::GlobalSet if node.imm0 != value_global_id => {
+    @ir.HotOp::GlobalSet if code_pushing_globals_are_disjoint(
+        module_ctx,
+        node.imm0,
+        value_global_id,
+      ) => {
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         if code_pushing_node_has_call_or_nonglobal_write_effect(
             func,
@@ -278,6 +311,7 @@ fn code_pushing_direct_global_set_disjoint_from_global_get(
             func,
             @ir.hot_child_get(func, node_id, slot),
             value_global_id,
+            module_ctx~,
           ) {
           return false
         }
@@ -293,6 +327,7 @@ fn code_pushing_node_is_disjoint_global_set_for_global_get(
   func : @ir.HotFunc,
   node_id : Int,
   value_id : Int,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> Bool {
   if !code_pushing_node_is_global_get(func, value_id) ||
     node_id < 0 ||
@@ -301,7 +336,10 @@ fn code_pushing_node_is_disjoint_global_set_for_global_get(
   }
   let value_global_id = @ir.hot_node_get(func, value_id).imm0
   if code_pushing_direct_global_set_disjoint_from_global_get(
-      func, node_id, value_global_id,
+      func,
+      node_id,
+      value_global_id,
+      module_ctx~,
     ) {
     return true
   }
@@ -320,7 +358,10 @@ fn code_pushing_node_is_disjoint_global_set_for_global_get(
           idx = idx + 1 {
         let root_id = @ir.hot_region_get(func, body_ref, idx)
         if !code_pushing_direct_global_set_disjoint_from_global_get(
-            func, root_id, value_global_id,
+            func,
+            root_id,
+            value_global_id,
+            module_ctx~,
           ) &&
           !code_pushing_node_is_pure_nop_or_drop_const(func, root_id) {
           return false
@@ -502,6 +543,7 @@ fn code_pushing_node_safe_to_cross_for_value(
   func : @ir.HotFunc,
   node_id : Int,
   value_id : Int,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -514,7 +556,10 @@ fn code_pushing_node_safe_to_cross_for_value(
       @ir.effects_for_node(func, node_id),
     ) ||
     code_pushing_node_is_disjoint_global_set_for_global_get(
-      func, node_id, value_id,
+      func,
+      node_id,
+      value_id,
+      module_ctx~,
     )
   } else if code_pushing_node_is_local_get(func, value_id) {
     let (_, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
@@ -1082,6 +1127,7 @@ fn code_pushing_segment_window_diagnostic(
   traps_never_happen? : Bool = false,
   ignore_implicit_traps? : Bool = false,
   inventory? : CodePushingLocalInventory? = None,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> String {
   if set_idx < 0 || set_idx >= @ir.hot_region_root_count(func, region_ref) {
     return "reject:no-local-set"
@@ -1133,7 +1179,10 @@ fn code_pushing_segment_window_diagnostic(
     let kind = code_pushing_push_point_kind(func, candidate_id)
     if kind != "none" {
       if !code_pushing_node_safe_to_cross_for_value(
-          func, candidate_id, value_id,
+          func,
+          candidate_id,
+          value_id,
+          module_ctx~,
         ) {
         return "reject:ordered-before-barrier"
       }
@@ -1148,7 +1197,12 @@ fn code_pushing_segment_window_diagnostic(
     if gets != 0 {
       return "reject:use-before-push-point"
     }
-    if !code_pushing_node_safe_to_cross_for_value(func, candidate_id, value_id) {
+    if !code_pushing_node_safe_to_cross_for_value(
+        func,
+        candidate_id,
+        value_id,
+        module_ctx~,
+      ) {
       return "reject:ordered-before-barrier"
     }
     idx += 1
@@ -1452,7 +1506,12 @@ fn code_pushing_try_sink_set_before_later_barrier(
       return false
     }
     if gets != 0 ||
-      !code_pushing_node_safe_to_cross_for_value(func, candidate_id, value_id) {
+      !code_pushing_node_safe_to_cross_for_value(
+        func,
+        candidate_id,
+        value_id,
+        module_ctx=ctx.module_ctx,
+      ) {
       barrier_idx = idx
       break
     }
@@ -1619,7 +1678,12 @@ fn code_pushing_try_sink_local_get_set_after_if(
     if dest_gets != 0 || dest_writes != 0 {
       return false
     }
-    if !code_pushing_node_safe_to_cross_for_value(func, candidate_id, value_id) {
+    if !code_pushing_node_safe_to_cross_for_value(
+        func,
+        candidate_id,
+        value_id,
+        module_ctx=ctx.module_ctx,
+      ) {
       return false
     }
     let (_, source_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
@@ -1755,7 +1819,12 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
           )
           if gets != 0 ||
             writes != 0 ||
-            !code_pushing_node_safe_to_cross_for_value(func, cross_id, value_id) {
+            !code_pushing_node_safe_to_cross_for_value(
+              func,
+              cross_id,
+              value_id,
+              module_ctx=ctx.module_ctx,
+            ) {
             safe_to_branch = false
           }
         }
@@ -1964,7 +2033,12 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
     let local_id = local_ids[move_idx]
     let value_id = value_ids[move_idx]
     let source_local = source_local_ids[move_idx]
-    if !code_pushing_node_safe_to_cross_for_value(func, push_id, value_id) {
+    if !code_pushing_node_safe_to_cross_for_value(
+        func,
+        push_id,
+        value_id,
+        module_ctx=ctx.module_ctx,
+      ) {
       return false
     }
     if source_local >= 0 {
@@ -2125,7 +2199,12 @@ fn code_pushing_try_sink_zero_read_set_after_push_point(
     )
     if writes != 0 ||
       code_pushing_node_has_segment_order_barrier(func, candidate_id) ||
-      !code_pushing_node_safe_to_cross_for_value(func, candidate_id, value_id) {
+      !code_pushing_node_safe_to_cross_for_value(
+        func,
+        candidate_id,
+        value_id,
+        module_ctx=ctx.module_ctx,
+      ) {
       return false
     }
     idx += 1
@@ -2134,7 +2213,12 @@ fn code_pushing_try_sink_zero_read_set_after_push_point(
     return false
   }
   let push_id = @ir.hot_region_get(func, region_ref, push_idx)
-  if !code_pushing_node_safe_to_cross_for_value(func, push_id, value_id) {
+  if !code_pushing_node_safe_to_cross_for_value(
+      func,
+      push_id,
+      value_id,
+      module_ctx=ctx.module_ctx,
+    ) {
     return false
   }
   let pushed_set = code_pushing_make_local_set_clone(func, local_id, value_id)
@@ -2204,6 +2288,7 @@ fn code_pushing_try_sink_set_after_if_push_point(
     traps_never_happen=ctx.traps_never_happen,
     ignore_implicit_traps=ctx.ignore_implicit_traps,
     inventory=Some(inventory),
+    module_ctx=ctx.module_ctx,
   )
   if diagnostic != "candidate:if" &&
     diagnostic != "candidate:dropped-if" &&
@@ -2406,6 +2491,7 @@ fn code_pushing_try_sink_consecutive_sets_into_if_arm(
           func,
           if_cond,
           value_ids[move_idx],
+          module_ctx=ctx.module_ctx,
         ) {
         return false
       }
@@ -2432,7 +2518,12 @@ fn code_pushing_try_sink_consecutive_sets_into_if_arm(
     if prefix_gets != 0 {
       return false
     }
-    if !code_pushing_node_safe_to_cross_for_value(func, if_id, value_id) {
+    if !code_pushing_node_safe_to_cross_for_value(
+        func,
+        if_id,
+        value_id,
+        module_ctx=ctx.module_ctx,
+      ) {
       return false
     }
     if source_local >= 0 &&
@@ -2583,7 +2674,10 @@ fn code_pushing_try_sink_set_into_if_then(
           break
         }
         if !code_pushing_node_safe_to_cross_for_value(
-            func, candidate_id, value_id,
+            func,
+            candidate_id,
+            value_id,
+            module_ctx=ctx.module_ctx,
           ) {
           return false
         }
@@ -2599,7 +2693,10 @@ fn code_pushing_try_sink_set_into_if_then(
         if gets != 0 ||
           writes != 0 ||
           !code_pushing_node_safe_to_cross_for_value(
-            func, candidate_id, value_id,
+            func,
+            candidate_id,
+            value_id,
+            module_ctx=ctx.module_ctx,
           ) {
           return false
         }
@@ -2613,7 +2710,12 @@ fn code_pushing_try_sink_set_into_if_then(
   let if_id = @ir.hot_region_get(func, region_ref, if_idx)
   if @ir.hot_child_count(func, if_id) > 0 {
     let if_cond = @ir.hot_child_get(func, if_id, 0)
-    if !code_pushing_node_safe_to_cross_for_value(func, if_cond, value_id) {
+    if !code_pushing_node_safe_to_cross_for_value(
+        func,
+        if_cond,
+        value_id,
+        module_ctx=ctx.module_ctx,
+      ) {
       return false
     }
   }

@@ -53,7 +53,8 @@ observation. Repeated calls, memory growth, and boundary arguments produced 120
 calls per implementation. Starshine matched original traps and complete memory
 in every case; Binaryen matched 15/20, with five Memory64 cases exposing partial
 writes. This is sampled execution evidence, not execution of all 10,000 cases.
-The independent [125-case runtime regression suite](../../../../../scripts/test/optimizer-correctness-runtime.ts)
+The independent [runtime regression suite](../../../../../scripts/test/optimizer-correctness-runtime.ts)
+contains the original 125 cases plus two imported-global alias regressions. It
 also covers active runtime emptiness, zero-byte storage, independent drops,
 omitted/retained ranges, operand effects, and full 4 GiB Memory32 boundaries.
 See [the semantic contract](./segment-op-rewrites-and-traps.md#september-12-correctness-invariants)

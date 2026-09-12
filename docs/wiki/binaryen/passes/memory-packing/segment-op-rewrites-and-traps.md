@@ -65,13 +65,17 @@ and [runtime tests](../../../../../scripts/test/optimizer-correctness-runtime.ts
 which validate both modules and compare full exported memory, mutable globals,
 results, and traps under Node, including Memory64.
 
-Validation on this repair: 125 original/optimized execution regressions pass,
+Validation on this repair: the original 125 execution regressions pass; the
+shared suite now has 127 with the imported-global alias follow-up,
 including full 4 GiB Memory32 end-byte observations without full-memory copying;
 41 focused memory-packing tests, 10 helper tests, and 319 CLI tests pass.
 Before constant-check folding, `bun validate full --profile ci --target wasm-gc`
 passed all 11,311 tests and 100,772 attempts across 14 CI fuzz suites. After the
-refinement, all 10 memory helper tests pass on wasm-gc and the final default
-`moon test` passes 11,316/11,316. `moon info`, `moon fmt --check`, API sync,
+refinement, all 10 memory helper tests pass on wasm-gc and the default
+`moon test` passed 11,316/11,316 before the imported-global alias follow-up.
+The final full wasm-gc gate, including that follow-up, passes 11,315 tests and
+100,768 attempts across 14 CI fuzz suites (seed `117260405384703254`).
+`moon info`, `moon fmt --check`, API sync,
 and the CI workflow contract pass with no public `.mbti` changes.
 
 ## Keep two stories separate in your head

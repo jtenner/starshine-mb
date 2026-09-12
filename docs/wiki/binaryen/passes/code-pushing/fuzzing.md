@@ -26,7 +26,7 @@ Native-path note: after `moon build --target native --release src/cmd`, use `_bu
 
 ```sh
 moon build --target native --release src/cmd
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/optimizer-code-pushing-final-10000 --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --gen-valid-bin _build/native/release/build/fuzz/fuzz.exe --require-binaryen-version 132 --max-failures 20000 --keep-going-after-command-failures --no-reduce-mismatches
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/optimizer-code-pushing-alias-10000 --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --gen-valid-bin _build/native/release/build/fuzz/fuzz.exe --require-binaryen-version 132 --max-failures 20000 --keep-going-after-command-failures --no-reduce-mismatches
 ```
 
 All 10,000 cases compared: 4,493 normalized matches, 5,507 matches after the
@@ -34,7 +34,8 @@ existing local-cleanup normalizer, and zero remaining mismatches or validation,
 generator, property, or command failures. All 20 current aggregate leaves were
 selected (460–529 cases each); this does not overwrite older 19-leaf historical
 runs. Binaryen cache: 10,000 hits / 0 misses; failure and semantic cache counters
-zero. No mismatch artifacts were needed.
+zero. No mismatch artifacts were needed. The post-import-alias refresh reproduced
+these counts and sizes exactly.
 
 Raw sizes: Starshine 513,317 / Binaryen 539,804 bytes, smaller/equal/larger
 4,994/5,006/0. Canonical sizes before the compare normalizer: 534,830 / 544,794

@@ -8,7 +8,7 @@
 - **Required APIs:** `MpSegmentPlan`, memory initial-capacity queries, and `mp_emit_destination_preflight`; no new public API is required.
 - **Invariants:** operands evaluate once in order; full source/destination checks precede writes; every original passive segment has independent live/dropped state even with no retained bytes; unsigned Memory32/64 limits must not wrap.
 - **Dependencies:** the memory-packing correctness guards and [current differential evidence](docs/wiki/binaryen/passes/memory-packing/fuzzing.md#september-12-2026-correctness-repair-evidence).
-- **Exit criteria / suggested tests:** preserve the 125 runtime regressions and full-suite validity, rerun the 10,000-case aggregate, and eliminate or demonstrate a measured Starshine benefit for remaining constant-copy differences. Include repeated calls after drop, zero-length endpoints, dynamic destinations, and full Memory32/64 boundary proofs.
+- **Exit criteria / suggested tests:** preserve the 127 runtime regressions and full-suite validity, rerun the 10,000-case aggregate, and eliminate or demonstrate a measured Starshine benefit for remaining constant-copy differences. Include repeated calls after drop, zero-length endpoints, dynamic destinations, and full Memory32/64 boundary proofs.
 
 
 ## v0.1.1 — catch labels, fact operands, function exits [IR2-CORRECTNESS]

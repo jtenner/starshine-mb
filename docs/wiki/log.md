@@ -23851,3 +23851,10 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   exhausted local-write depth queries conservative. See
   [segment semantics](binaryen/passes/memory-packing/segment-op-rewrites-and-traps.md#september-12-correctness-invariants)
   and [movement proofs](binaryen/passes/code-pushing/segment-selection-and-barriers.md#september-12-movement-proof-correction).
+
+- 2026-09-12: Final code-pushing review reproduced aliased imported globals
+  changing a saved result from 1 to 2, for direct and nested writes. Threaded
+  module context through the movement proof so only known distinct storage
+  permits crossing; defined globals remain eligible. Both failing-first cases
+  now pass in the expanded 127-case execution suite. See
+  [imported-global aliasing](binaryen/passes/code-pushing/segment-selection-and-barriers.md#imported-global-aliasing-follow-up).

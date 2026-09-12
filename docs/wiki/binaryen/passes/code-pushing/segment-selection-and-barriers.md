@@ -37,11 +37,25 @@ See [implementation](../../../../../src/passes/code_pushing.mbt),
 Unknown or incomplete analysis blocks movement; the pass still moves reads
 across subtrees proven disjoint.
 
-The repair passes 18 helper tests and 154 code-pushing tests. The shared
-125-case runtime matrix verifies the saved local copy and nested global-write
-results and exported global state. The full wasm-gc gate passes 11,311 tests;
-its 14 CI fuzz suites pass 100,772 attempts. The final default `moon test` also
-passes 11,316/11,316.
+The repair passes 20 helper tests and 154 code-pushing tests. The shared
+127-case runtime matrix verifies the saved local copy and nested global-write
+results and exported global state. The final wasm-gc gate, including the aliasing
+follow-up, passes 11,315 tests and 100,768 attempts across 14 CI fuzz suites
+(seed `117260405384703254`). Before the aliasing follow-up, the default
+`moon test` passed 11,316/11,316.
+
+### Imported-global aliasing follow-up
+
+Different global indices are not sufficient to prove different storage: two
+imports may refer to the same host `WebAssembly.Global`. A direct imported write,
+or a nested imported write inside a defined global's setter, previously changed
+a saved result from 1 to 2. Both execution regressions failed before this repair.
+
+Disjointness now requires module context and at least one freshly allocated
+defined global, with valid and different indices. Two imports and missing
+context remain potentially aliased. All movement and diagnostic callers forward
+that context; pure-node movement and proven defined-global disjointness remain
+available. The existing nested-write proof also observes potential import aliases.
 
 ## Corrected framing
 

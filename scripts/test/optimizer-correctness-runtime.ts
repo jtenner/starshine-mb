@@ -11,7 +11,8 @@ const runner = path.join(dir, "observe.cjs");
 fs.writeFileSync(runner, `
 const fs = require('node:fs');
 let e;
-try { e = new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(process.argv[2]))).exports; }
+const shared = new WebAssembly.Global({value: 'i32', mutable: true}, 1);
+try { e = new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(process.argv[2])), {e: {g: shared, h: shared}}).exports; }
 catch (err) { if (!(err instanceof WebAssembly.RuntimeError)) throw err; console.log(JSON.stringify({instantiateTrap:true})); process.exit(0); }
 let trap = false, result;
 try { result = e.run(); } catch (err) { if (!(err instanceof WebAssembly.RuntimeError)) throw err; trap = true; }
@@ -43,7 +44,7 @@ function check(name: string, wat: string, pass: string, expectedTrap: boolean, r
   } catch {
     failures++;
     const firstChangedByte = before.memory?.findIndex((byte: number, i: number) => after.memory?.[i] !== byte);
-    console.error(`${name}: FAILED (artifacts ${dir}); traps ${before.trap}/${after.trap}, first changed byte ${firstChangedByte}, globals ${JSON.stringify(before.globals)}/${JSON.stringify(after.globals)}`);
+    console.error(`${name}: FAILED (artifacts ${dir}); results ${before.result}/${after.result}, traps ${before.trap}/${after.trap}, first changed byte ${firstChangedByte}, globals ${JSON.stringify(before.globals)}/${JSON.stringify(after.globals)}`);
   }
   count++;
 }
@@ -94,6 +95,15 @@ check("full32-active-empty", `(module (memory 65536) (data (i32.const 0) "x") (f
 check("full32-split-overflow", `(module (memory 65536) (data (i32.const -1) "Z") (data "A${zeros}") (func (export "tail") (result i32) (i32.load8_u (i32.const -1))) (func (export "run") (memory.init 1 (i32.const -1) (i32.const 0) (i32.const 2))))`, "memory-packing", true);
 check("nested-global", `(module (global (export "g") (mut i32) (i32.const 1)) (global (export "h") (mut i32) (i32.const 0)) (func (export "run") (result i32) (local i32) (local.set 0 (global.get 0)) (global.set 1 (block (result i32) (global.set 0 (i32.const 2)) (i32.const 0))) (local.get 0)))`, "code-pushing", false, 1);
 check("bounded-local", `(module (func (export "run") (result i32) (local i32 i32) (local.set 0 (i32.const 1)) (local.set 1 (local.get 0)) (block (drop (local.get 0)) (local.set 0 (i32.const 2))) (if (local.get 0) (then nop)) (local.get 1)))`, "code-pushing", false, 1);
+for (const nested of [false, true]) {
+  check(`imported-global-alias-${nested}`, `(module
+    (import "e" "g" (global (mut i32))) (import "e" "h" (global (mut i32)))
+    (global (mut i32) (i32.const 0)) (export "g" (global 0)) (export "h" (global 1))
+    (func (export "run") (result i32) (local i32)
+      (local.set 0 (global.get 0))
+      ${nested ? "(global.set 2 (block (result i32) (global.set 1 (i32.const 2)) (i32.const 0)))" : "(global.set 1 (i32.const 2))"}
+      (local.get 0)))`, "code-pushing", false, 1);
+}
 if (failures) throw new Error(`${failures}/${count} failed; artifacts: ${dir}`);
 console.log(`${count} optimizer runtime regressions passed`);
 fs.rmSync(dir, {recursive:true});

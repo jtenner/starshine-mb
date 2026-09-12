@@ -628,14 +628,17 @@ test "code-pushing bounded scans cannot prove absence after early exit" {
 
 ///|
 test "code-pushing disjoint outer global set cannot hide nested writes" {
-  let func = code_pushing_wbtest_lift_hot_raw(
-    "(module (global (mut i32) (i32.const 1)) (global (mut i32) (i32.const 0)) (func (global.set 1 (block (result i32) (global.set 0 (i32.const 2)) (i32.const 0)))))",
+  let text = "(module (global (mut i32) (i32.const 1)) (global (mut i32) (i32.const 0)) (func (global.set 1 (block (result i32) (global.set 0 (i32.const 2)) (i32.const 0)))))"
+  let func = code_pushing_wbtest_lift_hot_raw(text)
+  let module_ctx = Some(
+    @ir.hot_module_context_from_module(pass_test_module_from_wat(text)),
   )
   assert_false(
     code_pushing_direct_global_set_disjoint_from_global_get(
       func,
       @ir.hot_root_get(func, 0),
       0,
+      module_ctx~,
     ),
   )
 }
@@ -684,14 +687,17 @@ test "code-pushing bounded region and unique scans reject partial negative proof
 
 ///|
 test "code-pushing proves nested disjoint global writes precisely" {
-  let func = code_pushing_wbtest_lift_hot_raw(
-    "(module (global (mut i32) (i32.const 1)) (global (mut i32) (i32.const 0)) (func (global.set 1 (block (result i32) (global.set 1 (i32.const 2)) (global.get 0)))))",
+  let text = "(module (global (mut i32) (i32.const 1)) (global (mut i32) (i32.const 0)) (func (global.set 1 (block (result i32) (global.set 1 (i32.const 2)) (global.get 0)))))"
+  let func = code_pushing_wbtest_lift_hot_raw(text)
+  let module_ctx = Some(
+    @ir.hot_module_context_from_module(pass_test_module_from_wat(text)),
   )
   assert_true(
     code_pushing_direct_global_set_disjoint_from_global_get(
       func,
       @ir.hot_root_get(func, 0),
       0,
+      module_ctx~,
     ),
   )
 }
@@ -710,4 +716,38 @@ test "code-pushing bounded scans complete the other query after one budget expir
   )
   assert_true(gets > 0)
   assert_eq(writes, 0)
+}
+
+///|
+test "code-pushing imported global indices cannot prove disjointness" {
+  let text = "(module (import \"e\" \"g\" (global (mut i32))) (import \"e\" \"h\" (global (mut i32))) (func (global.set 1 (i32.const 2))))"
+  let func = code_pushing_wbtest_lift_hot_raw(text)
+  let module_ctx = Some(
+    @ir.hot_module_context_from_module(pass_test_module_from_wat(text)),
+  )
+  assert_false(
+    code_pushing_direct_global_set_disjoint_from_global_get(
+      func,
+      @ir.hot_root_get(func, 0),
+      0,
+      module_ctx~,
+    ),
+  )
+}
+
+///|
+test "code-pushing global storage proofs distinguish imports from definitions" {
+  let module_ctx = Some(
+    @ir.hot_module_context_from_module(
+      pass_test_module_from_wat(
+        "(module (import \"e\" \"g\" (global (mut i32))) (import \"e\" \"h\" (global (mut i32))) (global (mut i32) (i32.const 0)))",
+      ),
+    ),
+  )
+  assert_false(code_pushing_globals_are_disjoint(module_ctx, 0, 1))
+  assert_true(code_pushing_globals_are_disjoint(module_ctx, 0, 2))
+  assert_true(code_pushing_globals_are_disjoint(module_ctx, 2, 1))
+  assert_false(code_pushing_globals_are_disjoint(module_ctx, 2, 2))
+  assert_false(code_pushing_globals_are_disjoint(module_ctx, 99, 2))
+  assert_false(code_pushing_globals_are_disjoint(None, 0, 2))
 }
