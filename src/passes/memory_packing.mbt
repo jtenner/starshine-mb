@@ -81,17 +81,6 @@ fn mp_append_address_add(
 }
 
 ///|
-fn mp_append_address_shl(
-  out : Array[@lib.Instruction],
-  address_type : MpMemoryAddressType,
-) -> Unit {
-  match address_type {
-    I32Address => out.push(@lib.Instruction::i32_shl())
-    I64Address => out.push(@lib.Instruction::i64_shl())
-  }
-}
-
-///|
 fn mp_append_address_gt_u(
   out : Array[@lib.Instruction],
   address_type : MpMemoryAddressType,
@@ -212,18 +201,14 @@ fn mp_base_offset_u64(base : MpBaseOffset) -> UInt64 {
 }
 
 ///|
+// The active rewrite proves that every retained byte offset is representable.
 fn mp_shift_base_offset(base : MpBaseOffset, delta : Int) -> @lib.Expr {
   match base {
     I32(value) => {
       let shifted = value.to_uint64() + delta.reinterpret_as_uint().to_uint64()
-      let saturated = if shifted > 0xFFFF_FFFFUL {
-        0xFFFF_FFFFUL
-      } else {
-        shifted
-      }
       @lib.Expr::new([
         @lib.Instruction::i32_const(
-          @lib.I32(saturated.to_uint().reinterpret_as_int()),
+          @lib.I32(shifted.to_uint().reinterpret_as_int()),
         ),
       ])
     }
@@ -419,6 +404,14 @@ fn mp_active_rewrite(
   let base = match mp_parse_base_offset(expr) {
     Some(base) => base
     None => return [@lib.Data::new(@lib.DataMode::active(mem_idx, expr), bytes)]
+  }
+  // Every retained byte address must be representable without wrapping or clamping.
+  let max_offset = match base {
+    I32(_) => 0xffff_ffffUL
+    I64(_) => 0xffff_ffff_ffff_ffffUL
+  }
+  if (bytes.length() - 1).to_uint64() > max_offset - mp_base_offset_u64(base) {
+    return [@lib.Data::new(@lib.DataMode::active(mem_idx, expr), bytes)]
   }
   let preserve_trap = !traps_never_happen &&
     mp_should_preserve_trap(mod_, base, bytes.length())
@@ -786,7 +779,8 @@ priv struct MpSegmentPlan {
   is_active : Bool
   was_split : Bool
   needs_drop_state : Bool
-  data_size : Int
+  runtime_size : Int
+  mut drop_state_offset : Int
 }
 
 ///|
@@ -796,9 +790,17 @@ fn MpSegmentPlan::new(
   is_active : Bool,
   was_split : Bool,
   needs_drop_state : Bool,
-  data_size : Int,
+  runtime_size : Int,
 ) -> MpSegmentPlan {
-  { remap, split_parts, is_active, was_split, needs_drop_state, data_size, }
+  {
+    remap,
+    split_parts,
+    is_active,
+    was_split,
+    needs_drop_state,
+    runtime_size,
+    drop_state_offset: 0,
+  }
 }
 
 ///|
@@ -927,9 +929,9 @@ fn mp_defined_global_count(mod_ : @lib.Module) -> Int {
 ///|
 fn mp_append_drop_state_global(
   mod_ : @lib.Module,
-  need_drop_state : Bool,
+  need_drop_state : Int,
 ) -> (@lib.GlobalSec?, @lib.GlobalIdx?) {
-  if !need_drop_state {
+  if need_drop_state == 0 {
     return (mod_.global_sec, None)
   }
   let global_idx = @lib.GlobalIdx::new(
@@ -947,7 +949,9 @@ fn mp_append_drop_state_global(
       }
     None => ()
   }
-  globals.push(next_global)
+  for i = 0; i < need_drop_state; i = i + 1 {
+    globals.push(next_global)
+  }
   (Some(@lib.GlobalSec::new(globals)), Some(global_idx))
 }
 
@@ -1135,9 +1139,9 @@ fn mp_passive_split_parts(
   target : Int,
   bytes : Bytes,
   first_new_idx : Int,
-) -> (Array[MpSplitPart], Bool, Bool) {
+) -> (Array[MpSplitPart], Bool) {
   if bytes.length() == 0 {
-    return ([], false, false)
+    return ([], false)
   }
   let scan = mp_passive_user_scan(mod_, target)
   let threshold = 2 + scan.memory_init_count * 19 + scan.data_drop_count * 3
@@ -1180,8 +1184,7 @@ fn mp_passive_split_parts(
       )
     }
   }
-  let fill_first = omitted_zero && (parts.is_empty() || parts[0].start > 0)
-  (parts, omitted_zero, fill_first)
+  (parts, omitted_zero)
 }
 
 ///|
@@ -1415,6 +1418,122 @@ fn mp_emit_memory_init_part(
 }
 
 ///|
+fn mp_plan_drop_global(
+  plan : MpSegmentPlan,
+  base : @lib.GlobalIdx?,
+) -> @lib.GlobalIdx? {
+  if !plan.needs_drop_state {
+    return None
+  }
+  match base {
+    Some(@lib.GlobalIdx(idx)) =>
+      Some(@lib.GlobalIdx::new(idx + plan.drop_state_offset.to_uint()))
+    None => None
+  }
+}
+
+///|
+// Compare pages plus the rounded-up intra-page end, never a wrapped byte size.
+// low(dest) + size + 65535 fits unsigned i32 because source sizes fit Int.
+fn mp_emit_destination_preflight(
+  out : Array[@lib.Instruction],
+  dest : @lib.Instruction,
+  size : Int,
+  mem_idx : @lib.MemIdx,
+  tmp : @lib.LocalIdx?,
+  address_type : MpMemoryAddressType,
+) -> Unit {
+  let constant_offset = match (tmp, dest) {
+    (None, @lib.I32Const(@lib.I32(value))) =>
+      Some(value.reinterpret_as_uint().to_uint64())
+    (None, @lib.I64Const(@lib.I64(value))) =>
+      Some(value.reinterpret_as_uint64())
+    _ => None
+  }
+  if constant_offset is Some(offset) {
+    let end_ = offset + size.to_uint64()
+    // An endpoint of exactly 2^64 is valid only for a full Memory64 memory.
+    // Any larger mathematical endpoint must trap, never wrap into low memory.
+    if end_ < offset && end_ != 0UL {
+      out.push(@lib.Instruction::unreachable_())
+      return
+    }
+    let pages = if end_ < offset {
+      1UL << 48
+    } else {
+      (end_ >> 16) + (if (end_ & 65535UL) == 0UL { 0UL } else { 1UL })
+    }
+    match address_type {
+      I32Address => out.push(mp_i32_const(pages.to_int()))
+      I64Address =>
+        out.push(
+          @lib.Instruction::i64_const(@lib.I64(pages.reinterpret_as_int64())),
+        )
+    }
+    out.push(@lib.Instruction::memory_size(mem_idx))
+    mp_append_address_gt_u(out, address_type)
+    out.push(
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [@lib.Instruction::unreachable_()],
+        None,
+      ),
+    )
+    return
+  }
+  fn append_dest() -> Unit {
+    match tmp {
+      Some(idx) => out.push(@lib.Instruction::local_get(idx))
+      None => out.push(dest)
+    }
+  }
+  fn append_page() -> Unit {
+    append_dest()
+    out.push(mp_address_const(address_type, 16))
+    match address_type {
+      I32Address => out.push(@lib.Instruction::i32_shr_u())
+      I64Address => out.push(@lib.Instruction::i64_shr_u())
+    }
+  }
+  fn trap_if() -> Unit {
+    out.push(
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [@lib.Instruction::unreachable_()],
+        None,
+      ),
+    )
+  }
+  append_page()
+  out.push(@lib.Instruction::memory_size(mem_idx))
+  mp_append_address_gt_u(out, address_type)
+  trap_if()
+  append_dest()
+  out.push(mp_address_const(address_type, 65535))
+  match address_type {
+    I32Address => out.push(@lib.Instruction::i32_and())
+    I64Address => out.push(@lib.Instruction::i64_and())
+  }
+  out.push(mp_address_const(address_type, size))
+  mp_append_address_add(out, address_type)
+  out.push(mp_address_const(address_type, 65535))
+  mp_append_address_add(out, address_type)
+  out.push(mp_address_const(address_type, 16))
+  match address_type {
+    I32Address => out.push(@lib.Instruction::i32_shr_u())
+    I64Address => out.push(@lib.Instruction::i64_shr_u())
+  }
+  out.push(@lib.Instruction::memory_size(mem_idx))
+  append_page()
+  match address_type {
+    I32Address => out.push(@lib.Instruction::i32_sub())
+    I64Address => out.push(@lib.Instruction::i64_sub())
+  }
+  mp_append_address_gt_u(out, address_type)
+  trap_if()
+}
+
+///|
 fn mp_append_passive_memory_init_replacement(
   out : Array[@lib.Instruction],
   plan : MpSegmentPlan,
@@ -1426,6 +1545,13 @@ fn mp_append_passive_memory_init_replacement(
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
 ) -> Unit {
+  if src_start != 0 || size != 0 {
+    match global_idx {
+      Some(gi) => mp_emit_drop_state_check(out, gi)
+      None => ()
+    }
+  }
+  mp_emit_destination_preflight(out, dest, size, mem_idx, tmp, address_type)
   if size <= 0 {
     out.push(@lib.Instruction::nop())
     return
@@ -1442,10 +1568,6 @@ fn mp_append_passive_memory_init_replacement(
     }
     let fill_end = if part.start < src_end { part.start } else { src_end }
     if cursor < fill_end {
-      match global_idx {
-        Some(gi) if !emitted => mp_emit_drop_state_check(out, gi)
-        _ => ()
-      }
       mp_emit_memory_fill(
         out, dest, src_start, cursor, fill_end, mem_idx, tmp, address_type,
       )
@@ -1463,10 +1585,6 @@ fn mp_append_passive_memory_init_replacement(
     }
   }
   if cursor < src_end {
-    match global_idx {
-      Some(gi) if !emitted => mp_emit_drop_state_check(out, gi)
-      _ => ()
-    }
     mp_emit_memory_fill(
       out, dest, src_start, cursor, src_end, mem_idx, tmp, address_type,
     )
@@ -1976,7 +2094,7 @@ fn mp_memory_init_dest_is_const(
 fn mp_memory_init_source_range_is_valid(
   src : Int,
   size : Int,
-  data_size : Int,
+  runtime_size : Int,
 ) -> Bool {
   if src < 0 || size < 0 {
     return false
@@ -1984,7 +2102,7 @@ fn mp_memory_init_source_range_is_valid(
   let src_u = src.reinterpret_as_uint().to_uint64()
   let size_u = size.reinterpret_as_uint().to_uint64()
   let end_ = src_u + size_u
-  end_ >= src_u && end_ <= data_size.reinterpret_as_uint().to_uint64()
+  end_ >= src_u && end_ <= runtime_size.reinterpret_as_uint().to_uint64()
 }
 
 ///|
@@ -2013,7 +2131,8 @@ fn mp_append_memory_init_dest(
 ///|
 fn mp_rewrite_active_memory_init(
   out : Array[@lib.Instruction],
-  plan : MpSegmentPlan,
+  locals : @lib.Locals,
+  param_count : Int,
   mem_idx : @lib.MemIdx,
   address_type : MpMemoryAddressType,
 ) -> Bool {
@@ -2033,22 +2152,27 @@ fn mp_rewrite_active_memory_init(
     out.push(@lib.Instruction::unreachable_())
     return true
   }
-  if !mp_memory_init_source_range_is_valid(src, size, plan.data_size) {
+  // Instantiation drops active segments, independently of initialization bytes.
+  if !mp_memory_init_source_range_is_valid(src, size, 0) {
     mp_append_consumed_memory_init_operands(out, operands)
     out.push(@lib.Instruction::unreachable_())
     return true
   }
+  if mp_memory_init_dest_is_const(operands, address_type) is Some(dest) {
+    mp_emit_destination_preflight(out, dest, 0, mem_idx, None, address_type)
+    return true
+  }
+  let tmp = mp_local_idx_from_int(param_count + locals.length())
+  locals.push(mp_address_val_type(address_type))
   mp_append_memory_init_dest(out, operands)
-  out.push(@lib.Instruction::memory_size(mem_idx))
-  out.push(mp_address_const(address_type, 16))
-  mp_append_address_shl(out, address_type)
-  mp_append_address_gt_u(out, address_type)
-  out.push(
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::unreachable_()],
-      None,
-    ),
+  out.push(@lib.Instruction::local_set(tmp))
+  mp_emit_destination_preflight(
+    out,
+    mp_address_const(address_type, 0),
+    0,
+    mem_idx,
+    Some(tmp),
+    address_type,
   )
   true
 }
@@ -2079,7 +2203,7 @@ fn mp_rewrite_passive_split_memory_init(
     out.push(@lib.Instruction::unreachable_())
     return true
   }
-  if !mp_memory_init_source_range_is_valid(src, size, plan.data_size) {
+  if !mp_memory_init_source_range_is_valid(src, size, plan.runtime_size) {
     mp_append_consumed_memory_init_operands(out, operands)
     out.push(@lib.Instruction::unreachable_())
     return true
@@ -2099,7 +2223,7 @@ fn mp_rewrite_passive_split_memory_init(
       Some(tmp_local)
     }
   }
-  let effective_global = if plan.needs_drop_state { global_idx } else { None }
+  let effective_global = mp_plan_drop_global(plan, global_idx)
   mp_append_passive_memory_init_replacement(
     out, plan, dest, src, size, mem_idx, tmp, effective_global, address_type,
   )
@@ -2112,6 +2236,7 @@ fn mp_append_split_data_drop(
   plan : MpSegmentPlan,
   global_idx : @lib.GlobalIdx?,
 ) -> Unit {
+  let global_idx = mp_plan_drop_global(plan, global_idx)
   if plan.needs_drop_state {
     match global_idx {
       Some(gi) => {
@@ -2240,7 +2365,9 @@ fn mp_rewrite_instrs_full(
         if slot >= 0 && slot < plans.length() {
           let plan = plans[slot]
           if plan.is_active {
-            if !mp_rewrite_active_memory_init(out, plan, mem_idx, address_type) {
+            if !mp_rewrite_active_memory_init(
+                out, locals, param_count, mem_idx, address_type,
+              ) {
               out.push(
                 @lib.Instruction::memory_init(
                   mp_plan_data_idx(idx, plans),
@@ -2275,7 +2402,7 @@ fn mp_rewrite_instrs_full(
         let slot = mp_data_idx_slot(idx)
         if slot >= 0 && slot < plans.length() {
           let plan = plans[slot]
-          if plan.is_active || plan.remap < 0 {
+          if plan.is_active || (plan.remap < 0 && !plan.was_split) {
             out.push(@lib.Instruction::nop())
           } else if plan.was_split {
             mp_append_split_data_drop(out, plan, global_idx)
@@ -2383,13 +2510,17 @@ pub fn memory_packing_run_module_pass(
   let rewritten : Array[@lib.Data] = []
   let data_name_entries : Array[@lib.NameAssoc] = []
   let mut changed = false
-  let mut need_drop_state = false
+  let mut need_drop_state = 0
 
   for idx = 0; idx < datas.length(); idx = idx + 1 {
     let data = datas[idx]
     match data {
       @lib.Data(@lib.Active(mem_idx, expr), bytes) => {
-        let next = if mp_should_skip_data_rewrite(mod_, idx) {
+        let next = if mp_should_skip_data_rewrite(mod_, idx) ||
+          (
+            segment_op_preflight.has_data_ops &&
+            mp_passive_user_scan(mod_, idx).has_array_data
+          ) {
           [data]
         } else {
           mp_active_rewrite(mod_, mem_idx, expr, bytes, traps_never_happen)
@@ -2415,7 +2546,7 @@ pub fn memory_packing_run_module_pass(
           true,
           false,
           false,
-          bytes.length(),
+          0,
         )
         for item in next {
           rewritten.push(item)
@@ -2457,7 +2588,7 @@ pub fn memory_packing_run_module_pass(
             bytes.length(),
           )
         } else if mp_passive_can_split(mod_, idx) {
-          let (parts, omitted_zero, fill_first) = mp_passive_split_parts(
+          let (parts, omitted_zero) = mp_passive_split_parts(
             mod_,
             idx,
             bytes,
@@ -2480,12 +2611,11 @@ pub fn memory_packing_run_module_pass(
               parts,
               false,
               true,
-              fill_first,
+              true,
               bytes.length(),
             )
-            if fill_first {
-              need_drop_state = true
-            }
+            plans[idx].drop_state_offset = need_drop_state
+            need_drop_state += 1
             let first_new_idx = rewritten.length()
             for part in plans[idx].split_parts {
               rewritten.push(
@@ -2544,7 +2674,7 @@ pub fn memory_packing_run_module_pass(
   let (next_global_sec, drop_state_global) = mp_append_drop_state_global(
     mod_, need_drop_state,
   )
-  if need_drop_state {
+  if need_drop_state > 0 {
     changed = true
   }
   let next_code_sec = if segment_op_preflight.has_data_ops {

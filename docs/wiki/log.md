@@ -23842,3 +23842,12 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   all pass. All 800 generated outputs validate; 644 output mismatches and ten
   SSA size gaps remain separate parity work. No requested check is blocked.
   See [expectation correction](ir2/architecture-rules.md#binaryen-trap-expectation-correction).
+
+- 2026-09-12: Corrected memory-packing runtime segment identity, independent
+  passive lifetimes, full preflight bounds checks, and active offset overflow;
+  corrected nested-global and incomplete-scan movement proofs in code pushing.
+  Added validated original/optimized execution comparisons including post-trap
+  memory and mutable globals. Also retained active GC data identities and made
+  exhausted local-write depth queries conservative. See
+  [segment semantics](binaryen/passes/memory-packing/segment-op-rewrites-and-traps.md#september-12-correctness-invariants)
+  and [movement proofs](binaryen/passes/code-pushing/segment-selection-and-barriers.md#september-12-movement-proof-correction).

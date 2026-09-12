@@ -77,10 +77,10 @@ fn mp_wbtest_assert_active_memory_init_operand_rewrite(
     msg="expected public pipeline operand extraction to remove memory.init",
   )
   match out[out.length() - 1] {
-    @lib.Nop | @lib.If(_, _, _) => ()
+    @lib.Unreachable => ()
     other =>
       fail(
-        "expected active memory.init to become nop or a bounds check, got \{other}",
+        "expected active memory.init requiring source bytes to trap, got \{other}",
       )
   }
 }
@@ -172,4 +172,163 @@ test "Binaryen 132 memory64 massive empty segment retains its offset and instant
   @debug.assert_eq(output.data_sec, input.data_sec)
   @debug.assert_eq(output.mem_sec, input.mem_sec)
   assert_true(@validate.validate_module(output) is Ok(_))
+}
+
+///|
+test "memory-packing active byte length is not its runtime source length" {
+  let input = pass_test_module_from_wat(
+    "(module (memory 1) (data (i32.const 0) \"x\") (func (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 1))))",
+  )
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
+    Ok(output) => output
+    Err(err) => fail(err)
+  }
+  let body = mp_wbtest_first_func_body(output)
+  assert_true(body[body.length() - 1] is @lib.Unreachable)
+}
+
+///|
+test "memory-packing all-zero split keeps independent logical lifetimes" {
+  let zeros = "\\00".repeat(64)
+  let input = pass_test_module_from_wat(
+    "(module (memory 1) (data \"\{zeros}\") (data \"\{zeros}\") (func (data.drop 0) (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 1)) (data.drop 1) (memory.init 1 (i32.const 0) (i32.const 0) (i32.const 1))))",
+  )
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
+    Ok(output) => output
+    Err(err) => fail(err)
+  }
+  match output.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 2)
+    _ => fail("expected per-segment lifetime globals")
+  }
+  let body = mp_wbtest_first_func_body(output)
+  assert_true(
+    body.contains(@lib.Instruction::global_set(@lib.GlobalIdx::new(0U))),
+  )
+  assert_true(
+    body.contains(@lib.Instruction::global_set(@lib.GlobalIdx::new(1U))),
+  )
+  assert_true(
+    body.contains(@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))),
+  )
+  assert_true(
+    body.contains(@lib.Instruction::global_get(@lib.GlobalIdx::new(1U))),
+  )
+  // Lifetime and complete destination checks precede each reconstruction write.
+  let mut checks = 0
+  let mut fills = 0
+  for instr in body {
+    match instr {
+      @lib.If(_, _, _) => checks += 1
+      @lib.MemoryFill(_) => {
+        fills += 1
+        assert_true(checks >= 2 * fills)
+      }
+      _ => ()
+    }
+  }
+  assert_eq(fills, 2)
+}
+
+///|
+test "memory-packing preserves overflowing memory64 active initialization bytes" {
+  let input = pass_test_module_from_wat(
+    "(module (memory i64 1) (data (i64.const -1) \"\\00\\00\"))",
+  )
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
+    Ok(output) => output
+    Err(err) => fail(err)
+  }
+  assert_eq(output.data_sec, input.data_sec)
+}
+
+///|
+test "memory-packing active GC data users retain a valid runtime identity" {
+  let input = pass_test_module_from_wat(
+      "(module (type (array (mut i8))) (memory 1) (data (i32.const 0) \"\\00\\00\") (func (result i32) i32.const 0))",
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_new_data(
+              @lib.TypeIdx::new(0U),
+              @lib.DataIdx::new(0U),
+            ),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail(err.to_string())
+  }
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
+    Ok(output) => output
+    Err(err) => fail(err)
+  }
+  assert_eq(output.data_sec, input.data_sec)
+}
+
+///|
+test "memory-packing constant destination preflight folds to a page requirement" {
+  let out : Array[@lib.Instruction] = []
+  mp_emit_destination_preflight(
+    out,
+    mp_i32_const(65532),
+    72,
+    @lib.MemIdx::new(0U),
+    None,
+    I32Address,
+  )
+  assert_eq(out, [
+    mp_i32_const(2),
+    @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+    @lib.Instruction::i32_gt_u(),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::unreachable_()],
+      None,
+    ),
+  ])
+}
+
+///|
+test "memory-packing constant preflight represents unsigned memory limits exactly" {
+  for size in [0, 1, 2] {
+    let out : Array[@lib.Instruction] = []
+    mp_emit_destination_preflight(
+      out,
+      @lib.Instruction::i64_const(@lib.I64(-1L)),
+      size,
+      @lib.MemIdx::new(0U),
+      None,
+      I64Address,
+    )
+    if size == 2 {
+      assert_eq(out, [@lib.Instruction::unreachable_()])
+    } else {
+      assert_eq(out[0], @lib.Instruction::i64_const(@lib.I64(1L << 48)))
+      assert_eq(out.length(), 4)
+    }
+    let out32 : Array[@lib.Instruction] = []
+    mp_emit_destination_preflight(
+      out32,
+      mp_i32_const(-1),
+      size,
+      @lib.MemIdx::new(0U),
+      None,
+      I32Address,
+    )
+    assert_eq(out32[0], mp_i32_const(if size == 2 { 65537 } else { 65536 }))
+  }
 }

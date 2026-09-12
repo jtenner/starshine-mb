@@ -1609,9 +1609,10 @@ test "memory-packing does not wrap high-address active offsets into low memory" 
   if mp_test_has_active_i32_offset(optimized, 5) {
     fail("expected high-address split not to wrap into low memory offset 5")
   }
-  if !mp_test_has_active_i32_offset(optimized, -1) {
-    fail("expected high-address split to saturate at i32 max offset")
-  }
+  @debug.assert_eq(
+    mp_test_data_segments(optimized),
+    mp_test_data_segments(input),
+  )
 }
 
 ///|
@@ -1653,18 +1654,10 @@ test "memory-packing preserves active memory.init destination bounds traps" {
 
   let optimized = memory_packing_run_module_pass(input)
   mp_test_expect_valid(optimized, "active memory.init destination bounds check")
-  @debug.assert_eq(mp_test_first_func_body(optimized), [
-    @lib.Instruction::i32_const(@lib.I32(65537)),
-    @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
-    @lib.Instruction::i32_const(@lib.I32(16)),
-    @lib.Instruction::i32_shl(),
-    @lib.Instruction::i32_gt_u(),
-    @lib.Instruction::if_(
-      @lib.BlockType::void_(),
-      [@lib.Instruction::unreachable_()],
-      None,
-    ),
-  ])
+  let body = mp_test_first_func_body(optimized)
+  assert_true(body.contains(@lib.Instruction::i32_const(@lib.I32(2))))
+  assert_true(body.contains(@lib.Instruction::i32_gt_u()))
+  assert_false(body.contains(@lib.Instruction::i32_shl()))
 }
 
 ///|

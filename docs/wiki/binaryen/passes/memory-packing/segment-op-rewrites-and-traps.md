@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-09-12
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
@@ -20,6 +20,59 @@ related:
 
 This page exists because the hardest part of Binaryen `memory-packing` is **not** “find zero bytes.”
 It is preserving the behavior of segment-using instructions after the raw segment bytes change.
+
+## September 12 correctness invariants
+
+This supersedes earlier descriptions that allowed active runtime reads using the
+initialization byte length, dropped zero-length checks, or tied passive lifetime
+checks to the first retained range. Active runtime source length is zero after
+instantiation. Initialization bytes and retained physical ranges do not represent
+runtime liveness.
+
+Every split passive segment has an independent generated drop-state global,
+including segments represented entirely by fills. Every nonempty logical read,
+and every zero-length read with a nonzero source offset, checks that state before
+writing. Dropping one segment cannot affect another.
+
+For dynamic destinations, the preflight first checks `destination >> 16 <= memory.size`, then
+checks `ceil(((destination & 65535) + length) / 65536)` against the remaining
+pages. This avoids computing an unrepresentable full memory byte size, handles
+Memory32 and Memory64 at their unsigned limits, and checks zero-length offsets.
+For constant destinations, the optimizer computes the full required page count
+and emits one comparison with `memory.size`; it separately handles an endpoint
+of exactly 2^64 and rejects larger endpoints without wrapping.
+Source constants are checked against the complete original live segment length.
+All checks precede the first write; destination expressions are evaluated once.
+Overflowing active retained-byte addresses keep the original segment rather than
+wrapping or saturating a trap marker. Active segments with GC data users are
+retained so storage removal cannot leave invalid remapped data indices.
+
+The local verified `wasm-opt version 132 (version_132-49-gd03c25ea4)` also
+incorrectly removes the instantiation trap for `(memory 65536)` with an active
+`"\00\00"` segment at `(i32.const -1)`. The `full32-marker` execution regression
+compares against the original module and preserves this trap. Matching that
+oracle's output would reintroduce a demonstrated correctness bug. The separate
+full-Memory32 zero-length runtime copy at destination `-1` succeeds in the
+original and Starshine output but traps in this oracle's output. In the initial
+96-case execution matrix, the same oracle matched 92 originals; four Memory32/64
+full-segment out-of-bounds copies (including effectful destinations) trapped after
+changing memory. Complete preflight is therefore a demonstrated semantic
+correctness improvement even when canonical output differs from this oracle.
+
+Implementation: [memory_packing.mbt](../../../../../src/passes/memory_packing.mbt).
+Regression evidence: [white-box tests](../../../../../src/passes/memory_packing_wbtest.mbt)
+and [runtime tests](../../../../../scripts/test/optimizer-correctness-runtime.ts),
+which validate both modules and compare full exported memory, mutable globals,
+results, and traps under Node, including Memory64.
+
+Validation on this repair: 125 original/optimized execution regressions pass,
+including full 4 GiB Memory32 end-byte observations without full-memory copying;
+41 focused memory-packing tests, 10 helper tests, and 319 CLI tests pass.
+Before constant-check folding, `bun validate full --profile ci --target wasm-gc`
+passed all 11,311 tests and 100,772 attempts across 14 CI fuzz suites. After the
+refinement, all 10 memory helper tests pass on wasm-gc and the final default
+`moon test` passes 11,316/11,316. `moon info`, `moon fmt --check`, API sync,
+and the CI workflow contract pass with no public `.mbti` changes.
 
 ## Keep two stories separate in your head
 

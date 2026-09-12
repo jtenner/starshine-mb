@@ -150,8 +150,10 @@ describe("three-way Node semantic oracle v2", () => {
     );
 
     expect(report.schema).toBe("starshine.optimizer-three-way-runtime-report.v1");
-    const expectedHost = process.versions.bun === undefined
-      ? `node:${process.version}` : `bun:${process.versions.bun}:javascriptcore`;
+    // The executor launches Node even when the test driver itself is Bun.
+    const nodeVersion = spawnSync("node", ["--version"], { encoding: "utf8" });
+    expect(nodeVersion.status).toBe(0);
+    const expectedHost = `node:${nodeVersion.stdout.trim()}`;
     expect(report.original.runtime.identity).toBe(expectedHost);
     expect(report.starshine.runtime.identity).toBe(expectedHost);
     expect(report.classification.primary).toBe("starshine-semantic-mismatch");

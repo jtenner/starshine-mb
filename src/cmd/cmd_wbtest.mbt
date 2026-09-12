@@ -11214,3 +11214,39 @@ test "run_cmd_with_adapter inlining keeps types after recursion groups" {
     None => fail("expected the inlined caller")
   }
 }
+
+///|
+test "memory-packing dispatcher preserves active runtime source traps" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (memory 1) (data (i32.const 0) \"x\") (func (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 1))))",
+  )
+  let writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(_) { Ok(encode_module_bytes(input)) },
+    write_file=fn(_, bytes) {
+      writes.push(bytes)
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      ["--memory-packing", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(err) => fail(err.to_string())
+  }
+  assert_eq(writes.length(), 1)
+  let output = decode_module_bytes(writes[0])
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) => fail(err.to_string())
+  }
+  match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      assert_true(body.contains(@lib.Instruction::unreachable_()))
+    _ => fail("expected one optimized function")
+  }
+}
