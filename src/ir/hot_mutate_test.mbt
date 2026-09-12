@@ -110,6 +110,58 @@ test "batched control edits preserve a result loop's zero input arity" {
 }
 
 ///|
+test "dead tee forwarding preserves an earlier local read across an overwrite" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (result i32) (local i32 i32) i32.const 0))",
+  )
+  let func = fixture.hot_func
+  let init = hot_build_local_set(func, 0, hot_build_const_i32(func, 7))
+  let old = hot_build_local_get(func, 0)
+  let overwrite = hot_build_local_set(func, 0, hot_build_const_i32(func, 99))
+  let tee = hot_build_local_tee(func, 1, old)
+  ignore(hot_root_splice(func, 0, hot_root_count(func), [init, overwrite, tee]))
+  // Local 1 is never read: its write is proven dead before forwarding.
+  let cfg = cfg_build(func)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let ssa = ssa_build_local(
+    func,
+    cfg,
+    dom_build(cfg),
+    liveness_build(cfg, use_def),
+    use_def,
+  )
+  @debug.assert_eq(
+    ssa_uses_of_value(ssa, ssa_def_for_local_set(ssa, tee)).length(),
+    0,
+  )
+  let order = hot_node_get(func, old).order
+  assert_true(order < hot_node_get(func, overwrite).order)
+  assert_true(hot_replace_local_tee_with_value(func, tee))
+  let forwarded = hot_node_get(func, tee)
+  assert_true(forwarded.op is HotOp::LocalGet)
+  @debug.assert_eq(forwarded.imm0, 0)
+  @debug.assert_eq(forwarded.order, order)
+  ignore(ir_test_assert_verify_and_lower(fixture))
+  let @lib.Func(locals, @lib.Expr(body)) = hot_lower_func(func)
+  let values = Array::make(locals.length(), 0)
+  let stack : Array[Int] = []
+  for instr in body {
+    match instr {
+      @lib.I32Const(@lib.I32(value)) => stack.push(value)
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        stack.push(values[raw.reinterpret_as_int()])
+      @lib.LocalSet(@lib.LocalIdx(raw)) =>
+        values[raw.reinterpret_as_int()] = stack.pop().unwrap()
+      @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        values[raw.reinterpret_as_int()] = stack[stack.length() - 1]
+      _ => fail("unexpected scalar lifetime instruction: \{instr}")
+    }
+  }
+  @debug.assert_eq(stack, [7])
+  @debug.assert_eq(values[0], 99)
+}
+
+///|
 test "node deletion records tombstones without immediate free-list reuse" {
   let func = HotFunc::new()
   let deleted = hot_build_nop(func)

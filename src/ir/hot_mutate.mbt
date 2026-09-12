@@ -1475,7 +1475,7 @@ pub fn hot_replace_local_tee_with_value(
     HotOp::Block | HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable =>
       false
     _ => {
-      hot_replace_node(func, node_id, value)
+      hot_replace_node(func, node_id, value, preserve_value_order=true)
       true
     }
   }
