@@ -1,0 +1,8 @@
+(module
+ (func $choose (param i32) (result f32) (local f32)
+  local.get 0
+  if f32.const nan:0x400001 local.set 1
+  else f32.const 0 local.set 1 end
+  local.get 1)
+ (func (export "main") (result i32)
+  i32.const 1 call $choose f32.const 0 f32.eq))

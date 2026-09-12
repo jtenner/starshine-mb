@@ -25494,3 +25494,41 @@ test "heap2local raw admission retains every supported allocation family" {
     ]),
   )
 }
+
+///|
+test "SimplifyLocals exact cleanup terminates on nested NaNs and preserves literal bits" {
+  let nan32 = @lib.Instruction::f32_const(
+    @lib.F32(0x7fc00001U.reinterpret_as_float()),
+  )
+  let nan64 = @lib.Instruction::f64_const(
+    @lib.F64(0x7ff8000000000001UL.reinterpret_as_double()),
+  )
+  let body = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        nan32,
+        @lib.Instruction::drop(),
+        nan64,
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ]
+  assert_true(simplify_locals_cleanup_bodies_equal(body, body.copy()))
+  assert_false(
+    simplify_locals_cleanup_bodies_equal([nan32], [
+      @lib.Instruction::f32_const(@lib.F32(0x7fc00002U.reinterpret_as_float())),
+    ]),
+  )
+  assert_false(
+    simplify_locals_cleanup_bodies_equal(
+      [@lib.Instruction::f64_const(@lib.F64(0.0))],
+      [@lib.Instruction::f64_const(@lib.F64(-0.0))],
+    ),
+  )
+  let (output, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+    @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new(body)),
+  )
+  let @lib.Func(_, @lib.Expr(cleaned)) = output
+  assert_true(simplify_locals_cleanup_bodies_equal(body, cleaned))
+}

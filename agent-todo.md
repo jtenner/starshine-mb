@@ -26,7 +26,11 @@
   cause is per-pair whole-function allocation in source-order conflict analysis;
   sparse cached accesses pass the reduced bounded perf test. Saved timeout
   signoff awaits release replay. Numeric timeouts are isolated to SimplifyLocals
-  exact cleanup and remain open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  exact cleanup: NaN equality prevented fixed-point detection. That loop is
+  repaired with f32/f64 execution regressions. Both numeric O4z cases pass;
+  direct math inlining now returns FAIL and needs isolation. WASI boundary
+  direct Flatten passes; multiwindow direct output exceeds Wago native-frame
+  headroom, while the two O4z debug timeouts still need release profiling. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
 
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56

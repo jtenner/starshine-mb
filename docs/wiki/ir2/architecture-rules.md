@@ -386,6 +386,20 @@ debug build. All 788 IR/Flatten/CoalesceLocals neighboring tests pass. Full save
 timeout replay is pending the paired numeric investigation and release rebuild.
 See [`flatten-wide-array.test.ts`](../../../tests/optimizer/perf/flatten-wide-array.test.ts).
 
+The numeric timeouts came from SimplifyLocals exact cleanup repeating forever
+when its fixed-point comparison encountered NaN: IEEE equality is non-reflexive.
+The comparison now recursively compares literal float bits through structured
+control, retaining NaN payload and signed-zero distinctions. Reduced f32/f64
+branch regressions terminate and preserve Node execution; all 359 dispatcher
+whitebox tests pass, and the wider neighborhood passes 612/613 with the unchanged
+baseline constant-copy failure. Numeric O4z float-specials and math now pass
+Node/Wago. Direct math inlining now terminates but returns FAIL, a newly exposed
+runtime defect requiring isolation. WASI boundary direct Flatten passes; the
+multiwindow direct output hits Wago's explicit native-frame headroom limit
+(300184 > 262064 bytes), and both WASI O4z debug runs still time out. These are
+open checkpoints pending release profiling and final replay. See
+[`simplify-nan-termination.test.ts`](../../../tests/optimizer/regressions/simplify-nan-termination.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

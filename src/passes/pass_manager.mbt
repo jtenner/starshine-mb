@@ -74504,6 +74504,68 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_func(
 }
 
 ///|
+fn simplify_locals_cleanup_bodies_equal(
+  left : Array[@lib.Instruction],
+  right : Array[@lib.Instruction],
+) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  for idx = 0; idx < left.length(); idx = idx + 1 {
+    let equal = match (left[idx], right[idx]) {
+      (@lib.F32Const(@lib.F32(a)), @lib.F32Const(@lib.F32(b))) =>
+        a.reinterpret_as_uint() == b.reinterpret_as_uint()
+      (@lib.F64Const(@lib.F64(a)), @lib.F64Const(@lib.F64(b))) =>
+        a.reinterpret_as_uint64() == b.reinterpret_as_uint64()
+      (@lib.Block(a, @lib.Expr(x)), @lib.Block(b, @lib.Expr(y)))
+      | (@lib.Loop(a, @lib.Expr(x)), @lib.Loop(b, @lib.Expr(y))) =>
+        a == b && simplify_locals_cleanup_bodies_equal(x, y)
+      (@lib.If(a, x, other_x), @lib.If(b, y, other_y)) =>
+        a == b &&
+        simplify_locals_cleanup_bodies_equal(x, y) &&
+        (match (other_x, other_y) {
+          (None, None) => true
+          (Some(x), Some(y)) => simplify_locals_cleanup_bodies_equal(x, y)
+          _ => false
+        })
+      (@lib.TryTable(a, c, @lib.Expr(x)), @lib.TryTable(b, d, @lib.Expr(y))) =>
+        a == b && c == d && simplify_locals_cleanup_bodies_equal(x, y)
+      (
+        @lib.Try(a, @lib.Expr(x), c, target_a),
+        @lib.Try(b, @lib.Expr(y), d, target_b),
+      ) => {
+        let mut same = a == b &&
+          target_a == target_b &&
+          c.length() == d.length() &&
+          simplify_locals_cleanup_bodies_equal(x, y)
+        if same {
+          for catch_idx = 0; catch_idx < c.length(); catch_idx = catch_idx + 1 {
+            same = same &&
+              (match (c[catch_idx], d[catch_idx]) {
+                (
+                  @lib.LegacyCatch(t, @lib.Expr(x)),
+                  @lib.LegacyCatch(u, @lib.Expr(y)),
+                ) => t == u && simplify_locals_cleanup_bodies_equal(x, y)
+                (
+                  @lib.LegacyCatchAll(@lib.Expr(x)),
+                  @lib.LegacyCatchAll(@lib.Expr(y)),
+                ) => simplify_locals_cleanup_bodies_equal(x, y)
+                _ => false
+              })
+          }
+        }
+        same
+      }
+      _ => left[idx] == right[idx]
+    }
+    if !equal {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_cleanup_exact_func(
   func : @lib.Func,
 ) -> (@lib.Func, Bool) {
@@ -74524,7 +74586,9 @@ fn run_hot_pipeline_simplify_locals_cleanup_exact_func(
     let cleaned_body = run_hot_pipeline_simplify_locals_lowered_cleanup_body(
       rewritten_body, counts,
     )
-    if cleaned_body == current_body {
+    // IEEE NaN is unequal to itself. Fixed-point detection compares literal
+    // bits so unchanged NaNs terminate and signed-zero changes remain visible.
+    if simplify_locals_cleanup_bodies_equal(cleaned_body, current_body) {
       break
     }
     current_body = cleaned_body

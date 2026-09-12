@@ -23753,3 +23753,10 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   accesses; dedicated 2,048-element array termination/execution test fails
   before repair and passes afterward. IR/Flatten/CoalesceLocals: 788/788.
   Saved timeout signoff remains pending; see [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: fix SimplifyLocals exact cleanup's nonterminating NaN equality
+  check with recursive bit-exact literal comparison. f32/f64 execution tests
+  pass; 359/359 dispatcher whitebox and 612/613 neighbors (unchanged baseline
+  constant-copy failure). Both numeric O4z replays pass. Direct math inlining
+  exposes a runtime mismatch; WASI O4z and Wago frame capacity remain open.
+  See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
