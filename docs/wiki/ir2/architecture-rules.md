@@ -459,6 +459,15 @@ and live-parameter neighboring assertions. All 434 DAE whitebox tests pass and
 Node returns 41 before and after optimization. No implementation change. See
 [`dae-tail-constant.test.ts`](../../../tests/optimizer/regressions/dae-tail-constant.test.ts).
 
+The 50 baseline SSA assertions require obsolete fresh-local/copy layouts after
+liveness correctly keeps merge participants canonical. Replace those failing
+expectations with exact encoded branch/local/reference fixtures; preserve all
+passing cases. All 497 SSA tests and 138 bounded Node probes across the 50
+families pass. Three unconditional-loop originals use finite derived execution
+fixtures; timeout pairs are not counted as runtime passes. Ten measured Binaryen
+132 size differences remain output-shape parity gaps, not confirmed execution
+defects. See [SSA expectation resolution](../binaryen/passes/ssa-nomerge/merge-shapes-and-canonical-slots.md#september-12-baseline-expectation-resolution).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

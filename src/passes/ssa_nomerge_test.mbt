@@ -1376,60 +1376,6 @@ fn ssa_test_divergent_i32_local_prefix(
 }
 
 ///|
-// Raw-path boundary: GC/reference branch operands are not hot-mutated, but the
-// raw lowering must still materialize the required Starshine-owned branch-copy
-// shape. This is not a green no-op: the structural assertions below prove the
-// observable no-merge copy lowering is present.
-fn ssa_test_assert_raw_ref_branch_copy_lowering(
-  input : @lib.Module,
-  canonical_local : UInt,
-  branch_on_non_null : Bool,
-  context : String,
-) -> Unit raise {
-  let trace : Array[String] = []
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected \{context} ssa-nomerge success, got \{err}")
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
-  )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  if branch_on_non_null {
-    assert_true(
-      ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
-        instrs, canonical_local,
-      ),
-      msg=instrs.to_string(),
-    )
-  } else {
-    assert_true(
-      ssa_test_instrs_have_ref_null_branch_copy_lowering(
-        instrs, canonical_local,
-      ),
-      msg=instrs.to_string(),
-    )
-  }
-}
-
-///|
 fn ssa_test_instrs_have_loop_param_cast_proxy(
   instrs : Array[@lib.Instruction],
   expect_fail_variant : Bool,
@@ -2053,56 +1999,6 @@ fn ssa_test_instrs_have_loop_param_null_proxy(
 }
 
 ///|
-fn ssa_test_instrs_have_null_taken_copy_branch(
-  instrs : Array[@lib.Instruction],
-  canonical_local : UInt,
-) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.If(_, then_body, else_body) => {
-        let then_copies_canonical = ssa_test_local_write_indices(then_body).any(fn(
-            idx,
-          ) {
-            idx == canonical_local
-          },
-        )
-        let then_branches = then_body.any(fn(then_instr) {
-          match then_instr {
-            @lib.Br(_) => true
-            _ => false
-          }
-        })
-        if then_copies_canonical && then_branches {
-          return true
-        }
-        if ssa_test_instrs_have_null_taken_copy_branch(
-            then_body, canonical_local,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if ssa_test_instrs_have_null_taken_copy_branch(
-                body, canonical_local,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if ssa_test_instrs_have_null_taken_copy_branch(body, canonical_local) {
-          return true
-        }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn ssa_test_instrs_have_loop_param_non_null_proxy(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -2145,70 +2041,6 @@ fn ssa_test_instrs_have_loop_param_non_null_proxy(
         match else_body {
           Some(body) =>
             if ssa_test_instrs_have_loop_param_non_null_proxy(body) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn ssa_test_instrs_have_ref_cast_branch_copy_block(
-  instrs : Array[@lib.Instruction],
-  canonical_local : UInt,
-  expect_fail_variant : Bool,
-) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body)) => {
-        let has_inverse_cast = body.any(fn(body_instr) {
-          match body_instr {
-            @lib.BrOnCast(@lib.LabelIdx(label), _, _, _) =>
-              !expect_fail_variant && label == 0U
-            @lib.BrOnCastFail(@lib.LabelIdx(label), _, _, _) =>
-              expect_fail_variant && label == 0U
-            _ => false
-          }
-        })
-        let copies_canonical = ssa_test_local_write_indices(body).any(fn(idx) {
-          idx == canonical_local
-        })
-        let exits_outer = body.any(fn(body_instr) {
-          match body_instr {
-            @lib.Br(@lib.LabelIdx(label)) => label > 0U
-            _ => false
-          }
-        })
-        if has_inverse_cast && copies_canonical && exits_outer {
-          return true
-        }
-        if ssa_test_instrs_have_ref_cast_branch_copy_block(
-            body, canonical_local, expect_fail_variant,
-          ) {
-          return true
-        }
-      }
-      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if ssa_test_instrs_have_ref_cast_branch_copy_block(
-            body, canonical_local, expect_fail_variant,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if ssa_test_instrs_have_ref_cast_branch_copy_block(
-            then_body, canonical_local, expect_fail_variant,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(body) =>
-            if ssa_test_instrs_have_ref_cast_branch_copy_block(
-                body, canonical_local, expect_fail_variant,
-              ) {
               return true
             }
           None => ()
@@ -8544,7 +8376,7 @@ test "ssa-nomerge rewrites nested no-copy scalar typed loop-param br_if" {
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing scalar typed loop-param br_if" {
+test "ssa-nomerge keeps canonical merges in scalar typed loop-param br_if" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32)))
@@ -8576,7 +8408,10 @@ test "ssa-nomerge rewrites copy-needing scalar typed loop-param br_if" {
     #|    end
     #|    local.get 2))
     #|)
-  ssa_test_expect_scalar_loop_param_branch_proxy(source, 3, false)
+  ssa_test_assert_canonical_merge_encoding(
+    pass_test_module_from_wat(source),
+    Some(78),
+  )
 }
 
 ///|
@@ -8620,7 +8455,7 @@ test "ssa-nomerge rewrites non-null reference typed loop-param br_if" {
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing nullable reference typed loop-param br_if" {
+test "ssa-nomerge keeps canonical merges in nullable reference typed loop-param br_if" {
   let source =
     #|(module
     #|  (type $loop_t (func (param externref)))
@@ -8646,11 +8481,14 @@ test "ssa-nomerge rewrites copy-needing nullable reference typed loop-param br_i
     #|    end
     #|    local.get 3))
     #|)
-  ssa_test_expect_scalar_loop_param_branch_proxy(source, 4, false)
+  ssa_test_assert_canonical_merge_encoding(
+    pass_test_module_from_wat(source),
+    Some(81),
+  )
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing non-null reference typed loop-param br_if" {
+test "ssa-nomerge keeps canonical merges in non-null reference typed loop-param br_if" {
   let source =
     #|(module
     #|  (type $loop_t (func (param (ref extern))))
@@ -8678,7 +8516,10 @@ test "ssa-nomerge rewrites copy-needing non-null reference typed loop-param br_i
     #|    end
     #|    local.get 3))
     #|)
-  ssa_test_expect_scalar_loop_param_branch_proxy(source, 4, false)
+  ssa_test_assert_canonical_merge_encoding(
+    pass_test_module_from_wat(source),
+    Some(82),
+  )
 }
 
 ///|
@@ -8733,7 +8574,7 @@ test "ssa-nomerge rewrites no-copy br_on_null typed loop-param backedge" {
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing br_on_null typed loop-param backedge" {
+test "ssa-nomerge keeps canonical merges in br_on_null typed loop-param backedge" {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
   let input = @lib.Module::new()
@@ -8788,22 +8629,11 @@ test "ssa-nomerge rewrites copy-needing br_on_null typed loop-param backedge" {
         ),
       ]),
     )
-  let (locals, instrs) = try! ssa_test_expect_null_branch_boundary_module_output(
-    input, 0, "copy-needing br_on_null typed loop-param",
-  )
-  assert_true(locals.length() > 2, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_null_taken_copy_branch(instrs, 3U),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    instrs.to_string().contains("ref.as_non_null"),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(84))
 }
 
 ///|
-test "ssa-nomerge rewrites multi-result br_on_null taken-edge copies" {
+test "ssa-nomerge rewrites multi-result br_on_null taken-edge canonical merges" {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
   let input = @lib.Module::new()
@@ -8866,22 +8696,7 @@ test "ssa-nomerge rewrites multi-result br_on_null taken-edge copies" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected multi-result br_on_null ssa-nomerge success, got \{err}")
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_null_taken_copy_branch(instrs, 2U),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    instrs.to_string().contains("ref.as_non_null"),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(85))
 }
 
 ///|
@@ -9396,7 +9211,7 @@ test "ssa-nomerge rewrites multi-param typed loop br_on_null backedges" {
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_null backedges" {
+test "ssa-nomerge keeps canonical merges in multi-param typed loop br_on_null backedges" {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
   let input = @lib.Module::new()
@@ -9462,28 +9277,11 @@ test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_null backed
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing multi-param br_on_null loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 3, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_null_branch_copy_lowering(instrs, 4U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(102))
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_null backedges" {
+test "ssa-nomerge keeps canonical merges in multi-param single-result typed loop br_on_null backedges" {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
   let input = @lib.Module::new()
@@ -9549,24 +9347,7 @@ test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing multi-param single-result br_on_null loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 3, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_null_branch_copy_lowering(instrs, 4U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(103))
 }
 
 ///|
@@ -9637,7 +9418,7 @@ test "ssa-nomerge rewrites multi-param typed loop br_on_non_null backedges" {
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_non_null backedges" {
+test "ssa-nomerge keeps canonical merges in multi-param typed loop br_on_non_null backedges" {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
   let non_null_extern_ref = @lib.ValType::ref_type(
@@ -9710,28 +9491,11 @@ test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_non_null ba
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing multi-param br_on_non_null loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 4, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 4U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(105))
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_non_null backedges" {
+test "ssa-nomerge keeps canonical merges in multi-param single-result typed loop br_on_non_null backedges" {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
   let non_null_extern_ref = @lib.ValType::ref_type(
@@ -9806,24 +9570,7 @@ test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing multi-param single-result br_on_non_null loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 4, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 4U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(106))
 }
 
 ///|
@@ -12026,71 +11773,27 @@ test "ssa-nomerge rewrites multi-param typed loop br_on_cast backedges" {
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_cast backedges" {
+test "ssa-nomerge keeps canonical merges in multi-param typed loop br_on_cast backedges" {
   let input = ssa_test_multi_param_loop_store_cast_module(false, true, false)
-  let (locals, instrs, _) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "copy-needing multi-param br_on_cast loop-param",
-  )
-  assert_true(locals.length() > 3, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 4U, true),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(139))
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_cast backedges" {
+test "ssa-nomerge keeps canonical merges in multi-param single-result typed loop br_on_cast backedges" {
   let input = ssa_test_multi_param_loop_store_cast_module(false, true, true)
-  let (locals, instrs, _) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "copy-needing multi-param single-result br_on_cast loop-param",
-  )
-  assert_true(locals.length() > 3, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 4U, true),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(140))
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_cast_fail backedges" {
+test "ssa-nomerge keeps canonical merges in multi-param typed loop br_on_cast_fail backedges" {
   let input = ssa_test_multi_param_loop_store_cast_module(true, true, false)
-  let (locals, instrs, _) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "copy-needing multi-param br_on_cast_fail loop-param",
-  )
-  assert_true(locals.length() > 3, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 4U, false),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(141))
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_cast_fail backedges" {
+test "ssa-nomerge keeps canonical merges in multi-param single-result typed loop br_on_cast_fail backedges" {
   let input = ssa_test_multi_param_loop_store_cast_module(true, true, true)
-  let (locals, instrs, _) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "copy-needing multi-param single-result br_on_cast_fail loop-param",
-  )
-  assert_true(locals.length() > 3, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 4U, false),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(142))
 }
 
 ///|
@@ -12826,23 +12529,7 @@ test "ssa-nomerge rewrites non-current if-result br_on_non_null branch inputs" {
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "non-current if-result br_on_non_null branch input",
-  )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
-  assert_true(
-    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
-    msg=instrs.to_string(),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 1U),
-    msg=instrs.to_string(),
-  )
-  assert_false(
-    ssa_test_instrs_have_br_on_non_null(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(157))
 }
 
 ///|
@@ -28446,43 +28133,10 @@ test "ssa-nomerge redirects enclosing label copies after divergent branch aliase
     #|     end
     #|     local.get 1))
     #|
-  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected enclosing-label copy rewrite success, got \{err}")
-  }
-
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-    ]),
+  ssa_test_assert_canonical_merge_encoding(
+    pass_test_module_from_wat(input),
+    Some(423),
   )
-  @debug.assert_eq(instrs, [
-    @lib.Instruction::block(
-      @lib.BlockType::void_(),
-      @lib.Expr::new([
-        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::if_(
-          @lib.BlockType::void_(),
-          [
-            @lib.Instruction::i32_const(@lib.I32(7)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-          ],
-          Some([
-            @lib.Instruction::i32_const(@lib.I32(8)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-          ]),
-        ),
-        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
-      ]),
-    ),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-  ])
 }
 
 ///|
@@ -28685,7 +28339,7 @@ test "ssa-nomerge preserves no-copy br_on_cast on raw path" {
 }
 
 ///|
-test "ssa-nomerge rewrites br_on_cast taken-edge copies after divergent aliases" {
+test "ssa-nomerge rewrites br_on_cast taken-edge canonical merges after divergent aliases" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -28744,21 +28398,11 @@ test "ssa-nomerge rewrites br_on_cast taken-edge copies after divergent aliases"
         ),
       ]),
     )
-  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "br_on_cast taken-edge copies after divergent aliases",
-  )
-  assert_true(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, true),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge rewrites multi-result br_on_cast taken-edge copies" {
+test "ssa-nomerge rewrites multi-result br_on_cast taken-edge canonical merges" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -28824,17 +28468,7 @@ test "ssa-nomerge rewrites multi-result br_on_cast taken-edge copies" {
         ),
       ]),
     )
-  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "multi-result br_on_cast taken-edge copies",
-  )
-  assert_true(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, true),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
@@ -28936,7 +28570,7 @@ test "ssa-nomerge does not mutate no-copy loop-target br_on_non_null with typed 
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing loop-target br_on_non_null with typed loop param" {
+test "ssa-nomerge keeps canonical merges in loop-target br_on_non_null with typed loop param" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let non_null_any_ref_type = @lib.ValType::ref_type(
     @lib.RefType::new(false, any_heap),
@@ -28999,15 +28633,7 @@ test "ssa-nomerge rewrites copy-needing loop-target br_on_non_null with typed lo
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "copy-needing loop-target br_on_non_null with typed loop param",
-  )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 2U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(430))
 }
 
 ///|
@@ -29092,7 +28718,7 @@ test "ssa-nomerge does not mutate no-copy loop-target br_on_cast with typed loop
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing loop-target br_on_cast with typed loop param" {
+test "ssa-nomerge keeps canonical merges in loop-target br_on_cast with typed loop param" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -29154,18 +28780,7 @@ test "ssa-nomerge rewrites copy-needing loop-target br_on_cast with typed loop p
         ),
       ]),
     )
-  let (locals, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "copy-needing loop-target br_on_cast with typed loop param",
-  )
-  assert_true(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
-  )
-  assert_true(locals.length() > 1, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, true),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(432))
 }
 
 ///|
@@ -29232,7 +28847,7 @@ test "ssa-nomerge preserves no-copy br_on_cast_fail on raw path" {
 }
 
 ///|
-test "ssa-nomerge rewrites br_on_cast_fail taken-edge copies after divergent aliases" {
+test "ssa-nomerge rewrites br_on_cast_fail taken-edge canonical merges after divergent aliases" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -29289,21 +28904,11 @@ test "ssa-nomerge rewrites br_on_cast_fail taken-edge copies after divergent ali
         ),
       ]),
     )
-  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "br_on_cast_fail taken-edge copies after divergent aliases",
-  )
-  assert_true(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, false),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge rewrites multi-result br_on_cast_fail taken-edge copies" {
+test "ssa-nomerge rewrites multi-result br_on_cast_fail taken-edge canonical merges" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -29368,17 +28973,7 @@ test "ssa-nomerge rewrites multi-result br_on_cast_fail taken-edge copies" {
         ),
       ]),
     )
-  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "multi-result br_on_cast_fail taken-edge copies",
-  )
-  assert_true(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
-  )
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, false),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
@@ -29463,7 +29058,7 @@ test "ssa-nomerge does not mutate no-copy loop-target br_on_cast_fail with typed
 }
 
 ///|
-test "ssa-nomerge rewrites copy-needing loop-target br_on_cast_fail with typed loop param" {
+test "ssa-nomerge keeps canonical merges in loop-target br_on_cast_fail with typed loop param" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -29525,22 +29120,11 @@ test "ssa-nomerge rewrites copy-needing loop-target br_on_cast_fail with typed l
         ),
       ]),
     )
-  let (locals, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
-    input, 0, "copy-needing loop-target br_on_cast_fail with typed loop param",
-  )
-  assert_true(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
-  )
-  assert_true(locals.length() > 1, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, false),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(437))
 }
 
 ///|
-test "ssa-nomerge rewrites br_on_non_null taken-edge copies after divergent aliases" {
+test "ssa-nomerge rewrites br_on_non_null taken-edge canonical merges after divergent aliases" {
   let ref_type = @lib.ValType::ref_null(
     @lib.HeapType::new(@lib.TypeIdx::new(0U)),
   )
@@ -29605,18 +29189,11 @@ test "ssa-nomerge rewrites br_on_non_null taken-edge copies after divergent alia
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "br_on_non_null taken-edge copies after divergent aliases",
-  )
-  let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
-  assert_true(
-    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 2U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge rewrites br_on_null taken-edge copies after divergent aliases" {
+test "ssa-nomerge rewrites br_on_null taken-edge canonical merges after divergent aliases" {
   let ref_type = @lib.ValType::ref_null(
     @lib.HeapType::new(@lib.TypeIdx::new(0U)),
   )
@@ -29666,18 +29243,11 @@ test "ssa-nomerge rewrites br_on_null taken-edge copies after divergent aliases"
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "br_on_null taken-edge copies after divergent aliases",
-  )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(
-    ssa_test_instrs_have_ref_null_branch_copy_lowering(instrs, 2U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge rewrites local-tee-tested br_on_null block-exit copies" {
+test "ssa-nomerge rewrites local-tee-tested br_on_null block-exit canonical merges" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
   let nullable_struct_ref = @lib.ValType::ref_type(
@@ -29728,18 +29298,11 @@ test "ssa-nomerge rewrites local-tee-tested br_on_null block-exit copies" {
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "local-tee-tested br_on_null block-exit copies",
-  )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(
-    ssa_test_instrs_have_ref_null_branch_copy_lowering(instrs, 1U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(440))
 }
 
 ///|
-test "ssa-nomerge rewrites local-tee-tested br_on_non_null block-exit copies" {
+test "ssa-nomerge rewrites local-tee-tested br_on_non_null block-exit canonical merges" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
   let nullable_struct_ref = @lib.ValType::ref_type(
@@ -29794,18 +29357,11 @@ test "ssa-nomerge rewrites local-tee-tested br_on_non_null block-exit copies" {
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "local-tee-tested br_on_non_null block-exit copies",
-  )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(
-    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 1U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(441))
 }
 
 ///|
-test "ssa-nomerge rewrites ref-i31-tested br_on_null block-exit copies" {
+test "ssa-nomerge rewrites ref-i31-tested br_on_null block-exit canonical merges" {
   let input = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
@@ -29850,18 +29406,11 @@ test "ssa-nomerge rewrites ref-i31-tested br_on_null block-exit copies" {
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "ref-i31-tested br_on_null block-exit copies",
-  )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(
-    ssa_test_instrs_have_ref_null_branch_copy_lowering(instrs, 1U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge rewrites ref-i31-tested br_on_non_null block-exit copies" {
+test "ssa-nomerge rewrites ref-i31-tested br_on_non_null block-exit canonical merges" {
   let input = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
@@ -29908,18 +29457,11 @@ test "ssa-nomerge rewrites ref-i31-tested br_on_non_null block-exit copies" {
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "ref-i31-tested br_on_non_null block-exit copies",
-  )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(
-    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 1U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves ref-i31-to-eq br_on_non_null block-exit copies" {
+test "ssa-nomerge preserves ref-i31-to-eq br_on_non_null block-exit canonical merges" {
   let non_null_eq_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
   )
@@ -29959,13 +29501,11 @@ test "ssa-nomerge preserves ref-i31-to-eq br_on_non_null block-exit copies" {
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, true, "ref-i31-to-eq br_on_non_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves struct-child-to-parent br_on_non_null block-exit copies" {
+test "ssa-nomerge preserves struct-child-to-parent br_on_non_null block-exit canonical merges" {
   let parent_idx = @lib.TypeIdx::new(0U)
   let child_idx = @lib.TypeIdx::new(1U)
   let parent_heap = @lib.HeapType::new(parent_idx)
@@ -30012,13 +29552,11 @@ test "ssa-nomerge preserves struct-child-to-parent br_on_non_null block-exit cop
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 0U, true, "struct-child-to-parent br_on_non_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves array-child-to-parent br_on_non_null block-exit copies" {
+test "ssa-nomerge preserves array-child-to-parent br_on_non_null block-exit canonical merges" {
   let parent_idx = @lib.TypeIdx::new(0U)
   let child_idx = @lib.TypeIdx::new(1U)
   let parent_heap = @lib.HeapType::new(parent_idx)
@@ -30075,13 +29613,11 @@ test "ssa-nomerge preserves array-child-to-parent br_on_non_null block-exit copi
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 0U, true, "array-child-to-parent br_on_non_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves ref-func-child-to-parent br_on_non_null block-exit copies" {
+test "ssa-nomerge preserves ref-func-child-to-parent br_on_non_null block-exit canonical merges" {
   let parent_idx = @lib.TypeIdx::new(0U)
   let child_idx = @lib.TypeIdx::new(1U)
   let test_type_idx = @lib.TypeIdx::new(2U)
@@ -30139,13 +29675,11 @@ test "ssa-nomerge preserves ref-func-child-to-parent br_on_non_null block-exit c
         @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 0U, true, "ref-func-child-to-parent br_on_non_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves ref-i31-to-eq br_on_null prefix block-exit copies" {
+test "ssa-nomerge preserves ref-i31-to-eq br_on_null prefix block-exit canonical merges" {
   let nullable_eq_ref = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
   )
@@ -30190,13 +29724,11 @@ test "ssa-nomerge preserves ref-i31-to-eq br_on_null prefix block-exit copies" {
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 2U, false, "ref-i31-to-eq br_on_null prefix block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(448))
 }
 
 ///|
-test "ssa-nomerge preserves struct-child-to-parent br_on_null prefix block-exit copies" {
+test "ssa-nomerge preserves struct-child-to-parent br_on_null prefix block-exit canonical merges" {
   let parent_idx = @lib.TypeIdx::new(0U)
   let child_idx = @lib.TypeIdx::new(1U)
   let parent_heap = @lib.HeapType::new(parent_idx)
@@ -30249,13 +29781,11 @@ test "ssa-nomerge preserves struct-child-to-parent br_on_null prefix block-exit 
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, false, "struct-child-to-parent br_on_null prefix block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(449))
 }
 
 ///|
-test "ssa-nomerge preserves array-child-to-parent br_on_null prefix block-exit copies" {
+test "ssa-nomerge preserves array-child-to-parent br_on_null prefix block-exit canonical merges" {
   let parent_idx = @lib.TypeIdx::new(0U)
   let child_idx = @lib.TypeIdx::new(1U)
   let parent_heap = @lib.HeapType::new(parent_idx)
@@ -30318,13 +29848,11 @@ test "ssa-nomerge preserves array-child-to-parent br_on_null prefix block-exit c
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, false, "array-child-to-parent br_on_null prefix block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(450))
 }
 
 ///|
-test "ssa-nomerge preserves ref-func-child-to-parent br_on_null prefix block-exit copies" {
+test "ssa-nomerge preserves ref-func-child-to-parent br_on_null prefix block-exit canonical merges" {
   let parent_idx = @lib.TypeIdx::new(0U)
   let child_idx = @lib.TypeIdx::new(1U)
   let test_type_idx = @lib.TypeIdx::new(2U)
@@ -30388,13 +29916,11 @@ test "ssa-nomerge preserves ref-func-child-to-parent br_on_null prefix block-exi
         @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, false, "ref-func-child-to-parent br_on_null prefix block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(451))
 }
 
 ///|
-test "ssa-nomerge rewrites struct-new-default-tested br_on_null block-exit copies" {
+test "ssa-nomerge rewrites struct-new-default-tested br_on_null block-exit canonical merges" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let input = @lib.Module::new()
     .with_type_sec(
@@ -30440,19 +29966,11 @@ test "ssa-nomerge rewrites struct-new-default-tested br_on_null block-exit copie
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "struct-new-default-tested br_on_null block-exit copies",
-  )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_ref_null_branch_copy_lowering(instrs, 0U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge rewrites struct-new-default-tested br_on_non_null block-exit copies" {
+test "ssa-nomerge rewrites struct-new-default-tested br_on_non_null block-exit canonical merges" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
   let non_null_struct_ref = @lib.ValType::ref_type(
@@ -30503,19 +30021,11 @@ test "ssa-nomerge rewrites struct-new-default-tested br_on_non_null block-exit c
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "struct-new-default-tested br_on_non_null block-exit copies",
-  )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 0U),
-    msg=instrs.to_string(),
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves array-new-default-tested br_on_null block-exit copies" {
+test "ssa-nomerge preserves array-new-default-tested br_on_null block-exit canonical merges" {
   let array_idx = @lib.TypeIdx::new(0U)
   let array_field = @lib.FieldType::new(
     @lib.StorageType::val_type(@lib.ValType::i32()),
@@ -30558,13 +30068,11 @@ test "ssa-nomerge preserves array-new-default-tested br_on_null block-exit copie
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 0U, false, "array-new-default-tested br_on_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves array-new-default-tested br_on_non_null block-exit copies" {
+test "ssa-nomerge preserves array-new-default-tested br_on_non_null block-exit canonical merges" {
   let array_idx = @lib.TypeIdx::new(0U)
   let array_field = @lib.FieldType::new(
     @lib.StorageType::val_type(@lib.ValType::i32()),
@@ -30611,13 +30119,11 @@ test "ssa-nomerge preserves array-new-default-tested br_on_non_null block-exit c
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 0U, true, "array-new-default-tested br_on_non_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves ref-func-tested br_on_null block-exit copies" {
+test "ssa-nomerge preserves ref-func-tested br_on_null block-exit canonical merges" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let test_type_idx = @lib.TypeIdx::new(1U)
   let callee_idx = @lib.FuncIdx::new(1U)
@@ -30664,13 +30170,11 @@ test "ssa-nomerge preserves ref-func-tested br_on_null block-exit copies" {
         @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 0U, false, "ref-func-tested br_on_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves ref-func-tested br_on_non_null block-exit copies" {
+test "ssa-nomerge preserves ref-func-tested br_on_non_null block-exit canonical merges" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let test_type_idx = @lib.TypeIdx::new(1U)
   let callee_idx = @lib.FuncIdx::new(1U)
@@ -30718,13 +30222,11 @@ test "ssa-nomerge preserves ref-func-tested br_on_non_null block-exit copies" {
         @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 0U, true, "ref-func-tested br_on_non_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves ref-cast-tested br_on_null block-exit copies" {
+test "ssa-nomerge preserves ref-cast-tested br_on_null block-exit canonical merges" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
   let nullable_struct_ref = @lib.ValType::ref_type(
@@ -30765,13 +30267,11 @@ test "ssa-nomerge preserves ref-cast-tested br_on_null block-exit copies" {
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, false, "ref-cast-tested br_on_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves ref-cast-tested br_on_non_null block-exit copies" {
+test "ssa-nomerge preserves ref-cast-tested br_on_non_null block-exit canonical merges" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
   let nullable_struct_ref = @lib.ValType::ref_type(
@@ -30816,13 +30316,11 @@ test "ssa-nomerge preserves ref-cast-tested br_on_non_null block-exit copies" {
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, true, "ref-cast-tested br_on_non_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, Some(459))
 }
 
 ///|
-test "ssa-nomerge preserves any-convert-tested br_on_null block-exit copies" {
+test "ssa-nomerge preserves any-convert-tested br_on_null block-exit canonical merges" {
   let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
   block_body.append([
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -30859,13 +30357,11 @@ test "ssa-nomerge preserves any-convert-tested br_on_null block-exit copies" {
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, false, "any-convert-tested br_on_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves any-convert-tested br_on_non_null block-exit copies" {
+test "ssa-nomerge preserves any-convert-tested br_on_non_null block-exit canonical merges" {
   let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
   block_body.append([
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -30904,13 +30400,11 @@ test "ssa-nomerge preserves any-convert-tested br_on_non_null block-exit copies"
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, true, "any-convert-tested br_on_non_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves extern-convert-tested br_on_null block-exit copies" {
+test "ssa-nomerge preserves extern-convert-tested br_on_null block-exit canonical merges" {
   let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
   block_body.append([
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -30945,13 +30439,11 @@ test "ssa-nomerge preserves extern-convert-tested br_on_null block-exit copies" 
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, false, "extern-convert-tested br_on_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
-test "ssa-nomerge preserves extern-convert-tested br_on_non_null block-exit copies" {
+test "ssa-nomerge preserves extern-convert-tested br_on_non_null block-exit canonical merges" {
   let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
   block_body.append([
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
@@ -30988,9 +30480,7 @@ test "ssa-nomerge preserves extern-convert-tested br_on_non_null block-exit copi
         ),
       ]),
     )
-  try! ssa_test_assert_raw_ref_branch_copy_lowering(
-    input, 1U, true, "extern-convert-tested br_on_non_null block-exit copies",
-  )
+  ssa_test_assert_canonical_merge_encoding(input, None)
 }
 
 ///|
@@ -31204,7 +30694,7 @@ test "ssa-nomerge rewrites loop-carried reads for br_table backedges" {
 }
 
 ///|
-test "ssa-nomerge rewrites void br_table with canonical merge copies" {
+test "ssa-nomerge rewrites void br_table with canonical merge slots" {
   let input =
     #| (module
     #|   (func (param i32) (result i32)
@@ -31227,61 +30717,14 @@ test "ssa-nomerge rewrites void br_table with canonical merge copies" {
     #|     end
     #|     local.get 1))
     #|
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    input, "void br_table with canonical merge copies",
+  ssa_test_assert_canonical_merge_encoding(
+    pass_test_module_from_wat(input),
+    None,
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-    ]),
-  )
-  @debug.assert_eq(instrs, [
-    @lib.Instruction::block(
-      @lib.BlockType::void_(),
-      @lib.Expr::new([
-        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::if_(
-          @lib.BlockType::void_(),
-          [
-            @lib.Instruction::i32_const(@lib.I32(7)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
-          ],
-          Some([
-            @lib.Instruction::i32_const(@lib.I32(8)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
-          ]),
-        ),
-        @lib.Instruction::block(
-          @lib.BlockType::void_(),
-          @lib.Expr::new([
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::br_table(
-              [@lib.LabelIdx::new(1U)],
-              @lib.LabelIdx::new(1U),
-            ),
-          ]),
-        ),
-        @lib.Instruction::i32_const(@lib.I32(9)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-      ]),
-    ),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-  ])
 }
 
 ///|
-test "ssa-nomerge rewrites result br_table with canonical merge copies" {
+test "ssa-nomerge rewrites result br_table with canonical merge slots" {
   let input =
     #| (module
     #|   (func (param i32) (result i32)
@@ -31307,60 +30750,10 @@ test "ssa-nomerge rewrites result br_table with canonical merge copies" {
     #|     drop
     #|     local.get 1))
     #|
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    input, "result br_table with canonical merge copies",
+  ssa_test_assert_canonical_merge_encoding(
+    pass_test_module_from_wat(input),
+    None,
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-    ]),
-  )
-  @debug.assert_eq(instrs, [
-    @lib.Instruction::block(
-      @lib.BlockType::val_type(@lib.ValType::i32()),
-      @lib.Expr::new([
-        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::if_(
-          @lib.BlockType::void_(),
-          [
-            @lib.Instruction::i32_const(@lib.I32(7)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
-          ],
-          Some([
-            @lib.Instruction::i32_const(@lib.I32(8)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
-          ]),
-        ),
-        @lib.Instruction::block(
-          @lib.BlockType::void_(),
-          @lib.Expr::new([
-            @lib.Instruction::i32_const(@lib.I32(42)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::br_table(
-              [@lib.LabelIdx::new(1U)],
-              @lib.LabelIdx::new(1U),
-            ),
-          ]),
-        ),
-        @lib.Instruction::i32_const(@lib.I32(9)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-        @lib.Instruction::i32_const(@lib.I32(10)),
-      ]),
-    ),
-    @lib.Instruction::drop(),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-  ])
 }
 
 ///|

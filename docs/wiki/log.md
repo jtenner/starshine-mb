@@ -23796,3 +23796,9 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   expectation after tail-call constant specialization. Assert zero parameters
   and exact body 41; all 434 whitebox tests and Node execution pass. No code
   change. See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: resolve the 50 obsolete SSA copy-layout expectations using
+  exact canonical-merge encodings and 138 original/optimized Node probes.
+  All 497 SSA tests pass; unconditional-loop fixtures have bounded variants.
+  No production SSA change. Ten measured size parity gaps remain distinct from
+  correctness defects. See [SSA expectation resolution](binaryen/passes/ssa-nomerge/merge-shapes-and-canonical-slots.md#september-12-baseline-expectation-resolution).

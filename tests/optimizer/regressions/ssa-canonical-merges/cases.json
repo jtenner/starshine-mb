@@ -1,0 +1,904 @@
+[
+  {
+    "id": 78,
+    "name": "ssa-nomerge rewrites copy-needing scalar typed loop-param br_if",
+    "wasm": "0061736d01000000010a0260017f0060017f017f030201010a32013001027f41000300220141016a20021a200141004604404107210205410821020b20012000480d001a410921020b20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 1 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 2 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 81,
+    "name": "ssa-nomerge rewrites copy-needing nullable reference typed loop-param br_if",
+    "wasm": "0061736d01000000010b0260016f0060026f7f016f030201010a29012701026f20000300220220031a200104402000210305d06f21030b20010d001ad06f21030b20030b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result externref) ref.null extern i32.const 0 call 0)",
+        "expected": null
+      },
+      {
+        "suffix": "(func (export \"main\") (result externref) i32.const 17 ref.i31 extern.convert_any i32.const 0 call 0)",
+        "expected": null
+      }
+    ]
+  },
+  {
+    "id": 82,
+    "name": "ssa-nomerge rewrites copy-needing non-null reference typed loop-param br_if",
+    "wasm": "0061736d01000000010d026001646f006002646f7f016f030201010a2c012a01026f2000030021022002d420031a200104402000210305d06f21030b20010d001ad06f21030b20030b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result externref) i32.const 17 ref.i31 extern.convert_any i32.const 0 call 0)",
+        "expected": null
+      }
+    ]
+  },
+  {
+    "id": 84,
+    "name": "ssa-nomerge rewrites copy-needing br_on_null typed loop-param backedge",
+    "wasm": "0061736d01000000010b0260016f0060026f7f016f030201010a2c012a01026f20000300210220031a200104402000210305d06f21030b20022002d5001a1ad06f21030b20030b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result externref) i32.const 17 ref.i31 extern.convert_any i32.const 0 call 0)",
+        "expected": null
+      },
+      {
+        "suffix": "(func (export \"main\") (result externref) i32.const 17 ref.i31 extern.convert_any i32.const 1 call 0)",
+        "expected": null
+      },
+      {
+        "suffix": "(func (export \"main\") (result externref) i32.const 17 ref.i31 extern.convert_any i32.const 2 call 0)",
+        "expected": null
+      }
+    ]
+  },
+  {
+    "id": 85,
+    "name": "ssa-nomerge rewrites multi-result br_on_null taken-edge copies",
+    "wasm": "0061736d01000000010c0260026f7f017f6000027f6f030201000a31012f01027f020120021a200104404107210205410821020b412a20002000d5001a1a1a410921024101d06f0b1a20026a0b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null extern i32.const 0 call 0)",
+        "expected": 50
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null extern i32.const 1 call 0)",
+        "expected": 49
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null extern i32.const 2 call 0)",
+        "expected": 49
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 0 call 0)",
+        "expected": 10
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 1 call 0)",
+        "expected": 10
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 2 call 0)",
+        "expected": 10
+      }
+    ]
+  },
+  {
+    "id": 102,
+    "name": "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_null backedges",
+    "wasm": "0061736d01000000010c0260027f6f0060026f7f017f030201010a3a013802017f026f4100200003002103210220041a200104402000210405d06f21040b200241016a220220032003d5001a1a1ad06f21040b20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 0 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 1 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 2 call 0)",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": 103,
+    "name": "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_null backedges",
+    "wasm": "0061736d01000000010d0260027f6f017f60026f7f017f030201010a37013502017f026f4100200003002103210220041a200104402000210405d06f21040b200241016a220220032003d5001a1ad06f21040b0b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 0 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 1 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 2 call 0)",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": 105,
+    "name": "bounded three-iteration variant: ssa-nomerge rewrites copy-needing multi-param typed loop br_on_non_null backedges",
+    "wasm": "0061736d01000000010e0260027f646f006002646f7f017f030201010a45014302017f036f4100200003002103210220041a200104402000210405d06f21040b20032105200241016a22022002410348046f200505d06f0bd6001ad06f21040b20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 0 call 0)",
+        "expected": 3
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 1 call 0)",
+        "expected": 3
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 2 call 0)",
+        "expected": 3
+      }
+    ]
+  },
+  {
+    "id": 106,
+    "name": "bounded three-iteration variant: ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_non_null backedges",
+    "wasm": "0061736d01000000010f0260027f646f017f6002646f7f017f030201010a45014302017f036f4100200003002103210220041a200104402000210405d06f21040b20032105200241016a22022002410348046f200505d06f0bd6001ad06f210420020b0b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 0 call 0)",
+        "expected": 3
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 1 call 0)",
+        "expected": 3
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any i32.const 2 call 0)",
+        "expected": 3
+      }
+    ]
+  },
+  {
+    "id": 139,
+    "name": "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_cast backedges",
+    "wasm": "0061736d01000000010d0260027f646c0060026e7f017f030201010a3f013d03017f016c016e41004101fb1c03002103210220041a200104402000210405d06e21040b200241016a22022000fb1801006e6c1a1ad06e21040b20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 0 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 1 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 2 call 0)",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": 140,
+    "name": "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_cast backedges",
+    "wasm": "0061736d01000000010e0260027f646c017f60026e7f017f030201010a3f013d03017f016c016e41004101fb1c03002103210220041a200104402000210405d06e21040b200241016a22022000fb1801006e6c1a1ad06e210420020b0b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 0 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 1 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 2 call 0)",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": 141,
+    "name": "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_cast_fail backedges",
+    "wasm": "0061736d01000000010c0260027f6e0060026e7f017f030201010a3b013902017f026e4100200003002103210220041a200104402000210405d06e21040b200241016a22022003fb1901006e6c1a1ad06e21040b20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 0 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 1 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 2 call 0)",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": 142,
+    "name": "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_cast_fail backedges",
+    "wasm": "0061736d01000000010d0260027f6e017f60026e7f017f030201010a3b013902017f026e4100200003002103210220041a200104402000210405d06e21040b200241016a22022003fb1901006e6c1a1ad06e210420020b0b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 0 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 1 call 0)",
+        "expected": 1
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 2 call 0)",
+        "expected": 1
+      }
+    ]
+  },
+  {
+    "id": 157,
+    "name": "ssa-nomerge rewrites non-current if-result br_on_non_null branch inputs",
+    "wasm": "0061736d0100000001060160016f016f030201000a2c012a01017f026f410104404107210105410821010b4101046f200005d06f0bd60041092101d06f0b20011a0b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result externref) ref.null extern call 0)",
+        "expected": null
+      },
+      {
+        "suffix": "(func (export \"main\") (result externref) i32.const 17 ref.i31 extern.convert_any call 0)",
+        "expected": 17
+      }
+    ]
+  },
+  {
+    "id": 423,
+    "name": "ssa-nomerge redirects enclosing label copies after divergent branch aliases",
+    "wasm": "0061736d0100000001060160017f017f030201000a22012001017f0240200004404107210105410821010b02400c010b410921010b20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 0 call 0)",
+        "expected": 8
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 2 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 427,
+    "name": "ssa-nomerge rewrites br_on_cast taken-edge copies after divergent aliases",
+    "wasm": "0061736d0100000001070160026e7f017f030201000a2c012a01017f02646c200104404107210205410821020b2000fb1801006e6c1a412afb1c410921020b1a20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 1 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 2 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 0 call 0)",
+        "expected": 8
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 2 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 428,
+    "name": "ssa-nomerge rewrites multi-result br_on_cast taken-edge copies",
+    "wasm": "0061736d01000000010d0260026e7f017f6000027f646c030201000a2f012d01017f0201200104404107210205410821020b41e3002000fb1801006e6c1a41092102412afb1c0b1a1a20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 1 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 2 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 0 call 0)",
+        "expected": 8
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 2 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 430,
+    "name": "bounded three-iteration variant: ssa-nomerge rewrites copy-needing loop-target br_on_non_null with typed loop param",
+    "wasm": "0061736d01000000010d026001646e006002646e7f017f030201010606017f0141000b0a44014202017f016e20000300230041016a24001a20021a20002103200104404107210205410821020b200141016b2201046e200305d06e0bd600410921020b200223006a0b000f046e616d6507080100057374657073",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 1 call 0)",
+        "expected": 10
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 2 call 0)",
+        "expected": 11
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 3 call 0)",
+        "expected": 12
+      }
+    ]
+  },
+  {
+    "id": 432,
+    "name": "ssa-nomerge rewrites copy-needing loop-target br_on_cast with typed loop param",
+    "wasm": "0061736d01000000010b0260016e0060026e7f017f030201010a2c012a01017f200003001a20021a200104404107210205410821020b2000fb1801006e6c1a410921020b20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 1 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 2 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 434,
+    "name": "ssa-nomerge rewrites br_on_cast_fail taken-edge copies after divergent aliases",
+    "wasm": "0061736d0100000001070160026e7f017f030201000a29012701017f026e200104404107210205410821020b2000fb1901006e6c1ad06e410921020b1a20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 0 call 0)",
+        "expected": 8
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 2 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 1 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 2 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 435,
+    "name": "ssa-nomerge rewrites multi-result br_on_cast_fail taken-edge copies",
+    "wasm": "0061736d01000000010c0260026e7f017f6000027f6e030201000a2f012d01017f0201200104404107210205410821020b41e3002000fb1901006e6c1a41092102412afb1c0b1a1a20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 0 call 0)",
+        "expected": 8
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any i32.const 2 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 1 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 2 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 437,
+    "name": "ssa-nomerge rewrites copy-needing loop-target br_on_cast_fail with typed loop param",
+    "wasm": "0061736d01000000010b0260016e0060026e7f017f030201010a2c012a01017f200003001a20021a200104404107210205410821020b2000fb1901006e6c1a410921020b20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 1 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 i32.const 2 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 438,
+    "name": "ssa-nomerge rewrites br_on_non_null taken-edge copies after divergent aliases",
+    "wasm": "0061736d01000000010b02600000600263007f017f0303020001090501030001000a280202000b2301017f026400200104404107210205410821020b2000d600d200410921020b1a20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 i32.const 0 call 1)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 i32.const 1 call 1)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 i32.const 2 call 1)",
+        "expected": 9
+      },
+      {
+        "suffix": "(elem declare func 0)(func (export \"main\") (result i32) ref.func 0 i32.const 0 call 1)",
+        "expected": 8
+      },
+      {
+        "suffix": "(elem declare func 0)(func (export \"main\") (result i32) ref.func 0 i32.const 1 call 1)",
+        "expected": 7
+      },
+      {
+        "suffix": "(elem declare func 0)(func (export \"main\") (result i32) ref.func 0 i32.const 2 call 1)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 439,
+    "name": "ssa-nomerge rewrites br_on_null taken-edge copies after divergent aliases",
+    "wasm": "0061736d01000000010b02600000600263007f017f030201010a22012001017f0240200104404107210205410821020b2000d5001a410921020b20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 i32.const 0 call 0)",
+        "expected": 8
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 i32.const 2 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 440,
+    "name": "ssa-nomerge rewrites local-tee-tested br_on_null block-exit copies",
+    "wasm": "0061736d010000000109025f0060016300017f030201010a24012201017f0240410104404107210105410821010b20002200d5001a410921010b20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) struct.new_default 0 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 441,
+    "name": "ssa-nomerge rewrites local-tee-tested br_on_non_null block-exit copies",
+    "wasm": "0061736d010000000109025f0060016300017f030201010a28012601017f026400410104404107210105410821010b20002200d60041092101fb01000b1a20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) struct.new_default 0 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 442,
+    "name": "ssa-nomerge rewrites ref-i31-tested br_on_null block-exit copies",
+    "wasm": "0061736d0100000001060160017f017f030201000a24012201017f0240410104404107210105410821010b2000fb1cd5001a410921010b20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 1 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 2 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 443,
+    "name": "ssa-nomerge rewrites ref-i31-tested br_on_non_null block-exit copies",
+    "wasm": "0061736d0100000001060160017f017f030201000a29012701017f02646c410104404107210105410821010b2000fb1cd600410921012000fb1c0b1a20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 0 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 2 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 444,
+    "name": "ssa-nomerge preserves ref-i31-to-eq br_on_non_null block-exit copies",
+    "wasm": "0061736d0100000001060160017f017f030201000a29012701017f02646d410104404107210105410821010b2000fb1cd600410921012000fb1c0b1a20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 0 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 2 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 445,
+    "name": "ssa-nomerge preserves struct-child-to-parent br_on_non_null block-exit copies",
+    "wasm": "0061736d01000000010e0350005f005001005f006000017f030201020a27012501017f026400410104404107210005410821000bfb0101d60041092100fb01000b1a20000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32)  call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 446,
+    "name": "ssa-nomerge preserves array-child-to-parent br_on_non_null block-exit copies",
+    "wasm": "0061736d0100000001100350005e7f015001005e7f016000017f030201020a2b012901017f026400410104404107210005410821000b4101fb0701d600410921004101fb07000b1a20000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32)  call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 447,
+    "name": "ssa-nomerge preserves ref-func-child-to-parent br_on_non_null block-exit copies",
+    "wasm": "0061736d0100000001100350006000005001006000006000017f0303020201090501030001010a28022301017f026400410104404107210005410821000bd201d60041092100d2010b1a20000b02000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32)  call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 448,
+    "name": "ssa-nomerge preserves ref-i31-to-eq br_on_null prefix block-exit copies",
+    "wasm": "0061736d0100000001070160027f6d017f030201000a2c012a01017f026d410104404107210205410821020b2000fb1c2001d5001a1a410921022000fb1c0b1a20020b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 0 ref.null eq call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 0 i32.const 17 ref.i31 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 1 ref.null eq call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 1 i32.const 17 ref.i31 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 2 ref.null eq call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 2 i32.const 17 ref.i31 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 449,
+    "name": "ssa-nomerge preserves struct-child-to-parent br_on_null prefix block-exit copies",
+    "wasm": "0061736d01000000010f0350005f005001005f0060016d017f030201020a2b012901017f026300410104404107210105410821010bfb01012000d5001a1a41092101fb01000b1a20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null eq call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 450,
+    "name": "ssa-nomerge preserves array-child-to-parent br_on_null prefix block-exit copies",
+    "wasm": "0061736d0100000001110350005e7f015001005e7f0160016d017f030201020a2f012d01017f026300410104404107210105410821010b4101fb07012000d5001a1a410921014101fb07000b1a20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null eq call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 451,
+    "name": "ssa-nomerge preserves ref-func-child-to-parent br_on_null prefix block-exit copies",
+    "wasm": "0061736d01000000011103500060000050010060000060016d017f0303020201090501030001010a2c022701017f026300410104404107210105410821010bd2012000d5001a1a41092101d2010b1a20010b02000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null eq call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 452,
+    "name": "ssa-nomerge rewrites struct-new-default-tested br_on_null block-exit copies",
+    "wasm": "0061736d010000000107025f006000017f030201010a23012101017f0240410104404107210005410821000bfb0100d5001a410921000b20000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32)  call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 453,
+    "name": "ssa-nomerge rewrites struct-new-default-tested br_on_non_null block-exit copies",
+    "wasm": "0061736d010000000107025f006000017f030201010a28012601017f02646200410104404107210005410821000bfb0100d60041092100fb01000b1a20000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32)  call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 454,
+    "name": "ssa-nomerge preserves array-new-default-tested br_on_null block-exit copies",
+    "wasm": "0061736d010000000108025e7f016000017f030201010a25012301017f0240410104404107210005410821000b4101fb0700d5001a410921000b20000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32)  call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 455,
+    "name": "ssa-nomerge preserves array-new-default-tested br_on_non_null block-exit copies",
+    "wasm": "0061736d010000000108025e7f016000017f030201010a2b012901017f026400410104404107210005410821000b4101fb0700d600410921004101fb07000b1a20000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32)  call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 456,
+    "name": "ssa-nomerge preserves ref-func-tested br_on_null block-exit copies",
+    "wasm": "0061736d010000000108026000006000017f0303020100090501030001010a25022001017f0240410104404107210005410821000bd201d5001a410921000b20000b02000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32)  call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 457,
+    "name": "ssa-nomerge preserves ref-func-tested br_on_non_null block-exit copies",
+    "wasm": "0061736d010000000108026000006000017f0303020100090501030001010a27022201017f0270410104404107210005410821000bd201d60041092100d2010b1a20000b02000b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32)  call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 458,
+    "name": "ssa-nomerge preserves ref-cast-tested br_on_null block-exit copies",
+    "wasm": "0061736d010000000109025f0060016300017f030201010a25012301017f0240410104404107210105410821010b2000fb1700d5001a410921010b20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) struct.new_default 0 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 459,
+    "name": "ssa-nomerge preserves ref-cast-tested br_on_non_null block-exit copies",
+    "wasm": "0061736d010000000109025f0060016300017f030201010a29012701017f026400410104404107210105410821010b2000fb1700d60041092101fb01000b1a20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null 0 call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) struct.new_default 0 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 460,
+    "name": "ssa-nomerge preserves any-convert-tested br_on_null block-exit copies",
+    "wasm": "0061736d0100000001060160016f017f030201000a24012201017f0240410104404107210105410821010b2000fb1ad5001a410921010b20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null extern call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 461,
+    "name": "ssa-nomerge preserves any-convert-tested br_on_non_null block-exit copies",
+    "wasm": "0061736d0100000001060160016f017f030201000a28012601017f026e410104404107210105410821010b2000fb1ad600410921012000fb1a0b1a20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null extern call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 extern.convert_any call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 462,
+    "name": "ssa-nomerge preserves extern-convert-tested br_on_null block-exit copies",
+    "wasm": "0061736d0100000001060160016e017f030201000a24012201017f0240410104404107210105410821010b2000fb1bd5001a410921010b20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 call 0)",
+        "expected": 9
+      }
+    ]
+  },
+  {
+    "id": 463,
+    "name": "ssa-nomerge preserves extern-convert-tested br_on_non_null block-exit copies",
+    "wasm": "0061736d0100000001060160016e017f030201000a28012601017f026f410104404107210105410821010b2000fb1bd600410921012000fb1b0b1a20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) ref.null any call 0)",
+        "expected": 9
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 17 ref.i31 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 468,
+    "name": "ssa-nomerge rewrites void br_table with canonical merge copies",
+    "wasm": "0061736d0100000001060160017f017f030201000a26012401017f0240200004404107210105410821010b024020000e0101010b410921010b20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 0 call 0)",
+        "expected": 8
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 2 call 0)",
+        "expected": 7
+      }
+    ]
+  },
+  {
+    "id": 469,
+    "name": "ssa-nomerge rewrites result br_table with canonical merge copies",
+    "wasm": "0061736d0100000001060160017f017f030201000a2b012901017f027f200004404107210105410821010b0240412a20000e0101010b41092101410a0b1a20010b",
+    "probes": [
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 0 call 0)",
+        "expected": 8
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 1 call 0)",
+        "expected": 7
+      },
+      {
+        "suffix": "(func (export \"main\") (result i32) i32.const 2 call 0)",
+        "expected": 7
+      }
+    ]
+  }
+]

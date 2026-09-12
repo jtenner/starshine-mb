@@ -298,3 +298,36 @@ copy cleanup in `src/passes/pass_manager.mbt`, and
 Dewdrop `.tmp/starshine-pass-repairs/`: `full-replay-regression-wave13/`,
 `ssa-nested-join-fixed/`, `ssa-nested-loop-regression-fixed/`, and
 `ssa-wave11-native-isolated.json` / `ssa-wave12-native-isolated.json`.
+
+## September 12 baseline expectation resolution
+
+The 50 assertion failures above are superseded by exact encoding checks for
+canonical merge slots and typed branch adapters. The repaired liveness sees the
+merged read and keeps all participating writes canonical; requiring an extra
+fresh-local/copy chain would contradict the no-merge rule described above.
+Twenty-five fixtures retain the input encoding exactly. The other 25 fixtures
+check their complete encoded branch/local/reference layouts, including typed
+loop adapters and retained subtype payloads. No production SSA change or
+passing-test relaxation accompanies this expectation update.
+
+All 497 SSA dispatcher tests pass. The separate bounded Node lane checks 138
+original/optimized probes across the 50 families, including null/non-null and
+both branch arms where applicable. Three original non-null backedge fixtures
+loop unconditionally; their timeout pairs are not runtime passes. Dedicated
+three-iteration variants exercise their backedges and returned local values.
+Exact heap types in one original fixture require
+`--experimental-wasm-custom-descriptors` in Node; both sides use that setting.
+This is an engine feature setting, not an illegal-cast correctness repair.
+
+The verified Binaryen 132 size comparison is evidence about the changed test
+contract, not a claim of parity: Starshine is smaller in 19 cases, equal in 21,
+and larger in ten. The larger cases retain open output-shape/size parity gaps
+(scalar/reference loop proxies, non-current reference branch inputs, cast
+lowering and branch-table cleanup). They are not confirmed execution defects
+and this correctness repair does not pursue byte parity. The local report is
+`.tmp/correctness-repair-20260911/ssa-baseline-cases/oracle-size-report.json`;
+originals, outputs, execution probes and commands are retained alongside it.
+
+Sources: [`ssa_nomerge_canonical_fixtures_test.mbt`](../../../../../src/passes/ssa_nomerge_canonical_fixtures_test.mbt),
+[`ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt), and
+[`ssa-canonical-merges`](../../../../../tests/optimizer/regressions/ssa-canonical-merges/).
