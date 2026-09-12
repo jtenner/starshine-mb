@@ -443,6 +443,14 @@ afterward all 168 GenValid whitebox and 132 binary tests pass on the default
 backend. See [`gen_valid.mbt`](../../../src/validate/gen_valid.mbt) and
 [`gen_valid_wbtest.mbt`](../../../src/validate/gen_valid_wbtest.mbt).
 
+The baseline SimplifyLocals constant-copy failure is an exact-cleanup gap: an
+empty void block separates a dead local.set/get pair after the block read is
+removed. Permit only recursively inert void blocks and nops as separators,
+retaining their roots and the producer evaluation position. A direct reduced
+regression fails before repair; branching blocks remain a boundary. All 493
+dispatcher/SimplifyLocals neighbors pass. See
+[`simplify-empty-block.test.ts`](../../../tests/optimizer/regressions/simplify-empty-block.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

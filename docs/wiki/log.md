@@ -23786,3 +23786,8 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   engine compile failure is repaired; default GenValid 168/168 and binary
   132/132 pass. Remaining suite families and final gates stay open. See
   [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: SimplifyLocals removes dead local pairs across recursively inert
+  void blocks. Reduced cleanup regression red/green, branch boundary retained;
+  all 493 neighboring tests pass, including the baseline constant-copy failure.
+  See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).

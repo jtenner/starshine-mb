@@ -72852,6 +72852,16 @@ fn run_hot_pipeline_simplify_locals_lowered_reads_after(
 }
 
 ///|
+fn simplify_locals_cleanup_is_inert_separator(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Nop => true
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) =>
+      body.all(simplify_locals_cleanup_is_inert_separator)
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
   instrs : Array[@lib.Instruction],
   live_after : Array[Int],
@@ -72946,7 +72956,7 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let mut get_idx = idx + 1
         while get_idx < normalized.length() &&
-              normalized[get_idx] == @lib.Instruction::nop() {
+              simplify_locals_cleanup_is_inert_separator(normalized[get_idx]) {
           get_idx = get_idx + 1
         }
         let removable = if get_idx < normalized.length() {

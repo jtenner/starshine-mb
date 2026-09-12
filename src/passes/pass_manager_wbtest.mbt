@@ -25532,3 +25532,45 @@ test "SimplifyLocals exact cleanup terminates on nested NaNs and preserves liter
   let @lib.Func(_, @lib.Expr(cleaned)) = output
   assert_true(simplify_locals_cleanup_bodies_equal(body, cleaned))
 }
+
+///|
+test "SimplifyLocals forwards a dead local across inert void blocks only" {
+  let set = @lib.Instruction::local_set(@lib.LocalIdx::new(0U))
+  let get = @lib.Instruction::local_get(@lib.LocalIdx::new(0U))
+  let empty = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([@lib.Instruction::nop()]),
+  )
+  let nested = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([empty]),
+  )
+  let out = run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs([
+      @lib.Instruction::i32_const(@lib.I32(32)),
+      set,
+      nested,
+      get,
+    ],
+  )
+  @debug.assert_eq(out, [
+    @lib.Instruction::i32_const(@lib.I32(32)),
+    @lib.Instruction::nop(),
+    nested,
+  ])
+  let branching = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+  )
+  let boundary = [
+    @lib.Instruction::i32_const(@lib.I32(32)),
+    set,
+    branching,
+    get,
+  ]
+  @debug.assert_eq(
+    run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
+      boundary,
+    ),
+    boundary,
+  )
+}
