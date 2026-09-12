@@ -1756,11 +1756,42 @@ fn simplify_locals_replace_tail_set_with_result_value(
     None
   }
   match simplify_locals_region_root_index_of(func, region_ref, tail.value_id) {
-    Some(value_idx) if value_idx != tail.root_idx =>
+    Some(value_idx) if value_idx != tail.root_idx => {
+      // A carried result already executes at this earlier root. Removing its
+      // consumer must not move the computation past intervening effects.
       ignore(
-        @ir.hot_region_set(func, region_ref, value_idx, @ir.hot_build_nop(func)),
+        @ir.hot_region_set(
+          func,
+          region_ref,
+          tail.root_idx,
+          @ir.hot_build_nop(func),
+        ),
       )
+      return
+    }
     _ => ()
+  }
+  // Stack operands may have been evaluated before intervening void roots.
+  // Keep that source position when promoting the operand to a region result.
+  let source_orders = @ir.hot_source_first_effect_orders(func)
+  let value_order = @ir.hot_node_get(func, tail.value_id).order
+  for idx = 0; idx < tail.root_idx; idx = idx + 1 {
+    let root = @ir.hot_region_get(func, region_ref, idx)
+    if root >= 0 &&
+      root < source_orders.length() &&
+      source_orders[root] > value_order &&
+      source_orders[root] < @ir.hot_node_count(func) {
+      ignore(
+        @ir.hot_region_set(
+          func,
+          region_ref,
+          tail.root_idx,
+          @ir.hot_build_nop(func),
+        ),
+      )
+      @ir.hot_region_insert(func, region_ref, idx, [tail.value_id])
+      return
+    }
   }
   // Binaryen first enlarges structured arms with a trailing nop, then nops the
   // original local.set and installs its value in that result slot. Preserve
@@ -1779,16 +1810,11 @@ fn simplify_locals_replace_tail_set_with_result_value(
 fn simplify_locals_build_one_armed_if_then_body(
   func : @ir.HotFunc,
   then_ref : @ir.HotRegionRef,
-  tail_root_idx : Int,
   value_id : Int,
 ) -> Array[Int] {
   let then_body : Array[Int] = []
   let mut value_already_present = false
   for idx = 0; idx < @ir.hot_region_root_count(func, then_ref); idx = idx + 1 {
-    if idx == tail_root_idx {
-      then_body.push(@ir.hot_build_nop(func))
-      continue
-    }
     let root_id = @ir.hot_region_get(func, then_ref, idx)
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
       continue
@@ -4796,7 +4822,6 @@ fn simplify_locals_try_rewrite_if_return(
       let replacement_then = simplify_locals_build_one_armed_if_then_body(
         func,
         then_ref,
-        then_tail.root_idx,
         then_tail.value_id,
       )
       let replacement_if = @ir.hot_build_if(
@@ -5001,7 +5026,6 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_child(
   let replacement_then = simplify_locals_build_one_armed_if_then_body(
     func,
     then_ref,
-    then_tail.root_idx,
     then_tail.value_id,
   )
   let replacement_if = @ir.hot_build_if(

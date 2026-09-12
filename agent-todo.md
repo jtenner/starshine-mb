@@ -15,10 +15,12 @@
   The raw SSA dispatcher now isolates arm aliases (reduced execution red/green),
   and MergeLocals now respects carried block writes through exact expanded-CFG
   LocalGraph transfer. With the paired Flatten repair, array-methods and defer
-  pass; runtime subset16/19 leaves only three exact trap-diagnostic differences. Abort, timeout and
+  pass; runtime subset 16/19 leaves only three exact trap-diagnostic differences. Abort, timeout and
   baseline-suite families remain open; the paired OI/Heap2Local repairs
   eliminate all 12 saved aborts. Nine cases pass execution; circular-buffer,
-  deque and queue now expose runtime mismatches requiring further isolation. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  deque and queue expose a carried-read result promotion defect at SimplifyLocals.
+  That prefix is repaired with execution regressions; their next failing prefix
+  is Vacuum and remains open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
 
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56

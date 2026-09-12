@@ -4279,3 +4279,35 @@ test "simplify-locals folds an adjacent lowered allocation capture into a tee" {
   @debug.assert_eq(body[5], @lib.Instruction::nop())
   @debug.assert_eq(body[6], @lib.Instruction::i32_const(@lib.I32::new(4)))
 }
+
+///|
+test "simplify-locals preserves carried branch result before a global write" {
+  let source =
+    #|(module (global (mut i32) (i32.const 7))
+    #| (func (export "main") (result i32) (local i32)
+    #|  i32.const 0 if unreachable else
+    #|   global.get 0 i32.const 9 global.set 0 local.set 0
+    #|  end local.get 0))
+  let output = pass_test_run_pipeline(source, ["simplify-locals"]).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let events : Array[String] = []
+  fn visit(body : Array[@lib.Instruction]) -> Unit {
+    for instruction in body {
+      match instruction {
+        @lib.GlobalGet(_) => events.push("read")
+        @lib.GlobalSet(_) => events.push("write")
+        @lib.If(_, yes, no) => {
+          visit(yes)
+          if no is Some(other) {
+            visit(other)
+          }
+        }
+        @lib.Block(_, @lib.Expr(nested)) => visit(nested)
+        _ => ()
+      }
+    }
+  }
+  visit(body)
+  @debug.assert_eq(events, ["read", "write"])
+}

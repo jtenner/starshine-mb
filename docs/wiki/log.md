@@ -23734,3 +23734,9 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 - 2026-09-12: [OI nested local-flow repair](ir2/architecture-rules.md#september-12-correctness-follow-up) replaces inappropriate root-only SSA queries with expanded LocalGraph reaching definitions. The reduced select abort is red/green; 1,417 OI tests and Node execution pass. Paired abort replay now optimizes all12cases, with9execution passes and3collection runtime mismatches still open.
 
 - 2026-09-12: [Heap2Local cloned-wrapper repair](ir2/architecture-rules.md#september-12-correctness-follow-up) queues copied field wrappers after their old owners, preventing later child deletion while a stale wrapper remains attached. Both nested struct/array Node regressions are red/green;32Heap2Local tests and all4saved cases pass. Strict deletion assertions remain enabled.
+
+- September 12: SimplifyLocals result promotion retains carried reads before
+  intervening writes; reduced execution and one-armed/local-read neighbors pass.
+  Collections now pass expanded prefix 31 and fail prefix 32 (Vacuum), still open.
+  Focused SimplifyLocals: 253/254, unchanged baseline constant-copy failure.
+  See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).

@@ -349,6 +349,18 @@ abort before repair and return 21 afterward; all 32 Heap2Local tests pass. All
 four saved cases now pass Node and Wago. See
 [`heap-nested-struct.test.ts`](../../../tests/optimizer/regressions/heap-nested-struct.test.ts).
 
+The three newly executable collection failures first diverge at expanded O4z
+pass 31, SimplifyLocals. Promoting a branch-tail local assignment into a control
+result moved a carried read past an intervening write. Result promotion now
+retains an existing earlier root or inserts the result before the next original
+effect; one-armed branch reconstruction uses the updated body rather than a
+stale tail index. The reduced global-read execution changes from 7 to 9 before
+repair and remains 7 afterward; one-armed and local-read neighbors also pass.
+The focused SimplifyLocals suite passes 253/254 with its single unchanged
+baseline constant-copy failure. All three saved collections now pass prefix 31
+but fail at the following Vacuum pass, which remains open. See
+[`simplify-carried-tail.test.ts`](../../../tests/optimizer/regressions/simplify-carried-tail.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.
