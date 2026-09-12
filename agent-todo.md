@@ -2,6 +2,14 @@
 
 ## Dewdrop runtime composition faults (September 2026)
 
+- **Current repair checkpoint (September 12):** clean starting master
+  `93f11e3b7c20c4151975db7bb9ad689c79e8d102` reproduces 38 Dewdrop failures
+  (962/1,000 pass) and the same 56 full-suite failures (11,216/11,272 pass).
+  Shared lowering now retains tee initialization required by emitted dead-tail
+  reference reads. String-builder externally validates but still traps in
+  optimizing inlining. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
+
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56
   wasm-gc test failures (50 SSA-no-merge, four CodePushing, one SimplifyLocals,
   one DAE). The three shared-IR stability regressions pass after their fixes;

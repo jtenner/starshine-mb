@@ -3962,3 +3962,33 @@ test "coalesce-locals-cfg preserves catch-observed local writes" {
     input.pretty_print_func(@lib.FuncIdx::new(1U)),
   )
 }
+
+///|
+test "coalesce-locals-cfg retains reference initialization for unreachable loop reads" {
+  let input =
+    #|(module
+    #| (type $s (struct (field i32)))
+    #| (func (export "main") (result i32)
+    #|  (local $x (ref $s)) (local $y (ref $s))
+    #|  block (result i32)
+    #|   i32.const 7 struct.new $s local.set $y
+    #|   local.get $y struct.get $s 0
+    #|  end
+    #|  drop
+    #|  (block (result (ref $s)) unreachable)
+    #|  local.tee $x drop
+    #|  loop local.get $x struct.get $s 0 drop end
+    #|  i32.const 0))
+  for pass in ["coalesce-locals", "coalesce-locals-cfg"] {
+    let output = pass_test_run_pipeline(input, [pass]).unwrap()
+    let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    @debug.assert_eq(locals.length(), 1)
+    assert_true(
+      body.any(fn(instr) {
+        instr is @lib.LocalTee(_) || instr is @lib.LocalSet(_)
+      }),
+      msg="the unreachable read still requires an enclosing-scope initialization",
+    )
+    ignore(@validate.validate_module(output).unwrap())
+  }
+}

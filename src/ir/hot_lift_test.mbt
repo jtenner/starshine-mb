@@ -1226,3 +1226,49 @@ test "hot lift seeds tagged legacy catch payload lanes" {
   @debug.assert_eq(hot_node_get(func, consume).op.to_string(), "LocalSet")
   @debug.assert_eq(hot_child_get(func, consume, 0), payload)
 }
+
+///|
+test "HOT roundtrip retains nondefaultable initialization before unreachable reads" {
+  let ref_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([ref_type]),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(ref_type),
+              @lib.Expr::new([@lib.Instruction::unreachable_()]),
+            ),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::loop_(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ignore(@validate.validate_module(input).unwrap())
+  let hot = hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let @lib.Func(_, @lib.Expr(body)) = hot_lower_func(hot)
+  assert_true(
+    body.any(fn(instr) {
+      instr is @lib.LocalTee(_) || instr is @lib.LocalSet(_)
+    }),
+    msg="dead-tail local reads still require lexical initialization",
+  )
+}

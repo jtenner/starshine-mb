@@ -4578,31 +4578,10 @@ fn hot_lower_impl_count_local_gets_in_body(
   body : Array[Instruction],
   counts : Array[Int],
 ) -> Unit {
+  // The emitted dead tail still participates in validation. Its reads keep
+  // non-defaultable local initialization writes alive even after a trap.
   for instr in body {
     hot_lower_impl_count_local_gets_in_instr(instr, counts)
-    if hot_lower_impl_instr_stops_following_body_instrs(instr) {
-      break
-    }
-  }
-}
-
-///|
-fn hot_lower_impl_instr_stops_following_body_instrs(
-  instr : Instruction,
-) -> Bool {
-  match instr {
-    Br(_) | BrTable(_, _) | Return | Throw(_) | ThrowRef | Unreachable => true
-    Block(VoidBlockType, _) => false
-    Block(_, Expr(body)) =>
-      hot_lower_impl_body_is_nonfallthrough(body) &&
-      !hot_lower_impl_body_targets_removed_label(body, 0)
-    Loop(VoidBlockType, _) => false
-    Loop(_, Expr(body)) => hot_lower_impl_body_is_nonfallthrough(body)
-    If(VoidBlockType, _, _) => false
-    If(_, then_, Some(else_)) =>
-      hot_lower_impl_body_is_nonfallthrough(then_) &&
-      hot_lower_impl_body_is_nonfallthrough(else_)
-    _ => false
   }
 }
 

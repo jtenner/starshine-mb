@@ -222,6 +222,29 @@ mismatches, 14 optimizer command failures, seven timeouts and two validation
 failures. Local evidence is retained under `.tmp/stability-dewdrop-*`,
 `.tmp/stability-fuzz-*`, and `.tmp/stability-baseline-compare/report.json`.
 
+### September 12 correctness follow-up
+
+The clean starting master is `93f11e3b7c20c4151975db7bb9ad689c79e8d102`.
+Its fresh native replay is 962/1,000; the full wasm-gc suite is 11,216/11,272
+with the same 56 failing names. These replace no historical pre-rebase results.
+Exact commands, input hashes, engine commands and failure logs are retained in
+`.tmp/correctness-repair-20260911/` (baseline replay and baseline suite).
+
+String-builder's first invalid prefix ends at `coalesce-locals-cfg`. The producer
+is shared HOT lowering: its dead-tee read count stopped after nonfallthrough
+control, although lowering retained later local reads. Deleting their initialization
+made non-null locals invalid, even when those reads could never execute. Count
+all emitted syntactic reads before pruning tees. The reduced HOT roundtrip and
+both coalescing dispatcher variants fail before this change; 245 neighboring
+IR/SimplifyLocals/coalescing tests and four independent Node execution checks
+pass after the paired scope repairs. See
+[`hot_lift_test.mbt`](../../../src/ir/hot_lift_test.mbt),
+[`coalesce_locals_test.mbt`](../../../src/passes/coalesce_locals_test.mbt), and
+[`lower-reference-scopes.test.ts`](../../../tests/optimizer/regressions/lower-reference-scopes.test.ts).
+External validation of the saved string-builder output now passes; its original
+`builder` output still becomes an unreachable trap in optimizing inlining.
+Runtime repair and final full verification remain open.
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.
