@@ -1818,3 +1818,20 @@ test "precompute-propagate raw control propagation does not fold loop-carried lo
   assert_true(pretty.contains("i32.lt_s"), msg=pretty)
   assert_true(pretty.contains("(local.get (Local 0))"), msg=pretty)
 }
+
+///|
+test "precompute-propagate retains opposite signed zeros at a branch join" {
+  let input = @binary.decode_module(
+    b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x0a\x02\x60\x01\x7f\x01\x7f\x60\x00\x01\x7f\x03\x03\x02\x00\x01\x07\x08\x01\x04\x6d\x61\x69\x6e\x00\x01\x0a\x24\x02\x1b\x01\x01\x7d\x20\x00\x04\x40\x43\x00\x00\x00\x00\x21\x01\x05\x43\x00\x00\x00\x80\x21\x01\x0b\x20\x01\xbc\x0b\x06\x00\x41\x00\x10\x00\x0b\x00\x10\x04\x6e\x61\x6d\x65\x01\x09\x01\x00\x06\x63\x68\x6f\x6f\x73\x65",
+  ).unwrap()
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "precompute-propagate",
+  ]).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(
+    body.contains(@lib.Instruction::local_get(@lib.LocalIdx::new(1U))),
+    msg=output.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+  assert_true(body.contains(@lib.Instruction::i32_reinterpret_f32()))
+}

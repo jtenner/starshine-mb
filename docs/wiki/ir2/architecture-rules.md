@@ -400,6 +400,15 @@ multiwindow direct output hits Wago's explicit native-frame headroom limit
 open checkpoints pending release profiling and final replay. See
 [`simplify-nan-termination.test.ts`](../../../tests/optimizer/regressions/simplify-nan-termination.test.ts).
 
+The newly executable direct math mismatch first appears in nested cleanup 80,
+PrecomputePropagation. Both its raw branch/loop joins and HOT reaching-definition
+constant join used numeric equality, conflating positive and negative zero.
+All three joins now require identical literal bits. The reduced f32 branch
+returns negative-zero bits before optimization but zero bits before repair;
+f32/f64 branch and loop execution checks now pass. All 62 neighboring tests pass,
+and direct math inlining again prints numeric:math in Node and Wago. See
+[`precompute-signed-zero-join.test.ts`](../../../tests/optimizer/regressions/precompute-signed-zero-join.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

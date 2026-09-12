@@ -9912,6 +9912,20 @@ fn precompute_raw_mark_written_locals(
 }
 
 ///|
+fn precompute_propagate_same_literal(
+  left : @lib.Instruction?,
+  right : @lib.Instruction?,
+) -> Bool {
+  match (left, right) {
+    (Some(@lib.F32Const(@lib.F32(a))), Some(@lib.F32Const(@lib.F32(b)))) =>
+      a.reinterpret_as_uint() == b.reinterpret_as_uint()
+    (Some(@lib.F64Const(@lib.F64(a))), Some(@lib.F64Const(@lib.F64(b)))) =>
+      a.reinterpret_as_uint64() == b.reinterpret_as_uint64()
+    _ => left == right
+  }
+}
+
+///|
 fn precompute_propagate_run_raw_instrs(
   instrs : Array[@lib.Instruction],
   local_values : Array[@lib.Instruction?],
@@ -9989,7 +10003,10 @@ fn precompute_propagate_run_raw_instrs(
         for local_id = 0
             local_id < local_values.length()
             local_id = local_id + 1 {
-          if before_values[local_id] == body_values[local_id] {
+          if precompute_propagate_same_literal(
+              before_values[local_id],
+              body_values[local_id],
+            ) {
             local_values[local_id] = before_values[local_id]
           } else {
             local_values[local_id] = None
@@ -10044,7 +10061,10 @@ fn precompute_propagate_run_raw_instrs(
         for local_id = 0
             local_id < local_values.length()
             local_id = local_id + 1 {
-          if then_values[local_id] == else_values[local_id] {
+          if precompute_propagate_same_literal(
+              then_values[local_id],
+              else_values[local_id],
+            ) {
             local_values[local_id] = then_values[local_id]
           } else {
             local_values[local_id] = None
@@ -10550,7 +10570,10 @@ fn precompute_propagate_prefix_const_for_node_impl(
               return None
             }
             match candidate {
-              Some(previous) if previous != payload => return None
+              Some(previous) if !precompute_propagate_same_literal(
+                  precompute_propagate_prefix_const_instr(previous),
+                  precompute_propagate_prefix_const_instr(payload),
+                ) => return None
               None => candidate = Some(payload)
               _ => ()
             }

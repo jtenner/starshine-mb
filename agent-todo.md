@@ -28,7 +28,8 @@
   signoff awaits release replay. Numeric timeouts are isolated to SimplifyLocals
   exact cleanup: NaN equality prevented fixed-point detection. That loop is
   repaired with f32/f64 execution regressions. Both numeric O4z cases pass;
-  direct math inlining now returns FAIL and needs isolation. WASI boundary
+  direct math inlining's subsequent signed-zero join bug is repaired in both
+  raw and HOT PrecomputePropagation. It now passes Node and Wago. WASI boundary
   direct Flatten passes; multiwindow direct output exceeds Wago native-frame
   headroom, while the two O4z debug timeouts still need release profiling. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.

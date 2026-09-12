@@ -23760,3 +23760,8 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   constant-copy failure). Both numeric O4z replays pass. Direct math inlining
   exposes a runtime mismatch; WASI O4z and Wago frame capacity remain open.
   See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: direct math inlining's runtime mismatch reduces to signed-zero
+  equality in raw and HOT PrecomputePropagation joins. Require identical float
+  bits; three execution checks and 62 neighbors pass. Saved direct math now
+  passes Node and Wago. See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
