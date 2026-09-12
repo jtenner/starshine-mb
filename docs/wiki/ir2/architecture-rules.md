@@ -374,6 +374,18 @@ baseline failure. All three collections now pass Node and pinned Wago. This is
 a debug subset checkpoint, not final replay signoff. See
 [`vacuum-carried-result.test.ts`](../../../tests/optimizer/regressions/vacuum-carried-result.test.ts).
 
+The four large WASI timeout profiles finish Flatten itself in roughly 0.13–0.27s
+on the starting release binary, then spend their time in lowering's source-order
+local conflict checks. Each candidate pair allocated whole-function visited and
+local arrays. Reusing sparse local-access summaries and a visitation stamp
+preserves the same write-order bounds and first-access rule while removing
+that allocation multiplier. A dedicated 2,048-element v128 array regression
+fails its five-second subprocess bound on both starting and pre-fix release
+binaries, then completes in 1.35s including validation and Node execution on the
+debug build. All 788 IR/Flatten/CoalesceLocals neighboring tests pass. Full saved
+timeout replay is pending the paired numeric investigation and release rebuild.
+See [`flatten-wide-array.test.ts`](../../../tests/optimizer/perf/flatten-wide-array.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

@@ -7,6 +7,9 @@ priv struct HotSourceOrderFacts {
   node_effects : Array[EffectMask]
   first_effect_orders : Array[Int]
   preceding_dependency_min_cache : Array[Int]
+  local_access_nodes : Array[Array[NodeId]?]
+  local_access_seen : Array[Int]
+  mut local_access_stamp : Int
 }
 
 ///|
@@ -17,7 +20,43 @@ fn HotSourceOrderFacts::new(func : HotFunc) -> HotSourceOrderFacts {
     node_effects: effects_build_node_masks(func),
     first_effect_orders: hot_lower_impl_build_first_effect_orders(func),
     preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
+    local_access_nodes: Array::make(hot_node_count(func), None),
+    local_access_seen: Array::make(hot_node_count(func), 0),
+    local_access_stamp: 0,
   }
+}
+
+///|
+fn hot_source_order_local_access_nodes(
+  func : HotFunc,
+  node_id : NodeId,
+  facts : HotSourceOrderFacts,
+) -> Array[NodeId] {
+  if facts.local_access_nodes[node_id] is Some(nodes) {
+    return nodes
+  }
+  facts.local_access_stamp += 1
+  let stamp = facts.local_access_stamp
+  let accesses : Array[NodeId] = []
+  fn visit(id : NodeId) -> Unit {
+    if id < 0 ||
+      facts.local_access_seen[id] == stamp ||
+      !hot_node_is_live(func, id) {
+      return
+    }
+    facts.local_access_seen[id] = stamp
+    match hot_node_get(func, id).op {
+      HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee => accesses.push(id)
+      _ => ()
+    }
+    let count = hot_lower_impl_local_state_child_count(func, id)
+    for slot = 0; slot < count; slot = slot + 1 {
+      visit(hot_child_get(func, id, slot))
+    }
+  }
+  visit(node_id)
+  facts.local_access_nodes[node_id] = Some(accesses)
+  accesses
 }
 
 ///|
@@ -119,6 +158,7 @@ fn hot_source_order_preceding_dependencies(
         func,
         node_id,
         current_root,
+        facts,
         before_access_order=facts.value_orders[node_id],
         access_before_order=Some(consumer_bounds[node_id]),
       ) ||
@@ -130,6 +170,7 @@ fn hot_source_order_preceding_dependencies(
           func,
           current_root,
           node_id,
+          facts,
           after_order=facts.value_orders[node_id],
         )
       ) {

@@ -23747,3 +23747,9 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   execution regressions pass; neighbors 895/896 (unchanged SimplifyLocals
   baseline failure). All three collection replays pass Node and Wago.
   Final gates remain pending; see [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: WASI timeout profiling isolates repeated whole-function
+  allocation in lowering's source-order conflict analysis. Cache sparse local
+  accesses; dedicated 2,048-element array termination/execution test fails
+  before repair and passes afterward. IR/Flatten/CoalesceLocals: 788/788.
+  Saved timeout signoff remains pending; see [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).

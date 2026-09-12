@@ -790,43 +790,6 @@ fn hot_lower_impl_local_state_child_count(
 }
 
 ///|
-fn hot_lower_impl_mark_local_writes(
-  func : HotFunc,
-  node_id : NodeId,
-  writes : Array[Bool],
-  seen : Array[Bool],
-  after_order : Int,
-) -> Unit {
-  if node_id < 0 ||
-    node_id >= seen.length() ||
-    seen[node_id] ||
-    !hot_node_is_live(func, node_id) {
-    return
-  }
-  seen[node_id] = true
-  let node = hot_node_get(func, node_id)
-  match node.op {
-    HotOp::LocalSet | HotOp::LocalTee =>
-      if node.imm0 >= 0 &&
-        node.imm0 < writes.length() &&
-        node.order > after_order {
-        writes[node.imm0] = true
-      }
-    _ => ()
-  }
-  let child_count = hot_lower_impl_local_state_child_count(func, node_id)
-  for slot = 0; slot < child_count; slot = slot + 1 {
-    hot_lower_impl_mark_local_writes(
-      func,
-      hot_child_get(func, node_id, slot),
-      writes,
-      seen,
-      after_order,
-    )
-  }
-}
-
-///|
 fn hot_lower_impl_preceding_dependency_min_node(
   func : HotFunc,
   node_id : NodeId,
@@ -958,66 +921,36 @@ fn hot_lower_impl_future_dependency_suffix_minima(
 }
 
 ///|
-fn hot_lower_impl_first_written_local_access_order(
-  func : HotFunc,
-  node_id : NodeId,
-  writes : Array[Bool],
-  seen : Array[Bool],
-) -> Int {
-  let none = hot_node_count(func)
-  if node_id < 0 ||
-    node_id >= seen.length() ||
-    seen[node_id] ||
-    !hot_node_is_live(func, node_id) {
-    return none
-  }
-  seen[node_id] = true
-  let node = hot_node_get(func, node_id)
-  let mut first = match node.op {
-    HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee if node.imm0 >= 0 &&
-      node.imm0 < writes.length() &&
-      writes[node.imm0] => node.order
-    _ => none
-  }
-  let child_count = hot_lower_impl_local_state_child_count(func, node_id)
-  for slot = 0; slot < child_count; slot = slot + 1 {
-    let input_id = hot_child_get(func, node_id, slot)
-    let input_first = hot_lower_impl_first_written_local_access_order(
-      func, input_id, writes, seen,
-    )
-    if input_first < first {
-      first = input_first
-    }
-  }
-  first
-}
-
-///|
 fn hot_lower_impl_carried_local_write_conflicts(
   func : HotFunc,
   carried_id : NodeId,
   current_root : NodeId,
+  facts : HotSourceOrderFacts,
   after_order? : Int = -1,
   before_access_order? : Int = -1,
   access_before_order? : Int? = None,
 ) -> Bool {
-  let writes = Array::make(hot_local_count(func), false)
-  hot_lower_impl_mark_local_writes(
-    func,
-    carried_id,
-    writes,
-    Array::make(hot_node_count(func), false),
-    after_order,
-  )
-  if !writes.any(fn(written) { written }) {
-    return false
+  // Reuse sparse local-access summaries. Allocating function-sized visited
+  // and local arrays for every candidate pair makes wide constructors cubic.
+  let writes = hot_source_order_local_access_nodes(func, carried_id, facts)
+  let mut first_access = hot_node_count(func)
+  for write_id in writes {
+    let write = hot_node_get(func, write_id)
+    if (write.op is HotOp::LocalSet || write.op is HotOp::LocalTee) &&
+      write.order > after_order &&
+      write.imm0 >= 0 &&
+      write.imm0 < hot_local_count(func) {
+      for
+        access_id in hot_source_order_local_access_nodes(
+          func, current_root, facts,
+        ) {
+        let access = hot_node_get(func, access_id)
+        if access.imm0 == write.imm0 && access.order < first_access {
+          first_access = access.order
+        }
+      }
+    }
   }
-  let first_access = hot_lower_impl_first_written_local_access_order(
-    func,
-    current_root,
-    writes,
-    Array::make(hot_node_count(func), false),
-  )
   first_access < access_before_order.or(hot_node_count(func)) &&
   first_access > before_access_order
 }
