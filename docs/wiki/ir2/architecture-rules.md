@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-12
 sources:
   - ./test-matrix.md
   - ./local-ssa-policy.md
@@ -11,6 +11,11 @@ sources:
   - ../../../src/ir/hot_core.mbt
   - ../../../src/ir/analysis_cache.mbt
   - ../../../src/passes/pass_common.mbt
+  - ../../../src/passes/apply_compiler_facts.mbt
+  - ../../../src/passes/dead_argument_elimination2.mbt
+  - ../../../tests/optimizer/regressions/try-table-cleanup.test.ts
+  - ../../../tests/optimizer/regressions/compiler-fact-stack.test.ts
+  - ../../../tests/optimizer/regressions/dae2-function-label.test.ts
 related:
   - ./cfg-contract.md
   - ./local-ssa-policy.md
@@ -691,3 +696,127 @@ optimizer behavior and strict baseline expectations remain unchanged.
 - HOT storage: [`../../../src/ir/hot_core.mbt`](../../../src/ir/hot_core.mbt)
 - Analysis cache: [`../../../src/ir/analysis_cache.mbt`](../../../src/ir/analysis_cache.mbt)
 - Pass helper layer: [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt)
+
+## September 12 stack operands and label destinations
+
+Starting master was `e53ec910e5ccc9d8f43342c2b598d29ff30d81ba`.
+Three local correctness repairs preserve control destinations and actual operand
+identity, without disabling validation or introducing general label remapping:
+
+- **Try-table catch destinations** (`3967d7585`): the common branch-control scan
+  recognizes every `Catch`, `CatchRef`, `CatchAll` and `CatchAllRef` target.
+  Unreachable-debris cleanup retains enclosing blocks because removing them
+  changes catch depths. Once reduction, duplicate-function elimination, global
+  struct inference, DAE and pass-manager cleanup share the corrected guards.
+  The [eight execution fixtures](../../../tests/optimizer/regressions/try-table-cleanup.test.ts)
+  cover immediate/outer targets and unrelated nested blocks: all 24 checks fail
+  on the baseline and pass afterward, including observable trap preservation.
+- **Trusted fact operands** (`3fd6df3df`): comparison folding tracks a known
+  operand-stack suffix with a distinct `ValueSite` for each result lane. Calls
+  consume all parameters, plus the indirect index or reference; structured
+  instructions consume declared inputs and conditions. Unknown effects clear
+  producer knowledge, and nested regions do not infer their input producers.
+  Zero/null checks and reference-call target queries use the same identities.
+  [Execution coverage](../../../tests/optimizer/regressions/compiler-fact-stack.test.ts)
+  includes direct/indirect/reference calls, multiple results, locals/globals,
+  intervening consumers, control inputs/results, and equality plus signed and
+  unsigned comparisons. Fifteen baseline wrong results become correct; all 54
+  cases pass, including adjacent-constant Precompute neighbors (`84d2ab3bf`).
+  Moon tests also distinguish two unequal lanes of one producer.
+- **DAE2 function exits** (`3f3ecdc69`): one target observer handles branches,
+  every branch-table entry/default, catch arms and continuation targets.
+  `HOT_IMPLICIT_FUNCTION_LABEL` observes the function-result location; ordinary
+  targets must be live before owner lookup. The [seven execution fixtures](../../../tests/optimizer/regressions/dae2-function-label.test.ts)
+  yield 14 baseline aborts and 14 passing checks across both DAE2 variants.
+  Direct tests additionally preserve a private function's result signature when
+  its caller discards the result; command-dispatch tests cover void/results.
+
+The implementation and direct regressions are in `src/passes/pass_common.mbt`,
+`pass_common_test.mbt`, `apply_compiler_facts.mbt`,
+`apply_compiler_facts_test.mbt`, `compiler_fact_query.mbt`,
+`dead_argument_elimination2.mbt`, `dead_argument_elimination2_wbtest.mbt`, and
+`src/cmd/cmd.mbt`. The same-pass/common-helper audit found no remaining
+instruction-history operand guesses or unchecked DAE2 label-owner lookups.
+
+### Verification of the combined source
+
+Source tree `098b29fe292610f876159e9a66bcae62b5cb7fed` is unchanged between
+implementation commit `3f3ecdc69` and test commit `84d2ab3bf`. Fresh release CLI
+SHA-256 is `9d2681ff0c6e9ebaafcb24416dbc6b6b2c83910b96fe89764eede1eb83cfcb19`.
+No rebase occurred. Tools: Moon `0.1.20260827`, Node `v26.8.2`, Bun `1.4.2`,
+wasm-tools `1.251.0`, and verified Binaryen `132`.
+
+| Check | Result |
+| --- | --- |
+| Focused IR/direct-pass tests | 2,253 passed |
+| Full `moon test --target wasm-gc --jobs 16` | 11,300 passed |
+| Full `moon test` | 11,303 passed |
+| Fuzz-harness tests | 65 passed |
+| Fresh release execution/performance tests | 175 passed, including all 92 new execution checks |
+| Bounded smoke, all 14 suites, seed 24301 | 3,773 attempts passed |
+| Eight saved 100-case GenValid lanes | 800 valid outputs; unchanged 156 normalized matches / 644 output-shape differences |
+| Fresh 1,000-case Dewdrop replay | 1,000 passed on both starting and repaired binaries; identical inputs, runner/policy, and optimized output hashes |
+| `moon info`, `moon fmt`, `moon check --target wasm-gc`, README/API sync, whitespace review | Passed; no public API changes |
+
+Exact commands, stdout/stderr, tool hashes, failing-first evidence, and replay
+records are under `.tmp/three-correctness-20260912/`: `final-commands.json`,
+`final-gates.json`, `final-runtime-commands.json`, `final-runtime-gates.json`,
+`final-tools.json`, `replay-comparison.json`, and the `*-before*.log` files.
+Run execution tests with an explicit freshly built CLI:
+
+```sh
+moon build --target native --release src/cmd src/fuzz
+STARSHINE_BIN=_build/native/release/build/cmd/cmd.exe bun test tests/optimizer/regressions tests/optimizer/perf
+_build/native/release/build/fuzz/fuzz.exe --suite all --profile smoke --seed 24301
+```
+
+Dedicated GenValid comparisons use the documented aggregate profiles, seed
+`0x5eed`, explicit native binaries and Binaryen 132, `--jobs auto`,
+`--max-subprocesses 8`, and `--max-mismatch-artifacts 20`. Each baseline/current
+pair uses identical generator, settings and limits. Starshine outputs are fresh;
+the existing Binaryen/semantic caches remain enabled. DAE2 uses the documented
+`drop-consts` and `unreachable-control-debris` normalizers.
+
+| 10,000-case lane, on each revision | Normalized / cleanup-normalized / residual | Validation, generator, command or property failures |
+| --- | --- | --- |
+| `once-reduction-all`, open | 0 / 0 / 10,000 | 0 |
+| `dae2`, open | 2,879 / 667 / 6,454 | 0 |
+| `dae2`, closed | 0 / 100 / 9,900 | 0 |
+
+All 30,000 per-case comparison classifications and byte sizes match the starting
+baseline. The once-reduction residual is an inspected **Starshine win** (agent
+judgment): redundant private once guards/calls disappear, canonical output is
+120 versus Binaryen's 144 bytes, and all 100 bounded original/Starshine/Binaryen
+observations agree. The DAE2 residuals remain baseline parity gaps; sampled
+execution does not establish correctness for every unexecuted case or close
+those shape gaps. The older 644 shape differences are likewise not confirmed
+correctness bugs.
+
+Separate 100-case three-way semantic lanes give 100/100 for once reduction and
+95/100 for each DAE2 world on both revisions, with zero mismatches. The ten
+blocked observations are continuation cases that default Node refuses because
+stack switching is disabled. An additional paired run with
+`--experimental-wasm-wasmfx` and a separate cache verifies 100/100 open and
+99/100 closed on both revisions. **One check remains blocked:** closed DAE2
+case 15 exits with Node `SIGSEGV` while executing the original input. This is an
+engine failure, not evidence of an optimizer mismatch. Across the three sampled
+lanes, 299/300 cases have execution evidence with the stated engine settings;
+full semantic signoff remains blocked for that one case.
+
+`dedicated-commands.json`, `dedicated-gates.json`, `dedicated-summary.json`,
+`wasmfx-commands.json`, `wasmfx-gates.json`, and `wasmfx-summary.json` preserve the
+exact commands and paired results. An exploratory full-size semantic run was
+stopped after 3,480 repeated observations and superseded by the completed
+10,000-case comparison plus bounded semantic lanes; it is not counted as a
+completed gate (`partial-runtime-note.json`).
+
+### Separate frontend findings
+
+These local optimizer repairs do not change two independently reproduced
+frontend limitations: the WAT reader rejects numeric references to the implicit
+function label, and the name-section decoder reads past its section when another
+custom section follows. Direct instruction constructors and externally parsed
+binaries isolate the DAE2 regressions; fact fixtures strip names before appending
+metadata. The decoder reproducer is `name-followed-custom.wasm` with commands in
+`separate-decoder-finding.json` in the evidence directory. Both findings remain
+open outside this three-fix scope.

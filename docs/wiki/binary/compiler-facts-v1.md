@@ -1,7 +1,7 @@
 ---
 kind: specification
 status: supported
-last_reviewed: 2026-08-31
+last_reviewed: 2026-09-12
 sources:
   - ../../../src/representation/compiler_facts.mbt
   - ../../../src/binary/compiler_facts_encode.mbt

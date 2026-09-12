@@ -2,14 +2,13 @@
 
 ## v0.1.1 — catch labels, fact operands, function exits [IR2-CORRECTNESS]
 
-- **Goal / why:** preserve catch destinations, actual stack operand identities, and implicit function-label result liveness. Start: `e53ec910e5ccc9d8f43342c2b598d29ff30d81ba` (master and origin/master).
-- **Delivered:** common cleanup preserves all four try_table catch forms; 24 original/optimized execution checks and seven common-helper tests pass after failing-first regressions.
-- **Delivered:** compiler-fact folding now tracks actual stack producers and individual result lanes, including call parameters, indirect/ref operands and structured inputs. All 51 execution comparisons pass (15 baseline wrong results); all 32 fact unit tests pass.
-- **Delivered:** DAE2 uses one target observer for ordinary branches, every branch-table entry/default, catch arms and continuation targets. The implicit function label observes the result location; invalid ordinary labels still abort. All 14 branch execution checks pass after baseline aborts; focused private-result and command-dispatch tests pass.
-- **Remaining:** final focused/full tests, fresh release external execution/validation, bounded fuzz and formatting.
-- **Separate findings outside these local fixes:** WAT parsing rejects numeric implicit-function-label references; the name-section decoder reads beyond its section when another custom section follows. Binary fixtures/direct constructors and stripped names isolate the requested pass tests. These frontend/decoder issues remain open.
-- **Invariants / exit:** trusted facts attach to actual result lanes; function exits observe result locations; all assertions remain enabled. No final signoff until every requested check passes.
-- **Evidence:** `.tmp/three-correctness-20260912/`; regressions in `tests/optimizer/regressions/try-table-*` and `src/passes/pass_common_test.mbt`.
+- **Goal / why:** retain regression guards for catch destinations, actual stack operand identities, and implicit function-label result liveness. Starting master: `e53ec910e5ccc9d8f43342c2b598d29ff30d81ba`.
+- **Delivered:** `3967d7585` preserves all try_table catch targets; `3fd6df3df` tracks compiler-fact producers by stack/result lane; `3f3ecdc69` observes DAE2 function exits. All 92 execution checks pass after failing-first regressions (24 catch failures, 15 fact wrong results, 14 DAE2 aborts). `84d2ab3bf` adds adjacent-constant neighbors.
+- **Final source verification:** 2,253 focused, 11,300 full wasm-gc, 11,303 full default, 65 harness, 175 execution/performance tests, 3,773 smoke attempts, and 1,000/1,000 Dewdrop replay pass. Info/fmt/check/API-sync pass; no public API change. All 800 saved and 30,000 dedicated generated outputs validate, with unchanged baseline comparison classifications.
+- **Remaining verification blocker:** one closed-world DAE2 continuation sample (case 15) crashes Node on the original input with stack switching enabled. Bounded three-way execution verifies 299/300 sampled cases across the three lanes with zero mismatches; the same blocker exists on the baseline. Preserve default and experimental-engine evidence separately.
+- **Separate follow-up:** numeric implicit function-label references are rejected by the WAT reader; the name-section decoder reads into a following custom section. These frontend defects remain outside the three optimizer repairs. Existing DAE2 output-shape gaps (6,454 open / 9,900 closed) and 644 saved-lane differences remain parity work, not confirmed semantic defects.
+- **Invariants / exit:** trusted facts attach only to actual result lanes; function exits observe result locations; all assertions remain enabled. Closing the remaining semantic check needs a working continuation engine, without changing the fixture or suppressing errors.
+- **Evidence / tests:** [durable verification](docs/wiki/ir2/architecture-rules.md#september-12-stack-operands-and-label-destinations); exact commands, hashes and logs under `.tmp/three-correctness-20260912/`.
 
 ## v0.1.1 — Dewdrop correctness regression guards [IR2-CORRECTNESS]
 
