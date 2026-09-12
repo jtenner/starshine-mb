@@ -361,6 +361,19 @@ baseline constant-copy failure. All three saved collections now pass prefix 31
 but fail at the following Vacuum pass, which remains open. See
 [`simplify-carried-tail.test.ts`](../../../tests/optimizer/regressions/simplify-carried-tail.test.ts).
 
+The following Vacuum failure was a shared lift/lower roundtrip defect, reduced
+to a mutable struct read left on the stack across a later field write and a nop.
+Lifting appended the region result after its later void roots, leaving lowering
+without a later consumer to recover the carried lifetime. Reachable, unanchored
+region results now retain their position before later source effects. Values
+already consumed by roots (including br_if payloads) and unreachable stack debris
+retain their existing representation. Direct IR and dispatcher regressions fail
+before repair; three Node checks cover the struct read, composed passes and a
+tuple result. Neighbor tests pass 895/896 with only the unchanged SimplifyLocals
+baseline failure. All three collections now pass Node and pinned Wago. This is
+a debug subset checkpoint, not final replay signoff. See
+[`vacuum-carried-result.test.ts`](../../../tests/optimizer/regressions/vacuum-carried-result.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

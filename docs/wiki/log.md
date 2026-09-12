@@ -23740,3 +23740,10 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   Collections now pass expanded prefix 31 and fail prefix 32 (Vacuum), still open.
   Focused SimplifyLocals: 253/254, unchanged baseline constant-copy failure.
   See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: the collection Vacuum failures reduce to shared lifting of
+  carried region results. Preserve their source positions, while retaining
+  anchored branch payloads and unreachable debris. IR/dispatcher and three
+  execution regressions pass; neighbors 895/896 (unchanged SimplifyLocals
+  baseline failure). All three collection replays pass Node and Wago.
+  Final gates remain pending; see [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).

@@ -1272,3 +1272,34 @@ test "HOT roundtrip retains nondefaultable initialization before unreachable rea
     msg="dead-tail local reads still require lexical initialization",
   )
 }
+
+///|
+test "HOT roundtrip retains a carried region result before a later global write" {
+  let source =
+    #|(module (global (mut i32) (i32.const 7))
+    #| (func (param i32) (result i32)
+    #|  local.get 0 if (result i32) unreachable else
+    #|   global.get 0 i32.const 9 global.set 0 nop
+    #|  end))
+  let fixture = ir_test_build_hot_from_wat(source)
+  let output = ir_test_assert_verify_and_lower(fixture)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let events : Array[String] = []
+  fn visit(body : Array[@lib.Instruction]) -> Unit {
+    for instruction in body {
+      match instruction {
+        @lib.GlobalGet(_) => events.push("read")
+        @lib.GlobalSet(_) => events.push("write")
+        @lib.If(_, yes, no) => {
+          visit(yes)
+          if no is Some(other) {
+            visit(other)
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  visit(body)
+  @debug.assert_eq(events, ["read", "write"])
+}

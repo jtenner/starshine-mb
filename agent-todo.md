@@ -20,7 +20,9 @@
   eliminate all 12 saved aborts. Nine cases pass execution; circular-buffer,
   deque and queue expose a carried-read result promotion defect at SimplifyLocals.
   That prefix is repaired with execution regressions; their next failing prefix
-  is Vacuum and remains open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  was Vacuum: shared lifting now retains carried region results before later
+  effects. All three collections pass Node and Wago. Seven timeout cases and
+  the 56 baseline suite failures still require investigation. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
 
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56

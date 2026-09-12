@@ -2045,8 +2045,33 @@ fn hot_lift_impl_lift_region(
       }
     }
   }
+  // A region result can remain on the operand stack across later effects.
+  // It has no later consumer to anchor that lifetime during lowering, so
+  // retain its source position explicitly among the region roots.
+  let first_effect_orders = if tc_state.reachable &&
+    values.any(fn(value) { roots.any(fn(root) { root > value }) }) {
+    Some(hot_lower_impl_build_first_effect_orders(func))
+  } else {
+    None
+  }
   for value in values {
-    roots.push(value)
+    let mut insert_at = roots.length()
+    if hot_node_result_arity(func, value) > 0 &&
+      !roots.any(fn(root) {
+        hot_lift_impl_value_contains_node(func, root, value)
+      }) &&
+      first_effect_orders is Some(orders) {
+      for idx = 0; idx < roots.length(); idx = idx + 1 {
+        let root = roots[idx]
+        if root < orders.length() &&
+          orders[root] < orders.length() &&
+          orders[root] > hot_node_get(func, value).order {
+          insert_at = idx
+          break
+        }
+      }
+    }
+    roots.insert(insert_at, value)
   }
   Ok((roots, values, tc_state))
 }

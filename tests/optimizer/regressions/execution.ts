@@ -12,9 +12,9 @@ try { console.log(JSON.stringify({result: instance.exports.main()})); }
 catch (error) { if (!(error instanceof WebAssembly.RuntimeError)) throw error;
  console.log(JSON.stringify({trap: error.message})); }`;
 
-export function regression(fixture: string, passes: readonly string[], expected: unknown) {
+export function regression(fixture: string, passes: readonly string[], expected: unknown, followingPasses: readonly string[] = []) {
   for (const pass of passes) {
-    test(`${pass} validates and preserves execution of ${fixture}`, () => {
+    test(`${[pass, ...followingPasses].join(" + ")} validates and preserves execution of ${fixture}`, () => {
       const dir = mkdtempSync(join(tmpdir(), "starshine-reference-scope-"));
       try {
         const input = join(dir, "input.wasm");
@@ -25,7 +25,7 @@ export function regression(fixture: string, passes: readonly string[], expected:
         execFileSync("wasm-tools", ["validate", "--features", "all", input]);
         const before = JSON.parse(execFileSync("node", ["-e", observe, input], {encoding: "utf8"}));
         expect(before).toEqual(expected);
-        execFileSync(binary, [`--${pass}`, input, "-o", output], {timeout: 10_000});
+        execFileSync(binary, [...[pass, ...followingPasses].map(name => `--${name}`), input, "-o", output], {timeout: 10_000});
         execFileSync("wasm-tools", ["validate", "--features", "all", output]);
         const after = JSON.parse(execFileSync("node", ["-e", observe, output], {encoding: "utf8"}));
         expect(after).toEqual(before);
