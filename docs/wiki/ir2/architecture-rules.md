@@ -245,6 +245,17 @@ External validation of the saved string-builder output now passes; its original
 `builder` output still becomes an unreachable trap in optimizing inlining.
 Runtime repair and final full verification remain open.
 
+Derive-hash first becomes invalid at its eleventh explicit pass,
+`simplify-locals-nostructure`: sinking a reference assignment into an inner
+result block moves its initialization out of the lexical scope of another read.
+Both SimplifyLocals cleanup exits now use the existing reference-scope repair:
+nullable storage plus non-null refinements at the original read/tee positions.
+The reduced test is red before the repair and green afterward; the saved
+Dewdrop case now validates and preserves `derive:hash` in Node and Wago.
+The execution regression covers both the full and no-structure dispatcher
+variants in [`simplify-reference-scopes.test.ts`](../../../tests/optimizer/regressions/simplify-reference-scopes.test.ts).
+No branch arities, defaults, or validation bypasses are introduced.
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

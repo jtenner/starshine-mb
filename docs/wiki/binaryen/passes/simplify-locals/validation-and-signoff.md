@@ -259,3 +259,14 @@ related:
   - a lane stops being trustworthy
   - a signoff bar changes
   - an anti-pattern becomes strong enough to deserve a permanent warning
+
+## September 12 reference-scope repair
+
+The saved Dewdrop derive-hash prefix first becomes invalid at
+`simplify-locals-nostructure`, which sinks a non-null reference assignment into
+a block while retaining an outer read. Both changed-function exits now repair
+non-defaultable local scopes using the shared nullable-storage/non-null-read
+refinement helper. The reduced positive regression fails before the change;
+both public variants preserve execution afterward, and the original Dewdrop
+case passes external validation, Node and Wago. See the
+[exact checkpoint and remaining gates](../../../ir2/architecture-rules.md#september-12-correctness-follow-up).

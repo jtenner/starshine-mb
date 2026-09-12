@@ -6733,6 +6733,7 @@ fn simplify_locals_run_with_options(
   if !changed {
     return HotPassResult::unchanged()
   }
+  ignore(@ir.hot_repair_nondefaultable_local_scopes(func))
   pass_mark_mutated(ctx, func)
   HotPassResult::changed()
 }
@@ -8031,6 +8032,7 @@ fn simplify_locals_run_control_embedded_tee_root_only(
   if !changed {
     return HotPassResult::unchanged()
   }
+  ignore(@ir.hot_repair_nondefaultable_local_scopes(func))
   pass_mark_mutated(ctx, func)
   HotPassResult::changed()
 }

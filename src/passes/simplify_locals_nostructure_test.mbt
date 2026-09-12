@@ -4706,3 +4706,24 @@ test "simplify-locals-nostructure preserves aliased loop-carried counter updates
   let function_ = optimized.pretty_print_defined_func(0U)
   assert_true(function_.contains("i32.add"), msg=function_)
 }
+
+///|
+test "simplify-locals-nostructure repairs initialization when sinking a reference into a block" {
+  let input =
+    #|(module
+    #| (type $s (struct (field i32) (field i32)))
+    #| (func (export "main") (result i32) (local $x (ref $s))
+    #|  (block (result i32)
+    #|   (local.set $x (struct.new $s (i32.const 1) (i32.const 7)))
+    #|   (block (result i32) (struct.get $s 0 (local.get $x)))
+    #|   (if (result i32)
+    #|    (then (struct.get $s 1 (local.get $x)))
+    #|    (else (i32.const 0))))))
+  let output = pass_test_run_pipeline(input, ["simplify-locals-nostructure"]).unwrap()
+  let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(
+    locals[0],
+    @lib.ValType::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  ignore(@validate.validate_module(output).unwrap())
+}

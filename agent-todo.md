@@ -7,7 +7,9 @@
   (962/1,000 pass) and the same 56 full-suite failures (11,216/11,272 pass).
   Shared lowering now retains tee initialization required by emitted dead-tail
   reference reads. String-builder externally validates but still traps in
-  optimizing inlining. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  optimizing inlining. SimplifyLocals now repairs reference initialization
+  after sinking across block scopes; derive-hash passes validation, Node and
+  Wago. The broader inlining runtime family remains open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
 
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56
