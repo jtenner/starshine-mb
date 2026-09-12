@@ -623,6 +623,55 @@ Local reduced inputs, exact commands and observations are retained in
 The final-source test results above remain applicable because this investigation
 changes only documentation.
 
+### Binaryen trap expectation correction
+
+The user selected Binaryen behavior after the diagnostic investigation above.
+Dewdrop commit `5eccd72f` corrects the experiment runner's optimized-execution
+comparison, with two explicit entries in
+`tools/starshine-experiments/optimized-runtime-expectations.json`. Strict source
+snapshot expectations and baseline checks remain unchanged. An optimized result
+must match the original result or the complete listed alternative, including
+stdout. The runner retains the actual diagnostic and records
+`matched_optimized_expectation`; unrelated fixtures, changed effects, other traps,
+engine errors and timeouts still fail. No optimizer code or global trap
+normalization changed.
+
+Failing-first tests reproduce the three incorrect comparison assertions; all
+10 harness tests pass after correction. The saved three-case replay passes in
+Node and Wago, and the normal runner also passes both fixtures under both O4z
+and direct optimizing inlining. The corrected starting baseline replay is
+965/1,000, preserving all 35 implementation failures. The corrected current
+replay passes 1,000/1,000 with no new failures and all input hashes preserved.
+All 1,000 optimized output hashes are identical to the preceding strict-message
+replay. Exactly six observations (three cases in Node and Wago) match an explicit
+optimized expectation. Historical strict-message reports remain unchanged.
+
+All requested gates ran again after the harness correction: focused tests
+2,170/2,170; Starshine harness 65/65; Dewdrop harness 10/10; full wasm-gc
+11,295/11,295; default 11,298/11,298; original/optimized execution and bounded
+performance 83 tests / 171 probes; smoke 3,773 attempts at seed 24301. Info,
+formatting, README API sync and the release build check pass. All eight saved
+100-case GenValid lanes validate, with zero generator, command, validation or
+property failures and the unchanged 156 normalized matches / 644 output
+mismatches. Runtime remains off in those generated lanes; they are not semantic
+proof. The ten SSA size gaps also remain separate parity work.
+
+The Starshine source/test/script trees and release binary hashes still match
+`fbd1936d8` and the preceding verification. The changed harness is Dewdrop
+`5eccd72f0d65b5836e95abbdf793c712e4277979`. No rebase occurred. The paired replay
+loads the corrected comparison but retains the archived snapshot parser, host
+adapter, inputs, four workers and 30-second limits. Baseline and current use
+the same runner and expectation-policy hashes. Replays overlapped the ordinary
+suite checks; their wall times are not used as performance comparisons.
+
+Exact evidence is in `.tmp/trap-diagnostics-20260912/`: `final-gates.json`,
+`final-runtime-gates.json`, `final-generated-lanes.json`, `final-tools.json`,
+`baseline-replay/report.json`, `current-replay/report.json`,
+`replay-comparison.json`, and `binaryen-direct-proofs.json`. All requested checks
+are complete; none is blocked and no correctness failure remains in this corpus.
+The two optimized expectations replace the obsolete exact-diagnostic contract;
+optimizer behavior and strict baseline expectations remain unchanged.
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

@@ -1,10 +1,9 @@
 # Agent Tasks
 
-## v0.1.1 — Dewdrop correctness verification [IR2-CORRECTNESS]
+## v0.1.1 — Dewdrop correctness regression guards [IR2-CORRECTNESS]
 
-- **Goal / why:** finish final-source verification of the repaired Dewdrop
-  transformation, metadata, analysis and termination failures before using the
-  complete pipeline as a speed candidate.
+- **Goal / why:** retain the reduced transformation, metadata, analysis and
+  termination regression guards for the verified Dewdrop pipeline.
 - **Checkpoint:** starting master `93f11e3b7` reproduced 38/1,000 replay failures
   and 56 full-suite failures. All confirmed implementation causes have reduced
   regressions. The final enclosing-exit SSA repair is `fbd1936d8`: focused
@@ -13,20 +12,25 @@
   Shared default-backend opcode-counter resource growth is repaired. Durable
   causes and regressions are in [correctness follow-up](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up).
 - **Final verification:** fresh release execution/performance 83 tests / 171
-  probes, smoke 3,773 attempts, and all 800 generated outputs validate. Full
-  Dewdrop replay is 997/1,000 with no passing-to-failing cases from the starting
-  baseline. All requested checks ran after the final code change; exact commands,
-  hashes and results are in `.tmp/correctness-repair-20260911/verified-*`.
-- **Remaining compatibility work:** the raw replay still fails the three
-  diagnostic comparisons below. Keep these visible until the required external
-  diagnostic contract is settled; do not claim an all-green 1,000-case gate.
-  No confirmed implementation defect remains open in the reproduced corpus.
-- **Known diagnostic contract:** fixed-array-get-oob `O4z` changes
-  `array-out-of-bounds` to `unreachable`; nullable-ref-as-non-null `O4z` and
-  `direct-inlining-optimizing` change `null-reference` to `unreachable`.
-  Original and optimized programs have no pre-trap observable effects. Both
-  Node and Wago confirm these exact diagnostic differences; no engine defect or
-  blanket trap normalization is claimed. See [final verification](docs/wiki/ir2/architecture-rules.md#final-source-verification-fbd1936d8).
+  probes, smoke 3,773 attempts, and all 800 generated outputs validate.
+  The historical strict-message replay is 997/1,000 with no new failures.
+  Its three comparison failures are superseded by the corrected expectation
+  contract below; the original reports remain in
+  `.tmp/correctness-repair-20260911/verified-*`.
+- **Trap expectation correction:** the user selected Binaryen behavior.
+  Dewdrop commit `5eccd72f` adds two explicit optimized-output expectations for
+  the three formerly failing comparisons. Baseline checks stay exact; changed
+  effects, other traps, unrelated fixtures and engine failures still fail.
+  All 10 harness tests pass after failing-first regressions, and the normal
+  runner passes both fixtures under O4z and optimizing inlining in Node/Wago.
+- **Corrected final verification:** all 1,000 current cases pass against the
+  same policy that leaves 35 implementation failures on the starting baseline
+  (965/1,000). All optimized binaries match the prior strict-message replay;
+  six observations use the two explicit expectations. Fresh focused tests,
+  both harness suites, both full suites, execution/performance, smoke and the
+  eight saved generated lanes pass their applicable checks. No correctness
+  failure or blocked check remains in the reproduced corpus. Exact evidence:
+  `.tmp/trap-diagnostics-20260912/` and [verification](docs/wiki/ir2/architecture-rules.md#binaryen-trap-expectation-correction).
 - **Separate parity follow-up:** ten SSA fixture size differences remain open
   (typed loop proxies, reference/cast lowering, branch-table cleanup). They are
   not confirmed execution defects. See [SSA evidence](docs/wiki/binaryen/passes/ssa-nomerge/merge-shapes-and-canonical-slots.md#september-12-baseline-expectation-resolution).

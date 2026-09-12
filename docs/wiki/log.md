@@ -23827,3 +23827,13 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   diagnostic changes, and existing Starshine tests require both folds. No code
   or harness change; exact-message compatibility remains a contract decision.
   See [diagnostic reductions](ir2/architecture-rules.md#remaining-diagnostic-reductions).
+
+- September 12: user selected Binaryen trap behavior. Dewdrop `5eccd72f`
+  corrects two explicit optimized expectations, with failing-first tests and
+  strict baseline/effect/error checks retained. Corrected-policy replay is
+  1,000/1,000 versus baseline 965/1,000, with no new failures and all optimized
+  hashes unchanged. Fresh focused 2,170, harness 65+10, full wasm-gc 11,295,
+  default 11,298, execution/performance 83 tests / 171 probes, and smoke 3,773
+  all pass. All 800 generated outputs validate; 644 output mismatches and ten
+  SSA size gaps remain separate parity work. No requested check is blocked.
+  See [expectation correction](ir2/architecture-rules.md#binaryen-trap-expectation-correction).
