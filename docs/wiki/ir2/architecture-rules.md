@@ -328,6 +328,17 @@ has one trap form. This agent classification is grounded in these specific
 programs; the unchanged harness continues to report their differing diagnostic
 labels. No blanket trap normalization or engine-defect claim is made.
 
+Eight optimizer aborts came from OI's stored-scalar equality/default helper asking
+root-only SSA for reads inside operand-nested control. A tiny value-block select
+reproduces the assertion. The helper now resolves single reaching definitions
+through operand-expanded LocalGraph, shared between the two compared operands;
+ambiguous definitions establish no identity. SSA assertions stay unchanged and
+no default SSA values are fabricated. All 1,417 OI tests and the independent Node
+regression pass. With the paired Heap2Local repair, all 12 saved abort cases now
+optimize; nine pass Node/Wago and circular-buffer/deque/queue expose runtime
+mismatches. Those three remain open and have no passing final signoff. See
+[`oi-nested-select.test.ts`](../../../tests/optimizer/regressions/oi-nested-select.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

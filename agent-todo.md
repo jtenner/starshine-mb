@@ -16,8 +16,9 @@
   and MergeLocals now respects carried block writes through exact expanded-CFG
   LocalGraph transfer. With the paired Flatten repair, array-methods and defer
   pass; runtime subset16/19 leaves only three exact trap-diagnostic differences. Abort, timeout and
-  baseline-suite families remain open; all 12 aborts reproduce on the debug
-  checkpoint as eight unmapped SSA reads and four attached-node deletions. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
+  baseline-suite families remain open; the paired OI/Heap2Local repairs
+  eliminate all 12 saved aborts. Nine cases pass execution; circular-buffer,
+  deque and queue now expose runtime mismatches requiring further isolation. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
 
 - **September 11 stability baseline:** master `3dc72fd2d` reproduces 56

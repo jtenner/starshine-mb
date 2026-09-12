@@ -20895,13 +20895,13 @@ fn OiConsecutiveInputInterferenceFact::from_intervening_effect(
 
 ///|
 // Resolve only the value stored at this read, never a function-wide current
-// value. SSA joins retain separate tokens, and the bound rejects copy cycles.
+// value. Expanded LocalGraph covers operand-nested control; ambiguous joins
+// do not establish identity, and the bound rejects copy cycles.
 fn oi_stored_scalar_source(
-  ctx : HotPassContext,
+  graph : @ir.HotLocalGraph,
   func : @ir.HotFunc,
   input : Int,
 ) -> Int? {
-  let ssa = pass_require_ssa(ctx, func)
   let mut node = input
   for _ in 0..<16 {
     if node < 0 || !@ir.hot_node_is_live(func, node) {
@@ -20910,18 +20910,19 @@ fn oi_stored_scalar_source(
     let data = @ir.hot_node_get(func, node)
     match data.op {
       @ir.HotOp::LocalGet => {
-        let value = @ir.ssa_value_for_local_get(ssa, node)
-        if value < 0 {
+        let sources = @ir.local_graph_reaching_sources_for_get(graph, node)
+        if sources.length() != 1 {
           return None
         }
-        match @ir.ssa_value_origin(ssa, value) {
-          @ir.LocalSetDef(write) | @ir.LocalTeeDef(write) => {
+        match sources[0] {
+          @ir.HotLocalGraphSource::SetSource(write) => {
             if @ir.hot_child_count(func, write) != 1 {
               return None
             }
             node = @ir.hot_child_get(func, write, 0)
           }
-          _ => return Some(-value - 1)
+          @ir.HotLocalGraphSource::EntrySource(local_id) =>
+            return Some(-local_id - 1)
         }
       }
       @ir.HotOp::LocalTee => node = @ir.hot_child_get(func, node, 0)
@@ -20988,10 +20989,14 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     right.op is @ir.HotOp::LocalGet &&
     @ir.hot_node_type(func, left_fallthrough_id) ==
     @ir.hot_node_type(func, right_fallthrough_id) {
+    let graph = @ir.local_graph_build(
+      func,
+      @ir.cfg_build(func, expand_operand_control=true),
+    )
     match
       (
-        oi_stored_scalar_source(ctx, func, left_fallthrough_id),
-        oi_stored_scalar_source(ctx, func, right_fallthrough_id),
+        oi_stored_scalar_source(graph, func, left_fallthrough_id),
+        oi_stored_scalar_source(graph, func, right_fallthrough_id),
       ) {
       (Some(a), Some(b)) if a == b =>
         { kind: ConsecutiveInputStoredScalarValue, }
@@ -25137,7 +25142,11 @@ fn OiArrayDefaultValueFact::from_array_value(
   let fallthrough_id = fallthrough_fact.fallthrough_id()
   let default_source = if @ir.hot_node_get(func, fallthrough_id).op
     is @ir.HotOp::LocalGet {
-    match oi_stored_scalar_source(ctx, func, fallthrough_id) {
+    let graph = @ir.local_graph_build(
+      func,
+      @ir.cfg_build(func, expand_operand_control=true),
+    )
+    match oi_stored_scalar_source(graph, func, fallthrough_id) {
       Some(node) if node >= 0 => node
       _ => fallthrough_id
     }
