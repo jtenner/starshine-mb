@@ -1101,6 +1101,7 @@ pub fn HotCatchInfo::new(Array[HotCatchArm]) -> Self
 pub impl Show for HotCatchInfo
 
 pub struct HotCfg {
+  operands_expanded : Bool
   blocks : Array[HotBlockInfo]
   node_to_block : Array[Int]
   region_roots : Array[CfgRegionRootBlock]

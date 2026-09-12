@@ -830,12 +830,19 @@ fn merge_locals_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     return HotPassResult::unchanged()
   }
 
-  let pre_graph = @ir.local_graph_build(func, pass_require_cfg(ctx, func))
+  // Carried control must execute once at its source position in both graphs.
+  let pre_graph = @ir.local_graph_build(
+    func,
+    @ir.cfg_build(func, expand_operand_control=true),
+  )
   let optimized = merge_locals_optimize_copies(func, pre_graph, copies)
   let kept = if optimized.is_empty() {
     0
   } else {
-    let post_graph = @ir.local_graph_build(func, pass_require_cfg(ctx, func))
+    let post_graph = @ir.local_graph_build(
+      func,
+      @ir.cfg_build(func, expand_operand_control=true),
+    )
     merge_locals_verify_and_rollback(func, post_graph, optimized)
   }
   merge_locals_remove_instrumentation(func, copies)

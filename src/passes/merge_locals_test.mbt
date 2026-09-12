@@ -485,3 +485,45 @@ test "merge-locals preserves stack-carried tee aliases written to parameters" {
     msg=trace.join("\n"),
   )
 }
+
+///|
+test "merge-locals preserves old reads across a carried result block write" {
+  let source =
+    #|(module
+    #|  (global $seen (mut i32) (i32.const 0))
+    #|  (func $sink (param i32) local.get 0 global.set $seen)
+    #|  (func $inc (param i32) (result i32) local.get 0 i32.const 6 i32.add)
+    #|  (func (export "main") (result i32) (local i32 i32 i32)
+    #|    i32.const 1 local.tee 1 local.tee 0 call $sink
+    #|    local.get 1 local.tee 0 call $sink
+    #|    block (result i32)
+    #|      local.get 0 call $inc local.tee 0 call $sink
+    #|      local.get 0 br 0
+    #|    end
+    #|    local.tee 0
+    #|    local.get 1 local.tee 2 call $sink
+    #|    local.get 2 call $sink
+    #|    local.tee 2 drop
+    #|    global.get $seen))
+  let output = pass_test_run_pipeline(source, ["merge-locals"]).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[2]
+  // The first read after the result block must still read the untouched source.
+  let mut saw_block = false
+  let mut checked = false
+  for instr in body {
+    if instr is @lib.Block(_, _) {
+      saw_block = true
+    }
+    if saw_block && !checked {
+      match instr {
+        @lib.LocalGet(index) => {
+          @debug.assert_eq(index, @lib.LocalIdx::new(1U))
+          checked = true
+        }
+        _ => ()
+      }
+    }
+  }
+  assert_true(checked)
+  ignore(@validate.validate_module(output).unwrap())
+}

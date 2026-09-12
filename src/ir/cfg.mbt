@@ -45,6 +45,7 @@ pub impl Show for CfgRegionRootBlock with fn output(self, logger) {
 
 ///|
 pub struct HotCfg {
+  operands_expanded : Bool
   blocks : Array[HotBlockInfo]
   node_to_block : Array[BlockId]
   region_roots : Array[CfgRegionRootBlock]
@@ -97,6 +98,7 @@ fn cfg_builder_new(
   }
   {
     cfg: {
+      operands_expanded: expand_operand_control,
       blocks: [],
       node_to_block,
       region_roots: [],

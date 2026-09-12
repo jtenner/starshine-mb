@@ -114,6 +114,7 @@ test "hot verify cfg rejects stale node to block ownership" {
   let bad_node_to_block = cfg.node_to_block.copy()
   bad_node_to_block[set] = cfg_exit_block(cfg)
   let bad_cfg : HotCfg = {
+    operands_expanded: cfg.operands_expanded,
     blocks: cfg.blocks,
     node_to_block: bad_node_to_block,
     region_roots: cfg.region_roots,

@@ -293,6 +293,21 @@ SSA failures. The complete array-methods and defer cases still trap later in
 optimizing inlining; their owners remain open. Tests:
 [`ssa-else-read.test.ts`](../../../tests/optimizer/regressions/ssa-else-read.test.ts).
 
+Array-methods subsequently fails at MergeLocals (nested dump64). A block result
+is carried across later operations; its write invalidates the candidate copy.
+MergeLocals now builds both proof graphs with operand-expanded CFGs. This exposed
+another shared analysis fault: LocalGraph recursively revisited operands already
+listed as CFG nodes, letting a read see its own later write. `HotCfg` now records
+readonly `operands_expanded`; forward/full-flow construction and local path
+sequences respect the explicit execution list. The reviewed API diff adds that
+field. A direct graph regression is red before repair; all48graph/MergeLocals
+tests pass afterward, including the existing across-if optimization. The reduced
+Node test again observes1, not7. With the paired Flatten repair,825IR/direct-pass
+neighbors pass and the saved runtime subset is16/19. The three remaining raw
+failures compare trap diagnostics; complete final release verification is pending.
+See [`local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt) and
+[`merge-result-block-write.test.ts`](../../../tests/optimizer/regressions/merge-result-block-write.test.ts).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

@@ -481,6 +481,27 @@ fn local_graph_transfer_block(
   let state = local_graph_state_clone(in_state)
   let evaluated_tuples = Array::make(hot_node_count(func), false)
   for node_id in cfg_block_get(cfg, block_id).nodes {
+    if cfg.operands_expanded {
+      // The CFG already lists each operand at its execution position.
+      // Descending again invents extra reads and writes across control edges.
+      let node = hot_node_get(func, node_id)
+      match node.op {
+        HotOp::LocalGet =>
+          local_graph_record_get_sources(
+            hot_local_count(func),
+            node_id,
+            state[node.imm0],
+            get_sources,
+            write_influences,
+          )
+        HotOp::LocalSet | HotOp::LocalTee =>
+          state[node.imm0] = [
+            local_graph_set_source_id(hot_local_count(func), node_id),
+          ]
+        _ => ()
+      }
+      continue
+    }
     local_graph_transfer_node(
       func,
       hot_local_count(func),
@@ -721,7 +742,11 @@ pub fn local_graph_build_full_flow(
   func : HotFunc,
   cfg : HotCfg,
 ) -> HotLocalGraph {
-  local_graph_build_reverse_flow(func, cfg, true)
+  if cfg.operands_expanded {
+    local_graph_build_with_exceptional_policy(func, cfg, true)
+  } else {
+    local_graph_build_reverse_flow(func, cfg, true)
+  }
 }
 
 ///|
@@ -930,6 +955,9 @@ fn local_graph_block_sequence(
   cfg : HotCfg,
   block_id : BlockId,
 ) -> Array[NodeId] {
+  if cfg.operands_expanded {
+    return cfg_block_get(cfg, block_id).nodes.copy()
+  }
   let out : Array[NodeId] = []
   for node_id in cfg_block_get(cfg, block_id).nodes {
     local_graph_flatten_node(func, node_id, out)

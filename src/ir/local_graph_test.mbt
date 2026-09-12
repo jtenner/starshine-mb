@@ -1061,3 +1061,23 @@ test "local graph joins preserve definitions on untouched sibling paths" {
     assert_true(local_graph_test_has_entry_source(joined, 1))
   }
 }
+
+///|
+test "local graph evaluates each explicit operand once in an expanded CFG" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let before = hot_build_local_get(func, 0)
+  let write = hot_build_local_tee(func, 0, before)
+  hot_root_append(func, hot_build_drop(func, write))
+  let after = hot_build_local_get(func, 0)
+  hot_root_append(func, hot_build_drop(func, after))
+  for expanded in [false, true] {
+    let cfg = cfg_build(func, expand_operand_control=expanded)
+    let graph = local_graph_build(func, cfg)
+    let before_sources = local_graph_reaching_sources_for_get(graph, before)
+    @debug.assert_eq(before_sources.length(), 1)
+    assert_true(local_graph_test_has_entry_source(before_sources, 0))
+    let after_sources = local_graph_reaching_sources_for_get(graph, after)
+    @debug.assert_eq(after_sources.length(), 1)
+    assert_true(local_graph_test_has_set_source(after_sources, write))
+  }
+}

@@ -13,7 +13,9 @@
   inlining heap-identity fix repairs most runtime failures: the debug subset
   passes 14/19, with array-methods, defer and three trap-message cases open.
   The raw SSA dispatcher now isolates arm aliases (reduced execution red/green),
-  but saved array-methods and defer still fail later. Abort, timeout and
+  and MergeLocals now respects carried block writes through exact expanded-CFG
+  LocalGraph transfer. With the paired Flatten repair, array-methods and defer
+  pass; runtime subset16/19 leaves only three exact trap-diagnostic differences. Abort, timeout and
   baseline-suite families remain open. See [verification](docs/wiki/ir2/architecture-rules.md#september-12-correctness-follow-up)
   and `.tmp/correctness-repair-20260911/`. Final full verification is pending.
 
