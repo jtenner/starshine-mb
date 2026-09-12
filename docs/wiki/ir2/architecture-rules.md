@@ -434,6 +434,15 @@ CodePushing tests and a Node test covering both branch paths pass afterward.
 These were optimization-contract failures, not observed runtime-result defects.
 See [`code-pushing-global-motion.test.ts`](../../../tests/optimizer/regressions/code-pushing-global-motion.test.ts).
 
+The shared default-backend compile failure is resource growth in GenValid exact
+opcode counting: 403 record-copy match arms generate 162,413 locals in one
+function. Partition the unchanged arms into 64-arm private helpers; the largest
+function now has 25,795 locals. No counter, seed, engine limit or validation
+setting changes. The reduced counter regression fails to compile before repair;
+afterward all 168 GenValid whitebox and 132 binary tests pass on the default
+backend. See [`gen_valid.mbt`](../../../src/validate/gen_valid.mbt) and
+[`gen_valid_wbtest.mbt`](../../../src/validate/gen_valid_wbtest.mbt).
+
 ## Practical Rules
 
 - Start architecture or invariant work from this page, then follow the focused pages for CFG, local SSA, test placement, and pass porting.

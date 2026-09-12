@@ -37049,6 +37049,8 @@ fn gen_valid_expr_has_top_level_branch(expr : Expr) -> Bool {
 fn gen_valid_exact_opcode_counts_for_instr(
   instr : Instruction,
 ) -> GenValidExactOpcodeCounts {
+  // Bound default-backend locals: each record update copies 403 fields.
+  // A single match over every opcode exceeds the engine local-count limit.
   let zero = GenValidExactOpcodeCounts::empty()
   match instr {
     I32Const(_) => GenValidExactOpcodeCounts::{ ..zero, i32_const: 1, }
@@ -37115,6 +37117,16 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I64Mul => GenValidExactOpcodeCounts::{ ..zero, i64_mul: 1, }
     I64DivS => GenValidExactOpcodeCounts::{ ..zero, i64_div_s: 1, }
     I64DivU => GenValidExactOpcodeCounts::{ ..zero, i64_div_u: 1, }
+    _ => gen_valid_exact_opcode_counts_part_2(instr, zero)
+  }
+}
+
+///|
+fn gen_valid_exact_opcode_counts_part_2(
+  instr : Instruction,
+  zero : GenValidExactOpcodeCounts,
+) -> GenValidExactOpcodeCounts {
+  match instr {
     I64RemS => GenValidExactOpcodeCounts::{ ..zero, i64_rem_s: 1, }
     I64RemU => GenValidExactOpcodeCounts::{ ..zero, i64_rem_u: 1, }
     I64And => GenValidExactOpcodeCounts::{ ..zero, i64_and: 1, }
@@ -37187,6 +37199,16 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I64Extend8S => GenValidExactOpcodeCounts::{ ..zero, i64_extend8s: 1, }
     I64Extend16S => GenValidExactOpcodeCounts::{ ..zero, i64_extend16s: 1, }
     I64Extend32S => GenValidExactOpcodeCounts::{ ..zero, i64_extend32s: 1, }
+    _ => gen_valid_exact_opcode_counts_part_3(instr, zero)
+  }
+}
+
+///|
+fn gen_valid_exact_opcode_counts_part_3(
+  instr : Instruction,
+  zero : GenValidExactOpcodeCounts,
+) -> GenValidExactOpcodeCounts {
+  match instr {
     I32TruncSatF32S =>
       GenValidExactOpcodeCounts::{ ..zero, i32_trunc_sat_f32s: 1, }
     I32TruncSatF32U =>
@@ -37280,6 +37302,16 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I16x8GtS => GenValidExactOpcodeCounts::{ ..zero, i16x8_gt_s: 1, }
     I16x8GtU => GenValidExactOpcodeCounts::{ ..zero, i16x8_gt_u: 1, }
     I16x8LeS => GenValidExactOpcodeCounts::{ ..zero, i16x8_le_s: 1, }
+    _ => gen_valid_exact_opcode_counts_part_4(instr, zero)
+  }
+}
+
+///|
+fn gen_valid_exact_opcode_counts_part_4(
+  instr : Instruction,
+  zero : GenValidExactOpcodeCounts,
+) -> GenValidExactOpcodeCounts {
+  match instr {
     I16x8LeU => GenValidExactOpcodeCounts::{ ..zero, i16x8_le_u: 1, }
     I16x8GeS => GenValidExactOpcodeCounts::{ ..zero, i16x8_ge_s: 1, }
     I16x8GeU => GenValidExactOpcodeCounts::{ ..zero, i16x8_ge_u: 1, }
@@ -37345,6 +37377,16 @@ fn gen_valid_exact_opcode_counts_for_instr(
     I64x2Shl => GenValidExactOpcodeCounts::{ ..zero, i64x2_shl: 1, }
     I64x2ShrS => GenValidExactOpcodeCounts::{ ..zero, i64x2_shr_s: 1, }
     I64x2ShrU => GenValidExactOpcodeCounts::{ ..zero, i64x2_shr_u: 1, }
+    _ => gen_valid_exact_opcode_counts_part_5(instr, zero)
+  }
+}
+
+///|
+fn gen_valid_exact_opcode_counts_part_5(
+  instr : Instruction,
+  zero : GenValidExactOpcodeCounts,
+) -> GenValidExactOpcodeCounts {
+  match instr {
     I64x2GeS => GenValidExactOpcodeCounts::{ ..zero, i64x2_ge_s: 1, }
     I32x4AllTrue => GenValidExactOpcodeCounts::{ ..zero, i32x4_all_true: 1, }
     I64x2Bitmask => GenValidExactOpcodeCounts::{ ..zero, i64x2_bitmask: 1, }
@@ -37411,6 +37453,16 @@ fn gen_valid_exact_opcode_counts_for_instr(
       GenValidExactOpcodeCounts::{ ..zero, v128_load16x4_s: 1, }
     V128Load16x4U(_) =>
       GenValidExactOpcodeCounts::{ ..zero, v128_load16x4_u: 1, }
+    _ => gen_valid_exact_opcode_counts_part_6(instr, zero)
+  }
+}
+
+///|
+fn gen_valid_exact_opcode_counts_part_6(
+  instr : Instruction,
+  zero : GenValidExactOpcodeCounts,
+) -> GenValidExactOpcodeCounts {
+  match instr {
     V128Load32x2S(_) =>
       GenValidExactOpcodeCounts::{ ..zero, v128_load32x2_s: 1, }
     V128Load32x2U(_) =>
@@ -37536,6 +37588,16 @@ fn gen_valid_exact_opcode_counts_for_instr(
       GenValidExactOpcodeCounts::{ ..zero, f64x2_convert_low_i32x4_u: 1, }
     I8x16RelaxedSwizzle =>
       GenValidExactOpcodeCounts::{ ..zero, i8x16_relaxed_swizzle: 1, }
+    _ => gen_valid_exact_opcode_counts_part_7(instr, zero)
+  }
+}
+
+///|
+fn gen_valid_exact_opcode_counts_part_7(
+  instr : Instruction,
+  zero : GenValidExactOpcodeCounts,
+) -> GenValidExactOpcodeCounts {
+  match instr {
     I32x4RelaxedTruncF32x4S =>
       GenValidExactOpcodeCounts::{ ..zero, i32x4_relaxed_trunc_f32x4_s: 1, }
     I32x4RelaxedTruncF32x4U =>

@@ -22038,3 +22038,22 @@ test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
     }
   }
 }
+
+///|
+test "exact opcode counters retain scalar SIMD and relaxed families in the default backend" {
+  let scalar = gen_valid_exact_opcode_counts_for_instr(Instruction::i32_add())
+  @debug.assert_eq(scalar.i32_add, 1)
+  @debug.assert_eq(scalar.i64_add, 0)
+  let simd = gen_valid_exact_opcode_counts_for_instr(Instruction::v128_or())
+  @debug.assert_eq(simd.v128_or, 1)
+  @debug.assert_eq(simd.i32_add, 0)
+  let relaxed = gen_valid_exact_opcode_counts_for_instr(
+    Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s(),
+  )
+  @debug.assert_eq(relaxed.i32x4_relaxed_dot_i8x16_i7x16_add_s, 1)
+  @debug.assert_eq(relaxed.v128_or, 0)
+  @debug.assert_eq(
+    gen_valid_exact_opcode_counts_for_instr(Instruction::nop()),
+    GenValidExactOpcodeCounts::empty(),
+  )
+}

@@ -23780,3 +23780,9 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   The shared default-engine failure is isolated to 162,413 generated locals in
   exact opcode counting; remaining baseline work and final gates stay open.
   See [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
+
+- September 12: partition unchanged exact-opcode counter arms to reduce the
+  largest generated function from 162,413 to 25,795 locals. The shared baseline
+  engine compile failure is repaired; default GenValid 168/168 and binary
+  132/132 pass. Remaining suite families and final gates stay open. See
+  [correctness follow-up](ir2/architecture-rules.md#september-12-correctness-follow-up).
