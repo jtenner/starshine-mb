@@ -257,10 +257,21 @@ pub fn pass_raw_instrs_have_branch_control(
           }
         }
       }
-      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+      @lib.Instruction::TryTable(_, catches, @lib.Expr(body)) => {
+        // Every catch form contains a label depth. Inlining an enclosing block
+        // would change that depth's destination; this cleanup does not remap it.
+        for catch_ in catches {
+          match catch_ {
+            @lib.Catch(_, _)
+            | @lib.CatchRef(_, _)
+            | @lib.CatchAll(_)
+            | @lib.CatchAllRef(_) => return true
+          }
+        }
         if pass_raw_instrs_have_branch_control(body) {
           return true
         }
+      }
       _ => ()
     }
   }

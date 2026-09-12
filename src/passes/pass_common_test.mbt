@@ -116,3 +116,42 @@ test "pass_test helpers run public pipeline code" {
   assert_false(pretty.contains("nop"))
   assert_true(pretty.contains("I32(9)"))
 }
+
+///|
+test "raw block cleanup retains every try_table catch target" {
+  let label = @lib.LabelIdx::new(0U)
+  for
+    catch_ in [
+      @lib.Catch::new(@lib.TagIdx::new(0U), label),
+      @lib.Catch::ref_(@lib.TagIdx::new(0U), label),
+      @lib.Catch::all(label),
+      @lib.Catch::all_ref(label),
+    ] {
+    let body = [
+      @lib.Instruction::try_table(
+        @lib.BlockType::void_(),
+        [catch_],
+        @lib.Expr::new([]),
+      ),
+    ]
+    assert_true(pass_raw_instrs_have_branch_control(body))
+    let block = @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new(body),
+    )
+    assert_false(pass_raw_void_block_can_inline_before_unreachable(block))
+    let input = [block, @lib.Instruction::unreachable_()]
+    let (output, changed) = pass_raw_remove_dropped_unreachable_debris(input)
+    assert_false(changed)
+    @debug.assert_eq(output, input)
+  }
+  assert_false(
+    pass_raw_instrs_have_branch_control([
+      @lib.Instruction::try_table(
+        @lib.BlockType::void_(),
+        [],
+        @lib.Expr::new([]),
+      ),
+    ]),
+  )
+}
