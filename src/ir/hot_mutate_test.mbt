@@ -87,6 +87,29 @@ test "batched child span replacement and control result updates bump revision on
 }
 
 ///|
+test "batched control edits preserve a result loop's zero input arity" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (result i32) (loop (result i32) (i32.const 7))))",
+  )
+  let func = fixture.hot_func
+  let loop_id = hot_root_get(func, 0)
+  let label = hot_control_node_label(func, loop_id)
+  let replacement = hot_build_const_i32(func, 42)
+  @debug.assert_eq(hot_label_branch_arity(func, label), 0)
+  hot_replace_child_spans_and_control_result_type(
+    func,
+    loop_id,
+    hot_node_get(func, loop_id).ty,
+    [HotChildSpanRewrite::new(loop_id, [replacement])],
+  )
+  @debug.assert_eq(hot_child_count(func, loop_id), 1)
+  @debug.assert_eq(hot_child_get(func, loop_id, 0), replacement)
+  @debug.assert_eq(hot_label_branch_arity(func, label), 0)
+  @debug.assert_eq(hot_node_result_arity(func, loop_id), 1)
+  ignore(ir_test_assert_verify_and_lower(fixture))
+}
+
+///|
 test "node deletion records tombstones without immediate free-list reuse" {
   let func = HotFunc::new()
   let deleted = hot_build_nop(func)

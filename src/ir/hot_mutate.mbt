@@ -1098,9 +1098,16 @@ pub fn hot_replace_child_spans_and_control_result_type(
       func, region_label_id, "hot_replace_child_spans_and_control_result_type region label",
     )
     let region_label = hot_label_get(func, region_label_id)
+    let region_branch_arity = if node.op == HotOp::Loop &&
+      region_label_id == label_id {
+      // A loop branches with entry parameters, not fallthrough results.
+      label.branch_arity
+    } else {
+      result_arity
+    }
     func.labels[region_label_id] = {
       ..region_label,
-      branch_arity: result_arity,
+      branch_arity: region_branch_arity,
     }
   }
   hot_revision_bump(func)
