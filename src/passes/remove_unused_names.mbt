@@ -90,6 +90,14 @@ fn remove_unused_names_node_targets_any_control(
       }
       false
     }
+    @ir.HotOp::Continuation => {
+      for label in @ir.hot_branch_table_targets(func, node.imm1) {
+        if targets_label(label) {
+          return true
+        }
+      }
+      false
+    }
     @ir.HotOp::TryTable => {
       let info = @ir.hot_catch_info_get(func, node.imm1)
       for catch_ in info.catches {
@@ -225,6 +233,19 @@ fn remove_unused_names_retarget_node_labels(
         @ir.hot_branch_table_set(func, node_id, new_targets, new_default)
       }
       changed
+    }
+    @ir.HotOp::Continuation => {
+      let old_targets = @ir.hot_continuation_targets(func, node_id)
+      let new_targets = old_targets.map(fn(label) {
+        remove_unused_names_replacement_label_for_controls(
+          func, label, control_ids, replacement_label,
+        )
+      })
+      if new_targets == old_targets {
+        return false
+      }
+      @ir.hot_continuation_targets_set(func, node_id, new_targets)
+      true
     }
     @ir.HotOp::TryTable => {
       let info = @ir.hot_catch_info_get(func, node.imm1)
