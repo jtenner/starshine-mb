@@ -1021,7 +1021,9 @@ fn rse_raw_probe_expr_scoped(
       | @lib.Instruction::BrOnNull(label_idx)
       | @lib.Instruction::BrOnNonNull(label_idx)
       | @lib.Instruction::BrOnCast(label_idx, _, _, _)
-      | @lib.Instruction::BrOnCastFail(label_idx, _, _, _) => {
+      | @lib.Instruction::BrOnCastFail(label_idx, _, _, _)
+      | @lib.Instruction::BrOnCastDescEq(label_idx, _, _)
+      | @lib.Instruction::BrOnCastDescEqFail(label_idx, _, _) => {
         ignore(rse_raw_pop(state))
         rse_raw_record_branch_exit(
           state,
@@ -1927,7 +1929,9 @@ fn rse_raw_rewrite_expr_scoped(
       | @lib.Instruction::BrOnNull(label_idx)
       | @lib.Instruction::BrOnNonNull(label_idx)
       | @lib.Instruction::BrOnCast(label_idx, _, _, _)
-      | @lib.Instruction::BrOnCastFail(label_idx, _, _, _) => {
+      | @lib.Instruction::BrOnCastFail(label_idx, _, _, _)
+      | @lib.Instruction::BrOnCastDescEq(label_idx, _, _)
+      | @lib.Instruction::BrOnCastDescEqFail(label_idx, _, _) => {
         ignore(rse_raw_pop(state))
         rse_raw_record_branch_exit(
           state,
@@ -2855,7 +2859,9 @@ fn rse_raw_fast_rewrite_expr_scoped(
       | @lib.Instruction::BrOnNull(label_idx)
       | @lib.Instruction::BrOnNonNull(label_idx)
       | @lib.Instruction::BrOnCast(label_idx, _, _, _)
-      | @lib.Instruction::BrOnCastFail(label_idx, _, _, _) => {
+      | @lib.Instruction::BrOnCastFail(label_idx, _, _, _)
+      | @lib.Instruction::BrOnCastDescEq(label_idx, _, _)
+      | @lib.Instruction::BrOnCastDescEqFail(label_idx, _, _) => {
         ignore(rse_raw_pop(state))
         rse_raw_record_branch_exit(
           state,

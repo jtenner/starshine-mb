@@ -157,3 +157,8 @@ an object reference. Raw RSE removes both abstract operands and carries the
 object's identity with the refined result type. Treating the descriptor as the
 result could erase a required local write. Both the ordinary refined-source
 fixture and `rse_audit_test.mbt` use valid binary-operand descriptor casts.
+
+Descriptor equality branches also contribute local-value snapshots to their
+label destinations, for both success and failure variants. The audit's
+post-block assignment remains necessary when either branch bypasses an inner
+write; clearing only the abstract operand stack does not model that exit.
