@@ -5980,10 +5980,22 @@ fn sgo_runtime_trace_barrier(instr : @lib.Instruction) -> Bool {
     | @lib.TryTable(_, _, _)
     | @lib.Br(_)
     | @lib.BrIf(_)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _)
     | @lib.BrTable(_, _)
     | @lib.Return
     | @lib.Throw(_)
-    | @lib.ThrowRef => true
+    | @lib.ThrowRef
+    | @lib.Try(_, _, _, _)
+    | @lib.Rethrow(_)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.StackSwitch(_, _) => true
     _ => false
   }
 }

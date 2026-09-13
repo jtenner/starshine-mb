@@ -1061,3 +1061,7 @@ Nested control scans inspect the entire child region; a parent exclusion span mu
 ### Simplify-globals function-wide local liveness
 
 Recursive cheap cleanup carries the original function and region inventories. Local-erasing patterns query a cached predicate for references outside that region before discarding writes; exclusions remain local to the matched instruction span. This applies to scalar tee patterns and the compare/select/load cleanup helpers. The outer-scope audit preserves the local value 1 after a nested result block.
+
+### Simplify-globals conditional exits
+
+Runtime global facts stop at conditional reference branches, including descriptor branches, and at legacy exception/continuation transfers. A skipped global write cannot become a must-fact after the owner block. The conditional-null-exit audit retains the final global read.
