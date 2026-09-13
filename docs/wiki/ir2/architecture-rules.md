@@ -1500,3 +1500,11 @@ the declared element type, `ref.func` keeps its concrete function heap, and
 explicit `select` annotations determine the cache type. The three
 [local-CSE regressions](../../../src/passes/local_cse_campaign_test.mbt)
 failed with invalid generated locals before the repair and now validate.
+
+### Exported initializer identity
+
+A single internal read does not make an exported immutable global's allocating
+initializer movable. Exported globals remain observable roots; copying a fresh
+struct initializer into an alias global would split one identity into two.
+The [initializer regression](../../../src/passes/simplify_globals_optimizing_campaign_test.mbt)
+checks that the exported alias retains its `global.get`.

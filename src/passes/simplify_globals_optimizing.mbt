@@ -5815,6 +5815,7 @@ fn sgo_rewrite_global_sec(
         let @lib.Expr(rewritten_init_instrs) = rewritten_init
         if !info.imported &&
           !info.mutable_ &&
+          !info.exported &&
           info.read_count == 1 &&
           rewritten_init_instrs.length() == 1 {
           init_inlines[abs_idx] = Some(rewritten_init)
