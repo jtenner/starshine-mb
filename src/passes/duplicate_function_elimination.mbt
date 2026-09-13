@@ -4458,7 +4458,7 @@ fn dfe_run_module_pass_with_perf(
   let with_elem_segments = dfe_strip_name_sec(with_elem_segments)
   dfe_perf_stop_timer_opt(perf, "canonicalize-elem-segments", elem_timer)
   if !changed {
-    return dfe_group_numeric_locals_if_smaller(with_elem_segments)
+    return dfe_cleanup_raw_encoding(with_elem_segments)
   }
 
   let type_timer = dfe_perf_start_timer_opt(
@@ -4470,7 +4470,7 @@ fn dfe_run_module_pass_with_perf(
     code_rewrite_flags=elimination.type_rewrite_flags,
   )
   dfe_perf_stop_timer_opt(perf, "canonicalize-duplicate-types", type_timer)
-  dfe_group_numeric_locals_if_smaller(rewritten)
+  dfe_cleanup_raw_encoding(rewritten)
 }
 
 ///|
@@ -4509,4 +4509,38 @@ fn dfe_group_numeric_locals_if_smaller(mod_ : @lib.Module) -> @lib.Module {
     _ => ()
   }
   mod_
+}
+
+///|
+fn dfe_cleanup_raw_encoding(mod_ : @lib.Module) -> @lib.Module {
+  let grouped = dfe_group_numeric_locals_if_smaller(mod_)
+  let types = match grouped.type_sec {
+    Some(@lib.TypeSec(types)) => types
+    None => return grouped
+  }
+  // DFE's entrypoint already excludes legacy Try. Restrict the shared remapper
+  // to independent unshared function signatures; GC/proposal type graphs keep
+  // their definitions until their complete reference surfaces are supported.
+  for rec_type in types {
+    match rec_type {
+      @lib.SingleRecType(subtype) =>
+        if subtype.metadata().is_shared() ||
+          !dfe_rec_type_is_unused_suffix_prune_candidate(rec_type) {
+          return grouped
+        }
+      @lib.GroupRecType(_) => return grouped
+    }
+  }
+  let pruned = dfe_prune_unused_simple_types(grouped)
+  if pruned.type_sec.unwrap().0.length() == types.length() {
+    return grouped
+  }
+  match (@binary.encode_module(grouped), @binary.encode_module(pruned)) {
+    (Ok(before), Ok(after)) if after.length() < before.length() =>
+      if @validate.validate_module(pruned) is Ok(_) {
+        return pruned
+      }
+    _ => ()
+  }
+  grouped
 }

@@ -424,8 +424,9 @@ test "duplicate-function-elimination canonicalizes non-adjacent duplicate simple
       )
   }
 
+  // The unused f32 signature is removed after duplicate interning.
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 2)
     None => fail("expected type section")
   }
   match optimized.func_sec {
@@ -492,18 +493,19 @@ test "duplicate-function-elimination rewrites kept canonical block type indices 
       )
   }
 
+  // Pruning the unused i32 signature shifts both retained indices again.
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 2)
     None => fail("expected type section")
   }
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) => {
       @debug.assert_eq(type_idxs.length(), 1)
-      @debug.assert_eq(type_idxs[0], @lib.TypeIdx::new(2U))
+      @debug.assert_eq(type_idxs[0], @lib.TypeIdx::new(1U))
     }
     None => fail("expected func section")
   }
-  @debug.assert_eq(try! dfe_test_block_type(optimized, 0), 1U)
+  @debug.assert_eq(try! dfe_test_block_type(optimized, 0), 0U)
 }
 
 ///|
@@ -610,14 +612,15 @@ test "duplicate-function-elimination rewrites typed select and valtype block for
       )
   }
 
+  // The referenced concrete signature survives; only the unused one goes.
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 2)
     None => fail("expected type section")
   }
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) => {
       @debug.assert_eq(type_idxs.length(), 1)
-      @debug.assert_eq(type_idxs[0], @lib.TypeIdx::new(2U))
+      @debug.assert_eq(type_idxs[0], @lib.TypeIdx::new(1U))
     }
     None => fail("expected func section")
   }
@@ -643,12 +646,12 @@ test "duplicate-function-elimination rewrites typed select and valtype block for
               ..,
             ]
           )
-        ) => @debug.assert_eq(block_type, 1U)
+        ) => @debug.assert_eq(block_type, 0U)
         _ => fail("expected leading block with concrete ref valtype")
       }
     None => fail("expected code section")
   }
-  @debug.assert_eq(try! dfe_test_select_ref_type_idx(optimized, 0), 1U)
+  @debug.assert_eq(try! dfe_test_select_ref_type_idx(optimized, 0), 0U)
 }
 
 ///|

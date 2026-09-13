@@ -96,3 +96,14 @@ acceptance requires whole-module validation and a strict encoded byte saving.
 A bounded 127/128 local-index regression declines grouping when wider operand
 encodings outweigh the declaration savings. Changed modules pay an additional
 encoding/validation cost; unchanged declaration layouts skip that work.
+
+That grouping checkpoint reduced raw-size losses to 877; the remaining sampled
+case retained an unused plain function signature. A further failing-first
+fixture now removes an unused prefix signature while preserving and remapping
+both function and tag roots, saving five encoded bytes. After grouping, DFE
+prunes types only when all definitions are independent unshared singleton
+function signatures without indexed references, descriptors or supertype links.
+It reuses the shared liveness/remapping helper and accepts only fewer types,
+strict encoded-size savings and whole-module validation. Unchanged type counts
+skip additional encoding/validation. The existing legacy-exception module
+boundary remains unchanged.
