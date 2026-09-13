@@ -1029,3 +1029,7 @@ Global-refining candidate collection preserves sharedness in abstract and concre
 ### Packed heap scalar reads
 
 Heap2local struct scalar reads use the same packed-storage extension rules as arrays: signed i8/i16 reads extend the low bits; unsigned reads mask them. The signed-i8 audit fixture stores 255 and must read -1, even after the heap object is removed.
+
+### Repeated default-array operand evaluation
+
+Converting `array.new_fixed` to `array.new_default` preserves each operand's effects in source order, not only those of the representative value. Operand equality proves values, not disposable evaluation. `optimize_instructions_audit_test.mbt` checks a later equal-valued local tee whose write must survive.

@@ -25295,6 +25295,26 @@ fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
     self.apply_non_default_localized_rewrite(ctx, func) {
     return
   }
+  let body : Array[Int] = []
+  if self.representative_default_fact.proves_default() {
+    for slot = 0
+        slot < @ir.hot_child_count(func, self.node_id)
+        slot = slot + 1 {
+      let child = @ir.hot_child_get(func, self.node_id, slot)
+      let default_fact = OiArrayDefaultValueFact::from_array_value(
+        ctx,
+        func,
+        self.type_idx,
+        child,
+      )
+      if default_fact.proves_default() {
+        default_fact.preservation_plan.append_dropped_children(func, body)
+      } else {
+        // Equality proves the resulting value, not that evaluation is disposable.
+        body.push(@ir.hot_build_drop(func, child))
+      }
+    }
+  }
   let original = @ir.hot_node_get(func, self.node_id)
   let len_id = @ir.hot_build_const_i32(func, @lib.I32(self.size))
   let temp = if self.representative_default_fact.proves_default() {
@@ -25321,17 +25341,12 @@ fn OiArrayNewFixedRepeatedValueFact::apply_rewrite(
       @lib.Instruction::array_new(self.type_idx)
     },
   )
-  if self.representative_default_fact.proves_default() &&
-    self.representative_default_fact.default_value_fact.preservation_plan.needs_dropped_children() {
+  if !body.is_empty() {
     let block_type = match
       @ir.hot_type_results(func, @ir.hot_node_type(func, self.node_id)) {
       [val_type] => @lib.BlockType::val_type(val_type)
       _ => @lib.BlockType::void_()
     }
-    let body : Array[Int] = []
-    self.representative_default_fact.default_value_fact.preservation_plan.append_dropped_children(
-      func, body,
-    )
     body.push(temp)
     let replacement_id = @ir.hot_build_block(func, block_type, body)
     let replacement = @ir.hot_node_get(func, replacement_id)
