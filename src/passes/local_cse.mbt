@@ -2019,7 +2019,8 @@ fn lcse_raw_exprs_match(
     return false
   }
   let lhs = exprs[lhs_id]
-  if lhs.instr != instr || lhs.children.length() != children.length() {
+  if !pass_const_instruction_bits_equal(lhs.instr, instr) ||
+    lhs.children.length() != children.length() {
     return false
   }
   for idx = 0; idx < children.length(); idx = idx + 1 {
@@ -2066,7 +2067,9 @@ fn lcse_raw_instr_slice_matches(
     return false
   }
   for offset = 0; offset < len; offset = offset + 1 {
-    if instrs[start + offset] != body[body_start + offset] {
+    if !pass_const_instruction_bits_equal(
+        instrs[start + offset], body[body_start + offset],
+      ) {
       return false
     }
   }
