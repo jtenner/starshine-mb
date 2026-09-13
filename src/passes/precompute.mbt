@@ -11115,9 +11115,9 @@ fn precompute_propagate_try_fold_known_heap_read(
       let body : Array[Int] = []
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         let child = @ir.hot_child_get(func, node_id, slot)
-        if !precompute_is_discardable_value(func, child) {
-          body.push(@ir.hot_build_drop(func, child))
-        }
+        precompute_propagate_append_heap_operand_effects(
+          ctx, func, ssa, label_used, child, states, allocations, body, 0,
+        )
       }
       body.push(value)
       let temp = if body.length() == 1 {
@@ -11629,5 +11629,57 @@ pub fn precompute_propagate_run(
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()
+  }
+}
+
+///|
+fn precompute_propagate_append_heap_operand_effects(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  ssa : @ir.HotLocalSsa,
+  label_used : @bitset.BitSet,
+  node_id : Int,
+  states : Array[Int],
+  allocations : Array[Int],
+  out : Array[Int],
+  depth : Int,
+) -> Unit {
+  if precompute_is_discardable_value(func, node_id) {
+    return
+  }
+  let known_read = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(
+      @lib.StructGet(_, _)
+      | @lib.StructGetS(_, _)
+      | @lib.StructGetU(_, _)
+      | @lib.ArrayGet(_)
+      | @lib.ArrayGetS(_)
+      | @lib.ArrayGetU(_)
+      | @lib.ArrayLen
+    ) => true
+    _ => false
+  }
+  if depth < 64 &&
+    known_read &&
+    precompute_propagate_known_heap_value_for_node(
+      ctx, func, ssa, label_used, node_id, states, allocations, 0,
+    )
+    is Some(_) {
+    // Known immutable reads prove the dereference/bounds; only operands remain observable.
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      precompute_propagate_append_heap_operand_effects(
+        ctx,
+        func,
+        ssa,
+        label_used,
+        @ir.hot_child_get(func, node_id, slot),
+        states,
+        allocations,
+        out,
+        depth + 1,
+      )
+    }
+  } else {
+    out.push(@ir.hot_build_drop(func, node_id))
   }
 }
