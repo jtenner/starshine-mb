@@ -749,7 +749,7 @@ test "once-reduction removes dead writes after redundant direct tail calls" {
 
   @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
-    @lib.Instruction::nop(),
+    @lib.Instruction::return_(),
   ])
 }
 

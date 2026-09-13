@@ -739,7 +739,7 @@ fn or_rewrite_instrs_flow(
             func_idx.reinterpret_as_int(),
             env,
           ) {
-          instrs[idx] = @lib.Instruction::nop()
+          instrs[idx] = @lib.Instruction::return_()
         }
         or_record_must_state(normal_exits, 0, current)
         return None

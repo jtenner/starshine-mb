@@ -997,3 +997,7 @@ Direct HOT name removal includes continuation handler labels in owner-use checks
 ### Trapping table initializer roots
 
 Remove-unused-module-elements roots tables whose descriptor initializer may trap, alongside globals and element initializers. This preserves observable instantiation failure even when no function reads the table. The explicit traps-never-happen option still controls this policy. `remove_unused_module_elements_audit_test.mbt` validates the table fixture and checks retention through the dispatcher.
+
+### Once-reduction tail-call returns
+
+An already-executed once function's `return_call` becomes `return`, preserving the function exit inside nested controls. `once_reduction_audit_test.mbt` covers the observable post-block suffix; the existing root tail-call test still checks that dead writes are removed and now asserts the explicit return.
