@@ -78963,7 +78963,7 @@ fn run_hot_pipeline_func(
         !dce_requires_unchanged_lowering {
         let original = run_hot_pipeline_original_func(mod_, func_idx)
         let (output, changed) = if descriptor.name == "constraint-analysis" {
-          ca_lower_trim_terminal_local_roundtrip(original)
+          ca_lower_cleanup_raw(original, mod_)
         } else {
           (original, false)
         }
@@ -81096,8 +81096,9 @@ fn run_hot_pipeline_apply_hot_pass_stack(
         }
         if @ir.hot_revision_current(func) == lifted_revision {
           if descriptors.any(fn(d) { d.name == "constraint-analysis" }) {
-            let (output, changed) = ca_lower_trim_terminal_local_roundtrip(
+            let (output, changed) = ca_lower_cleanup_raw(
               defs[code_idx],
+              current_mod,
             )
             if changed {
               match lowered {
@@ -81149,7 +81150,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
         let lowered_func = if descriptors.any(fn(d) {
             d.name == "constraint-analysis"
           }) {
-          ca_lower_trim_terminal_local_roundtrip(lowered_func).0
+          ca_lower_cleanup_raw(lowered_func, current_mod).0
         } else {
           lowered_func
         }
@@ -81325,8 +81326,9 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
         }
         if @ir.hot_revision_current(func) == lifted_revision {
           if descriptors.any(fn(d) { d.name == "constraint-analysis" }) {
-            let (output, changed) = ca_lower_trim_terminal_local_roundtrip(
+            let (output, changed) = ca_lower_cleanup_raw(
               defs[code_idx],
+              current_mod,
             )
             if changed {
               match lowered {
@@ -81382,7 +81384,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
         let lowered_func = if descriptors.any(fn(d) {
             d.name == "constraint-analysis"
           }) {
-          ca_lower_trim_terminal_local_roundtrip(lowered_func).0
+          ca_lower_cleanup_raw(lowered_func, current_mod).0
         } else {
           lowered_func
         }

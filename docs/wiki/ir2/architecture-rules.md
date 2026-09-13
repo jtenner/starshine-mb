@@ -1823,3 +1823,16 @@ The byte fixture first failed, then passed through single-pass, ordinary-stack,
 and touched-stack dispatch. Cleanup preserves declarations and loop parameters;
 nested writes and nonmatching indices are intentionally excluded. Unchanged HOT
 revisions now still receive this raw function-exit cleanup.
+
+The same sweep identified 241 raw-size losses in two ConstraintAnalysis effect
+shapes: 188 copied-control blocks cost three raw bytes with equal canonical
+output; 53 folded-condition blocks cost one raw byte despite saving two
+canonical bytes. Two preserved-byte regressions failed on retained wrappers.
+The raw cleanup now flattens zero-parameter blocks only when their entire body
+has no label branches, exception/continuation transfers, returns, or explicit
+unreachable. Nested conditionals preserve assignment order and result values;
+blocks with parameters or branch targets remain intact. The helper propagates
+explicit mutation flags and also handles unchanged dispatch. Both positive
+fixtures pass through all three dispatch paths; source review found no label
+remapping or stack-typing issue. Newly created type indices unavailable to the
+raw environment conservatively leave their blocks unchanged.
