@@ -80,12 +80,18 @@ fn oc_subtype_as_heap_matches(
   }
   match target {
     @lib.AbsHeapTypeHeapType(abs) => {
+      if subtype.metadata().is_shared() { return false }
       if oc_comptype_matches_abs(ct, abs) {
         return true
       }
       if is_final {
         return false
       }
+    }
+    @lib.SharedAbsHeapTypeHeapType(abs) => {
+      if !subtype.metadata().is_shared() { return false }
+      if oc_comptype_matches_abs(ct, abs) { return true }
+      if is_final { return false }
     }
     _ => ()
   }
@@ -117,6 +123,8 @@ fn oc_heap_matches(
   }
   match (source, target) {
     (@lib.AbsHeapTypeHeapType(source_abs), @lib.AbsHeapTypeHeapType(target_abs)) =>
+      oc_abs_heap_matches(source_abs, target_abs)
+    (@lib.SharedAbsHeapTypeHeapType(source_abs), @lib.SharedAbsHeapTypeHeapType(target_abs)) =>
       oc_abs_heap_matches(source_abs, target_abs)
     (@lib.HeapType(source_idx), _) =>
       match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {

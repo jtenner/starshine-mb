@@ -1267,7 +1267,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `heap-descriptors` | heap2local | Descriptor extraction preserves nullable traps | Red; repair pending |
 | `directize-import` | directize | Imported runtime subtypes cannot become unconditional traps | Red; repair pending |
 | `casts-effects` | optimize-casts | Folded tests retain operand evaluation | Repaired; focused regression green |
-| `casts-shared` | optimize-casts | Shared exact references match shared abstract supertypes | Red; repair pending |
+| `casts-shared` | optimize-casts | Shared exact references match shared abstract supertypes | Repaired; focused regression green |
 | `casts-continuations` | optimize-casts | Continuation subtype families can overlap | Red; repair pending |
 | `sgo-suspend` | simplify-globals-optimizing | Suspension invalidates runtime global facts | Repaired; focused regression green |
 | `pushing-trap-operands` | code-pushing | Trap relaxation preserves operand effects | Red; repair pending |
