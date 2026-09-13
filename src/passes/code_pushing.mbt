@@ -192,7 +192,8 @@ fn code_pushing_node_is_movable_value(
         code_pushing_relaxed_operands_are_movable(func, node_id, true, 64))
     @ir.HotOp::GlobalGet => true
     @ir.HotOp::Load =>
-      ignore_implicit_traps && code_pushing_node_is_memory_load(func, node_id)
+      ignore_implicit_traps && code_pushing_node_is_memory_load(func, node_id) &&
+      code_pushing_relaxed_operands_are_movable(func, node_id, traps_never_happen, 64)
     @ir.HotOp::Call =>
       code_pushing_node_is_exact_no_effects_intrinsic_call(
         func, node_id, module_ctx,
