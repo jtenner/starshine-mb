@@ -3347,16 +3347,19 @@ fn code_pushing_raw_rewrite_legacy_instrs(
   let rewritten = instrs.copy()
   let mut changed = false
   for idx = 0; idx < rewritten.length(); idx = idx + 1 {
-    let (next, nested_changed) = pass_rewrite_structured_instr(
-      rewritten[idx],
-      fn(body) { code_pushing_raw_rewrite_legacy_instrs(body, function_body) },
-    )
+    let (next, nested_changed) = pass_rewrite_structured_instr(rewritten[idx], fn(
+      body,
+    ) {
+      code_pushing_raw_rewrite_legacy_instrs(body, function_body)
+    })
     if nested_changed {
       rewritten[idx] = next
       changed = true
     }
   }
-  while code_pushing_raw_try_move_const_set_after_branch(rewritten, function_body) {
+  while code_pushing_raw_try_move_const_set_after_branch(
+          rewritten, function_body,
+        ) {
     changed = true
   }
   (rewritten, changed)

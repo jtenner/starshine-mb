@@ -4,7 +4,10 @@ pub fn pass_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
 }
 
 ///|
-fn pass_compute_label_used_except(func : @ir.HotFunc, excluded_node : Int) -> @bitset.BitSet {
+fn pass_compute_label_used_except(
+  func : @ir.HotFunc,
+  excluded_node : Int,
+) -> @bitset.BitSet {
   let label_used = @bitset.BitSet::new(func.labels.length())
   let mark_label = fn(label_id : Int) {
     if label_id >= 0 && label_id < label_used.length() {
