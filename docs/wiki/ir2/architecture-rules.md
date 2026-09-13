@@ -1594,3 +1594,11 @@ The [direct HOT proof regression](../../../src/passes/precompute_descriptor_effe
 failed before this guard, while the
 [public pipeline fixture](../../../src/passes/precompute_descriptor_effects_campaign_test.mbt)
 already retained the call.
+
+### Nullable descriptor construction
+
+Fresh descriptor-bearing struct allocation is discardable only when the final
+descriptor operand is proven nonnullable and all operands are discardable.
+Even a pure `ref.null` descriptor causes an observable construction trap.
+The [null-descriptor regression](../../../src/passes/precompute_descriptor_trap_campaign_test.mbt)
+failed when identity folding erased the constructor and passes after the guard.

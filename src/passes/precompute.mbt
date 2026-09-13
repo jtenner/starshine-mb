@@ -1450,10 +1450,18 @@ fn precompute_fresh_struct_allocation_is_discardable(
     return false
   }
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.StructNew(_))
-    | Some(@lib.StructNewDefault(_))
-    | Some(@lib.StructNewDesc(_))
-    | Some(@lib.StructNewDefaultDesc(_)) => ()
+    Some(@lib.StructNew(_)) | Some(@lib.StructNewDefault(_)) => ()
+    Some(@lib.StructNewDesc(_)) | Some(@lib.StructNewDefaultDesc(_)) => {
+      let count = @ir.hot_child_count(func, node_id)
+      if count == 0 {
+        return false
+      }
+      let descriptor = @ir.hot_child_get(func, node_id, count - 1)
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, descriptor)) {
+        [@lib.RefTypeValType(ref_type)] if ref_type.is_non_nullable() => ()
+        _ => return false
+      }
+    }
     _ => return false
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
