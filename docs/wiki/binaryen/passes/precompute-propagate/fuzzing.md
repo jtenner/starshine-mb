@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-30
+last_reviewed: 2026-09-13
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
@@ -199,3 +199,19 @@ Report separately:
 - cache hit/miss counters;
 - exact Binaryen executable/version;
 - any inherited plain-precompute boundary rather than relabeling it as propagation parity.
+
+
+## September 13 branch-free value-block cleanup
+
+The local-facts/plain and effectful-values/propagating templates retained a
+three-byte zero-parameter block shell, hiding their canonical nop or folded
+value savings in raw output. Both preserved-byte regressions first failed on
+the retained block and now pass through raw/single, stacked, and touched paths.
+The shared lowering cleanup flattens only recursively branch-free blocks with
+no parameters; evaluation order, local declarations, label targets, and
+exception/continuation transfers remain protected. ConstraintAnalysis reuses
+the same helper. The existing unsupported nested-empty-block label-owner
+no-op boundary remains unchanged before raw cleanup. The
+[follow-up ledger](../../../ir2/architecture-rules.md#september-13-parity-follow-up)
+records full-suite and fresh aggregate signoff; the established independent
+validator limitation for relaxed-atomic ordering 2 remains separate.

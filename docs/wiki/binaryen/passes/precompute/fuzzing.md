@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-30
+last_reviewed: 2026-09-13
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ./index.md
@@ -104,3 +104,19 @@ The current 2026-07-26 v131 direct closeout reports these lanes separately:
 The wasm-smith command failures are unchanged Binaryen parser/tool families: `39` zero-length recursive groups, one invalid tag index, one table index out of range, and three bad section sizes. The random-all lane was interrupted by the command timeout after `8877` cases and completed with `--resume`; its final result records the remaining `1123` Binaryen cache hits, while the other one-shot GenValid lanes are full cache hits.
 
 Fresh runtime/idempotence evidence lives at `.tmp/pass-fuzz-precompute-v131-renewal-closeout-runtime-idempotence-500`: `500/500` idempotence matches, `475` Node-supported executions, `25` unsupported GC/reference cases, and zero semantic/property/validation/command failures. Fresh debug-WASI evidence at `.tmp/self-opt-precompute-v131-renewal-closeout` validates both outputs: Starshine is `5,260,101` canonical bytes versus Binaryen `5,233,176` (`+26,925`, `+0.515%`), while seven timing-only samples give pass-local medians `39.462 ms` versus `185.419 ms` (`0.213x`). The first canonical difference is defined `23` / absolute `50`, where Starshine keeps valid result-typed return-dominated control and Binaryen emits void control plus trailing `unreachable`; the small size loss is retained with a material pass-local speed win. Report future reruns with requested and compared counts, direct and cleanup-normalized matches, agent-classified differences, validation/generator/property/command failures, cache counters, selected-profile counts, and pass-local timings.
+
+
+## September 13 branch-free value-block cleanup
+
+The local-facts/plain and effectful-values/propagating templates retained a
+three-byte zero-parameter block shell, hiding their canonical nop or folded
+value savings in raw output. Both preserved-byte regressions first failed on
+the retained block and now pass through raw/single, stacked, and touched paths.
+The shared lowering cleanup flattens only recursively branch-free blocks with
+no parameters; evaluation order, local declarations, label targets, and
+exception/continuation transfers remain protected. ConstraintAnalysis reuses
+the same helper. The existing unsupported nested-empty-block label-owner
+no-op boundary remains unchanged before raw cleanup. The
+[follow-up ledger](../../../ir2/architecture-rules.md#september-13-parity-follow-up)
+records full-suite and fresh aggregate signoff; the established independent
+validator limitation for relaxed-atomic ordering 2 remains separate.

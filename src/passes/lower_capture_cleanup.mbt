@@ -200,3 +200,85 @@ fn pass_lower_compact_captures(
 ) -> @lib.Func {
   pass_lower_compact_captures_with_map(func, original, params).0
 }
+
+///|
+fn pass_lower_flatten_branchless_blocks(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Bool, Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut branchless = true
+  for instr in instrs {
+    let mut children_branchless = true
+    let instr = pass_lower_map_children(instr, fn(body) {
+      let (next, child_changed, child_branchless) = pass_lower_flatten_branchless_blocks(
+        body, env,
+      )
+      changed = changed || child_changed
+      children_branchless = children_branchless && child_branchless
+      next
+    })
+    let transfers_control = match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _)
+      | @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Unreachable
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Rethrow(_)
+      | @lib.Suspend(_)
+      | @lib.Resume(_, _)
+      | @lib.ResumeThrow(_, _, _)
+      | @lib.ResumeThrowRef(_, _)
+      | @lib.StackSwitch(_, _) => true
+      _ => false
+    }
+    branchless = branchless && children_branchless && !transfers_control
+    match instr {
+      @lib.Block(bt, @lib.Expr(body)) if children_branchless =>
+        match env.expand_blocktype(bt) {
+          Ok((params, _)) if params.is_empty() => {
+            // No instruction refers to this or an outer label. With no block
+            // parameters, the same ordered producers leave the same results.
+            out.append(body)
+            changed = true
+            continue
+          }
+          _ => ()
+        }
+      _ => ()
+    }
+    out.push(instr)
+  }
+  (out, changed, branchless)
+}
+
+///|
+fn pass_lower_cleanup_branchless_blocks(
+  func : @lib.Func,
+  mod_ : @lib.Module,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (body, changed, _) = pass_lower_flatten_branchless_blocks(
+    body,
+    @validate.Env::new().with_module(mod_),
+  )
+  if changed {
+    (@lib.Func::new(locals, @lib.Expr::new(body)), true)
+  } else {
+    (func, false)
+  }
+}

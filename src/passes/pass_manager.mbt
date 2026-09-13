@@ -77279,6 +77279,12 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   } else {
     cleaned
   }
+  let cleaned = if descriptor_name == "precompute" ||
+    descriptor_name == "precompute-propagate" {
+    pass_lower_cleanup_branchless_blocks(cleaned, mod_).0
+  } else {
+    cleaned
+  }
   if descriptor_name != "vacuum" &&
     descriptor_name != "precompute" &&
     descriptor_name != "precompute-propagate" {
@@ -78602,7 +78608,23 @@ fn run_hot_pipeline_func(
     run_hot_pipeline_raw_precompute(
       mod_, func_idx, module_state, descriptor, options,
     ) {
-    Some(result) => return Ok(result)
+    Some(result) => {
+      // Keep the established unsupported label-owner boundary unchanged.
+      if result.reason ==
+        "nested-empty-block-label-owner-precompute-propagate-noop" {
+        return Ok(result)
+      }
+      let (output, changed) = pass_lower_cleanup_branchless_blocks(
+        result.func,
+        mod_,
+      )
+      return Ok({
+        reason: result.reason,
+        func: output,
+        unchanged_original: result.unchanged_original && !changed,
+        trace_skip_raw: result.trace_skip_raw,
+      })
+    }
     None => ()
   }
   match
@@ -78964,6 +78986,9 @@ fn run_hot_pipeline_func(
         let original = run_hot_pipeline_original_func(mod_, func_idx)
         let (output, changed) = if descriptor.name == "constraint-analysis" {
           ca_lower_cleanup_raw(original, mod_)
+        } else if descriptor.name == "precompute" ||
+          descriptor.name == "precompute-propagate" {
+          pass_lower_cleanup_branchless_blocks(original, mod_)
         } else {
           (original, false)
         }
@@ -81100,11 +81125,18 @@ fn run_hot_pipeline_apply_hot_pass_stack(
           }
         }
         if @ir.hot_revision_current(func) == lifted_revision {
-          if descriptors.any(fn(d) { d.name == "constraint-analysis" }) {
-            let (output, changed) = ca_lower_cleanup_raw(
-              defs[code_idx],
-              current_mod,
-            )
+          if descriptors.any(fn(d) {
+              d.name == "constraint-analysis" ||
+              d.name == "precompute" ||
+              d.name == "precompute-propagate"
+            }) {
+            let (output, changed) = if descriptors.any(fn(d) {
+                d.name == "constraint-analysis"
+              }) {
+              ca_lower_cleanup_raw(defs[code_idx], current_mod)
+            } else {
+              pass_lower_cleanup_branchless_blocks(defs[code_idx], current_mod)
+            }
             if changed {
               match lowered {
                 Some(defs_copy) => defs_copy[code_idx] = output
@@ -81156,6 +81188,10 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             d.name == "constraint-analysis"
           }) {
           ca_lower_cleanup_raw(lowered_func, current_mod).0
+        } else if descriptors.any(fn(d) {
+            d.name == "precompute" || d.name == "precompute-propagate"
+          }) {
+          pass_lower_cleanup_branchless_blocks(lowered_func, current_mod).0
         } else {
           lowered_func
         }
@@ -81330,11 +81366,18 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
           }
         }
         if @ir.hot_revision_current(func) == lifted_revision {
-          if descriptors.any(fn(d) { d.name == "constraint-analysis" }) {
-            let (output, changed) = ca_lower_cleanup_raw(
-              defs[code_idx],
-              current_mod,
-            )
+          if descriptors.any(fn(d) {
+              d.name == "constraint-analysis" ||
+              d.name == "precompute" ||
+              d.name == "precompute-propagate"
+            }) {
+            let (output, changed) = if descriptors.any(fn(d) {
+                d.name == "constraint-analysis"
+              }) {
+              ca_lower_cleanup_raw(defs[code_idx], current_mod)
+            } else {
+              pass_lower_cleanup_branchless_blocks(defs[code_idx], current_mod)
+            }
             if changed {
               match lowered {
                 Some(defs_copy) => defs_copy[code_idx] = output
@@ -81390,6 +81433,10 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
             d.name == "constraint-analysis"
           }) {
           ca_lower_cleanup_raw(lowered_func, current_mod).0
+        } else if descriptors.any(fn(d) {
+            d.name == "precompute" || d.name == "precompute-propagate"
+          }) {
+          pass_lower_cleanup_branchless_blocks(lowered_func, current_mod).0
         } else {
           lowered_func
         }
