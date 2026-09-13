@@ -15,6 +15,7 @@ pub struct HotModuleContext {
   elems : Array[Elem]
   datas : Array[Data]
   tags : Array[TagType]
+  imported_tag_count : Int
   uses_custom_descriptors : Bool
 } derive(Eq, Debug)
 
@@ -184,6 +185,8 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     None => ()
   }
 
+  let imported_tag_count = tags.length()
+
   match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) =>
       for type_idx in type_idxs {
@@ -275,6 +278,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     elems,
     datas,
     tags,
+    imported_tag_count,
     uses_custom_descriptors: @lib.module_uses_custom_descriptors(mod_),
   }
 }

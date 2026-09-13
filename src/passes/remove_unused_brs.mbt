@@ -1385,6 +1385,7 @@ fn remove_unused_brs_match_caught_throw(
   func : @ir.HotFunc,
   throw_tag : Int,
   catchers : Array[Int],
+  imported_tags : Int,
 ) -> RemoveUnusedBrsCaughtThrowMatch {
   for i = catchers.length() - 1; i >= 0; i = i - 1 {
     let catcher_id = catchers[i]
@@ -1401,9 +1402,21 @@ fn remove_unused_brs_match_caught_throw(
             @ir.HotCatchArm::CatchArm(tag_idx, label_id) =>
               if remove_unused_brs_tag_idx_raw(tag_idx) == throw_tag {
                 return CaughtThrowExact(label_id)
+              } else if imported_tags < 0 ||
+                (
+                  throw_tag < imported_tags &&
+                  remove_unused_brs_tag_idx_raw(tag_idx) < imported_tags
+                ) {
+                return CaughtThrowRef
               }
             @ir.HotCatchArm::CatchRefArm(tag_idx, _) =>
               if remove_unused_brs_tag_idx_raw(tag_idx) == throw_tag {
+                return CaughtThrowRef
+              } else if imported_tags < 0 ||
+                (
+                  throw_tag < imported_tags &&
+                  remove_unused_brs_tag_idx_raw(tag_idx) < imported_tags
+                ) {
                 return CaughtThrowRef
               }
             @ir.HotCatchArm::CatchAllArm(label_id) =>
@@ -1435,7 +1448,17 @@ fn remove_unused_brs_try_rewrite_caught_throw_root(
     @ir.HotOp::Throw => ()
     _ => return false
   }
-  match remove_unused_brs_match_caught_throw(func, node.imm0, catchers) {
+  let imported_tags = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx.imported_tag_count
+    None => -1
+  }
+  match
+    remove_unused_brs_match_caught_throw(
+      func,
+      node.imm0,
+      catchers,
+      imported_tags,
+    ) {
     NoCaughtThrowMatch | CaughtThrowRef => false
     CaughtThrowExact(label_id) => {
       let payloads : Array[Int] = []

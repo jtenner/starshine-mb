@@ -1037,3 +1037,7 @@ Converting `array.new_fixed` to `array.new_default` preserves each operand's eff
 ### Heap allocation dominance
 
 Singleton struct and array scalarization requires each local's unique allocation/copy write to dominate all of its reads. Within a CFG block, the write must precede the read in operand-before-user order. Otherwise the original nullable local may still be null and its field/element access must trap. The expanded heap2local audit checks conditional struct/array allocation and a same-block read before allocation; the descriptor now declares CFG and dominance dependencies.
+
+### Imported exception tag identity
+
+Distinct imported tag indices can alias the same host tag, so caught-throw folding cannot skip an earlier possibly aliasing imported catch. `HotModuleContext.imported_tag_count` records the provenance needed to retain exact folding for distinct module-defined tags. Unknown provenance is conservative. `remove_unused_brs_audit_test.mbt` covers catch priority, consistent with `tests/spec/try_table.wast`'s imported-tag alias case.
