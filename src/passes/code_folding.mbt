@@ -1116,8 +1116,10 @@ fn code_folding_nodes_equal_with_label_map(
   }
   match left.op {
     @ir.HotOp::Const | @ir.HotOp::RefNull =>
-      if @ir.hot_const_get(func, left.imm0) !=
-        @ir.hot_const_get(func, right.imm0) {
+      if !pass_hot_const_bits_equal(
+          @ir.hot_const_get(func, left.imm0),
+          @ir.hot_const_get(func, right.imm0),
+        ) {
         return false
       }
     @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If =>
@@ -1211,8 +1213,10 @@ fn code_folding_nodes_equal_exact_labels(
   }
   match left.op {
     @ir.HotOp::Const | @ir.HotOp::RefNull =>
-      if @ir.hot_const_get(func, left.imm0) !=
-        @ir.hot_const_get(func, right.imm0) {
+      if !pass_hot_const_bits_equal(
+          @ir.hot_const_get(func, left.imm0),
+          @ir.hot_const_get(func, right.imm0),
+        ) {
         return false
       }
     @ir.HotOp::BrTable => {

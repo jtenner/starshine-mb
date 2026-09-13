@@ -957,3 +957,54 @@ fn pass_can_discard_unused_value(func : @ir.HotFunc, node : Int) -> Bool {
     _ => false
   }
 }
+
+///|
+// Constant identity must preserve signed zero and NaN payloads.
+fn pass_hot_const_bits_equal(
+  lhs : @ir.HotConstPayload,
+  rhs : @ir.HotConstPayload,
+) -> Bool {
+  match (lhs, rhs) {
+    (
+      @ir.HotConstPayload::F32Const(@lib.F32(a)),
+      @ir.HotConstPayload::F32Const(@lib.F32(b)),
+    ) => a.reinterpret_as_int() == b.reinterpret_as_int()
+    (
+      @ir.HotConstPayload::F64Const(@lib.F64(a)),
+      @ir.HotConstPayload::F64Const(@lib.F64(b)),
+    ) => a.reinterpret_as_int64() == b.reinterpret_as_int64()
+    _ => lhs == rhs
+  }
+}
+
+///|
+fn pass_const_instruction_bits_equal(
+  lhs : @lib.Instruction,
+  rhs : @lib.Instruction,
+) -> Bool {
+  match (lhs, rhs) {
+    (@lib.F32Const(@lib.F32(a)), @lib.F32Const(@lib.F32(b))) =>
+      a.reinterpret_as_int() == b.reinterpret_as_int()
+    (@lib.F64Const(@lib.F64(a)), @lib.F64Const(@lib.F64(b))) =>
+      a.reinterpret_as_int64() == b.reinterpret_as_int64()
+    (@lib.Block(a, @lib.Expr(xs)), @lib.Block(b, @lib.Expr(ys))) =>
+      a == b && pass_const_instruction_vectors_bits_equal(xs, ys)
+    _ => lhs == rhs
+  }
+}
+
+///|
+fn pass_const_instruction_vectors_bits_equal(
+  lhs : Array[@lib.Instruction],
+  rhs : Array[@lib.Instruction],
+) -> Bool {
+  if lhs.length() != rhs.length() {
+    return false
+  }
+  for i = 0; i < lhs.length(); i = i + 1 {
+    if !pass_const_instruction_bits_equal(lhs[i], rhs[i]) {
+      return false
+    }
+  }
+  true
+}

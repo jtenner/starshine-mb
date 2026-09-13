@@ -5326,8 +5326,10 @@ fn remove_unused_brs_nodes_are_known_equal_for_redundant_br_if_value(
     (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) =>
       left_node.imm0 == right_node.imm0
     (@ir.HotOp::Const, @ir.HotOp::Const) =>
-      @ir.hot_const_get(func, left_node.imm0) ==
-      @ir.hot_const_get(func, right_node.imm0)
+      pass_hot_const_bits_equal(
+        @ir.hot_const_get(func, left_node.imm0),
+        @ir.hot_const_get(func, right_node.imm0),
+      )
     _ => false
   }
 }

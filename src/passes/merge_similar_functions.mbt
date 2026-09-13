@@ -595,7 +595,7 @@ fn msf_instruction_vectors_equal(
   left : Array[@lib.Instruction],
   right : Array[@lib.Instruction],
 ) -> Bool {
-  left == right
+  pass_const_instruction_vectors_bits_equal(left, right)
 }
 
 ///|
@@ -649,7 +649,10 @@ fn msf_derive_params(
     for member_idx = 1
         member_idx < member_values.length()
         member_idx = member_idx + 1 {
-      if member_values[member_idx][site_idx] != first.value {
+      if !pass_const_instruction_bits_equal(
+          member_values[member_idx][site_idx],
+          first.value,
+        ) {
         all_same = false
         break
       }

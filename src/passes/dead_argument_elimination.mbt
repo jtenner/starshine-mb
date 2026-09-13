@@ -11669,8 +11669,10 @@ fn dae_materialized_const_equal(
   match (lhs, rhs) {
     (@lib.I32Const(a), @lib.I32Const(b)) => a == b
     (@lib.I64Const(a), @lib.I64Const(b)) => a == b
-    (@lib.F32Const(a), @lib.F32Const(b)) => a == b
-    (@lib.F64Const(a), @lib.F64Const(b)) => a == b
+    (@lib.F32Const(_), @lib.F32Const(_)) =>
+      pass_const_instruction_bits_equal(lhs, rhs)
+    (@lib.F64Const(_), @lib.F64Const(_)) =>
+      pass_const_instruction_bits_equal(lhs, rhs)
     (@lib.V128Const(_), @lib.V128Const(_)) => lhs == rhs
     (@lib.RefNull(a), @lib.RefNull(b)) => a == b
     (@lib.RefFunc(a), @lib.RefFunc(b)) => a == b
@@ -11678,7 +11680,8 @@ fn dae_materialized_const_equal(
     (@lib.Block(_, @lib.Expr(a)), @lib.Block(_, @lib.Expr(b))) if dae_instrs_are_materializable_ref_const_expr(
         a,
       ) &&
-      dae_instrs_are_materializable_ref_const_expr(b) => lhs == rhs
+      dae_instrs_are_materializable_ref_const_expr(b) =>
+      pass_const_instruction_bits_equal(lhs, rhs)
     (@lib.GlobalGet(a), @lib.GlobalGet(b)) => a == b
     _ => false
   }

@@ -963,3 +963,7 @@ Raw CSE also includes tee destinations in expression-local dependencies. A
 repeated expression containing a tee cannot be replaced after another write to
 that destination, including the repeated tee itself. The bounded arithmetic
 tee fixture now preserves the final local value `1` instead of leaving `2`.
+
+### Floating constant identity
+
+Constant substitution and subtree identity compare IEEE bits, preserving signed zero and NaN payloads. Numeric equality is insufficient for DAE materialization, similar-function parameter specialization, code folding, and redundant-branch value matching. Shared private helpers in `src/passes/pass_common.mbt` provide bit equality, including materialized reference-constant blocks. The signed-zero regressions are in `src/passes/float_equality_audit_wbtest.mbt`.
