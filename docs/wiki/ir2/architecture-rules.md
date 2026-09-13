@@ -882,7 +882,7 @@ constant bits, and module identity. Initial red evidence is under
 `.tmp/pass-audit-20260912/`; 14 tests passed and 60 failed before repairs (the
 continuation fixture's initial traversal error is superseded by its focused rerun).
 
-The active repair families are:
+The covered repair families are:
 
 - Import name-pair identity and concrete function subtypes:
   `src/passes/duplicate_import_elimination_audit_test.mbt`.
@@ -915,10 +915,17 @@ a source finding alone is not classified as verified CLI wrong-code. In
 particular, remove-unused-names currently skips stack-switching modules, while
 its direct HOT label APIs still require consistent continuation bookkeeping.
 
-**Status:** red phase recorded; implementation repairs, full tests, and final
-Binaryen 132 GenValid checks remain pending. Fuzzing runs only after all repairs,
-using a freshly built native CLI and documented aggregate profiles. No new
-Binaryen parity or performance signoff is claimed by the static audit.
+**Status:** the verified findings are repaired in 44 separate repair commits,
+following the initial red checkpoint. All 82 bounded audit regressions, 11,404
+default tests, and 11,401 wasm-gc tests pass. Eight added audit cases extend
+continuation rebasing/fallthrough, initializer origins, failed joins, allocation
+dominance, and nested returns. Full CI validation passes 100,772 attempts across
+14 suites; info/fmt/check and README/API sync pass. No tests were disabled.
+
+Final verification ran after the repairs: 31 lanes each reached 10,000 GenValid
+comparisons with fresh native binaries and verified Binaryen 132. The remaining
+output-shape and tool limitations are recorded below; this is not blanket
+output-shape parity, runtime equivalence, or pass-local performance signoff.
 
 
 ### Arithmetic trap preservation
@@ -1036,7 +1043,7 @@ Converting `array.new_fixed` to `array.new_default` preserves each operand's eff
 
 ### Heap allocation dominance
 
-Singleton struct and array scalarization requires each local's unique allocation/copy write to dominate all of its reads. Within a CFG block, the write must precede the read in operand-before-user order. Otherwise the original nullable local may still be null and its field/element access must trap. The expanded heap2local audit checks conditional struct/array allocation and a same-block read before allocation; the descriptor now declares CFG and dominance dependencies.
+Singleton struct and array scalarization requires each local's unique allocation/copy write to dominate all of its reads. Within a CFG block, the write must precede the read in operand-before-user order. Otherwise the original nullable local may still be null and its field/element access must trap. The expanded heap2local audit checks conditional struct/array allocation and a same-block read before allocation; the pass builds a private operand-expanded CFG and dominator tree for this proof.
 
 ### Imported exception tag identity
 
@@ -1077,3 +1084,143 @@ The audit supersedes the former raw TLSF/stale-loop repair heuristics. A valid r
 The direct raw typed-loop and reset-loop fixtures reproduced their failures through the production raw rewriter. The memory-prologue helper failed when invoked directly in the initial red campaign; its full raw-rewriter neighbor remained guarded by preceding normalization. Updated historical TLSF fixtures assert valid-input write contracts rather than guessed compiler intent. `precompute_audit_wbtest.mbt`, `precompute_test.mbt`, and `precompute_wbtest.mbt` retain those cases. Earlier allocator/artifact results remain historical evidence for their recorded source revisions, not proof that arbitrary input repair was semantics-preserving.
 
 Known-read operand preservation recursively peels nested immutable reads only after the same heap proof establishes their non-null/bounds safety. It preserves their operand effects rather than retaining redundant dereferences. The existing nested-aggregate and nested-ref.func tests caught this optimization regression; the receiver-tee test remains the effect-preservation guard.
+
+The first full-suite check exposed 21 heap2local and 12 CSE optimization regressions. Heap2local now uses a private operand-expanded CFG for dominance, so operand reads are represented. CSE separates unknown operand provenance from the availability retained by modeled effect barriers. All 59 heap2local and 217 CSE/registry focused tests pass. The full default rerun passes all 11,404 tests; the completed wasm-gc and fuzz evidence follows.
+
+### Final verification evidence
+
+Code checkpoint: `72d049e71`, starting from `bc26821f4`. The campaign contains
+one red-test checkpoint, 44 repair commits, and one formatting commit. The only
+public `.mbti` change is `HotModuleContext.imported_tag_count`, used to preserve
+imported-tag alias priority. All code was committed before final fuzzing.
+
+Native SHA-256 identities:
+
+- CLI: `a1057ba34ea2d882c1b67097a7bbddef6249145c22bb0a5e4e8ca361805af1c6`.
+- Generator: `03be57b7f3d4bb449eafce0fc09fbceffcc6144846dfdbe519b32dfb31722f06`.
+- Binaryen 132: `1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`;
+  version output `wasm-opt version 132 (version_132)`.
+
+The final matrix totals **310,000 comparisons**, with **183,649 canonical
+matches**, **8,007 additional cleanup-normalized matches**, and **118,344
+remaining output differences**. Every lane has zero optimizer validation,
+generator, command, or property failures under its recorded primary validator.
+All 310,000 Starshine outputs are byte-deterministic and codec-idempotent.
+The earlier validator-limited precompute attempt is preserved separately below.
+
+Each row uses count/min-compared `10000`, seed `0x5eed`, `--jobs auto`,
+`--max-subprocesses 8`, `--max-mismatch-artifacts 20`, explicit fresh native CLI
+and generator paths, `--require-binaryen-version 132`, `--determinism`, and
+`--codec-idempotence`. No wasm-smith lane ran. Cached Binaryen results retain
+oracle identity; Starshine execution was not cached. The executable paths are
+`_build/native/release/build/cmd/cmd.exe`,
+`_build/native/release/build/fuzz/fuzz.exe`, and
+`.tmp/binaryen-version_132/bin/wasm-opt`. Exact commands, per-case
+records, tool identities, and retained diffs are under
+`.tmp/pass-audit-20260912/fuzz/<pass>/`.
+
+“Win” below is the root agent's judgment about inspected families, supported by
+transform contracts and measured canonical size; it is not a harness semantic
+classification or a proof for every unsaved case. Larger-output counts are
+before cleanup normalization. `—` denotes ordinary GenValid generation.
+
+| Pass | GenValid profile | Canonical / cleanup / residual | Larger | Judgment |
+| --- | --- | ---: | ---: | --- |
+| `duplicate-import-elimination` | `duplicate-import-elimination` | 8,368 / 0 / 1,632 | 0 | Starshine-win families (sampled) |
+| `rse` | `rse` | 7,656 / 0 / 2,344 | 0 | Starshine-win families (sampled) |
+| `local-cse` | `—` | 10,000 / 0 / 0 | 0 | canonical match |
+| `dead-argument-elimination` | `dead-argument-elimination` | 3,750 / 0 / 6,250 | 0 | Starshine-win families (sampled) |
+| `dae-optimizing` | `dae-optimizing` | 5,742 / 0 / 4,258 | 0 | Starshine-win families (sampled) |
+| `merge-similar-functions` | `merge-similar-functions-all` | 10,000 / 0 / 0 | 0 | canonical match |
+| `code-folding` | `code-folding-all` | 6,624 / 0 / 3,376 | 0 | Starshine-win families (sampled) |
+| `remove-unused-brs` | `remove-unused-brs-all` | 6,464 / 0 / 3,536 | 0 | Starshine-win families (sampled) |
+| `optimize-casts` | `optimize-casts-all` | 10,000 / 0 / 0 | 0 | canonical match |
+| `merge-blocks` | `merge-blocks-all` | 7,007 / 0 / 2,993 | 0 | Starshine-win families (sampled) |
+| `code-pushing` | `code-pushing-all` | 4,493 / 5,507 / 0 | 513 | normalized parity; size gap |
+| `vacuum` | `vacuum` | 7,830 / 0 / 2,170 | 0 | Starshine-win families (sampled) |
+| `inlining` | `pass-inlining` | 10,000 / 0 / 0 | 0 | canonical match |
+| `inlining-optimizing` | `pass-inlining` | 10,000 / 0 / 0 | 0 | canonical match |
+| `remove-unused-names` | `—` | 10,000 / 0 / 0 | 0 | canonical match |
+| `remove-unused-module-elements` | `rume-all` | 4,106 / 0 / 5,894 | 0 | Starshine-win families (sampled) |
+| `once-reduction` | `once-reduction-tail-calls` | 0 / 0 / 10,000 | 0 | one deterministic fixture; win |
+| `global-struct-inference` | `—` | 10,000 / 0 / 0 | 0 | canonical match |
+| `global-refining` | `—` | 10,000 / 0 / 0 | 0 | canonical match |
+| `heap2local` | `heap2local-all` | 2,474 / 0 / 7,526 | 0 | Starshine-win families (sampled) |
+| `optimize-instructions` | `pass-oi-all` | 8,920 / 0 / 1,080 | 0 | Starshine-win families (sampled) |
+| `coalesce-locals` | `coalesce-locals-all` | 3,750 / 2,500 / 3,750 | 0 | Starshine-win families (sampled) |
+| `precompute` | `precompute-all`† | 3,238 / 0 / 6,762 | 0 | Starshine-win families (sampled) |
+| `precompute-propagate` | `precompute-all`† | 2,766 / 0 / 7,234 | 0 | Starshine-win families (sampled) |
+| `simplify-globals-optimizing` | `simplify-globals-optimizing-all` | 5,055 / 0 / 4,945 | 0 | Starshine-win families (sampled) |
+| `simplify-locals` | `simplify-locals` | 380 / 0 / 9,620 | 0 | Starshine-win families (sampled) |
+| `simplify-locals-notee` | `simplify-locals-notee` | 0 / 0 / 10,000 | 0 | Starshine-win families (sampled) |
+| `simplify-locals-nostructure` | `simplify-locals-nostructure` | 0 / 0 / 10,000 | 1,662 | open parity gaps |
+| `simplify-locals-notee-nostructure` | `simplify-locals-notee-nostructure` | 0 / 0 / 10,000 | 0 | Starshine-win families (sampled) |
+| `simplify-locals-nonesting` | `simplify-locals-nonesting` | 5,026 / 0 / 4,974 | 0 | Starshine-win families (sampled) |
+| `inline-main` | `—` | 10,000 / 0 / 0 | 0 | limited activation coverage |
+
+† The two precompute lanes use Binaryen as primary validator; see the boundary below.
+
+DAE and DAE-optimizing use `drop-consts` and
+`unreachable-control-debris`; code-pushing and coalesce-locals use the documented
+`local-cleanup-debris` normalizer. The other lanes use canonical comparison.
+
+The inspected smaller families remove no-ops, branch-free loop wrappers, dead
+pure local transport, and trailing void returns; preserve effects while
+scalarizing heap fields or scheduling tuple operands; and reuse an earlier
+immutable initializer with the same value. DAE's inspected final-struct exactness
+differences occur in private direct-only signatures. Once-reduction removes
+unobservable private guards and repeated inert calls. Its documented profile
+repeats one deterministic raw-byte module: 10,000 comparisons are not 10,000
+independent shapes. OI's 1,080 tuple residuals reproduce the established SB005
+family and its `-9,952`-byte aggregate delta; historical v131 evidence remains
+under its original version in the [OI dossier](../binaryen/passes/optimize-instructions/fuzzing.md).
+Full per-family judgments and sample limits are retained in
+`.tmp/pass-audit-20260912/fuzz-judgments.json`.
+
+**Open shape gaps:** code-pushing has 513 `br-if-value` cases that are four
+canonical bytes larger each (`+2,052`); its counts and canonical totals match
+the earlier [September 12 record](../binaryen/passes/code-pushing/fuzzing.md).
+Simplify-locals-nostructure has 1,662 tee-control cases retaining redundant
+local traffic, 8–12 bytes larger each (`+16,636`). Its historical v131 dossier
+records the same count distribution, but is not a per-case baseline for this
+fresh v132 run. These remain parity work; successful validation or execution
+does not turn the larger shapes into wins.
+
+**Validator boundary:** installed wasm-tools `1.251.0` rejects atomic ordering
+`2`; its [reader](https://raw.githubusercontent.com/bytecodealliance/wasm-tools/v1.251.0/crates/wasmparser/src/binary_reader.rs)
+accepts only sequentially consistent/acquire-release encodings. Binaryen 132's
+[reader/writer](https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/wasm/wasm-binary.cpp)
+also supports relaxed ordering. The unchanged precompute atomic fixture
+validates with the verified v132 oracle. The initial wasm-tools run compared
+9,551 cases and reported 449 generator failures, all that one unsupported
+ordering family; root classification is a tool capability limitation.
+That original report remains in
+`.tmp/pass-audit-20260912/precompute-wasm-tools-limitation/`.
+Both final precompute lanes use `--primary-validator binaryen` and reach
+10,000 comparisons. Binaryen validation is not independent validation; no
+feature or test was removed to accommodate the older tool.
+
+**Bounded runtime observations:** nine lanes replayed their 20 retained samples
+with Node `v26.8.2`, the original as primary, trap-aware comparisons, and
+one-second subprocess bounds. All 180 original/Starshine observations match.
+117 modules have planned exported calls (846 invocations); 63 are
+instantiation-only observations. The lanes are remove-unused-brs, once-reduction,
+heap2local, optimize-instructions, and all five simplify-locals variants.
+
+163 raw three-way observations match. In 17 simplify-locals-family samples,
+Node rejects Binaryen's compact import encoding with `unknown import kind 0x7f`.
+The harness labels these `binaryen-discrepancy`, but the pairwise report says
+blocked compilation, not a semantic mismatch. Those reports remain unchanged.
+For an additional check, verified v132 `wasm-dis`/`wasm-as` re-encoded only the
+Binaryen copy with `--disable-compact-imports`; each disassembly is identical
+before/after and each copy independently validates. All 17 compatible-encoding
+three-way replays match. This supplies bounded behavior evidence without
+claiming Node executed the original compact-import binaries. Reports, commands,
+and hashes are under `runtime-replays/` and `runtime-legacy-imports/` in the
+campaign directory.
+
+The generic lanes do not establish per-transform activation. In particular,
+inline-main normally needs names absent from the generic corpus, and the
+remove-unused-names dispatcher intentionally skips stack-switching modules.
+The focused continuation regressions cover the repaired shared/direct helpers.
+No new pass-local performance claim is made from these comparison runs.

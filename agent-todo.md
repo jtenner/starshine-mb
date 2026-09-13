@@ -1,21 +1,25 @@
 # Agent Tasks
 
-## v0.1.1 — five-agent optimizer audit [IR2-CORRECTNESS]
+## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
-- **Goal / why:** repair semantic, validation, and analysis defects reported by
-  five read-only auditors, with root-only serialized compiler use.
-- **Deliverables / tasks:** 74 bounded red-phase tests written; fix each verified
-  cause in its own commit, then full tests and final 10,000-case GenValid checks
-  per changed pass using verified Binaryen 132 and a fresh native CLI.
-- **Current blocker:** 60 initial audit-test failures remain under repair; 14
-  neighbor tests pass. No implementation or final fuzz signoff yet.
-- **APIs / invariants:** preserve effects, traps, branch destinations, concrete
-  types, operand identities, and float bits; public HOT APIs remain consistent.
-- **Dependencies / exit:** serialize Moon; agents report only; commit skill waived
-  for this campaign. Exit requires all confirmed regressions passing and final
-  test/fuzz evidence with remaining mismatches explicitly classified.
-- **Evidence:** [audit ledger](docs/wiki/ir2/architecture-rules.md#september-12-five-agent-optimizer-audit),
-  `src/passes/*_audit*test.mbt`, `.tmp/pass-audit-20260912/`.
+- **Goal / why:** close the remaining output-size and independent-validator gaps
+  without weakening the completed optimizer correctness repairs.
+- **Delivered:** five reporting-only audits, 82 bounded regressions, 44 repair
+  commits, full default/wasm-gc/CI checks, and 31 × 10,000 final comparisons.
+  All 180 sampled original/Starshine runtime observations match; coverage and
+  alternate Binaryen encoding limits are in the wiki. No known Moon test failure.
+- **Tasks / deliverables:** align code-pushing's 513 `br-if-value` outputs
+  (`+2,052` canonical bytes) and simplify-locals-nostructure's 1,662 tee-control
+  outputs (`+16,636`), or establish a measured benefit that justifies retention.
+  Recheck relaxed-atomic precompute inputs when an independent validator supports
+  ordering 2; retain the current verified Binaryen 132 evidence meanwhile.
+- **APIs / invariants:** preserve traps, operand order, local writes, lexical labels,
+  and imported-tag alias priority. Keep original tool-blocked reports unchanged.
+- **Dependencies / exit:** compatible independent validation; red-first general
+  cleanup repairs; fresh affected-pass 10,000-case lanes; no unproven size losses.
+- **Suggested tests / evidence:** existing audit and tee-control fixtures, retained
+  `br-if-value` inputs, and the [completed audit](docs/wiki/ir2/architecture-rules.md#final-verification-evidence).
+  Local commands, hashes, counts, and judgments: `.tmp/pass-audit-20260912/`.
 
 ## v0.1.1 — catch labels, fact operands, function exits [IR2-CORRECTNESS]
 
