@@ -2153,6 +2153,11 @@ fn precompute_try_fold_descriptor_branch(
   }
   let source_id = @ir.hot_child_get(func, node_id, 0)
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  // Knowing the descriptor's identity does not make its evaluation erasable:
+  // a block can perform effects before yielding that same descriptor.
+  if !precompute_is_discardable_value(func, descriptor_id) {
+    return false
+  }
   let source_descriptor = match
     precompute_descriptor_identity_for_node(ctx, func, source_id, 0) {
     Some(identity) => identity

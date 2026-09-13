@@ -1584,3 +1584,13 @@ when resolving raw global identity, HOT descriptor identity, or `ref.get_desc`.
 A descriptor-typed first field is not the constructor's descriptor. Both
 [raw and HOT regressions](../../../src/passes/precompute_descriptor_identity_campaign_wbtest.mbt)
 use two distinct descriptor globals so an operand-order error is observable.
+
+### Descriptor evaluation effects
+
+A known descriptor identity is separate from permission to discard the operand
+that computes it. Precompute folds descriptor branches only when that operand
+is itself discardable; a block's preceding calls or traps remain observable.
+The [direct HOT proof regression](../../../src/passes/precompute_descriptor_effects_campaign_wbtest.mbt)
+failed before this guard, while the
+[public pipeline fixture](../../../src/passes/precompute_descriptor_effects_campaign_test.mbt)
+already retained the call.
