@@ -3053,9 +3053,6 @@ fn inl_instr_terminates_sequence(instr : @lib.Instruction) -> Bool {
     | @lib.Throw(_)
     | @lib.ThrowRef
     | @lib.Rethrow(_)
-    | @lib.Resume(_, _)
-    | @lib.ResumeThrow(_, _, _)
-    | @lib.ResumeThrowRef(_, _)
     | @lib.StackSwitch(_, _) => true
     _ => false
   }

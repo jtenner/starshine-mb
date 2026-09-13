@@ -987,3 +987,5 @@ Raw vacuum scans legacy try bodies and catches for owner-label references and re
 ### Inlining continuation handler labels
 
 Resume, resume-throw, and resume-throw-ref handler labels participate in implicit function-exit detection and outer-label rebasing. `inlining_audit_wbtest.mbt` covers all three opcodes. Handler-on-switch entries remain unchanged because they have no lexical label.
+
+Resume instructions can return normally, so inlining must retain their reachable suffix. They are not unconditional sequence terminators. The three resume variants share a bounded regression in `inlining_audit_wbtest.mbt`; stack-switch remains a separate terminating operation.
