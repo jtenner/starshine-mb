@@ -46846,6 +46846,28 @@ fn run_hot_pipeline_raw_vacuum_instr_targets_owner(
       }
       run_hot_pipeline_raw_vacuum_body_targets_owner(body, owner_depth + 1)
     }
+    @lib.Try(_, @lib.Expr(body), catches, delegate) => {
+      // Delegate targets use the surrounding scope; keep its owner conservatively.
+      if delegate is Some(_) {
+        return true
+      }
+      if run_hot_pipeline_raw_vacuum_body_targets_owner(body, owner_depth + 1) {
+        return true
+      }
+      for catch_ in catches {
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        if run_hot_pipeline_raw_vacuum_body_targets_owner(
+            catch_body,
+            owner_depth + 1,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+    @lib.Rethrow(_) => true
     _ => false
   }
 }
@@ -46984,6 +47006,39 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
         @lib.Expr::new(
           run_hot_pipeline_raw_vacuum_rebase_outer_body(body, owner_depth + 1),
         ),
+      )
+    }
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      let next_catches = catches.map(fn(catch_) {
+        match catch_ {
+          @lib.LegacyCatch(tag, @lib.Expr(body)) =>
+            @lib.LegacyCatch::tagged(
+              tag,
+              @lib.Expr::new(
+                run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                  body,
+                  owner_depth + 1,
+                ),
+              ),
+            )
+          @lib.LegacyCatchAll(@lib.Expr(body)) =>
+            @lib.LegacyCatch::all(
+              @lib.Expr::new(
+                run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                  body,
+                  owner_depth + 1,
+                ),
+              ),
+            )
+        }
+      })
+      @lib.Instruction::try_(
+        block_type,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(body, owner_depth + 1),
+        ),
+        next_catches,
+        delegate~,
       )
     }
     _ => instr
