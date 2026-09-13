@@ -1276,7 +1276,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `folding-dead-effects` | code-folding | Post-trap effects remain unreachable | Repaired; focused regression green |
 | `rub-prefix` | remove-unused-brs | Loop rewrite retains roots preceding its branch | Repaired; focused regression green |
 | `facts-legacy-order` | apply-compiler-facts | Legacy try facts follow body-before-catch encoding | Repaired; focused regression green |
-| `dae2-type-identity` | dae2 / dae2-optimizing | Signature pruning preserves indirect-call type mismatches | Red; repair pending |
+| `dae2-type-identity` | dae2 / dae2-optimizing | Signature pruning preserves runtime type identity, including equivalent types and recursive groups | Red; repair pending |
 
 Reports not established as public bugs: flatten preserves the null-check order
 because ordinary lifting uses its Heap representation; its unreachable-tee
@@ -1284,3 +1284,9 @@ candidate is removed during lifting. DCE retains the catch-reachable side effect
 in the refined fixture. The farther-exit branch rewrite is preceded by removal
 of the unreachable suffix in the reported public shape. These tests remain as
 behavior guards; no failing assertion is weakened to label a bug fixed.
+
+The DAE2 follow-up adds three Moon checks and six execution checks before its
+repair: equivalent-type splitting and recursive-group splitting/collision. All
+nine additions reproduce wrong behavior, bringing this campaign to 52 Moon
+checks and 48 execution checks. See `dead_argument_elimination2_round2_wbtest.mbt`
+and the `red-dae2-*` logs in the same local evidence directory.
