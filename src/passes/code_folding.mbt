@@ -1622,6 +1622,16 @@ fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
+  if @ir.hot_is_control_node(func, node_id) &&
+    !(@ir.hot_node_get(func, node_id).op is @ir.HotOp::Loop) &&
+    pass_label_is_used(
+      @ir.hot_control_node_label(func, node_id),
+      pass_compute_label_used(func),
+    ) {
+    // A branch to this control's label resumes after it, even if a later
+    // body root returns or traps on the non-branching path.
+    return false
+  }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Unreachable
     | @ir.HotOp::Return

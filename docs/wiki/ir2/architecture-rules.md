@@ -1272,7 +1272,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `sgo-suspend` | simplify-globals-optimizing | Suspension invalidates runtime global facts | Repaired; focused regression green |
 | `pushing-trap-operands` | code-pushing | Trap relaxation preserves operand effects | Red; repair pending |
 | `pushing-load-operands` | code-pushing | Load relaxation preserves address effects | Red; repair pending |
-| `folding-exits` | code-folding | Self-label exits preserve reachable following traps | Red; repair pending |
+| `folding-exits` | code-folding | Self-label exits preserve reachable following traps | Repaired; focused regression green |
 | `folding-dead-effects` | code-folding | Post-trap effects remain unreachable | Red; repair pending |
 | `rub-prefix` | remove-unused-brs | Loop rewrite retains roots preceding its branch | Red; repair pending |
 | `facts-legacy-order` | apply-compiler-facts | Legacy try facts follow body-before-catch encoding | Repaired; focused regression green |
