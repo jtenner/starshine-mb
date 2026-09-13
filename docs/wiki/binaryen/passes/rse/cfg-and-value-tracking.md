@@ -171,3 +171,12 @@ Separate branch-local counters could assign the same ID to different constants
 and incorrectly merge their local facts. The conditional 1/2 assignment audit
 retains the necessary post-join assignment. The existing region visitor already
 restores definite-initialization scope; its audit neighbor passes unchanged.
+
+
+## Loop result stack knowledge
+
+All raw RSE lanes discard the pre-loop abstract operand stack at loop exit.
+Until complete block-signature transfer is modeled, a single fresh unknown
+must not sit above stale entry operands: a multivalue result could otherwise
+be confused with an older constant and erase a necessary set. The two-result
+loop audit preserves the first result's assignment after dropping the second.

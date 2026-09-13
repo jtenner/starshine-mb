@@ -1908,6 +1908,7 @@ fn rse_raw_rewrite_expr_scoped(
           state.reachable = true
         }
         out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(next)))
+        rse_raw_clear_stack(state)
         if state.reachable {
           rse_raw_push(state, rse_raw_fresh(state))
         }
@@ -2617,6 +2618,7 @@ fn rse_raw_i32_rewrite_expr_scoped(
           state.reachable = true
         }
         out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(next)))
+        state.stack.clear()
         if state.reachable {
           rse_raw_i32_push(state, rse_raw_i32_fresh(state))
         }
@@ -2838,6 +2840,7 @@ fn rse_raw_fast_rewrite_expr_scoped(
           state.reachable = true
         }
         out.push(@lib.Instruction::loop_(block_type, @lib.Expr::new(next)))
+        rse_raw_clear_stack(state)
         if state.reachable {
           rse_raw_push(state, rse_raw_fresh(state))
         }
