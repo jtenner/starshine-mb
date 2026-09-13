@@ -31,6 +31,7 @@ fn oc_abs_heap_matches(
     | (@lib.NoneAbsHeapType, @lib.AnyAbsHeapType)
     | (@lib.NoFuncAbsHeapType, @lib.FuncAbsHeapType)
     | (@lib.NoFuncAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.StringAbsHeapType, @lib.ExternAbsHeapType)
     | (@lib.NoExternAbsHeapType, @lib.ExternAbsHeapType)
     | (@lib.NoExnAbsHeapType, @lib.ExnAbsHeapType)
     | (@lib.I31AbsHeapType, @lib.EqAbsHeapType)

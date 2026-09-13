@@ -967,3 +967,7 @@ tee fixture now preserves the final local value `1` instead of leaving `2`.
 ### Floating constant identity
 
 Constant substitution and subtree identity compare IEEE bits, preserving signed zero and NaN payloads. Numeric equality is insufficient for DAE materialization, similar-function parameter specialization, code folding, and redundant-branch value matching. Shared private helpers in `src/passes/pass_common.mbt` provide bit equality, including materialized reference-constant blocks. The signed-zero regressions are in `src/passes/float_equality_audit_wbtest.mbt`.
+
+### String cast subtype consistency
+
+`optimize_casts.mbt` recognizes string as an extern subtype, matching `src/validate/match.mbt`. A non-null string `ref.test extern` must not fold to false; `optimize_casts_audit_test.mbt` exercises the dispatcher with a valid raw module.
