@@ -24626,15 +24626,19 @@ fn OiArrayStorageDefaultValueFact::from_value(
       }
     @lib.ValType::NumTypeValType(@lib.NumType::F32NumType) =>
       match value.op {
-        @ir.HotOp::Const if @ir.hot_const_get(func, value.imm0) ==
-          @ir.HotConstPayload::f32_const(@lib.F32(0.0)) =>
+        @ir.HotOp::Const if pass_hot_const_bits_equal(
+          @ir.hot_const_get(func, value.imm0),
+          @ir.HotConstPayload::f32_const(@lib.F32(0.0)),
+        ) =>
           ArrayStorageF32ZeroDefault
         _ => ArrayStorageNonDefault
       }
     @lib.ValType::NumTypeValType(@lib.NumType::F64NumType) =>
       match value.op {
-        @ir.HotOp::Const if @ir.hot_const_get(func, value.imm0) ==
-          @ir.HotConstPayload::f64_const(@lib.F64(0.0)) =>
+        @ir.HotOp::Const if pass_hot_const_bits_equal(
+          @ir.hot_const_get(func, value.imm0),
+          @ir.HotConstPayload::f64_const(@lib.F64(0.0)),
+        ) =>
           ArrayStorageF64ZeroDefault
         _ => ArrayStorageNonDefault
       }
