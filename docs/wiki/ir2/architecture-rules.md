@@ -1069,3 +1069,9 @@ Runtime global facts stop at conditional reference branches, including descripto
 ### Simplify-globals return-guard continuations
 
 Compare/select/block cleanup commits a return-erasing match only when a function-root guard is followed solely by a disposable constant/drop/nop tail. A child-region end does not prove a function return redundant. Candidate output is rolled back when this proof fails. The expanded return audit covers both an observable suffix in the same region and a suffix after an enclosing block.
+
+### Precompute must optimize the given program
+
+The audit supersedes the former raw TLSF/stale-loop repair heuristics. A valid resetting loop must not become a counting loop; a one-argument typed loop must not consume two arguments; allocator-shaped constants do not authorize invented local writes. The three intent-inference helpers and their special raw admission path are removed. Ordinary constant folding and valid control cleanup remain.
+
+The direct raw typed-loop and reset-loop fixtures reproduced their failures through the production raw rewriter. The memory-prologue helper failed when invoked directly in the initial red campaign; its full raw-rewriter neighbor remained guarded by preceding normalization. Updated historical TLSF fixtures assert valid-input write contracts rather than guessed compiler intent. `precompute_audit_wbtest.mbt`, `precompute_test.mbt`, and `precompute_wbtest.mbt` retain those cases. Earlier allocator/artifact results remain historical evidence for their recorded source revisions, not proof that arbitrary input repair was semantics-preserving.

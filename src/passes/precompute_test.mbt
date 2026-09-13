@@ -1736,7 +1736,7 @@ test "precompute folds nested exact i32 bit-arithmetic to a single const" {
 }
 
 ///|
-test "precompute repairs stale MoonBit tlsf init dropped counter increments" {
+test "precompute preserves TLSF shaped explicit resetting loops" {
   let source =
     #|(module
     #|  (func (local i32 i32)
@@ -1769,15 +1769,18 @@ test "precompute repairs stale MoonBit tlsf init dropped counter increments" {
     #|)
   let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected tlsf counter repair success, got \{err}")
+    Err(err) => fail("expected valid loop optimization, got \{err}")
   }
 
-  let text = optimized.to_string()
-  assert_false(text.contains("Drop"), msg=text)
+  let body = audit_body(optimized)
+  @debug.assert_eq(
+    audit_count(body, fn(i) { i is @lib.LocalSet(_) || i is @lib.LocalTee(_) }),
+    2,
+  )
 }
 
 ///|
-test "precompute repairs stale MoonBit tlsf memory prologue and counters" {
+test "precompute preserves TLSF shaped memory prologue local writes" {
   let source =
     #|(module
     #|  (memory 1)
@@ -1828,13 +1831,19 @@ test "precompute repairs stale MoonBit tlsf memory prologue and counters" {
     #|)
   let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected tlsf prologue repair success, got \{err}")
+    Err(err) => fail("expected valid prologue optimization, got \{err}")
   }
 
-  let text = optimized.to_string()
-  assert_false(text.contains("LocalTee"), msg=text)
-  assert_true(text.contains("LocalSet"), msg=text)
-  assert_true(text.contains("I32LtS"), msg=text)
+  @debug.assert_eq(
+    audit_count(audit_body(optimized), fn(i) {
+      match i {
+        @lib.LocalSet(@lib.LocalIdx(3U | 4U))
+        | @lib.LocalTee(@lib.LocalIdx(3U | 4U)) => true
+        _ => false
+      }
+    }),
+    0,
+  )
 }
 
 ///|

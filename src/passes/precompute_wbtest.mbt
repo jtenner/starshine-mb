@@ -85,7 +85,7 @@ test "precompute propagate marks result-if tee writes unsafe" {
 }
 
 ///|
-test "precompute raw tlsf prologue repair produces valid lowered function" {
+test "precompute raw TLSF shaped prologue preserves declared writes" {
   let source =
     #|(module
     #|  (memory 1)
@@ -139,17 +139,16 @@ test "precompute raw tlsf prologue repair produces valid lowered function" {
     Some(@lib.CodeSec(defs)) => defs[0]
     None => fail("expected code section")
   }
-  let (rewritten, changed, reason) = match precompute_run_raw_func(func, None) {
-    Some(result) => result
-    None => fail("expected raw tlsf rewrite result")
-  }
-  assert_true(changed, msg=reason)
-  let candidate = mod_.with_code_sec(@lib.CodeSec::new([rewritten]))
-  match @validate.validate_module(candidate) {
-    Ok(_) => ()
-    Err(err) =>
-      fail("expected valid raw tlsf rewrite, got \{err}; mod=\{candidate}")
-  }
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (rewritten, _) = precompute_raw_rewrite_instrs(body, None)
+  let candidate = mod_.with_code_sec(
+    @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(rewritten))]),
+  )
+  assert_true(@validate.validate_module(candidate) is Ok(_))
+  let written = Array::make(5, false)
+  precompute_raw_mark_written_locals(rewritten, written)
+  assert_false(written[3])
+  assert_false(written[4])
 }
 
 ///|
