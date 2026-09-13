@@ -1524,3 +1524,11 @@ drops of a terminating loop's declared results. Dynamic non-fallthrough does
 not erase the loop's declared result signature from the surrounding validation
 stack. The [loop regression](../../../src/passes/constraint_lower_campaign_wbtest.mbt)
 checks that stack closure directly, in addition to module validation.
+
+### Exceptional local facts
+
+HOT RSE clears normal-body value facts before entering a legacy catch handler
+and treats the handler as a separately reachable path. A throw before the last
+normal assignment cannot justify deleting the handler's matching assignment.
+The [catch regression](../../../src/passes/rse_campaign_test.mbt) checks that
+required write in the transformed HOT region.

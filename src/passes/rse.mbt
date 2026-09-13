@@ -440,7 +440,15 @@ fn rse_visit_control(
             @ir.hot_region_body_ref(func, node_id),
           )
           match @ir.hot_region_catch_ref(func, node_id) {
-            Some(catch_ref) => rse_visit_region(ctx, func, state, catch_ref)
+            Some(catch_ref) => {
+              // A handler can run before any normal-body write. Its entry
+              // cannot inherit the normal exit's values or reachability.
+              rse_clear_all_local_values(state)
+              state.reachable = true
+              rse_visit_region(ctx, func, state, catch_ref)
+              // Normal completion remains possible even when the catch exits.
+              state.reachable = true
+            }
             None => ()
           }
         }
