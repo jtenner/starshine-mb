@@ -327,7 +327,20 @@ fn oc_replace_with_const_i32(
   node_id : Int,
   value : Int,
 ) -> Unit {
-  let temp = @ir.hot_build_const_i32(func, @lib.I32(value))
+  let roots : Array[Int] = []
+  for child in oc_node_children(func, node_id) {
+    let pure_read = match @ir.hot_node_get(func, child).op {
+      @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet
+      | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => true
+      _ => @ir.effects_is_pure(@ir.effects_for_node(func, child)) &&
+        !@ir.hot_may_trap(func, child)
+    }
+    if !pure_read { roots.push(@ir.hot_build_drop(func, child)) }
+  }
+  roots.push(@ir.hot_build_const_i32(func, @lib.I32(value)))
+  let temp = if roots.length() == 1 { roots[0] } else {
+    @ir.hot_build_block(func, @lib.BlockType::val_type(@lib.ValType::i32()), roots)
+  }
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_delete_node(func, temp)
   pass_replace_node(ctx, func, node_id, replacement)
