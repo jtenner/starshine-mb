@@ -80731,6 +80731,11 @@ fn run_hot_pipeline_apply_hot_pass(
     }
     None => current_mod
   }
+  let next_mod = if descriptor.name == "redundant-set-elimination" {
+    rse_canonicalize_plain_signatures(next_mod)
+  } else {
+    next_mod
+  }
   if descriptor.name == "redundant-set-elimination" {
     perf_stop_timer_opt(
       options.perf,

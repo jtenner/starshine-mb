@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-05
+last_reviewed: 2026-09-13
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -68,3 +68,17 @@ Latest dedicated-profile evidence:
 ## Paired `rse -> vacuum` boundary
 
 The dedicated profile intentionally contains `rse-vacuum-tail` cases because Binaryen often relies on following cleanup to erase debris exposed by same-value set removal. Direct `--pass rse` is green on those cases. Direct `--pass rse --pass vacuum` still exposes inherited Starshine/Binaryen `vacuum` representation/cleanup differences for live local-set debris. Do not close that lane by adding generic dead-store elimination to `rse`; RSE's contract remains same-value local shell removal plus strict-subtype equivalent-local retargeting.
+
+
+## September 13 plain-signature parity cleanup
+
+The exception template retained duplicate input `() -> ()` types for its tag
+and function, costing three raw bytes and obscuring the one-byte nop saving.
+RSE now interns duplicate plain function signatures at module writeback using
+the existing DFE remapper. A failing-first encoded fixture verifies one type,
+remapped tag/function references, valid output, and the reduced byte count.
+The whole type section must contain singleton function types without concrete
+reference types, supertype links, or descriptors. Grouped/GC/indexed-reference
+sections remain untouched, and unrelated unused types are not pruned.
+See the [follow-up ledger](../../../ir2/architecture-rules.md#september-13-parity-follow-up)
+for final aggregate evidence and preserved historical results.

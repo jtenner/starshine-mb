@@ -3125,3 +3125,15 @@ fn rse_run_raw_func(
     (func, false)
   }
 }
+
+///|
+fn rse_canonicalize_plain_signatures(mod_ : @lib.Module) -> @lib.Module {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(types)) if types.length() > 1 &&
+      types.all(dfe_rec_type_is_unused_suffix_prune_candidate) =>
+      // Reuse structural function signatures only. Recursive, GC, indexed-ref,
+      // descriptor and supertype identities are outside this cleanup contract.
+      dfe_canonicalize_duplicate_simple_type_indices(mod_)
+    _ => mod_
+  }
+}
