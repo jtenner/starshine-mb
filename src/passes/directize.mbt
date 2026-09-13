@@ -37,6 +37,7 @@ priv struct DirectizeBlockSignature {
 priv struct DirectizeInfo {
   env : @validate.Env
   func_types : Array[@lib.TypeIdx]
+  imported_func_count : Int
   tables : Array[DirectizeTableInfo]
   base_type_count : Int
   block_signatures : Array[DirectizeBlockSignature]
@@ -516,6 +517,7 @@ fn directize_build_info(mod_ : @lib.Module) -> DirectizeInfo {
   {
     env: @validate.Env::new().with_module(mod_),
     func_types: directize_func_types(mod_),
+    imported_func_count: directize_imported_func_count(mod_),
     tables,
     base_type_count: directize_type_count(mod_),
     block_signatures: directize_block_signatures(mod_),
@@ -561,6 +563,10 @@ fn directize_classify_func(
 ) -> DirectizeTarget {
   if directize_func_type_matches(info, func_idx, call_type) {
     DirectizeKnown(func_idx)
+  } else if directize_func_slot(func_idx) < info.imported_func_count {
+    // The imported function address may carry a runtime subtype of its
+    // declared import type. Retain the dynamic check when it matters.
+    DirectizeUnknown
   } else {
     DirectizeTrap
   }

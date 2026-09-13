@@ -1265,7 +1265,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `coalesce-cursor` | coalesce-locals | Dead accesses do not consume live action ordinals | Repaired; focused regression green |
 | `heap-casts` | heap2local | Scalar reads preserve potentially failing casts | Repaired; focused regression green |
 | `heap-descriptors` | heap2local | Descriptor extraction preserves nullable traps | Repaired; focused regression green |
-| `directize-import` | directize | Imported runtime subtypes cannot become unconditional traps | Red; repair pending |
+| `directize-import` | directize | Imported runtime subtypes cannot become unconditional traps | Repaired; focused regression green |
 | `casts-effects` | optimize-casts | Folded tests retain operand evaluation | Repaired; focused regression green |
 | `casts-shared` | optimize-casts | Shared exact references match shared abstract supertypes | Repaired; focused regression green |
 | `casts-continuations` | optimize-casts | Continuation subtype families can overlap | Repaired; focused regression green |
