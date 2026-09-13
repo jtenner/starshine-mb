@@ -993,3 +993,7 @@ Resume instructions can return normally, so inlining must retain their reachable
 ### Name removal and continuation owners
 
 Direct HOT name removal includes continuation handler labels in owner-use checks and retargets them when merging controls. `remove_unused_names_audit_wbtest.mbt` checks both operations on a validated continuation fixture. The dispatcher's existing stack-switching admission restriction remains separate from this helper correctness requirement.
+
+### Trapping table initializer roots
+
+Remove-unused-module-elements roots tables whose descriptor initializer may trap, alongside globals and element initializers. This preserves observable instantiation failure even when no function reads the table. The explicit traps-never-happen option still controls this policy. `remove_unused_module_elements_audit_test.mbt` validates the table fixture and checks retention through the dispatcher.

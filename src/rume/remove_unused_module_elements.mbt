@@ -2765,9 +2765,31 @@ fn rume_mark_trapping_initializers(
   mod_ : @lib.Module,
   queue : Array[RumeItem],
   used_globals : @bitset.BitSet,
+  used_tables : @bitset.BitSet,
+  queued_tables : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   decl_only_elems : @bitset.BitSet,
 ) -> Unit {
+  let table_imports = rume_imported_table_count(mod_)
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for idx = 0; idx < tables.length(); idx = idx + 1 {
+        let @lib.Table(_, init) = tables[idx]
+        match init {
+          Some(expr) =>
+            if rume_expr_may_trap_descriptor(mod_, expr) {
+              rume_mark_table(
+                queue,
+                used_tables,
+                queued_tables,
+                @lib.TableIdx::new((table_imports + idx).reinterpret_as_uint()),
+              )
+            }
+          None => ()
+        }
+      }
+    None => ()
+  }
   let global_imports = rume_imported_global_count(mod_)
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => {
@@ -3200,7 +3222,13 @@ fn rume_collect_liveness_with_import_parent_policy(
   )
   if !traps_never_happen {
     rume_mark_trapping_initializers(
-      mod_, queue, used_globals, used_elems, decl_only_elems,
+      mod_,
+      queue,
+      used_globals,
+      used_tables,
+      analysis.queued_tables,
+      used_elems,
+      decl_only_elems,
     )
   }
 
