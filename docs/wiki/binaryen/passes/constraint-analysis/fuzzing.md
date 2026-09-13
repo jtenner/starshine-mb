@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-11
+last_reviewed: 2026-09-13
 sources:
+  - ../../../ir2/architecture-rules.md
   - ../../../../../src/validate/gen_valid_constraint.mbt
   - ../../../../../src/validate/gen_valid_constraint_wbtest.mbt
   - ../../../../../src/passes/constraint_analysis_wbtest.mbt
@@ -110,3 +111,14 @@ previous capture-related canonical size losses are now smaller than Binaryen.
 The 61 remaining canonical `+2` loop cases retain the measured raw-size and
 local-operation win described above. Reports record the actual runtime host and
 a 10-second worker budget; see the [upgrade ledger](../../../raw/binaryen/2026-09-10-v132-validation.json).
+
+### September 13 parity cleanup
+
+The [parity follow-up](../../../ir2/architecture-rules.md#september-13-parity-follow-up)
+removes redundant terminating-loop closure, function-exit local roundtrips,
+and zero-parameter branch-free block shells. Preserved-byte regressions cover
+single, stacked, and touched dispatch; explicit guards retain branch targets,
+block parameters, and nested observable local writes. This supersedes the
+61-case canonical loop-size exception above: the compact parameter loops now
+also have smaller canonical output. The follow-up ledger records the fresh
+10,000-case aggregate, exact binaries, runtime evidence, and size judgments.

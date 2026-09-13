@@ -17,9 +17,12 @@
   recursive-group construction so safe signature pruning need not be declined.
   Retain the second audit's unsampled output families and dropped-null type
   widening as parity work; smaller surrounding code alone does not close them.
-  The September 13 campaign adds 477 ConstraintAnalysis loop size losses
-  (+954 canonical bytes); retain its unsampled residual differences as open
-  parity work. Independent validation of 449 relaxed-atomic inputs per
+  The September 13 [parity follow-up](docs/wiki/ir2/architecture-rules.md#september-13-parity-follow-up)
+  closes its 477 ConstraintAnalysis loop losses and enumerated residual
+  families, including DFE raw encoding gaps: twelve atomic repairs, 21 new
+  bounded checks, 11,568 full wasm-gc tests, 235 native regressions and 61,083
+  final comparisons with no raw/canonical size losses or observed semantic
+  mismatches. Independent validation of 449 relaxed-atomic inputs per
   Precompute variant remains blocked by atomic ordering 2 support, despite
   successful separate Binaryen-validated comparisons.
 - **APIs / invariants:** preserve traps, operand order, local writes, lexical labels,

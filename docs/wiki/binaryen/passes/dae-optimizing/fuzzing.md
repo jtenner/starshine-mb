@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-12
+last_reviewed: 2026-09-13
 sources:
+  - ../../../ir2/architecture-rules.md
   - ../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md
   - ../../../raw/research/1653-2026-07-19-daeo-unified-call-facts-tail-boundaries-and-filtered-validation.md
   - ../../../raw/research/1652-2026-07-19-dae-incoming-liveness-written-constants-and-bottom-results.md
@@ -83,6 +84,20 @@ sources:
 ---
 
 # `dae-optimizing` Fuzzing Profile
+
+## September 13 touched-local cleanup
+
+The [parity follow-up](../../../ir2/architecture-rules.md#september-13-parity-follow-up)
+adds fixed-point unread-local cleanup to functions touched by the committed DAE
+boundary rewrite before the nested roster. Dead copies and scratch storage
+collapse while effectful/trapping producers stay in place. Explicit mutation
+flags avoid NaN equality as a convergence test; actual rewrites clear stale
+local-name metadata. Failing-first direct/pipeline and bounded NaN regressions
+cover the repair. The ledger records the fresh `dae-optimizing` 10,000-case
+aggregate with both required cleanup normalizers and original/Starshine/oracle
+runtime comparisons. Historical matrices below keep their original versions
+and artifact-specific open work.
+
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

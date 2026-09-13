@@ -1707,6 +1707,11 @@ oracle or enable the optional determinism/idempotence properties.
 
 ### September 13 residual-difference review
 
+This is the original campaign checkpoint. The
+[parity follow-up](#september-13-parity-follow-up) below supersedes its open
+classifications for the enumerated September 13 families while preserving
+these original measurements and the independent-validator limit.
+
 The following classifications are agent judgments, not harness conclusions:
 
 - **Size-losing parity gap:** 477 ConstraintAnalysis `constraint-loops` cases
@@ -1742,7 +1747,14 @@ their original versions, source checkpoints and results.
 
 ### September 13 parity follow-up
 
-The follow-up red phase adds three failing cleanup checks: a terminating
+Final outcome: twelve atomic repairs and twenty-one bounded regression/guard
+tests close this campaign's enumerated parity gaps. All 11,568 source tests
+and 235 native regressions pass. The 61,083 final-source comparisons complete
+with no raw/canonical size losses or observed semantic mismatches.
+The [final matrix](#final-source-parity-comparison-matrix) records the 898
+known original-runtime blocks and the limits of the evidence.
+
+The initial follow-up red phase added three failing cleanup checks: a terminating
 result-loop tail and two DAE touched-caller local-debris cases. Two agents
 researched residual families and drafted DAE tests; only the head agent ran
 compilers and changed implementations.
@@ -1836,3 +1848,313 @@ explicit mutation flags and also handles unchanged dispatch. Both positive
 fixtures pass through all three dispatch paths; source review found no label
 remapping or stack-typing issue. Newly created type indices unavailable to the
 raw environment conservatively leave their blocks unchanged.
+
+ConstraintAnalysis's remaining canonical differences in the enumerated generated
+profiles follow the proven folds below. The
+[generated families](../../../src/validate/gen_valid_constraint.mbt) exercise
+integer/i64 width-correct comparisons, swapped relations, modular wraparound,
+nonzero joins, tee updates, Boolean edge facts, unreachable predecessors, and
+converged loop-exit facts. Their
+[existing tests](../../../src/passes/constraint_analysis_wbtest.mbt) cover those
+identities and ordered effects. The
+[implementation](../../../src/passes/constraint_analysis.mbt) replays only
+converged reachable states, rejects conflicting proofs on shared nodes, and
+removes a physical control slot only when all represented CFG occurrences are
+dead. `ca_preserve_evaluation` retains required operand evaluation in order.
+These contracts, together with per-family size deltas and runtime comparisons,
+support the final Starshine-win judgments.
+
+Checkpoint `59379231e`, before the later RSE/Precompute cleanup, passes **11,556/11,556** full wasm-gc tests
+and **235/235** native runtime regressions (642 assertions). By that checkpoint, the follow-up had added
+nine bounded tests: seven failing-first cleanup/convergence checks and two
+intentional exclusion guards. `moon info`, `moon fmt`, and the release native
+CLI build pass without public `.mbti` changes. The two ConstraintAnalysis repairs leading to this checkpoint are
+`8b6ca05f7` (terminal locals) and `59379231e` (branch-free block shells).
+
+That checkpoint's native CLI SHA-256 is
+`8f4a4cf159fe2af34ada9e58f5549e40a28d214a98aed3c1f907e7e76223b964`;
+the unchanged prebuilt GenValid generator is
+`03cf42c03b8fd9e82e2839c235eea289ee04a876ab291ac39d81145b2c5453cb`.
+The independently verified Binaryen **132** oracle remains
+`1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
+Its commands and binary identities are retained in `final-lanes.json`,
+`final-execution.json`, and `final-binaries.json` under the local evidence root.
+
+
+The subsequent raw-byte audit found two cleanup gaps hidden by canonical
+encoding. Commit `99416e681` interns duplicate plain RSE signatures, including
+tag/function references, with grouped and indexed-reference definitions
+excluded. Its preserved exception fixture first failed with two identical
+signatures; interning removes three bytes while keeping the tag and function
+on the same signature. Commit `5dd4080e8` applies the shared branch-free block
+cleanup to both Precompute variants, removing three-byte value-block shells.
+The local-facts and effectful-value fixtures first failed and then passed
+through single, stacked, and touched dispatch. The existing explicitly
+unsupported raw nested-empty-block label-owner case remains a no-op.
+
+Commit `7f757f342` addresses the GC-values template, which retained three
+unused array/struct types after folding:
+173 raw bytes versus Binaryen's 162, although canonical encodings already
+matched. Two additional failing-first regressions require exactly the two
+live types, remapped function signatures, and 162-byte output. Cleanup runs
+only after accepted Precompute writeback, using the shared DFE remapper for
+independent unshared singleton types and an explicit instruction allowlist
+checked across every module expression root. Encoded code equality avoids
+false changes from NaNs; acceptance requires whole-module validation and a
+strict encoded-size reduction. Unhandled proposals and recursive groups
+intentionally keep their declarations. The potentially trapping array
+operations remain in their original order. The generator has no exported
+functions here, so runtime observations for this template cover instantiation;
+the folding and retained-operation contracts are supported by the byte/IR
+fixtures and source review, not claimed execution of every function.
+
+
+The GC-type repair checkpoint `7f757f342` passes **11,563/11,563** full wasm-gc
+tests, adding sixteen bounded tests since the September 13 campaign baseline.
+`moon info` and `moon fmt` pass with no public `.mbti` changes. Those eight
+repairs are committed separately; red-phase and complete suite logs are
+retained under the local evidence root. The initial Precompute block-cleanup
+full run exposed the existing intentional nested-empty-block no-op boundary;
+that boundary was preserved and the unchanged full suite passed before the
+GC-type follow-up. Historical failing and intermediate runs remain separate
+from final signoff.
+
+
+A final source review of the RSE interner found that its shared DFE remapper
+skipped legacy `try` regions. The direct structural regression first retained
+`TypeIdx(1)` after interning required `TypeIdx(0)`; public dispatch also failed
+before the repair. All four scanner/rewrite entrypoints now share traversal
+of the block type, body and every catch body, preserving catch order, tags and
+delegate labels. The regression then passed through both direct and public
+RSE dispatch. This does not broaden the intentionally limited Precompute
+GC-type cleanup, which still excludes legacy `try`.
+
+The `7f757f342` native checkpoint
+`6b85c1abdf25132d6c6b614882eeb8fcadf4c3fdc9f50da3c8a6f73b802db2d3`
+completed both `signoff-precompute*` lanes at 10,000 comparisons each, with zero
+raw/canonical size losses, validation/command failures, or semantic
+mismatches. Each passes 10,000 determinism and codec-idempotence checks;
+property modes and pass idempotence were not enabled. Each has 9,551 Node
+semantic matches and 449 known original-runtime
+blocks in `precompute-gc-atomic-boundary`; these are not execution successes.
+The coordinator was deliberately stopped between lanes after both child runs
+completed successfully so the next round could include the legacy traversal
+repair. `signoff-interruption.json` records that boundary; neither report is
+presented as final-source evidence.
+
+
+Commit `68824e869` completes the legacy traversal repair. That source
+checkpoint passes **11,564/11,564** full wasm-gc tests, **235/235** native
+runtime regressions (642 assertions), `moon info`, `moon fmt`, and the release
+native build, with no public `.mbti` changes. Nine separate repair commits add
+seventeen bounded tests over the campaign baseline. A dedicated checkpoint fuzz
+check varies duplicate type counts, nested block depth, constants, and normal
+versus throwing legacy-`try` paths: **128 valid inputs / 256 optimized outputs**
+from RSE and DFE all validate in Node and return their independently generated
+expected values. RSE exercises the repaired type traversal; DFE retains its
+existing intentional legacy-`try` module no-op boundary. Commands, fixtures and results are in `legacy-type-fuzz.py`
+and `legacy-type-fuzz/` under the evidence root.
+
+That checkpoint's native CLI SHA-256 is
+`e16be67f7f8f76a586257697eeb3c42c0f68fddff849231b835f7100b6d06e2d`.
+The generator and independently verified Binaryen 132 hashes above are
+unchanged. Its commands and binary identities are recorded in
+`complete-lanes.json` and `complete-binaries.json`;
+`complete-counts.json` summarizes per-family sizes and configured checks.
+
+
+The broader ordinary DFE lane at that checkpoint completed 10,000 comparisons:
+9,942 canonical matches and 58 differences consisting of inert else-arm nops
+(144 fewer canonical bytes). It also revealed **7,022 raw-size losses** with
+32,599 extra aggregate raw bytes. A paired raw case shows fragmented local
+runs, `[i64,i64,i32,i64]` versus grouped `[i64,i64,i64,i32]`; the unchanged
+canonical encodings had hidden this cost. The coordinator was stopped after
+that lane completed successfully, recorded in `complete-interruption.json`.
+
+A direct/public failing-first DFE fixture now requires numeric local grouping
+and correctly remapped reads and writes. Cleanup reuses the established
+numeric grouping helper after name stripping and type canonicalization;
+DFE's existing legacy-`try` boundary remains unchanged. Declaration-only
+change detection avoids float equality and skips extra encoding when no
+local order changed. A candidate must validate and reduce whole-module
+encoded size. A bounded 127/128-index guard rejects grouping when larger
+operand encodings outweigh the declaration saving. This additional encoding
+and validation work on changed layouts is an explicit performance cost.
+
+
+Commit `b525ba898` completes the DFE grouping repair. That repair source
+passes **11,566/11,566** full wasm-gc tests, **235/235** native runtime
+regressions (642 assertions), `moon info`, `moon fmt`, and the release native
+build. There are ten separate repair commits and nineteen new bounded tests;
+no public `.mbti` changed. That checkpoint's native CLI SHA-256 is
+`a4f5a7b6f648c486d87a60c234b6b46bcc8490b43e50494bf1b60c517975813b`.
+
+That binary renews the legacy-type lane and passes an additional 128-case
+DFE local-grouping lane with varying interleaved types, parameters, indexed
+reads/writes and one/two-function modules. Together these cover **256 valid
+inputs / 384 pass outputs**, all returning independently generated expected
+values in Node. The legacy DFE cases deliberately preserve its existing
+module no-op boundary; RSE exercises the type remapper. The dedicated local
+lane exercises DFE grouping and parameter preservation. Every one of the
+58 ordinary-lane canonical differences was regenerated with the `b525ba898` checkpoint
+binary and verified to differ only by inert nops after canonical encoding;
+`dfe-all-nop-shapes/result.json` preserves the complete per-case review.
+
+Its aggregate commands and binary identities are in `verified-lanes.json`,
+`verified-execution.json`, and `verified-binaries.json`, with per-family counts
+in `verified-counts.json`. All native invocations use the explicit prebuilt
+binary, eight subprocesses at most per comparison lane, and verified Binaryen
+132. Long comparisons and fuzz variants remain outside the default suite.
+
+
+The `b525ba898` ordinary DFE sweep has zero canonical size losses and reduces
+raw-size losses from 7,022 to 877. The remaining inspected raw gap is an unused
+plain function signature; its five bytes exceed the surrounding nop savings.
+A further direct/public red fixture removes an unused prefix type while
+preserving and remapping live function and tag roots. Cleanup prunes only
+independent unshared singleton function signatures, requires fewer types,
+and accepts only a validated, strictly smaller encoded module. The established
+legacy-`try` no-op entry boundary remains unchanged.
+
+Grouping changed more modules, enabling the CLI's existing inert-nop encoding
+cleanup (`cmd_strip_nops_for_encoding` in
+[`src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt)). This explains the increase to
+6,753 canonical differences, each saving one to four bytes, at this checkpoint;
+all 20 retained canonical pairs differ only by inert nops. The original 58
+pairs were also checked completely as recorded above. The verified DFE and
+Precompute child lanes both finished successfully before the coordinator was
+stopped for the unused-signature repair; `verified-interruption.json` records
+that checkpoint boundary.
+
+
+Commit `2ef4aff39` completes unused-signature pruning. The new direct/public
+fixture first failed with three definitions instead of two. Three older
+remapping expectations were advanced to account for dead-type removal while
+retaining their block, concrete-reference and typed-select checks. Their
+initial failures remain in `full-dfe-unused-type-before-expectations.log`.
+That checkpoint passes **11,567/11,567** full wasm-gc tests, `moon info`, and
+`moon fmt`, with no public `.mbti` change. Eleven atomic repair commits add
+twenty bounded regression/guard tests over the September 13 campaign baseline.
+
+
+The `2ef4aff39` closeout matrix uses native CLI SHA-256
+`5d478a0146eb70063a2ed0d3009c7ab24467fa83cf88b1b6963011735d900fb1`.
+Its DFE lane completes all 10,000 comparisons with 2,989 canonical matches,
+7,011 smaller canonical outputs and **57 raw-size losses**. Read-only inspection
+of all 57 input type sections attributes their raw overhead exactly to duplicate
+live plain signatures after accounting for canonical nop savings. DFE's
+unchanged-function path had skipped signature interning. A new direct/public
+regression first fails with two types instead of one while retaining two
+distinct bodies; guarded cleanup now interns before pruning. The complete
+singleton/plain/unshared type guard, validation, strict encoded saving and
+legacy-exception boundary remain unchanged. All 20 retained canonical pairs
+at this checkpoint differ only by standalone inert nops; this is a sampled
+family review, not individual inspection of all 7,011 differences.
+
+
+Commit `e99caf604` completes the live-signature repair. Its new regression
+fails first with `2 != 1`, then passes through both direct and public dispatch.
+The complete suite exposed one prior test explicitly expecting duplicate
+signatures to remain; that expectation now checks the compacted type indices
+and both unchanged function bodies. The initial failure is preserved in
+`full-dfe-live-signatures-before-expectations.log`. All **11,568/11,568**
+wasm-gc tests, `moon info` and `moon fmt` pass with no public `.mbti` changes.
+The follow-up has twelve atomic repair commits and twenty-one new bounded
+regression/guard tests over the September 13 campaign baseline.
+
+The complete `2ef4aff39` checkpoint matrix finished **61,083 comparisons**,
+with zero canonical size losses or observed semantic mismatches; the 57 raw
+DFE losses above remain attributed to that binary. Its 898 known original
+runtime blocks are preserved separately. Exact commands, binary identities,
+exit statuses, timings and per-family counts remain in `closeout-lanes.json`,
+`closeout-binaries.json`, `closeout-execution.json` and `closeout-counts.json`.
+
+
+The final `e99caf604` release native CLI SHA-256 is
+`41b8ed8eeea7f99cffe874e5bd6d4b5f312c12a736a5f0fe27bbf8f38c6405b9`;
+the generator and verified Binaryen 132 hashes above remain unchanged.
+The release build and **235/235** native runtime regressions (642 assertions,
+17.97 seconds) pass. Three dedicated final-source checks cover **384
+valid inputs / 512 optimized outputs**, all validating and returning their
+independently generated expected values in Node. They renew the 128-input
+legacy-type traversal lane (RSE plus DFE's intentional legacy-module boundary),
+the 128-input DFE local/type-remapping lane, and add 128 DFE live-signature
+cases with 2–149 distinct exported functions, i32/i64 results and duplicate
+type indices crossing the 127/128 encoding boundary. In the live-signature
+lane, every exported function is called and each optimized module has exactly
+one interned signature. Final results
+and hashes are in `legacy-type-fuzz/result.json`,
+`dfe-local-type-group-fuzz/result.json` and `dfe-live-signature-fuzz/result.json`;
+the preceding checkpoint results remain under their `result-<commit>.json`
+names and archived compiler hashes.
+
+#### Final source parity comparison matrix
+
+All eight lanes completed successfully on `e99caf604` and the exact final
+native hash above, checked unchanged after the last run. This is scoped
+follow-up verification under the repository's 10,000-case aggregate rule,
+not a claim that every historical pass/backlog item is closed. Commands use
+seed `0x5eed`, explicit prebuilt Starshine and generator binaries, verified
+Binaryen 132, `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`.
+The final run adds `--no-reduce-mismatches`: original mismatch pairs remain
+retained, while reduction of the already classified shapes is not repeated.
+No external-generator lane was requested or run.
+
+| Pass / input lane | Requested = compared | Canonical match / smaller difference | Raw / canonical byte delta vs Binaryen | Semantic matches / blocks |
+| --- | ---: | ---: | ---: | --- |
+| `duplicate-function-elimination` / ordinary GenValid | 10,000 | 2,943 / 7,057 | -22,126 / -22,126 | off; dedicated checks above |
+| `precompute` / precompute-all | 10,000 | 3,238 / 6,762 | -6,762 / -6,762 | 9,551 / 449 |
+| `precompute-propagate` / precompute-all | 10,000 | 2,766 / 7,234 | -9,942 / -9,942 | 9,551 / 449 |
+| `redundant-set-elimination` / rse | 10,000 | 7,656 / 2,344 | -4,284 / -4,284 | 10,000 / 0 |
+| `constraint-analysis` / constraint-analysis | 10,000 | 4,254 / 5,746 | -32,214 / -28,681 | 10,000 / 0 |
+| `dae-optimizing` / dae-optimizing | 10,000 | 5,153 / 4,847 | -52,764 / -42,132 | 10,000 / 0 |
+| `optimize-instructions` / all 1,080 retained cases | 1,080 | 0 / 1,080 | -32,570 / -9,952 | 1,080 / 0 |
+| `simplify-globals-optimizing` / three fixed templates | 3 | 0 / 3 | -5 / -5 | 3 / 0 |
+
+Every row has **zero raw or canonical larger outputs**, validation failures,
+generator failures, command failures, or observed semantic mismatches. The
+six 10,000-case lanes pass **60,000 byte-determinism and 60,000 codec-idempotence
+checks**; these checks were not enabled for the two retained-case lanes.
+Other property modes and pass idempotence were not enabled. The DAE lane uses
+both `drop-consts` and `unreachable-control-debris` normalizers; it has zero
+additional cleanup-normalized matches. Ordinary DFE does not execute its large
+generated modules; the dedicated expected-result checks above cover the
+repaired remapping contracts.
+
+The configured semantic lanes report **50,185 matches and 898 blocks**.
+Each Precompute variant retains 449 original-runtime blocks for relaxed-atomic
+ordering 2, also unsupported by the independent wasm-tools validator. Their
+primary validator is the separately verified Binaryen 132 oracle. These are
+not runtime successes or independent-validator signoff. The GC-values template
+has no exported functions, so its runtime observation is instantiation only.
+The remaining lanes use wasm-tools as the primary validator.
+
+All **35,073 canonical differences** are smaller. Their Starshine-win
+classification is an agent judgment supported by the enumerated transform
+contracts, inspected families, size measurements and available runtime
+observations above, not a harness claim or a conclusion from validation alone.
+Final DFE has no raw normalization overhead: its raw and canonical deltas are
+both -22,126 bytes. All 20 retained final DFE canonical pairs differ only by
+standalone inert nops, recorded in `final-source-dfe-shape-review.json`.
+That is a sampled family check; it does not imply individual inspection of
+all 7,057 DFE canonical differences. The existing CLI nop cleanup and the
+preserved function bodies explain these savings.
+
+The final matrix takes 358.69 seconds of coordinator wall time, including
+subprocess and comparison work; this is not a pass-local benchmark. Starshine
+outputs are recomputed on every case. The cache records **61,083 Binaryen hits
+/ 0 misses** and **51,083 hash-matched semantic hits / 0 misses**, with zero
+failure-cache hits or misses and no external-generator activity. The matrix
+reuses recorded runtime observations for identical output bytes; the 384-input
+expected-result checks and 235 native regressions above execute freshly on
+the rebuilt compiler. Added DFE encoding/validation costs remain explicit;
+no new large-artifact performance claim is made.
+
+Exact commands, checkpoint hashes, all eight zero exit statuses, timings,
+per-profile family counts, cache counters and case records are preserved in
+`final-source-lanes.json`, `final-source-binaries.json`,
+`final-source-execution.json`, `final-source-counts.json`,
+`final-source-totals.json` and each `final-source-*/cases.jsonl`/`result.json`
+under `.tmp/parity-followup-20260913/`. Earlier checkpoint results retain their
+original binaries and gap counts. The active backlog keeps the independent
+atomic-validator limit and unrelated older campaign/artifact gaps visible.
