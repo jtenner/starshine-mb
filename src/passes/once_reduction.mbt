@@ -454,6 +454,7 @@ fn or_analyze_instrs_flow(
         }
       }
       @lib.If(_, then_body, else_body) => {
+        branch_states.push(None)
         let then_fallthrough = or_analyze_instrs_flow(
           then_body, current, env, branch_states, normal_exits,
         )
@@ -467,7 +468,10 @@ fn or_analyze_instrs_flow(
         // Preserve Binaryen's conservative post-if policy: optimize inside
         // each arm and record branches to surrounding labels, but do not learn
         // new once facts from the arm merge.
-        if then_fallthrough is None && else_fallthrough is None {
+        let local_exits = branch_states.pop().unwrap()
+        if then_fallthrough is None &&
+          else_fallthrough is None &&
+          local_exits is None {
           return None
         }
       }
@@ -588,15 +592,16 @@ fn or_analyze_instrs(
     once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
     allow_transitive_call_summaries,
   )
+  let branch_states : Array[@bitset.BitSet?] = [None]
   let normal_exits : Array[@bitset.BitSet?] = [None]
   let fallthrough = or_analyze_instrs_flow(
-    instrs,
-    incoming,
-    env,
-    [],
-    normal_exits,
+    instrs, incoming, env, branch_states, normal_exits,
   )
-  match or_merge_must_states(fallthrough, normal_exits[0]) {
+  match
+    or_merge_must_states(
+      or_merge_must_states(fallthrough, branch_states[0]),
+      normal_exits[0],
+    ) {
     Some(summary) => summary
     None => or_bool_array_copy(incoming)
   }
@@ -626,6 +631,7 @@ fn or_rewrite_instrs_flow(
         }
       }
       @lib.If(block_type, then_body, else_body) => {
+        branch_states.push(None)
         let then_fallthrough = or_rewrite_instrs_flow(
           then_body, current, env, branch_states, normal_exits,
         )
@@ -639,7 +645,10 @@ fn or_rewrite_instrs_flow(
         instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
         // Keep post-if facts at the incoming state, matching the analysis path
         // and Binaryen's intentionally conservative arm merge.
-        if then_fallthrough is None && else_fallthrough is None {
+        let local_exits = branch_states.pop().unwrap()
+        if then_fallthrough is None &&
+          else_fallthrough is None &&
+          local_exits is None {
           return None
         }
       }
@@ -791,15 +800,16 @@ fn or_rewrite_instrs(
     once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
     allow_transitive_call_summaries,
   )
+  let branch_states : Array[@bitset.BitSet?] = [None]
   let normal_exits : Array[@bitset.BitSet?] = [None]
   let fallthrough = or_rewrite_instrs_flow(
-    instrs,
-    incoming,
-    env,
-    [],
-    normal_exits,
+    instrs, incoming, env, branch_states, normal_exits,
   )
-  match or_merge_must_states(fallthrough, normal_exits[0]) {
+  match
+    or_merge_must_states(
+      or_merge_must_states(fallthrough, branch_states[0]),
+      normal_exits[0],
+    ) {
     Some(summary) => summary
     None => or_bool_array_copy(incoming)
   }

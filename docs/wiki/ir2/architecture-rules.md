@@ -1001,3 +1001,7 @@ Remove-unused-module-elements roots tables whose descriptor initializer may trap
 ### Once-reduction tail-call returns
 
 An already-executed once function's `return_call` becomes `return`, preserving the function exit inside nested controls. `once_reduction_audit_test.mbt` covers the observable post-block suffix; the existing root tail-call test still checks that dead writes are removed and now asserts the explicit return.
+
+### Once-reduction lexical branch scopes
+
+Both once analysis and rewriting push an if-label scope and retain local branch exits when deciding reachability. Their outermost scope represents the implicit function label and contributes to normal-return summaries. The audit's block-exit and implicit-function-return tests prevent facts from a skipped once call from leaking onto another path.
