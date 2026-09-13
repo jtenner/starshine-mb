@@ -130,3 +130,14 @@ instruction set across every module expression root. It requires an actual
 encoded code change, whole-module validation, and a strict encoded size win;
 grouped types and unhandled proposal instructions intentionally retain their
 original declarations. Potentially trapping array operations remain in place.
+
+
+### September 13 atomic runtime verification
+
+The [atomic follow-up](../../../ir2/architecture-rules.md#september-13-atomic-runtime-block-verification)
+confirms all 449 blocked records for this pass are repetitions of the same
+70-byte fixture. Fresh Starshine and Binaryen outputs are identical to the
+original bytes. Verified Binaryen 132 interpretation executes the preserved
+body plus callable packed atomic-read regressions. This closes optimizer
+uncertainty for the recorded family; Node and wasm-tools ordering-2 support
+remain separate limitations, and historical blocked reports are unchanged.

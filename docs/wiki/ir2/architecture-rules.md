@@ -2158,3 +2158,59 @@ per-profile family counts, cache counters and case records are preserved in
 under `.tmp/parity-followup-20260913/`. Earlier checkpoint results retain their
 original binaries and gap counts. The active backlog keeps the independent
 atomic-validator limit and unrelated older campaign/artifact gaps visible.
+
+
+### September 13 atomic runtime-block verification
+
+The 898 recorded blocks are **449 occurrences per Precompute variant of one
+identical 70-byte input**, SHA-256
+`4cb77b16171b81ee2b3adbf18bb8cb989ce4e86a8c8c8357ecb61d144f995683`.
+Its generator is `gen_valid_precompute_gc_atomic_body` in
+[`gen_valid.mbt`](../../../src/validate/gen_valid.mbt): three signed packed-i8
+struct atomic reads (sequentially consistent, acquire/release and relaxed),
+followed by an array allocation/read. The function takes an unshared struct
+reference; the generated module has no imports, exports or start function.
+
+Every saved record was replayed with the unchanged final compiler hash above
+and verified Binaryen 132, using four workers and fresh outputs. All **898
+Starshine outputs and 898 Binaryen outputs are byte-for-byte identical to
+their original inputs**. This directly establishes transformation equivalence
+for the entire blocked set without assuming unsupported Node execution.
+The unique original binary also instantiates in Binaryen 132's interpreter.
+
+The runtime limitation has two stages on Node `v26.8.2`: without flags it
+rejects opcode `0xfe5d` and suggests `--experimental-wasm-shared`; with that
+flag it still rejects `invalid memory ordering 2`. Enabling the flag alone
+does not resolve the block. The historical Node observations and wasm-tools
+input-validation failures remain unchanged.
+
+For actual execution, a binary wrapper appends a type, function and export
+while preserving all original type indices and the complete original function
+body bytes. The verified Binaryen interpreter calls that body for **13 packed
+integer boundary values**, and all return the independently expected `42`.
+The bounded permanent
+[atomic execution regressions](../../../tests/optimizer/regressions/precompute-atomic-execution.test.ts)
+add callable signed/unsigned readers for all three orderings. They check
+13 values against independently computed packed-i8 results and execute the
+boundary body, on original, Starshine and Binaryen modules for each pass:
+**546 successful WAST return assertions** across six module executions.
+Both new tests and the full **237/237 native regression suite** pass
+(654 Bun assertions, 18.86 seconds). Compiler source and public APIs are unchanged.
+
+The alternate `wasm-shell` is verified as version 132, SHA-256
+`4a9affc9e6089c6a4ac5c5591198bf44a94b54492b332a68edb424eefe514108`;
+`wasm-as` is version 132, SHA-256
+`fd919adfd7fb58503e4687ab68e487b03c6e049238b4edffcbd61a4cf08c78e8`.
+The Starshine and `wasm-opt` hashes match the final matrix above. Exact replay
+commands, all 898 record identities/output hashes, Node probes and interpreter
+fixtures/logs are under `.tmp/atomic-verification-20260913/`, particularly
+`verify-blocked.py`, `result.json`, `exact-body-callable.wast`,
+`regression.log` and `full-runtime-regressions.log`.
+
+This closes the optimizer-equivalence uncertainty for these exact 898 records
+and adds explicit alternate-engine execution evidence. It does not turn the
+original Node blocks into passes, establish wasm-tools support for ordering 2,
+or test concurrent inter-thread memory ordering. The interpreter is from the
+same verified Binaryen distribution as the optimizer oracle; the independent
+byte-identity evidence is therefore material, not a claim of a second
+unrelated engine. No compiler repair was required.

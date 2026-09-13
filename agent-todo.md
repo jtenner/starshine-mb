@@ -23,8 +23,13 @@
   bounded checks, 11,568 full wasm-gc tests, 235 native regressions and 61,083
   final comparisons with no raw/canonical size losses or observed semantic
   mismatches. Independent validation of 449 relaxed-atomic inputs per
-  Precompute variant remains blocked by atomic ordering 2 support, despite
-  successful separate Binaryen-validated comparisons.
+  Precompute variant remains blocked by atomic ordering 2 support. The
+  [atomic runtime follow-up](docs/wiki/ir2/architecture-rules.md#september-13-atomic-runtime-block-verification)
+  closes optimizer-equivalence uncertainty for all 898 records: every fresh
+  Starshine/oracle output equals its original bytes, and verified Binaryen
+  interpreter checks execute the preserved body and packed atomic reads.
+  Node still rejects ordering 2 even with shared Wasm enabled; retain that
+  engine/independent-validator capability limit separately.
 - **APIs / invariants:** preserve traps, operand order, local writes, lexical labels,
   and imported-tag alias priority. Keep original tool-blocked reports unchanged.
 - **Dependencies / exit:** compatible independent validation; red-first general
