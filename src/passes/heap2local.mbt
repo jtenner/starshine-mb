@@ -2758,6 +2758,8 @@ fn h2l_find_variant_candidate(
   module_ctx : @ir.HotModuleContext,
   use_def : @ir.HotUseDef,
   producer_user_node_id : Int,
+  cfg : @ir.HotCfg,
+  dom : @ir.HotDominators,
 ) -> H2LVariantCandidate? {
   let producer_field = match
     h2l_variant_struct_get_field(func, module_ctx, producer_user_node_id) {
@@ -2818,6 +2820,9 @@ fn h2l_find_variant_candidate(
   }
   let uses : Array[H2LVariantUse] = []
   for read_node_id in use_def.local_reads[owner_local] {
+    if !h2l_write_dominates_read(cfg, dom, tee_node_id, read_node_id) {
+      return None
+    }
     let (user_node_id, source_path) = match
       h2l_variant_forward_to_struct_get(func, use_def, read_node_id) {
       Some(value) => value
@@ -2931,6 +2936,8 @@ fn h2l_find_variant_local_candidate(
   module_ctx : @ir.HotModuleContext,
   use_def : @ir.HotUseDef,
   owner_local : Int,
+  cfg : @ir.HotCfg,
+  dom : @ir.HotDominators,
 ) -> H2LVariantLocalCandidate? {
   if owner_local < @ir.hot_param_count(func) {
     return None
@@ -2949,6 +2956,9 @@ fn h2l_find_variant_local_candidate(
   let fields : Array[H2LVariantField] = []
   let uses : Array[H2LVariantUse] = []
   for read_node_id in use_def.local_reads[owner_local] {
+    if !writes.any(fn(write) { h2l_write_dominates_read(cfg, dom, write, read_node_id) }) {
+      return None
+    }
     let (user_node_id, source_path) = match
       h2l_variant_forward_to_struct_get(func, use_def, read_node_id) {
       Some(value) => value
@@ -3310,7 +3320,7 @@ pub fn heap2local_run(
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
     match
-      h2l_find_variant_local_candidate(func, module_ctx, use_def, local_id) {
+      h2l_find_variant_local_candidate(func, module_ctx, use_def, local_id, cfg, dom) {
       Some(candidate) => {
         variant_local_candidates.push(candidate)
         variant_owner_locals.push(candidate.owner_local)
@@ -3320,7 +3330,7 @@ pub fn heap2local_run(
   }
   let original_node_count = @ir.hot_node_count(func)
   for node_id = 0; node_id < original_node_count; node_id = node_id + 1 {
-    match h2l_find_variant_candidate(func, module_ctx, use_def, node_id) {
+    match h2l_find_variant_candidate(func, module_ctx, use_def, node_id, cfg, dom) {
       Some(candidate) if !variant_owner_locals.contains(candidate.owner_local) => {
         variant_candidates.push(candidate)
         variant_owner_locals.push(candidate.owner_local)
