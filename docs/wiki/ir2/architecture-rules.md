@@ -1259,7 +1259,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `oi-block-exits` | optimize-instructions | Block ranges include exits in prefix operands | Red; repair pending |
 | `cse-float` | local-cse | Expression keys distinguish signed zero | Repaired; focused regression green |
 | `cse-nested-effects` | local-cse | Nested windows invalidate on memory and hidden writes | Repaired; focused regression green |
-| `untee-init` | untee | Unreachable tees retain nondefaultable initialization | Red; repair pending |
+| `untee-init` | untee | Unreachable tees retain nondefaultable initialization | Repaired; focused regression green |
 | `coalesce-ref-exits` | coalesce-locals | Reference branch destinations contribute liveness | Red; repair pending |
 | `coalesce-catches` | coalesce-locals | Exception destinations contribute liveness | Red; repair pending |
 | `coalesce-cursor` | coalesce-locals | Dead accesses do not consume live action ordinals | Red; repair pending |
