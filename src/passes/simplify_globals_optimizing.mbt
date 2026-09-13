@@ -9842,7 +9842,10 @@ fn sgo_final_cleanup_is_dropped_trivial_result_block(
   instr : @lib.Instruction,
 ) -> Bool {
   match instr {
-    @lib.Block(_, @lib.Expr(body)) =>
+    // An inline result type has no parameters. A type-index block may consume
+    // caller stack values, so removing it needs a signature proof unavailable
+    // to this context-free cleanup.
+    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) =>
       match body {
         [value, @lib.Br(label)] => {
           let @lib.LabelIdx(raw) = label

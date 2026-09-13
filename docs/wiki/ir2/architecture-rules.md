@@ -1508,3 +1508,11 @@ initializer movable. Exported globals remain observable roots; copying a fresh
 struct initializer into an alias global would split one identity into two.
 The [initializer regression](../../../src/passes/simplify_globals_optimizing_campaign_test.mbt)
 checks that the exported alias retains its `global.get`.
+
+### Dropped result blocks
+
+SGO's context-free final cleanup may erase a trivial dropped result block only
+when its inline result signature proves there are no block parameters. A
+parameterized block consumes caller stack values even if its body immediately
+branches. The [typed-block regression](../../../src/passes/simplify_globals_optimizing_campaign_wbtest.mbt)
+failed output validation before this restriction.
