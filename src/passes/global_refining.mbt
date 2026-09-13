@@ -317,6 +317,7 @@ priv struct GrNominalAncestryScratch {
   heap_work : Array[@lib.HeapType]
   candidates : Array[@lib.HeapType]
   abstract_fallbacks : Array[@lib.HeapType]
+  failed_ref_slots : @hashmap.HashMap[Int, Bool]
   stats : GrNominalAncestryStats
 }
 
@@ -332,6 +333,7 @@ fn GrNominalAncestryScratch::new(
     heap_work: [],
     candidates: [],
     abstract_fallbacks: [],
+    failed_ref_slots: @hashmap.new(),
     stats: {
       declared_subtype_queries: 0,
       visited_type_nodes: 0,
@@ -402,20 +404,22 @@ fn gr_append_unique_heaptype(
 fn gr_append_abs_heap_supertypes(
   out : Array[@lib.HeapType],
   abs : @lib.AbsHeapType,
+  shared? : Bool = false,
 ) -> Unit {
+  let make_heap = fn(abs) {
+    if shared {
+      @lib.HeapType::shared_abs(abs)
+    } else {
+      @lib.HeapType::abs(abs)
+    }
+  }
   match abs {
     @lib.I31AbsHeapType | @lib.StructAbsHeapType | @lib.ArrayAbsHeapType => {
-      gr_append_unique_heaptype(out, @lib.HeapType::abs(@lib.AbsHeapType::eq()))
-      gr_append_unique_heaptype(
-        out,
-        @lib.HeapType::abs(@lib.AbsHeapType::any()),
-      )
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::eq()))
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::any()))
     }
     @lib.EqAbsHeapType =>
-      gr_append_unique_heaptype(
-        out,
-        @lib.HeapType::abs(@lib.AbsHeapType::any()),
-      )
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::any()))
     _ => ()
   }
 }
@@ -424,40 +428,30 @@ fn gr_append_abs_heap_supertypes(
 fn gr_append_shape_heap_supertypes(
   out : Array[@lib.HeapType],
   comp_type : @lib.CompType,
+  shared? : Bool = false,
 ) -> Unit {
+  let make_heap = fn(abs) {
+    if shared {
+      @lib.HeapType::shared_abs(abs)
+    } else {
+      @lib.HeapType::abs(abs)
+    }
+  }
   match comp_type {
     @lib.StructCompType(_) => {
-      gr_append_unique_heaptype(
-        out,
-        @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
-      )
-      gr_append_unique_heaptype(out, @lib.HeapType::abs(@lib.AbsHeapType::eq()))
-      gr_append_unique_heaptype(
-        out,
-        @lib.HeapType::abs(@lib.AbsHeapType::any()),
-      )
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::struct_()))
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::eq()))
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::any()))
     }
     @lib.ArrayCompType(_) => {
-      gr_append_unique_heaptype(
-        out,
-        @lib.HeapType::abs(@lib.AbsHeapType::array()),
-      )
-      gr_append_unique_heaptype(out, @lib.HeapType::abs(@lib.AbsHeapType::eq()))
-      gr_append_unique_heaptype(
-        out,
-        @lib.HeapType::abs(@lib.AbsHeapType::any()),
-      )
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::array()))
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::eq()))
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::any()))
     }
     @lib.FuncCompType(_, _) =>
-      gr_append_unique_heaptype(
-        out,
-        @lib.HeapType::abs(@lib.AbsHeapType::func()),
-      )
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::func()))
     @lib.ContCompType(_) =>
-      gr_append_unique_heaptype(
-        out,
-        @lib.HeapType::abs(@lib.AbsHeapType::cont()),
-      )
+      gr_append_unique_heaptype(out, make_heap(@lib.AbsHeapType::cont()))
   }
 }
 
@@ -505,7 +499,12 @@ fn gr_collect_heaptype_candidates(
     match current {
       @lib.AbsHeapTypeHeapType(abs) =>
         gr_append_abs_heap_supertypes(scratch.abstract_fallbacks, abs)
-      @lib.SharedAbsHeapTypeHeapType(_) => ()
+      @lib.SharedAbsHeapTypeHeapType(abs) =>
+        gr_append_abs_heap_supertypes(
+          scratch.abstract_fallbacks,
+          abs,
+          shared=true,
+        )
       @lib.HeapType(type_idx) =>
         match env.resolve_subtype(type_idx) {
           Some(subtype) => {
@@ -515,6 +514,7 @@ fn gr_collect_heaptype_candidates(
             gr_append_shape_heap_supertypes(
               scratch.abstract_fallbacks,
               subtype.get_comptype(),
+              shared=subtype.metadata().is_shared(),
             )
           }
           None => ()
@@ -528,6 +528,7 @@ fn gr_collect_heaptype_candidates(
             gr_append_shape_heap_supertypes(
               scratch.abstract_fallbacks,
               subtype.get_comptype(),
+              shared=subtype.metadata().is_shared(),
             )
           }
           None => ()
@@ -784,7 +785,9 @@ fn gr_note_ref_type(
   env : @validate.Env,
   scratch : GrNominalAncestryScratch,
 ) -> Unit {
-  if slot < 0 || slot >= noted.length() {
+  if slot < 0 ||
+    slot >= noted.length() ||
+    scratch.failed_ref_slots.contains(slot) {
     return
   }
   match noted[slot] {
@@ -792,7 +795,10 @@ fn gr_note_ref_type(
     Some(current) =>
       match gr_join_reftypes(current, next, env, scratch) {
         Some(joined) => noted[slot] = Some(joined)
-        None => ()
+        None => {
+          noted[slot] = None
+          scratch.failed_ref_slots.set(slot, true)
+        }
       }
   }
 }

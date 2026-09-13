@@ -1021,3 +1021,7 @@ Try-table catch targets receive the incoming must-facts when the body may throw,
 A global excluded from singleton candidates still contributes allocations, including its final initializer instruction. Mutable globals, noncomparable declarations, and unrecognized constant values poison their allocated struct types. `global_struct_inference_audit_wbtest.mbt` checks this fact directly; the dispatcher field-read neighbor is separately guarded and did not reproduce a changed value.
 
 Table and element initializers also contribute allocations before any early return for absent globals. Two additional validated raw fixtures in `global_struct_inference_audit_wbtest.mbt` failed on missing poison facts, then passed after including these initializer roots.
+
+### Global reference joins
+
+Global-refining candidate collection preserves sharedness in abstract and concrete shape supertypes. A failed join rejects the entire observation slot permanently instead of retaining an earlier narrow fact. `global_refining_audit_wbtest.mbt` checks distinct shared struct/array observations and explicitly incompatible observation families, including a later observation that must not restart inference.

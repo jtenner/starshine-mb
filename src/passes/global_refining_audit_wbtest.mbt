@@ -32,3 +32,24 @@ test "audit global refining joins distinct shared heap observations" {
   assert_true(@validate.Match::matches(left, noted[0].unwrap(), env))
   assert_true(@validate.Match::matches(right, noted[0].unwrap(), env))
 }
+
+///|
+// Incompatible reference families are intentionally invalid observation sets.
+// A failed join must not keep an earlier narrow fact or restart later.
+test "audit global refining rejects incompatible observation sets" {
+  let env = @validate.Env::new()
+  let scratch = GrNominalAncestryScratch::new(env)
+  let noted : Array[@lib.RefType?] = [None]
+  let internal = @lib.RefType::new(
+    false,
+    @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+  )
+  let external = @lib.RefType::new(
+    false,
+    @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+  )
+  gr_note_ref_type(noted, 0, internal, env, scratch)
+  gr_note_ref_type(noted, 0, external, env, scratch)
+  gr_note_ref_type(noted, 0, internal, env, scratch)
+  assert_true(noted[0] is None)
+}
