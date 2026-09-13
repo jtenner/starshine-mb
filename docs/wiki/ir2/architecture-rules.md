@@ -1258,7 +1258,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `oi-remainder` | optimize-instructions | Signed remainder retains negative high bits | Red; repair pending |
 | `oi-block-exits` | optimize-instructions | Block ranges include exits in prefix operands | Red; repair pending |
 | `cse-float` | local-cse | Expression keys distinguish signed zero | Repaired; focused regression green |
-| `cse-nested-effects` | local-cse | Nested windows invalidate on memory and hidden writes | Red; repair pending |
+| `cse-nested-effects` | local-cse | Nested windows invalidate on memory and hidden writes | Repaired; focused regression green |
 | `untee-init` | untee | Unreachable tees retain nondefaultable initialization | Red; repair pending |
 | `coalesce-ref-exits` | coalesce-locals | Reference branch destinations contribute liveness | Red; repair pending |
 | `coalesce-catches` | coalesce-locals | Exception destinations contribute liveness | Red; repair pending |

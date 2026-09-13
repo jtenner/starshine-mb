@@ -2079,6 +2079,9 @@ fn lcse_raw_instr_slice_matches(
 ///|
 fn lcse_raw_instr_clears_nested_window(instr : @lib.Instruction) -> Bool {
   match instr {
+    // A nested control instruction can hide writes before the next replay.
+    @lib.Block(_, _) | @lib.Loop(_, _) | @lib.If(_, _, _)
+    | @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => true
     @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) => true
     @lib.Instruction::Call(_)
     | @lib.Instruction::CallIndirect(_, _)
@@ -2142,6 +2145,20 @@ fn lcse_raw_scan_nested_repeats(
       continue
     }
     match body[idx] {
+      @lib.MemoryGrow(_) =>
+        lcse_raw_filter_active_without_memory_or_size(exprs, active)
+      @lib.MemoryCopy(_, _) | @lib.MemoryFill(_) | @lib.MemoryInit(_, _) =>
+        lcse_raw_filter_active_without_memory(exprs, active)
+      @lib.StructSet(_, _) | @lib.ArraySet(_) | @lib.ArrayFill(_)
+      | @lib.ArrayCopy(_, _) | @lib.ArrayInitData(_, _)
+      | @lib.ArrayInitElem(_, _) =>
+        lcse_raw_filter_active_without_heap(exprs, active)
+      @lib.GlobalSet(_) | @lib.TableSet(_) | @lib.TableGrow(_)
+      | @lib.TableCopy(_, _) | @lib.TableFill(_) | @lib.TableInit(_, _)
+      | @lib.DataDrop(_) | @lib.ElemDrop(_) =>
+        lcse_raw_filter_active_local_only(exprs, active)
+      _ if lcse_raw_instr_is_allocation_or_string_effect(body[idx]) =>
+        lcse_raw_filter_active_local_only(exprs, active)
       @lib.Instruction::Call(call_idx) =>
         if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
           lcse_raw_filter_active_local_only(exprs, active)
