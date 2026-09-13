@@ -957,3 +957,9 @@ Local writes and string operations are not treated as reusable expression trees.
 A dropped call still clears the window when its call node is visited. The direct
 HOT audit retains both effectful calls; module dispatch retains its separate raw
 implementation.
+
+
+Raw CSE also includes tee destinations in expression-local dependencies. A
+repeated expression containing a tee cannot be replaced after another write to
+that destination, including the repeated tee itself. The bounded arithmetic
+tee fixture now preserves the final local value `1` instead of leaving `2`.

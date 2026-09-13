@@ -2546,7 +2546,10 @@ fn lcse_raw_rewrite_instrs(
           }
         }
         match instr {
-          @lib.Instruction::LocalGet(local_idx) => {
+          @lib.Instruction::LocalGet(local_idx)
+          | @lib.Instruction::LocalTee(local_idx) => {
+            // A tee's destination is also a dependency: replay must not erase
+            // its write after another assignment to that local.
             let local_id = cl_local_idx_raw(local_idx)
             if !reads_locals.contains(local_id) {
               reads_locals.push(local_id)
