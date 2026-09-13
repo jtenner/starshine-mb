@@ -54,6 +54,14 @@ The audit regression preserves both imports and distinct call targets for
 `("a", "b\0c")` and `("a\0b", "c")`; see
 `src/passes/duplicate_import_elimination_audit_test.mbt`.
 
+### Concrete function types
+
+Matching parameter/result lists alone does not establish interchangeable function
+references. Starshine requires mutual reference-type matching before merging;
+this preserves concrete subtype requirements of globals and other `ref.func`
+users while allowing equivalent function types. The parent/child regression in
+`duplicate_import_elimination_audit_test.mbt` verifies final-module validity.
+
 ## First-import-wins canonicalization
 
 Binaryen does not create a fresh merged import.

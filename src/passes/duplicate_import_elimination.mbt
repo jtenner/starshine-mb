@@ -7,6 +7,7 @@ pub fn die_summary() -> String {
 priv struct DieSeenImport {
   func_idx : Int
   func_type : @lib.FuncType
+  type_idx : @lib.TypeIdx
 }
 
 ///|
@@ -389,6 +390,7 @@ fn die_plan_remap(
     capacity=import_func_count * 2 + 1,
   )
   let ctx = @ir.hot_module_context_from_module(mod_)
+  let env = @validate.Env::new().with_module(mod_)
   let mut func_idx = 0
   let mut changed = false
   match mod_.import_sec {
@@ -401,15 +403,31 @@ fn die_plan_remap(
               Some(func_type) =>
                 match seen.get(key) {
                   Some(prev) =>
-                    if prev.func_type == func_type {
+                    if prev.func_type == func_type &&
+                      @validate.Match::matches(
+                        @lib.RefType::new(
+                          false,
+                          @lib.HeapType::new(prev.type_idx),
+                        ),
+                        @lib.RefType::new(false, @lib.HeapType::new(type_idx)),
+                        env,
+                      ) &&
+                      @validate.Match::matches(
+                        @lib.RefType::new(false, @lib.HeapType::new(type_idx)),
+                        @lib.RefType::new(
+                          false,
+                          @lib.HeapType::new(prev.type_idx),
+                        ),
+                        env,
+                      ) {
                       duplicate_import_funcs[func_idx] = true
                       canonical_import_func[func_idx] = prev.func_idx
                       removed_funcs[func_idx] = true
                       changed = true
                     } else {
-                      seen.set(key, { func_idx, func_type, })
+                      seen.set(key, { func_idx, func_type, type_idx, })
                     }
-                  None => seen.set(key, { func_idx, func_type, })
+                  None => seen.set(key, { func_idx, func_type, type_idx, })
                 }
               None => ()
             }
