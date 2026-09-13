@@ -1853,15 +1853,25 @@ fn h2l_ref_get_desc_replacement(func : @ir.HotFunc, alloc_node_id : Int) -> Int 
     )
   }
   let desc_node_id = @ir.hot_child_get(func, alloc_node_id, child_count - 1)
-  roots.push(desc_node_id)
+  let desc_result_type = @ir.hot_type_results(
+      func, @ir.hot_node_type(func, desc_node_id),
+    )[0]
+  let (checked_desc, checked_type) = match desc_result_type {
+    @lib.RefTypeValType(rt) if rt.is_nullable() => {
+      let checked_type = @lib.ValType::ref_type(@lib.RefType::new(
+        false, rt.get_heap_type(), exact=rt.is_exact(),
+      ))
+      let checked_desc = @ir.hot_build_unary(func, checked_type, desc_node_id)
+      @ir.hot_node_exact_instr_set(func, checked_desc, @lib.Instruction::ref_as_non_null())
+      (checked_desc, checked_type)
+    }
+    _ => (desc_node_id, desc_result_type)
+  }
+  roots.push(checked_desc)
   if roots.length() == 1 {
     roots[0]
   } else {
-    let desc_result_type = @ir.hot_type_results(
-        func,
-        @ir.hot_node_type(func, desc_node_id),
-      )[0]
-    @ir.hot_build_block(func, @lib.BlockType::val_type(desc_result_type), roots)
+    @ir.hot_build_block(func, @lib.BlockType::val_type(checked_type), roots)
   }
 }
 
