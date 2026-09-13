@@ -1254,7 +1254,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `once-guards` | once-reduction | Independent initial guard values and external setters | Red; repair pending |
 | `oi-array-zero` | optimize-instructions | Array defaults preserve negative zero | Repaired; focused regression green |
 | `oi-tree-zero` | optimize-instructions | Tree equality preserves floating constant bits | Repaired; focused regression green |
-| `oi-division` | optimize-instructions | Quotient bounds require divisor lower bounds | Red; repair pending |
+| `oi-division` | optimize-instructions | Quotient bounds require divisor lower bounds | Repaired; focused regression green |
 | `oi-remainder` | optimize-instructions | Signed remainder retains negative high bits | Red; repair pending |
 | `oi-block-exits` | optimize-instructions | Block ranges include exits in prefix operands | Red; repair pending |
 | `cse-float` | local-cse | Expression keys distinguish signed zero | Repaired; focused regression green |

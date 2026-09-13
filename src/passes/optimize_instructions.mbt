@@ -10003,18 +10003,16 @@ priv struct OiI64DivMaxBitsFact {
 ///|
 fn OiI32DivMaxBitsFact::from_bits(
   left_bits : Int,
-  right_bits : Int,
+  right_min_bits : Int,
 ) -> OiI32DivMaxBitsFact? {
-  // Binaryen v130 computes `leftBits - rightBits + 1`, then caps at leftBits.
-  // With unsigned C++ `Index`, the underflow case conservatively caps back to
-  // leftBits. Keep that conservative shape explicitly and avoid the zero-divisor
-  // trap case until Starshine has the effect/trap-preserving dropped-child path.
-  if right_bits == 0 {
+  // Divisor *minimum* bits bound the quotient. A maximum-bit count cannot
+  // exclude divisor 1; zero denotes a known trapping divisor.
+  if right_min_bits == 0 {
     None
-  } else if left_bits < right_bits {
+  } else if left_bits < right_min_bits {
     Some({ max_bits: left_bits, })
   } else {
-    let quotient_bits = left_bits - right_bits + 1
+    let quotient_bits = left_bits - right_min_bits + 1
     Some({
       max_bits: if quotient_bits < left_bits {
         quotient_bits
@@ -10028,16 +10026,16 @@ fn OiI32DivMaxBitsFact::from_bits(
 ///|
 fn OiI64DivMaxBitsFact::from_bits(
   left_bits : Int,
-  right_bits : Int,
+  right_min_bits : Int,
 ) -> OiI64DivMaxBitsFact? {
-  // Same Binaryen v130 division formula and zero-divisor trap boundary for the
-  // i64 lane.
-  if right_bits == 0 {
+  // Divisor *minimum* bits bound the quotient. A maximum-bit count cannot
+  // exclude divisor 1; zero denotes a known trapping divisor.
+  if right_min_bits == 0 {
     None
-  } else if left_bits < right_bits {
+  } else if left_bits < right_min_bits {
     Some({ max_bits: left_bits, })
   } else {
-    let quotient_bits = left_bits - right_bits + 1
+    let quotient_bits = left_bits - right_min_bits + 1
     Some({
       max_bits: if quotient_bits < left_bits {
         quotient_bits
@@ -10235,12 +10233,22 @@ fn OiI32ArithmeticMaxBitsFact::from_binary(
       Some(fact.max_bits)
     }
     @lib.Instruction::I32DivS | @lib.Instruction::I32DivU => {
-      let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
-        OiUnsignedMaxValueFact::i32_max_for_node(
-          func, dead, local_facts, rhs_id,
-        ),
+      let rhs_max = OiUnsignedMaxValueFact::i32_max_for_node(
+        func, dead, local_facts, rhs_id,
       )
-      match OiI32DivMaxBitsFact::from_bits(lhs_bits, rhs_bits) {
+      let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(rhs_max)
+      // Signed negative quotients have high bits set. Both operands must be
+      // nonnegative before an unsigned magnitude bound is useful.
+      if instr is @lib.Instruction::I32DivS &&
+        (lhs_bits == 32 || rhs_bits == 32) {
+        return None
+      }
+      let rhs_min_bits = match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(value)) =>
+          OiUnsignedMaxValueFact::i32_max_bits_or_unknown(Some(value))
+        None => 1
+      }
+      match OiI32DivMaxBitsFact::from_bits(lhs_bits, rhs_min_bits) {
         Some(fact) => Some(fact.max_bits)
         None => None
       }
@@ -10323,12 +10331,22 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
       Some(fact.max_bits)
     }
     @lib.Instruction::I64DivS | @lib.Instruction::I64DivU => {
-      let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
-        OiUnsignedMaxValueFact::i64_max_for_node(
-          func, dead, local_facts, rhs_id,
-        ),
+      let rhs_max = OiUnsignedMaxValueFact::i64_max_for_node(
+        func, dead, local_facts, rhs_id,
       )
-      match OiI64DivMaxBitsFact::from_bits(lhs_bits, rhs_bits) {
+      let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(rhs_max)
+      // Signed negative quotients have high bits set. Both operands must be
+      // nonnegative before an unsigned magnitude bound is useful.
+      if instr is @lib.Instruction::I64DivS &&
+        (lhs_bits == 64 || rhs_bits == 64) {
+        return None
+      }
+      let rhs_min_bits = match optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(value)) =>
+          OiUnsignedMaxValueFact::i64_max_bits_or_unknown(Some(value))
+        None => 1
+      }
+      match OiI64DivMaxBitsFact::from_bits(lhs_bits, rhs_min_bits) {
         Some(fact) => Some(fact.max_bits)
         None => None
       }
