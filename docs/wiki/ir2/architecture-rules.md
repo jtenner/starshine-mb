@@ -1806,3 +1806,20 @@ nested NaNs and now also exercises the terminating cleanup. The implementation
 uses explicit mutation flags, including child regions, rather than instruction
 equality. Actual rewrites clear stale local-name metadata; unchanged functions
 and modules retain their original values. All four follow-up tests pass.
+
+Source checkpoint `e023ad93b` passes **11,551/11,551** full wasm-gc tests after
+the NaN correction. `moon info` and `moon fmt` pass with no public `.mbti`
+changes. The three repair commits are `c070b1fda` (loop closure), `788d71107`
+(unread locals), and `e023ad93b` (explicit convergence tracking). The earlier
+11,550-test run remains evidence for its earlier checkpoint. The head agent
+serialized all compiler commands; the two agents performed source review and
+test drafting only.
+
+The subsequent ConstraintAnalysis sweep reduced the original 477 canonical
+loop losses to 61 parameter-loop cases. Their function-root terminal
+`local.set x; local.get x` can be removed: the producer's value already occupies
+the return stack and the final write is unobservable after function exit.
+The byte fixture first failed, then passed through single-pass, ordinary-stack,
+and touched-stack dispatch. Cleanup preserves declarations and loop parameters;
+nested writes and nonmatching indices are intentionally excluded. Unchanged HOT
+revisions now still receive this raw function-exit cleanup.

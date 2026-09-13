@@ -163,5 +163,29 @@ fn ca_lower_refinalize(
       _ => ()
     }
   }
-  @lib.Func::new(locals, @lib.Expr::new(body))
+  ca_lower_trim_terminal_local_roundtrip(
+    @lib.Func::new(locals, @lib.Expr::new(body)),
+  ).0
+}
+
+///|
+fn ca_lower_trim_terminal_local_roundtrip(
+  func : @lib.Func,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let length = body.length()
+  if length >= 2 {
+    match (body[length - 2], body[length - 1]) {
+      (@lib.LocalSet(write), @lib.LocalGet(read)) if write == read => {
+        // Only at function exit: nested regions may expose this write later.
+        // The producer stays on the stack and is evaluated exactly once.
+        let trimmed = body.copy()
+        ignore(trimmed.pop())
+        ignore(trimmed.pop())
+        return (@lib.Func::new(locals, @lib.Expr::new(trimmed)), true)
+      }
+      _ => ()
+    }
+  }
+  (func, false)
 }

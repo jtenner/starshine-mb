@@ -78961,10 +78961,16 @@ fn run_hot_pipeline_func(
           run_hot_pipeline_original_func(mod_, func_idx),
         )) &&
         !dce_requires_unchanged_lowering {
+        let original = run_hot_pipeline_original_func(mod_, func_idx)
+        let (output, changed) = if descriptor.name == "constraint-analysis" {
+          ca_lower_trim_terminal_local_roundtrip(original)
+        } else {
+          (original, false)
+        }
         return Ok({
           reason: "",
-          func: run_hot_pipeline_original_func(mod_, func_idx),
-          unchanged_original: true,
+          func: output,
+          unchanged_original: !changed,
           trace_skip_raw: false,
         })
       }
@@ -81089,6 +81095,21 @@ fn run_hot_pipeline_apply_hot_pass_stack(
           }
         }
         if @ir.hot_revision_current(func) == lifted_revision {
+          if descriptors.any(fn(d) { d.name == "constraint-analysis" }) {
+            let (output, changed) = ca_lower_trim_terminal_local_roundtrip(
+              defs[code_idx],
+            )
+            if changed {
+              match lowered {
+                Some(defs_copy) => defs_copy[code_idx] = output
+                None => {
+                  let defs_copy = defs.copy()
+                  defs_copy[code_idx] = output
+                  lowered = Some(defs_copy)
+                }
+              }
+            }
+          }
           continue
         }
         let lower_state = {
@@ -81124,6 +81145,13 @@ fn run_hot_pipeline_apply_hot_pass_stack(
               func_idx,
               current_mod,
             )
+        }
+        let lowered_func = if descriptors.any(fn(d) {
+            d.name == "constraint-analysis"
+          }) {
+          ca_lower_trim_terminal_local_roundtrip(lowered_func).0
+        } else {
+          lowered_func
         }
         perf_stop_timer_opt(options.perf, "lower", lower_start_us)
         if lower_state.type_sec_changed {
@@ -81296,6 +81324,21 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
           }
         }
         if @ir.hot_revision_current(func) == lifted_revision {
+          if descriptors.any(fn(d) { d.name == "constraint-analysis" }) {
+            let (output, changed) = ca_lower_trim_terminal_local_roundtrip(
+              defs[code_idx],
+            )
+            if changed {
+              match lowered {
+                Some(defs_copy) => defs_copy[code_idx] = output
+                None => {
+                  let defs_copy = defs.copy()
+                  defs_copy[code_idx] = output
+                  lowered = Some(defs_copy)
+                }
+              }
+            }
+          }
           continue
         }
         let final_descriptor = match last_descriptor {
@@ -81335,6 +81378,13 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
               func_idx,
               current_mod,
             )
+        }
+        let lowered_func = if descriptors.any(fn(d) {
+            d.name == "constraint-analysis"
+          }) {
+          ca_lower_trim_terminal_local_roundtrip(lowered_func).0
+        } else {
+          lowered_func
         }
         perf_stop_timer_opt(options.perf, "lower", lower_start_us)
         if lower_state.type_sec_changed {
