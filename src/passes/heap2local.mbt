@@ -2727,22 +2727,34 @@ fn h2l_variant_cast_path_is_nontrapping(
   else_alloc : Int,
   path : Array[Int],
 ) -> Bool {
-  let condition = h2l_i32_const_value(func, @ir.hot_child_get(func, if_node_id, 0))
+  let condition = h2l_i32_const_value(
+    func,
+    @ir.hot_child_get(func, if_node_id, 0),
+  )
   let allocations = match condition {
     Some(0) => [else_alloc]
     Some(_) => [then_alloc]
     None => [then_alloc, else_alloc]
   }
   for alloc in allocations {
-    let (alloc_type, _, _) = match h2l_supported_struct_new_fields(func, module_ctx, alloc) {
+    let (alloc_type, _, _) = match
+      h2l_supported_struct_new_fields(func, module_ctx, alloc) {
       Some(info) => info
       None => return false
     }
-    let source = @lib.RefType::new(false, @lib.HeapType::new(alloc_type), exact=true)
+    let source = @lib.RefType::new(
+      false,
+      @lib.HeapType::new(alloc_type),
+      exact=true,
+    )
     for node in path {
       match @ir.hot_node_exact_instr(func, node) {
         Some(@lib.RefCast(nullable, exact, heap_type)) =>
-          if !oc_ref_always_matches(module_ctx, source, oc_target_ref_type(nullable, exact, heap_type)) {
+          if !oc_ref_always_matches(
+              module_ctx,
+              source,
+              oc_target_ref_type(nullable, exact, heap_type),
+            ) {
             return false
           }
         _ => ()
@@ -2845,7 +2857,12 @@ fn h2l_find_variant_candidate(
   }
   for use_ in uses {
     if !h2l_variant_cast_path_is_nontrapping(
-        func, module_ctx, init_node_id, then_alloc_node_id, else_alloc_node_id, use_.source_path,
+        func,
+        module_ctx,
+        init_node_id,
+        then_alloc_node_id,
+        else_alloc_node_id,
+        use_.source_path,
       ) {
       return None
     }
@@ -2956,7 +2973,9 @@ fn h2l_find_variant_local_candidate(
   let fields : Array[H2LVariantField] = []
   let uses : Array[H2LVariantUse] = []
   for read_node_id in use_def.local_reads[owner_local] {
-    if !writes.any(fn(write) { h2l_write_dominates_read(cfg, dom, write, read_node_id) }) {
+    if !writes.any(fn(write) {
+        h2l_write_dominates_read(cfg, dom, write, read_node_id)
+      }) {
       return None
     }
     let (user_node_id, source_path) = match
@@ -2979,15 +2998,23 @@ fn h2l_find_variant_local_candidate(
   }
   for producer in producers {
     if !h2l_variant_cast_path_is_nontrapping(
-        func, module_ctx, producer.if_node_id, producer.then_alloc_node_id,
-        producer.else_alloc_node_id, producer.source_path,
+        func,
+        module_ctx,
+        producer.if_node_id,
+        producer.then_alloc_node_id,
+        producer.else_alloc_node_id,
+        producer.source_path,
       ) {
       return None
     }
     for use_ in uses {
       if !h2l_variant_cast_path_is_nontrapping(
-          func, module_ctx, producer.if_node_id, producer.then_alloc_node_id,
-          producer.else_alloc_node_id, use_.source_path,
+          func,
+          module_ctx,
+          producer.if_node_id,
+          producer.then_alloc_node_id,
+          producer.else_alloc_node_id,
+          use_.source_path,
         ) {
         return None
       }
@@ -3320,7 +3347,9 @@ pub fn heap2local_run(
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
     match
-      h2l_find_variant_local_candidate(func, module_ctx, use_def, local_id, cfg, dom) {
+      h2l_find_variant_local_candidate(
+        func, module_ctx, use_def, local_id, cfg, dom,
+      ) {
       Some(candidate) => {
         variant_local_candidates.push(candidate)
         variant_owner_locals.push(candidate.owner_local)
@@ -3330,7 +3359,8 @@ pub fn heap2local_run(
   }
   let original_node_count = @ir.hot_node_count(func)
   for node_id = 0; node_id < original_node_count; node_id = node_id + 1 {
-    match h2l_find_variant_candidate(func, module_ctx, use_def, node_id, cfg, dom) {
+    match
+      h2l_find_variant_candidate(func, module_ctx, use_def, node_id, cfg, dom) {
       Some(candidate) if !variant_owner_locals.contains(candidate.owner_local) => {
         variant_candidates.push(candidate)
         variant_owner_locals.push(candidate.owner_local)
