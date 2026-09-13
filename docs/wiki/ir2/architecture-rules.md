@@ -1566,3 +1566,13 @@ cover OptimizeCasts and the already-correct OptimizeInstructions path.
 The old exact-sibling unit fixture used two identical singleton subtype
 definitions. It now gives one sibling a field so the test actually checks
 distinct heaps; the new alias fixture retains equivalent definitions.
+
+### WTF-16 array ranges
+
+Both raw and HOT Precompute interpret `string.new_wtf16_array` operands as
+`array, start, exclusive_end`, consistent with the
+[string authoring contract](../wast/string-instruction-authoring.md). Bounds
+checks precede length subtraction. Nonzero and empty slices preserve their
+contents, while reversed ranges retain the trapping instruction. Three
+[range regressions](../../../src/passes/precompute_string_campaign_wbtest.mbt)
+failed before the repair, including the active pipeline through a HOT fixture.

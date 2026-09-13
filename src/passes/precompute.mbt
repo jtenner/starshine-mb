@@ -3053,10 +3053,13 @@ fn precompute_try_fold_fresh_string_new_wtf16(
     Some(@lib.I32(value)) => value
     None => return false
   }
-  let length = match
+  let end = match
     precompute_i32_exact_const(ctx, func, @ir.hot_child_get(func, node_id, 2)) {
     Some(@lib.I32(value)) => value
     None => return false
+  }
+  if start < 0 || end < start || end > count {
+    return false
   }
   let units : Array[Int] = []
   for slot = 0; slot < count; slot = slot + 1 {
@@ -3070,7 +3073,8 @@ fn precompute_try_fold_fresh_string_new_wtf16(
       None => return false
     }
   }
-  let bytes = match precompute_utf16_units_to_valid_utf8(units, start, length) {
+  let bytes = match
+    precompute_utf16_units_to_valid_utf8(units, start, end - start) {
     Some(bytes) => bytes
     None => return false
   }
@@ -7399,12 +7403,12 @@ fn precompute_raw_try_fold_string_new_wtf16_tail(
     out[out.length() - 1] != @lib.Instruction::string_new_wtf16_array() {
     return false
   }
-  let (start, length) = match (out[out.length() - 3], out[out.length() - 2]) {
-    (@lib.I32Const(@lib.I32(start)), @lib.I32Const(@lib.I32(length))) =>
-      (start, length)
+  let (start, end) = match (out[out.length() - 3], out[out.length() - 2]) {
+    (@lib.I32Const(@lib.I32(start)), @lib.I32Const(@lib.I32(end))) =>
+      (start, end)
     _ => return false
   }
-  if start < 0 || length < 0 {
+  if start < 0 || end < start {
     return false
   }
   let count = match out[out.length() - 4] {
@@ -7412,7 +7416,7 @@ fn precompute_raw_try_fold_string_new_wtf16_tail(
     _ => return false
   }
   let value_start = out.length() - 4 - count
-  if value_start < 0 || start > count || length > count - start {
+  if value_start < 0 || start > count || end > count {
     return false
   }
   let units : Array[Int] = []
@@ -7422,8 +7426,7 @@ fn precompute_raw_try_fold_string_new_wtf16_tail(
       _ => return false
     }
   }
-  let bytes = @buffer.new(size_hint=length * 3)
-  let end = start + length
+  let bytes = @buffer.new(size_hint=(end - start) * 3)
   let mut slot = start
   while slot < end {
     let unit = units[slot]
