@@ -17187,16 +17187,42 @@ fn OiSideEffectFreeExpressionFact::from_node(
   }
   let trivial_leaf = OiTriviallyPureOperandFact::from_node(func, node_id)
   match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.I32DivS | @lib.I32DivU | @lib.I32RemS | @lib.I32RemU) => {
+      if node.child_count != 2 {
+        return OiSideEffectFreeExpressionFact::empty()
+      }
+      let divisor = optimize_instructions_i32_const(
+        func,
+        dead,
+        @ir.hot_child_get(func, node_id, 1),
+      )
+      let signed_div = @ir.hot_node_exact_instr(func, node_id)
+        is Some(@lib.I32DivS)
+      match divisor {
+        Some(@lib.I32(value)) if value != 0 && (!signed_div || value != -1) =>
+          ()
+        _ => return OiSideEffectFreeExpressionFact::empty()
+      }
+    }
+    Some(@lib.I64DivS | @lib.I64DivU | @lib.I64RemS | @lib.I64RemU) => {
+      if node.child_count != 2 {
+        return OiSideEffectFreeExpressionFact::empty()
+      }
+      let divisor = optimize_instructions_i64_const(
+        func,
+        dead,
+        @ir.hot_child_get(func, node_id, 1),
+      )
+      let signed_div = @ir.hot_node_exact_instr(func, node_id)
+        is Some(@lib.I64DivS)
+      match divisor {
+        Some(@lib.I64(value)) if value != 0L && (!signed_div || value != -1L) =>
+          ()
+        _ => return OiSideEffectFreeExpressionFact::empty()
+      }
+    }
     Some(
-      @lib.I32DivS
-      | @lib.I32DivU
-      | @lib.I32RemS
-      | @lib.I32RemU
-      | @lib.I64DivS
-      | @lib.I64DivU
-      | @lib.I64RemS
-      | @lib.I64RemU
-      | @lib.I32TruncF32S
+      @lib.I32TruncF32S
       | @lib.I32TruncF32U
       | @lib.I32TruncF64S
       | @lib.I32TruncF64U

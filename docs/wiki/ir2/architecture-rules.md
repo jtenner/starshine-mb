@@ -1614,3 +1614,13 @@ checks both Precompute variants. This narrow rule does not relabel general
 allocation-failure assumptions as ordinary Wasm numeric traps. Binaryen Vacuum
 also removes a dropped literal-negative allocation, so this repair is scoped
 to Precompute interpretation/parity rather than a general allocation guarantee.
+
+### Full-suite refinement of scalar proofs
+
+The first full wasm-gc run passed 11,545/11,547 tests and exposed two retained
+positive contracts: identical ref.i31 arms using division by 3, and bounded
+quotient/remainder shifts. The scalar proof now permits division/remainder
+with a known nonzero divisor, additionally excluding `-1` for signed division
+unless a separate overflow proof exists. Unknown divisors and trapping
+conversions remain non-discardable. This restores existing safe folds without
+weakening the failing-first trap campaign.
