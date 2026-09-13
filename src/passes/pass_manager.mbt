@@ -91476,6 +91476,11 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       None => ()
     }
   }
+  // Finish the committed boundary's local read/write debris on its touched
+  // functions. This erases unread storage without running a private pass
+  // roster or moving effectful producers, including callers that correctly
+  // do not qualify for the more expensive nested optimization roster.
+  core_mod = dae_cleanup_touched_unread_locals(core_mod, core_touched)
   // Payoff/result producers already publish exact worth and touched effects.
   // The shared roster below is the sole nested cleanup owner; do not replay
   // simplify/vacuum/coalesce/reorder in a payoff-private fixed-round loop.

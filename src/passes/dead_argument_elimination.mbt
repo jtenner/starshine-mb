@@ -49622,6 +49622,112 @@ fn dae_cleanup_dropped_unreachable_debris(
 }
 
 ///|
+fn dae_cleanup_unread_local_body(
+  instrs : Array[@lib.Instruction],
+  reads : Array[Int],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for original in instrs {
+    let instr = pass_lower_map_children(original, fn(body) {
+      dae_cleanup_unread_local_body(body, reads)
+    })
+    let instr = match instr {
+      @lib.LocalSet(@lib.LocalIdx(index)) if reads[index.to_int()] == 0 =>
+        @lib.Instruction::drop()
+      @lib.LocalTee(@lib.LocalIdx(index)) if reads[index.to_int()] == 0 =>
+        continue
+      _ => instr
+    }
+    if instr is @lib.Drop && !out.is_empty() {
+      match out[out.length() - 1] {
+        @lib.LocalGet(_)
+        | @lib.I32Const(_)
+        | @lib.I64Const(_)
+        | @lib.F32Const(_)
+        | @lib.F64Const(_)
+        | @lib.RefNull(_)
+        | @lib.RefFunc(_) => {
+          ignore(out.pop())
+          continue
+        }
+        @lib.LocalTee(index) => {
+          ignore(out.pop())
+          out.push(@lib.Instruction::local_set(index))
+          continue
+        }
+        _ => ()
+      }
+    }
+    out.push(instr)
+  }
+  out
+}
+
+///|
+fn dae_cleanup_unread_locals(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(original)) = func
+  let count = params.length() + locals.length()
+  let mut body = original
+  // Removing an unused copy can make its source unread. Each changing round
+  // removes local references or instructions; effectful producers stay in place.
+  while true {
+    let reads = Array::make(count, 0)
+    let writes = Array::make(count, 0)
+    pass_lower_count_locals(body, reads, writes)
+    let next = dae_cleanup_unread_local_body(body, reads)
+    if next == body {
+      break
+    }
+    body = next
+  }
+  let reads = Array::make(count, 0)
+  let writes = Array::make(count, 0)
+  pass_lower_count_locals(body, reads, writes)
+  let indices = Array::makei(count, fn(i) { i })
+  let retained : Array[@lib.ValType] = []
+  for i = 0; i < locals.length(); i = i + 1 {
+    let index = params.length() + i
+    if reads[index] > 0 || writes[index] > 0 {
+      indices[index] = params.length() + retained.length()
+      retained.push(locals.get(i))
+    } else {
+      indices[index] = -1
+    }
+  }
+  @lib.Func::new(
+    @lib.Locals::from_types(retained),
+    @lib.Expr::new(pass_lower_remap_locals(body, indices)),
+  )
+}
+
+///|
+fn dae_cleanup_touched_unread_locals(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => return mod_
+  }
+  let imported = dae_imported_func_count(mod_)
+  for i = 0; i < funcs.length(); i = i + 1 {
+    if i < touched.length() && touched[i] {
+      let params = run_hot_pipeline_defined_func_params_from_sections(
+        mod_,
+        @lib.FuncIdx::new((imported + i).reinterpret_as_uint()),
+      )
+      if params is Some(params) {
+        funcs[i] = dae_cleanup_unread_locals(funcs[i], params)
+      }
+    }
+  }
+  mod_.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn dae_run_nested_cleanup(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -49640,13 +49746,8 @@ fn dae_run_nested_cleanup(
   )
   if folded_changed {
     trace("pass[dae-optimizing]:nested-cleanup nonnull-ref-is-null-fold")
-    return folded
   }
-  // The active hot-pipeline runner is whole-module; Binaryen's helper is
-  // touched-function filtered. Until the filtered scheduler is available, keep
-  // the boundary rewrite output valid and record the required nested lane without
-  // applying unrelated cleanup to untouched functions.
-  mod_
+  dae_cleanup_touched_unread_locals(folded, touched)
 }
 
 ///| Validate the complete rewritten module environment, then only function
