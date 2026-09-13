@@ -875,6 +875,12 @@ fn or_optimize_once_bodies(
   once_func_slots : Array[Int],
 ) -> Bool {
   let removed_exit_logic = @bitset.BitSet::new(once_func_globals.length())
+  let guard_users : @hashmap.HashMap[Int, Int] = @hashmap.new()
+  for guard_id in once_func_globals {
+    if guard_id >= 0 {
+      guard_users.set(guard_id, guard_users.get(guard_id).unwrap_or(0) + 1)
+    }
+  }
   let mut changed = false
   for defined_idx = 0
       defined_idx < funcs.length()
@@ -884,6 +890,9 @@ fn or_optimize_once_bodies(
       once_func_globals[abs_idx] < 0 ||
       abs_idx >= once_func_slots.length() ||
       once_func_slots[abs_idx] < 0 {
+      continue
+    }
+    if guard_users.get(once_func_globals[abs_idx]).unwrap_or(0) > 1 {
       continue
     }
     let @lib.Func(locals, @lib.Expr(instrs)) = funcs[defined_idx]
