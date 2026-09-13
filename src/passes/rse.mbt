@@ -1814,6 +1814,19 @@ fn rse_raw_rewrite_expr_scoped(
           rse_raw_push(state, rse_raw_fresh(state))
         }
       }
+      @lib.Instruction::Try(_, _, _, _) => {
+        // Legacy handlers may write locals and branch to enclosing labels.
+        // Until their flow is modeled, no incoming value equality survives.
+        rse_raw_clear_stack(state)
+        rse_raw_clear_values(state)
+        for scope in scopes {
+          scope.exits.push(state.local_values.copy())
+          if scope.kind is RseRawLabelKind::LoopLabel {
+            scope.has_loop_branch = true
+          }
+        }
+        out.push(instr)
+      }
       @lib.Instruction::TryTable(block_type, catches, @lib.Expr(body)) => {
         let body_state = RseRawState::clone_from(state)
         let scope = RseRawLabelScope::new(RseRawLabelKind::ExitLabel)

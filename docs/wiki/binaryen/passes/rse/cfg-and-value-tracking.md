@@ -180,3 +180,12 @@ Until complete block-signature transfer is modeled, a single fresh unknown
 must not sit above stale entry operands: a multivalue result could otherwise
 be confused with an older constant and erase a necessary set. The two-result
 loop audit preserves the first result's assignment after dropping the second.
+
+
+## Legacy exception boundaries
+
+The raw legacy-try path preserves its instructions and forgets incoming local
+value equalities. Potential enclosing exits carry unknown facts, including loop
+backedges, so nested handler writes cannot make a later required reset disappear.
+This is conservative value analysis, not a claim of precise legacy-EH RSE parity.
+The legacy-write/reset audit verifies the necessary post-try assignment.
