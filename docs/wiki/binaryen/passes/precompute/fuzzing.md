@@ -120,3 +120,13 @@ no-op boundary remains unchanged before raw cleanup. The
 [follow-up ledger](../../../ir2/architecture-rules.md#september-13-parity-follow-up)
 records full-suite and fresh aggregate signoff; the established independent
 validator limitation for relaxed-atomic ordering 2 remains separate.
+
+The GC-values template also left three unused array/struct definitions after
+folding, costing eleven raw bytes despite canonical equality. Two additional
+red regressions now require the two live types, remapped function signatures,
+and 162-byte output. Post-writeback cleanup uses the existing type remapper
+only for independent unshared singleton types and an explicit supported
+instruction set across every module expression root. It requires an actual
+encoded code change, whole-module validation, and a strict encoded size win;
+grouped types and unhandled proposal instructions intentionally retain their
+original declarations. Potentially trapping array operations remain in place.

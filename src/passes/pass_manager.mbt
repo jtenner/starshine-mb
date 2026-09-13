@@ -80792,7 +80792,7 @@ fn run_hot_pipeline_apply_hot_pass(
           "guard:\{descriptor.name}-writeback-batch",
           batch_guard_start_us,
         )
-        return Ok(repaired_mod)
+        return Ok(precompute_cleanup_unused_gc_types(mod_, repaired_mod))
       }
       None => {
         perf_stop_timer_opt(
@@ -81017,6 +81017,9 @@ fn run_hot_pipeline_apply_hot_pass(
   Ok(
     if descriptor.name == "vacuum" {
       vacuum_remove_unused_declarations(next_mod)
+    } else if descriptor.name == "precompute" ||
+      descriptor.name == "precompute-propagate" {
+      precompute_cleanup_unused_gc_types(mod_, next_mod)
     } else {
       next_mod
     },
