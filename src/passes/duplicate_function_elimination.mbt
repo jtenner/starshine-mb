@@ -583,6 +583,8 @@ fn _dfe_locals_mention_type_idxs(locals : @lib.Locals) -> Bool {
 ///|
 fn dfe_instruction_mentions_type_idxs(instr : @lib.Instruction) -> Bool {
   match instr {
+    @lib.Try(_, _, _, _) =>
+      dfe_scan_rewrite_instruction_type_idxs(instr, Map([])).mentions_type_idxs
     @lib.Block(block_type, expr) =>
       dfe_block_type_mentions_type_idxs(block_type) ||
       dfe_expr_mentions_type_idxs(expr)
@@ -1234,6 +1236,10 @@ fn dfe_rewrite_instruction_type_idxs(
   remap : Map[UInt, UInt],
 ) -> @lib.Instruction {
   match instr {
+    @lib.Try(_, _, _, _) =>
+      dfe_scan_rewrite_instruction_type_idxs(instr, remap).rewritten.unwrap_or(
+        instr,
+      )
     @lib.Block(block_type, expr) =>
       @lib.Instruction::block(
         dfe_rewrite_block_type(block_type, remap),
@@ -1494,6 +1500,46 @@ fn dfe_scan_rewrite_instruction_type_idxs(
   remap : Map[UInt, UInt],
 ) -> DfeTypeRewriteScan[@lib.Instruction] {
   match instr {
+    @lib.Try(block_type, body, catches, delegate) => {
+      let block_scan = dfe_scan_rewrite_block_type(block_type, remap)
+      let body_scan = dfe_scan_rewrite_expr_type_idxs(body, remap)
+      let mut changed = block_scan.rewritten is Some(_) ||
+        body_scan.rewritten is Some(_)
+      let mut mentions = block_scan.mentions_type_idxs ||
+        body_scan.mentions_type_idxs
+      let next_catches = catches.map(fn(catch_) {
+        let expr = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        let scan = dfe_scan_rewrite_expr_type_idxs(expr, remap)
+        mentions = mentions || scan.mentions_type_idxs
+        match scan.rewritten {
+          Some(next) => {
+            changed = true
+            match catch_ {
+              @lib.LegacyCatch(tag, _) => @lib.LegacyCatch::tagged(tag, next)
+              @lib.LegacyCatchAll(_) => @lib.LegacyCatch::all(next)
+            }
+          }
+          None => catch_
+        }
+      })
+      {
+        mentions_type_idxs: mentions,
+        rewritten: if changed {
+          Some(
+            @lib.Instruction::try_(
+              block_scan.rewritten.unwrap_or(block_type),
+              body_scan.rewritten.unwrap_or(body),
+              next_catches,
+              delegate~,
+            ),
+          )
+        } else {
+          None
+        },
+      }
+    }
     @lib.Block(block_type, expr) => {
       let block_scan = dfe_scan_rewrite_block_type(block_type, remap)
       let expr_scan = dfe_scan_rewrite_expr_type_idxs(expr, remap)
@@ -2099,6 +2145,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
   remap : Map[UInt, UInt],
 ) -> @lib.Instruction? {
   match instr {
+    @lib.Try(_, _, _, _) =>
+      dfe_scan_rewrite_instruction_type_idxs(instr, remap).rewritten
     @lib.Block(block_type, expr) => {
       let rewritten_block_type = dfe_try_rewrite_block_type(block_type, remap)
       let rewritten_expr = dfe_try_rewrite_expr_type_idxs(expr, remap)

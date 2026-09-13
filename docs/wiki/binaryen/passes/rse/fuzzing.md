@@ -82,3 +82,11 @@ reference types, supertype links, or descriptors. Grouped/GC/indexed-reference
 sections remain untouched, and unrelated unused types are not pruned.
 See the [follow-up ledger](../../../ir2/architecture-rules.md#september-13-parity-follow-up)
 for final aggregate evidence and preserved historical results.
+
+Source review of that interner exposed a shared-remapper traversal gap for
+legacy `try`. A direct/public structural regression first retained type index
+1 after compaction required index 0. The shared scanner and all three remap
+entrypoints now visit the legacy block type, body, and every catch body,
+preserving catch order, tags and delegate labels. Mutation flags remain
+explicit rather than relying on instruction equality. This extends traversal
+without broadening the Precompute GC-cleanup admission contract.

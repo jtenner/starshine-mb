@@ -70,3 +70,15 @@ The runtime-callable self-semantic lane used the same seed and explicit subproce
 - canonical sizes: exactly equal on all 100 cases
 
 DFE still has no dedicated pass-owned GenValid profile. If a future audit adds one, update this page with the profile name, intended smoke/closeout count, required features or normalizers, and the manifest fields needed for replay triage.
+
+## September 13 legacy exception type traversal
+
+RSE's use of shared signature interning exposed missing legacy `try` traversal.
+A failing-first structural regression in
+[`rse_legacy_type_parity_wbtest.mbt`](../../../../../src/passes/rse_legacy_type_parity_wbtest.mbt)
+checks the enclosing block type and nested body/catch block types through
+direct and public RSE dispatch. The shared type-reference scanner and rewrite
+entrypoints now traverse all these regions, preserving tags, catch order and
+delegate labels, with explicit mutation flags. The
+[follow-up ledger](../../../ir2/architecture-rules.md#september-13-parity-follow-up)
+records final source validation and renewed Binaryen 132 comparisons.
