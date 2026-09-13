@@ -120,11 +120,11 @@ fn ca_lower_refinalize_body(
           }
           @lib.Loop(_, @lib.Expr(body)) if ca_lower_ends_in_terminator(body) &&
             i + arity + 2 == instrs.length() => {
-            // A loop label is an entry, not a result-producing exit. Its body
-            // has no normal fallthrough, so trailing drops only consume phantom
-            // declared results. Retain its original result signature.
+            // The loop's declared results still exist on the outer validation
+            // stack. Keep the explicit unreachable to close that stack even
+            // though the loop has no dynamic fallthrough.
             out.push(instr)
-            i += arity + 2
+            i += arity + 1
             continue
           }
           _ => ()

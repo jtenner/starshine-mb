@@ -1516,3 +1516,11 @@ when its inline result signature proves there are no block parameters. A
 parameterized block consumes caller stack values even if its body immediately
 branches. The [typed-block regression](../../../src/passes/simplify_globals_optimizing_campaign_wbtest.mbt)
 failed output validation before this restriction.
+
+### Terminating loop stack closure
+
+Constraint lowering retains the explicit outer `unreachable` after eliminating
+drops of a terminating loop's declared results. Dynamic non-fallthrough does
+not erase the loop's declared result signature from the surrounding validation
+stack. The [loop regression](../../../src/passes/constraint_lower_campaign_wbtest.mbt)
+checks that stack closure directly, in addition to module validation.
