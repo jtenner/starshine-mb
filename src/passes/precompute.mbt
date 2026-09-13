@@ -1637,7 +1637,7 @@ fn precompute_global_descriptor_identity(
     Some(@lib.Expr(instrs)) if instrs.length() >= 2 =>
       match instrs[instrs.length() - 1] {
         @lib.StructNewDesc(_) | @lib.StructNewDefaultDesc(_) =>
-          match instrs[0] {
+          match instrs[instrs.length() - 2] {
             @lib.GlobalGet(descriptor) =>
               precompute_global_heap_identity(module_ctx, descriptor, depth + 1)
             _ => None
@@ -1671,7 +1671,11 @@ fn precompute_heap_identity_for_node(
             precompute_heap_identity_for_node(
               ctx,
               func,
-              @ir.hot_child_get(func, source_id, 0),
+              @ir.hot_child_get(
+                func,
+                source_id,
+                @ir.hot_child_count(func, source_id) - 1,
+              ),
               depth + 1,
             )
           } else {
@@ -1766,7 +1770,11 @@ fn precompute_descriptor_identity_for_node(
         precompute_heap_identity_for_node(
           ctx,
           func,
-          @ir.hot_child_get(func, node_id, 0),
+          @ir.hot_child_get(
+            func,
+            node_id,
+            @ir.hot_child_count(func, node_id) - 1,
+          ),
           depth + 1,
         )
       } else {

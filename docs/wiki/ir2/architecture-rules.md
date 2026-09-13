@@ -1576,3 +1576,11 @@ checks precede length subtraction. Nonzero and empty slices preserve their
 contents, while reversed ranges retain the trapping instruction. Three
 [range regressions](../../../src/passes/precompute_string_campaign_wbtest.mbt)
 failed before the repair, including the active pipeline through a HOT fixture.
+
+### Descriptor constructor operand order
+
+Precompute reads a descriptor constructor's final operand, after its fields,
+when resolving raw global identity, HOT descriptor identity, or `ref.get_desc`.
+A descriptor-typed first field is not the constructor's descriptor. Both
+[raw and HOT regressions](../../../src/passes/precompute_descriptor_identity_campaign_wbtest.mbt)
+use two distinct descriptor globals so an operand-order error is observable.
