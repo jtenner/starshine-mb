@@ -2451,7 +2451,13 @@ fn cl_mark_structured_liveness_backward(
           live,
           cl_live_for_label(label_lives, label_idx, live.length()),
         )
-      @lib.BrIf(label_idx) =>
+      @lib.BrIf(label_idx)
+      | @lib.BrOnNull(label_idx)
+      | @lib.BrOnNonNull(label_idx)
+      | @lib.BrOnCast(label_idx, _, _, _)
+      | @lib.BrOnCastFail(label_idx, _, _, _)
+      | @lib.BrOnCastDescEq(label_idx, _, _)
+      | @lib.BrOnCastDescEqFail(label_idx, _, _) =>
         cl_union_live_in_place(
           live,
           cl_live_for_label(label_lives, label_idx, live.length()),

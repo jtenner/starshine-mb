@@ -1260,7 +1260,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `cse-float` | local-cse | Expression keys distinguish signed zero | Repaired; focused regression green |
 | `cse-nested-effects` | local-cse | Nested windows invalidate on memory and hidden writes | Repaired; focused regression green |
 | `untee-init` | untee | Unreachable tees retain nondefaultable initialization | Repaired; focused regression green |
-| `coalesce-ref-exits` | coalesce-locals | Reference branch destinations contribute liveness | Red; repair pending |
+| `coalesce-ref-exits` | coalesce-locals | Reference branch destinations contribute liveness | Repaired; focused regression green |
 | `coalesce-catches` | coalesce-locals | Exception destinations contribute liveness | Red; repair pending |
 | `coalesce-cursor` | coalesce-locals | Dead accesses do not consume live action ordinals | Repaired; focused regression green |
 | `heap-casts` | heap2local | Scalar reads preserve potentially failing casts | Red; repair pending |
