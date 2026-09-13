@@ -1276,7 +1276,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `folding-dead-effects` | code-folding | Post-trap effects remain unreachable | Repaired; focused regression green |
 | `rub-prefix` | remove-unused-brs | Loop rewrite retains roots preceding its branch | Repaired; focused regression green |
 | `facts-legacy-order` | apply-compiler-facts | Legacy try facts follow body-before-catch encoding | Repaired; focused regression green |
-| `dae2-type-identity` | dae2 / dae2-optimizing | Signature pruning preserves runtime type identity, including equivalent types and recursive groups | Red; repair pending |
+| `dae2-type-identity` | dae2 / dae2-optimizing | Signature pruning preserves runtime type identity, including equivalent types and recursive groups | Repaired; focused regression green |
 
 Reports not established as public bugs: flatten preserves the null-check order
 because ordinary lifting uses its Heap representation; its unreachable-tee

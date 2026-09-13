@@ -547,6 +547,10 @@ fn dae2_run_module_pass(
   }
   graph.solve()
   let mut signature_change = false
+  match mod_.type_sec {
+    Some(types) => dae2_preserve_type_identity(types, graph, infos, type_infos)
+    None => ()
+  }
   for index = 0; index < total_funcs; index = index + 1 {
     let info = infos[index]
     signature_change = signature_change ||
