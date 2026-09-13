@@ -1,13 +1,16 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-13
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
   - https://github.com/WebAssembly/binaryen/pull/8994
   - ../../../../../src/passes/dead_argument_elimination2.mbt
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_identity.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_round2_wbtest.mbt
+  - ../../../../../tests/optimizer/regressions/round2-correctness.test.ts
   - ../../../../../src/passes/dead_argument_elimination2_legacy.mbt
   - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_intake_wbtest.mbt
@@ -26,6 +29,7 @@ code map and its obsolete exclusion of unused function results.
 | --- | --- |
 | `src/passes/dead_argument_elimination2.mbt` | Usage graph, fixed point, HOT expression rewriting, parameter/result mutation, final validation. |
 | `src/passes/dead_argument_elimination2_types.mbt` | Referenced families, exposure, continuations/intrinsics, control-signature preservation and type-section rewriting. |
+| `src/passes/dead_argument_elimination2_identity.mbt` | Canonical recursive-group identity partitions and conflicting signature dependency closures. |
 | `src/passes/dead_argument_elimination2_legacy.mbt` | Multiple legacy handlers, label remapping and exception-identity-preserving rethrow adaptation. |
 | `src/passes/optimize.mbt`, `pass_manager.mbt` | Real registry entries, module dispatch and the optimizing cleanup sequence. |
 | `src/cmd/cmd.mbt` | Active CLI dispatch regression. |
@@ -77,3 +81,18 @@ unused-type pruning removes the unreferenced duplicate. Public-pipeline and
 command tests assert index reuse; a native reproducer failed before the change.
 Fresh validation and size measurements are recorded in the
 [upgrade ledger](../../version-132-upgrade.md).
+
+## Runtime type identity preservation
+
+The second correctness audit showed that independently pruning signatures can
+merge distinct runtime types or split equivalent ones, changing indirect-call
+traps. After liveness converges, DAE2 compares the original and proposed
+recursive-group identity partitions in both directions. Conflicts retain the
+parameter/result locations of their complete type dependency closures, then
+liveness is solved again. Unrelated pruning remains available. Embedded type
+definitions conservatively retain type-section signatures. Four failing-first
+checks in `dead_argument_elimination2_round2_wbtest.mbt` and eight execution
+checks in `tests/optimizer/regressions/round2-correctness.test.ts` cover both
+directions, including recursive groups. See the
+[second audit](../../../ir2/architecture-rules.md#september-12-second-correctness-audit)
+for final evidence and limitations.

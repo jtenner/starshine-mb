@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-12
+last_reviewed: 2026-09-13
 sources:
   - ./test-matrix.md
   - ./local-ssa-policy.md
@@ -13,6 +13,8 @@ sources:
   - ../../../src/passes/pass_common.mbt
   - ../../../src/passes/apply_compiler_facts.mbt
   - ../../../src/passes/dead_argument_elimination2.mbt
+  - ../../../src/passes/dead_argument_elimination2_identity.mbt
+  - ../../../tests/optimizer/regressions/round2-correctness.test.ts
   - ../../../tests/optimizer/regressions/try-table-cleanup.test.ts
   - ../../../tests/optimizer/regressions/compiler-fact-stack.test.ts
   - ../../../tests/optimizer/regressions/dae2-function-label.test.ts
@@ -1250,7 +1252,7 @@ uses the verified alternate interpreter, without reclassifying the Node result.
 Oracle: `.tmp/binaryen-version_132/bin/wasm-opt`, version 132, SHA-256
 `1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
 Commands, initial fixtures, logs and identities: `.tmp/pass-audit-round2-20260912/`.
-Fuzz verification is intentionally deferred until all repairs are in place.
+Fuzz verification began only after all repairs and focused regressions passed.
 
 | Finding | Pass | Required invariant | State |
 | --- | --- | --- | --- |
@@ -1302,3 +1304,153 @@ The original native binary loses five required traps; three successful controls
 still pass. Final-import Directize trap folding also has a forward optimization
 guard. The expanded campaign contains 57 Moon checks and 56 execution checks.
 The 11,456-test full run before these additions passed completely.
+
+### Second-audit source verification
+
+All 28 confirmed finding families have separate repair commits. Source checkpoint
+`183d2b26e` passes **11,461/11,461** default Moon tests and **235/235** native
+execution tests, including all 56 new execution checks. `moon info`, `moon fmt`,
+README/API synchronization and `bun validate full --profile ci --target wasm-gc`
+pass; the full gate includes **11,458/11,458** wasm-gc tests. No public `.mbti`
+change is introduced. The head agent serialized every Moon command.
+
+Fresh release executables used for final dedicated comparisons:
+
+- Starshine CLI SHA-256:
+  `0d769e0d5b00d3a017530174b3a9e59ddf6744b42d3a0291aa7c4ffffff0a8a7`.
+- GenValid SHA-256:
+  `b5f24c8b7d71457ddae05c20d9f3c5312e2e365fe0ba3223d622d731639594f7`.
+
+The paths are `_build/native/release/build/{cmd/cmd,fuzz/fuzz}.exe`; the oracle
+is the verified tagged Binaryen 132 executable recorded above. Exact commands,
+identities and validation logs remain in the local campaign directory. Older
+campaign results and their original tool identities remain unchanged.
+
+### Second-audit dedicated verification
+
+After all repairs, **18 × 10,000 = 180,000 GenValid comparisons** completed
+against tagged Binaryen 132. All 180,000 determinism and codec-idempotence checks
+pass, with zero validation, generator, command, property or reported semantic
+failures. Each lane uses an explicit prebuilt native CLI/generator, seed `0x5eed`,
+`--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`, and a 10,000
+minimum compared count. The deterministic oracle cache is reused; Starshine
+outputs are never cached. No external-generator lane was requested or run.
+
+Aggregate profiles are `code-folding-all`, `remove-unused-brs-all`,
+`optimize-casts-all`, `code-pushing-all`, `heap2local-all`, `pass-oi-all`,
+`coalesce-locals-all`, `simplify-globals-optimizing-all`, `directize-all`, and
+`dae2`; once-reduction uses `once-reduction-tail-calls`, while local-cse and
+untee use generic GenValid. Code-pushing is checked in default, TNH and IIT
+modes. DAE2 and dae2-optimizing each have open/closed-world lanes.
+
+“Normalized” and “cleanup” are structural comparison counts, not runtime
+results. Code-pushing/coalesce use `local-cleanup-debris`; the four DAE2 lanes
+use `drop-consts` and `unreachable-control-debris`. “Larger” counts canonical
+Starshine size losses, including losses hidden by cleanup normalization.
+
+| Lane | Normalized | Cleanup | Residual differences | Larger | Node matches | Node blocked |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| local-cse | 10000 | 0 | 0 | 0 | — | — |
+| code-folding | 6624 | 0 | 3376 | 0 | — | — |
+| remove-unused-brs | 6464 | 0 | 3536 | 0 | — | — |
+| optimize-casts | 10000 | 0 | 0 | 0 | — | — |
+| code-pushing | 4493 | 5507 | 0 | 513 | — | — |
+| once-reduction | 0 | 0 | 10000 | 0 | — | — |
+| heap2local | 2474 | 0 | 7526 | 0 | — | — |
+| optimize-instructions | 8920 | 0 | 1080 | 0 | — | — |
+| coalesce-locals | 3750 | 2500 | 3750 | 0 | — | — |
+| simplify-globals-optimizing | 5055 | 0 | 4945 | 0 | — | — |
+| directize | 559 | 0 | 9441 | 0 | — | — |
+| untee | 10000 | 0 | 0 | 0 | — | — |
+| dae2-open | 2879 | 667 | 6454 | 730 | 9312 | 688 |
+| dae2-closed | 0 | 100 | 9900 | 1436 | 9312 | 688 |
+| dae2-optimizing-open | 2233 | 0 | 7767 | 730 | 9312 | 688 |
+| dae2-optimizing-closed | 100 | 0 | 9900 | 2863 | 9312 | 688 |
+| code-pushing-tnh | 4493 | 5507 | 0 | 513 | — | — |
+| code-pushing-iit | 4493 | 5507 | 0 | 513 | — | — |
+
+The four DAE2 lanes provide **37,248** matching original/Starshine/Binaryen
+runtime observations. Their **2,752** blocked observations are the same 688
+`dae2-continuations` inputs per lane: Node cannot execute the originals. These
+retain validation and structural evidence, not a runtime-pass classification.
+
+All **160/160** retained non-DAE mismatch triplets were replayed with the Node-v2
+oracle: 20 each for code-folding, remove-unused-brs, once-reduction, heap2local,
+optimize-instructions, coalesce-locals, simplify-globals-optimizing and Directize.
+Every original/Starshine/Binaryen observation matches, with no runtime blocks.
+Semantic-report cache keys include all three binaries, seed, policy and runtime
+identity: 9,798 DAE2 and 80 replay reports were cache hits; 30,202 DAE2 and 80
+replay reports were evaluated on cache misses. Fresh Starshine transformations
+are still performed for every comparison.
+Combined with the inspected contracts and smaller canonical outputs below,
+these support **sampled Starshine size-win** judgments; they do not close every
+unsampled family or separately justify incidental type-shape differences.
+
+Code-pushing retains **513** size-losing `br-if-value` cases and **+2,052**
+canonical bytes in each mode, despite cleanup-normalized matches. DAE2's larger
+cases total +5,840 bytes in standard open mode, +2,166 in standard closed mode,
++8,030 in optimizing open mode and +14,848 in optimizing closed mode. These
+remain size/parity gaps; net savings elsewhere do not cancel them. No new
+pass-local performance claim is made.
+
+Reproduction commands, per-case records, identities, family sizes and replay
+results are under `fuzz-matrix.json`, `fuzz/*/audit-command.json`,
+`fuzz/*/cases.jsonl`, `final-counts.json`, `fuzz-family-sizes.json` and
+`runtime-replays/` in `.tmp/pass-audit-round2-20260912/`.
+
+The separate **10,000/10,000** trusted-fact generator checks legacy try-body and
+handler opcode offsets with randomized padding, typed/catch-all handlers and
+zero/nonzero i32 bit patterns. Every original and output validates; original,
+Starshine and tagged Binaryen-roundtripped execution preserve the result and
+exactly two imported calls. Every Starshine output must remove the tested
+`i32.eqz` operations, so a no-op fact application cannot pass. There were no
+failures. This is a custom execution lane, not GenValid and not a comparison to
+a Binaryen `apply-compiler-facts` pass. The generator, command, identities and
+result are in `fuzz-legacy-facts.mjs`, `final-facts-fuzz.log` and
+`fuzz/apply-compiler-facts/` within the local campaign directory.
+
+The DAE2 identity repair deliberately declines signature pruning when it would
+merge or split runtime type identities. The closed-world samples expose a
+remaining optimization opportunity: Binaryen can preserve distinction with a
+recursive group containing a dummy type, then prune the signature. Starshine's
+conservative guard is required for correctness with its current transformation;
+it is not evidence that the retained argument/result traffic is preferable.
+Standard closed-world indirect-call samples 5, 8 and 11 are one canonical byte
+larger; their optimizing counterparts are eight bytes larger. Both remain
+size/parity gaps. Open-world legacy-exception sample 29 is eight bytes
+larger despite matching runtime observations. These are separate from the fixed
+wrong-result/type-identity defects. See the
+[DAE2 implementation and tests](../binaryen/passes/dae2/implementation-structure-and-tests.md)
+for the identity partition contract.
+
+### Second-audit residual-difference review
+
+These classifications are head-agent judgments from source/artifact inspection,
+canonical-byte measurements and the runtime evidence above; they are not
+classifications supplied by the comparison harness. Validation alone does not
+establish equivalence or justify retaining a different output shape.
+
+The retained non-DAE samples expose these contracts and byte deltas:
+
+| Pass | Inspected contract | Starshine canonical-byte change per sampled family |
+| --- | --- | --- |
+| code-folding | A final void `return` equals falling through the function end; preceding global writes remain ordered | -1 |
+| remove-unused-brs | Removed nops, pure dropped values and trivial self-exits preserve branch targets and results | -1 to -47 |
+| heap2local | Nonescaping scalar reads/writes retain the same field values and ordering; samples contain no failing casts or descriptors | -23 to -31 |
+| once-reduction | Private guards start at zero, have only writes of one, and removed guard-only calls have no observable consumer | -24 |
+| optimize-instructions | Tuple producers execute once; lane order, calls, global writes and trapping operands remain observable | -5 to -41 |
+| coalesce-locals | Removed nops and branchless void loops leave the same assignments and final reads | -1 to -4 |
+| simplify-globals-optimizing | Dropped private constant reads are pure; retained initializer aliases refer to an earlier immutable value of 42 | -1 to -3 |
+| directize | The sampled call/control/trap transformations agree; Starshine additionally removes standalone nops in empty targets | -1 to -2 |
+
+This is sampled evidence. The retained artifacts cover 13 of 22 differing
+optimize-instructions case labels, 11 of 25 Directize labels and eight of nine
+remove-unused-brs labels. Unsampled differences remain parity work unless other
+recorded evidence establishes their contract and benefit. In particular, a
+widened dropped-null block type in remove-unused-brs is not independently
+justified by the surrounding size improvement. The once-reduction retained
+triplets all contain the same fixture, so its 10,000 comparisons do not imply
+10,000 distinct shapes. Directize's retained samples contain no imported
+function; its imported-subtype repair is covered by the dedicated Binaryen-shell
+regression instead. Generic local-cse/untee lanes likewise do not prove every
+repaired transform activated.

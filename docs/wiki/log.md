@@ -23867,7 +23867,10 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   unchanged. See [differential evidence](binaryen/passes/memory-packing/fuzzing.md#september-12-2026-size-parity-follow-up)
   and [benchmark protocol/results](binaryen/passes/memory-packing/parity.md#september-12-size-and-scalability-follow-up).
 
-- 2026-09-12: Started a second five-agent report-only optimizer correctness audit.
-  Recorded the clean 11,404-test baseline and failing-first Moon/CLI campaign in
-  [architecture rules](ir2/architecture-rules.md#september-12-second-correctness-audit).
-  Repairs and final fuzz evidence remain active.
+- 2026-09-13: Completed the second five-agent report-only optimizer correctness
+  audit: 28 confirmed families repaired, 57 Moon and 56 CLI checks added, all
+  default/native/wasm-gc CI gates passing, 180,000 GenValid comparisons and 10,000
+  trusted-fact cases completed, and 160 retained runtime replays matched.
+  Recorded Node continuation limits and remaining size/parity work in
+  [architecture rules](ir2/architecture-rules.md#september-12-second-correctness-audit);
+  removed the completed audit from the active backlog.

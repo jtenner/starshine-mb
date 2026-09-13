@@ -1,18 +1,10 @@
 # Agent Tasks
 
-## v0.1.1 — second optimizer audit [IR2-CORRECTNESS]
-
-- **Goal / why:** repair the 28 confirmed second-audit correctness families.
-- **Deliverables / tasks:** red-first tests are written; apply each repair in its own commit, then run final focused/full checks and affected-pass GenValid lanes.
-- **APIs / invariants:** preserve effects, traps, runtime types, signed bits and every control-flow destination.
-- **Dependencies / exit:** serialized Moon commands; verified Binaryen 132; no failing regression or unexplained verification failure.
-- **Evidence / suggested tests:** 57 Moon checks and 56 CLI execution checks; [audit ledger](docs/wiki/ir2/architecture-rules.md#september-12-second-correctness-audit); `.tmp/pass-audit-round2-20260912/`. Initial 26 repairs and the 11,456-test full suite pass; four allocation-variant follow-up red checks and final fuzz verification remain.
-
 ## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
 - **Goal / why:** close the remaining output-size and independent-validator gaps
   without weakening the completed optimizer correctness repairs.
-- **Delivered:** five reporting-only audits, 82 bounded regressions, 44 repair
+- **First audit delivered:** five reporting-only audits, 82 bounded regressions, 44 repair
   commits, full default/wasm-gc/CI checks, and 31 × 10,000 final comparisons.
   All 180 sampled original/Starshine runtime observations match; coverage and
   alternate Binaryen encoding limits are in the wiki. No known Moon test failure.
@@ -21,6 +13,10 @@
   outputs (`+16,636`), or establish a measured benefit that justifies retention.
   Recheck relaxed-atomic precompute inputs when an independent validator supports
   ordering 2; retain the current verified Binaryen 132 evidence meanwhile.
+  For DAE2, reduce the legacy-handler size loss and explore identity-preserving
+  recursive-group construction so safe signature pruning need not be declined.
+  Retain the second audit's unsampled output families and dropped-null type
+  widening as parity work; smaller surrounding code alone does not close them.
 - **APIs / invariants:** preserve traps, operand order, local writes, lexical labels,
   and imported-tag alias priority. Keep original tool-blocked reports unchanged.
 - **Dependencies / exit:** compatible independent validation; red-first general
@@ -28,6 +24,8 @@
 - **Suggested tests / evidence:** existing audit and tee-control fixtures, retained
   `br-if-value` inputs, and the [completed audit](docs/wiki/ir2/architecture-rules.md#final-verification-evidence).
   Local commands, hashes, counts, and judgments: `.tmp/pass-audit-20260912/`.
+  Second-audit limits: [residual-difference review](docs/wiki/ir2/architecture-rules.md#second-audit-residual-difference-review)
+  and `.tmp/pass-audit-round2-20260912/`.
 
 ## v0.1.1 — catch labels, fact operands, function exits [IR2-CORRECTNESS]
 
