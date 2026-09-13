@@ -9383,8 +9383,9 @@ fn remove_unused_brs_try_move_loop_backedge_suffix_into_block_exit_br_if(
           replacement_roots.push(@ir.hot_region_get(func, body_ref, prefix_idx))
         }
         replacement_roots.push(replacement)
-        let removed = pass_splice_region(ctx, func, region_ref, idx, 1,
-          replacement_roots)
+        let removed = pass_splice_region(
+          ctx, func, region_ref, idx, 1, replacement_roots,
+        )
         removed.push(block_id)
         removed.push(candidate_id)
         remove_unused_brs_delete_unused_nodes(ctx, func, removed)

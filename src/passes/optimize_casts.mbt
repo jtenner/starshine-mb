@@ -80,7 +80,9 @@ fn oc_subtype_as_heap_matches(
   }
   match target {
     @lib.AbsHeapTypeHeapType(abs) => {
-      if subtype.metadata().is_shared() { return false }
+      if subtype.metadata().is_shared() {
+        return false
+      }
       if oc_comptype_matches_abs(ct, abs) {
         return true
       }
@@ -89,9 +91,15 @@ fn oc_subtype_as_heap_matches(
       }
     }
     @lib.SharedAbsHeapTypeHeapType(abs) => {
-      if !subtype.metadata().is_shared() { return false }
-      if oc_comptype_matches_abs(ct, abs) { return true }
-      if is_final { return false }
+      if !subtype.metadata().is_shared() {
+        return false
+      }
+      if oc_comptype_matches_abs(ct, abs) {
+        return true
+      }
+      if is_final {
+        return false
+      }
     }
     _ => ()
   }
@@ -124,8 +132,10 @@ fn oc_heap_matches(
   match (source, target) {
     (@lib.AbsHeapTypeHeapType(source_abs), @lib.AbsHeapTypeHeapType(target_abs)) =>
       oc_abs_heap_matches(source_abs, target_abs)
-    (@lib.SharedAbsHeapTypeHeapType(source_abs), @lib.SharedAbsHeapTypeHeapType(target_abs)) =>
-      oc_abs_heap_matches(source_abs, target_abs)
+    (
+      @lib.SharedAbsHeapTypeHeapType(source_abs),
+      @lib.SharedAbsHeapTypeHeapType(target_abs),
+    ) => oc_abs_heap_matches(source_abs, target_abs)
     (@lib.HeapType(source_idx), _) =>
       match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
         Some(subtype) =>
@@ -339,16 +349,27 @@ fn oc_replace_with_const_i32(
   let roots : Array[Int] = []
   for child in oc_node_children(func, node_id) {
     let pure_read = match @ir.hot_node_get(func, child).op {
-      @ir.HotOp::LocalGet | @ir.HotOp::GlobalGet
-      | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => true
-      _ => @ir.effects_is_pure(@ir.effects_for_node(func, child)) &&
+      @ir.HotOp::LocalGet
+      | @ir.HotOp::GlobalGet
+      | @ir.HotOp::RefNull
+      | @ir.HotOp::RefFunc => true
+      _ =>
+        @ir.effects_is_pure(@ir.effects_for_node(func, child)) &&
         !@ir.hot_may_trap(func, child)
     }
-    if !pure_read { roots.push(@ir.hot_build_drop(func, child)) }
+    if !pure_read {
+      roots.push(@ir.hot_build_drop(func, child))
+    }
   }
   roots.push(@ir.hot_build_const_i32(func, @lib.I32(value)))
-  let temp = if roots.length() == 1 { roots[0] } else {
-    @ir.hot_build_block(func, @lib.BlockType::val_type(@lib.ValType::i32()), roots)
+  let temp = if roots.length() == 1 {
+    roots[0]
+  } else {
+    @ir.hot_build_block(
+      func,
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      roots,
+    )
   }
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_delete_node(func, temp)

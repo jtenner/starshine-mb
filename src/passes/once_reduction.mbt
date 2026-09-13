@@ -331,10 +331,14 @@ fn or_scan_instrs(
         }
       }
       @lib.Block(_, @lib.Expr(body)) =>
-        needs_dataflow = or_scan_instrs(body, read_counts, write_counts, once_global_slots) ||
+        needs_dataflow = or_scan_instrs(
+            body, read_counts, write_counts, once_global_slots,
+          ) ||
           needs_dataflow
       @lib.Loop(_, @lib.Expr(body)) =>
-        needs_dataflow = or_scan_instrs(body, read_counts, write_counts, once_global_slots) ||
+        needs_dataflow = or_scan_instrs(
+            body, read_counts, write_counts, once_global_slots,
+          ) ||
           needs_dataflow
       @lib.If(_, then_body, else_body) => {
         needs_dataflow = or_scan_instrs(
@@ -351,7 +355,9 @@ fn or_scan_instrs(
         }
       }
       @lib.Try(_, @lib.Expr(body), catches, _) => {
-        needs_dataflow = or_scan_instrs(body, read_counts, write_counts, once_global_slots) ||
+        needs_dataflow = or_scan_instrs(
+            body, read_counts, write_counts, once_global_slots,
+          ) ||
           needs_dataflow
         for catch_ in catches {
           let catch_body = match catch_ {
@@ -365,7 +371,9 @@ fn or_scan_instrs(
         }
       }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
-        needs_dataflow = or_scan_instrs(body, read_counts, write_counts, once_global_slots) ||
+        needs_dataflow = or_scan_instrs(
+            body, read_counts, write_counts, once_global_slots,
+          ) ||
           needs_dataflow
       @lib.Call(_) => needs_dataflow = true
       @lib.ReturnCall(_) => {
@@ -933,7 +941,8 @@ fn or_optimize_once_bodies(
             changed = true
             continue
           }
-          if body.length() == 5 && forwardable_guards[once_func_globals[abs_idx]] {
+          if body.length() == 5 &&
+            forwardable_guards[once_func_globals[abs_idx]] {
             match body[4] {
               @lib.Call(@lib.FuncIdx(target))
               | @lib.ReturnCall(@lib.FuncIdx(target)) => {
@@ -1202,13 +1211,13 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           | @lib.Global(_, @lib.Expr([@lib.I64Const(@lib.I64(0L))])) => true
           _ => false
         }
-        forwardable_guards[global_index] = initially_zero && write_counts[global_index] == 1
+        forwardable_guards[global_index] = initially_zero &&
+          write_counts[global_index] == 1
       }
     None => ()
   }
   if or_optimize_once_bodies(
-      rewritten_funcs, imported_func_count, once_func_globals, once_func_slots,
-      forwardable_guards,
+      rewritten_funcs, imported_func_count, once_func_globals, once_func_slots, forwardable_guards,
     ) {
     changed = true
   }

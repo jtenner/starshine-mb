@@ -139,19 +139,34 @@ fn code_pushing_relaxed_operands_are_movable(
   traps_never_happen : Bool,
   depth : Int,
 ) -> Bool {
-  if depth <= 0 { return false }
+  if depth <= 0 {
+    return false
+  }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let child = @ir.hot_child_get(func, node_id, slot)
-    if child < 0 || !@ir.hot_node_is_live(func, child) { return false }
+    if child < 0 || !@ir.hot_node_is_live(func, child) {
+      return false
+    }
     match @ir.hot_node_get(func, child).op {
       @ir.LocalGet | @ir.GlobalGet | @ir.Const | @ir.RefNull | @ir.RefFunc => ()
-      @ir.Unary | @ir.Binary | @ir.Compare | @ir.Convert
-      | @ir.RefIsNull | @ir.TupleMake | @ir.TupleExtract => {
-        if @ir.hot_may_trap(func, child) && !traps_never_happen { return false }
-      }
+      @ir.Unary
+      | @ir.Binary
+      | @ir.Compare
+      | @ir.Convert
+      | @ir.RefIsNull
+      | @ir.TupleMake
+      | @ir.TupleExtract =>
+        if @ir.hot_may_trap(func, child) && !traps_never_happen {
+          return false
+        }
       _ => return false
     }
-    if !code_pushing_relaxed_operands_are_movable(func, child, traps_never_happen, depth - 1) {
+    if !code_pushing_relaxed_operands_are_movable(
+        func,
+        child,
+        traps_never_happen,
+        depth - 1,
+      ) {
       return false
     }
   }
@@ -188,12 +203,18 @@ fn code_pushing_node_is_movable_value(
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract =>
       @ir.effects_is_pure(@ir.effects_for_node(func, node_id)) ||
-      (traps_never_happen && exact_instr_can_trap &&
-        code_pushing_relaxed_operands_are_movable(func, node_id, true, 64))
+      (
+        traps_never_happen &&
+        exact_instr_can_trap &&
+        code_pushing_relaxed_operands_are_movable(func, node_id, true, 64)
+      )
     @ir.HotOp::GlobalGet => true
     @ir.HotOp::Load =>
-      ignore_implicit_traps && code_pushing_node_is_memory_load(func, node_id) &&
-      code_pushing_relaxed_operands_are_movable(func, node_id, traps_never_happen, 64)
+      ignore_implicit_traps &&
+      code_pushing_node_is_memory_load(func, node_id) &&
+      code_pushing_relaxed_operands_are_movable(
+        func, node_id, traps_never_happen, 64,
+      )
     @ir.HotOp::Call =>
       code_pushing_node_is_exact_no_effects_intrinsic_call(
         func, node_id, module_ctx,
@@ -582,8 +603,11 @@ fn code_pushing_node_safe_to_cross_for_value(
   }
   for slot = 0; slot < @ir.hot_child_count(func, value_id); slot = slot + 1 {
     if !code_pushing_node_safe_to_cross_for_value(
-        func, node_id, @ir.hot_child_get(func, value_id, slot),
-        module_ctx~, depth=depth - 1,
+        func,
+        node_id,
+        @ir.hot_child_get(func, value_id, slot),
+        module_ctx~,
+        depth=depth - 1,
       ) {
       return false
     }

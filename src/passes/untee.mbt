@@ -21,7 +21,9 @@ fn untee_rewrite_instrs(
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   for instr in instrs {
-    let (current, current_changed) = untee_rewrite_instr(instr, preserve_initialization)
+    let (current, current_changed) = untee_rewrite_instr(
+      instr, preserve_initialization,
+    )
     if current_changed {
       changed = true
     }
@@ -55,11 +57,14 @@ pub fn untee_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     // Definite initialization is checked even in polymorphic unreachable code.
     let mut preserve_initialization = false
     for idx in 0..<locals.length() {
-      if locals[idx] is @lib.RefTypeValType(ref_type) && ref_type.is_non_nullable() {
+      if locals[idx] is @lib.RefTypeValType(ref_type) &&
+        ref_type.is_non_nullable() {
         preserve_initialization = true
       }
     }
-    let (next_body, func_changed) = untee_rewrite_instrs(body, preserve_initialization)
+    let (next_body, func_changed) = untee_rewrite_instrs(
+      body, preserve_initialization,
+    )
     if func_changed {
       changed = true
       rewritten.push(@lib.Func::new(locals, @lib.Expr::new(next_body)))

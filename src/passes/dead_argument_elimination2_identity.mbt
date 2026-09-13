@@ -17,7 +17,9 @@ fn dae2_identity_value(
         }
         heap => heap
       }
-      @lib.ValType::ref_type(@lib.RefType::new(rt.is_nullable(), heap, exact=rt.is_exact()))
+      @lib.ValType::ref_type(
+        @lib.RefType::new(rt.is_nullable(), heap, exact=rt.is_exact()),
+      )
     }
     _ => value
   }
@@ -45,19 +47,24 @@ fn dae2_identity_subtype(
   embedded : Array[Bool],
 ) -> @lib.SubType {
   let comp = match subtype.get_comptype() {
-    @lib.FuncCompType(params, results) => @lib.CompType::func(
-      params.map(fn(v) { dae2_identity_value(v, remap, embedded) }),
-      results.map(fn(v) { dae2_identity_value(v, remap, embedded) }),
-    )
-    @lib.StructCompType(fields) => @lib.CompType::struct_(
-      fields.map(fn(f) { dae2_identity_field(f, remap, embedded) }),
-    )
-    @lib.ArrayCompType(field) => @lib.CompType::array(dae2_identity_field(field, remap, embedded))
+    @lib.FuncCompType(params, results) =>
+      @lib.CompType::func(
+        params.map(fn(v) { dae2_identity_value(v, remap, embedded) }),
+        results.map(fn(v) { dae2_identity_value(v, remap, embedded) }),
+      )
+    @lib.StructCompType(fields) =>
+      @lib.CompType::struct_(
+        fields.map(fn(f) { dae2_identity_field(f, remap, embedded) }),
+      )
+    @lib.ArrayCompType(field) =>
+      @lib.CompType::array(dae2_identity_field(field, remap, embedded))
     @lib.ContCompType(target) => @lib.CompType::cont(remap(target))
   }
   let { describes, descriptor, shared, } = subtype.metadata()
   let metadata = @lib.TypeMetadata::new(
-    describes=describes.map(remap), descriptor=descriptor.map(remap), shared~,
+    describes=describes.map(remap),
+    descriptor=descriptor.map(remap),
+    shared~,
   )
   // A bare composite type has the binary meaning of a final subtype without
   // declared supertypes; singleton rec syntax does not change its identity.
@@ -94,10 +101,15 @@ fn dae2_identity_partition(types : @lib.TypeSec) -> Array[Int] {
         }
       }
     }
-    let key = members.map(fn(subtype) { dae2_identity_subtype(subtype, remap, embedded) })
+    let key = members.map(fn(subtype) {
+      dae2_identity_subtype(subtype, remap, embedded)
+    })
     let first = match interned.get(key) {
       Some(first) => first
-      None => { interned.set(key, base); base }
+      None => {
+        interned.set(key, base)
+        base
+      }
     }
     for member = 0; member < members.length(); member = member + 1 {
       identities.push(first + member)
@@ -113,7 +125,9 @@ fn dae2_identity_dependencies(
   embedded : Array[Bool],
 ) -> Dae2Graph {
   let dependencies = Dae2Graph::new()
-  for _ in 0..<total { ignore(dependencies.location()) }
+  for _ in 0..<total {
+    ignore(dependencies.location())
+  }
   let @lib.TypeSec(groups) = types
   let mut base = 0
   for group in groups {
@@ -126,10 +140,16 @@ fn dae2_identity_dependencies(
       // One member's identity depends on all siblings in its recursive group.
       dependencies.edge(owner, base)
       dependencies.edge(base, owner)
-      ignore(dae2_identity_subtype(members[offset], fn(index) {
-        dependencies.edge(owner, dae2_type_slot(index, base))
-        index
-      }, embedded))
+      ignore(
+        dae2_identity_subtype(
+          members[offset],
+          fn(index) {
+            dependencies.edge(owner, dae2_type_slot(index, base))
+            index
+          },
+          embedded,
+        ),
+      )
     }
     base += members.length()
   }
@@ -143,17 +163,25 @@ fn dae2_preserve_type_identity(
   infos : Array[Dae2Function],
   type_infos : Array[Int],
 ) -> Unit {
-  if !type_infos.any(fn(index) { index >= 0 && dae2_signature_changes(graph, infos[index]) }) {
+  if !type_infos.any(fn(index) {
+      index >= 0 && dae2_signature_changes(graph, infos[index])
+    }) {
     return
   }
   let embedded = [false]
-  let dependencies = dae2_identity_dependencies(types, type_infos.length(), embedded)
+  let dependencies = dae2_identity_dependencies(
+    types,
+    type_infos.length(),
+    embedded,
+  )
   if embedded[0] {
     // Type-section pruning through embedded definitions is intentionally
     // unsupported; private direct function signatures remain independently live.
     for index in type_infos {
       if index >= 0 {
-        for location in infos[index].param_locations { graph.observe(location) }
+        for location in infos[index].param_locations {
+          graph.observe(location)
+        }
         graph.observe(infos[index].result_location)
       }
     }
@@ -162,7 +190,9 @@ fn dae2_preserve_type_identity(
   }
   let original = dae2_identity_partition(types)
   while true {
-    let proposed = dae2_identity_partition(dae2_rewrite_type_section(types, graph, infos, type_infos))
+    let proposed = dae2_identity_partition(
+      dae2_rewrite_type_section(types, graph, infos, type_infos),
+    )
     let old_representatives = Array::make(original.length(), -1)
     let new_representatives = Array::make(original.length(), -1)
     let mut conflict = false
@@ -182,13 +212,17 @@ fn dae2_preserve_type_identity(
       old_representatives[original[index]] = index
       new_representatives[proposed[index]] = index
     }
-    if !conflict { return }
+    if !conflict {
+      return
+    }
     dependencies.solve()
     let before = graph.work.length()
     for index = 0; index < type_infos.length(); index = index + 1 {
       let info_index = type_infos[index]
       if dependencies.used[index] && info_index >= 0 {
-        for location in infos[info_index].param_locations { graph.observe(location) }
+        for location in infos[info_index].param_locations {
+          graph.observe(location)
+        }
         graph.observe(infos[info_index].result_location)
       }
     }
@@ -198,7 +232,9 @@ fn dae2_preserve_type_identity(
       // feature escapes the dependency inventory. It preserves all identities.
       for index in type_infos {
         if index >= 0 {
-          for location in infos[index].param_locations { graph.observe(location) }
+          for location in infos[index].param_locations {
+            graph.observe(location)
+          }
           graph.observe(infos[index].result_location)
         }
       }

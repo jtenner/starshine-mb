@@ -1854,15 +1854,20 @@ fn h2l_ref_get_desc_replacement(func : @ir.HotFunc, alloc_node_id : Int) -> Int 
   }
   let desc_node_id = @ir.hot_child_get(func, alloc_node_id, child_count - 1)
   let desc_result_type = @ir.hot_type_results(
-      func, @ir.hot_node_type(func, desc_node_id),
+      func,
+      @ir.hot_node_type(func, desc_node_id),
     )[0]
   let (checked_desc, checked_type) = match desc_result_type {
     @lib.RefTypeValType(rt) if rt.is_nullable() => {
-      let checked_type = @lib.ValType::ref_type(@lib.RefType::new(
-        false, rt.get_heap_type(), exact=rt.is_exact(),
-      ))
+      let checked_type = @lib.ValType::ref_type(
+        @lib.RefType::new(false, rt.get_heap_type(), exact=rt.is_exact()),
+      )
       let checked_desc = @ir.hot_build_unary(func, checked_type, desc_node_id)
-      @ir.hot_node_exact_instr_set(func, checked_desc, @lib.Instruction::ref_as_non_null())
+      @ir.hot_node_exact_instr_set(
+        func,
+        checked_desc,
+        @lib.Instruction::ref_as_non_null(),
+      )
       (checked_desc, checked_type)
     }
     _ => (desc_node_id, desc_result_type)
@@ -1968,13 +1973,16 @@ fn h2l_try_fold_direct_struct_get(
     return false
   }
   let allocation_ref = @lib.RefType::new(
-    false, @lib.HeapType::new(alloc_type), exact=true,
+    false,
+    @lib.HeapType::new(alloc_type),
+    exact=true,
   )
   for wrapper in passthrough_nodes {
     match @ir.hot_node_exact_instr(func, wrapper) {
       Some(@lib.RefCast(nullable, exact, heap_type)) =>
         if !oc_ref_always_matches(
-            module_ctx, allocation_ref,
+            module_ctx,
+            allocation_ref,
             oc_target_ref_type(nullable, exact, heap_type),
           ) {
           return false

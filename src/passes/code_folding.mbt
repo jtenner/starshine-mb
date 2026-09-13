@@ -1881,9 +1881,12 @@ fn code_folding_try_flatten_exiting_block_at_region(
     for body_idx = 1; body_idx < body_count; body_idx = body_idx + 1 {
       // Only pure pending values may move before a leading bottom marker.
       // An effectful root can instead be actual source-level dead code.
-      if !@ir.effects_is_pure(@ir.effects_for_node(
-          func, @ir.hot_region_get(func, body_ref, body_idx),
-        )) {
+      if !@ir.effects_is_pure(
+          @ir.effects_for_node(
+            func,
+            @ir.hot_region_get(func, body_ref, body_idx),
+          ),
+        ) {
         return false
       }
       if !append_body_root(body_idx) {

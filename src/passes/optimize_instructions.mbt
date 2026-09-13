@@ -9742,10 +9742,7 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
     }
     None => pass_compute_label_used(func)
   }
-  if pass_label_is_used(
-      @ir.hot_control_node_label(func, node_id),
-      label_used,
-    ) {
+  if pass_label_is_used(@ir.hot_control_node_label(func, node_id), label_used) {
     return None
   }
   match node.op {
@@ -10266,7 +10263,8 @@ fn OiI32ArithmeticMaxBitsFact::from_binary(
         (lhs_bits == 32 || rhs_bits == 32) {
         return None
       }
-      let rhs_min_bits = match optimize_instructions_i32_const(func, dead, rhs_id) {
+      let rhs_min_bits = match
+        optimize_instructions_i32_const(func, dead, rhs_id) {
         Some(@lib.I32(value)) =>
           OiUnsignedMaxValueFact::i32_max_bits_or_unknown(Some(value))
         None => 1
@@ -10369,7 +10367,8 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
         (lhs_bits == 64 || rhs_bits == 64) {
         return None
       }
-      let rhs_min_bits = match optimize_instructions_i64_const(func, dead, rhs_id) {
+      let rhs_min_bits = match
+        optimize_instructions_i64_const(func, dead, rhs_id) {
         Some(@lib.I64(value)) =>
           OiUnsignedMaxValueFact::i64_max_bits_or_unknown(Some(value))
         None => 1
@@ -11243,7 +11242,9 @@ fn OiI32MaxBitsProducerFact::from_node(
     }
     @ir.HotOp::Block =>
       match
-        OiMaxBitsFallthroughFact::from_single_value_block(func, dead, node_id, local_facts) {
+        OiMaxBitsFallthroughFact::from_single_value_block(
+          func, dead, node_id, local_facts,
+        ) {
         Some(fact) =>
           OiUnsignedMaxValueFact::i32_max_for_node(
             func,
@@ -11350,7 +11351,9 @@ fn OiI64MaxBitsProducerFact::from_node(
     }
     @ir.HotOp::Block =>
       match
-        OiMaxBitsFallthroughFact::from_single_value_block(func, dead, node_id, local_facts) {
+        OiMaxBitsFallthroughFact::from_single_value_block(
+          func, dead, node_id, local_facts,
+        ) {
         Some(fact) =>
           OiUnsignedMaxValueFact::i64_max_for_node(
             func,
@@ -20171,10 +20174,9 @@ fn OiScalarTreeLeafEqualityFact::from_nodes(
     (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) if left.imm0 == right.imm0 =>
       return Some({ kind: ScalarTreeLeafGlobalGet, stable_state_fact: None, })
     (@ir.HotOp::Const, @ir.HotOp::Const) if pass_hot_const_bits_equal(
-      @ir.hot_const_get(func, left.imm0),
-      @ir.hot_const_get(func, right.imm0),
-    ) =>
-      return Some({ kind: ScalarTreeLeafConst, stable_state_fact: None, })
+        @ir.hot_const_get(func, left.imm0),
+        @ir.hot_const_get(func, right.imm0),
+      ) => return Some({ kind: ScalarTreeLeafConst, stable_state_fact: None, })
     _ => ()
   }
   match
@@ -24678,19 +24680,17 @@ fn OiArrayStorageDefaultValueFact::from_value(
     @lib.ValType::NumTypeValType(@lib.NumType::F32NumType) =>
       match value.op {
         @ir.HotOp::Const if pass_hot_const_bits_equal(
-          @ir.hot_const_get(func, value.imm0),
-          @ir.HotConstPayload::f32_const(@lib.F32(0.0)),
-        ) =>
-          ArrayStorageF32ZeroDefault
+            @ir.hot_const_get(func, value.imm0),
+            @ir.HotConstPayload::f32_const(@lib.F32(0.0)),
+          ) => ArrayStorageF32ZeroDefault
         _ => ArrayStorageNonDefault
       }
     @lib.ValType::NumTypeValType(@lib.NumType::F64NumType) =>
       match value.op {
         @ir.HotOp::Const if pass_hot_const_bits_equal(
-          @ir.hot_const_get(func, value.imm0),
-          @ir.HotConstPayload::f64_const(@lib.F64(0.0)),
-        ) =>
-          ArrayStorageF64ZeroDefault
+            @ir.hot_const_get(func, value.imm0),
+            @ir.HotConstPayload::f64_const(@lib.F64(0.0)),
+          ) => ArrayStorageF64ZeroDefault
         _ => ArrayStorageNonDefault
       }
     @lib.ValType::RefTypeValType(ref_type) =>
