@@ -1073,6 +1073,20 @@ fn simplify_locals_effects_mask_for_exact_node(
         | Some(@lib.I64TruncF64U) => @ir.EFFECT_MASK_TRAP
         _ => 0U
       }
+    @ir.HotOp::StringOp =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.StringEncodeUtf8Array)
+        | Some(@lib.StringEncodeWtf16Array)
+        | Some(@lib.StringEncodeLossyUtf8Array)
+        | Some(@lib.StringEncodeWtf8Array) =>
+          @ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_TRAP
+        Some(@lib.StringNewUtf8Array)
+        | Some(@lib.StringNewWtf16Array)
+        | Some(@lib.StringNewLossyUtf8Array)
+        | Some(@lib.StringNewWtf8Array) =>
+          @ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_TRAP
+        _ => @ir.EFFECT_MASK_TRAP
+      }
     @ir.HotOp::Atomic =>
       simplify_locals_effects_mask_for_atomic_exact(
         @ir.hot_node_exact_instr(func, node_id),

@@ -930,3 +930,12 @@ assignment becomes a drop when evaluating its right side can trap. The audit's
 operations remain eligible for dead-value cleanup. See
 `src/passes/simplify_locals_audit_test.mbt` and the exact effect classifier in
 `src/passes/simplify_locals.mbt`.
+
+
+### String-array effects
+
+Simplify-locals records string-array encoding as a write and string construction
+from arrays as a read, with their possible traps. An unused encoder result does
+not make its target-array writes removable, and motion must respect conflicting
+array effects. Other string operations conservatively retain possible traps.
+The valid IR encoding regression is in `simplify_locals_audit_test.mbt`.
