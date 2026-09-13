@@ -77193,7 +77193,7 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
       (Some(original), Some(params)) =>
         pass_lower_compact_captures(
           if descriptor_name == "constraint-analysis" {
-            ca_lower_refinalize(func, mod_)
+            ca_lower_refinalize(func, mod_, func_idx)
           } else {
             func
           },

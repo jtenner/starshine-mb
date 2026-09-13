@@ -7,7 +7,9 @@ test "campaign constraint lowering keeps terminating loop stack closure" {
   )
   let @lib.CodeSec(funcs) = input.code_sec.unwrap()
   let output = input.with_code_sec(
-    @lib.CodeSec::new([ca_lower_refinalize(funcs[0], input)]),
+    @lib.CodeSec::new([
+      ca_lower_refinalize(funcs[0], input, @lib.FuncIdx::new(0U)),
+    ]),
   )
   assert_true(@validate.validate_module(output) is Ok(_))
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
