@@ -1265,6 +1265,8 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `coalesce-cursor` | coalesce-locals | Dead accesses do not consume live action ordinals | Repaired; focused regression green |
 | `heap-casts` | heap2local | Scalar reads preserve potentially failing casts | Repaired; focused regression green |
 | `heap-descriptors` | heap2local | Descriptor extraction preserves nullable traps | Repaired; focused regression green |
+| `heap-variant-casts` | heap2local | Branch-selected scalarization retains failing casts | Red; repair pending |
+| `heap-variant-init` | heap2local | Variant reads retain default-null traps before initialization | Red; repair pending |
 | `directize-import` | directize | Imported runtime subtypes cannot become unconditional traps | Repaired; focused regression green |
 | `casts-effects` | optimize-casts | Folded tests retain operand evaluation | Repaired; focused regression green |
 | `casts-shared` | optimize-casts | Shared exact references match shared abstract supertypes | Repaired; focused regression green |
@@ -1290,3 +1292,10 @@ repair: equivalent-type splitting and recursive-group splitting/collision. All
 nine additions reproduce wrong behavior, bringing this campaign to 52 Moon
 checks and 48 execution checks. See `dead_argument_elimination2_round2_wbtest.mbt`
 and the `red-dae2-*` logs in the same local evidence directory.
+
+The allocation-variant follow-up adds four Moon checks and eight execution
+checks for casts before writes, after tees/reads, and reads before initialization.
+The original native binary loses five required traps; three successful controls
+still pass. Final-import Directize trap folding also has a forward optimization
+guard. The expanded campaign contains 57 Moon checks and 56 execution checks.
+The 11,456-test full run before these additions passed completely.

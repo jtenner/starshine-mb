@@ -2,11 +2,11 @@
 
 ## v0.1.1 — second optimizer audit [IR2-CORRECTNESS]
 
-- **Goal / why:** repair the 26 confirmed second-audit correctness families.
+- **Goal / why:** repair the 28 confirmed second-audit correctness families.
 - **Deliverables / tasks:** red-first tests are written; apply each repair in its own commit, then run final focused/full checks and affected-pass GenValid lanes.
 - **APIs / invariants:** preserve effects, traps, runtime types, signed bits and every control-flow destination.
 - **Dependencies / exit:** serialized Moon commands; verified Binaryen 132; no failing regression or unexplained verification failure.
-- **Evidence / suggested tests:** 49 Moon checks and 42 CLI execution checks; [audit ledger](docs/wiki/ir2/architecture-rules.md#september-12-second-correctness-audit); `.tmp/pass-audit-round2-20260912/`. Currently 45 Moon checks intentionally fail before implementation.
+- **Evidence / suggested tests:** 57 Moon checks and 56 CLI execution checks; [audit ledger](docs/wiki/ir2/architecture-rules.md#september-12-second-correctness-audit); `.tmp/pass-audit-round2-20260912/`. Initial 26 repairs and the 11,456-test full suite pass; four allocation-variant follow-up red checks and final fuzz verification remain.
 
 ## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
