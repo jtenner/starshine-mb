@@ -3020,6 +3020,25 @@ fn lcse_effect_mask_allowed(mask : @ir.EffectMask) -> Bool {
 }
 
 ///|
+fn lcse_tree_has_local_write_or_string_effect(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee | @ir.HotOp::StringOp =>
+      return true
+    _ => ()
+  }
+  for child in @ir.hot_child_span(func, node_id) {
+    if child >= 0 && lcse_tree_has_local_write_or_string_effect(func, child) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn lcse_candidate_key(func : @ir.HotFunc, node_id : Int) -> String? {
   let node = @ir.hot_node_get(func, node_id)
   if lcse_result_type(func, node_id) is None {
@@ -3035,7 +3054,9 @@ fn lcse_candidate_key(func : @ir.HotFunc, node_id : Int) -> String? {
     @ir.HotOp::Atomic => return None
     _ => ()
   }
-  if lcse_tree_size(func, node_id) < 2 {
+  if lcse_tree_size(func, node_id) < 2 ||
+    lcse_tree_has_local_write_or_string_effect(func, node_id) ||
+    !lcse_effect_mask_allowed(@ir.effects_for_node(func, node_id)) {
     return None
   }
   lcse_tree_key(func, node_id)
@@ -3105,6 +3126,43 @@ fn lcse_visit_node(
   node_id : Int,
   place : LcsePlace,
 ) -> Unit {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable => {
+      lcse_visit_region(ctx, func, @ir.hot_region_body_ref(func, node_id))
+      state.bindings.clear()
+      return
+    }
+    @ir.HotOp::If => {
+      if @ir.hot_child_count(func, node_id) > 0 {
+        let condition = @ir.hot_child_get(func, node_id, 0)
+        if condition >= 0 && @ir.hot_node_is_live(func, condition) {
+          lcse_visit_node(
+            ctx,
+            func,
+            state,
+            condition,
+            LcsePlace::Child(node_id, 0),
+          )
+        }
+      }
+      lcse_visit_region(ctx, func, @ir.hot_region_then_ref(func, node_id))
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) => lcse_visit_region(ctx, func, else_ref)
+        None => ()
+      }
+      state.bindings.clear()
+      return
+    }
+    _ => ()
+  }
+  let count = @ir.hot_child_count(func, node_id)
+  for slot = 0; slot < count; slot = slot + 1 {
+    let child = @ir.hot_child_get(func, node_id, slot)
+    if child >= 0 && @ir.hot_node_is_live(func, child) {
+      lcse_visit_node(ctx, func, state, child, LcsePlace::Child(node_id, slot))
+    }
+  }
   match lcse_candidate_key(func, node_id) {
     Some(key) =>
       match state.bindings.get(key) {
@@ -3127,40 +3185,8 @@ fn lcse_visit_node(
       }
     None => ()
   }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable => {
-      lcse_visit_region(ctx, func, @ir.hot_region_body_ref(func, node_id))
-      return
-    }
-    @ir.HotOp::If => {
-      if @ir.hot_child_count(func, node_id) > 0 {
-        let condition = @ir.hot_child_get(func, node_id, 0)
-        if condition >= 0 && @ir.hot_node_is_live(func, condition) {
-          lcse_visit_node(
-            ctx,
-            func,
-            state,
-            condition,
-            LcsePlace::Child(node_id, 0),
-          )
-        }
-      }
-      lcse_visit_region(ctx, func, @ir.hot_region_then_ref(func, node_id))
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_ref) => lcse_visit_region(ctx, func, else_ref)
-        None => ()
-      }
-      return
-    }
-    _ => ()
-  }
-  let count = @ir.hot_child_count(func, node_id)
-  for slot = 0; slot < count; slot = slot + 1 {
-    let child = @ir.hot_child_get(func, node_id, slot)
-    if child >= 0 && @ir.hot_node_is_live(func, child) {
-      lcse_visit_node(ctx, func, state, child, LcsePlace::Child(node_id, slot))
-    }
+  if lcse_barrier_clears_window(func, node_id) {
+    state.bindings.clear()
   }
 }
 

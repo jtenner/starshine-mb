@@ -949,3 +949,11 @@ suffix and reuse window; ifs retain only the existing nested-scan window before
 its normal invalidation. A global result must not expose older constants as its
 operands. The audit's two-result arithmetic fixture retains `(3, 7)` instead of
 reusing the unrelated value `13`. See `local_cse_audit_test.mbt`.
+
+
+The public HOT local-CSE path visits operands in evaluation order, applies
+barriers at each visited node, and only reuses trees with admissible effects.
+Local writes and string operations are not treated as reusable expression trees.
+A dropped call still clears the window when its call node is visited. The direct
+HOT audit retains both effectful calls; module dispatch retains its separate raw
+implementation.
