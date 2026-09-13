@@ -1469,9 +1469,11 @@ Before implementation, the expanded red phase reproduced numeric trap erasure,
 local-CSE result-type errors, exported initializer identity duplication, typed
 block parameter loss, DAE suffix proof gaps, signed-zero field merging,
 exception-handler value leakage, constraint loop stack closure loss, and
-Precompute string/descriptor/allocation problems. Counts and final validation
-are recorded below after verification; a failing fixture is distinguished from
-a compiler defect.
+Precompute string/descriptor/allocation problems. The initial final red run
+had 84 failures among 87 checks. Two additional direct HOT checks also failed
+before their respective repairs, bringing the campaign to 89 checks with 86
+failing-before-fix cases and three already-passing checks. A failing fixture
+is distinguished from a compiler defect.
 
 The tuple snapshot report was withdrawn: production HOT has scalar locals and
 no `TupleExtract(LocalGet)` construction path. The nonnullable SSA merge fixture
@@ -1624,3 +1626,116 @@ with a known nonzero divisor, additionally excluding `-1` for signed division
 unless a separate overflow proof exists. Unknown divisors and trapping
 conversions remain non-discardable. This restores existing safe folds without
 weakening the failing-first trap campaign.
+
+### September 13 source verification
+
+Source checkpoint `858d2832c` contains 15 atomic repair commits, including the
+full-suite scalar-proof refinement. All **89/89** campaign tests pass, as do
+**11,547/11,547** full wasm-gc tests and **235/235** existing native execution
+regressions (642 assertions). `moon info` and `moon fmt` pass, with no public
+`.mbti` changes. The initial default-backend pass-suite run was interrupted
+without a result; it is not counted as passing. The head agent serialized all
+Moon commands, including fresh release builds of both CLI and generator.
+
+The [SSA merge check](../../../src/passes/ssa_campaign_test.mbt) preserves the
+already-correct nonnullable initialization behavior; it is not a repaired bug.
+Likewise, the OptimizeInstructions canonical-heap and public descriptor-effect
+checks already passed. The independent loop stack check rejects the original
+invalid encoding with `wasm-tools` and accepts the repaired encoding; the local
+record is `loop-independent-validation.json` in the campaign directory.
+
+Fresh native executable SHA-256 identities:
+
+- CLI: `8fd792092126adaea5ba19d5e04a6170df664f0cc4d6f767844b965752f14bd1`.
+- GenValid: `03cf42c03b8fd9e82e2839c235eea289ee04a876ab291ac39d81145b2c5453cb`.
+- Verified Binaryen 132 oracle:
+  `1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
+
+The native paths are `_build/native/release/build/{cmd/cmd,fuzz/fuzz}.exe`;
+the oracle is `.tmp/binaryen-version_132/bin/wasm-opt`. Exact commands, hashes,
+and local logs are retained under `.tmp/correctness-campaign-20260913/`.
+
+### September 13 generated verification
+
+After all code repairs, ten primary GenValid lanes attempted 10,000 cases each,
+with seed `0x5eed`, fresh explicit native CLI/generator paths, and verified
+Binaryen 132. Each command uses `--jobs auto --max-subprocesses 8
+--max-mismatch-artifacts 20`. The deterministic oracle cache is reused;
+Starshine transformations are fresh. No wasm-smith lane was run.
+
+Profiles are `pass-oi-all`, generic local-CSE, `simplify-globals-optimizing-all`,
+`constraint-analysis`, `rse`, generic closed-world GlobalStructInference,
+`dae-optimizing`, `optimize-casts-all`, and `precompute-all` for both Precompute
+variants. DAE uses the required `drop-consts` and `unreachable-control-debris`
+normalizations; zero cases required those normalizations in this run.
+
+The primary validator is `wasm-tools`. All 99,102 admitted comparisons completed
+without output-validation or command failures. The remaining 898 attempts are
+449 inputs per Precompute lane rejected **before optimization** for atomic
+consistency ordering 2. Those remain generator/input-validation failures in
+the original records. Normalized matches are structural evidence, not runtime
+observations. Larger counts are canonical Starshine size losses.
+
+| Pass | Compared | Normalized | Differences | Larger | Input failures |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| optimize-instructions | 10000 | 8920 | 1080 | 0 | 0 |
+| local-cse | 10000 | 10000 | 0 | 0 | 0 |
+| simplify-globals-optimizing | 10000 | 5055 | 4945 | 0 | 0 |
+| constraint-analysis | 10000 | 4254 | 5746 | 477 | 0 |
+| redundant-set-elimination | 10000 | 7656 | 2344 | 0 | 0 |
+| global-struct-inference | 10000 | 10000 | 0 | 0 | 0 |
+| dae-optimizing | 10000 | 5742 | 4258 | 0 | 0 |
+| optimize-casts | 10000 | 10000 | 0 | 0 | 0 |
+| precompute | 9551 | 2789 | 6762 | 0 | 449 |
+| precompute-propagate | 9551 | 2317 | 7234 | 0 | 449 |
+
+Separate `--primary-validator binaryen --min-compared 10000` lanes each
+complete 10,000 comparisons with zero generator, output-validation or command
+failures: Precompute has 3,238 normalized matches and 6,762 differences;
+PrecomputePropagate has 2,766 matches and 7,234 differences. Neither has a
+canonical size loss. These checks admit all 449 previously blocked inputs per
+lane but are **not independent validation** and do not supersede the original
+failures. Across the twelve lanes, 120,000 attempts yield 119,102 comparisons;
+the alternate lanes repeat the same seeds, not 20,000 additional unique inputs.
+
+After the large lanes, the retained 20 mismatch inputs from each of seven
+primary lanes were replayed with the existing `node-v2` three-way oracle.
+All **140/140** observations match original, Starshine and Binaryen, with zero
+runtime blocks or semantic mismatches. These bounded observations supplement
+the structural checks; the main generated lanes did not execute a semantic
+oracle or enable the optional determinism/idempotence properties.
+
+### September 13 residual-difference review
+
+The following classifications are agent judgments, not harness conclusions:
+
+- **Size-losing parity gap:** 477 ConstraintAnalysis `constraint-loops` cases
+  total +954 canonical bytes. Case 43 was separately regenerated and inspected:
+  Starshine retains tuple drops and outer unreachable closure around a
+  terminating result loop. Its smaller tee cleanup does not cancel the net
+  size loss. This family remains open, rather than being accepted because the
+  output validates.
+- **Sampled cleanup size wins:** retained RSE and Precompute samples remove
+  inert `nop` instructions or replace `drop(local.tee x v)` with `local.set x v`.
+  These identities preserve evaluation and local writes; measured canonical
+  bytes decrease and the retained runtime observations match. This judgment
+  covers the inspected identities, not every unsampled difference.
+- **Open parity gaps:** OptimizeInstructions tuple lowering (all 1,080
+  differences), SimplifyGlobals initializer reuse/cleanup, DAE argument/local
+  cleanup, and ConstraintAnalysis fact folds retain different shapes. Sampled
+  runtime matches and smaller aggregate bytes do not by themselves close
+  every family. OptimizeInstructions, local-CSE, OptimizeCasts and
+  SimplifyGlobals match the preceding audit's aggregate comparison counts;
+  that is historical consistency, not proof of equivalence for every input.
+- **Independent-validator limit:** the 449 atomic-ordering inputs per
+  Precompute lane remain blocked in `wasm-tools`; successful verified-v132
+  alternate checks are recorded separately. No Starshine output-validation or
+  command failure was observed in this campaign.
+
+All confirmed source-audit correctness findings are repaired. Remaining
+size/parity work and the independent-validator limitation are retained in
+[`agent-todo.md`](../../../agent-todo.md). Local evidence includes
+`final-counts.json`, `family-sizes.json`, `fuzz-execution.json`,
+`alternate-fuzz-execution.json`, per-lane `cases.jsonl`/`result.json`,
+`constraint-size-review/`, and `runtime-replays/`. Historical campaigns keep
+their original versions, source checkpoints and results.

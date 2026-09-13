@@ -1,13 +1,5 @@
 # Agent Tasks
 
-## v0.1.1 — five-agent correctness campaign [IR2-CORRECTNESS]
-
-- **Goal / why:** resolve the confirmed September 13 source-audit regressions while preserving eager evaluation, identity, stack typing and handler state.
-- **Deliverables / tasks:** adjacent campaign regressions, separate fixes and commits, final serialized Moon validation and 10,000-case GenValid lanes for affected passes.
-- **Required APIs / invariants:** exact opcode effects, module result types, bitwise literal equality, initializer identity, valid lowering and semantic rewrite proofs.
-- **Dependencies / exit criteria:** finish all red cases before fixes; keep known failures visible until final tests and fuzz evidence are recorded.
-- **Evidence / suggested tests:** [campaign ledger](docs/wiki/ir2/architecture-rules.md#september-13-five-agent-correctness-campaign), `*_campaign_*test.mbt`; local logs `.tmp/correctness-campaign-20260913/`. Initial final red phase: 87 tests, 84 failures, 3 passing checks. Scalar fix: 66/66 focused pass; remaining campaign failures are active.
-
 ## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
 - **Goal / why:** close the remaining output-size and independent-validator gaps
@@ -25,6 +17,11 @@
   recursive-group construction so safe signature pruning need not be declined.
   Retain the second audit's unsampled output families and dropped-null type
   widening as parity work; smaller surrounding code alone does not close them.
+  The September 13 campaign adds 477 ConstraintAnalysis loop size losses
+  (+954 canonical bytes); retain its unsampled residual differences as open
+  parity work. Independent validation of 449 relaxed-atomic inputs per
+  Precompute variant remains blocked by atomic ordering 2 support, despite
+  successful separate Binaryen-validated comparisons.
 - **APIs / invariants:** preserve traps, operand order, local writes, lexical labels,
   and imported-tag alias priority. Keep original tool-blocked reports unchanged.
 - **Dependencies / exit:** compatible independent validation; red-first general
@@ -34,6 +31,10 @@
   Local commands, hashes, counts, and judgments: `.tmp/pass-audit-20260912/`.
   Second-audit limits: [residual-difference review](docs/wiki/ir2/architecture-rules.md#second-audit-residual-difference-review)
   and `.tmp/pass-audit-round2-20260912/`.
+  September 13 evidence: [generated verification](docs/wiki/ir2/architecture-rules.md#september-13-generated-verification)
+  and `.tmp/correctness-campaign-20260913/`. All 89 campaign checks, 11,547
+  full wasm-gc tests, 235 native regressions and 140 retained runtime replays
+  pass; no confirmed campaign correctness defect remains open.
 
 ## v0.1.1 — catch labels, fact operands, function exits [IR2-CORRECTNESS]
 
