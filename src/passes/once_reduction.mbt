@@ -880,7 +880,10 @@ fn or_optimize_once_bodies(
       defined_idx < funcs.length()
       defined_idx = defined_idx + 1 {
     let abs_idx = imported_func_count + defined_idx
-    if abs_idx >= once_func_globals.length() || once_func_globals[abs_idx] < 0 {
+    if abs_idx >= once_func_globals.length() ||
+      once_func_globals[abs_idx] < 0 ||
+      abs_idx >= once_func_slots.length() ||
+      once_func_slots[abs_idx] < 0 {
       continue
     }
     let @lib.Func(locals, @lib.Expr(instrs)) = funcs[defined_idx]
