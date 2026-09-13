@@ -868,3 +868,54 @@ binaries isolate the DAE2 regressions; fact fixtures strip names before appendin
 metadata. The decoder reproducer is `name-followed-custom.wasm` with commands in
 `separate-decoder-finding.json` in the evidence directory. Both findings remain
 open outside this three-fix scope.
+
+
+## September 12 five-agent optimizer audit
+
+Five reporting-only agents reviewed every optimization-pass assignment, including
+variants and supporting dispatch paths. They did not edit files or run Moon.
+The review was targeted static analysis, not an exhaustive correctness proof.
+Root-authored regressions precede every implementation repair. The initial campaign
+has 74 bounded tests: 25 independently reported arithmetic-trap cases span all
+five simplify-locals variants; the remainder cover effects, labels, types,
+constant bits, and module identity. Initial red evidence is under
+`.tmp/pass-audit-20260912/`; 14 tests passed and 60 failed before repairs (the
+continuation fixture's initial traversal error is superseded by its focused rerun).
+
+The active repair families are:
+
+- Import name-pair identity and concrete function subtypes:
+  `src/passes/duplicate_import_elimination_audit_test.mbt`.
+- RSE operand/result tracking, descriptor and exception exits, and HOT value
+  identities: `src/passes/rse_audit_test.mbt`.
+- CSE producer tracking and effects: `src/passes/local_cse_audit_test.mbt`.
+- Precompute loop/prologue rewrites, loop facts, and heap operand effects:
+  `src/passes/precompute_audit_test.mbt` and `precompute_audit_wbtest.mbt`.
+- Fixed-array operand effects: `src/passes/optimize_instructions_audit_test.mbt`.
+- Once-call returns, labels, exception joins, and persistent guards:
+  `src/passes/once_reduction_audit_test.mbt` and `once_reduction_audit_wbtest.mbt`.
+- Globals cleanup scope, reference branches, and early returns:
+  `src/passes/simplify_globals_optimizing_audit_test.mbt`.
+- Heap scalarization null checks and packed fields:
+  `src/passes/heap2local_audit_test.mbt`.
+- Trapping arithmetic and string writes:
+  `src/passes/simplify_locals_audit_test.mbt`.
+- Global singleton origins and shared-type joins: global-struct-inference and
+  global-refining audit tests; string subtype matching: optimize-casts audit test.
+- Control owners, imported-tag aliasing, and continuation exits: code-pushing,
+  coalesce-locals, merge-blocks, vacuum, remove-unused-brs, remove-unused-names,
+  and inlining audit tests.
+- Bit-exact floating constants: `src/passes/float_equality_audit_wbtest.mbt`.
+- Trapping table initializers:
+  `src/passes/remove_unused_module_elements_audit_test.mbt`.
+
+Several public-pipeline guards prevent a lower-level finding from surfacing in
+that pipeline. Green neighbor tests remain evidence of that narrower behavior;
+a source finding alone is not classified as verified CLI wrong-code. In
+particular, remove-unused-names currently skips stack-switching modules, while
+its direct HOT label APIs still require consistent continuation bookkeeping.
+
+**Status:** red phase recorded; implementation repairs, full tests, and final
+Binaryen 132 GenValid checks remain pending. Fuzzing runs only after all repairs,
+using a freshly built native CLI and documented aggregate profiles. No new
+Binaryen parity or performance signoff is claimed by the static audit.

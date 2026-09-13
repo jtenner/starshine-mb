@@ -1,5 +1,22 @@
 # Agent Tasks
 
+## v0.1.1 — five-agent optimizer audit [IR2-CORRECTNESS]
+
+- **Goal / why:** repair semantic, validation, and analysis defects reported by
+  five read-only auditors, with root-only serialized compiler use.
+- **Deliverables / tasks:** 74 bounded red-phase tests written; fix each verified
+  cause in its own commit, then full tests and final 10,000-case GenValid checks
+  per changed pass using verified Binaryen 132 and a fresh native CLI.
+- **Current blocker:** 60 initial audit-test failures remain under repair; 14
+  neighbor tests pass. No implementation or final fuzz signoff yet.
+- **APIs / invariants:** preserve effects, traps, branch destinations, concrete
+  types, operand identities, and float bits; public HOT APIs remain consistent.
+- **Dependencies / exit:** serialize Moon; agents report only; commit skill waived
+  for this campaign. Exit requires all confirmed regressions passing and final
+  test/fuzz evidence with remaining mismatches explicitly classified.
+- **Evidence:** [audit ledger](docs/wiki/ir2/architecture-rules.md#september-12-five-agent-optimizer-audit),
+  `src/passes/*_audit*test.mbt`, `.tmp/pass-audit-20260912/`.
+
 ## v0.1.1 — catch labels, fact operands, function exits [IR2-CORRECTNESS]
 
 - **Goal / why:** retain regression guards for catch destinations, actual stack operand identities, and implicit function-label result liveness. Starting master: `e53ec910e5ccc9d8f43342c2b598d29ff30d81ba`.

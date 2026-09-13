@@ -1,0 +1,40 @@
+///|
+test "audit optimize casts recognizes string extern subtype" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    false,
+                    @lib.HeapType::abs(@lib.AbsHeapType::string_()),
+                  ),
+                ),
+              ],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let output = audit_run_module(input, "optimize-casts")
+  assert_false(audit_body(output).contains(@lib.Instruction::i32_const(0)))
+}
