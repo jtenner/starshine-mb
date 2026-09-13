@@ -919,3 +919,14 @@ its direct HOT label APIs still require consistent continuation bookkeeping.
 Binaryen 132 GenValid checks remain pending. Fuzzing runs only after all repairs,
 using a freshly built native CLI and documented aggregate profiles. No new
 Binaryen parity or performance signoff is claimed by the static audit.
+
+
+### Arithmetic trap preservation
+
+Simplify-locals classifies integer division/remainder and trapping float-to-int
+conversions from their exact opcode before deleting or moving a value. An unused
+assignment becomes a drop when evaluating its right side can trap. The audit's
+25 independent numeric cases cover all five variants; existing nontrapping
+operations remain eligible for dead-value cleanup. See
+`src/passes/simplify_locals_audit_test.mbt` and the exact effect classifier in
+`src/passes/simplify_locals.mbt`.

@@ -1053,6 +1053,26 @@ fn simplify_locals_effects_mask_for_exact_node(
     | @ir.HotOp::ElemDrop => @ir.EFFECT_MASK_TABLE_WRITE
     @ir.HotOp::TableCopy | @ir.HotOp::TableInit =>
       @ir.EFFECT_MASK_TABLE_READ | @ir.EFFECT_MASK_TABLE_WRITE
+    @ir.HotOp::Binary | @ir.HotOp::Unary | @ir.HotOp::Convert =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.I32DivS)
+        | Some(@lib.I32DivU)
+        | Some(@lib.I32RemS)
+        | Some(@lib.I32RemU)
+        | Some(@lib.I64DivS)
+        | Some(@lib.I64DivU)
+        | Some(@lib.I64RemS)
+        | Some(@lib.I64RemU)
+        | Some(@lib.I32TruncF32S)
+        | Some(@lib.I32TruncF32U)
+        | Some(@lib.I32TruncF64S)
+        | Some(@lib.I32TruncF64U)
+        | Some(@lib.I64TruncF32S)
+        | Some(@lib.I64TruncF32U)
+        | Some(@lib.I64TruncF64S)
+        | Some(@lib.I64TruncF64U) => @ir.EFFECT_MASK_TRAP
+        _ => 0U
+      }
     @ir.HotOp::Atomic =>
       simplify_locals_effects_mask_for_atomic_exact(
         @ir.hot_node_exact_instr(func, node_id),
@@ -3056,6 +3076,17 @@ fn simplify_locals_value_is_pure(func : @ir.HotFunc, node_id : Int) -> Bool {
     return true
   }
   let node = @ir.hot_node_get(func, node_id)
+  if (
+      simplify_locals_effects_mask_for_exact_node(func, node_id) &
+      (
+        @ir.EFFECT_MASK_TRAP |
+        @ir.EFFECT_MASK_MEMORY_WRITE |
+        @ir.EFFECT_MASK_TABLE_WRITE
+      )
+    ) !=
+    0U {
+    return false
+  }
   let op_is_pure = match node.op {
     @ir.HotOp::Nop
     | @ir.HotOp::Const
