@@ -10851,6 +10851,11 @@ fn precompute_propagate_mark_arm_direct_const_gets(
     return
   }
   let node = @ir.hot_node_get(func, node_id)
+  if node.op is @ir.HotOp::Loop {
+    precompute_propagate_mark_result_if_arm_writes(
+      func, node_id, true, arm_written,
+    )
+  }
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop => {
       let body = @ir.hot_region_body_ref(func, node_id)

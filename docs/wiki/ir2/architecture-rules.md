@@ -1045,3 +1045,7 @@ Distinct imported tag indices can alias the same host tag, so caught-throw foldi
 ### Coalescer exception branches
 
 Try-table catch targets count as branches when coalesce-locals checks wrapper ownership and escape depth. Catch labels are relative to the surrounding scope; ordinary body branches add the try label. `coalesce_locals_audit_test.mbt` checks that a caught throw retains its owner block and the observable write after that block.
+
+### Precompute loop condition facts
+
+Before applying a result-if condition's constant local facts inside a loop, precompute-propagate marks every local written by that loop. Source-order first-iteration reasoning cannot substitute loop-carried reads. The bounded scalar audit now verifies that both the original and optimized loop terminate with sum 6; the red optimized case exhausted the evaluator's step bound.

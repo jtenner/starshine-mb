@@ -37,6 +37,10 @@ test "audit precompute condition facts respect loop backedges" {
     #|   local.get 0 i32.lt_s br_if 0
     #|  end local.get $sum
     #| else i32.const 0 end))
+  let original = pass_test_module_from_wat(wat)
+  @debug.assert_eq(scalar_fixture_run(original.code_sec.unwrap().0[0], [4L]), [
+    6L,
+  ])
   let output = audit_run(wat, "precompute-propagate")
   @debug.assert_eq(scalar_fixture_run(output.code_sec.unwrap().0[0], [4L]), [6L])
 }
