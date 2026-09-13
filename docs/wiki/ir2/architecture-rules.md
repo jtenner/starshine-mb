@@ -1011,3 +1011,7 @@ Both once analysis and rewriting push an if-label scope and retain local branch 
 Once-body simplification requires an active once slot, not just a syntactically recognized guard. A guard read by ordinary code makes its writes observable. The inactive-wrapper audit regression retains that global write even when another unrelated once function activates the pass.
 
 A wrapper whose guard is shared with another once function retains its guard write and exit logic. Calling the otherwise empty wrapper can suppress the other function's effects. The shared-guard audit case checks that exported wrapper's write; body erasure requires unique guard ownership.
+
+### Once exception joins
+
+Try-table catch targets receive the incoming must-facts when the body may throw, before entering the try label scope. A conservative fixed-point call summary proves nonthrowing defined callees so existing repeated-call optimization across a nonthrowing try remains available. Imported and indirect calls are potentially throwing. Once facts are monotone only for eligible guards. The exception-exit audit regression and existing nonthrowing try-table test cover both sides of this distinction.

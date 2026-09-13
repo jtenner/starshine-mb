@@ -386,6 +386,7 @@ priv struct OrFlowEnv {
   func_once_sets : Array[@bitset.BitSet]
   func_once_set_singletons : @bitset.BitSet
   allow_transitive_call_summaries : Bool
+  func_may_throw : Array[Bool]
 }
 
 ///|
@@ -395,6 +396,7 @@ fn OrFlowEnv::new(
   func_once_sets : Array[@bitset.BitSet],
   func_once_set_singletons : @bitset.BitSet,
   allow_transitive_call_summaries : Bool,
+  func_may_throw? : Array[Bool] = [],
 ) -> OrFlowEnv {
   {
     once_global_slots,
@@ -402,6 +404,7 @@ fn OrFlowEnv::new(
     func_once_sets,
     func_once_set_singletons,
     allow_transitive_call_summaries,
+    func_may_throw,
   }
 }
 
@@ -509,7 +512,8 @@ fn or_analyze_instrs_flow(
           None => return None
         }
       }
-      @lib.TryTable(_, _, @lib.Expr(body)) => {
+      @lib.TryTable(_, catches, @lib.Expr(body)) => {
+        or_record_exception_exits(body, catches, current, env, branch_states)
         branch_states.push(None)
         let fallthrough = or_analyze_instrs_flow(
           body, current, env, branch_states, normal_exits,
@@ -587,10 +591,15 @@ fn or_analyze_instrs(
   func_once_sets : Array[@bitset.BitSet],
   func_once_set_singletons : @bitset.BitSet,
   allow_transitive_call_summaries : Bool,
+  func_may_throw? : Array[Bool] = [],
 ) -> @bitset.BitSet {
   let env = OrFlowEnv::new(
-    once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+    once_global_slots,
+    once_func_slots,
+    func_once_sets,
+    func_once_set_singletons,
     allow_transitive_call_summaries,
+    func_may_throw~,
   )
   let branch_states : Array[@bitset.BitSet?] = [None]
   let normal_exits : Array[@bitset.BitSet?] = [None]
@@ -709,6 +718,7 @@ fn or_rewrite_instrs_flow(
         }
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        or_record_exception_exits(body, catches, current, env, branch_states)
         branch_states.push(None)
         let fallthrough = or_rewrite_instrs_flow(
           body, current, env, branch_states, normal_exits,
@@ -795,10 +805,15 @@ fn or_rewrite_instrs(
   func_once_sets : Array[@bitset.BitSet],
   func_once_set_singletons : @bitset.BitSet,
   allow_transitive_call_summaries : Bool,
+  func_may_throw? : Array[Bool] = [],
 ) -> @bitset.BitSet {
   let env = OrFlowEnv::new(
-    once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+    once_global_slots,
+    once_func_slots,
+    func_once_sets,
+    func_once_set_singletons,
     allow_transitive_call_summaries,
+    func_may_throw~,
   )
   let branch_states : Array[@bitset.BitSet?] = [None]
   let normal_exits : Array[@bitset.BitSet?] = [None]
@@ -1084,6 +1099,9 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     return mod_
   }
 
+  let func_may_throw = or_collect_throwing_funcs(
+    funcs, imported_func_count, total_funcs,
+  )
   let func_initial_once_sets : Array[@bitset.BitSet] = []
   let func_once_sets : Array[@bitset.BitSet] = []
   for func_idx = 0; func_idx < total_funcs; func_idx = func_idx + 1 {
@@ -1116,6 +1134,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         func_once_sets,
         func_once_set_singletons,
         once_func_slots[abs_idx] < 0,
+        func_may_throw~,
       )
       // Direct once functions and annotated idempotent functions guarantee
       // their own synthetic fact on every normal return, including an early
@@ -1160,6 +1179,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         func_once_sets,
         func_once_set_singletons,
         once_func_slots[abs_idx] < 0,
+        func_may_throw~,
       ),
     )
     let next_func = @lib.Func::new(locals, @lib.Expr::new(next_instrs))
@@ -1183,4 +1203,108 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     return mod_
   }
   mod_.with_code_sec(@lib.CodeSec::new(cleaned_funcs))
+}
+
+///|
+fn or_instrs_may_throw(
+  instrs : Array[@lib.Instruction],
+  funcs : Array[Bool],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Rethrow(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Resume(_, _)
+      | @lib.ResumeThrow(_, _, _)
+      | @lib.ResumeThrowRef(_, _)
+      | @lib.StackSwitch(_, _) => return true
+      @lib.Call(@lib.FuncIdx(raw)) | @lib.ReturnCall(@lib.FuncIdx(raw)) => {
+        let idx = raw.reinterpret_as_int()
+        if idx < 0 || idx >= funcs.length() || funcs[idx] {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if or_instrs_may_throw(body, funcs) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if or_instrs_may_throw(then_body, funcs) {
+          return true
+        }
+        match else_body {
+          Some(body) => if or_instrs_may_throw(body, funcs) { return true }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if or_instrs_may_throw(body, funcs) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          if or_instrs_may_throw(body, funcs) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn or_collect_throwing_funcs(
+  funcs : Array[@lib.Func],
+  imports : Int,
+  total : Int,
+) -> Array[Bool] {
+  let throwing = Array::make(total, false)
+  for i = 0; i < imports; i = i + 1 {
+    throwing[i] = true
+  }
+  let mut changed = true
+  while changed {
+    changed = false
+    for i = 0; i < funcs.length(); i = i + 1 {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[i]
+      if !throwing[imports + i] && or_instrs_may_throw(body, throwing) {
+        throwing[imports + i] = true
+        changed = true
+      }
+    }
+  }
+  throwing
+}
+
+///|
+fn or_record_exception_exits(
+  body : Array[@lib.Instruction],
+  catches : Array[@lib.Catch],
+  current : @bitset.BitSet,
+  env : OrFlowEnv,
+  branch_states : Array[@bitset.BitSet?],
+) -> Unit {
+  if !or_instrs_may_throw(body, env.func_may_throw) {
+    return
+  }
+  for catch_ in catches {
+    let label = match catch_ {
+      @lib.Catch(_, label)
+      | @lib.CatchRef(_, label)
+      | @lib.CatchAll(label)
+      | @lib.CatchAllRef(label) => label
+    }
+    or_record_branch_state(branch_states, label, current)
+  }
 }
