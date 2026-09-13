@@ -148,3 +148,12 @@ The pass needs:
 - type/writeback validation after rewrites.
 
 Only after direct Binaryen parity is green should a wider liveness/dead-store variant be considered.
+
+
+## Descriptor operand identity
+
+`ref.cast_desc_eq` consumes object and descriptor, in that order, and produces
+an object reference. Raw RSE removes both abstract operands and carries the
+object's identity with the refined result type. Treating the descriptor as the
+result could erase a required local write. Both the ordinary refined-source
+fixture and `rse_audit_test.mbt` use valid binary-operand descriptor casts.

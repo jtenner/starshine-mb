@@ -1533,9 +1533,22 @@ fn rse_raw_rewrite_expr_scoped(
         ignore(rse_raw_pop(state))
         out.push(instr)
       }
-      @lib.Instruction::RefAsNonNull
-      | @lib.Instruction::RefCast(_, _, _)
-      | @lib.Instruction::RefCastDescEq(_, _, _) => {
+      @lib.Instruction::RefCastDescEq(nullable, exact, heap_type) => {
+        // The descriptor is the second operand; the result retains the object.
+        ignore(rse_raw_pop(state))
+        let value = rse_raw_pop(state)
+        out.push(instr)
+        rse_raw_push(
+          state,
+          value,
+          ty=Some(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(nullable, heap_type, exact~),
+            ),
+          ),
+        )
+      }
+      @lib.Instruction::RefAsNonNull | @lib.Instruction::RefCast(_, _, _) => {
         let operand_type = rse_raw_peek_type(state)
         let value = rse_raw_pop(state)
         let result_type = match instr {

@@ -669,33 +669,28 @@ test "rse treats ref.cast refined locals as equivalent subtype sources" {
 
 ///|
 test "rse treats ref.cast_desc_eq refined locals as equivalent subtype sources" {
-  let optimized = rse_test_run_module(
-    rse_test_refined_cast_module(
-      @lib.Instruction::ref_cast_desc_eq(
-        false,
-        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
-      ),
-    ),
-  )
+  let source =
+    #|(module
+    #| (rec (type $s (descriptor $d) (struct)) (type $d (describes $s) (struct)))
+    #| (func (param (ref null $s)) (param (ref (exact $d))) (param (ref $s))
+    #| local.get 0 local.get 1 ref.cast_desc_eq $s local.set 2
+    #| local.get 0 drop local.get 2 drop))
+  let optimized = pass_test_run_pipeline(source, ["redundant-set-elimination"]).unwrap()
+  @validate.validate_module(optimized).unwrap()
   let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
   match instrs {
     [
-      @lib.Instruction::LocalGet(@lib.LocalIdx(cast_src)),
-      @lib.Instruction::RefCastDescEq(_, _, _),
-      @lib.Instruction::LocalSet(_),
-      @lib.Instruction::LocalGet(@lib.LocalIdx(retargeted)),
-      @lib.Instruction::Drop,
-      @lib.Instruction::LocalGet(@lib.LocalIdx(original_refined)),
-      @lib.Instruction::Drop,
-    ] => {
-      @debug.assert_eq(cast_src, 0U)
-      @debug.assert_eq(retargeted, 1U)
-      @debug.assert_eq(original_refined, 1U)
-    }
+      @lib.LocalGet(@lib.LocalIdx(0U)),
+      @lib.LocalGet(@lib.LocalIdx(1U)),
+      @lib.RefCastDescEq(_, _, _),
+      @lib.LocalSet(@lib.LocalIdx(2U)),
+      @lib.LocalGet(@lib.LocalIdx(2U)),
+      @lib.Drop,
+      @lib.LocalGet(@lib.LocalIdx(2U)),
+      @lib.Drop,
+    ] => ()
     other =>
-      fail(
-        "expected ref.cast_desc_eq refined local.get retargeting, got \{@debug.to_string(other)}",
-      )
+      fail("expected object identity refined by descriptor cast: \{other}")
   }
 }
 
