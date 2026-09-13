@@ -1025,3 +1025,7 @@ Table and element initializers also contribute allocations before any early retu
 ### Global reference joins
 
 Global-refining candidate collection preserves sharedness in abstract and concrete shape supertypes. A failed join rejects the entire observation slot permanently instead of retaining an earlier narrow fact. `global_refining_audit_wbtest.mbt` checks distinct shared struct/array observations and explicitly incompatible observation families, including a later observation that must not restart inference.
+
+### Packed heap scalar reads
+
+Heap2local struct scalar reads use the same packed-storage extension rules as arrays: signed i8/i16 reads extend the low bits; unsigned reads mask them. The signed-i8 audit fixture stores 255 and must read -1, even after the heap object is removed.

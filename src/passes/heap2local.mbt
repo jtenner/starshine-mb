@@ -2256,8 +2256,12 @@ fn h2l_build_array_local_read(
 ) -> Int? {
   let local_get = h2l_build_scalar_local_get(func, local_idx, element.unpack())
   match (element.get_storage_type(), access) {
-    (@lib.ValTypeStorageType(_), Some(@lib.ArrayGet(_))) => Some(local_get)
-    (@lib.PackTypeStorageType(@lib.I8PackType), Some(@lib.ArrayGetS(_))) => {
+    (@lib.ValTypeStorageType(_), Some(@lib.ArrayGet(_) | @lib.StructGet(_, _))) =>
+      Some(local_get)
+    (
+      @lib.PackTypeStorageType(@lib.I8PackType),
+      Some(@lib.ArrayGetS(_) | @lib.StructGetS(_, _)),
+    ) => {
       let extended = @ir.hot_build_unary(func, @lib.ValType::i32(), local_get)
       @ir.hot_node_exact_instr_set(
         func,
@@ -2266,7 +2270,10 @@ fn h2l_build_array_local_read(
       )
       Some(extended)
     }
-    (@lib.PackTypeStorageType(@lib.I16PackType), Some(@lib.ArrayGetS(_))) => {
+    (
+      @lib.PackTypeStorageType(@lib.I16PackType),
+      Some(@lib.ArrayGetS(_) | @lib.StructGetS(_, _)),
+    ) => {
       let extended = @ir.hot_build_unary(func, @lib.ValType::i32(), local_get)
       @ir.hot_node_exact_instr_set(
         func,
@@ -2275,7 +2282,10 @@ fn h2l_build_array_local_read(
       )
       Some(extended)
     }
-    (@lib.PackTypeStorageType(pack_type), Some(@lib.ArrayGetU(_))) => {
+    (
+      @lib.PackTypeStorageType(pack_type),
+      Some(@lib.ArrayGetU(_) | @lib.StructGetU(_, _)),
+    ) => {
       let mask = @ir.hot_build_const_i32(
         func,
         @lib.I32(
@@ -2414,11 +2424,16 @@ fn h2l_apply_candidate(
               | @lib.StructGetU(_, _) =>
                 Some(
                   {
-                    let local_get = h2l_build_scalar_local_get(
-                      func,
-                      field_locals[field_idx],
-                      candidate.fields[field_idx].unpack(),
-                    )
+                    let local_get = match
+                      h2l_build_array_local_read(
+                        func,
+                        candidate.fields[field_idx],
+                        field_locals[field_idx],
+                        Some(instr),
+                      ) {
+                      Some(node) => node
+                      None => return false
+                    }
                     if write_is_tee &&
                       h2l_source_requires_tee_init(
                         func,
