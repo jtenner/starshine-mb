@@ -9065,6 +9065,7 @@ fn sgo_cheap_cleanup_instrs(
   func_type_indices : Array[@lib.TypeIdx],
   outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
   function_body? : Array[@lib.Instruction]? = None,
+  function_root? : Bool = true,
 ) -> (Array[@lib.Instruction], Bool) {
   let function_body = Some(function_body.unwrap_or(instrs))
   // This common post-SGO shell is already final after preserving the load's
@@ -9084,6 +9085,7 @@ fn sgo_cheap_cleanup_instrs(
           mod_,
           func_type_indices,
           function_body~,
+          function_root=false,
         )
         recursive_changed = recursive_changed || body_changed
         normalized.push(
@@ -9100,6 +9102,7 @@ fn sgo_cheap_cleanup_instrs(
           mod_,
           func_type_indices,
           function_body~,
+          function_root=false,
         )
         recursive_changed = recursive_changed || body_changed
         normalized.push(
@@ -9116,6 +9119,7 @@ fn sgo_cheap_cleanup_instrs(
           mod_,
           func_type_indices,
           function_body~,
+          function_root=false,
         )
         let @lib.Expr(next_then) = next_then_expr
         let mut else_changed = false
@@ -9126,6 +9130,7 @@ fn sgo_cheap_cleanup_instrs(
               mod_,
               func_type_indices,
               function_body~,
+              function_root=false,
             )
             let @lib.Expr(next_else_body) = next_else_expr
             else_changed = changed
@@ -9148,6 +9153,7 @@ fn sgo_cheap_cleanup_instrs(
           mod_,
           func_type_indices,
           function_body~,
+          function_root=false,
         )
         recursive_changed = recursive_changed || body_changed
         normalized.push(
@@ -9166,14 +9172,22 @@ fn sgo_cheap_cleanup_instrs(
   let mut changed = recursive_changed
   let mut pos = 0
   while pos < normalized.length() {
+    let output_start = out.length()
     match
       sgo_cheap_cleanup_block_if_shell(
         normalized, pos, out, mod_, func_type_indices,
       ) {
       Some(next_pos) => {
-        changed = true
-        pos = next_pos
-        continue
+        if sgo_cleanup_can_erase_returns(
+            normalized, pos, next_pos, function_root,
+          ) {
+          changed = true
+          pos = next_pos
+          continue
+        }
+        while out.length() > output_start {
+          ignore(out.pop())
+        }
       }
       None => ()
     }
@@ -9187,9 +9201,16 @@ fn sgo_cheap_cleanup_instrs(
         outside_refs~,
       ) {
       Some(next_pos) => {
-        changed = true
-        pos = next_pos
-        continue
+        if sgo_cleanup_can_erase_returns(
+            normalized, pos, next_pos, function_root,
+          ) {
+          changed = true
+          pos = next_pos
+          continue
+        }
+        while out.length() > output_start {
+          ignore(out.pop())
+        }
       }
       None => ()
     }
@@ -9203,9 +9224,16 @@ fn sgo_cheap_cleanup_instrs(
         outside_refs~,
       ) {
       Some(next_pos) => {
-        changed = true
-        pos = next_pos
-        continue
+        if sgo_cleanup_can_erase_returns(
+            normalized, pos, next_pos, function_root,
+          ) {
+          changed = true
+          pos = next_pos
+          continue
+        }
+        while out.length() > output_start {
+          ignore(out.pop())
+        }
       }
       None => ()
     }
@@ -9362,6 +9390,7 @@ fn sgo_cheap_cleanup_expr(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   function_body? : Array[@lib.Instruction]? = None,
+  function_root? : Bool = true,
 ) -> (@lib.Expr, Bool) {
   let @lib.Expr(original_region) = expr
   let full_body = function_body.unwrap_or(original_region)
@@ -9388,6 +9417,7 @@ fn sgo_cheap_cleanup_expr(
       func_type_indices,
       outside_refs~,
       function_body=Some(full_body),
+      function_root~,
     )
     if changed {
       current = @lib.Expr::new(cleaned)
@@ -10246,4 +10276,70 @@ fn sgo_local_ref_count(
     }
   }
   count
+}
+
+///|
+fn sgo_instr_contains_return(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_) => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      body.any(sgo_instr_contains_return)
+    @lib.If(_, then_body, else_body) => {
+      if then_body.any(sgo_instr_contains_return) {
+        return true
+      }
+      match else_body {
+        Some(body) => body.any(sgo_instr_contains_return)
+        None => false
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if body.any(sgo_instr_contains_return) {
+        return true
+      }
+      for catch_ in catches {
+        let @lib.Expr(body) = match catch_ {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        if body.any(sgo_instr_contains_return) {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn sgo_cleanup_can_erase_returns(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+  function_root : Bool,
+) -> Bool {
+  for i = start; i < end; i = i + 1 {
+    if !sgo_instr_contains_return(instrs[i]) {
+      continue
+    }
+    if !function_root || !sgo_is_return_guard(instrs[i]) {
+      return false
+    }
+    // Only the function's own disposable tail proves an early return redundant.
+    for j = i + 1; j < instrs.length(); j = j + 1 {
+      if sgo_const_instr(instrs[j]) != None {
+        continue
+      }
+      match instrs[j] {
+        @lib.Nop | @lib.Drop => ()
+        _ => return false
+      }
+    }
+  }
+  true
 }

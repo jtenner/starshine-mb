@@ -1065,3 +1065,7 @@ Recursive cheap cleanup carries the original function and region inventories. Lo
 ### Simplify-globals conditional exits
 
 Runtime global facts stop at conditional reference branches, including descriptor branches, and at legacy exception/continuation transfers. A skipped global write cannot become a must-fact after the owner block. The conditional-null-exit audit retains the final global read.
+
+### Simplify-globals return-guard continuations
+
+Compare/select/block cleanup commits a return-erasing match only when a function-root guard is followed solely by a disposable constant/drop/nop tail. A child-region end does not prove a function return redundant. Candidate output is rolled back when this proof fails. The expanded return audit covers both an observable suffix in the same region and a suffix after an enclosing block.

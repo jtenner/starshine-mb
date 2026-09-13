@@ -57,3 +57,15 @@ test "audit globals flow observes conditional reference exits" {
     ),
   )
 }
+
+///|
+test "audit globals cleanup retains nested early return" {
+  let output = audit_run(
+    "(module (memory 1) (global $dummy (mut i32) (i32.const 0)) (global $out (export \"out\") (mut i32) (i32.const 0)) (func (export \"run\") global.get $dummy drop block i32.const 1 memory.size i32.eq if return end i32.const 0 drop end i32.const 7 global.set $out))",
+    "simplify-globals-optimizing",
+  )
+  @debug.assert_eq(
+    audit_count(audit_body(output), fn(i) { i is @lib.Return }),
+    1,
+  )
+}
