@@ -4531,7 +4531,11 @@ fn dfe_cleanup_raw_encoding(mod_ : @lib.Module) -> @lib.Module {
       @lib.GroupRecType(_) => return grouped
     }
   }
-  let pruned = dfe_prune_unused_simple_types(grouped)
+  // Distinct functions can still use equivalent signatures. The elimination
+  // fast path skips type canonicalization, so intern live plain signatures here
+  // as well as pruning dead definitions, under the same complete type guard.
+  let interned = dfe_canonicalize_duplicate_simple_type_indices(grouped)
+  let pruned = dfe_prune_unused_simple_types(interned)
   if pruned.type_sec.unwrap().0.length() == types.length() {
     return grouped
   }

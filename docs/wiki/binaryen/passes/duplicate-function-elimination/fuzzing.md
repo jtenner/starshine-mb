@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-26
+last_reviewed: 2026-09-13
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -107,3 +107,12 @@ It reuses the shared liveness/remapping helper and accepts only fewer types,
 strict encoded-size savings and whole-module validation. Unchanged type counts
 skip additional encoding/validation. The existing legacy-exception module
 boundary remains unchanged.
+
+The subsequent 10,000-case checkpoint reduced raw-size losses to 57. All 57
+retained duplicate live plain signatures on the unchanged-function fast path;
+read-only type-section inspection accounts for the entire encoding overhead.
+A further direct/public failing-first regression keeps two distinct function
+bodies while interning their equivalent signatures. The guarded encoding
+cleanup now interns before pruning, still requiring validation and a strict
+whole-module byte saving. This does not widen the supported type or legacy
+exception boundaries. Final renewed evidence is in the follow-up ledger.

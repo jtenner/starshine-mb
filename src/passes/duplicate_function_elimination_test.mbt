@@ -315,7 +315,7 @@ test "duplicate-function-elimination canonicalizes duplicate simple type indices
 }
 
 ///|
-test "duplicate-function-elimination does not compact duplicate simple type indices when no functions merge" {
+test "duplicate-function-elimination compacts duplicate simple type indices when no functions merge" {
   let input = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
@@ -358,8 +358,12 @@ test "duplicate-function-elimination does not compact duplicate simple type indi
       )
   }
 
-  @debug.assert_eq(optimized.type_sec, input.type_sec)
-  @debug.assert_eq(optimized.func_sec, input.func_sec)
+  @debug.assert_eq(optimized.type_sec.unwrap().0.length(), 1)
+  @debug.assert_eq(optimized.func_sec.unwrap().0, [
+    @lib.TypeIdx::new(0U),
+    @lib.TypeIdx::new(0U),
+  ])
+  @debug.assert_eq(optimized.code_sec, input.code_sec)
 }
 
 ///|
