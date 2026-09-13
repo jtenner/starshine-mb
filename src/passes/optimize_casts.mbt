@@ -235,6 +235,7 @@ fn oc_comptype_may_overlap(a : @lib.CompType, b : @lib.CompType) -> Bool {
     (@lib.StructCompType(_), @lib.StructCompType(_)) => true
     (@lib.ArrayCompType(_), @lib.ArrayCompType(_)) => true
     (@lib.FuncCompType(_, _), @lib.FuncCompType(_, _)) => true
+    (@lib.ContCompType(_), @lib.ContCompType(_)) => true
     _ => false
   }
 }

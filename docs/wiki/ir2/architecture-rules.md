@@ -1268,7 +1268,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `directize-import` | directize | Imported runtime subtypes cannot become unconditional traps | Red; repair pending |
 | `casts-effects` | optimize-casts | Folded tests retain operand evaluation | Repaired; focused regression green |
 | `casts-shared` | optimize-casts | Shared exact references match shared abstract supertypes | Repaired; focused regression green |
-| `casts-continuations` | optimize-casts | Continuation subtype families can overlap | Red; repair pending |
+| `casts-continuations` | optimize-casts | Continuation subtype families can overlap | Repaired; focused regression green |
 | `sgo-suspend` | simplify-globals-optimizing | Suspension invalidates runtime global facts | Repaired; focused regression green |
 | `pushing-trap-operands` | code-pushing | Trap relaxation preserves operand effects | Red; repair pending |
 | `pushing-load-operands` | code-pushing | Load relaxation preserves address effects | Red; repair pending |
