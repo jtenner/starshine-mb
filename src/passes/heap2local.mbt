@@ -1957,6 +1957,21 @@ fn h2l_try_fold_direct_struct_get(
   if alloc_type != access_type || field_idx < 0 || field_idx >= fields.length() {
     return false
   }
+  let allocation_ref = @lib.RefType::new(
+    false, @lib.HeapType::new(alloc_type), exact=true,
+  )
+  for wrapper in passthrough_nodes {
+    match @ir.hot_node_exact_instr(func, wrapper) {
+      Some(@lib.RefCast(nullable, exact, heap_type)) =>
+        if !oc_ref_always_matches(
+            module_ctx, allocation_ref,
+            oc_target_ref_type(nullable, exact, heap_type),
+          ) {
+          return false
+        }
+      _ => ()
+    }
+  }
   let @lib.FieldType(storage, _) = fields[field_idx]
   let value_node_id = match @ir.hot_node_exact_instr(func, alloc_node_id) {
     Some(@lib.Instruction::StructNewDefault(_)) =>

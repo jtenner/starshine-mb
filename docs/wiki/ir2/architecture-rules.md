@@ -1263,7 +1263,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `coalesce-ref-exits` | coalesce-locals | Reference branch destinations contribute liveness | Repaired; focused regression green |
 | `coalesce-catches` | coalesce-locals | Exception destinations contribute liveness | Repaired; focused regression green |
 | `coalesce-cursor` | coalesce-locals | Dead accesses do not consume live action ordinals | Repaired; focused regression green |
-| `heap-casts` | heap2local | Scalar reads preserve potentially failing casts | Red; repair pending |
+| `heap-casts` | heap2local | Scalar reads preserve potentially failing casts | Repaired; focused regression green |
 | `heap-descriptors` | heap2local | Descriptor extraction preserves nullable traps | Red; repair pending |
 | `directize-import` | directize | Imported runtime subtypes cannot become unconditional traps | Red; repair pending |
 | `casts-effects` | optimize-casts | Folded tests retain operand evaluation | Repaired; focused regression green |
