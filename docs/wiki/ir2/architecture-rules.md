@@ -1602,3 +1602,15 @@ descriptor operand is proven nonnullable and all operands are discardable.
 Even a pure `ref.null` descriptor causes an observable construction trap.
 The [null-descriptor regression](../../../src/passes/precompute_descriptor_trap_campaign_test.mbt)
 failed when identity folding erased the constructor and passes after the guard.
+
+### Literal array allocation bounds
+
+Precompute retains array allocations with literal negative i32 lengths during
+identity folding, matching the verified v132 Precompute oracle. The
+constant guard reads HOT constant payloads, not exact-instruction payloads. These lengths represent huge unsigned allocation requests;
+they are not evidence that allocation completed successfully. The
+[array regression](../../../src/passes/precompute_array_trap_campaign_test.mbt)
+checks both Precompute variants. This narrow rule does not relabel general
+allocation-failure assumptions as ordinary Wasm numeric traps. Binaryen Vacuum
+also removes a dropped literal-negative allocation, so this repair is scoped
+to Precompute interpretation/parity rather than a general allocation guarantee.

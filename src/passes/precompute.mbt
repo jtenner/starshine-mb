@@ -2683,9 +2683,18 @@ fn precompute_fresh_array_allocation_is_discardable(
     return false
   }
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.ArrayNew(_))
-    | Some(@lib.ArrayNewDefault(_))
-    | Some(@lib.ArrayNewFixed(_, _)) => ()
+    Some(@lib.ArrayNew(_)) | Some(@lib.ArrayNewDefault(_)) => {
+      let count = @ir.hot_child_count(func, node_id)
+      if count == 0 {
+        return false
+      }
+      let length = @ir.hot_child_get(func, node_id, count - 1)
+      if precompute_i32_const(func, length) is Some(@lib.I32(value)) &&
+        value < 0 {
+        return false
+      }
+    }
+    Some(@lib.ArrayNewFixed(_, _)) => ()
     _ => return false
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
