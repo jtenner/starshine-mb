@@ -1651,7 +1651,10 @@ fn gsi_one_value_local_fold_block(
     }
     match folded_value {
       None => folded_value = Some(value)
-      Some(first_value) => if value != first_value { return None }
+      Some(first_value) =>
+        if !pass_const_instruction_vectors_bits_equal(value.0, first_value.0) {
+          return None
+        }
     }
   }
   let value = match folded_value {
@@ -1959,7 +1962,7 @@ fn gsi_find_value_group(
   value : @lib.Expr,
 ) -> Int {
   for idx = 0; idx < groups.length(); idx = idx + 1 {
-    if groups[idx].value == value {
+    if pass_const_instruction_vectors_bits_equal(groups[idx].value.0, value.0) {
       return idx
     }
   }
@@ -2006,7 +2009,10 @@ fn gsi_one_value_descriptor_local_fold_block(
     }
     match folded_value {
       None => folded_value = Some(value)
-      Some(first_value) => if value != first_value { return None }
+      Some(first_value) =>
+        if !pass_const_instruction_vectors_bits_equal(value.0, first_value.0) {
+          return None
+        }
     }
   }
   let value = match folded_value {

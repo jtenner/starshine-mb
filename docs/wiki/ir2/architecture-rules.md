@@ -1532,3 +1532,12 @@ and treats the handler as a separately reachable path. A throw before the last
 normal assignment cannot justify deleting the handler's matching assignment.
 The [catch regression](../../../src/passes/rse_campaign_test.mbt) checks that
 required write in the transformed HOT region.
+
+### Floating field identities
+
+GlobalStructInference compares materialized field expressions with shared
+bitwise instruction equality, including both one-value folds and value-group
+formation. Numeric floating equality cannot merge `+0` and `-0`, whose bits
+remain observable through reinterpretation. The
+[signed-zero regression](../../../src/passes/global_struct_inference_campaign_test.mbt)
+allows correct conditional folding while rejecting a uniform positive zero.
