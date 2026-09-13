@@ -117,13 +117,36 @@ fn oc_subtype_as_heap_matches(
 }
 
 ///|
+fn oc_heap_identical(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> Bool {
+  if source == target {
+    return true
+  }
+  match (source, target) {
+    (@lib.HeapType(_), @lib.HeapType(_)) => {
+      let base = @validate.Env::new().with_types(module_ctx.subtypes)
+      let env = @validate.Env::{ ..base, rec_stack: module_ctx.type_groups, }
+      @validate.Match::matches(
+        @lib.RefType::new(false, source, exact=true),
+        @lib.RefType::new(false, target, exact=true),
+        env,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
 fn oc_heap_matches(
   module_ctx : @ir.HotModuleContext,
   source : @lib.HeapType,
   target : @lib.HeapType,
   fuel : Int,
 ) -> Bool {
-  if source == target {
+  if oc_heap_identical(module_ctx, source, target) {
     return true
   }
   if fuel <= 0 {
@@ -229,7 +252,12 @@ fn oc_ref_always_matches(
     return false
   }
   if target.is_exact() {
-    return source.is_exact() && source.get_heap_type() == target.get_heap_type()
+    return source.is_exact() &&
+      oc_heap_identical(
+        module_ctx,
+        source.get_heap_type(),
+        target.get_heap_type(),
+      )
   }
   oc_heap_matches(
     module_ctx,
@@ -302,7 +330,12 @@ fn oc_ref_never_matches(
     return false
   }
   if target.is_exact() {
-    return source.is_exact() && source.get_heap_type() != target.get_heap_type()
+    return source.is_exact() &&
+      !oc_heap_identical(
+        module_ctx,
+        source.get_heap_type(),
+        target.get_heap_type(),
+      )
   }
   if source.is_exact() &&
     !oc_heap_matches(

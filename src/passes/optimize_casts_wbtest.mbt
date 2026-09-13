@@ -14,7 +14,12 @@ fn oc_wbtest_module_ctx() -> @ir.HotModuleContext {
     @lib.SubType::new(
       false,
       [@lib.TypeIdx::new(0U)],
-      @lib.CompType::struct_([]),
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::const_(),
+        ),
+      ]),
     ),
   )
   @ir.hot_module_context_from_module(

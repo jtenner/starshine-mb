@@ -1553,3 +1553,16 @@ The [suffix regressions](../../../src/passes/dead_argument_elimination_campaign_
 cover wrong values, executed traps/calls, and dropped result blocks. The older
 signature-plan positive fixture now actually computes its asserted replacement
 constant; its original `1` arm was an invalid positive expectation.
+
+### Canonical heap identity
+
+OptimizeCasts uses the validator's exact-reference relation with preserved
+recursive-group context when comparing concrete heap identities. Distinct type
+indices can denote the same canonical runtime heap; exact-source tests must
+not become false solely because indices differ. The
+[heap-alias regressions](../../../src/passes/optimize_casts_campaign_test.mbt)
+cover OptimizeCasts and the already-correct OptimizeInstructions path.
+
+The old exact-sibling unit fixture used two identical singleton subtype
+definitions. It now gives one sibling a field so the test actually checks
+distinct heaps; the new alias fixture retains equivalent definitions.
