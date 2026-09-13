@@ -46,7 +46,7 @@ The local implementation is narrower, more direct, and much more HOT/use-def dri
 Start here when you want to confirm that `heap2local` is live and where the public presets place it.
 
 - `src/passes/heap2local.mbt:2-16`
-  - `heap2local_descriptor()` declares the pass name, the only required analysis (`@ir.HotAnalysis::use_def()`), and the invalidation set.
+  - `heap2local_descriptor()` declares the pass name, the required use-def, CFG, and dominance analyses (the latter two enforce singleton allocation/copy initialization before reads), and the invalidation set.
 - `src/passes/heap2local.mbt:18-20`
   - `heap2local_summary()` is the registry summary text used elsewhere in the pass catalog.
 - `src/passes/optimize.mbt:201-205`

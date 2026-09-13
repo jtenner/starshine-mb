@@ -2,7 +2,11 @@
 pub fn heap2local_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
     "heap2local",
-    requires=[@ir.HotAnalysis::use_def()],
+    requires=[
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+    ],
     invalidates=[
       @ir.HotAnalysis::cfg(),
       @ir.HotAnalysis::dominance(),
@@ -635,6 +639,7 @@ fn h2l_find_candidate_for_local(
   module_ctx : @ir.HotModuleContext,
   use_def : @ir.HotUseDef,
   local_id : Int,
+  ctx : HotPassContext,
 ) -> H2LCandidate? {
   if local_id < @ir.hot_param_count(func) {
     return None
@@ -703,7 +708,14 @@ fn h2l_find_candidate_for_local(
       family_idx = family_idx + 1 {
     let current_local = family_locals[family_idx]
     let reads = use_def.local_reads[current_local]
+    let family_writes = use_def.local_writes[current_local]
+    if family_writes.length() != 1 {
+      return None
+    }
     for read_node_id in reads {
+      if !h2l_write_dominates_read(ctx, func, family_writes[0], read_node_id) {
+        return None
+      }
       if !h2l_collect_source_use(
           func,
           use_def,
@@ -1217,6 +1229,7 @@ fn h2l_find_array_candidate_for_local(
   module_ctx : @ir.HotModuleContext,
   use_def : @ir.HotUseDef,
   local_id : Int,
+  ctx : HotPassContext,
 ) -> H2LArrayCandidate? {
   if local_id < @ir.hot_param_count(func) {
     return None
@@ -1257,6 +1270,9 @@ fn h2l_find_array_candidate_for_local(
     return None
   }
   for read_node_id in use_def.local_reads[local_id] {
+    if !h2l_write_dominates_read(ctx, func, write_node_id, read_node_id) {
+      return None
+    }
     if !h2l_collect_array_use(
         func, use_def, read_node_id, array_type, length, use_sites,
       ) {
@@ -3229,7 +3245,8 @@ pub fn heap2local_run(
     if variant_owner_locals.contains(local_id) {
       continue
     }
-    match h2l_find_candidate_for_local(func, module_ctx, use_def, local_id) {
+    match
+      h2l_find_candidate_for_local(func, module_ctx, use_def, local_id, ctx) {
       Some(candidate) => candidates.push(candidate)
       None => ()
     }
@@ -3247,7 +3264,9 @@ pub fn heap2local_run(
       candidates.push(candidate)
     }
     match
-      h2l_find_array_candidate_for_local(func, module_ctx, use_def, local_id) {
+      h2l_find_array_candidate_for_local(
+        func, module_ctx, use_def, local_id, ctx,
+      ) {
       Some(candidate) => array_candidates.push(candidate)
       None => ()
     }
@@ -3325,4 +3344,39 @@ pub fn heap2local_run(
   h2l_delete_detached_live_nodes(func, detached_nodes)
   pass_mark_mutated(ctx, func)
   HotPassResult::changed()
+}
+
+///|
+fn h2l_write_dominates_read(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  write_id : Int,
+  read_id : Int,
+) -> Bool {
+  let cfg = pass_require_cfg(ctx, func)
+  let write_block = match @ir.cfg_block_for_node(cfg, write_id) {
+    Some(block) => block
+    None => return false
+  }
+  let read_block = match @ir.cfg_block_for_node(cfg, read_id) {
+    Some(block) => block
+    None => return false
+  }
+  if write_block != read_block {
+    return @ir.dom_dominates(
+      pass_require_dom(ctx, func),
+      write_block,
+      read_block,
+    )
+  }
+  // CFG block nodes are in operand-before-user execution order.
+  for node in @ir.cfg_block_get(cfg, read_block).nodes {
+    if node == read_id {
+      return false
+    }
+    if node == write_id {
+      return true
+    }
+  }
+  false
 }

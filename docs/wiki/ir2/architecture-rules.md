@@ -1033,3 +1033,7 @@ Heap2local struct scalar reads use the same packed-storage extension rules as ar
 ### Repeated default-array operand evaluation
 
 Converting `array.new_fixed` to `array.new_default` preserves each operand's effects in source order, not only those of the representative value. Operand equality proves values, not disposable evaluation. `optimize_instructions_audit_test.mbt` checks a later equal-valued local tee whose write must survive.
+
+### Heap allocation dominance
+
+Singleton struct and array scalarization requires each local's unique allocation/copy write to dominate all of its reads. Within a CFG block, the write must precede the read in operand-before-user order. Otherwise the original nullable local may still be null and its field/element access must trap. The expanded heap2local audit checks conditional struct/array allocation and a same-block read before allocation; the descriptor now declares CFG and dominance dependencies.
