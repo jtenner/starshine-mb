@@ -320,3 +320,7 @@ That description is much closer to the real `version_129` pass than either:
 - “just CSE inside blocks”
 - or
 - “generic GVN for locals”
+
+## September 12 operand-provenance follow-up
+
+The raw scanner clears operand provenance when it cannot represent an instruction result. Calls and atomics retain expressions admitted by their existing effect filters; reference branches retain available local expressions on the continuation. This avoids losing supported reuse while preventing an unknown producer from exposing an older stack value as its result. `src/passes/local_cse_audit_test.mbt` covers unknown global producers, tee writes, and effectful HOT calls; the ordinary `local_cse_test.mbt` call/atomic/reference-continuation cases remain positive guards.

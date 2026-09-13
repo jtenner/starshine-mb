@@ -2646,7 +2646,18 @@ fn lcse_raw_rewrite_instrs(
           | @lib.DataDrop(_)
           | @lib.ElemDrop(_) => ()
           _ if lcse_instr_is_store(instr) => ()
-          @lib.If(_, _, _) => stack.clear()
+          // These operations already have effect-specific availability filters.
+          // Unknown result arity invalidates operand provenance, not cached locals.
+          @lib.Call(_)
+          | @lib.CallIndirect(_, _)
+          | @lib.CallRef(_)
+          | @lib.ReturnCall(_)
+          | @lib.ReturnCallIndirect(_, _)
+          | @lib.ReturnCallRef(_)
+          | @lib.ThrowRef
+          | @lib.BrOnNonNull(_)
+          | @lib.If(_, _, _) => stack.clear()
+          _ if lcse_raw_instr_is_atomic(instr) => stack.clear()
           _ => {
             stack.clear()
             active.clear()
