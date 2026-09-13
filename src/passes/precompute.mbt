@@ -11494,8 +11494,34 @@ fn precompute_propagate_try_fold_known_heap_read(
     precompute_propagate_known_heap_value_for_node(
       ctx, func, ssa, label_used, node_id, states, allocations, 0,
     ) {
-    Some(KnownEmit(instr)) =>
-      precompute_replace_with_known_emit(ctx, func, node_id, instr)
+    Some(KnownEmit(instr)) => {
+      let value = match precompute_build_known_emit(ctx, func, instr) {
+        Some(value) => value
+        None => return false
+      }
+      let body : Array[Int] = []
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        let child = @ir.hot_child_get(func, node_id, slot)
+        if !precompute_is_discardable_value(func, child) {
+          body.push(@ir.hot_build_drop(func, child))
+        }
+      }
+      body.push(value)
+      let temp = if body.length() == 1 {
+        value
+      } else {
+        let result_type = @ir.hot_type_results(
+            func,
+            @ir.hot_node_type(func, value),
+          )[0]
+        @ir.hot_build_block(func, @lib.BlockType::val_type(result_type), body)
+      }
+      let replacement = @ir.hot_node_get(func, temp)
+      @ir.hot_delete_node(func, temp)
+      precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+      pass_mark_mutated(ctx, func)
+      true
+    }
     _ => false
   }
 }

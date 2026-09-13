@@ -1049,3 +1049,7 @@ Try-table catch targets count as branches when coalesce-locals checks wrapper ow
 ### Precompute loop condition facts
 
 Before applying a result-if condition's constant local facts inside a loop, precompute-propagate marks every local written by that loop. Source-order first-iteration reasoning cannot substitute loop-carried reads. The bounded scalar audit now verifies that both the original and optimized loop terminate with sum 6; the red optimized case exhausted the evaluator's step bound.
+
+### Known heap reads retain evaluation
+
+Precompute-propagate sequences nondiscardable receiver and index operands before a folded heap-read constant. Knowing the returned field or element value does not erase local tees, traps, or other operand effects. The receiver-tee audit fixture retains the local assignment before its subsequent null test.
