@@ -41,7 +41,7 @@ priv struct RseState {
   mut initialized : Array[Bool]
   value_ids : @hashmap.HashMap[String, Int]
   scopes : Array[RseLabelScope]
-  mut next_value : Int
+  next_value : Array[Int]
   mut changed : Bool
   mut reachable : Bool
 }
@@ -59,7 +59,7 @@ fn RseState::new(func : @ir.HotFunc) -> RseState {
     }),
     value_ids: @hashmap.new(capacity=@ir.hot_local_count(func) * 2 + 17),
     scopes: [],
-    next_value: 0,
+    next_value: [0],
     changed: false,
     reachable: true,
   }
@@ -74,7 +74,8 @@ fn RseState::new(func : @ir.HotFunc) -> RseState {
 ///|
 fn RseState::clone_from(other : RseState) -> RseState {
   // Branch-local exploration can share the value interner because value ids are
-  // immutable once assigned. Only the per-local facts and changed flag need to
+  // immutable once assigned. The allocator must be shared with the dictionary.
+  // Only the per-local facts and changed flag need to
   // be copied back explicitly.
   {
     local_values: other.local_values.copy(),
@@ -89,9 +90,6 @@ fn RseState::clone_from(other : RseState) -> RseState {
 
 ///|
 fn rse_sync_interner(dst : RseState, src : RseState) -> Unit {
-  if src.next_value > dst.next_value {
-    dst.next_value = src.next_value
-  }
   if src.changed {
     dst.changed = true
   }
@@ -102,8 +100,8 @@ fn rse_intern_value(state : RseState, key : String) -> Int {
   match state.value_ids.get(key) {
     Some(value) => value
     None => {
-      let value = state.next_value
-      state.next_value += 1
+      let value = state.next_value[0]
+      state.next_value[0] += 1
       state.value_ids.set(key, value)
       value
     }
@@ -112,8 +110,8 @@ fn rse_intern_value(state : RseState, key : String) -> Int {
 
 ///|
 fn rse_fresh_value(state : RseState, node_id : Int) -> Int {
-  let value = state.next_value
-  state.next_value += 1
+  let value = state.next_value[0]
+  state.next_value[0] += 1
   ignore(node_id)
   value
 }

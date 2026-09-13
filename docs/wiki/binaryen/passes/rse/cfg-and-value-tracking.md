@@ -162,3 +162,12 @@ Descriptor equality branches also contribute local-value snapshots to their
 label destinations, for both success and failure variants. The audit's
 post-block assignment remains necessary when either branch bypasses an inner
 write; clearing only the abstract operand stack does not model that exit.
+
+
+## Shared value-number allocation
+
+HOT branch states share both the value dictionary and its next-ID allocator.
+Separate branch-local counters could assign the same ID to different constants
+and incorrectly merge their local facts. The conditional 1/2 assignment audit
+retains the necessary post-join assignment. The existing region visitor already
+restores definite-initialization scope; its audit neighbor passes unchanged.
