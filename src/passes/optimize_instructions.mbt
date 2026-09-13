@@ -17187,6 +17187,24 @@ fn OiSideEffectFreeExpressionFact::from_node(
   }
   let trivial_leaf = OiTriviallyPureOperandFact::from_node(func, node_id)
   match @ir.hot_node_exact_instr(func, node_id) {
+    Some(
+      @lib.I32DivS
+      | @lib.I32DivU
+      | @lib.I32RemS
+      | @lib.I32RemU
+      | @lib.I64DivS
+      | @lib.I64DivU
+      | @lib.I64RemS
+      | @lib.I64RemU
+      | @lib.I32TruncF32S
+      | @lib.I32TruncF32U
+      | @lib.I32TruncF64S
+      | @lib.I32TruncF64U
+      | @lib.I64TruncF32S
+      | @lib.I64TruncF32U
+      | @lib.I64TruncF64S
+      | @lib.I64TruncF64U
+    ) => return OiSideEffectFreeExpressionFact::empty()
     Some(@lib.Instruction::RefNull(_)) =>
       return {
         kind: SideEffectFreeExactRefNullLeaf,
@@ -17285,7 +17303,10 @@ fn OiSideEffectFreeExpressionFact::from_node(
     | @ir.HotOp::Compare
     | @ir.HotOp::Convert
     | @ir.HotOp::Select => {
-      let mut children_effect_free = true
+      // Erasure requires the scalar operation itself to be nontrapping, as
+      // well as all eagerly evaluated operands. Division and truncation can
+      // trap even when their operands are pure local reads or constants.
+      let mut children_effect_free = !@ir.hot_may_trap(func, node_id)
       for slot = 0; slot < node.child_count; slot = slot + 1 {
         let child_fact = OiSideEffectFreeExpressionFact::from_node(
           func,

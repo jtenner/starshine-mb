@@ -1,5 +1,13 @@
 # Agent Tasks
 
+## v0.1.1 — five-agent correctness campaign [IR2-CORRECTNESS]
+
+- **Goal / why:** resolve the confirmed September 13 source-audit regressions while preserving eager evaluation, identity, stack typing and handler state.
+- **Deliverables / tasks:** adjacent campaign regressions, separate fixes and commits, final serialized Moon validation and 10,000-case GenValid lanes for affected passes.
+- **Required APIs / invariants:** exact opcode effects, module result types, bitwise literal equality, initializer identity, valid lowering and semantic rewrite proofs.
+- **Dependencies / exit criteria:** finish all red cases before fixes; keep known failures visible until final tests and fuzz evidence are recorded.
+- **Evidence / suggested tests:** [campaign ledger](docs/wiki/ir2/architecture-rules.md#september-13-five-agent-correctness-campaign), `*_campaign_*test.mbt`; local logs `.tmp/correctness-campaign-20260913/`. Initial final red phase: 87 tests, 84 failures, 3 passing checks. Scalar fix: 66/66 focused pass; remaining campaign failures are active.
+
 ## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
 - **Goal / why:** close the remaining output-size and independent-validator gaps

@@ -1454,3 +1454,40 @@ triplets all contain the same fixture, so its 10,000 comparisons do not imply
 function; its imported-subtype repair is covered by the dedicated Binaryen-shell
 regression instead. Generic local-cse/untee lanes likewise do not prove every
 repaired transform activated.
+
+
+## September 13 five-agent correctness campaign
+
+Five report-only reviewers covered every implementation file in `src/passes/`
+and the delegated RUME implementation. Reviews were targeted source audits,
+not exhaustive proofs. Only the head agent wrote tests, ran Moon, and changed
+implementations. The campaign uses adjacent `*_campaign_test.mbt` and
+`*_campaign_wbtest.mbt` regressions; raw local evidence is under
+`.tmp/correctness-campaign-20260913/`.
+
+Before implementation, the expanded red phase reproduced numeric trap erasure,
+local-CSE result-type errors, exported initializer identity duplication, typed
+block parameter loss, DAE suffix proof gaps, signed-zero field merging,
+exception-handler value leakage, constraint loop stack closure loss, and
+Precompute string/descriptor/allocation problems. Counts and final validation
+are recorded below after verification; a failing fixture is distinguished from
+a compiler defect.
+
+The tuple snapshot report was withdrawn: production HOT has scalar locals and
+no `TupleExtract(LocalGet)` construction path. The nonnullable SSA merge fixture
+already passed. Dynamic-array Vacuum and unused-array-initializer RUME reports
+were not accepted as correctness defects: verified Binaryen 132 removes the same
+allocations under its allocation-failure assumptions. Those do not establish
+runtime trap preservation, nor do they justify erasing nullable descriptor or
+numeric traps. The descriptor-operand pipeline fixture passed; direct helper
+coverage separately checks its folding proof.
+
+### Scalar erasure proof
+
+`OiSideEffectFreeExpressionFact` must reject trapping scalar opcodes
+before proving their eager operands erasable; generic HOT flags alone do not
+classify these opcode-specific traps. Pure inputs alone do not make
+integer division/remainder or float-to-integer truncation removable. The 66
+[scalar campaign tests](../../../src/passes/optimize_instructions_campaign_test.mbt)
+cover both integer widths, all four division/remainder operators, absorbing
+constants, unsigned endpoints, eager selects, and trapping conversion.
