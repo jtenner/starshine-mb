@@ -2340,6 +2340,7 @@ fn cl_mark_structured_liveness_backward(
   live_after : Array[Bool],
   label_lives : Array[Array[Bool]],
   action_cursor : Array[Int],
+  exception_live? : Array[Bool] = [],
 ) -> Array[Bool] {
   let live = live_after.copy()
   let reachable_len = cl_reachable_prefix_len(instrs)
@@ -2359,7 +2360,7 @@ fn cl_mark_structured_liveness_backward(
           visited_actions,
           live,
           cl_push_label_live(live, label_lives),
-          action_cursor,
+          action_cursor, exception_live~,
         )
         cl_replace_live(live, body_live)
       }
@@ -2376,13 +2377,13 @@ fn cl_mark_structured_liveness_backward(
               visited_actions,
               live_after_if.copy(),
               child_label_lives,
-              action_cursor,
+              action_cursor, exception_live~,
             )
           None => live_after_if.copy()
         }
         let then_live = cl_mark_structured_liveness_backward(
           then_body, actions, effective, write_live_hazards, visited_actions, live_after_if,
-          child_label_lives, action_cursor,
+          child_label_lives, action_cursor, exception_live~,
         )
         let merged_live = cl_union_live(then_live, else_live)
         cl_replace_live(live, merged_live)
@@ -2396,20 +2397,26 @@ fn cl_mark_structured_liveness_backward(
           visited_actions,
           live,
           cl_push_label_live(live, label_lives),
-          action_cursor,
+          action_cursor, exception_live~,
         )
         cl_replace_live(live, body_live)
       }
-      @lib.TryTable(_, _, @lib.Expr(body)) => {
+      @lib.TryTable(_, catches, @lib.Expr(body)) => {
+        // Catches target enclosing labels, without the try_table body label.
+        let caught_live = exception_live.copy()
+        while caught_live.length() < live.length() { caught_live.push(false) }
+        for catch_ in catches {
+          let label = match catch_ {
+            @lib.Catch(_, label) | @lib.CatchRef(_, label)
+            | @lib.CatchAll(label) | @lib.CatchAllRef(label) => label
+          }
+          cl_union_live_in_place(caught_live,
+            cl_live_for_label(label_lives, label, live.length()))
+        }
         let body_live = cl_mark_structured_liveness_backward(
-          body,
-          actions,
-          effective,
-          write_live_hazards,
-          visited_actions,
-          live,
-          cl_push_label_live(live, label_lives),
-          action_cursor,
+          body, actions, effective, write_live_hazards, visited_actions,
+          live, cl_push_label_live(live, label_lives), action_cursor,
+          exception_live=caught_live,
         )
         cl_replace_live(live, body_live)
       }
@@ -2472,6 +2479,13 @@ fn cl_mark_structured_liveness_backward(
             live.length(),
           ),
         )
+      @lib.Throw(_) | @lib.ThrowRef | @lib.Rethrow(_)
+      | @lib.ReturnCall(_) | @lib.ReturnCallIndirect(_, _) | @lib.ReturnCallRef(_) =>
+        cl_replace_live(live, exception_live)
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_)
+      | @lib.Resume(_, _) | @lib.ResumeThrow(_, _, _) | @lib.ResumeThrowRef(_, _)
+      | @lib.Suspend(_) | @lib.StackSwitch(_, _) =>
+        cl_union_live_in_place(live, exception_live)
       instr => if cl_instr_is_terminal(instr) { cl_clear_live(live) }
     }
     idx -= 1
