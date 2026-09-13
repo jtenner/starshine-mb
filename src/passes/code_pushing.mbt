@@ -3252,6 +3252,7 @@ fn code_pushing_raw_instrs_have_legacy_try(
 ///|
 fn code_pushing_raw_try_move_const_set_after_branch(
   instrs : Array[@lib.Instruction],
+  function_body : Array[@lib.Instruction],
 ) -> Bool {
   if instrs.length() < 7 {
     return false
@@ -3270,7 +3271,7 @@ fn code_pushing_raw_try_move_const_set_after_branch(
       continue
     }
     let (total_gets, total_writes) = code_pushing_raw_instrs_count_local_accesses(
-      instrs, local_id,
+      function_body, local_id,
     )
     if total_gets == 0 || total_writes != 1 {
       value_idx += 1
@@ -3341,20 +3342,21 @@ fn code_pushing_raw_try_move_const_set_after_branch(
 ///|
 fn code_pushing_raw_rewrite_legacy_instrs(
   instrs : Array[@lib.Instruction],
+  function_body : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten = instrs.copy()
   let mut changed = false
   for idx = 0; idx < rewritten.length(); idx = idx + 1 {
     let (next, nested_changed) = pass_rewrite_structured_instr(
       rewritten[idx],
-      code_pushing_raw_rewrite_legacy_instrs,
+      fn(body) { code_pushing_raw_rewrite_legacy_instrs(body, function_body) },
     )
     if nested_changed {
       rewritten[idx] = next
       changed = true
     }
   }
-  while code_pushing_raw_try_move_const_set_after_branch(rewritten) {
+  while code_pushing_raw_try_move_const_set_after_branch(rewritten, function_body) {
     changed = true
   }
   (rewritten, changed)
@@ -3366,7 +3368,7 @@ fn code_pushing_run_raw_legacy_func(func : @lib.Func) -> (@lib.Func, Bool)? {
   if !code_pushing_raw_instrs_have_legacy_try(body) {
     return None
   }
-  let (rewritten, changed) = code_pushing_raw_rewrite_legacy_instrs(body)
+  let (rewritten, changed) = code_pushing_raw_rewrite_legacy_instrs(body, body)
   Some((@lib.Func::new(locals, @lib.Expr::new(rewritten)), changed))
 }
 

@@ -975,3 +975,7 @@ Constant substitution and subtree identity compare IEEE bits, preserving signed 
 ### Self-branch block ownership
 
 Removing a block around one self `br_if` requires proving that no other instruction targets its label, including branches in the condition. `merge_blocks.mbt` uses the shared full label scanner with only the replaced branch excluded; `merge_blocks_audit_wbtest.mbt` covers a condition that exits the owner.
+
+### Local assignment sinking across legacy control
+
+The raw legacy code-pushing path checks reads and writes against the complete original function before moving a constant assignment below a conditional branch. Region-only counts miss reads after an enclosing block. `code_pushing_audit_test.mbt` retains the assignment needed on that exit path.
