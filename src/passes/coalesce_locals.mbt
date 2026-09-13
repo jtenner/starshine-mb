@@ -795,9 +795,21 @@ fn cl_instr_tree_branches_to_depth(
       }
       labels.any(fn(label_idx) { cl_label_targets_depth(label_idx, depth) })
     }
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+    @lib.TryTable(_, catches, @lib.Expr(body)) => {
+      for catch_ in catches {
+        let label = match catch_ {
+          @lib.Catch(_, label)
+          | @lib.CatchRef(_, label)
+          | @lib.CatchAll(label)
+          | @lib.CatchAllRef(label) => label
+        }
+        if cl_label_targets_depth(label, depth) {
+          return true
+        }
+      }
+      body.any(fn(child) { cl_instr_tree_branches_to_depth(child, depth + 1) })
+    }
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
       body.any(fn(child) { cl_instr_tree_branches_to_depth(child, depth + 1) })
     @lib.If(_, then_body, else_body) => {
       if then_body.any(fn(child) {
@@ -5116,9 +5128,11 @@ fn cl_instrs_have_branch_instruction(instrs : Array[@lib.Instruction]) -> Bool {
       return true
     }
     match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      @lib.TryTable(_, catches, @lib.Expr(body)) =>
+        if !catches.is_empty() || cl_instrs_have_branch_instruction(body) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         if cl_instrs_have_branch_instruction(body) {
           return true
         }

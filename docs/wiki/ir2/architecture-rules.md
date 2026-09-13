@@ -1041,3 +1041,7 @@ Singleton struct and array scalarization requires each local's unique allocation
 ### Imported exception tag identity
 
 Distinct imported tag indices can alias the same host tag, so caught-throw folding cannot skip an earlier possibly aliasing imported catch. `HotModuleContext.imported_tag_count` records the provenance needed to retain exact folding for distinct module-defined tags. Unknown provenance is conservative. `remove_unused_brs_audit_test.mbt` covers catch priority, consistent with `tests/spec/try_table.wast`'s imported-tag alias case.
+
+### Coalescer exception branches
+
+Try-table catch targets count as branches when coalesce-locals checks wrapper ownership and escape depth. Catch labels are relative to the surrounding scope; ordinary body branches add the try label. `coalesce_locals_audit_test.mbt` checks that a caught throw retains its owner block and the observable write after that block.
