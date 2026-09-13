@@ -4458,7 +4458,7 @@ fn dfe_run_module_pass_with_perf(
   let with_elem_segments = dfe_strip_name_sec(with_elem_segments)
   dfe_perf_stop_timer_opt(perf, "canonicalize-elem-segments", elem_timer)
   if !changed {
-    return with_elem_segments
+    return dfe_group_numeric_locals_if_smaller(with_elem_segments)
   }
 
   let type_timer = dfe_perf_start_timer_opt(
@@ -4470,10 +4470,43 @@ fn dfe_run_module_pass_with_perf(
     code_rewrite_flags=elimination.type_rewrite_flags,
   )
   dfe_perf_stop_timer_opt(perf, "canonicalize-duplicate-types", type_timer)
-  rewritten
+  dfe_group_numeric_locals_if_smaller(rewritten)
 }
 
 ///|
 pub fn dfe_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   dfe_run_module_pass_with_perf(mod_, None)
+}
+
+///|
+// The DFE entrypoint excludes legacy Try and strips names before this cleanup.
+// Keep parameter indices stable and accept only an actual whole-module saving:
+// fewer declaration runs can otherwise lose to wider local-index encodings.
+fn dfe_group_numeric_locals_if_smaller(mod_ : @lib.Module) -> @lib.Module {
+  let before = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let grouped = run_hot_pipeline_raw_group_body_locals_by_type_module(mod_)
+  let after = grouped.code_sec.unwrap().0
+  let mut changed = false
+  for idx = 0; idx < before.length(); idx = idx + 1 {
+    let @lib.Func(old_locals, _) = before[idx]
+    let @lib.Func(new_locals, _) = after[idx]
+    if old_locals != new_locals {
+      changed = true
+      break
+    }
+  }
+  if !changed {
+    return mod_
+  }
+  match (@binary.encode_module(mod_), @binary.encode_module(grouped)) {
+    (Ok(old_bytes), Ok(new_bytes)) if new_bytes.length() < old_bytes.length() =>
+      if @validate.validate_module(grouped) is Ok(_) {
+        return grouped
+      }
+    _ => ()
+  }
+  mod_
 }

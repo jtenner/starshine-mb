@@ -82,3 +82,17 @@ entrypoints now traverse all these regions, preserving tags, catch order and
 delegate labels, with explicit mutation flags. The
 [follow-up ledger](../../../ir2/architecture-rules.md#september-13-parity-follow-up)
 records final source validation and renewed Binaryen 132 comparisons.
+
+## September 13 numeric local declaration grouping
+
+The broader ordinary lane also exposed 7,022 raw-size losses from fragmented
+numeric local declaration runs at checkpoint `68824e869`, despite canonical
+agreement or nop savings. A direct/public failing-first fixture now groups
+`[i64,i64,i32,i64]` into `[i64,i64,i64,i32]` and remaps reads and writes, saving
+two bytes. DFE reuses the established numeric grouping helper after name
+stripping and type canonicalization. Its existing legacy-`try` entry boundary
+remains unchanged. Declaration-only change detection avoids NaN equality;
+acceptance requires whole-module validation and a strict encoded byte saving.
+A bounded 127/128 local-index regression declines grouping when wider operand
+encodings outweigh the declaration savings. Changed modules pay an additional
+encoding/validation cost; unchanged declaration layouts skip that work.
