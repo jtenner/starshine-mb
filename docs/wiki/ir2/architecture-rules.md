@@ -1273,7 +1273,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `pushing-trap-operands` | code-pushing | Trap relaxation preserves operand effects | Red; repair pending |
 | `pushing-load-operands` | code-pushing | Load relaxation preserves address effects | Red; repair pending |
 | `folding-exits` | code-folding | Self-label exits preserve reachable following traps | Repaired; focused regression green |
-| `folding-dead-effects` | code-folding | Post-trap effects remain unreachable | Red; repair pending |
+| `folding-dead-effects` | code-folding | Post-trap effects remain unreachable | Repaired; focused regression green |
 | `rub-prefix` | remove-unused-brs | Loop rewrite retains roots preceding its branch | Red; repair pending |
 | `facts-legacy-order` | apply-compiler-facts | Legacy try facts follow body-before-catch encoding | Repaired; focused regression green |
 | `dae2-type-identity` | dae2 / dae2-optimizing | Signature pruning preserves indirect-call type mismatches | Red; repair pending |
