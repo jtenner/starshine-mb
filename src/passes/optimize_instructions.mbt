@@ -20121,8 +20121,10 @@ fn OiScalarTreeLeafEqualityFact::from_nodes(
       return Some({ kind: ScalarTreeLeafLocalGet, stable_state_fact: None, })
     (@ir.HotOp::GlobalGet, @ir.HotOp::GlobalGet) if left.imm0 == right.imm0 =>
       return Some({ kind: ScalarTreeLeafGlobalGet, stable_state_fact: None, })
-    (@ir.HotOp::Const, @ir.HotOp::Const) if @ir.hot_const_get(func, left.imm0) ==
-      @ir.hot_const_get(func, right.imm0) =>
+    (@ir.HotOp::Const, @ir.HotOp::Const) if pass_hot_const_bits_equal(
+      @ir.hot_const_get(func, left.imm0),
+      @ir.hot_const_get(func, right.imm0),
+    ) =>
       return Some({ kind: ScalarTreeLeafConst, stable_state_fact: None, })
     _ => ()
   }
