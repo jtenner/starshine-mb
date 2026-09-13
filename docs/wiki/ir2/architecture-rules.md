@@ -1057,3 +1057,7 @@ Precompute-propagate sequences nondiscardable receiver and index operands before
 ### Simplify-globals nested local references
 
 Nested control scans inspect the entire child region; a parent exclusion span must not become an exclusion of every nested instruction. Legacy try bodies/catches also participate. The nested-read audit fixture requires the local assignment to survive an otherwise removable tee/drop/get pattern.
+
+### Simplify-globals function-wide local liveness
+
+Recursive cheap cleanup carries the original function and region inventories. Local-erasing patterns query a cached predicate for references outside that region before discarding writes; exclusions remain local to the matched instruction span. This applies to scalar tee patterns and the compare/select/load cleanup helpers. The outer-scope audit preserves the local value 1 after a nested result block.

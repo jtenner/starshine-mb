@@ -6086,7 +6086,12 @@ fn sgo_instrs_ref_local(
   local_idx : @lib.LocalIdx,
   skip_start : Int,
   skip_end : Int,
+  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
 ) -> Bool {
+  match outside_refs {
+    Some(has_outside_refs) => if has_outside_refs(local_idx) { return true }
+    None => ()
+  }
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     if idx >= skip_start && idx < skip_end {
       continue
@@ -6121,6 +6126,7 @@ fn sgo_cheap_cleanup_compare_if_shell(
   out : Array[@lib.Instruction],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
 ) -> Int? {
   match
     sgo_scalar_call_parent_cleanup_prefix(instrs, pos, mod_, func_type_indices) {
@@ -6422,7 +6428,7 @@ fn sgo_cheap_cleanup_compare_if_shell(
         sgo_local_effect_value_is_independent(value) &&
         sgo_is_compare_instr(compare) &&
         sgo_instr_is_empty_void_if(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 5) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 5, outside_refs~) =>
         return Some(pos + 5)
       (value, @lib.LocalTee(local_idx), const_instr, compare, if_instr) if sgo_const_instr(
           const_instr,
@@ -6431,7 +6437,7 @@ fn sgo_cheap_cleanup_compare_if_shell(
         sgo_local_effect_value_is_independent(value) &&
         sgo_is_compare_instr(compare) &&
         sgo_instr_is_empty_void_if(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 5) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 5, outside_refs~) =>
         return Some(pos + 5)
       (@lib.I32Const(_), grow_delta, @lib.MemoryGrow(mem_idx), compare, if_instr
       ) if sgo_memory_grow_arg_is_independent(grow_delta) &&
@@ -6940,7 +6946,7 @@ fn sgo_cheap_cleanup_compare_if_shell(
         sgo_is_compare_instr(compare) &&
         sgo_is_return_guard(if_instr) &&
         sgo_const_instr(dropped_const) != None &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 7) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 7, outside_refs~) =>
         return Some(pos + 7)
       (
         value,
@@ -6955,7 +6961,7 @@ fn sgo_cheap_cleanup_compare_if_shell(
         sgo_is_compare_instr(compare) &&
         sgo_is_return_guard(if_instr) &&
         sgo_const_instr(dropped_const) != None &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 7) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 7, outside_refs~) =>
         return Some(pos + 7)
       (
         @lib.I32Const(_),
@@ -7182,6 +7188,7 @@ fn sgo_cheap_cleanup_select_if_shell(
   out : Array[@lib.Instruction],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
 ) -> Int? {
   if pos == 0 && pos + 4 < instrs.length() {
     match
@@ -7287,7 +7294,7 @@ fn sgo_cheap_cleanup_select_if_shell(
       ) if sgo_const_instr(value) != None &&
         sgo_const_instr(const_instr) != None &&
         sgo_instr_is_empty_void_if(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 6) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 6, outside_refs~) =>
         return Some(pos + 6)
       (
         value,
@@ -7299,7 +7306,7 @@ fn sgo_cheap_cleanup_select_if_shell(
       ) if sgo_const_instr(value) != None &&
         sgo_const_instr(const_instr) != None &&
         sgo_instr_is_empty_void_if(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 6) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 6, outside_refs~) =>
         return Some(pos + 6)
       _ => ()
     }
@@ -7537,7 +7544,7 @@ fn sgo_cheap_cleanup_select_if_shell(
         if_instr,
       ) if sgo_instr_is_nonzero_i32_const(cond) &&
         sgo_instr_is_empty_void_if(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 7) => {
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 7, outside_refs~) => {
         out.push(@lib.Instruction::i32_const(addr))
         out.push(@lib.Instruction::i32_load(memarg))
         out.push(@lib.Instruction::drop())
@@ -7631,7 +7638,7 @@ fn sgo_cheap_cleanup_select_if_shell(
         sgo_const_instr(const_instr) != None &&
         sgo_is_return_guard(if_instr) &&
         sgo_const_instr(dropped_const) != None &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 8) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 8, outside_refs~) =>
         return Some(pos + 8)
       (
         value,
@@ -7646,7 +7653,7 @@ fn sgo_cheap_cleanup_select_if_shell(
         sgo_const_instr(const_instr) != None &&
         sgo_is_return_guard(if_instr) &&
         sgo_const_instr(dropped_const) != None &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 8) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 8, outside_refs~) =>
         return Some(pos + 8)
       (
         @lib.I32Const(_),
@@ -7901,7 +7908,7 @@ fn sgo_cheap_cleanup_select_if_shell(
         sgo_instr_is_nonzero_i32_const(cond) &&
         sgo_is_return_guard(if_instr) &&
         sgo_const_instr(dropped_const) != None &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 9) => {
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 9, outside_refs~) => {
         out.push(@lib.Instruction::i32_const(addr))
         out.push(@lib.Instruction::i32_load(memarg))
         out.push(@lib.Instruction::drop())
@@ -7920,7 +7927,7 @@ fn sgo_cheap_cleanup_select_if_shell(
       ) if local_idx == get_local &&
         sgo_instr_is_nonzero_i32_const(cond) &&
         sgo_is_return_guard(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 9) => {
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 9, outside_refs~) => {
         out.push(@lib.Instruction::i32_const(addr))
         out.push(@lib.Instruction::i32_load(memarg))
         out.push(@lib.Instruction::drop())
@@ -7939,7 +7946,7 @@ fn sgo_cheap_cleanup_select_if_shell(
       ) if local_idx == get_local &&
         sgo_instr_is_nonzero_i32_const(cond) &&
         sgo_instr_is_empty_void_if(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 9) => {
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 9, outside_refs~) => {
         out.push(@lib.Instruction::i32_const(addr))
         out.push(@lib.Instruction::i32_load(memarg))
         out.push(@lib.Instruction::drop())
@@ -7971,7 +7978,7 @@ fn sgo_cheap_cleanup_select_if_shell(
         if_instr,
       ) if sgo_instr_is_nonzero_i32_const(cond) &&
         sgo_instr_is_empty_void_if(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 8) => {
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 8, outside_refs~) => {
         out.push(@lib.Instruction::i32_const(addr))
         out.push(@lib.Instruction::i32_load(memarg))
         out.push(@lib.Instruction::drop())
@@ -8010,7 +8017,7 @@ fn sgo_cheap_cleanup_select_if_shell(
       ) if pos + 11 == instrs.length() &&
         sgo_is_return_guard(if_instr) &&
         sgo_const_instr(dropped_const) != None &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 11) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 11, outside_refs~) =>
         match sgo_i32_add_no_overflow(lhs, rhs) {
           Some(sum) if sum != 0 => {
             out.push(@lib.Instruction::i32_const(addr))
@@ -8035,7 +8042,7 @@ fn sgo_cheap_cleanup_select_if_shell(
       ) if pos + 11 == instrs.length() &&
         local_idx == get_local &&
         sgo_is_return_guard(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 11) =>
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 11, outside_refs~) =>
         match sgo_i32_add_no_overflow(lhs, rhs) {
           Some(sum) if sum != 0 => {
             out.push(@lib.Instruction::i32_const(addr))
@@ -8076,7 +8083,7 @@ fn sgo_cheap_cleanup_select_if_shell(
       ) if local_idx == get_local &&
         sgo_instr_is_nonzero_i32_const(cond) &&
         sgo_instr_is_empty_void_if(if_instr) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 10) => {
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 10, outside_refs~) => {
         out.push(@lib.Instruction::i32_const(addr))
         out.push(@lib.Instruction::i32_load(memarg))
         out.push(@lib.Instruction::drop())
@@ -8097,7 +8104,7 @@ fn sgo_cheap_cleanup_select_if_shell(
         sgo_is_return_guard(if_instr) &&
         sgo_const_instr(dropped_const) != None &&
         sgo_instr_is_nonzero_i32_const(cond) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 10) => {
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 10, outside_refs~) => {
         out.push(@lib.Instruction::i32_const(addr))
         out.push(@lib.Instruction::i32_load(memarg))
         out.push(@lib.Instruction::drop())
@@ -8130,7 +8137,7 @@ fn sgo_cheap_cleanup_select_if_shell(
       ) if pos + 8 == instrs.length() &&
         sgo_is_return_guard(if_instr) &&
         sgo_instr_is_nonzero_i32_const(cond) &&
-        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 8) => {
+        !sgo_instrs_ref_local(instrs, local_idx, pos, pos + 8, outside_refs~) => {
         out.push(@lib.Instruction::i32_const(addr))
         out.push(@lib.Instruction::i32_load(memarg))
         out.push(@lib.Instruction::drop())
@@ -8991,6 +8998,7 @@ fn sgo_cleanup_unreachable_drop_debris_expr(
 ///|
 fn sgo_cheap_cleanup_whole_load_select_dead_if(
   instrs : Array[@lib.Instruction],
+  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
 ) -> Array[@lib.Instruction]? {
   match instrs {
     [
@@ -9005,7 +9013,13 @@ fn sgo_cheap_cleanup_whole_load_select_dead_if(
       @lib.Select(_),
       @lib.If(@lib.VoidBlockType, [dropped_const, @lib.Drop], None),
     ] if sgo_const_instr(dropped_const) != None &&
-      !sgo_instrs_ref_local(instrs, local_idx, 0, instrs.length()) =>
+      !sgo_instrs_ref_local(
+        instrs,
+        local_idx,
+        0,
+        instrs.length(),
+        outside_refs~,
+      ) =>
       Some([
         @lib.Instruction::i32_const(addr),
         @lib.Instruction::i32_load(memarg),
@@ -9037,11 +9051,14 @@ fn sgo_cheap_cleanup_instrs(
   instrs : Array[@lib.Instruction],
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  outside_refs? : ((@lib.LocalIdx) -> Bool)? = None,
+  function_body? : Array[@lib.Instruction]? = None,
 ) -> (Array[@lib.Instruction], Bool) {
+  let function_body = Some(function_body.unwrap_or(instrs))
   // This common post-SGO shell is already final after preserving the load's
   // trap/effect. Recognize it before recursive normalization and the general
   // compare/select matcher roster.
-  match sgo_cheap_cleanup_whole_load_select_dead_if(instrs) {
+  match sgo_cheap_cleanup_whole_load_select_dead_if(instrs, outside_refs~) {
     Some(cleaned) => return (cleaned, true)
     None => ()
   }
@@ -9051,7 +9068,10 @@ fn sgo_cheap_cleanup_instrs(
     match instr {
       @lib.Block(block_type, body) => {
         let (next_body, body_changed) = sgo_cheap_cleanup_expr(
-          body, mod_, func_type_indices,
+          body,
+          mod_,
+          func_type_indices,
+          function_body~,
         )
         recursive_changed = recursive_changed || body_changed
         normalized.push(
@@ -9064,7 +9084,10 @@ fn sgo_cheap_cleanup_instrs(
       }
       @lib.Loop(block_type, body) => {
         let (next_body, body_changed) = sgo_cheap_cleanup_expr(
-          body, mod_, func_type_indices,
+          body,
+          mod_,
+          func_type_indices,
+          function_body~,
         )
         recursive_changed = recursive_changed || body_changed
         normalized.push(
@@ -9080,6 +9103,7 @@ fn sgo_cheap_cleanup_instrs(
           @lib.Expr::new(then_body),
           mod_,
           func_type_indices,
+          function_body~,
         )
         let @lib.Expr(next_then) = next_then_expr
         let mut else_changed = false
@@ -9089,6 +9113,7 @@ fn sgo_cheap_cleanup_instrs(
               @lib.Expr::new(body),
               mod_,
               func_type_indices,
+              function_body~,
             )
             let @lib.Expr(next_else_body) = next_else_expr
             else_changed = changed
@@ -9107,7 +9132,10 @@ fn sgo_cheap_cleanup_instrs(
       }
       @lib.TryTable(block_type, catches, body) => {
         let (next_body, body_changed) = sgo_cheap_cleanup_expr(
-          body, mod_, func_type_indices,
+          body,
+          mod_,
+          func_type_indices,
+          function_body~,
         )
         recursive_changed = recursive_changed || body_changed
         normalized.push(
@@ -9139,7 +9167,12 @@ fn sgo_cheap_cleanup_instrs(
     }
     match
       sgo_cheap_cleanup_compare_if_shell(
-        normalized, pos, out, mod_, func_type_indices,
+        normalized,
+        pos,
+        out,
+        mod_,
+        func_type_indices,
+        outside_refs~,
       ) {
       Some(next_pos) => {
         changed = true
@@ -9150,7 +9183,12 @@ fn sgo_cheap_cleanup_instrs(
     }
     match
       sgo_cheap_cleanup_select_if_shell(
-        normalized, pos, out, mod_, func_type_indices,
+        normalized,
+        pos,
+        out,
+        mod_,
+        func_type_indices,
+        outside_refs~,
       ) {
       Some(next_pos) => {
         changed = true
@@ -9222,7 +9260,13 @@ fn sgo_cheap_cleanup_instrs(
           @lib.I32Add,
         ) if local_idx == first_get &&
           local_idx == second_get &&
-          !sgo_instrs_ref_local(normalized, local_idx, pos, pos + 6) =>
+          !sgo_instrs_ref_local(
+            normalized,
+            local_idx,
+            pos,
+            pos + 6,
+            outside_refs~,
+          ) =>
           match sgo_i32_add_no_overflow(value, value) {
             Some(sum) => {
               out.push(@lib.Instruction::i32_const(@lib.I32(value)))
@@ -9248,7 +9292,13 @@ fn sgo_cheap_cleanup_instrs(
         (value, @lib.LocalTee(local_idx), @lib.Drop, @lib.LocalGet(get_idx)) if local_idx ==
           get_idx &&
           sgo_local_effect_value_is_independent(value) &&
-          !sgo_instrs_ref_local(normalized, local_idx, pos, pos + 4) => {
+          !sgo_instrs_ref_local(
+            normalized,
+            local_idx,
+            pos,
+            pos + 4,
+            outside_refs~,
+          ) => {
           out.push(value)
           changed = true
           pos = pos + 4
@@ -9299,14 +9349,33 @@ fn sgo_cheap_cleanup_expr(
   expr : @lib.Expr,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  function_body? : Array[@lib.Instruction]? = None,
 ) -> (@lib.Expr, Bool) {
+  let @lib.Expr(original_region) = expr
+  let full_body = function_body.unwrap_or(original_region)
+  let cache : @hashmap.HashMap[@lib.LocalIdx, Bool] = @hashmap.new()
+  let outside_refs = Some(fn(local_idx) {
+    match cache.get(local_idx) {
+      Some(result) => result
+      None => {
+        let result = sgo_local_ref_count(full_body, local_idx) >
+          sgo_local_ref_count(original_region, local_idx)
+        cache.set(local_idx, result)
+        result
+      }
+    }
+  })
   let mut current = expr
   let mut any_changed = false
   let mut keep_going = true
   while keep_going {
     let @lib.Expr(instrs) = current
     let (cleaned, changed) = sgo_cheap_cleanup_instrs(
-      instrs, mod_, func_type_indices,
+      instrs,
+      mod_,
+      func_type_indices,
+      outside_refs~,
+      function_body=Some(full_body),
     )
     if changed {
       current = @lib.Expr::new(cleaned)
@@ -10124,6 +10193,44 @@ fn sgo_count_touched(touched : Array[Bool]) -> Int {
   for item in touched {
     if item {
       count += 1
+    }
+  }
+  count
+}
+
+///|
+fn sgo_local_ref_count(
+  instrs : Array[@lib.Instruction],
+  local_idx : @lib.LocalIdx,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(idx) | @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+        if idx == local_idx {
+          count += 1
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += sgo_local_ref_count(body, local_idx)
+      @lib.If(_, then_body, else_body) => {
+        count += sgo_local_ref_count(then_body, local_idx)
+        match else_body {
+          Some(body) => count += sgo_local_ref_count(body, local_idx)
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        count += sgo_local_ref_count(body, local_idx)
+        for catch_ in catches {
+          let @lib.Expr(body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          count += sgo_local_ref_count(body, local_idx)
+        }
+      }
+      _ => ()
     }
   }
   count
