@@ -2708,6 +2708,34 @@ fn inl_shift_outer_target_branches(
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
     match instr {
+      @lib.Resume(type_, handlers) =>
+        out.push(
+          @lib.Instruction::resume_(
+            type_,
+            inl_shift_resume_handlers(
+              handlers, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.ResumeThrow(type_, tag, handlers) =>
+        out.push(
+          @lib.Instruction::resume_throw(
+            type_,
+            tag,
+            inl_shift_resume_handlers(
+              handlers, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.ResumeThrowRef(type_, handlers) =>
+        out.push(
+          @lib.Instruction::resume_throw_ref(
+            type_,
+            inl_shift_resume_handlers(
+              handlers, control_depth, added_outer_depth,
+            ),
+          ),
+        )
       @lib.Br(label) =>
         out.push(
           @lib.Instruction::br(
@@ -3472,6 +3500,18 @@ fn inl_instrs_have_function_label_escape(
       | @lib.BrOnCastDescEqFail(label, _, _) =>
         if inl_label_escapes_control_depth(label, control_depth) {
           return true
+        }
+      @lib.Resume(_, handlers)
+      | @lib.ResumeThrow(_, _, handlers)
+      | @lib.ResumeThrowRef(_, handlers) =>
+        for handler in handlers {
+          match handler {
+            @lib.ResumeOnLabel(_, label) =>
+              if inl_label_escapes_control_depth(label, control_depth) {
+                return true
+              }
+            @lib.ResumeOnSwitch(_) => ()
+          }
         }
       @lib.BrTable(labels, fallback) => {
         if inl_label_escapes_control_depth(fallback, control_depth) {
@@ -9325,4 +9365,22 @@ pub fn inlining_run_module_pass(
     allow_functions_with_loops~,
     partial_inlining_ifs~,
   )
+}
+
+///|
+fn inl_shift_resume_handlers(
+  handlers : Array[@lib.ResumeHandler],
+  control_depth : Int,
+  added_outer_depth : Int,
+) -> Array[@lib.ResumeHandler] {
+  handlers.map(fn(handler) {
+    match handler {
+      @lib.ResumeOnLabel(tag, label) =>
+        @lib.ResumeHandler::on_label(
+          tag,
+          inl_shift_outer_target_label(label, control_depth, added_outer_depth),
+        )
+      @lib.ResumeOnSwitch(_) => handler
+    }
+  })
 }

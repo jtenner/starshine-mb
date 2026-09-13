@@ -983,3 +983,7 @@ The raw legacy code-pushing path checks reads and writes against the complete or
 ### Vacuum legacy exception owners
 
 Raw vacuum scans legacy try bodies and catches for owner-label references and rebases ordinary nested branches when an unused wrapper is removed. Delegate/rethrow regions conservatively retain wrappers pending a dedicated exception-depth proof. `vacuum_audit_test.mbt` covers a nested legacy branch that must exit its result block, not the function.
+
+### Inlining continuation handler labels
+
+Resume, resume-throw, and resume-throw-ref handler labels participate in implicit function-exit detection and outer-label rebasing. `inlining_audit_wbtest.mbt` covers all three opcodes. Handler-on-switch entries remain unchanged because they have no lexical label.
