@@ -971,3 +971,7 @@ Constant substitution and subtree identity compare IEEE bits, preserving signed 
 ### String cast subtype consistency
 
 `optimize_casts.mbt` recognizes string as an extern subtype, matching `src/validate/match.mbt`. A non-null string `ref.test extern` must not fold to false; `optimize_casts_audit_test.mbt` exercises the dispatcher with a valid raw module.
+
+### Self-branch block ownership
+
+Removing a block around one self `br_if` requires proving that no other instruction targets its label, including branches in the condition. `merge_blocks.mbt` uses the shared full label scanner with only the replaced branch excluded; `merge_blocks_audit_wbtest.mbt` covers a condition that exits the owner.

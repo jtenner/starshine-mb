@@ -1,5 +1,10 @@
 ///|
 pub fn pass_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
+  pass_compute_label_used_except(func, -1)
+}
+
+///|
+fn pass_compute_label_used_except(func : @ir.HotFunc, excluded_node : Int) -> @bitset.BitSet {
   let label_used = @bitset.BitSet::new(func.labels.length())
   let mark_label = fn(label_id : Int) {
     if label_id >= 0 && label_id < label_used.length() {
@@ -7,7 +12,7 @@ pub fn pass_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
     }
   }
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
+    if node_id == excluded_node || !@ir.hot_node_is_live(func, node_id) {
       continue
     }
     let node = @ir.hot_node_get(func, node_id)

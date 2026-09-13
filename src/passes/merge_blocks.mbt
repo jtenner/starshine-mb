@@ -943,6 +943,12 @@ fn merge_blocks_try_remove_o4z_self_br_if_void_block(
     @ir.hot_child_count(func, branch_id) != 1 {
     return false
   }
+  if pass_label_is_used(
+      @ir.hot_control_node_label(func, block_id),
+      pass_compute_label_used_except(func, branch_id),
+    ) {
+    return false
+  }
   let condition = @ir.hot_child_get(func, branch_id, 0)
   let dropped_condition = @ir.hot_build_drop(func, condition)
   ignore(@ir.hot_region_splice(func, region_ref, idx, 1, [dropped_condition]))
