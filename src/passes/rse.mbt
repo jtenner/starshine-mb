@@ -1828,6 +1828,23 @@ fn rse_raw_rewrite_expr_scoped(
         out.push(instr)
       }
       @lib.Instruction::TryTable(block_type, catches, @lib.Expr(body)) => {
+        // Catch destinations are resolved outside the try_table body label.
+        // A throw may follow arbitrary local writes inside the protected body.
+        let exceptional = RseRawState::clone_from(state)
+        rse_raw_clear_values(exceptional)
+        for catch_ in catches {
+          let target = match catch_ {
+            @lib.Catch(_, label)
+            | @lib.CatchRef(_, label)
+            | @lib.CatchAll(label)
+            | @lib.CatchAllRef(label) => label
+          }
+          rse_raw_record_branch_exit(
+            exceptional,
+            scopes,
+            rse_raw_label_depth(target),
+          )
+        }
         let body_state = RseRawState::clone_from(state)
         let scope = RseRawLabelScope::new(RseRawLabelKind::ExitLabel)
         scopes.push(scope)

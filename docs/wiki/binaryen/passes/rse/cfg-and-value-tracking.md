@@ -189,3 +189,7 @@ value equalities. Potential enclosing exits carry unknown facts, including loop
 backedges, so nested handler writes cannot make a later required reset disappear.
 This is conservative value analysis, not a claim of precise legacy-EH RSE parity.
 The legacy-write/reset audit verifies the necessary post-try assignment.
+
+Try-table catch destinations receive unknown local-value snapshots before the
+body label is pushed. A caught throw can bypass later normal-path assignments;
+the exceptional block-exit audit retains the required assignment after the join.
