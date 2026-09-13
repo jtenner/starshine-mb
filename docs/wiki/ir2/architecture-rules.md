@@ -1015,3 +1015,9 @@ A wrapper whose guard is shared with another once function retains its guard wri
 ### Once exception joins
 
 Try-table catch targets receive the incoming must-facts when the body may throw, before entering the try label scope. A conservative fixed-point call summary proves nonthrowing defined callees so existing repeated-call optimization across a nonthrowing try remains available. Imported and indirect calls are potentially throwing. Once facts are monotone only for eligible guards. The exception-exit audit regression and existing nonthrowing try-table test cover both sides of this distinction.
+
+### Global-struct singleton allocation inventory
+
+A global excluded from singleton candidates still contributes allocations, including its final initializer instruction. Mutable globals, noncomparable declarations, and unrecognized constant values poison their allocated struct types. `global_struct_inference_audit_wbtest.mbt` checks this fact directly; the dispatcher field-read neighbor is separately guarded and did not reproduce a changed value.
+
+Table and element initializers also contribute allocations before any early return for absent globals. Two additional validated raw fixtures in `global_struct_inference_audit_wbtest.mbt` failed on missing poison facts, then passed after including these initializer roots.

@@ -432,6 +432,34 @@ fn gsi_build_closed_world_facts(
     None => ()
   }
 
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for table in tables {
+        let @lib.Table(_, init) = table
+        match init {
+          Some(@lib.Expr(body)) =>
+            gsi_mark_all_struct_allocs(body, poisoned_type_slots)
+          None => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for elem in elems {
+        let @lib.Elem(_, kind) = elem
+        match kind {
+          @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              let @lib.Expr(body) = expr
+              gsi_mark_all_struct_allocs(body, poisoned_type_slots)
+            }
+          @lib.FuncsElemKind(_) => ()
+        }
+      }
+    None => ()
+  }
+
   let globals = match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals
     None => {
@@ -451,10 +479,14 @@ fn gsi_build_closed_world_facts(
     let @lib.Expr(init_instrs) = init
     gsi_mark_nested_global_struct_allocs(init_instrs, poisoned_type_slots)
     match global_type {
-      @lib.GlobalType(_, true) => continue
+      @lib.GlobalType(_, true) => {
+        gsi_mark_all_struct_allocs(init_instrs, poisoned_type_slots)
+        continue
+      }
       _ => ()
     }
     if !gsi_global_decl_is_eq_comparable(env, global_type) {
+      gsi_mark_all_struct_allocs(init_instrs, poisoned_type_slots)
       continue
     }
     match gsi_candidate_global_values(env, init) {
@@ -468,7 +500,7 @@ fn gsi_build_closed_world_facts(
           )
         }
       }
-      None => ()
+      None => gsi_mark_all_struct_allocs(init_instrs, poisoned_type_slots)
     }
   }
   gsi_propagate_closed_world_subtype_facts(
