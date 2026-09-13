@@ -46,6 +46,14 @@ So the practical identity key is:
 
 But the implementation reaches that result through a small `(module, base)` map plus an explicit type check, not through the older folder's broader helper-key story.
 
+### Embedded NUL names
+
+Starshine keys imports by a pair of complete strings. Wasm names can contain
+NUL characters, so joining module and base with a NUL delimiter is ambiguous.
+The audit regression preserves both imports and distinct call targets for
+`("a", "b\0c")` and `("a\0b", "c")`; see
+`src/passes/duplicate_import_elimination_audit_test.mbt`.
+
 ## First-import-wins canonicalization
 
 Binaryen does not create a fresh merged import.

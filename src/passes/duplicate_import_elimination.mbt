@@ -16,8 +16,11 @@ fn die_name_to_string(name : @lib.Name) -> String {
 }
 
 ///|
-fn die_import_key(module_name : @lib.Name, base_name : @lib.Name) -> String {
-  "\{die_name_to_string(module_name)}\u{0}\{die_name_to_string(base_name)}"
+fn die_import_key(
+  module_name : @lib.Name,
+  base_name : @lib.Name,
+) -> (String, String) {
+  (die_name_to_string(module_name), die_name_to_string(base_name))
 }
 
 ///|
@@ -382,7 +385,7 @@ fn die_plan_remap(
     canonical_import_func.push(-1)
     import_init_idx += 1
   }
-  let seen : @hashmap.HashMap[String, DieSeenImport] = @hashmap.new(
+  let seen : @hashmap.HashMap[(String, String), DieSeenImport] = @hashmap.new(
     capacity=import_func_count * 2 + 1,
   )
   let ctx = @ir.hot_module_context_from_module(mod_)
