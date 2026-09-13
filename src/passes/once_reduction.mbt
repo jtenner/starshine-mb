@@ -306,6 +306,7 @@ fn or_idempotent_func_flags(
 fn or_scan_instrs(
   instrs : Array[@lib.Instruction],
   read_counts : Array[Int],
+  write_counts : Array[Int],
   once_global_slots : Array[Int],
 ) -> Bool {
   let mut needs_dataflow = false
@@ -318,6 +319,7 @@ fn or_scan_instrs(
         }
       }
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
+        write_counts[global_idx.reinterpret_as_int()] += 1
         let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
         if slot >= 0 &&
           slot < once_global_slots.length() &&
@@ -329,27 +331,27 @@ fn or_scan_instrs(
         }
       }
       @lib.Block(_, @lib.Expr(body)) =>
-        needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
+        needs_dataflow = or_scan_instrs(body, read_counts, write_counts, once_global_slots) ||
           needs_dataflow
       @lib.Loop(_, @lib.Expr(body)) =>
-        needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
+        needs_dataflow = or_scan_instrs(body, read_counts, write_counts, once_global_slots) ||
           needs_dataflow
       @lib.If(_, then_body, else_body) => {
         needs_dataflow = or_scan_instrs(
-            then_body, read_counts, once_global_slots,
+            then_body, read_counts, write_counts, once_global_slots,
           ) ||
           needs_dataflow
         match else_body {
           Some(else_body) =>
             needs_dataflow = or_scan_instrs(
-                else_body, read_counts, once_global_slots,
+                else_body, read_counts, write_counts, once_global_slots,
               ) ||
               needs_dataflow
           None => ()
         }
       }
       @lib.Try(_, @lib.Expr(body), catches, _) => {
-        needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
+        needs_dataflow = or_scan_instrs(body, read_counts, write_counts, once_global_slots) ||
           needs_dataflow
         for catch_ in catches {
           let catch_body = match catch_ {
@@ -357,13 +359,13 @@ fn or_scan_instrs(
             | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
           }
           needs_dataflow = or_scan_instrs(
-              catch_body, read_counts, once_global_slots,
+              catch_body, read_counts, write_counts, once_global_slots,
             ) ||
             needs_dataflow
         }
       }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
-        needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
+        needs_dataflow = or_scan_instrs(body, read_counts, write_counts, once_global_slots) ||
           needs_dataflow
       @lib.Call(_) => needs_dataflow = true
       @lib.ReturnCall(_) => {
@@ -888,6 +890,7 @@ fn or_optimize_once_bodies(
   imported_func_count : Int,
   once_func_globals : Array[Int],
   once_func_slots : Array[Int],
+  forwardable_guards : Array[Bool],
 ) -> Bool {
   let removed_exit_logic = @bitset.BitSet::new(once_func_globals.length())
   let guard_users : @hashmap.HashMap[Int, Int] = @hashmap.new()
@@ -930,7 +933,7 @@ fn or_optimize_once_bodies(
             changed = true
             continue
           }
-          if body.length() == 5 {
+          if body.length() == 5 && forwardable_guards[once_func_globals[abs_idx]] {
             match body[4] {
               @lib.Call(@lib.FuncIdx(target))
               | @lib.ReturnCall(@lib.FuncIdx(target)) => {
@@ -959,7 +962,7 @@ fn or_optimize_once_bodies(
       }
       continue
     }
-    if instrs.length() != 5 {
+    if instrs.length() != 5 || !forwardable_guards[once_func_globals[abs_idx]] {
       continue
     }
     match instrs[4] {
@@ -1032,6 +1035,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let once_func_globals = Array::make(total_funcs, -1)
   let func_needs_dataflow = @bitset.BitSet::new(funcs.length())
   let read_counts = Array::make(candidate_global_count, 0)
+  let write_counts = Array::make(total_globals, 0)
   for defined_idx = 0
       defined_idx < funcs.length()
       defined_idx = defined_idx + 1 {
@@ -1044,7 +1048,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
     let @lib.Func(_, @lib.Expr(instrs)) = funcs[defined_idx]
     let needs_dataflow = or_scan_instrs(
-      instrs, read_counts, candidate_global_slots,
+      instrs, read_counts, write_counts, candidate_global_slots,
     )
     func_needs_dataflow[defined_idx] = needs_dataflow &&
       !(once_global >= 0 && or_is_empty_once_wrapper(funcs[defined_idx]))
@@ -1188,8 +1192,23 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
     rewritten_funcs.push(next_func)
   }
+  let forwardable_guards = Array::make(total_globals, false)
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for index = 0; index < globals.length(); index = index + 1 {
+        let global_index = imported_global_count + index
+        let initially_zero = match globals[index] {
+          @lib.Global(_, @lib.Expr([@lib.I32Const(@lib.I32(0))]))
+          | @lib.Global(_, @lib.Expr([@lib.I64Const(@lib.I64(0L))])) => true
+          _ => false
+        }
+        forwardable_guards[global_index] = initially_zero && write_counts[global_index] == 1
+      }
+    None => ()
+  }
   if or_optimize_once_bodies(
       rewritten_funcs, imported_func_count, once_func_globals, once_func_slots,
+      forwardable_guards,
     ) {
     changed = true
   }

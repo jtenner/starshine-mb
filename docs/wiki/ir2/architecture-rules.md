@@ -1251,7 +1251,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 
 | Finding | Pass | Required invariant | State |
 | --- | --- | --- | --- |
-| `once-guards` | once-reduction | Independent initial guard values and external setters | Red; repair pending |
+| `once-guards` | once-reduction | Independent initial guard values and external setters | Repaired; focused regression green |
 | `oi-array-zero` | optimize-instructions | Array defaults preserve negative zero | Repaired; focused regression green |
 | `oi-tree-zero` | optimize-instructions | Tree equality preserves floating constant bits | Repaired; focused regression green |
 | `oi-division` | optimize-instructions | Quotient bounds require divisor lower bounds | Repaired; focused regression green |

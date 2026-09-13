@@ -268,7 +268,7 @@ test "legacy EH audit: once-reduction scans reads writes and calls in every regi
   )
   let reads = [0]
   let slots = [0]
-  assert_true(or_scan_instrs([instr], reads, slots))
+  assert_true(or_scan_instrs([instr], reads, Array::make(slots.length(), 0), slots))
   @debug.assert_eq(reads, [1])
   @debug.assert_eq(slots, [-1])
 }
