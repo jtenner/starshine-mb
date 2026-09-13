@@ -1491,3 +1491,12 @@ integer division/remainder or float-to-integer truncation removable. The 66
 [scalar campaign tests](../../../src/passes/optimize_instructions_campaign_test.mbt)
 cover both integer widths, all four division/remainder operators, absorbing
 constants, unsigned endpoints, eager selects, and trapping conversion.
+
+### Local-CSE result types
+
+Raw local-CSE now carries the module validation environment through nested
+regions. Memory/table size results follow their address width, table reads use
+the declared element type, `ref.func` keeps its concrete function heap, and
+explicit `select` annotations determine the cache type. The three
+[local-CSE regressions](../../../src/passes/local_cse_campaign_test.mbt)
+failed with invalid generated locals before the repair and now validate.

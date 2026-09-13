@@ -1510,6 +1510,7 @@ fn lcse_raw_result_type(
   child_exprs : Array[LcseRawExpr],
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
+  env? : @validate.Env? = None,
 ) -> @lib.ValType? {
   match instr {
     @lib.Instruction::LocalGet(idx) | @lib.Instruction::LocalTee(idx) =>
@@ -1524,10 +1525,6 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32Load16S(_)
     | @lib.Instruction::I32Load16U(_)
     | @lib.Instruction::RefIsNull
-    | @lib.Instruction::MemorySize(_)
-    | @lib.Instruction::MemoryGrow(_)
-    | @lib.Instruction::TableSize(_)
-    | @lib.Instruction::TableGrow(_)
     | @lib.Instruction::I32WrapI64
     | @lib.Instruction::I32ReinterpretF32
     | @lib.Instruction::I32Extend8S
@@ -1681,8 +1678,34 @@ fn lcse_raw_result_type(
     | @lib.Instruction::V128Load64Lane(_, _) => Some(@lib.ValType::v128())
     @lib.Instruction::AnyConvertExtern => Some(@lib.ValType::anyref())
     @lib.Instruction::ExternConvertAny => Some(@lib.ValType::externref())
-    @lib.Instruction::RefFunc(_) | @lib.Instruction::TableGet(_) =>
-      Some(@lib.ValType::funcref())
+    @lib.MemorySize(idx) | @lib.MemoryGrow(idx) =>
+      match env {
+        Some(env) => env.get_memtype(idx).map(fn(ty) { ty.0.addr_valtype() })
+        None => Some(@lib.ValType::i32())
+      }
+    @lib.TableSize(idx) | @lib.TableGrow(idx) =>
+      match env {
+        Some(env) => env.get_table_type(idx).map(fn(ty) { ty.1.addr_valtype() })
+        None => Some(@lib.ValType::i32())
+      }
+    @lib.TableGet(idx) =>
+      match env {
+        Some(env) =>
+          env.get_table_type(idx).map(fn(ty) { @lib.ValType::ref_type(ty.0) })
+        None => Some(@lib.ValType::funcref())
+      }
+    @lib.RefFunc(idx) =>
+      match env {
+        Some(env) =>
+          env
+          .get_functypeidx_by_funcidx(idx)
+          .map(fn(ty) {
+            @lib.ValType::ref_type(
+              @lib.RefType::new(false, @lib.HeapType::new(ty)),
+            )
+          })
+        None => None
+      }
     @lib.Instruction::StructGet(type_idx, field_idx)
     | @lib.Instruction::StructAtomicGet(_, type_idx, field_idx) =>
       lcse_raw_struct_field_type(subtypes, type_idx, field_idx)
@@ -1692,6 +1715,7 @@ fn lcse_raw_result_type(
       Some(lcse_raw_atomic_cmpxchg_result_type(op))
     @lib.Instruction::ArrayGet(type_idx) =>
       lcse_raw_array_field_type(subtypes, type_idx)
+    @lib.Instruction::Select(Some([ty])) => Some(ty)
     @lib.Instruction::Select(_) =>
       match child_exprs.get(0) {
         Some(expr) => Some(expr.ty)
@@ -2383,6 +2407,7 @@ fn lcse_raw_rewrite_instrs(
   local_types : Array[@lib.ValType],
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
+  env? : @validate.Env? = None,
 ) -> (Array[@lib.Instruction], Bool) {
   if instrs.length() > 16 {
     return (instrs, false)
@@ -2504,6 +2529,7 @@ fn lcse_raw_rewrite_instrs(
         children.map(fn(id) { exprs[id] }),
         call_infos,
         subtypes,
+        env~,
       ) {
       Some(ty) => {
         let mut start = idx
@@ -2746,7 +2772,12 @@ fn lcse_raw_rewrite_instrs(
           body, i, nested_repeats, exprs,
         )
         let (next_body, body_changed) = lcse_raw_rewrite_instrs(
-          outer_body, params, local_types, call_infos, subtypes,
+          outer_body,
+          params,
+          local_types,
+          call_infos,
+          subtypes,
+          env~,
         )
         if outer_body_changed || body_changed {
           changed = true
@@ -2755,7 +2786,12 @@ fn lcse_raw_rewrite_instrs(
       }
       @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = lcse_raw_rewrite_instrs(
-          body, params, local_types, call_infos, subtypes,
+          body,
+          params,
+          local_types,
+          call_infos,
+          subtypes,
+          env~,
         )
         if body_changed {
           changed = true
@@ -2767,12 +2803,22 @@ fn lcse_raw_rewrite_instrs(
           then_body, i, nested_repeats, exprs,
         )
         let (next_then, then_changed) = lcse_raw_rewrite_instrs(
-          outer_then, params, local_types, call_infos, subtypes,
+          outer_then,
+          params,
+          local_types,
+          call_infos,
+          subtypes,
+          env~,
         )
         let (next_else, else_changed) = match else_body {
           Some(body) => {
             let (body2, changed2) = lcse_raw_rewrite_instrs(
-              body, params, local_types, call_infos, subtypes,
+              body,
+              params,
+              local_types,
+              call_infos,
+              subtypes,
+              env~,
             )
             (Some(body2), changed2)
           }
@@ -2788,7 +2834,12 @@ fn lcse_raw_rewrite_instrs(
           body, i, nested_repeats, exprs,
         )
         let (next_body, body_changed) = lcse_raw_rewrite_instrs(
-          outer_body, params, local_types, call_infos, subtypes,
+          outer_body,
+          params,
+          local_types,
+          call_infos,
+          subtypes,
+          env~,
         )
         if outer_body_changed || body_changed {
           changed = true
@@ -2826,6 +2877,7 @@ fn lcse_raw_rewrite_func(
   params : Array[@lib.ValType],
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
+  env? : @validate.Env? = None,
 ) -> LcseRawRewrite {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   let has_repeated_candidate = lcse_instrs_may_have_repeated_candidate(instrs)
@@ -2837,7 +2889,14 @@ fn lcse_raw_rewrite_func(
   }
   let local_types = cl_flatten_locals(locals, locals.length())
   let (rewritten, rewrite_changed) = if has_repeated_candidate {
-    lcse_raw_rewrite_instrs(instrs, params, local_types, call_infos, subtypes)
+    lcse_raw_rewrite_instrs(
+      instrs,
+      params,
+      local_types,
+      call_infos,
+      subtypes,
+      env~,
+    )
   } else {
     (instrs, false)
   }
@@ -2961,6 +3020,7 @@ pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       let params = cl_defined_func_param_cache(mod_)
       let call_infos = lcse_raw_module_call_infos(mod_)
       let subtypes = cl_module_subtypes(mod_)
+      let env = Some(@validate.Env::new().with_module(mod_))
       let rewritten : Array[@lib.Func] = []
       let mut changed = false
       for idx = 0; idx < funcs.length(); idx = idx + 1 {
@@ -2969,6 +3029,7 @@ pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           params[idx],
           call_infos,
           subtypes,
+          env~,
         )
         rewritten.push(rewrite.func)
         if rewrite.changed {
