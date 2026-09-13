@@ -1241,6 +1241,9 @@ corrected before treating their failures as evidence. Native execution confirms
 changed results, missing side effects and lost traps; structural checks cover
 nondefaultable initialization, shared/continuation types and descriptors.
 
+Directize retains dynamic checks for non-final imports; final imported types
+still permit guaranteed-mismatch trap folding.
+
 The imported-subtype original returns 42 in verified Binaryen 132 `wasm-shell`;
 Node v26.8.2 traps on the unchanged fixture. Its dedicated execution regression
 uses the verified alternate interpreter, without reclassifying the Node result.

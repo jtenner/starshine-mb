@@ -563,12 +563,29 @@ fn directize_classify_func(
 ) -> DirectizeTarget {
   if directize_func_type_matches(info, func_idx, call_type) {
     DirectizeKnown(func_idx)
-  } else if directize_func_slot(func_idx) < info.imported_func_count {
+  } else if directize_func_slot(func_idx) < info.imported_func_count &&
+    directize_import_may_have_subtype(info, func_idx) {
     // The imported function address may carry a runtime subtype of its
     // declared import type. Retain the dynamic check when it matters.
     DirectizeUnknown
   } else {
     DirectizeTrap
+  }
+}
+
+///|
+fn directize_import_may_have_subtype(
+  info : DirectizeInfo,
+  func_idx : @lib.FuncIdx,
+) -> Bool {
+  match directize_func_type(info, func_idx) {
+    Some(type_idx) =>
+      match info.env.resolve_subtype(type_idx) {
+        Some(@lib.SubType(final_, _, _, _)) => !final_
+        Some(@lib.CompTypeSubType(_, _)) => false
+        None => true
+      }
+    None => true
   }
 }
 
