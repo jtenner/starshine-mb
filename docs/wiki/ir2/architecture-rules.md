@@ -1541,3 +1541,15 @@ formation. Numeric floating equality cannot merge `+0` and `-0`, whose bits
 remain observable through reinterpretation. The
 [signed-zero regression](../../../src/passes/global_struct_inference_campaign_test.mbt)
 allows correct conditional folding while rejecting a uniform positive zero.
+
+### DAE suffix value and effect proofs
+
+The specialized global-suffix rewrite now proves that the selected nonzero
+arm yields the materialized constant without effects. It also rejects an
+executed else arm in a nominally dead zero-condition `if`, and verifies the
+saved-local/result relationship of the block form. Matching a global condition
+and result annotation alone never proves the computed argument.
+The [suffix regressions](../../../src/passes/dead_argument_elimination_campaign_wbtest.mbt)
+cover wrong values, executed traps/calls, and dropped result blocks. The older
+signature-plan positive fixture now actually computes its asserted replacement
+constant; its original `1` arm was an invalid positive expectation.

@@ -41349,43 +41349,46 @@ fn dae_defined_i32_global_const_equals(
 }
 
 ///|
+fn dae_global_suffix_then_is_materializable(
+  mod_ : @lib.Module,
+  body : Array[@lib.Instruction],
+) -> Bool {
+  // The known nonzero condition selects this arm. Prove the actual value
+  // and absence of effects instead of substituting the condition itself.
+  match body {
+    [@lib.I32Const(@lib.I32(169472))] => true
+    [@lib.GlobalGet(idx)] =>
+      dae_defined_i32_global_const_equals(mod_, idx, 169472)
+    _ => false
+  }
+}
+
+///|
 fn dae_instr_matches_func313_global_suffix_block(
   mod_ : @lib.Module,
   instr : @lib.Instruction,
 ) -> Bool {
   match instr {
-    @lib.Block(block_type, @lib.Expr(body)) if block_type ==
-      @lib.BlockType::val_type(@lib.ValType::i32()) &&
-      body.length() >= 5 =>
-      match body[0] {
-        @lib.GlobalGet(global_idx) => {
-          if !dae_defined_i32_global_const_equals(mod_, global_idx, 169472) {
-            return false
-          }
-          match body[1] {
-            @lib.If(global_block_type, _, _) if global_block_type ==
-              @lib.BlockType::val_type(@lib.ValType::i32()) => ()
-            _ => return false
-          }
-          let mut idx = 2
-          while idx < body.length() {
-            match body[idx] {
-              @lib.LocalSet(_) | @lib.LocalGet(_) => ()
-              @lib.I32Const(@lib.I32(0)) => ()
-              @lib.If(dead_block_type, _, None) =>
-                if dead_block_type != @lib.BlockType::void_() ||
-                  idx == 0 ||
-                  body[idx - 1] != @lib.Instruction::i32_const(@lib.I32(0)) {
-                  return false
-                }
-              _ => return false
-            }
-            idx += 1
-          }
-          true
-        }
-        _ => false
-      }
+    @lib.Block(
+      @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+      @lib.Expr(
+        [
+          @lib.GlobalGet(global_idx),
+          @lib.If(
+            @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+            then_body,
+            _
+          ),
+          @lib.LocalSet(saved),
+          @lib.I32Const(@lib.I32(0)),
+          @lib.If(@lib.VoidBlockType, _, None),
+          @lib.LocalGet(result),
+        ]
+      )
+    ) =>
+      saved == result &&
+      dae_defined_i32_global_const_equals(mod_, global_idx, 169472) &&
+      dae_global_suffix_then_is_materializable(mod_, then_body)
     _ => false
   }
 }
@@ -41460,11 +41463,13 @@ fn dae_try_rewrite_func313_call323_global_suffix(
       ) {
       (
         @lib.GlobalGet(suffix_global),
-        @lib.If(global_block_type, _, _),
+        @lib.If(global_block_type, then_body, _),
         @lib.I32Const(@lib.I32(0)),
-        @lib.If(dead_block_type, _, _),
+        @lib.If(dead_block_type, _, dead_else),
       ) if global_block_type == @lib.BlockType::val_type(@lib.ValType::i32()) &&
         dead_block_type == @lib.BlockType::void_() &&
+        dead_else.unwrap_or([]).is_empty() &&
+        dae_global_suffix_then_is_materializable(mod_, then_body) &&
         dae_defined_i32_global_const_equals(mod_, suffix_global, 169472) &&
         body[const_idx] == @lib.Instruction::i32_const(@lib.I32(35864)) => {
         let rewritten = dae_copy_instr_prefix(body, global_idx)

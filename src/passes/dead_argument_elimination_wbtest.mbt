@@ -20619,7 +20619,7 @@ test "dae selected global suffix uses signature plan and rejects original exposu
     #|    local.get 6
     #|    global.get $g
     #|    if (result i32)
-    #|      i32.const 1
+    #|      i32.const 169472
     #|    else
     #|      i32.const 2
     #|    end
@@ -20648,7 +20648,7 @@ test "dae selected global suffix uses signature plan and rejects original exposu
     #|    local.get 6
     #|    global.get $g
     #|    if (result i32)
-    #|      i32.const 1
+    #|      i32.const 169472
     #|    else
     #|      i32.const 2
     #|    end
