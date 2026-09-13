@@ -1262,7 +1262,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `untee-init` | untee | Unreachable tees retain nondefaultable initialization | Repaired; focused regression green |
 | `coalesce-ref-exits` | coalesce-locals | Reference branch destinations contribute liveness | Red; repair pending |
 | `coalesce-catches` | coalesce-locals | Exception destinations contribute liveness | Red; repair pending |
-| `coalesce-cursor` | coalesce-locals | Dead accesses do not consume live action ordinals | Red; repair pending |
+| `coalesce-cursor` | coalesce-locals | Dead accesses do not consume live action ordinals | Repaired; focused regression green |
 | `heap-casts` | heap2local | Scalar reads preserve potentially failing casts | Red; repair pending |
 | `heap-descriptors` | heap2local | Descriptor extraction preserves nullable traps | Red; repair pending |
 | `directize-import` | directize | Imported runtime subtypes cannot become unconditional traps | Red; repair pending |

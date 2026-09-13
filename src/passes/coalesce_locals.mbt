@@ -4963,7 +4963,13 @@ fn cl_remove_ineffective_tees(
 ) -> Bool {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
+  let reachable_len = cl_reachable_prefix_len(original_instrs)
   for idx = 0; idx < rewritten_instrs.length(); idx = idx + 1 {
+    // Collection and rewriting assign action ordinals only to reachable code.
+    if idx >= reachable_len {
+      out.push(rewritten_instrs[idx])
+      continue
+    }
     let original = original_instrs[idx]
     let mut rewritten = rewritten_instrs[idx]
     match original {
