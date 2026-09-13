@@ -37,6 +37,8 @@ priv struct OptimizeInstructionsLocalFacts {
   assigned_i64_max_ready : @bitset.BitSet
   mut sign_ext_ready : Bool
   mut unsigned_max_ready : Bool
+  mut label_used_revision : Int
+  mut label_used : @bitset.BitSet
 }
 
 ///|
@@ -206,6 +208,8 @@ fn OptimizeInstructionsLocalFacts::new(
     assigned_i64_max_ready: @bitset.BitSet::new(node_count),
     sign_ext_ready: false,
     unsigned_max_ready: false,
+    label_used_revision: -1,
+    label_used: @bitset.BitSet::new(0),
   }
 }
 
@@ -9717,6 +9721,7 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
+  local_facts : OptimizeInstructionsLocalFacts?,
 ) -> OiMaxBitsFallthroughFact? {
   // Starshine's represented block fallthrough mirrors the local Binaryen
   // `Properties::getFallthrough` maxBits path used by the local scanner. Record
@@ -9725,6 +9730,24 @@ fn OiMaxBitsFallthroughFact::from_single_value_block(
   // straight-line effectful prefix are admitted so folded constants do not erase
   // effects or branch/control behavior.
   let node = @ir.hot_node_get(func, node_id)
+  // The tail is not the only result if any operand can branch to this block.
+  // The shared inventory includes nested operands and exception destinations.
+  let label_used = match local_facts {
+    Some(facts) => {
+      if facts.label_used_revision != func.revision {
+        facts.label_used = pass_compute_label_used(func)
+        facts.label_used_revision = func.revision
+      }
+      facts.label_used
+    }
+    None => pass_compute_label_used(func)
+  }
+  if pass_label_is_used(
+      @ir.hot_control_node_label(func, node_id),
+      label_used,
+    ) {
+    return None
+  }
   match node.op {
     @ir.HotOp::Block if node.child_count == 1 =>
       Some({ value_id: func.children[node.child_base], })
@@ -11220,7 +11243,7 @@ fn OiI32MaxBitsProducerFact::from_node(
     }
     @ir.HotOp::Block =>
       match
-        OiMaxBitsFallthroughFact::from_single_value_block(func, dead, node_id) {
+        OiMaxBitsFallthroughFact::from_single_value_block(func, dead, node_id, local_facts) {
         Some(fact) =>
           OiUnsignedMaxValueFact::i32_max_for_node(
             func,
@@ -11327,7 +11350,7 @@ fn OiI64MaxBitsProducerFact::from_node(
     }
     @ir.HotOp::Block =>
       match
-        OiMaxBitsFallthroughFact::from_single_value_block(func, dead, node_id) {
+        OiMaxBitsFallthroughFact::from_single_value_block(func, dead, node_id, local_facts) {
         Some(fact) =>
           OiUnsignedMaxValueFact::i64_max_for_node(
             func,
