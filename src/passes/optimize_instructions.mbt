@@ -10254,6 +10254,11 @@ fn OiI32ArithmeticMaxBitsFact::from_binary(
       }
     }
     @lib.Instruction::I32RemS | @lib.Instruction::I32RemU => {
+      // Signed remainder inherits the dividend sign, not an unsigned bound
+      // from the divisor's magnitude.
+      if instr is @lib.Instruction::I32RemS && lhs_bits == 32 {
+        return None
+      }
       let rhs_bits = OiUnsignedMaxValueFact::i32_max_bits_or_unknown(
         OiUnsignedMaxValueFact::i32_max_for_node(
           func, dead, local_facts, rhs_id,
@@ -10352,6 +10357,9 @@ fn OiI64ArithmeticMaxBitsFact::from_binary(
       }
     }
     @lib.Instruction::I64RemS | @lib.Instruction::I64RemU => {
+      if instr is @lib.Instruction::I64RemS && lhs_bits == 64 {
+        return None
+      }
       let rhs_bits = OiUnsignedMaxValueFact::i64_max_bits_or_unknown(
         OiUnsignedMaxValueFact::i64_max_for_node(
           func, dead, local_facts, rhs_id,
