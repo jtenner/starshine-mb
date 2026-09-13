@@ -2621,7 +2621,34 @@ fn lcse_raw_rewrite_instrs(
         }
         stack.push(expr_id)
       }
-      None => ()
+      None =>
+        // Unknown results must not expose older operands as their producers.
+        match instr {
+          @lib.Drop
+          | @lib.LocalSet(_)
+          | @lib.GlobalSet(_)
+          | @lib.TableSet(_)
+          | @lib.StructSet(_, _)
+          | @lib.ArraySet(_)
+          | @lib.ArrayFill(_)
+          | @lib.ArrayCopy(_, _)
+          | @lib.ArrayInitData(_, _)
+          | @lib.ArrayInitElem(_, _)
+          | @lib.MemoryCopy(_, _)
+          | @lib.MemoryFill(_)
+          | @lib.MemoryInit(_, _)
+          | @lib.TableCopy(_, _)
+          | @lib.TableFill(_)
+          | @lib.TableInit(_, _)
+          | @lib.DataDrop(_)
+          | @lib.ElemDrop(_) => ()
+          _ if lcse_instr_is_store(instr) => ()
+          @lib.If(_, _, _) => stack.clear()
+          _ => {
+            stack.clear()
+            active.clear()
+          }
+        }
     }
     match instr {
       @lib.Instruction::If(_, then_body, _) => {

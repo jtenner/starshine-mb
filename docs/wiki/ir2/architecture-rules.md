@@ -939,3 +939,13 @@ from arrays as a read, with their possible traps. An unused encoder result does
 not make its target-array writes removable, and motion must respect conflicting
 array effects. Other string operations conservatively retain possible traps.
 The valid IR encoding regression is in `simplify_locals_audit_test.mbt`.
+
+
+### CSE operand producer boundaries
+
+Raw local-CSE distinguishes known resultless instructions from producers whose
+result type/count it cannot model. Unknown producers clear the tracked operand
+suffix and reuse window; ifs retain only the existing nested-scan window before
+its normal invalidation. A global result must not expose older constants as its
+operands. The audit's two-result arithmetic fixture retains `(3, 7)` instead of
+reusing the unrelated value `13`. See `local_cse_audit_test.mbt`.
