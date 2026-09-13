@@ -1270,7 +1270,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `casts-shared` | optimize-casts | Shared exact references match shared abstract supertypes | Repaired; focused regression green |
 | `casts-continuations` | optimize-casts | Continuation subtype families can overlap | Repaired; focused regression green |
 | `sgo-suspend` | simplify-globals-optimizing | Suspension invalidates runtime global facts | Repaired; focused regression green |
-| `pushing-trap-operands` | code-pushing | Trap relaxation preserves operand effects | Red; repair pending |
+| `pushing-trap-operands` | code-pushing | Trap relaxation preserves operand effects | Repaired; focused regression green |
 | `pushing-load-operands` | code-pushing | Load relaxation preserves address effects | Red; repair pending |
 | `folding-exits` | code-folding | Self-label exits preserve reachable following traps | Repaired; focused regression green |
 | `folding-dead-effects` | code-folding | Post-trap effects remain unreachable | Repaired; focused regression green |
