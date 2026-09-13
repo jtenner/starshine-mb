@@ -1269,7 +1269,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `casts-effects` | optimize-casts | Folded tests retain operand evaluation | Red; repair pending |
 | `casts-shared` | optimize-casts | Shared exact references match shared abstract supertypes | Red; repair pending |
 | `casts-continuations` | optimize-casts | Continuation subtype families can overlap | Red; repair pending |
-| `sgo-suspend` | simplify-globals-optimizing | Suspension invalidates runtime global facts | Red; repair pending |
+| `sgo-suspend` | simplify-globals-optimizing | Suspension invalidates runtime global facts | Repaired; focused regression green |
 | `pushing-trap-operands` | code-pushing | Trap relaxation preserves operand effects | Red; repair pending |
 | `pushing-load-operands` | code-pushing | Load relaxation preserves address effects | Red; repair pending |
 | `folding-exits` | code-folding | Self-label exits preserve reachable following traps | Red; repair pending |

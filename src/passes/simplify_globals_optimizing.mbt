@@ -5995,6 +5995,7 @@ fn sgo_runtime_trace_barrier(instr : @lib.Instruction) -> Bool {
     | @lib.Resume(_, _)
     | @lib.ResumeThrow(_, _, _)
     | @lib.ResumeThrowRef(_, _)
+    | @lib.Suspend(_)
     | @lib.StackSwitch(_, _) => true
     _ => false
   }
