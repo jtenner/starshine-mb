@@ -2719,6 +2719,40 @@ fn h2l_variant_alloc_supports_fields(
 }
 
 ///|
+fn h2l_variant_cast_path_is_nontrapping(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  if_node_id : Int,
+  then_alloc : Int,
+  else_alloc : Int,
+  path : Array[Int],
+) -> Bool {
+  let condition = h2l_i32_const_value(func, @ir.hot_child_get(func, if_node_id, 0))
+  let allocations = match condition {
+    Some(0) => [else_alloc]
+    Some(_) => [then_alloc]
+    None => [then_alloc, else_alloc]
+  }
+  for alloc in allocations {
+    let (alloc_type, _, _) = match h2l_supported_struct_new_fields(func, module_ctx, alloc) {
+      Some(info) => info
+      None => return false
+    }
+    let source = @lib.RefType::new(false, @lib.HeapType::new(alloc_type), exact=true)
+    for node in path {
+      match @ir.hot_node_exact_instr(func, node) {
+        Some(@lib.RefCast(nullable, exact, heap_type)) =>
+          if !oc_ref_always_matches(module_ctx, source, oc_target_ref_type(nullable, exact, heap_type)) {
+            return false
+          }
+        _ => ()
+      }
+    }
+  }
+  true
+}
+
+///|
 fn h2l_find_variant_candidate(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
@@ -2798,6 +2832,18 @@ fn h2l_find_variant_candidate(
       return None
     }
     uses.push({ user_node_id, field_index: field.index, source_path, })
+  }
+  if !h2l_variant_cast_path_is_nontrapping(
+      func, module_ctx, init_node_id, then_alloc_node_id, else_alloc_node_id, producer_source_path,
+    ) {
+    return None
+  }
+  for use_ in uses {
+    if !h2l_variant_cast_path_is_nontrapping(
+        func, module_ctx, init_node_id, then_alloc_node_id, else_alloc_node_id, use_.source_path,
+      ) {
+      return None
+    }
   }
   if !h2l_variant_alloc_supports_fields(
       func, module_ctx, then_alloc_node_id, fields,
@@ -2922,6 +2968,20 @@ fn h2l_find_variant_local_candidate(
     return None
   }
   for producer in producers {
+    if !h2l_variant_cast_path_is_nontrapping(
+        func, module_ctx, producer.if_node_id, producer.then_alloc_node_id,
+        producer.else_alloc_node_id, producer.source_path,
+      ) {
+      return None
+    }
+    for use_ in uses {
+      if !h2l_variant_cast_path_is_nontrapping(
+          func, module_ctx, producer.if_node_id, producer.then_alloc_node_id,
+          producer.else_alloc_node_id, use_.source_path,
+        ) {
+        return None
+      }
+    }
     if !h2l_variant_alloc_supports_fields(
         func,
         module_ctx,
