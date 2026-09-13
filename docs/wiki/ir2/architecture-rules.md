@@ -1797,3 +1797,12 @@ These source-backed shape classifications supersede the earlier **open**
 classification for the enumerated templates only. The relaxed-atomic
 independent-validator limitation is separate and remains recorded. Local
 follow-up evidence is under `.tmp/parity-followup-20260913/`.
+
+The follow-up source review caught a non-reflexive NaN equality in the new
+cleanup's convergence check before final fuzzing. A bounded one-step
+[NaN regression](../../../src/passes/dae_cleanup_nan_parity_followup_wbtest.mbt)
+first failed on the incorrect changed flag; it covers retained scalar and
+nested NaNs and now also exercises the terminating cleanup. The implementation
+uses explicit mutation flags, including child regions, rather than instruction
+equality. Actual rewrites clear stale local-name metadata; unchanged functions
+and modules retain their original values. All four follow-up tests pass.

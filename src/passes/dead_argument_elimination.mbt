@@ -49625,17 +49625,24 @@ fn dae_cleanup_dropped_unreachable_debris(
 fn dae_cleanup_unread_local_body(
   instrs : Array[@lib.Instruction],
   reads : Array[Int],
-) -> Array[@lib.Instruction] {
+) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
+  let mut changed = false
   for original in instrs {
     let instr = pass_lower_map_children(original, fn(body) {
-      dae_cleanup_unread_local_body(body, reads)
+      let (next, child_changed) = dae_cleanup_unread_local_body(body, reads)
+      changed = changed || child_changed
+      next
     })
     let instr = match instr {
-      @lib.LocalSet(@lib.LocalIdx(index)) if reads[index.to_int()] == 0 =>
+      @lib.LocalSet(@lib.LocalIdx(index)) if reads[index.to_int()] == 0 => {
+        changed = true
         @lib.Instruction::drop()
-      @lib.LocalTee(@lib.LocalIdx(index)) if reads[index.to_int()] == 0 =>
+      }
+      @lib.LocalTee(@lib.LocalIdx(index)) if reads[index.to_int()] == 0 => {
+        changed = true
         continue
+      }
       _ => instr
     }
     if instr is @lib.Drop && !out.is_empty() {
@@ -49647,10 +49654,12 @@ fn dae_cleanup_unread_local_body(
         | @lib.F64Const(_)
         | @lib.RefNull(_)
         | @lib.RefFunc(_) => {
+          changed = true
           ignore(out.pop())
           continue
         }
         @lib.LocalTee(index) => {
+          changed = true
           ignore(out.pop())
           out.push(@lib.Instruction::local_set(index))
           continue
@@ -49660,27 +49669,29 @@ fn dae_cleanup_unread_local_body(
     }
     out.push(instr)
   }
-  out
+  (out, changed)
 }
 
 ///|
 fn dae_cleanup_unread_locals(
   func : @lib.Func,
   params : Array[@lib.ValType],
-) -> @lib.Func {
+) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(original)) = func
   let count = params.length() + locals.length()
   let mut body = original
+  let mut body_changed = false
   // Removing an unused copy can make its source unread. Each changing round
   // removes local references or instructions; effectful producers stay in place.
   while true {
     let reads = Array::make(count, 0)
     let writes = Array::make(count, 0)
     pass_lower_count_locals(body, reads, writes)
-    let next = dae_cleanup_unread_local_body(body, reads)
-    if next == body {
+    let (next, changed) = dae_cleanup_unread_local_body(body, reads)
+    if !changed {
       break
     }
+    body_changed = true
     body = next
   }
   let reads = Array::make(count, 0)
@@ -49697,9 +49708,15 @@ fn dae_cleanup_unread_locals(
       indices[index] = -1
     }
   }
-  @lib.Func::new(
-    @lib.Locals::from_types(retained),
-    @lib.Expr::new(pass_lower_remap_locals(body, indices)),
+  if !body_changed && retained.length() == locals.length() {
+    return (func, false)
+  }
+  (
+    @lib.Func::new(
+      @lib.Locals::from_types(retained),
+      @lib.Expr::new(pass_lower_remap_locals(body, indices)),
+    ),
+    true,
   )
 }
 
@@ -49713,6 +49730,7 @@ fn dae_cleanup_touched_unread_locals(
     None => return mod_
   }
   let imported = dae_imported_func_count(mod_)
+  let mut changed = false
   for i = 0; i < funcs.length(); i = i + 1 {
     if i < touched.length() && touched[i] {
       let params = run_hot_pipeline_defined_func_params_from_sections(
@@ -49720,11 +49738,19 @@ fn dae_cleanup_touched_unread_locals(
         @lib.FuncIdx::new((imported + i).reinterpret_as_uint()),
       )
       if params is Some(params) {
-        funcs[i] = dae_cleanup_unread_locals(funcs[i], params)
+        let (next, func_changed) = dae_cleanup_unread_locals(funcs[i], params)
+        if func_changed {
+          funcs[i] = next
+          changed = true
+        }
       }
     }
   }
-  mod_.with_code_sec(@lib.CodeSec::new(funcs))
+  if changed {
+    mod_.with_code_sec(@lib.CodeSec::new(funcs)).without_name_sec()
+  } else {
+    mod_
+  }
 }
 
 ///|
