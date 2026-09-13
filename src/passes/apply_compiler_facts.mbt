@@ -626,6 +626,8 @@ fn compiler_fact_rewrite_nested_instruction(
         },
       )
     @lib.Try(type_, @lib.Expr(body), catches, delegate) => {
+      // Site ordinals follow binary order: the protected body precedes catches.
+      let next_body = compiler_fact_rewrite_region(body, ctx)
       let next_catches : Array[@lib.LegacyCatch] = []
       for catch_ in catches {
         match catch_ {
@@ -646,7 +648,7 @@ fn compiler_fact_rewrite_nested_instruction(
       }
       @lib.Instruction::try_(
         type_,
-        @lib.Expr::new(compiler_fact_rewrite_region(body, ctx)),
+        @lib.Expr::new(next_body),
         next_catches,
         delegate~,
       )

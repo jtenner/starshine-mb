@@ -1275,7 +1275,7 @@ Fuzz verification is intentionally deferred until all repairs are in place.
 | `folding-exits` | code-folding | Self-label exits preserve reachable following traps | Red; repair pending |
 | `folding-dead-effects` | code-folding | Post-trap effects remain unreachable | Red; repair pending |
 | `rub-prefix` | remove-unused-brs | Loop rewrite retains roots preceding its branch | Red; repair pending |
-| `facts-legacy-order` | apply-compiler-facts | Legacy try facts follow body-before-catch encoding | Red; repair pending |
+| `facts-legacy-order` | apply-compiler-facts | Legacy try facts follow body-before-catch encoding | Repaired; focused regression green |
 | `dae2-type-identity` | dae2 / dae2-optimizing | Signature pruning preserves indirect-call type mismatches | Red; repair pending |
 
 Reports not established as public bugs: flatten preserves the null-check order
