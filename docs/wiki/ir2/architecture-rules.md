@@ -1224,3 +1224,63 @@ inline-main normally needs names absent from the generic corpus, and the
 remove-unused-names dispatcher intentionally skips stack-switching modules.
 The focused continuation regressions cover the repaired shared/direct helpers.
 No new pass-local performance claim is made from these comparison runs.
+
+## September 12 second correctness audit
+
+Five report-only agents reviewed every active optimization pass assignment,
+including shared helpers, aliases and module wrappers. They did not run Moon or
+edit files. Their reviews targeted correctness-sensitive paths; this is not an
+exhaustive line-by-line certification. The head agent owns all tests and fixes.
+
+Starting revision: `4c6b0d0f2`. Baseline `moon test`: **11,404/11,404**.
+The second red campaign adds 49 bounded Moon checks and 42 CLI execution checks
+in `src/passes/*_round2*test.mbt` and
+[`round2-correctness.test.ts`](../../../tests/optimizer/regressions/round2-correctness.test.ts).
+Before repairs, 45 Moon checks fail and four pass. Invalid draft fixtures were
+corrected before treating their failures as evidence. Native execution confirms
+changed results, missing side effects and lost traps; structural checks cover
+nondefaultable initialization, shared/continuation types and descriptors.
+
+The imported-subtype original returns 42 in verified Binaryen 132 `wasm-shell`;
+Node v26.8.2 traps on the unchanged fixture. Its dedicated execution regression
+uses the verified alternate interpreter, without reclassifying the Node result.
+Oracle: `.tmp/binaryen-version_132/bin/wasm-opt`, version 132, SHA-256
+`1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
+Commands, initial fixtures, logs and identities: `.tmp/pass-audit-round2-20260912/`.
+Fuzz verification is intentionally deferred until all repairs are in place.
+
+| Finding | Pass | Required invariant | State |
+| --- | --- | --- | --- |
+| `once-guards` | once-reduction | Independent initial guard values and external setters | Red; repair pending |
+| `oi-array-zero` | optimize-instructions | Array defaults preserve negative zero | Red; repair pending |
+| `oi-tree-zero` | optimize-instructions | Tree equality preserves floating constant bits | Red; repair pending |
+| `oi-division` | optimize-instructions | Quotient bounds require divisor lower bounds | Red; repair pending |
+| `oi-remainder` | optimize-instructions | Signed remainder retains negative high bits | Red; repair pending |
+| `oi-block-exits` | optimize-instructions | Block ranges include exits in prefix operands | Red; repair pending |
+| `cse-float` | local-cse | Expression keys distinguish signed zero | Red; repair pending |
+| `cse-nested-effects` | local-cse | Nested windows invalidate on memory and hidden writes | Red; repair pending |
+| `untee-init` | untee | Unreachable tees retain nondefaultable initialization | Red; repair pending |
+| `coalesce-ref-exits` | coalesce-locals | Reference branch destinations contribute liveness | Red; repair pending |
+| `coalesce-catches` | coalesce-locals | Exception destinations contribute liveness | Red; repair pending |
+| `coalesce-cursor` | coalesce-locals | Dead accesses do not consume live action ordinals | Red; repair pending |
+| `heap-casts` | heap2local | Scalar reads preserve potentially failing casts | Red; repair pending |
+| `heap-descriptors` | heap2local | Descriptor extraction preserves nullable traps | Red; repair pending |
+| `directize-import` | directize | Imported runtime subtypes cannot become unconditional traps | Red; repair pending |
+| `casts-effects` | optimize-casts | Folded tests retain operand evaluation | Red; repair pending |
+| `casts-shared` | optimize-casts | Shared exact references match shared abstract supertypes | Red; repair pending |
+| `casts-continuations` | optimize-casts | Continuation subtype families can overlap | Red; repair pending |
+| `sgo-suspend` | simplify-globals-optimizing | Suspension invalidates runtime global facts | Red; repair pending |
+| `pushing-trap-operands` | code-pushing | Trap relaxation preserves operand effects | Red; repair pending |
+| `pushing-load-operands` | code-pushing | Load relaxation preserves address effects | Red; repair pending |
+| `folding-exits` | code-folding | Self-label exits preserve reachable following traps | Red; repair pending |
+| `folding-dead-effects` | code-folding | Post-trap effects remain unreachable | Red; repair pending |
+| `rub-prefix` | remove-unused-brs | Loop rewrite retains roots preceding its branch | Red; repair pending |
+| `facts-legacy-order` | apply-compiler-facts | Legacy try facts follow body-before-catch encoding | Red; repair pending |
+| `dae2-type-identity` | dae2 / dae2-optimizing | Signature pruning preserves indirect-call type mismatches | Red; repair pending |
+
+Reports not established as public bugs: flatten preserves the null-check order
+because ordinary lifting uses its Heap representation; its unreachable-tee
+candidate is removed during lifting. DCE retains the catch-reachable side effect
+in the refined fixture. The farther-exit branch rewrite is preceded by removal
+of the unreachable suffix in the reported public shape. These tests remain as
+behavior guards; no failing assertion is weakened to label a bug fixed.

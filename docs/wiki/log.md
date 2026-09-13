@@ -23866,3 +23866,8 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   benchmark improves from 38.355 ms to 0.651 ms, with real-artifact pass time
   unchanged. See [differential evidence](binaryen/passes/memory-packing/fuzzing.md#september-12-2026-size-parity-follow-up)
   and [benchmark protocol/results](binaryen/passes/memory-packing/parity.md#september-12-size-and-scalability-follow-up).
+
+- 2026-09-12: Started a second five-agent report-only optimizer correctness audit.
+  Recorded the clean 11,404-test baseline and failing-first Moon/CLI campaign in
+  [architecture rules](ir2/architecture-rules.md#september-12-second-correctness-audit).
+  Repairs and final fuzz evidence remain active.
