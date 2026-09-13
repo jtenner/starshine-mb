@@ -2,11 +2,7 @@
 pub fn heap2local_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
     "heap2local",
-    requires=[
-      @ir.HotAnalysis::use_def(),
-      @ir.HotAnalysis::cfg(),
-      @ir.HotAnalysis::dominance(),
-    ],
+    requires=[@ir.HotAnalysis::use_def()],
     invalidates=[
       @ir.HotAnalysis::cfg(),
       @ir.HotAnalysis::dominance(),
@@ -639,7 +635,8 @@ fn h2l_find_candidate_for_local(
   module_ctx : @ir.HotModuleContext,
   use_def : @ir.HotUseDef,
   local_id : Int,
-  ctx : HotPassContext,
+  cfg : @ir.HotCfg,
+  dom : @ir.HotDominators,
 ) -> H2LCandidate? {
   if local_id < @ir.hot_param_count(func) {
     return None
@@ -713,7 +710,7 @@ fn h2l_find_candidate_for_local(
       return None
     }
     for read_node_id in reads {
-      if !h2l_write_dominates_read(ctx, func, family_writes[0], read_node_id) {
+      if !h2l_write_dominates_read(cfg, dom, family_writes[0], read_node_id) {
         return None
       }
       if !h2l_collect_source_use(
@@ -1229,7 +1226,8 @@ fn h2l_find_array_candidate_for_local(
   module_ctx : @ir.HotModuleContext,
   use_def : @ir.HotUseDef,
   local_id : Int,
-  ctx : HotPassContext,
+  cfg : @ir.HotCfg,
+  dom : @ir.HotDominators,
 ) -> H2LArrayCandidate? {
   if local_id < @ir.hot_param_count(func) {
     return None
@@ -1270,7 +1268,7 @@ fn h2l_find_array_candidate_for_local(
     return None
   }
   for read_node_id in use_def.local_reads[local_id] {
-    if !h2l_write_dominates_read(ctx, func, write_node_id, read_node_id) {
+    if !h2l_write_dominates_read(cfg, dom, write_node_id, read_node_id) {
       return None
     }
     if !h2l_collect_array_use(
@@ -3210,6 +3208,8 @@ pub fn heap2local_run(
   if h2l_has_repeated_array_allocation_writes(func, use_def) {
     return HotPassResult::unchanged()
   }
+  let cfg = @ir.cfg_build(func, expand_operand_control=true)
+  let dom = @ir.dom_build(cfg)
   let variant_candidates : Array[H2LVariantCandidate] = []
   let variant_local_candidates : Array[H2LVariantLocalCandidate] = []
   let variant_owner_locals : Array[Int] = []
@@ -3246,7 +3246,9 @@ pub fn heap2local_run(
       continue
     }
     match
-      h2l_find_candidate_for_local(func, module_ctx, use_def, local_id, ctx) {
+      h2l_find_candidate_for_local(
+        func, module_ctx, use_def, local_id, cfg, dom,
+      ) {
       Some(candidate) => candidates.push(candidate)
       None => ()
     }
@@ -3265,7 +3267,7 @@ pub fn heap2local_run(
     }
     match
       h2l_find_array_candidate_for_local(
-        func, module_ctx, use_def, local_id, ctx,
+        func, module_ctx, use_def, local_id, cfg, dom,
       ) {
       Some(candidate) => array_candidates.push(candidate)
       None => ()
@@ -3348,12 +3350,11 @@ pub fn heap2local_run(
 
 ///|
 fn h2l_write_dominates_read(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
+  cfg : @ir.HotCfg,
+  dom : @ir.HotDominators,
   write_id : Int,
   read_id : Int,
 ) -> Bool {
-  let cfg = pass_require_cfg(ctx, func)
   let write_block = match @ir.cfg_block_for_node(cfg, write_id) {
     Some(block) => block
     None => return false
@@ -3363,11 +3364,7 @@ fn h2l_write_dominates_read(
     None => return false
   }
   if write_block != read_block {
-    return @ir.dom_dominates(
-      pass_require_dom(ctx, func),
-      write_block,
-      read_block,
-    )
+    return @ir.dom_dominates(dom, write_block, read_block)
   }
   // CFG block nodes are in operand-before-user execution order.
   for node in @ir.cfg_block_get(cfg, read_block).nodes {

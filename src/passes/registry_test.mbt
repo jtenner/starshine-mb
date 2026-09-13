@@ -265,11 +265,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   @debug.assert_eq(hso.name, "heap-store-optimization")
   @debug.assert_eq(@ir.hot_pass_requires(hso), [])
   @debug.assert_eq(h2l.name, "heap2local")
-  @debug.assert_eq(@ir.hot_pass_requires(h2l), [
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-  ])
+  @debug.assert_eq(@ir.hot_pass_requires(h2l), [@ir.HotAnalysis::use_def()])
   @debug.assert_eq(oc.name, "optimize-casts")
   @debug.assert_eq(@ir.hot_pass_requires(oc), [])
   @debug.assert_eq(locals.name, "simplify-locals")
@@ -335,8 +331,6 @@ test "audited pass_require helper metadata contracts stay declared" {
   ])
   registry_test_assert_requires(heap2local_descriptor(), [
     @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
   ])
   registry_test_assert_requires(local_cse_descriptor(), [
     @ir.HotAnalysis::effects(),

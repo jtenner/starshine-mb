@@ -46,7 +46,7 @@ The local implementation is narrower, more direct, and much more HOT/use-def dri
 Start here when you want to confirm that `heap2local` is live and where the public presets place it.
 
 - `src/passes/heap2local.mbt:2-16`
-  - `heap2local_descriptor()` declares the pass name, the required use-def, CFG, and dominance analyses (the latter two enforce singleton allocation/copy initialization before reads), and the invalidation set.
+  - `heap2local_descriptor()` declares the pass name, the required cached use-def analysis, and the invalidation set.
 - `src/passes/heap2local.mbt:18-20`
   - `heap2local_summary()` is the registry summary text used elsewhere in the pass catalog.
 - `src/passes/optimize.mbt:201-205`
@@ -192,14 +192,13 @@ Important touched-area hygiene note:
 
 ## What current Starshine does differently from Binaryen
 
-## 1. The local pass depends only on HOT use-def
+## 1. The local pass uses use-def and operand-expanded dominance
 
 The registry descriptor currently requires only:
 
 - `@ir.HotAnalysis::use_def()`
 
-That is much smaller than the upstream Binaryen helper stack, which explicitly uses broader escape/exclusivity and fixup machinery.
-So the local proof model is simpler and narrower.
+The pass also builds one private operand-expanded CFG and its dominators before candidate discovery. Singleton allocation/copy writes must dominate each read, including operand nodes and same-block execution order. The ordinary cached CFG omits operands and cannot establish this proof. Existing positive scalarization tests and `heap2local_audit_test.mbt` cover both accepted and rejected initialization flows.
 
 ## 2. Struct candidates are discovered directly from local write/read shapes
 
