@@ -1053,3 +1053,7 @@ Before applying a result-if condition's constant local facts inside a loop, prec
 ### Known heap reads retain evaluation
 
 Precompute-propagate sequences nondiscardable receiver and index operands before a folded heap-read constant. Knowing the returned field or element value does not erase local tees, traps, or other operand effects. The receiver-tee audit fixture retains the local assignment before its subsequent null test.
+
+### Simplify-globals nested local references
+
+Nested control scans inspect the entire child region; a parent exclusion span must not become an exclusion of every nested instruction. Legacy try bodies/catches also participate. The nested-read audit fixture requires the local assignment to survive an otherwise removable tee/drop/get pattern.

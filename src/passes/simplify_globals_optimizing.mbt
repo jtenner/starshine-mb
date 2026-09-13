@@ -6052,15 +6052,29 @@ fn sgo_instr_refs_local(
     @lib.Block(_, @lib.Expr(body))
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      sgo_instrs_ref_local(body, local_idx, 0, body.length())
+      sgo_instrs_ref_local(body, local_idx, 0, 0)
     @lib.If(_, then_body, else_body) => {
-      if sgo_instrs_ref_local(then_body, local_idx, 0, then_body.length()) {
+      if sgo_instrs_ref_local(then_body, local_idx, 0, 0) {
         return true
       }
       match else_body {
-        Some(body) => sgo_instrs_ref_local(body, local_idx, 0, body.length())
+        Some(body) => sgo_instrs_ref_local(body, local_idx, 0, 0)
         None => false
       }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if sgo_instrs_ref_local(body, local_idx, 0, 0) {
+        return true
+      }
+      for catch_ in catches {
+        let @lib.Expr(body) = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        if sgo_instrs_ref_local(body, local_idx, 0, 0) {
+          return true
+        }
+      }
+      false
     }
     _ => false
   }
