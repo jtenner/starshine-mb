@@ -4811,7 +4811,16 @@ fn hso_process_local_set_chain(
         Some(_) => true
         None => false
       }
-      if branch_skips_owner && next_is_matching_set {
+      // The owner-skipping shortcut may bypass constructor evaluation. Only
+      // effect-free operands can bypass the ordinary dependency checks.
+      if branch_skips_owner && next_is_matching_set &&
+        (
+          (hso_struct_new_operand_effect_mask(func, module_ctx, node_masks, struct_new_id) |
+            hso_struct_new_shallow_effects(func, struct_new_id)) == 0U ||
+          hso_root_can_swap_before_local_struct_new(
+            cache, func, module_ctx, node_masks, struct_new_id, roots[next_idx], local_id,
+          )
+        ) {
         segment_roots.push(roots[next_idx])
         let last_idx = segment_roots.length() - 1
         let moved_local_set_id = segment_roots[segment_local_set_idx]

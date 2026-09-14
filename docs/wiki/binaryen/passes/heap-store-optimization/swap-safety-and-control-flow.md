@@ -315,3 +315,14 @@ Binaryen often preserves those side effects and still folds the new value into t
 - function-external and in-function exits must not be conflated
 - `canMoveSet(...)`-style local visibility proof must remain part of the contract when control flow is present
 - preserving old field side effects is correctness work, not optional cleanup
+
+## Constructor motion audit (2026-09-14)
+
+The owner-skipping shortcut requires effect-free constructor evaluation or the
+same constructor/blocker ordering check as ordinary swaps. An owner with no escaping reads can still have a
+constructor operand that reads a global subsequently written by the blocker,
+or calls a function whose effects must execute before an exiting branch.
+The four bounded pass/dispatcher regressions in
+`src/passes/heap_store_optimization_fourth_audit_test.mbt` and
+`src/cmd/heap_store_optimization_fourth_audit_wbtest.mbt` cover both cases;
+the global-read fixture independently evaluates the retained value as 7.
