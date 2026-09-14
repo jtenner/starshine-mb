@@ -7316,18 +7316,32 @@ fn inl_compact_unused_locals(
 }
 
 ///|
+fn inl_prefix_label_is_forward_exit(
+  labels : Array[Bool],
+  label : @lib.LabelIdx,
+) -> Bool {
+  let depth = inl_label_idx_slot(label)
+  depth >= 0 && depth < labels.length() && labels[labels.length() - 1 - depth]
+}
+
+///|
 fn inl_instr_is_nontrapping_prefix(
   instrs : Array[@lib.Instruction],
   idx : Int,
+  exit_labels? : Array[Bool] = [],
 ) -> Bool {
+  // A branch may return from the function or repeat a loop before the final
+  // unreachable. Such control flow cannot be replaced by that trap.
   match instrs[idx] {
+    @lib.Br(label) | @lib.BrIf(label) =>
+      inl_prefix_label_is_forward_exit(exit_labels, label)
+    @lib.BrTable(labels, fallback) =>
+      inl_prefix_label_is_forward_exit(exit_labels, fallback) &&
+      labels.all(fn(label) { inl_prefix_label_is_forward_exit(exit_labels, label) })
     @lib.Unreachable
     | @lib.Nop
     | @lib.Drop
     | @lib.Select(_)
-    | @lib.Br(_)
-    | @lib.BrIf(_)
-    | @lib.BrTable(_, _)
     | @lib.LocalGet(_)
     | @lib.LocalSet(_)
     | @lib.LocalTee(_)
@@ -7482,10 +7496,12 @@ fn inl_instr_is_nontrapping_prefix(
         false
       }
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) => {
+      let child_labels = exit_labels.copy()
+      child_labels.push(!(instrs[idx] is @lib.Loop(_, _)))
       let mut ok = true
       let mut child = 0
       while child < body.length() {
-        if !inl_instr_is_nontrapping_prefix(body, child) {
+        if !inl_instr_is_nontrapping_prefix(body, child, exit_labels=child_labels) {
           ok = false
           break
         }
@@ -7494,10 +7510,12 @@ fn inl_instr_is_nontrapping_prefix(
       ok
     }
     @lib.If(_, then_body, Some(else_body)) => {
+      let child_labels = exit_labels.copy()
+      child_labels.push(!(instrs[idx] is @lib.Loop(_, _)))
       let mut ok = true
       let mut child = 0
       while child < then_body.length() {
-        if !inl_instr_is_nontrapping_prefix(then_body, child) {
+        if !inl_instr_is_nontrapping_prefix(then_body, child, exit_labels=child_labels) {
           ok = false
           break
         }
@@ -7505,7 +7523,7 @@ fn inl_instr_is_nontrapping_prefix(
       }
       child = 0
       while ok && child < else_body.length() {
-        if !inl_instr_is_nontrapping_prefix(else_body, child) {
+        if !inl_instr_is_nontrapping_prefix(else_body, child, exit_labels=child_labels) {
           ok = false
           break
         }
@@ -7514,10 +7532,12 @@ fn inl_instr_is_nontrapping_prefix(
       ok
     }
     @lib.If(_, then_body, None) => {
+      let child_labels = exit_labels.copy()
+      child_labels.push(!(instrs[idx] is @lib.Loop(_, _)))
       let mut ok = true
       let mut child = 0
       while child < then_body.length() {
-        if !inl_instr_is_nontrapping_prefix(then_body, child) {
+        if !inl_instr_is_nontrapping_prefix(then_body, child, exit_labels=child_labels) {
           ok = false
           break
         }

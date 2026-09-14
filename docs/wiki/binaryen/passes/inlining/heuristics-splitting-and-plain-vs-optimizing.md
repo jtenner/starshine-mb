@@ -136,3 +136,15 @@ writes, including reads inside nested control. Four pass regressions and four
 dispatcher regressions in the `inlining_partial_fourth_audit` test files failed
 before this guard. A retained native fixture also reproduced an observable
 global changing from the required 0 to 1 before the repair.
+
+## Cleanup prefix audit (2026-09-14)
+
+A final `unreachable` does not justify deleting a preceding branch: it may
+return a value from the function or repeat a loop forever. The optimizing
+inliner's module cleanup now tracks branch destinations through nested control.
+Only forward exits to blocks/ifs inside the prefix are deletable; function
+returns and loop backedges retain the prefix. Three pass and three
+command regressions trigger real inlining elsewhere in the module before
+checking an unrelated loop, function-return branch, and conditional return.
+All six failed before repair; native execution also reproduced return 7
+becoming a trap. Earlier no-inline-progress fixtures did not reach this cleanup.
