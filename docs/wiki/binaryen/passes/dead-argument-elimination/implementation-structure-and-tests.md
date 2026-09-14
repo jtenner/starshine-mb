@@ -434,3 +434,14 @@ When plain `dead-argument-elimination` is cited elsewhere in the wiki:
 - point here for the owner/test split,
 - point to `dae-optimizing` only for the nested-rerun difference,
 - and keep `dae2` explicitly marked as neighboring-but-separate.
+
+## Defined-function nullability lookup
+
+Touched-function `ref.is_null` cleanup indexes `FuncSec` with a defined-function
+index. Adding the imported-function count selected the following definition's
+signature and could fold a nullable parameter as non-null. The helper-level
+red regression uses an import followed by nullable and non-nullable definitions;
+the public DAE-optimizing and command fixtures retain the nullable test.
+Sources: `dead_argument_elimination.mbt` and its `fourth_audit` test files.
+The standalone helper failure is confirmed; the simple public fixture already
+passed before repair, so it is not claimed as a reproduced end-to-end failure.

@@ -49398,13 +49398,13 @@ fn dae_fold_touched_nonnull_ref_is_null(
       (type_idxs, funcs)
     _ => return (mod_, false)
   }
-  let imported = dae_imported_func_count(mod_)
   let rewritten_funcs = funcs.copy()
   let mut changed = false
   for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
     if def_idx < touched.length() && touched[def_idx] {
+      // FuncSec contains only definitions, so this lookup uses a defined index.
       let params = match
-        dae_resolve_func_type(mod_, type_idxs, imported + def_idx) {
+        dae_resolve_func_type(mod_, type_idxs, def_idx) {
         Some(@lib.FuncType(params, _)) => params
         None => []
       }
