@@ -226,24 +226,27 @@ fn sgo_type_sec_func_type(
   type_sec : @lib.TypeSec,
   type_idx : @lib.TypeIdx,
 ) -> @lib.FuncType? {
-  match (type_sec, type_idx) {
-    (@lib.TypeSec(rec_types), @lib.TypeIdx(raw)) => {
-      let slot = raw.reinterpret_as_int()
-      if slot < 0 || slot >= rec_types.length() {
-        return None
-      }
-      match rec_types[slot] {
-        @lib.SingleRecType(subtype) =>
-          match subtype.get_comptype() {
-            @lib.FuncCompType(params, results) =>
-              Some(@lib.FuncType::new(params, results))
-            _ => None
-          }
-        @lib.GroupRecType(_) => None
+  let raw = match type_idx {
+    @lib.TypeIdx(raw) => raw
+    _ => return None
+  }
+  let @lib.TypeSec(groups) = type_sec
+  let mut remaining = raw.to_uint64()
+  for group in groups {
+    let members = match group {
+      @lib.SingleRecType(subtype) => [subtype]
+      @lib.GroupRecType(subtypes) => subtypes
+    }
+    if remaining < members.length().to_uint64() {
+      return match members[remaining.to_int()].get_comptype() {
+        @lib.FuncCompType(params, results) =>
+          Some(@lib.FuncType::new(params, results))
+        _ => None
       }
     }
-    _ => None
+    remaining -= members.length().to_uint64()
   }
+  None
 }
 
 ///|

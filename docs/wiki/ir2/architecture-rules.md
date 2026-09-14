@@ -2244,3 +2244,8 @@ failures visible.
   directly to f32 with integer guard/sticky bits and ties-to-even, preserving
   the signed zero/overflow conventions of integer conversion. All 42 bounded
   midpoint-neighbor tests and the command regression pass.
+
+- **Recursive-group signatures:** SGO resolves absolute type indices across
+  every member of each recursive group. Call operand/result arity must come
+  from that flattened namespace before classifying global reads as dead.
+  The pass and command multivalue-call regressions now pass.
