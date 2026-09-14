@@ -232,3 +232,15 @@ A future Starshine port should preserve all of these special-case rules honestly
 - packed access semantics must survive scalarization exactly
 - atomic/RMW/cmpxchg and descriptor families are part of the source-level contract even when dedicated test coverage is uneven
 - v131's per-allocation analysis reset is part of correctness; the 2026-07-19 renewal covers representable sequential candidates, while shared reference-valued ordered cmpxchg remains a validator/atomic-semantics blocker
+
+## Sequential initializer reads
+
+The next allocation's initializer still observes the previous owner value:
+its operands run before the replacing local write. Sequential struct and array
+scalarization includes these boundary reads in the preceding allocation's uses.
+Leaving a raw field read behind after deleting the previous allocation changed
+a returned 7 into a null trap in the September 14 native replay.
+
+Tests: `src/passes/heap2local_fourth_audit_test.mbt`, the bounded independent
+GC evaluator in `heap_fixture_fourth_audit_test.mbt`, and
+`src/cmd/heap2local_fourth_audit_wbtest.mbt`.

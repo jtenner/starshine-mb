@@ -1058,7 +1058,9 @@ fn h2l_find_sequential_candidates_for_local(
         Some(read_slot) => read_slot
         None => return []
       }
-      if read_slot <= slot || read_slot >= end_slot {
+      // Operands of the next allocation execute before its local write and
+      // still read the previous object. Rewrite these boundary reads too.
+      if read_slot <= slot || read_slot > end_slot {
         continue
       }
       if !h2l_collect_sequential_source_use(
@@ -1495,7 +1497,9 @@ fn h2l_find_sequential_array_candidates_for_local(
         Some(read_slot) => read_slot
         None => return []
       }
-      if read_slot <= slot || read_slot >= end_slot {
+      // Operands of the next allocation execute before its local write and
+      // still read the previous object. Rewrite these boundary reads too.
+      if read_slot <= slot || read_slot > end_slot {
         continue
       }
       if !h2l_collect_sequential_array_source_use(
