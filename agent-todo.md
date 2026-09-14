@@ -1,5 +1,13 @@
 # Agent Tasks
 
+## v0.1.1 — third correctness audit [IR2-CORRECTNESS]
+
+- **Goal / why:** repair nine reproduced optimizer correctness defects from five report-only audits.
+- **Deliverables / tasks:** string nullability; SGO recursive-group lookup; imported segment bounds atomicity; RUME global-backed element liveness; precompute receiver effects and i64 rounding; shared-load equality; once control-flow edges; coalesce initialization.
+- **Required APIs / invariants:** preserve effects, result types, possible concurrent values, branch destinations and default local values.
+- **Dependencies / exit:** 98 bounded regressions (52 currently failing), isolated repair commits, full default tests, fresh native binary and final affected-pass 10,000-case GenValid comparisons against verified Binaryen 132.
+- **Suggested tests / evidence:** `src/passes/*_deep_audit_test.mbt`, `src/cmd/cmd.mbt`; [audit record](docs/wiki/ir2/architecture-rules.md#september-13-third-correctness-audit); local `.tmp/correctness-audit-20260913b/`.
+
 ## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
 - **Goal / why:** close the remaining output-size and independent-validator gaps

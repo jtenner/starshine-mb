@@ -2214,3 +2214,28 @@ or test concurrent inter-thread memory ordering. The interpreter is from the
 same verified Binaryen distribution as the optimizer oracle; the independent
 byte-identity evidence is therefore material, not a claim of a second
 unrelated engine. No compiler repair was required.
+
+## September 13 third correctness audit
+
+Five report-only agents reviewed every active optimizer family; only the head
+agent compiled or edited tests. Review was targeted, not an exhaustive proof.
+The unchanged worktree baseline passed 11,580 default tests. The red campaign
+contains 89 adjacent pass tests and nine command-dispatch tests: 43 pass checks
+and all nine command checks fail for nine reproduced defect families. Tests
+cover non-null string gathering, recursive-group signature lookup, imported
+segment initialization, global-backed element liveness, propagated receiver
+effects, integer-to-float rounding, shared-memory read identity, once-fact
+control-flow edges, and parameter/local reuse across reference branches.
+
+The vacuum terminal-branch and public inlining hypotheses did not reproduce;
+their bounded validation/branch-result checks pass. Tuple-local and DAE2
+variance hypotheses were withdrawn after inspecting representation invariants.
+Two DAE label-rewrite helpers have no production callers and remain a dormant
+maintenance concern, not a demonstrated optimizer defect. Existing flatten
+and remove-unused-brs regressions pass in the baseline.
+
+Sources: `src/passes/*_deep_audit_test.mbt`, command tests in
+[`src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), and local red-phase logs under
+`.tmp/correctness-audit-20260913b/`. Implementation and final fuzz verification
+are pending; this test-only checkpoint deliberately leaves the reproduced
+failures visible.

@@ -8195,3 +8195,332 @@ test "dae2 command dispatch preserves implicit function-label payloads" {
     }
   }
 }
+
+///|
+test "deep audit command string gathering nonnullable result existing False" {
+  let nonnull = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::string_())),
+  )
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (result stringref) (string.const \"hello\")))",
+  )
+  let input = input.with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [nonnull])),
+      ),
+    ]),
+  )
+  let output = cmd_deep_audit_run_module(input, "string-gathering")
+  assert_true(@validate.validate_module(output) is Ok(_))
+}
+
+///|
+test "deep audit command simplify globals resolves signatures after multi member recursive groups" {
+  let output = cmd_deep_audit_run(
+    (
+      #|(module (rec (type (func)) (type (func (param i64))))
+      #| (type $host (func (param i32) (result i32 i32)))
+      #| (type (func (result i32)))
+      #| (import "env" "host" (func $host (type $host)))
+      #| (global $g (mut i32) (i32.const 0))
+      #| (func (export "run") global.get $g call $host i32.const 0 select
+      #| if i32.const 1 global.set $g end))
+    ),
+    "simplify-globals-optimizing",
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+      i is @lib.GlobalSet(_)
+    }),
+    1,
+  )
+}
+
+///|
+test "deep audit command coalesce-locals keeps default local value on nullable branch before sole tee" {
+  let pass = "coalesce-locals"
+  let output = cmd_deep_audit_run(
+    (
+      #|(module (func (param $p i32) (param $r externref) (result i32) (local $t i32)
+      #| (block local.get $r br_on_null 0 drop
+      #| i32.const 7 local.tee $t i32.const 1 i32.add drop)
+      #| local.get $t))
+    ),
+    pass,
+  )
+  let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
+  // The null edge reads the default zero, which cannot alias arbitrary $p.
+  assert_true(locals.length() > 0)
+}
+
+///|
+test "deep audit command once reduction preserves call skipped by br_on_cast_desc_eq" {
+  let output = cmd_deep_audit_run(
+    (
+      #|(module (rec (type $s (sub (descriptor $d) (struct)))
+      #| (type $d (sub (describes $s) (struct))))
+      #| (global $desc (ref (exact $d)) (struct.new $d))
+      #| (global $obj (ref $s) (struct.new_default_desc $s (global.get $desc)))
+      #| (global $flag (mut i32) (i32.const 0))
+      #| (global $hits (mut i32) (i32.const 0))
+      #| (func $once global.get $flag if return end i32.const 1 global.set $flag
+      #| (global.set $hits (i32.add (global.get $hits) (i32.const 1))))
+      #| (func (export "run") (result i32)
+      #| (drop (block $exit (result (ref null $s))
+      #| (br_on_cast_desc_eq $exit (ref null $s) (ref $s) (global.get $obj) (global.get $desc))
+      #| (call $once))) (call $once) (global.get $hits)))
+    ),
+    "once-reduction",
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(cmd_deep_audit_body(output, index=1), fn(i) {
+      i is @lib.Call(_)
+    }),
+    2,
+  )
+}
+
+///|
+test "deep audit command precompute-propagate retains struct receiver global.set" {
+  let output = cmd_deep_audit_run(
+    "(module (type $s (struct (field i32))) (type $a (array i32)) (import \"env\" \"effect\" (func $effect)) (global (export \"g\") (mut i32) (i32.const 0)) (func (result i32) (struct.get $s 0 (block (result (ref $s)) (global.set 0 (i32.const 1)) (struct.new $s (i32.const 7))))))",
+    "precompute-propagate",
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+      i is @lib.GlobalSet(_)
+    }),
+    1,
+  )
+}
+
+///|
+test "deep audit command precompute rounds i64 s exp 54 neighbor 1 negative False" {
+  let output = cmd_deep_audit_run(
+    "(module (func (result i32) i64.const 18014399583223809 f32.convert_i64_s i32.reinterpret_f32))",
+    "precompute",
+  )
+  assert_true(
+    cmd_deep_audit_body(output).contains(
+      @lib.Instruction::i32_const(@lib.I32(1518338049)),
+    ),
+  )
+}
+
+///|
+test "deep audit command memory packing preserves atomic bounds failure for imported active segment" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module (import "env" "memory" (memory 1 1))
+      #| (data (i32.const 65520) "A\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00"))
+    ),
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["memory-packing"],
+    OptimizeOptions::new(zero_filled_memory=true),
+  ).unwrap()
+  // The entire segment is bounds-checked before any byte is written.
+  @debug.assert_eq(output.data_sec, input.data_sec)
+}
+
+///|
+test "deep audit command optimize instructions retains copies using distinct shared i32.atomic.load" {
+  let load = "i32.atomic.load"
+  let input = @passes.pass_test_module_from_wat(
+    "(module (memory 1 1 shared) (func (param i32 i32) local.get 0 " +
+    load +
+    " local.get 0 " +
+    load +
+    " local.get 1 memory.copy))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["optimize-instructions"],
+    OptimizeOptions::new(traps_never_happen=true),
+  ).unwrap()
+  // Concurrent stores can change the address between the two reads.
+  @debug.assert_eq(
+    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+      i is @lib.MemoryCopy(_, _)
+    }),
+    1,
+  )
+}
+
+///|
+test "deep audit command remove-unused-module-elements retains active global reference closed false" {
+  let input = cmd_deep_audit_rume_input("active")
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let output = match
+    optimize_module_with_pass_flags(
+      input,
+      ["remove-unused-module-elements"],
+      OptimizeOptions::new(closed_world=false),
+    ) {
+    Ok(output) => output
+    Err(err) => fail("expected valid RUME output: \{err}")
+  }
+  assert_true(@validate.validate_module(output) is Ok(_))
+  assert_true(output.global_sec is Some(@lib.GlobalSec([_, ..])))
+  assert_true(output.code_sec is Some(@lib.CodeSec([_, _, ..])))
+}
+
+///|
+fn cmd_deep_audit_run(wat : String, pass : String) -> @lib.Module raise {
+  let input = match @wast.wast_to_binary_module(wat, filename="audit.wat") {
+    Ok(value) => value
+    Err(err) => fail("invalid audit syntax: \{err}")
+  }
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("invalid audit input: \{err}")
+  }
+  match optimize_module_with_pass_flags(input, [pass], OptimizeOptions::new()) {
+    Ok(value) => value
+    Err(err) => fail("audit pipeline: \{err}")
+  }
+}
+
+///|
+fn cmd_deep_audit_body(
+  mod_ : @lib.Module,
+  index? : Int = 0,
+) -> Array[@lib.Instruction] {
+  let @lib.Func(_, @lib.Expr(body)) = mod_.code_sec.unwrap().0[index]
+  body
+}
+
+///|
+fn cmd_deep_audit_count(
+  body : Array[@lib.Instruction],
+  predicate : (@lib.Instruction) -> Bool,
+) -> Int {
+  let mut count = 0
+  for instr in body {
+    if predicate(instr) {
+      count += 1
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(nested))
+      | @lib.Loop(_, @lib.Expr(nested))
+      | @lib.TryTable(_, _, @lib.Expr(nested)) =>
+        count += cmd_deep_audit_count(nested, predicate)
+      @lib.If(_, yes, no) => {
+        count += cmd_deep_audit_count(yes, predicate)
+        count += cmd_deep_audit_count(no.unwrap_or([]), predicate)
+      }
+      @lib.Try(_, @lib.Expr(nested), catches, _) => {
+        count += cmd_deep_audit_count(nested, predicate)
+        for catch_ in catches {
+          let body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(body))
+            | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+          }
+          count += cmd_deep_audit_count(body, predicate)
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn cmd_deep_audit_run_module(
+  input : @lib.Module,
+  pass : String,
+) -> @lib.Module raise {
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("invalid audit IR: \{err}")
+  }
+  match optimize_module_with_pass_flags(input, [pass], OptimizeOptions::new()) {
+    Ok(value) => value
+    Err(err) => fail("audit IR pipeline: \{err}")
+  }
+}
+
+///|
+fn cmd_deep_audit_rume_input(kind : String) -> @lib.Module {
+  if kind == "table" {
+    let base = @passes.pass_test_module_from_wat(
+      "(module (type $f (func (result i32))) (import \"env\" \"target\" (global funcref)) (table 1 funcref) (func (export \"run\") (result i32) i32.const 0 call_indirect (type $f)))",
+    )
+    return base.with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::abs(@lib.AbsHeapType::func()),
+            @lib.Limits::i32(1U, None),
+          ),
+          Some(
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            ]),
+          ),
+        ),
+      ]),
+    )
+  }
+  let base = @passes.pass_test_module_from_wat(
+    "(module (type $f (func (result i32))) (type $a (array (mut funcref))) (table 1 funcref) (func $target (type $f) i32.const 42) (func (export \"run\") (result i32) i32.const 0 call_indirect (type $f)))",
+  )
+  let get = @lib.Expr::new([
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+  let func_ref = @lib.Expr::new([
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+  ])
+  let base = base.with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::funcref(), false),
+        func_ref,
+      ),
+    ]),
+  )
+  let declarations = @lib.Elem::new(
+    @lib.ElemMode::declarative(),
+    @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+  )
+  let mode = if kind == "active" {
+    @lib.ElemMode::active(
+      @lib.TableIdx::new(0U),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+    )
+  } else {
+    @lib.ElemMode::passive()
+  }
+  let base = base.with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        mode,
+        @lib.ElemKind::typed_exprs(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          [get],
+        ),
+      ),
+      declarations,
+    ]),
+  )
+  if kind == "passive" {
+    let funcs = base.code_sec.unwrap().0.copy()
+    funcs[1] = @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::array_new_elem(
+          @lib.TypeIdx::new(1U),
+          @lib.ElemIdx::new(0U),
+        ),
+        @lib.Instruction::array_len(),
+      ]),
+    )
+    base.with_code_sec(@lib.CodeSec::new(funcs))
+  } else {
+    base
+  }
+}
