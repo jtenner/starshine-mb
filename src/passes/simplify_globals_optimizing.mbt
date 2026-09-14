@@ -9477,6 +9477,17 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         out.push(instr)
         let slot = sgo_global_idx_slot(idx)
         if sgo_runtime_trace_trackable(infos, slot) {
+          // Distinct import indices can denote the same host mutable global.
+          // A write invalidates facts for every type-compatible import alias.
+          if infos[slot].imported {
+            for other = 0; other < infos.length(); other = other + 1 {
+              if infos[other].imported &&
+                infos[other].mutable_ &&
+                infos[other].value_type == infos[slot].value_type {
+                facts[other] = None
+              }
+            }
+          }
           facts[slot] = if pos > 0 {
             sgo_const_instr(instrs[pos - 1])
           } else {

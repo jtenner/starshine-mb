@@ -305,3 +305,13 @@ If you want one short porting rule, use this:
 - while the optimizing suffix is that same engine plus immediate local cleanup.
 
 That is the real public-contract split to preserve.
+
+## Imported mutable global aliases
+
+Distinct imported global indices can refer to one host `WebAssembly.Global`.
+Runtime constant propagation invalidates facts for every mutable import with
+the written import's value type, then records the new value for the written
+index. Defined globals remain distinct storage. Tests cover i32, i64, f32 and
+f64 imports in `src/passes/simplify_globals_alias_fourth_audit_test.mbt` and
+the command dispatcher. A native replay with two imports bound to one host
+global returned 1 before the repair where the original returned 2.
