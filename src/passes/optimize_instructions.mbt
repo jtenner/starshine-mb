@@ -20514,19 +20514,13 @@ fn OiStableMemoryReadEqualityFact::empty() -> OiStableMemoryReadEqualityFact {
 
 ///|
 fn OiStableMemoryReadEqualityFact::from_nodes(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   left_id : Int,
   right_id : Int,
 ) -> OiStableMemoryReadEqualityFact {
-  // Binaryen v130 `areConsecutiveInputsEqual` delegates to
-  // `ExpressionAnalyzer::equal` after fallthrough peeling, then separately asks
-  // `EffectAnalyzer::orderedBefore(effects(right))` whether intervening effects
-  // can change the right read. Model the represented load subset as an explicit
-  // effect-sensitive fact: same load/atomic-load instruction, same access
-  // metadata, and an `OiScalarTreeEqualityFact` address proof for pure scalar
-  // trees plus deterministic state-read leaves. The enclosing equality fact
-  // still owns the memory/state-write interference check, so store/grow prefixes
-  // keep the copy live.
+  // Equal addresses establish equal reads only for an unshared memory with
+  // no intervening writes. Shared reads can observe another agent's store.
   let left = @ir.hot_node_get(func, left_id)
   let right = @ir.hot_node_get(func, right_id)
   if left.child_count != 1 || right.child_count != 1 {
@@ -20538,6 +20532,47 @@ fn OiStableMemoryReadEqualityFact::from_nodes(
       @ir.hot_node_exact_instr(func, right_id),
     ) {
     (Some(left_instr), Some(right_instr)) => {
+      let memarg = match left_instr {
+        @lib.I32Load(arg)
+        | @lib.I64Load(arg)
+        | @lib.F32Load(arg)
+        | @lib.F64Load(arg)
+        | @lib.I32Load8S(arg)
+        | @lib.I32Load8U(arg)
+        | @lib.I32Load16S(arg)
+        | @lib.I32Load16U(arg)
+        | @lib.I64Load8S(arg)
+        | @lib.I64Load8U(arg)
+        | @lib.I64Load16S(arg)
+        | @lib.I64Load16U(arg)
+        | @lib.I64Load32S(arg)
+        | @lib.I64Load32U(arg)
+        | @lib.I32AtomicLoad(_, arg)
+        | @lib.I64AtomicLoad(_, arg)
+        | @lib.I32AtomicLoad8U(_, arg)
+        | @lib.I32AtomicLoad16U(_, arg)
+        | @lib.I64AtomicLoad8U(_, arg)
+        | @lib.I64AtomicLoad16U(_, arg)
+        | @lib.I64AtomicLoad32U(_, arg) => arg
+        _ => return OiStableMemoryReadEqualityFact::empty()
+      }
+      let @lib.MemArg(_, selected_memory, _) = memarg
+      let unshared = match ctx.module_ctx {
+        Some(module_ctx) =>
+          match
+            @ir.hot_module_resolve_mem_type(
+              module_ctx,
+              selected_memory.unwrap_or(@lib.MemIdx::new(0U)),
+            ) {
+            Some(@lib.MemType(_, false)) => true
+            _ => false
+          }
+        None => false
+      }
+      if !unshared {
+        return OiStableMemoryReadEqualityFact::empty()
+      }
+
       let left_kind = OiStableMemoryReadEqualityKind::from_op_and_instr(
         left.op,
         left_instr,
@@ -21072,7 +21107,7 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     left, right,
   )
   let stable_memory_read_fact = OiStableMemoryReadEqualityFact::from_nodes(
-    func, left_fallthrough_id, right_fallthrough_id,
+    ctx, func, left_fallthrough_id, right_fallthrough_id,
   )
   let right_local_tee_fact = OiRightLocalTeeFallthroughEqualityFact::from_nodes(
     func, left_fallthrough_id, right_id,

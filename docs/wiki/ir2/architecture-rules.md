@@ -2276,3 +2276,11 @@ failures visible.
   trap sentinel changes host-visible memory after failed instantiation.
 
   All 61 memory-packing checks, including the two new regressions, pass.
+
+- **Shared reads are separate observations:** OI only proves repeated loads
+  equal for the selected unshared memory. A concurrent store can change the
+  second address even with `traps_never_happen`; ordinary and atomic shared
+  loads both retain `memory.copy`. This supersedes the historical v130-based
+  equality expectation in `optimize_instructions_test.mbt`, not its archived
+  oracle result. See [thread semantics](../wasm-linear-memory-threads-boundary.md).
+  All 134 shared-feature checks pass, including the corrected old expectation.

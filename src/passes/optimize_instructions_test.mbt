@@ -60404,13 +60404,9 @@ test "optimize-instructions keeps load-read table.size-address after table.grow"
 }
 
 ///|
-test "optimize-instructions drops atomic-load-read same-address memory.copy" {
-  // OI-G/OI-L same-input equality fact breadth: Binaryen version_130 treats
-  // same-access repeated atomic loads like other ExpressionAnalyzer-equal memory
-  // reads for `areConsecutiveInputsEqual`; the fact remains effect-sensitive, so
-  // intervening writes still reopen the value. Under `--traps-never-happen`, the
-  // same-address memory.copy collapses to operand drops while preserving both
-  // atomic reads.
+test "optimize-instructions keeps separate shared atomic-load-read memory.copy" {
+  // Repeated atomic reads may observe concurrent stores between instructions.
+  // Trap relaxation does not establish equality of their returned addresses.
   let memarg = @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0UL))
   let input = @lib.Module::new()
     .with_type_sec(
@@ -60458,12 +60454,12 @@ test "optimize-instructions drops atomic-load-read same-address memory.copy" {
     Err(err) =>
       fail("expected atomic-load-read memory.copy TNH success, got \{err}")
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("memory.copy"), msg=pretty)
-  optimize_instructions_assert_strings_in_order(pretty, [
-    "local.get (Local 0)", "i32.atomic.load", "drop", "local.get (Local 0)", "i32.atomic.load",
-    "drop", "local.get (Local 1)", "drop",
-  ])
+  let body = audit_body(optimized)
+  @debug.assert_eq(audit_count(body, fn(i) { i is @lib.MemoryCopy(_, _) }), 1)
+  @debug.assert_eq(
+    audit_count(body, fn(i) { i is @lib.I32AtomicLoad(_, _) }),
+    2,
+  )
 }
 
 ///|
