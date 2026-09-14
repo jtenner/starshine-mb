@@ -2249,3 +2249,8 @@ failures visible.
   every member of each recursive group. Call operand/result arity must come
   from that flattened namespace before classifying global reads as dead.
   The pass and command multivalue-call regressions now pass.
+
+- **Default local initialization:** the coalescing parameter fast path treats
+  every reference conditional branch as a possible exit before the sole tee.
+  Resume handlers use the general path. A local read reached without a write
+  cannot alias an arbitrary parameter. Both variants and command checks pass.

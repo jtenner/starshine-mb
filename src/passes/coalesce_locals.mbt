@@ -6970,12 +6970,23 @@ fn cl_scan_single_body_local_param_reuse(
         }
         return (may_reuse, must_reuse)
       }
-      @lib.BrIf(_) =>
+      @lib.BrIf(_)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _) =>
         if !must_reuse {
           facts.ok = false
           return (false, false)
         }
-      @lib.Loop(_, _) | @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => {
+      @lib.Loop(_, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Resume(_, _)
+      | @lib.ResumeThrow(_, _, _)
+      | @lib.ResumeThrowRef(_, _) => {
         facts.ok = false
         return (false, false)
       }
