@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-12
+last_reviewed: 2026-09-14
 sources:
   - ./index.md
 related:

@@ -1,19 +1,5 @@
 # Agent Tasks
 
-## v0.1.1 — fourth optimizer correctness verification [IR2-CORRECTNESS]
-
-- **Goal / why:** finish independent verification of thirteen confirmed defects
-  repaired after five report-only audits (fourteen atomic repair commits).
-- **Deliverables / tasks:** full default tests, fresh native runtime replays,
-  and twelve affected-pass Binaryen 132 GenValid lanes after all repairs.
-- **APIs / invariants:** preserve side effects, traps, returned values, reference
-  lifetimes, catch destinations, and valid remapped indices; no public API change.
-- **Dependencies / exit:** 122 bounded campaign tests are written; the initial
-  105-test red campaign produced 79 failures before later follow-up fixtures.
-  Focused repair suites pass. Keep final validation/parity findings visible.
-- **Suggested tests / evidence:** `*fourth_audit*` fixtures and
-  `.tmp/fourth-audit-20260914/`; original pass baseline 7,758/7,758.
-
 ## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
 - **Goal / why:** close the remaining output-size and independent-validator gaps
@@ -24,8 +10,15 @@
   alternate Binaryen encoding limits are in the wiki. No known Moon test failure.
 - **Third audit follow-up:** nine correctness repairs and 98 new regressions are complete; 11,678 default tests, 110,000 final comparisons and 165 retained runtime replays pass their recorded checks. Reduce the 30 OI trap-relaxed `direct-tiny-bulk` size losses (+300 canonical bytes), and retain unsampled tuple-family parity work and the atomic-ordering independent-validator limit. Memory64 bounds checks and cross-memory copies have explicit stronger-correctness evidence; do not erase them to match oracle bugs. [Final evidence](docs/wiki/ir2/architecture-rules.md#september-14-final-generated-verification).
 - **Tasks / deliverables:** align code-pushing's 513 `br-if-value` outputs
-  (`+2,052` canonical bytes) and simplify-locals-nostructure's 1,662 tee-control
+  (`+2,052` canonical bytes; all 513 unchanged in the fourth audit) and simplify-locals-nostructure's 1,662 tee-control
   outputs (`+16,636`), or establish a measured benefit that justifies retention.
+  Close the fourth audit's 1,091 Heap2local reference raw-size losses (+5/+8
+  bytes) and 41 OI `runtime-multi-selected-effectful-lanes` downstream losses
+  (+4 bytes after common v132 Oz). Both are unchanged from the pre-fix compiler;
+  matching sampled runtime does not close size parity. Retain unsampled raw-size
+  limits (44,831 raw-larger observations across twelve lanes); 1,720 size-focused
+  baseline replays, 150 fresh three-way runtime replays, all 11,800 tests, and
+  70,000 directed input vectors pass their recorded checks. [Fourth audit evidence](docs/wiki/ir2/architecture-rules.md#september-14-fourth-correctness-audit).
   Recheck relaxed-atomic precompute inputs when an independent validator supports
   ordering 2; retain the current verified Binaryen 132 evidence meanwhile.
   For DAE2, reduce the legacy-handler size loss and explore identity-preserving

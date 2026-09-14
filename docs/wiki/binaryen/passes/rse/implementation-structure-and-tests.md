@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-14
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/rse_all-features.wast
   - ./index.md

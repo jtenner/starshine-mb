@@ -2461,5 +2461,129 @@ native runtime proofs for the other observed scalar/GC cases.
 Sources: `src/passes/*fourth_audit*`, `src/cmd/*fourth_audit*`,
 `src/rume/remove_unused_module_elements.mbt`, the affected pass dossiers,
 and retained local evidence in `.tmp/fourth-audit-20260914/`.
-All focused repair suites pass. Full-suite and final generated verification
-are in progress; this section does not yet claim final signoff.
+All focused repair suites and all **11,800 default tests** pass. `moon info`,
+`moon fmt`, and README/API synchronization pass with no public `.mbti` changes.
+Final native/generated verification is complete with the size-parity limits below.
+
+
+### Directed native verification
+
+Fresh native CLI SHA-256
+`41ff5f830a1257e3471712b5664e00a626ddf4886cd96c6b436a39644fb3a2da`
+restores all fifteen directed observations for the retained defect fixtures
+(including both branch outcomes for the HSO call and the live-element case).
+The latter previously failed CLI output validation with element index
+`4294967295`. The two separate Precompute probes still choose a different
+permitted quiet NaN payload; neither required a repair.
+
+Seven callable fixtures additionally pass 10,000 deterministic input vectors
+each (70,000 total), with fresh instance state per observation: CSE, nested
+heap2local replacement, ordinary and exceptional code-pushing exits, inlining
+conditional return, partial inlining with its O3/partial options enabled, and
+HSO constructor calls. The saved pre-fix executable mismatches the original on
+40,003 of those vectors; the final executable mismatches on zero. This varies
+inputs to fixed modules, separate from the generated-module campaign below.
+Retained results: `runtime-final.json`, `runtime-extra-final.json`,
+`runtime-ref-final.log`, `runtime-fuzz-results.json`, and `provenance.json` in
+the local evidence directory above.
+
+
+### Final generated comparisons
+
+Twelve sequential lanes each compared 10,000 GenValid modules at seed
+`0x5eed`, using the explicit fresh native CLI and generator, eight workers,
+a maximum of twenty ordinary mismatch artifacts, and verified Binaryen 132
+(`wasm-opt` SHA-256
+`1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`).
+The primary validator was wasm-tools. No external generator was requested.
+All 120,000 comparisons completed with zero validation, generator, command,
+or enabled-property failures. Runtime semantics were checked separately below;
+these counts alone are not a semantic proof.
+
+| Pass / profile | Direct normalized | Cleanup normalized | Residual differences | Raw larger | Canonical larger |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `local-cse` / `regular portable` | 10000 | 0 | 0 | 7033 | 0 |
+| `optimize-instructions` / `pass-oi-all` | 8920 | 0 | 1080 | 4233 | 0 |
+| `simplify-globals-optimizing` / `simplify-globals-optimizing-all` | 5055 | 0 | 4945 | 0 | 0 |
+| `heap2local` / `heap2local-all` | 2474 | 0 | 7526 | 3565 | 0 |
+| `dae-optimizing` / `dae-optimizing` | 5153 | 0 | 4847 | 0 | 0 |
+| `code-pushing` / `code-pushing-all` | 4493 | 5507 | 0 | 0 | 513 |
+| `redundant-set-elimination` / `rse` | 7656 | 0 | 2344 | 0 | 0 |
+| `remove-unused-module-elements` / `rume-all` | 4106 | 0 | 5894 | 0 | 0 |
+| `remove-unused-nonfunction-module-elements` / `rume-all` | 4106 | 0 | 5894 | 0 | 0 |
+| `heap-store-optimization` / `heap-store-optimization` | 2155 | 7845 | 0 | 10000 | 0 |
+| `inlining` / `pass-inlining` | 10000 | 0 | 0 | 10000 | 0 |
+| `inlining-optimizing` / `inlining-optimizing-all` | 10000 | 0 | 0 | 10000 | 0 |
+
+Code-pushing and HSO use `local-cleanup-debris`. DAE optimizing uses the required
+`drop-consts` and `unreachable-control-debris` normalizers. The harness calls
+32,530 cases residual differences; the following interpretations are agent
+judgments grounded in inspected WAT, byte counts, and separate execution.
+
+- OI's 1,080 residuals are the established selected-lane tuple-wrapper family:
+  ordered operand/call/trap evaluation remains, with block-result temporaries
+  rather than Binaryen's flat scalarization. Canonical savings are 5, 17, 18,
+  or 41 bytes; no residual loses raw bytes. See the source-backed SB005
+  classification in the [OI fuzzing dossier](../binaryen/passes/optimize-instructions/fuzzing.md).
+- SGO removes empty `nop` shells (3,554 cases, one byte each) or preserves an
+  immutable initializer alias instead of duplicating its pure constant
+  expression (1,391 cases, three bytes each).
+- Heap2local's struct/array/ref residuals remove redundant temporary copies,
+  dropped null constants, and unused local state; canonical savings are
+  26/23/31 bytes respectively. Of the reference cases, 1,091 nevertheless lose
+  five or eight **raw** bytes. Preserve that raw-size parity gap separately
+  from the canonical-size benefit and matching sampled execution.
+- DAE residuals are smaller touched-function cleanup: dead local/copy removal,
+  direct constant operands with retained evaluation effects, empty bodies, and
+  scalarized immutable-field/forwarded-argument cleanup (1–14 canonical bytes).
+- RSE drops empty nops or a non-repeating loop shell with no backedge. RUME
+  residuals remove empty-body nops; the nonfunction variant retains more
+  function bodies and therefore has more empty-body cleanup in those inputs. These sampled forms preserve control flow
+  and live module references rather than deleting observable work.
+
+Size differences remain visible even when comparison normalizers match.
+All 513 four-canonical-byte code-pushing losses and all 1,091 raw-larger
+heap2local residuals were replayed against the saved pre-fix compiler.
+Together with 116 additional raw-larger samples, all **1,720 outputs are
+byte-identical before and after this campaign**. Those are pre-existing size
+parity gaps, not new correctness regressions. This does not close every one
+of the 44,831 raw-larger observations or establish pass-local timing parity.
+
+Reproduction commands and complete counters are retained in
+`fuzz/*/audit-command.json`, `fuzz/*/cases.jsonl`, `fuzz-summary.json`, and
+`size-baseline-results.json` under `.tmp/fourth-audit-20260914/`.
+
+
+### Fresh runtime and downstream classification
+
+The final isolated-cache, serial Node-v2 replay checks **150 representative
+residuals**, spanning each selected profile/label/size tier plus retained
+artifacts: OI 29, SGO 20, Heap2local 20, DAE 21, RSE 20, and each RUME variant
+20. All 150 original/Starshine/Binaryen observations match, with zero blocked
+cases. The first replay reused two stale one-second startup timeouts from the
+semantic cache (one Starshine, one Binaryen); those reports remain preserved.
+All 21 DAE cases pass freshly at the same one-second timeout, and the subsequent
+complete isolated-cache replay also passes. No new compiler repair followed.
+
+A common verified-v132 `-Oz --all-features --strip-debug` step makes 139 of 140
+retained output pairs byte-identical. The remaining OI sample is
+`oi-tuple:runtime-multi-selected-effectful-lanes`: the Starshine path retains a
+scratch local across an effectful call after that downstream step, producing
+74 rather than 70 bytes. A follow-up checks **all 41 generated members** of this
+label: each loses four downstream bytes, and each Starshine pass output is
+byte-identical to the pre-fix compiler. This is a pre-existing downstream-size
+parity gap and narrowly reopens the blanket SB005 win classification for that
+label despite its smaller pass-local raw/canonical output and matching runtime.
+It is not a newly demonstrated semantic defect. The other inspected empty-nop,
+non-repeating-loop, immutable-initializer, and dead-copy cleanup families have
+source-backed semantics, measured size savings, matching sampled execution,
+and common-downstream convergence; unsampled shapes are not proved by these
+checks.
+
+Final evidence: `runtime-replay-fresh-results.json`,
+`runtime-replays-fresh/*/audit-command.json`, `downstream-results.json`, and
+`downstream-family-results.json` under `.tmp/fourth-audit-20260914/`. The active
+parity backlog retains the 513 code-pushing canonical losses, 1,091 Heap2local
+raw-larger residuals, 41 OI downstream losses, and unsampled raw-size limits.
+All thirteen confirmed source-audit correctness defects are repaired; there
+are no remaining campaign test failures.

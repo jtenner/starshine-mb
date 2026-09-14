@@ -1,3 +1,22 @@
+## 2026-09-14 v132 correctness verification and narrow size reopening
+
+The [fourth optimizer audit](../../../ir2/architecture-rules.md#september-14-fourth-correctness-audit)
+repairs low-31-bit `ref.i31` equality and repeats `pass-oi-all` at 10,000 cases:
+8,920 normalized matches, 1,080 smaller canonical tuple residuals, and zero
+validation/generator/command failures. All 29 fresh representative three-way
+runtime replays match.
+
+The older blanket SB005 win classification is **reopened for
+`oi-tuple:runtime-multi-selected-effectful-lanes`**. All 41 generated members
+are smaller immediately after OI but four bytes larger after a common verified
+Binaryen 132 `-Oz --all-features --strip-debug` step. A retained scratch local
+across an effectful call causes the downstream loss. Every pass output is
+byte-identical to the pre-fix compiler, and sampled execution matches; this
+is a pre-existing downstream-size parity gap, not a new semantic defect.
+Keep the profile enabled and the gap in the active parity backlog. Historical
+v131 counts below retain their original version and scope. Current evidence:
+`.tmp/fourth-audit-20260914/downstream-family-results.json` and the linked audit.
+
 ## 2026-08-26 bounded safety renewal
 
 Native SHA-256 `d7921ee49c6781c10f3388e7f594dd67445587d767ef4db3d37107045e93886b` and official Binaryen v131 compared `10000/10000` regular GenValid cases with `--normalize drop-consts --normalize local-cleanup-debris`: all `10000` are cleanup-normalized matches with zero residual mismatches and zero validation/property/generator/command failures. Every canonical Starshine output is smaller: `10000` smaller, `0` equal, `0` larger; totals are `41,617,676` Starshine versus `41,677,638` Binaryen bytes. The raw family is the reviewed stronger pure dropped-constant fold plus nop/local cleanup, not an open semantic gap.

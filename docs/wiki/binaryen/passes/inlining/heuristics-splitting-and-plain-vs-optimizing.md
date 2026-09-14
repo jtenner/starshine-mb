@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-09-14
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/tools/optimization-options.h
