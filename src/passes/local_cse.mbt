@@ -2620,7 +2620,11 @@ fn lcse_raw_rewrite_instrs(
         )
         let can_cache_child_for_replay = !cache_child_for_replay ||
           lcse_raw_can_cache_child_for_replay(exprs, children)
+        // Replaying replaces the whole start..idx interval. Stack operands can
+        // span unrelated statements, whose effects must not be deleted.
+        let contiguous = idx - start + 1 == size
         let reusable_root = match instr {
+          _ if !contiguous => false
           @lib.Instruction::MemoryGrow(_) | @lib.Instruction::TableGrow(_) =>
             false
           _ if lcse_raw_instr_is_allocation_or_string_effect(instr) => false

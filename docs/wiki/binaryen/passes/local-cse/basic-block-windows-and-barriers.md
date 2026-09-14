@@ -324,3 +324,17 @@ That description is much closer to the real `version_129` pass than either:
 ## September 12 operand-provenance follow-up
 
 The raw scanner clears operand provenance when it cannot represent an instruction result. Calls and atomics retain expressions admitted by their existing effect filters; reference branches retain available local expressions on the continuation. This avoids losing supported reuse while preventing an unknown producer from exposing an older stack value as its result. `src/passes/local_cse_audit_test.mbt` covers unknown global producers, tee writes, and effectful HOT calls; the ordinary `local_cse_test.mbt` call/atomic/reference-continuation cases remain positive guards.
+
+## Contiguous raw replacement spans
+
+Raw expression reuse must cover exactly the operand instructions and their root.
+A stack operand may remain live across an unrelated global/local write, memory
+operation, or trapping dropped expression; replacing the entire interval would
+erase that intervening behavior. The raw scanner therefore admits replay only
+when the expression size equals its encoded instruction span.
+
+Sources: `src/passes/local_cse.mbt`,
+`src/passes/local_cse_fourth_audit_test.mbt`, and
+`src/cmd/local_cse_fourth_audit_wbtest.mbt`. The September 14 native baseline
+replay returned the same arithmetic value but changed an exported global from
+99 to 0. The bounded regressions also cover dropped loads and integer division.
