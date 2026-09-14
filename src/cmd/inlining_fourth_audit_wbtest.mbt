@@ -6,7 +6,10 @@ test "fourth audit command optimizing inlining preserves unrelated infinite loop
   )
   let @lib.CodeSec(funcs) = output.code_sec.unwrap()
   let @lib.Func(_, @lib.Expr(body)) = funcs[funcs.length() - 1]
-  @debug.assert_eq(cmd_deep_audit_count(body, fn(i) { i is @lib.Loop(_, _) }), 1)
+  @debug.assert_eq(
+    cmd_deep_audit_count(body, fn(i) { i is @lib.Loop(_, _) }),
+    1,
+  )
 }
 
 ///|
@@ -29,7 +32,10 @@ test "fourth audit command optimizing inlining preserves unrelated br return" {
   )
   let out_funcs = output.code_sec.unwrap().0
   @debug.assert_eq(
-    cmd_deep_audit_count(cmd_deep_audit_body(output, index=out_funcs.length() - 1), fn(i) { i is @lib.I32Const(@lib.I32(7)) }),
+    cmd_deep_audit_count(
+      cmd_deep_audit_body(output, index=out_funcs.length() - 1),
+      fn(i) { i is @lib.I32Const(@lib.I32(7)) },
+    ),
     1,
   )
 }
@@ -56,7 +62,10 @@ test "fourth audit command optimizing inlining preserves unrelated br_if return"
   )
   let out_funcs = output.code_sec.unwrap().0
   @debug.assert_eq(
-    cmd_deep_audit_count(cmd_deep_audit_body(output, index=out_funcs.length() - 1), fn(i) { i is @lib.I32Const(@lib.I32(7)) }),
+    cmd_deep_audit_count(
+      cmd_deep_audit_body(output, index=out_funcs.length() - 1),
+      fn(i) { i is @lib.I32Const(@lib.I32(7)) },
+    ),
     1,
   )
 }

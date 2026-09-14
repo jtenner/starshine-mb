@@ -2412,3 +2412,54 @@ exact release `wasm-opt` is
 `1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
 All nine reproduced correctness defects are repaired; no whole-pass parity
 or exhaustive semantic proof is claimed.
+
+
+## September 14 fourth correctness audit
+
+Five report-only agents divided every optimizer family, registry variant,
+targeted raw pass-manager path, and the delegated RUME implementation. They
+ran no compiler or tests and edited no files. The head agent wrote all tests,
+serialized Moon commands, reproduced findings, and committed each repair.
+This was risk-focused source review, not exhaustive correctness proof.
+
+The starting pass baseline was 7,758/7,758. The initial 105-test campaign
+produced 79 red failures; follow-up fixtures expanded the campaign to 122
+bounded tests. Thirteen distinct defects required fourteen repair commits
+(the imported-global alias fix received a separate reference-type refinement):
+
+| Defect | Observable consequence | Repair |
+| --- | --- | --- |
+| Noncontiguous local CSE replacement | Intervening writes or traps disappear | Require a contiguous reusable expression interval |
+| `ref.i31` equality | Bit 31 incorrectly changes equality | Compare the low 31 bits |
+| Imported mutable global aliasing | Stale reads through another import, including equivalent reference types | Invalidate potentially aliased imported facts |
+| Same-initializer float writes | Signed zero is lost | Compare floating-point literal bits |
+| Heap2local replacement initialization | Reading the old owner becomes a null trap | Keep reads in the next constructor's operands in the old lifetime |
+| Heap2local nested allocations | Nested replacement retains stale scalar fields | Reject unsegmented nested allocation writes |
+| DAE touched nullability | Imported offsets select the wrong defined signature | Index the defined function section directly |
+| Code-pushing exits | Branches or exceptions observe stale local copies | Preserve copies across ordinary and exceptional exits |
+| HOT redundant-set elimination | Catch destinations omit exceptional local state | Join conservative catch-target facts |
+| Empty active element pruning | Live element references become invalid indices | Retain segments referenced by retained function bodies |
+| Heap-store constructor motion | Reads move across writes; branches skip effectful operands | Guard owner-skipping motion by constructor dependencies |
+| Partial inlining | Local writes fail to propagate between outlined arms | Reject cross-arm local dependencies, including nested reads |
+| Optimizing inlining cleanup | Returning branches and loops become traps | Track forward block exits separately from function returns and loop backedges |
+
+The exact nullable-cast equality, Flatten null-check ordering, Vacuum terminal
+branch-stack, and Precompute signaling-NaN reports did not reproduce; their
+bounded guards remain. Precompute's active callers canonicalize NaNs before
+nearest evaluation. Different permitted quiet NaN payloads are not counted
+as a semantic defect. Legacy-Try local subtyping is skipped at module entry;
+the once-reduction self-call is removed before the suspected path. The tuple
+capture report has no established valid public-input reachability and remains
+an unconfirmed representation-contract concern, not a reproduced bug.
+
+The DAE defect is established in its private touched-nullability helper;
+the simple public/dispatcher nullable fixture already passed. HOT RSE's direct
+catch-target regression fails before repair while the raw implementation's
+corresponding path was already correct. These limits remain distinct from
+native runtime proofs for the other observed scalar/GC cases.
+
+Sources: `src/passes/*fourth_audit*`, `src/cmd/*fourth_audit*`,
+`src/rume/remove_unused_module_elements.mbt`, the affected pass dossiers,
+and retained local evidence in `.tmp/fourth-audit-20260914/`.
+All focused repair suites pass. Full-suite and final generated verification
+are in progress; this section does not yet claim final signoff.

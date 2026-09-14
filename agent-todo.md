@@ -1,17 +1,16 @@
 # Agent Tasks
 
-## v0.1.1 — fourth optimizer correctness audit [IR2-CORRECTNESS]
+## v0.1.1 — fourth optimizer correctness verification [IR2-CORRECTNESS]
 
-- **Goal / why:** repair semantic defects identified by five report-only audits.
-- **Deliverables / tasks:** complete red-first fixes for local CSE, global aliases
-  and signed zero, heap2local initializer/nested writes, inlining partial state
-  and terminating prefixes, DAE signature indexing, RSE exceptional joins,
-  code-pushing exits, HSO effect ordering, and live empty element segments.
+- **Goal / why:** finish independent verification of thirteen confirmed defects
+  repaired after five report-only audits (fourteen atomic repair commits).
+- **Deliverables / tasks:** full default tests, fresh native runtime replays,
+  and twelve affected-pass Binaryen 132 GenValid lanes after all repairs.
 - **APIs / invariants:** preserve side effects, traps, returned values, reference
-  lifetimes, catch destinations, and valid remapped indices.
-- **Dependencies / exit:** 105 bounded initial regressions (79 red), full tests,
-  fresh native runtime replays, and affected-pass v132 GenValid fuzz checks after
-  all repairs. Keep remaining campaign failures visible until final verification.
+  lifetimes, catch destinations, and valid remapped indices; no public API change.
+- **Dependencies / exit:** 122 bounded campaign tests are written; the initial
+  105-test red campaign produced 79 failures before later follow-up fixtures.
+  Focused repair suites pass. Keep final validation/parity findings visible.
 - **Suggested tests / evidence:** `*fourth_audit*` fixtures and
   `.tmp/fourth-audit-20260914/`; original pass baseline 7,758/7,758.
 

@@ -1555,7 +1555,10 @@ fn inl_partial_simple_expr_reads_written_local(
         }
       @lib.If(_, then_body, else_body) =>
         if inl_partial_simple_expr_reads_written_local(then_body, written) ||
-          inl_partial_simple_expr_reads_written_local(else_body.unwrap_or([]), written) {
+          inl_partial_simple_expr_reads_written_local(
+            else_body.unwrap_or([]),
+            written,
+          ) {
           return true
         }
       _ => ()
@@ -7337,7 +7340,9 @@ fn inl_instr_is_nontrapping_prefix(
       inl_prefix_label_is_forward_exit(exit_labels, label)
     @lib.BrTable(labels, fallback) =>
       inl_prefix_label_is_forward_exit(exit_labels, fallback) &&
-      labels.all(fn(label) { inl_prefix_label_is_forward_exit(exit_labels, label) })
+      labels.all(fn(label) {
+        inl_prefix_label_is_forward_exit(exit_labels, label)
+      })
     @lib.Unreachable
     | @lib.Nop
     | @lib.Drop
@@ -7501,7 +7506,11 @@ fn inl_instr_is_nontrapping_prefix(
       let mut ok = true
       let mut child = 0
       while child < body.length() {
-        if !inl_instr_is_nontrapping_prefix(body, child, exit_labels=child_labels) {
+        if !inl_instr_is_nontrapping_prefix(
+            body,
+            child,
+            exit_labels=child_labels,
+          ) {
           ok = false
           break
         }
@@ -7515,7 +7524,11 @@ fn inl_instr_is_nontrapping_prefix(
       let mut ok = true
       let mut child = 0
       while child < then_body.length() {
-        if !inl_instr_is_nontrapping_prefix(then_body, child, exit_labels=child_labels) {
+        if !inl_instr_is_nontrapping_prefix(
+            then_body,
+            child,
+            exit_labels=child_labels,
+          ) {
           ok = false
           break
         }
@@ -7523,7 +7536,11 @@ fn inl_instr_is_nontrapping_prefix(
       }
       child = 0
       while ok && child < else_body.length() {
-        if !inl_instr_is_nontrapping_prefix(else_body, child, exit_labels=child_labels) {
+        if !inl_instr_is_nontrapping_prefix(
+            else_body,
+            child,
+            exit_labels=child_labels,
+          ) {
           ok = false
           break
         }
@@ -7537,7 +7554,11 @@ fn inl_instr_is_nontrapping_prefix(
       let mut ok = true
       let mut child = 0
       while child < then_body.length() {
-        if !inl_instr_is_nontrapping_prefix(then_body, child, exit_labels=child_labels) {
+        if !inl_instr_is_nontrapping_prefix(
+            then_body,
+            child,
+            exit_labels=child_labels,
+          ) {
           ok = false
           break
         }

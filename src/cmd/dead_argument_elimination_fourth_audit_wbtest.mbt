@@ -5,7 +5,9 @@ test "fourth audit command dae optimizing nullable parameter with function impor
     "dae-optimizing",
   )
   @debug.assert_eq(
-    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) { i is @lib.RefIsNull }),
+    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+      i is @lib.RefIsNull
+    }),
     1,
   )
 }

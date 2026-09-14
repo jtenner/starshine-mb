@@ -4813,12 +4813,24 @@ fn hso_process_local_set_chain(
       }
       // The owner-skipping shortcut may bypass constructor evaluation. Only
       // effect-free operands can bypass the ordinary dependency checks.
-      if branch_skips_owner && next_is_matching_set &&
+      if branch_skips_owner &&
+        next_is_matching_set &&
         (
-          (hso_struct_new_operand_effect_mask(func, module_ctx, node_masks, struct_new_id) |
-            hso_struct_new_shallow_effects(func, struct_new_id)) == 0U ||
+          (
+            hso_struct_new_operand_effect_mask(
+              func, module_ctx, node_masks, struct_new_id,
+            ) |
+            hso_struct_new_shallow_effects(func, struct_new_id)
+          ) ==
+          0U ||
           hso_root_can_swap_before_local_struct_new(
-            cache, func, module_ctx, node_masks, struct_new_id, roots[next_idx], local_id,
+            cache,
+            func,
+            module_ctx,
+            node_masks,
+            struct_new_id,
+            roots[next_idx],
+            local_id,
           )
         ) {
         segment_roots.push(roots[next_idx])

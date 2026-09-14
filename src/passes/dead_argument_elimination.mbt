@@ -49403,8 +49403,7 @@ fn dae_fold_touched_nonnull_ref_is_null(
   for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
     if def_idx < touched.length() && touched[def_idx] {
       // FuncSec contains only definitions, so this lookup uses a defined index.
-      let params = match
-        dae_resolve_func_type(mod_, type_idxs, def_idx) {
+      let params = match dae_resolve_func_type(mod_, type_idxs, def_idx) {
         Some(@lib.FuncType(params, _)) => params
         None => []
       }
