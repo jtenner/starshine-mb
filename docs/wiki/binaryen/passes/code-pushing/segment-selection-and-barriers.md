@@ -181,3 +181,13 @@ A future broader Starshine port should preserve these rules before widening moti
 - Binaryen `version_130` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/CodePushing.cpp>
 - Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
 - Current Starshine owner: [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
+
+## Local copies and exiting paths
+
+Sinking a local copy past a later `if` checks every crossed root for branches
+and call/throw exits. Source-local stability alone does not prove safety: an
+earlier branch or caught exception can reach a destination-local read without
+executing the relocated write. The September 14 ordinary and exceptional exit
+fixtures returned 0 after optimization instead of the original 7.
+Sources: `src/passes/code_pushing.mbt`,
+`src/passes/code_pushing_fourth_audit_test.mbt`, and the command regressions.

@@ -1733,6 +1733,16 @@ fn code_pushing_try_sink_local_get_set_after_if(
   let max_idx = set_idx + 32
   while idx < @ir.hot_region_root_count(func, region_ref) && idx <= max_idx {
     let candidate_id = @ir.hot_region_get(func, region_ref, idx)
+    // An ordinary or exceptional exit may reach a later read without passing
+    // the proposed new write location. Check every crossed root, not just ifs.
+    if code_pushing_node_has_branch(func, candidate_id) ||
+      (
+        @ir.effects_for_node(func, candidate_id) &
+        (@ir.EFFECT_MASK_CALL | @ir.EFFECT_MASK_THROW)
+      ) !=
+      0U {
+      return false
+    }
     let (dest_gets, dest_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
       func, candidate_id, dest_local, 1, 0,
     )
