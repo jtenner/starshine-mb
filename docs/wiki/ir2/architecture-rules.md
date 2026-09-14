@@ -2264,3 +2264,8 @@ failures visible.
   literal globals expose `(ref string)`, so replacing `string.const` preserves
   non-null function and constant-expression consumers. Mutable globals are
   unchanged. All 26 string-gathering checks, including command dispatch, pass.
+
+- **Heap value knowledge does not erase evaluation:** replacing a propagated
+  struct/array read with a constant evaluates non-discardable receiver
+  operands first. A branchless receiver block may still call or write globals.
+  All 12 effect fixtures and the command fixture pass.

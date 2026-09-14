@@ -281,6 +281,40 @@ fn precompute_replace_with_const_instr_preserving_first_local_tee(
     return false
   }
   let reference = @ir.hot_node_get(func, reference_id)
+  if !(reference.op is @ir.HotOp::LocalTee) &&
+    !precompute_is_discardable_value(func, reference_id) &&
+    !precompute_fresh_struct_allocation_is_discardable(func, reference_id) &&
+    !precompute_fresh_array_allocation_is_discardable(func, reference_id) {
+    // Knowing the final allocation does not make its receiver expression pure.
+    // Evaluate each operand in order before replacing the proven heap read.
+    let result = match
+      @ir.hot_type_results(func, @ir.hot_node_get(func, node_id).ty) {
+      [result] => result
+      _ => return false
+    }
+    let constant = match precompute_build_const_instr(func, instr) {
+      Some(constant) => constant
+      None => return false
+    }
+    let body : Array[Int] = []
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      let operand = @ir.hot_child_get(func, node_id, slot)
+      if !precompute_is_discardable_value(func, operand) {
+        body.push(@ir.hot_build_drop(func, operand))
+      }
+    }
+    body.push(constant)
+    let block = @ir.hot_build_block(
+      func,
+      @lib.BlockType::val_type(result),
+      body,
+    )
+    let replacement = @ir.hot_node_get(func, block)
+    @ir.hot_delete_node(func, block)
+    precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+    pass_mark_mutated(ctx, func)
+    return true
+  }
   match reference.op {
     @ir.HotOp::LocalTee => ()
     _ => return precompute_replace_with_const_instr(ctx, func, node_id, instr)
