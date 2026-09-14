@@ -93,7 +93,8 @@ Safety checks include:
 - no else arms;
 - no escaping branches;
 - none-typed bodies without returns, or terminal-unreachable bodies;
-- no final-value read of a local written by an outlined arm;
+- no later condition, arm body (including nested control), or final-value read
+  of a local written by an earlier outlined arm;
 - configured maximum guard count.
 
 Result-producing terminal arms may end through return, tail call, trap, throw, or another represented terminal-unreachable instruction.
@@ -126,3 +127,12 @@ Inlining a rooted function does not imply deleting it. Exports, start, elements,
 ## Evidence
 
 Focused behavior is `120/120`; white-box invariants are `14/14`; both official-v131 plain and optimizing GenValid closeouts are `10000/10000` normalized matches with zero failures.
+
+## Cross-arm state audit (2026-09-14)
+
+Pattern B passes local values to each outlined arm without a write-back
+channel. It therefore rejects dependencies on prior arms' parameter or body-local
+writes, including reads inside nested control. Four pass regressions and four
+dispatcher regressions in the `inlining_partial_fourth_audit` test files failed
+before this guard. A retained native fixture also reproduced an observable
+global changing from the required 0 to 1 before the repair.

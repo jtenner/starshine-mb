@@ -1547,6 +1547,17 @@ fn inl_partial_simple_expr_reads_written_local(
           return true
         }
       }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if inl_partial_simple_expr_reads_written_local(body, written) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) =>
+        if inl_partial_simple_expr_reads_written_local(then_body, written) ||
+          inl_partial_simple_expr_reads_written_local(else_body.unwrap_or([]), written) {
+          return true
+        }
       _ => ()
     }
   }
@@ -1591,6 +1602,12 @@ fn inl_partial_pattern_b(
     while idx < if_idx {
       condition.push(body[idx])
       idx += 1
+    }
+    // Outlined arms receive local values, but cannot write them back to the
+    // caller or to another outlined arm's frame.
+    if inl_partial_simple_expr_reads_written_local(condition, written) ||
+      inl_partial_simple_expr_reads_written_local(then_body, written) {
+      return None
     }
     arms.push({ condition, body: then_body, terminal_exit, })
     inl_partial_collect_local_sets(then_body, written)
