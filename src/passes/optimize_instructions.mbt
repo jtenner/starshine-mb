@@ -37826,7 +37826,8 @@ fn OiRefEqEqualityFact::from_relation(
       relation.rhs.i31_fact.source_fact.const_value,
     ) {
     (Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
-      let equal = lhs == rhs
+      // ref.i31 discards the source integer's high bit.
+      let equal = (lhs & 0x7fffffff) == (rhs & 0x7fffffff)
       Some({
         kind: if equal {
           RefEqI31ConstEqual

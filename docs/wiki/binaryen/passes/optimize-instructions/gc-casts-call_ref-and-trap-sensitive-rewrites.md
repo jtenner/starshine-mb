@@ -459,3 +459,13 @@ with redundant concrete casts after ordinary reference inference stopped marking
 all constructors exact. They now pass. The focused native OptimizeInstructions
 run passes 1,407 of 1,414 tests; seven separate capture-layout and repeated-input
 fact tests remain open.
+
+## i31 constant equality
+
+Equality of `ref.i31` constants compares only the low 31 source bits. Values
+0 and `0x80000000`, or `0x7fffffff` and -1, denote equal i31 references.
+`OiRefEqEqualityFact::from_relation` masks both payloads before folding.
+The September 14 regression campaign checks high-bit aliases across the payload
+range in `src/passes/optimize_instructions_fourth_audit_test.mbt` and through
+`src/cmd/optimize_instructions_fourth_audit_wbtest.mbt`; the native baseline
+returned 0 where the original returned 1.
