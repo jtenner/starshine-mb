@@ -2259,3 +2259,8 @@ failures visible.
   and labeled resume handlers contribute their incoming state to branch joins
   in both analysis and rewriting. A fallthrough initialization cannot justify
   deleting a call after a taken handler/branch. All four regressions pass.
+
+- **Gathered strings remain non-null:** fresh and reused immutable direct
+  literal globals expose `(ref string)`, so replacing `string.const` preserves
+  non-null function and constant-expression consumers. Mutable globals are
+  unchanged. All 26 string-gathering checks, including command dispatch, pass.

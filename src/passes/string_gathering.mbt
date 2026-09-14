@@ -246,9 +246,10 @@ fn sg_string_global_idx(plan : SgRewritePlan, bytes : Bytes) -> @lib.GlobalIdx {
 fn sg_direct_string_init(global : @lib.Global) -> Bytes? {
   match global {
     @lib.Global(
-      @lib.GlobalType(vt, false),
+      @lib.GlobalType(@lib.RefTypeValType(ref_type), false),
       @lib.Expr([@lib.Instruction::StringConst(bytes)])
-    ) if vt == @lib.ValType::stringref() => Some(bytes)
+    ) if ref_type.get_heap_type() ==
+      @lib.HeapType::abs(@lib.AbsHeapType::string_()) => Some(bytes)
     _ => None
   }
 }
@@ -475,7 +476,9 @@ fn sg_rewrite_global_sec(
   }
   let out : Array[@lib.Global] = []
   let string_global_type = @lib.GlobalType::new(
-    @lib.ValType::stringref(),
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::string_())),
+    ),
     false,
   )
   for entry_idx = 0
@@ -506,7 +509,15 @@ fn sg_rewrite_global_sec(
           }
         None => sg_rewrite_expr(init, plan, imported_globals)
       }
-      out.push(@lib.Global::new(global_type, rewritten_init))
+      // A direct immutable string literal is non-null, including when its
+      // original declaration used a nullable shorthand. Reused globals must
+      // expose that proof to every rewritten literal consumer.
+      let rewritten_type = if sg_direct_string_init(globals[value]) is Some(_) {
+        string_global_type
+      } else {
+        global_type
+      }
+      out.push(@lib.Global::new(rewritten_type, rewritten_init))
     }
   }
   @lib.GlobalSec::new(out)
