@@ -203,20 +203,38 @@ fn rume_func_matches_call_type(
 
 ///|
 fn rume_note_callable_func_from_expr(
+  mod_ : @lib.Module,
   env : @validate.Env,
   func_types : Array[@lib.TypeIdx],
   call_type : @lib.TypeIdx,
   expr : @lib.Expr,
 ) -> @lib.FuncIdx? {
-  match expr {
-    @lib.Expr([@lib.RefFunc(func_idx)]) =>
-      if rume_func_matches_call_type(env, func_types, func_idx, call_type) {
-        Some(func_idx)
-      } else {
-        None
+  let globals = mod_.global_sec.map(fn(sec) { sec.0 }).unwrap_or([])
+  let imported = rume_imported_global_count(mod_)
+  let mut current = expr
+  // Valid constant global initializers only reference earlier globals. Bound
+  // the walk defensively, and keep opaque global-backed entries at the caller.
+  for _ in 0..<(globals.length() + 1) {
+    match current {
+      @lib.Expr([@lib.RefFunc(func_idx)]) =>
+        return if rume_func_matches_call_type(
+            env, func_types, func_idx, call_type,
+          ) {
+          Some(func_idx)
+        } else {
+          None
+        }
+      @lib.Expr([@lib.GlobalGet(@lib.GlobalIdx(raw))]) => {
+        let index = raw.to_int() - imported
+        match globals.get(index) {
+          Some(@lib.Global(@lib.GlobalType(_, false), init)) => current = init
+          _ => return None
+        }
       }
-    _ => None
+      _ => return None
+    }
   }
+  None
 }
 
 ///|
@@ -1130,6 +1148,11 @@ fn rume_reference_elem_payload(
               }
             @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
               for expr in exprs {
+                for instr in expr.0 {
+                  if instr is @lib.GlobalGet(global_idx) {
+                    rume_mark_global(queue, used_globals, global_idx)
+                  }
+                }
                 rume_scan_ref_func_liveness_expr(
                   expr, analysis, queue, used_funcs, false,
                 )
@@ -1149,6 +1172,7 @@ fn rume_reference_table_init(
   table_imports : Int,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
+  used_globals : @bitset.BitSet,
   idx : @lib.TableIdx,
 ) -> Unit {
   let @lib.TableIdx(raw) = idx
@@ -1159,10 +1183,16 @@ fn rume_reference_table_init(
   match mod_.table_sec {
     Some(@lib.TableSec(tables)) =>
       match tables.get(def_idx) {
-        Some(@lib.Table(_, Some(init))) =>
+        Some(@lib.Table(_, Some(init))) => {
+          for instr in init.0 {
+            if instr is @lib.GlobalGet(global_idx) {
+              rume_mark_global(queue, used_globals, global_idx)
+            }
+          }
           rume_scan_ref_func_liveness_expr(
             init, analysis, queue, used_funcs, false,
           )
+        }
         _ => ()
       }
     None => ()
@@ -1234,7 +1264,7 @@ fn rume_use_indirect_call(
     rume_use_call_ref_type(analysis, queue, used_funcs, call_type)
   }
   rume_reference_table_init(
-    mod_, analysis, table_imports, queue, used_funcs, table_idx,
+    mod_, analysis, table_imports, queue, used_funcs, used_globals, table_idx,
   )
   let @lib.TableIdx(raw_table) = table_idx
   let table_slot = raw_table.reinterpret_as_int()
@@ -1250,6 +1280,7 @@ fn rume_use_indirect_call(
           Some(@lib.Table(_, Some(init))) =>
             match
               rume_note_callable_func_from_expr(
+                mod_,
                 analysis.env,
                 analysis.func_types,
                 call_type,
@@ -1291,12 +1322,16 @@ fn rume_use_indirect_call(
               @lib.FuncExprsElemKind(exprs)
               | @lib.TypedExprsElemKind(_, exprs) =>
                 for expr in exprs {
+                  if expr.0.any(fn(instr) { instr is @lib.GlobalGet(_) }) {
+                    matches_call = true
+                  }
                   match analysis.indirect_candidate_visits {
                     Some(visits) => visits[0] += 1
                     None => ()
                   }
                   match
                     rume_note_callable_func_from_expr(
+                      mod_,
                       analysis.env,
                       analysis.func_types,
                       call_type,

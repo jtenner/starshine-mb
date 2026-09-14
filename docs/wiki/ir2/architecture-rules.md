@@ -2284,3 +2284,9 @@ failures visible.
   equality expectation in `optimize_instructions_test.mbt`, not its archived
   oracle result. See [thread semantics](../wasm-linear-memory-threads-boundary.md).
   All 134 shared-feature checks pass, including the corrected old expectation.
+
+- **Global-backed references stay live:** RUME traces immutable global
+  aliases to indirect-call targets, preserves opaque global-backed element
+  entries, and queues global dependencies from retained element payloads and
+  table initializers. Open/closed-world and nonfunction modes preserve the
+  same references. All 12 pass fixtures and the command fixture pass.
