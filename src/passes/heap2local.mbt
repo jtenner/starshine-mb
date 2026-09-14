@@ -1028,7 +1028,14 @@ fn h2l_find_sequential_candidates_for_local(
       return []
     }
     match h2l_root_slot_containing_node(func, write_node_id) {
-      Some(_) => ()
+      Some(root_slot) =>
+        // Conditional/nested allocation writes do not define straight-line
+        // epochs. A later read may observe either owner, not this candidate.
+        if !h2l_self_copy_write_matches(func, write_node_id, local_id) &&
+          @ir.hot_region_get(func, @ir.HotRegionRef::root(), root_slot) !=
+          write_node_id {
+          return []
+        }
       None => return []
     }
   }
@@ -1467,7 +1474,14 @@ fn h2l_find_sequential_array_candidates_for_local(
       return []
     }
     match h2l_root_slot_containing_node(func, write_node_id) {
-      Some(_) => ()
+      Some(root_slot) =>
+        // Conditional/nested allocation writes do not define straight-line
+        // epochs. A later read may observe either owner, not this candidate.
+        if !h2l_self_copy_write_matches(func, write_node_id, local_id) &&
+          @ir.hot_region_get(func, @ir.HotRegionRef::root(), root_slot) !=
+          write_node_id {
+          return []
+        }
       None => return []
     }
   }

@@ -244,3 +244,10 @@ a returned 7 into a null trap in the September 14 native replay.
 Tests: `src/passes/heap2local_fourth_audit_test.mbt`, the bounded independent
 GC evaluator in `heap_fixture_fourth_audit_test.mbt`, and
 `src/cmd/heap2local_fourth_audit_wbtest.mbt`.
+
+Sequential allocation epochs require allocation writes at function-root
+statement boundaries. A write inside an `if`, block, or loop can change the
+owner without becoming a scanned boundary, so such locals are not admitted
+to this straight-line analysis. Self-copies retain their identity semantics.
+`src/passes/heap2local_nested_fourth_audit_test.mbt` checks conditional struct
+and array assignments; the struct baseline returned stale 7 instead of 9.
