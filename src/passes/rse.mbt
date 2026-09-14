@@ -184,7 +184,11 @@ fn rse_merge_local_value_sources(
 }
 
 ///|
-fn rse_record_branch_exit(state : RseState, label_id : Int) -> Unit {
+fn rse_record_branch_exit(
+  state : RseState,
+  label_id : Int,
+  unknown? : Bool = false,
+) -> Unit {
   if label_id < 0 {
     return
   }
@@ -195,7 +199,13 @@ fn rse_record_branch_exit(state : RseState, label_id : Int) -> Unit {
       match scope.kind {
         RseLabelKind::RseLoopLabel => scope.has_loop_branch = true
         RseLabelKind::RseExitLabel =>
-          scope.exits.push(state.local_values.copy())
+          scope.exits.push(
+            if unknown {
+              Array::make(state.local_values.length(), -1)
+            } else {
+              state.local_values.copy()
+            },
+          )
       }
       return
     }
@@ -453,6 +463,17 @@ fn rse_visit_control(
           }
         }
         @ir.HotOp::TryTable => {
+          // A catch can transfer control after any prefix of the protected
+          // body. Join unknown local values at each exceptional destination.
+          for arm in @ir.hot_catch_info_get(func, node.imm1).catches {
+            let target = match arm {
+              @ir.HotCatchArm::CatchArm(_, label)
+              | @ir.HotCatchArm::CatchRefArm(_, label)
+              | @ir.HotCatchArm::CatchAllArm(label)
+              | @ir.HotCatchArm::CatchAllRefArm(label) => label
+            }
+            rse_record_branch_exit(state, target, unknown=true)
+          }
           rse_visit_region(
             ctx,
             func,

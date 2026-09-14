@@ -95,3 +95,13 @@ The local follow-along points are now active:
 - `scripts/lib/pass-fuzz-compare-task.ts` maps the Starshine long name to Binaryen `--rse` for oracle comparison.
 
 Future implementation work should stay in `src/passes/rse.mbt`, adding fixed-point CFG merge values and strict-subtype refined local-get retargeting without changing the pass into generic liveness dead-store elimination.
+
+## HOT exceptional branch joins
+
+A `try_table` catch contributes unknown local values to its destination's
+branch join, because an exception may leave after any protected-body prefix.
+Recording only explicit branches could make a required later local reset look
+redundant. The direct HOT regression in `src/passes/rse_fourth_audit_test.mbt`
+checks a catch exit joining an explicit branch with a different local value.
+This brings the HOT path in line with the existing raw RSE catch handling;
+the raw-path behavior was already covered and is not claimed as a new failure.
