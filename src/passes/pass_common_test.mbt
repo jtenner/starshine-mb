@@ -155,3 +155,38 @@ test "raw block cleanup retains every try_table catch target" {
     ]),
   )
 }
+
+///|
+test "label-use scan handles label-free implicit returns and mixed labels" {
+  let flat = pass_test_lift_first_func(
+    "(module (func (result i32) i32.const 7 return))",
+  )
+  assert_eq(flat.labels.length(), 0)
+  assert_eq(pass_compute_label_used(flat).length(), 0)
+  let nested = pass_test_lift_first_func(
+    "(module (func block block br 1 end end))",
+  )
+  let labels = pass_compute_label_used(nested)
+  let outer = @ir.hot_root_get(nested, 0)
+  let inner = @ir.hot_region_get(
+    nested,
+    @ir.hot_region_body_ref(nested, outer),
+    0,
+  )
+  assert_true(labels[@ir.hot_control_node_label(nested, outer)])
+  assert_false(labels[@ir.hot_control_node_label(nested, inner)])
+}
+
+///|
+test "label-free precompute pipeline still folds arithmetic" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 4 i32.const 5 i32.add))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail(err)
+  }
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  assert_eq(body, [@lib.Instruction::i32_const(@lib.I32(9))])
+}

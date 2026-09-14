@@ -326,3 +326,21 @@ test "duplicate-import-elimination GenValid leaves cover every v131 family" {
     }
   }
 }
+
+///|
+test "duplicate-import-elimination preserves single function import and duplicate globals" {
+  let source =
+    #|(module
+    #| (import "env" "f" (func $f))
+    #| (import "env" "g" (global i32))
+    #| (import "env" "g" (global i32))
+    #| (elem declare func $f)
+    #| (export "f" (func $f))
+    #| (func call $f ref.func $f drop global.get 1 drop))
+  let original = pass_test_module_from_wat(source)
+  let optimized = die_test_run(source)
+  assert_true(optimized == original)
+  assert_eq(die_test_import_count(optimized), 3)
+  assert_eq(die_test_first_call_target(optimized, 0), 0U)
+  assert_eq(die_test_ref_func_target(optimized, 0), 0U)
+}

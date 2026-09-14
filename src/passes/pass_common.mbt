@@ -1,5 +1,10 @@
 ///|
 pub fn pass_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
+  // No target can pass the scan's bounds check without a declared label.
+  // Keep this outside the scan to avoid perturbing its nonempty hot loop.
+  if func.labels.is_empty() {
+    return @bitset.BitSet::new(0)
+  }
   pass_compute_label_used_except(func, -1)
 }
 

@@ -3484,3 +3484,20 @@ test "merge-blocks preserves atomic-access-before-division trap order" {
     msg=body.to_string(),
   )
 }
+
+///|
+test "merge-blocks flattens local-free roots and singleton local writes" {
+  for
+    source in [
+      "(module (func (result i32) block i32.const 1 drop i32.const 2 drop end i32.const 7))",
+      "(module (func (result i32) (local i32) block i32.const 7 local.set 0 end local.get 0))",
+    ] {
+    let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+      Ok(mod_) => mod_.code_sec.unwrap().0[0]
+      Err(err) => fail(err)
+    }
+    assert_eq(scalar_fixture_run(optimized, []), [7L])
+    let @lib.Func(_, @lib.Expr(body)) = optimized
+    assert_false(body.any(fn(instr) { instr is @lib.Block(_, _) }))
+  }
+}

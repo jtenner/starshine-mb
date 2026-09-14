@@ -189,3 +189,163 @@ When tracing changes:
 - Moon pass benchmarks: [`../../../src/passes_perf_long/moon.pkg`](../../../src/passes_perf_long/moon.pkg), [`../../../src/passes_perf_long/directize_perf_test.mbt`](../../../src/passes_perf_long/directize_perf_test.mbt), [`../../../src/passes_perf_long/heap_store_optimization_ordered_perf_test.mbt`](../../../src/passes_perf_long/heap_store_optimization_ordered_perf_test.mbt), [`../../../src/passes_perf_long/merge_blocks_perf_test.mbt`](../../../src/passes_perf_long/merge_blocks_perf_test.mbt), [`../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt`](../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt), [`../../../src/passes_perf_long/reorder_globals_perf_test.mbt`](../../../src/passes_perf_long/reorder_globals_perf_test.mbt), [`../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt`](../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt), [`../../../src/passes_perf_long/tuple_optimization_perf_test.mbt`](../../../src/passes_perf_long/tuple_optimization_perf_test.mbt)
 - Validator benchmark tracing: [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)
 - Shared timing helpers: [`../../../src/lib/util.mbt`](../../../src/lib/util.mbt)
+
+## September 13, 2026 pass opportunity review
+
+Four reporting-only agents each supplied one source-level candidate. The root
+agent reviewed them, wrote bounded smoke checks, and ran all performance work
+serially. The candidate inventory and decisions are:
+
+| Candidate | Correctness argument | Decision |
+| --- | --- | --- |
+| Empty-label shortcut in `pass_compute_label_used` | With zero declared labels every target already fails the existing bounds check, so the result is the same empty bitset. | Retain. |
+| Fewer-than-two-function-import shortcut in `die_run_module_pass` | A duplicate needs two function imports; this pass intentionally leaves non-function imports alone. The old unchanged path returns the original module. | Retain. |
+| Lazy MergeLocals influence buckets | Share an immutable empty sentinel, replace it with a private nonempty bucket on its first get, then append in the original order. Source identities, candidate order, bucket contents, and rewrite decisions are unchanged. | Retain. |
+| Skip impossible MergeBlocks local-dependency scans | Fewer than two roots or zero locals makes the existing predicate false. | **Not retained:** no attributable pipeline improvement established on the tested fixtures. |
+
+The initial empty-label guard inside the scan regressed its nonempty-label
+control by 12–14% across both paired campaigns. That placement failed the
+control gate; the retained fast path belongs in the public wrapper, with the
+private scan kept separate.
+
+The rejected MergeBlocks prototype moved the 1,000-pair wide-block median from
+3,155.97 to 3,044.52 microseconds (3.5%), while its unused-local control moved by
+4.4%; the 100/4,000-pair cases moved by only 1.4%/1.0%. These results miss the
+predeclared 5% acceptance target and do not isolate a useful effect. They do not
+prove that the shortcut could never help a different workload. The original
+MergeBlocks implementation is retained; its smoke check and benchmark remain
+available for future investigations.
+
+The [seventeen-case benchmark fixture](../../../src/passes_perf_long/opportunities_perf_test.mbt)
+covers increasing sizes, structured-label and duplicate-import controls, dense
+local reads, and MergeBlocks with/without an unused local. Each fixture is built
+outside timing, validated in setup, checked for reuse, and consumed with
+`Bench::keep`; pass pipeline timings explicitly exclude repeated final-module
+validation. Benchmarks run only in the dedicated native-release benchmark lane.
+A sibling-block exploratory fixture was discarded as an attribution probe
+because its superlinear pipeline cost obscured the local scan; the retained fixture uses one wide block.
+
+The [shared-helper](../../../src/passes/pass_common_test.mbt),
+[import](../../../src/passes/duplicate_import_elimination_test.mbt),
+[locals](../../../src/passes/merge_locals_test.mbt), and
+[blocks](../../../src/passes/merge_blocks_test.mbt) smoke files passed all 110
+checks both before and after the prototype. New checks cover mixed used/unused
+labels, implicit returns, arithmetic folding, single-import references alongside
+duplicate globals, sparse/repeated reads, target overwrites, and local-free or
+singleton block roots. The host-local 5% performance acceptance test failed for
+all four unchanged baseline cases before implementation.
+
+Evidence uses Moon 0.1.20260904 / moonc v0.10.12+1634b282e, native release, on an
+AMD Ryzen 7 8845HS. Three alternating baseline/candidate rounds each contain ten
+calibrated Moon samples; reported values are medians of round medians. The
+benchmark campaign holds `/tmp/starshine-perf-sweep-heavy.lock` and checks for
+concurrent compiler/fuzzer jobs. It is synthetic pass/helper evidence, not a
+whole-command or large-artifact throughput claim. The starting revision is
+`3b2ceed92b2a5df754347add7f3ddbe70eb8aa82`; local commands, raw benchmark outputs, executable
+hashes, the rejected patch, and the baseline executable are preserved under
+`.tmp/pass-perf-opportunities-20260913/`.
+
+### Final retained-change measurements
+
+All three primary cases clear the predeclared 5% improvement target; both
+unchanged-path controls clear the 10% regression limit. The nonempty-label
+control is now within 0.05% of baseline after moving the guard to the wrapper.
+
+| Workload | Baseline median (µs) | Final median (µs) | Speedup |
+| --- | ---: | ---: | ---: |
+| Label-free helper, 128 dropped constants | 0.96587 | 0.01494 | 64.65× |
+| Label-free helper, 2,048 dropped constants | 15.13635 | 0.01534 | 986.99× |
+| Label-free helper, 32,768 dropped constants | 247.52798 | 0.01651 | 14995.72× |
+| Structured-label control, 2,048 dropped constants | 15.14893 | 15.15517 | 1.00× |
+| No function imports, 32 definitions | 3.34611 | 0.01051 | 318.51× |
+| No function imports, 512 definitions | 38.06136 | 0.01082 | 3517.25× |
+| No function imports, 4,096 definitions | 292.00491 | 0.01066 | 27402.68× |
+| One function import, 4,096 definitions | 346.41965 | 0.01109 | 31230.36× |
+| Two duplicate imports, 4,096 definitions | 448.74521 | 446.97347 | 1.00× |
+| MergeLocals, 100 padding pairs | 9.00469 | 5.02299 | 1.79× |
+| MergeLocals, 1,000 padding pairs | 69.66936 | 31.30303 | 2.23× |
+| MergeLocals, 10,000 padding pairs | 726.29316 | 312.21371 | 2.33× |
+| MergeLocals dense-read control, 1,000 pairs | 76.55509 | 38.95978 | 1.96× |
+
+The enormous ratios are confined to helpers/no-op module cases whose scans and
+setup disappear entirely; they are not predictions for whole optimizer runs.
+The final native benchmark binary and baseline hashes, all 78 paired sample
+summaries, and acceptance checks are in `final-paired-results.json`,
+`final-pairs/`, and `final-acceptance.json` under the local evidence directory.
+Reproduce fixture measurements with:
+
+```sh
+moon bench --release --target native --package jtenner/starshine/passes_perf_long --file opportunities_perf_test.mbt
+```
+
+### Test validation
+
+The final source passes `moon info`, `moon fmt`, all **110** focused default-target
+checks, and the full **11,573-test Wasm-GC suite**. No `.mbti` public API changed.
+Two preliminary broad default-target runs were interrupted while refining the
+benchmark/guard placement; they are not claimed as completed full-suite checks.
+The completed full-suite evidence is `final-wasm-gc-tests.log`.
+
+### Generated regression evidence — verified Binaryen 132
+
+Each lane requests and compares 10,000 GenValid cases at seed `0x5eed`, using its
+existing dedicated aggregate, a freshly built explicit native CLI/generator,
+`--jobs auto --max-subprocesses 8` (eight workers), and at most 20 mismatch
+bundles. No wasm-smith lane or cleanup normalizer was enabled. The exact argument
+arrays are in `fuzz-commands.json`; each lane retains its manifest and result.
+
+| Pass / profile | Compared | Normalized | Cleanup-normalized | Residual mismatches | Baseline/current byte matches | Binaryen cache hits/misses |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `duplicate-import-elimination` / `duplicate-import-elimination` | 10000 | 8368 | 0 | 1632 | 10000 | 9983/17 |
+| `merge-locals` / `merge-locals-all` | 10000 | 9353 | 0 | 647 | 10000 | 8739/1261 |
+| `merge-blocks` / `merge-blocks-all` | 10000 | 7007 | 0 | 2993 | 10000 | 9992/8 |
+| `precompute` / `precompute-all` | 10000 | 3238 | 0 | 6762 | 10000 | 10000/0 |
+
+All four configured lanes have zero generator, command, output-validation, and
+property failures; command-failure classes and Binaryen failure caches are empty.
+Optional runtime/property execution was not enabled. A separate eight-worker
+replay proves **40,000/40,000 baseline/current outputs byte-identical**; Starshine
+outputs were freshly generated, not cached. This establishes no output regression
+on these corpora; it does not by itself prove equivalence to Binaryen.
+
+The three non-Precompute lanes use independent `wasm-tools` validation.
+Precompute uses Binaryen validation for all 10,000 cases. A separate fresh-output
+check with `wasm-tools 1.251.0` independently accepts **9,551**, and all **449**
+rejections say `invalid atomic consistency ordering 2`. This is the existing
+[validator capability limitation](../ir2/architecture-rules.md#september-13-generated-verification),
+not a new output difference. Binaryen validation is not independent validation.
+The exact rejected cases remain in `precompute-independent-validation.json`.
+
+Agent judgment from inspected retained diffs: the observed canonical cleanup
+families are existing Starshine wins—DIE removes a loop with no backedge around
+one call; MergeLocals removes a write to a local that is never read while keeping
+the branch condition; MergeBlocks removes empty-arm `nop`s; Precompute removes
+`nop`s or replaces `drop(local.tee x value)` with `local.set x value`. These
+contracts preserve execution/effect order and remove redundant operations. The
+canonical size deltas below support those inspected-family judgments; size alone
+is not their semantic justification. Uninspected residuals receive no new
+semantic-safety approval here and remain parity work unless separately resolved
+in the pass dossiers. This performance review does not reclose pass parity.
+Raw encoding differences also remain separate, unchanged parity work.
+
+| Pass | Raw bytes Starshine / Binaryen | Canonical bytes Starshine / Binaryen |
+| --- | ---: | ---: |
+| `duplicate-import-elimination` | 1072354 / 995744 | 990848 / 995744 |
+| `merge-locals` | 470740 / 467324 | 466030 / 467324 |
+| `merge-blocks` | 547320 / 541342 | 535356 / 541342 |
+| `precompute` | 972416 / 979178 | 972416 / 979178 |
+
+Every lane has zero canonical size-losing cases. Selected leaf counts follow;
+leaf names below omit the explicitly stated common prefix:
+
+- `duplicate-import-elimination` (prefix `duplicate-import-elimination-`): `functions` 1632, `identity` 1684, `legacy-eh` 3361, `module-code` 1678, `nonfunction` 1645.
+- `merge-locals-all` (prefix `merge-locals-`): `control` 640, `forward` 674, `forward-multiple` 653, `legacy-eh` 709, `merge-boundary` 681, `nested-copies` 717, `partial-influence` 683, `reverse` 638, `reverse-boundary` 646, `reverse-rollback` 665, `rollback` 688, `tee` 624, `trivial-confusion` 647, `type-boundary` 652, `unreachable` 683.
+- `merge-blocks-all` (prefix `merge-blocks-`): `effect-order` 1998, `eh-atomic` 1990, `expression` 2993, `structural` 3019.
+- `precompute-all` (prefix `precompute-`): `control` 880, `direct-prefix-watch` 472, `drop-cleanup` 912, `effect-boundary` 883, `effectful-values` 868, `gc-atomic-boundary` 449, `gc-values` 959, `global` 946, `propagate-local-facts` 1354, `scalar` 919, `scalar-values` 1358.
+
+Baseline CLI SHA-256:
+`02a8c0257b262d3f1a81bc1ccaffe6da72a0f641de58345aa7953fa2ea3a138d`.
+Final CLI SHA-256:
+`e45d0d041b13277f4df49cde607d0d78ca86a9b97e4c4804f587676a9cdefda4`.
+The verified oracle is `.tmp/binaryen-version_132/bin/wasm-opt`; its hash and the
+fresh generator hash are recorded in `final-tools.sha256` and lane toolchains.

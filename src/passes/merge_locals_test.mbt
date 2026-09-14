@@ -527,3 +527,24 @@ test "merge-locals preserves old reads across a carried result block write" {
   assert_true(checked)
   ignore(@validate.validate_module(output).unwrap())
 }
+
+///|
+test "merge-locals sparse influences preserve unused sources and repeated reads" {
+  for
+    suffix in [
+      "local.get 0 local.get 0 i32.add", "local.get 1 local.get 1 i32.add", "i32.const 9 local.set 1 local.get 0 local.get 1 i32.add",
+    ] {
+    let source = "(module (func (result i32) (local i32 i32) i32.const 1 local.set 0 local.get 0 local.set 1 i32.const 7 drop " +
+      suffix +
+      "))"
+    let original = pass_test_module_from_wat(source).code_sec.unwrap().0[0]
+    let optimized = match pass_test_run_pipeline(source, ["merge-locals"]) {
+      Ok(mod_) => mod_.code_sec.unwrap().0[0]
+      Err(err) => fail(err)
+    }
+    assert_eq(
+      scalar_fixture_run(optimized, []),
+      scalar_fixture_run(original, []),
+    )
+  }
+}

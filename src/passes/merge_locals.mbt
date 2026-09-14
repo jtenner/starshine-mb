@@ -418,10 +418,9 @@ fn merge_locals_raw_build_influences(
   candidates : Array[MergeLocalsRawCandidate],
 ) -> Array[Array[Int]] {
   let source_count = local_count + instrs.length() * 2 + 2
-  let influences : Array[Array[Int]] = []
-  for _ in 0..<source_count {
-    influences.push([])
-  }
+  // Empty buckets share a read-only sentinel. Allocate a private bucket on its
+  // first get, so instruction-only sources do not each allocate an empty array.
+  let influences : Array[Array[Int]] = Array::make(source_count, [])
   let current : Array[Int] = []
   for local_id = 0; local_id < local_count; local_id = local_id + 1 {
     current.push(local_id)
@@ -440,7 +439,12 @@ fn merge_locals_raw_build_influences(
       @lib.LocalGet(local_idx) => {
         let local_id = merge_locals_raw_idx(local_idx)
         if local_id >= 0 && local_id < current.length() {
-          influences[current[local_id]].push(idx)
+          let source = current[local_id]
+          if influences[source].is_empty() {
+            influences[source] = [idx]
+          } else {
+            influences[source].push(idx)
+          }
         }
       }
       @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) => {

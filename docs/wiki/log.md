@@ -23879,3 +23879,14 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   Recorded Node continuation limits and remaining size/parity work in
   [architecture rules](ir2/architecture-rules.md#september-12-second-correctness-audit);
   removed the completed audit from the active backlog.
+
+- 2026-09-13: Filed the four-agent reporting-only pass performance review in the
+  [tracing playbook](tooling/tracing-playbook.md#september-13-2026-pass-opportunity-review).
+  Root-only sequential benchmarks retain the empty-label wrapper shortcut,
+  no-duplicate-import admission shortcut, and lazy MergeLocals buckets; the
+  MergeBlocks proposal misses the measured acceptance target. Moving the label
+  guard outside the scan resolves its initial nonempty-control regression.
+  Final verification: 110 focused checks, 11,573 full Wasm-GC tests, four verified
+  Binaryen-132 10,000-case lanes, and 40,000 exact baseline/current output matches.
+  Retained existing oracle residuals and the 449 atomic-ordering independent
+  validator limitations explicitly; no public API or new output family changed.

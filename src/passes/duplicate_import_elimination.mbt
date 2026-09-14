@@ -459,6 +459,10 @@ fn die_plan_remap(
 
 ///|
 pub fn die_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  // Only function imports are deduplicated; a pair is necessary to change one.
+  if die_imported_func_count(mod_) < 2 {
+    return mod_
+  }
   let (func_remap, removed_funcs, duplicate_import_funcs, changed) = die_plan_remap(
     mod_,
   )
