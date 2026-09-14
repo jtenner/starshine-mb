@@ -578,6 +578,20 @@ fn sgo_mark_same_init_writes_instrs(
 }
 
 ///|
+fn sgo_same_literal_bits(
+  lhs : @lib.Instruction,
+  rhs : @lib.Instruction,
+) -> Bool {
+  match (lhs, rhs) {
+    (@lib.F32Const(@lib.F32(a)), @lib.F32Const(@lib.F32(b))) =>
+      a.reinterpret_as_uint() == b.reinterpret_as_uint()
+    (@lib.F64Const(@lib.F64(a)), @lib.F64Const(@lib.F64(b))) =>
+      a.reinterpret_as_uint64() == b.reinterpret_as_uint64()
+    _ => lhs == rhs
+  }
+}
+
+///|
 fn sgo_mark_same_init_write(
   idx : @lib.GlobalIdx,
   pos : Int,
@@ -592,7 +606,7 @@ fn sgo_mark_same_init_write(
   let mut matches_init = false
   if pos > 0 {
     match (sgo_const_instr(instrs[pos - 1]), init_consts[slot]) {
-      (Some(actual), Some(expected)) if actual == expected =>
+      (Some(actual), Some(expected)) if sgo_same_literal_bits(actual, expected) =>
         matches_init = true
       _ => ()
     }

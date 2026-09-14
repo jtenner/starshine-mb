@@ -315,3 +315,11 @@ index. Defined globals remain distinct storage. Tests cover i32, i64, f32 and
 f64 imports in `src/passes/simplify_globals_alias_fourth_audit_test.mbt` and
 the command dispatcher. A native replay with two imports bound to one host
 global returned 1 before the repair where the original returned 2.
+
+## Float initializer identity
+
+Same-initializer write elimination compares floating-point literal bits, not
+numeric equality: +0 and -0 are observably different under reinterpretation.
+The f32/f64 regressions in `src/passes/simplify_globals_fourth_audit_test.mbt`
+and the corresponding dispatcher tests cover both sign changes. This also
+avoids conflating literal identity with NaN numeric equality.
