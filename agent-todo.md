@@ -1,14 +1,5 @@
 # Agent Tasks
 
-## v0.1.1 — third correctness audit [IR2-CORRECTNESS]
-
-- **Goal / why:** repair nine reproduced optimizer correctness defects from five report-only audits.
-- **Deliverables / tasks:** string nullability; SGO recursive-group lookup; imported segment bounds atomicity; RUME global-backed element liveness; precompute receiver effects and i64 rounding; shared-load equality; once control-flow edges; coalesce initialization.
-- **Repairs verified:** all nine families pass focused checks; full-suite and final fuzz verification remain pending.
-- **Required APIs / invariants:** preserve effects, result types, possible concurrent values, branch destinations and default local values.
-- **Dependencies / exit:** 98 bounded regressions (52 failed at the red checkpoint), isolated repair commits, full default tests, fresh native binary and final affected-pass 10,000-case GenValid comparisons against verified Binaryen 132.
-- **Suggested tests / evidence:** `src/passes/*_deep_audit_test.mbt`, `src/cmd/cmd.mbt`; [audit record](docs/wiki/ir2/architecture-rules.md#september-13-third-correctness-audit); local `.tmp/correctness-audit-20260913b/`.
-
 ## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
 - **Goal / why:** close the remaining output-size and independent-validator gaps
@@ -17,6 +8,7 @@
   commits, full default/wasm-gc/CI checks, and 31 × 10,000 final comparisons.
   All 180 sampled original/Starshine runtime observations match; coverage and
   alternate Binaryen encoding limits are in the wiki. No known Moon test failure.
+- **Third audit follow-up:** nine correctness repairs and 98 new regressions are complete; 11,678 default tests, 110,000 final comparisons and 165 retained runtime replays pass their recorded checks. Reduce the 30 OI trap-relaxed `direct-tiny-bulk` size losses (+300 canonical bytes), and retain unsampled tuple-family parity work and the atomic-ordering independent-validator limit. Memory64 bounds checks and cross-memory copies have explicit stronger-correctness evidence; do not erase them to match oracle bugs. [Final evidence](docs/wiki/ir2/architecture-rules.md#september-14-final-generated-verification).
 - **Tasks / deliverables:** align code-pushing's 513 `br-if-value` outputs
   (`+2,052` canonical bytes) and simplify-locals-nostructure's 1,662 tee-control
   outputs (`+16,636`), or establish a measured benefit that justifies retention.

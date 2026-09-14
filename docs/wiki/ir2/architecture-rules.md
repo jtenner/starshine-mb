@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-13
+last_reviewed: 2026-09-14
 sources:
   - ./test-matrix.md
   - ./local-ssa-policy.md
@@ -2236,13 +2236,15 @@ and remove-unused-brs regressions pass in the baseline.
 
 Sources: `src/passes/*_deep_audit_test.mbt`, command tests in
 [`src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), and local red-phase logs under
-`.tmp/correctness-audit-20260913b/`. Implementation and final fuzz verification
-are pending; this test-only checkpoint deliberately leaves the reproduced
-failures visible.
+`.tmp/correctness-audit-20260913b/`. The test-only checkpoint
+`ed47a5482` preserved the failures before nine separate repair commits
+(`ee949c5fb` through `b5d42ab1c`). Final `moon info`, `moon fmt`, all
+**11,678 default tests**, and `bun validate readme-api-sync` pass. There are
+no public `.mbti` changes. Initial unrelated worktree edits remain uncommitted.
 
 - **Single-rounding conversion repaired:** Precompute converts i64 magnitudes
-  directly to f32 with integer guard/sticky bits and ties-to-even, preserving
-  the signed zero/overflow conventions of integer conversion. All 42 bounded
+  directly to f32 with integer guard/sticky bits and ties-to-even, then applies
+  the sign without an intermediate floating-point conversion. All 42 bounded
   midpoint-neighbor tests and the command regression pass.
 
 - **Recursive-group signatures:** SGO resolves absolute type indices across
@@ -2272,8 +2274,9 @@ failures visible.
 
 - **Imported initialization is all-or-nothing per segment:** memory packing
   does not split a potentially out-of-bounds active segment when its memory
-  is imported and traps are observable. Single-range zero trimming remains valid. Writing a packed prefix before a final
-  trap sentinel changes host-visible memory after failed instantiation.
+  is imported and traps are observable. Single-range zero trimming remains
+  valid. Writing a packed prefix before a final trap sentinel changes
+  host-visible memory after failed instantiation.
 
   All 61 memory-packing checks, including the two new regressions, pass.
 
@@ -2290,3 +2293,122 @@ failures visible.
   entries, and queues global dependencies from retained element payloads and
   table initializers. Open/closed-world and nonfunction modes preserve the
   same references. All 12 pass fixtures and the command fixture pass.
+
+### September 14 execution evidence
+
+Fresh native outputs match the original observations in all ten directed
+fixtures: three rounding boundaries, both coalescing variants, struct/array
+receiver writes, the recursive SGO signature, a global-backed indirect call,
+and imported-memory initialization failure. Eight also match Binaryen. The
+other two expose oracle defects: Binaryen deletes the active global-backed
+call target and traps instead of returning `42`; its packed data writes `65`
+to imported memory before an instantiation trap where the original and
+Starshine leave `0`. These are agent-classified **Starshine correctness wins**,
+with original/output execution and inspected oracle IR, not merely valid
+output-shape differences. Raw oracle failure reports are preserved.
+
+A separate shared-memory worker alternates source/destination pointers while
+the main thread executes the atomic-load/copy fixture. Both the original and
+Starshine exhibit a copy write; the v132 output removes the copy and leaves
+only two dropped atomic loads, so it cannot perform that write. This supplies
+a concurrent witness for the shared-read identity repair. The nondeterministic
+call counts are neither equivalent traces nor performance measurements.
+
+The descriptor-branch fixture returns `1` for original, Starshine and Binaryen
+under the verified v132 interpreter. All three non-null string outputs validate
+with v132; no independent string runtime execution is claimed. Local evidence:
+`runtime/classified-results.json`, `shared-read-oracle/runtime-results.json`,
+and `proposal-runtime/results.json` under the campaign directory.
+
+### September 14 final generated verification
+
+After all nine repairs, eleven lanes each completed **10,000 comparisons**
+(seed `0x5eed`), with zero generator, command or output-validation failures.
+All used explicit freshly built `_build/native/release/build/{cmd,fuzz}/*.exe`,
+`--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`, and exact
+release Binaryen 132. Oracle cache entries were reused; Starshine outputs
+were always fresh. No wasm-smith lane ran.
+
+Profiles: `precompute-all` for both variants,
+`simplify-globals-optimizing-all`, `coalesce-locals-all`, the documented
+`once-reduction-tail-calls` aggregate alias, `memory-packing-all`, ordinary
+GenValid for strings, `rume-all` for the three liveness modes, and
+`pass-oi-all` for OI. Memory packing used `--zero-filled-memory`; OI used
+`--traps-never-happen`. The harness has no separate coalesce-locals-cfg
+comparison target; that variant has focused tests and directed execution,
+while the aggregate exercises the shared implementation.
+
+Precompute uses the documented `drop-consts`, `local-cleanup-debris` and
+`unreachable-control-debris` normalizers. It uses Binaryen as primary validator,
+**not independent validation**. A separate fresh check covers all eleven unique
+input binaries per variant: ten original/output pairs validate with wasm-tools;
+the remaining pair represents 449 records per variant and both original and
+Starshine fail on unsupported atomic consistency ordering 2. Each blocked
+Starshine output is byte-identical to its input. This confirms, rather than
+erases, the previously documented independent-validator limit. All other
+main lanes use wasm-tools as primary validator.
+
+Every row below compares 10,000 inputs. “Cleanup” is an explicitly
+compare-normalized match; “differences” is the residual harness count.
+“Larger” and byte deltas use canonical wasm, not runtime or performance claims.
+
+| Pass / mode | Normalized | Cleanup | Differences | Larger | Total byte delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| precompute | 3238 | 6762 | 0 | 0 | -6762 |
+| precompute-propagate | 2766 | 7234 | 0 | 0 | -9942 |
+| simplify-globals-optimizing | 5055 | 0 | 4945 | 0 | -7727 |
+| coalesce-locals | 3750 | 0 | 6250 | 0 | -14375 |
+| once-reduction | 0 | 0 | 10000 | 0 | -240000 |
+| memory-packing | 7288 | 0 | 2712 | 1330 | 48898 |
+| string-gathering | 10000 | 0 | 0 | 0 | 0 |
+| remove-unused-module-elements | 4106 | 0 | 5894 | 0 | -7638 |
+| remove-unused-module-elements-closed | 4106 | 0 | 5894 | 0 | -7638 |
+| remove-unused-nonfunction-module-elements-closed | 4106 | 0 | 5894 | 0 | -15837 |
+| optimize-instructions | 8766 | 0 | 1234 | 154 | -9404 |
+
+All **165 retained three-way runtime replays** match, with no runtime blocks
+or semantic mismatches. Coalescing replay also includes every differing unique
+input, beyond the twenty retained artifacts. Generated modules can repeat
+fixed templates and can lack callable exports; these observations do not prove
+all functions or all runtime states. The directed boundary/concurrency probes
+above supply observations missing from those generic adapters.
+
+The following are head-agent classifications from inspected IR, size deltas
+and execution; they are not harness-provided judgments:
+
+- **Sampled size wins:** SGO removes inert nops or reuses the same earlier
+  immutable `42` initializer (-1/-3 bytes). Coalescing removes nops and an
+  untargeted one-iteration void loop (-1/-2/-4). RUME modes remove nops while
+  preserving the remapped graph. Once's single repeated template removes
+  private guard-only writes/calls with no consumer (-24). These judgments
+  cover the inspected identities; unrelated unsampled shapes remain parity
+  work unless separately justified.
+- **Memory correctness wins:** 1,330 memory64 cases add 43 bytes of bounds
+  checks before split initialization. A fresh callable/exported adaptation of
+  case 16 executes at address 65,520: original and Starshine trap without a
+  write; Binaryen traps after writing `65`. These existing safeguards remain
+  necessary and are not a newly introduced size regression from this audit's
+  active-segment repair. The other 1,382 differences save six bytes by comparing
+  page counts directly and omitting an inert nop.
+- **OI cross-memory correctness win:** 124 cases add two bytes because copies
+  between distinct memories must remain even at equal numeric addresses.
+  Adapted case 50 seeds source byte `65`: original and Starshine copy it,
+  while Binaryen leaves destination `0`. This existing guard is separate
+  from the newly fixed shared-read observation defect.
+- **Open size/parity gap:** 30 OI `direct-tiny-bulk` cases are ten bytes larger
+  each in trap-relaxed mode, retaining zero-length fill and same-address
+  loads/stores. No benefit justifies that difference; it remains open. The
+  1,080 smaller tuple-lowering differences (-5/-17/-18/-41 bytes) retain the
+  earlier sampled contracts and unsampled-family limitations; smaller size
+  and generic runtime matches alone do not close every family.
+
+The two adapted boundary probes are under `memory64-runtime/` and
+`cross-memory-runtime/`. Final commands, records and tool hashes are in
+`fuzz-final.mjs`, `fuzz-results.json`, `runtime-replay-results.json`,
+`independent-precompute-results.json` and `native-oracle-hashes.txt` under
+`.tmp/correctness-audit-20260913b/`. The fresh CLI SHA-256 is
+`4739ac1fc99eec5a2182c44d8f0557983fb012a40c00d103cc95010b16f5c504`;
+exact release `wasm-opt` is
+`1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
+All nine reproduced correctness defects are repaired; no whole-pass parity
+or exhaustive semantic proof is claimed.
