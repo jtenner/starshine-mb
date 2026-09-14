@@ -62,8 +62,9 @@ pub fn ffi_binary_decode_module_with_detail(
 #export_name("ffi_binary_encode_module")
 pub fn ffi_binary_encode_module(
   value0 : @lib.Module,
+  compact_imports : Bool?,
 ) -> Result[Bytes, @binary.EncodeError] {
-  @binary.encode_module(value0)
+  @binary.encode_module(value0, compact_imports?)
 }
 
 ///|
@@ -1548,8 +1549,13 @@ pub fn ffi_ir_cfg_block_worklist_seed(value0 : @ir.HotCfg) -> Array[Int] {
 pub fn ffi_ir_cfg_build(
   value0 : @ir.HotFunc,
   conservative_exception_entries : Bool?,
+  expand_operand_control : Bool?,
 ) -> @ir.HotCfg {
-  @ir.cfg_build(value0, conservative_exception_entries?)
+  @ir.cfg_build(
+    value0,
+    conservative_exception_entries?,
+    expand_operand_control?,
+  )
 }
 
 ///|
@@ -1806,6 +1812,34 @@ pub fn ffi_ir_dom_strictly_dominates(
   value2 : Int,
 ) -> Bool {
   @ir.dom_strictly_dominates(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_effects_atomic_order_mask")
+pub fn ffi_ir_effects_atomic_order_mask(
+  value0 : @lib.AtomicOrder,
+  read : Bool,
+  write : Bool,
+) -> UInt {
+  @ir.effects_atomic_order_mask(value0, read~, write~)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_effects_atomic_orders_conflict")
+pub fn ffi_ir_effects_atomic_orders_conflict(
+  value0 : UInt,
+  value1 : UInt,
+  earlier_shared : Bool,
+  later_shared : Bool,
+) -> Bool {
+  @ir.effects_atomic_orders_conflict(
+    value0,
+    value1,
+    earlier_shared~,
+    later_shared~,
+  )
 }
 
 ///|
@@ -2332,6 +2366,27 @@ pub fn ffi_ir_hot_build_local_set(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ir_hot_build_local_set_from_tee")
+pub fn ffi_ir_hot_build_local_set_from_tee(
+  value0 : @ir.HotFunc,
+  value1 : Int,
+) -> Int {
+  @ir.hot_build_local_set_from_tee(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_build_local_set_from_value")
+pub fn ffi_ir_hot_build_local_set_from_value(
+  value0 : @ir.HotFunc,
+  value1 : Int,
+  value2 : Int,
+) -> Int {
+  @ir.hot_build_local_set_from_value(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ir_hot_build_local_tee")
 pub fn ffi_ir_hot_build_local_tee(
   value0 : @ir.HotFunc,
@@ -2339,6 +2394,16 @@ pub fn ffi_ir_hot_build_local_tee(
   value2 : Int,
 ) -> Int {
   @ir.hot_build_local_tee(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_build_local_tee_from_set")
+pub fn ffi_ir_hot_build_local_tee_from_set(
+  value0 : @ir.HotFunc,
+  value1 : Int,
+) -> Int {
+  @ir.hot_build_local_tee_from_set(value0, value1)
 }
 
 ///|
@@ -2694,6 +2759,27 @@ pub fn ffi_ir_hot_const_get(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ir_hot_continuation_targets")
+pub fn ffi_ir_hot_continuation_targets(
+  value0 : @ir.HotFunc,
+  value1 : Int,
+) -> Array[Int] {
+  @ir.hot_continuation_targets(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_continuation_targets_set")
+pub fn ffi_ir_hot_continuation_targets_set(
+  value0 : @ir.HotFunc,
+  value1 : Int,
+  value2 : Array[Int],
+) -> Unit {
+  @ir.hot_continuation_targets_set(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ir_hot_control_demote_if_to_block")
 pub fn ffi_ir_hot_control_demote_if_to_block(
   value0 : @ir.HotFunc,
@@ -3030,8 +3116,16 @@ pub fn ffi_ir_hot_lift_func_with_context_result(
   value0 : @lib.Module,
   value1 : @lib.FuncIdx,
   value2 : @ir.HotModuleContext,
+  capture_stack_locals : Bool?,
+  materialize_multi_values : Bool?,
 ) -> Result[@ir.HotFunc, @ir.HotLiftError] {
-  @ir.hot_lift_func_with_context_result(value0, value1, value2)
+  @ir.hot_lift_func_with_context_result(
+    value0,
+    value1,
+    value2,
+    capture_stack_locals?,
+    materialize_multi_values?,
+  )
 }
 
 ///|
@@ -3043,6 +3137,15 @@ pub fn ffi_ir_hot_lift_func_with_context_unverified(
   value2 : @ir.HotModuleContext,
 ) -> @ir.HotFunc {
   @ir.hot_lift_func_with_context_unverified(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_lift_local_accesses")
+pub fn ffi_ir_hot_lift_local_accesses(
+  value0 : @ir.HotFunc,
+) -> @ir.HotLiftLocalAccesses {
+  @ir.hot_lift_local_accesses(value0)
 }
 
 ///|
@@ -4058,6 +4161,15 @@ pub fn ffi_ir_hot_region_truncate_suffix(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ir_hot_repair_nondefaultable_local_scopes")
+pub fn ffi_ir_hot_repair_nondefaultable_local_scopes(
+  value0 : @ir.HotFunc,
+) -> Bool {
+  @ir.hot_repair_nondefaultable_local_scopes(value0)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ir_hot_repair_ordered_catch_payloads")
 pub fn ffi_ir_hot_repair_ordered_catch_payloads(value0 : @ir.HotFunc) -> Bool {
   @ir.hot_repair_ordered_catch_payloads(value0)
@@ -4122,8 +4234,9 @@ pub fn ffi_ir_hot_replace_node(
   value0 : @ir.HotFunc,
   value1 : Int,
   value2 : @ir.HotNode,
+  preserve_value_order : Bool?,
 ) -> Unit {
-  @ir.hot_replace_node(value0, value1, value2)
+  @ir.hot_replace_node(value0, value1, value2, preserve_value_order?)
 }
 
 ///|
@@ -4253,6 +4366,15 @@ pub fn ffi_ir_hot_simple_value_key(
   value1 : Int,
 ) -> @ir.HotSimpleValueKey? {
   @ir.hot_simple_value_key(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_source_first_effect_orders")
+pub fn ffi_ir_hot_source_first_effect_orders(
+  value0 : @ir.HotFunc,
+) -> Array[Int] {
+  @ir.hot_source_first_effect_orders(value0)
 }
 
 ///|
@@ -5869,6 +5991,13 @@ pub fn ffi_lib_min_addr_valtype(
 
 ///|
 #doc(hidden)
+#export_name("ffi_lib_module_uses_custom_descriptors")
+pub fn ffi_lib_module_uses_custom_descriptors(value0 : @lib.Module) -> Bool {
+  @lib.module_uses_custom_descriptors(value0)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_lib_rec_idx")
 pub fn ffi_lib_rec_idx(value0 : UInt) -> @lib.TypeIdx {
   @lib.rec_idx(value0)
@@ -6072,6 +6201,13 @@ pub fn ffi_lib_AbsHeapType_no_func() -> @lib.AbsHeapType {
 
 ///|
 #doc(hidden)
+#export_name("ffi_lib_AbsHeapType_no_waitqueue")
+pub fn ffi_lib_AbsHeapType_no_waitqueue() -> @lib.AbsHeapType {
+  @lib.AbsHeapType::no_waitqueue()
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_lib_AbsHeapType_none")
 pub fn ffi_lib_AbsHeapType_none() -> @lib.AbsHeapType {
   @lib.AbsHeapType::none()
@@ -6089,6 +6225,13 @@ pub fn ffi_lib_AbsHeapType_string_() -> @lib.AbsHeapType {
 #export_name("ffi_lib_AbsHeapType_struct_")
 pub fn ffi_lib_AbsHeapType_struct_() -> @lib.AbsHeapType {
   @lib.AbsHeapType::struct_()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_lib_AbsHeapType_waitqueue")
+pub fn ffi_lib_AbsHeapType_waitqueue() -> @lib.AbsHeapType {
+  @lib.AbsHeapType::waitqueue()
 }
 
 ///|
@@ -6187,6 +6330,13 @@ pub fn ffi_lib_AtomicCmpxchgOp_i64_8_u() -> @lib.AtomicCmpxchgOp {
 #export_name("ffi_lib_AtomicOrder_acq_rel")
 pub fn ffi_lib_AtomicOrder_acq_rel() -> @lib.AtomicOrder {
   @lib.AtomicOrder::acq_rel()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_lib_AtomicOrder_relaxed")
+pub fn ffi_lib_AtomicOrder_relaxed() -> @lib.AtomicOrder {
+  @lib.AtomicOrder::relaxed()
 }
 
 ///|
@@ -8736,6 +8886,16 @@ pub fn ffi_lib_Instruction_array_atomic_rmw(
 
 ///|
 #doc(hidden)
+#export_name("ffi_lib_Instruction_array_atomic_set")
+pub fn ffi_lib_Instruction_array_atomic_set(
+  value0 : @lib.AtomicOrder,
+  value1 : @lib.TypeIdx,
+) -> @lib.Instruction {
+  @lib.Instruction::array_atomic_set(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_lib_Instruction_array_copy")
 pub fn ffi_lib_Instruction_array_copy(
   value0 : @lib.TypeIdx,
@@ -8811,8 +8971,9 @@ pub fn ffi_lib_Instruction_array_len() -> @lib.Instruction {
 pub fn ffi_lib_Instruction_array_load(
   value0 : @lib.LoadOp,
   value1 : @lib.TypeIdx,
+  memarg : @lib.MemArg?,
 ) -> @lib.Instruction {
-  @lib.Instruction::array_load(value0, value1)
+  @lib.Instruction::array_load(value0, value1, memarg?)
 }
 
 ///|
@@ -8874,8 +9035,9 @@ pub fn ffi_lib_Instruction_array_set(value0 : @lib.TypeIdx) -> @lib.Instruction 
 pub fn ffi_lib_Instruction_array_store(
   value0 : @lib.StoreOp,
   value1 : @lib.TypeIdx,
+  memarg : @lib.MemArg?,
 ) -> @lib.Instruction {
-  @lib.Instruction::array_store(value0, value1)
+  @lib.Instruction::array_store(value0, value1, memarg?)
 }
 
 ///|
@@ -12590,6 +12752,17 @@ pub fn ffi_lib_Instruction_struct_atomic_rmw(
 
 ///|
 #doc(hidden)
+#export_name("ffi_lib_Instruction_struct_atomic_set")
+pub fn ffi_lib_Instruction_struct_atomic_set(
+  value0 : @lib.AtomicOrder,
+  value1 : @lib.TypeIdx,
+  value2 : @lib.U32,
+) -> @lib.Instruction {
+  @lib.Instruction::struct_atomic_set(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_lib_Instruction_struct_get")
 pub fn ffi_lib_Instruction_struct_get(
   value0 : @lib.TypeIdx,
@@ -12662,6 +12835,16 @@ pub fn ffi_lib_Instruction_struct_set(
   value1 : @lib.U32,
 ) -> @lib.Instruction {
   @lib.Instruction::struct_set(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_lib_Instruction_struct_wait")
+pub fn ffi_lib_Instruction_struct_wait(
+  value0 : @lib.TypeIdx,
+  value1 : @lib.U32,
+) -> @lib.Instruction {
+  @lib.Instruction::struct_wait(value0, value1)
 }
 
 ///|
@@ -13056,6 +13239,20 @@ pub fn ffi_lib_Instruction_v128_store8_lane(
 #export_name("ffi_lib_Instruction_v128_xor")
 pub fn ffi_lib_Instruction_v128_xor() -> @lib.Instruction {
   @lib.Instruction::v128_xor()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_lib_Instruction_waitqueue_new")
+pub fn ffi_lib_Instruction_waitqueue_new() -> @lib.Instruction {
+  @lib.Instruction::waitqueue_new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_lib_Instruction_waitqueue_notify")
+pub fn ffi_lib_Instruction_waitqueue_notify() -> @lib.Instruction {
+  @lib.Instruction::waitqueue_notify()
 }
 
 ///|
@@ -16760,8 +16957,15 @@ pub fn ffi_passes_pass_replace_node(
   value1 : @ir.HotFunc,
   value2 : Int,
   value3 : @ir.HotNode,
+  preserve_value_order : Bool?,
 ) -> Unit {
-  @passes.pass_replace_node(value0, value1, value2, value3)
+  @passes.pass_replace_node(
+    value0,
+    value1,
+    value2,
+    value3,
+    preserve_value_order?,
+  )
 }
 
 ///|
@@ -20453,6 +20657,15 @@ pub fn ffi_validate_check_validate_valid_feature_floors(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_controlled_proposal_features")
+pub fn ffi_validate_controlled_proposal_features() -> Array[
+  @validate.ProposalFeature,
+] {
+  @validate.controlled_proposal_features()
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_default_gen_valid_config")
 pub fn ffi_validate_default_gen_valid_config() -> @validate.GenValidConfig {
   @validate.default_gen_valid_config()
@@ -21165,6 +21378,33 @@ pub fn ffi_validate_make_state_owned(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_module_proposal_features")
+pub fn ffi_validate_module_proposal_features(
+  value0 : @lib.Module,
+) -> Array[@validate.ProposalFeature] {
+  @validate.module_proposal_features(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_proposal_feature_by_name")
+pub fn ffi_validate_proposal_feature_by_name(
+  value0 : String,
+) -> @validate.ProposalFeature? {
+  @validate.proposal_feature_by_name(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_proposal_feature_name")
+pub fn ffi_validate_proposal_feature_name(
+  value0 : @validate.ProposalFeature,
+) -> String {
+  @validate.proposal_feature_name(value0)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_run_validate_invalid_ast_fuzz")
 pub fn ffi_validate_run_validate_invalid_ast_fuzz(
   value0 : String,
@@ -21204,6 +21444,56 @@ pub fn ffi_validate_tc_state_clone(
   value0 : @validate.TcState,
 ) -> @validate.TcState {
   @validate.tc_state_clone(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_tc_state_finish_block")
+pub fn ffi_validate_tc_state_finish_block(
+  value0 : @validate.TcState,
+  value1 : @validate.TcState,
+  value2 : @validate.TcState,
+  value3 : Array[@lib.ValType],
+) -> Result[@validate.TcState, String] {
+  @validate.tc_state_finish_block(value0, value1, value2, value3)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_tc_state_finish_if")
+pub fn ffi_validate_tc_state_finish_if(
+  value0 : @validate.TcState,
+  value1 : @validate.TcState,
+  value2 : @validate.TcState,
+  value3 : @validate.TcState,
+  value4 : Array[@lib.ValType],
+) -> Result[@validate.TcState, String] {
+  @validate.tc_state_finish_if(value0, value1, value2, value3, value4)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_tc_state_finish_loop")
+pub fn ffi_validate_tc_state_finish_loop(
+  value0 : @validate.TcState,
+  value1 : @validate.TcState,
+  value2 : @validate.TcState,
+  value3 : Array[@lib.ValType],
+) -> Result[@validate.TcState, String] {
+  @validate.tc_state_finish_loop(value0, value1, value2, value3)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_tc_state_finish_try_table")
+pub fn ffi_validate_tc_state_finish_try_table(
+  value0 : @validate.TcState,
+  value1 : @validate.TcState,
+  value2 : @validate.TcState,
+  value3 : Array[@lib.ValType],
+  value4 : Array[@lib.Catch],
+) -> Result[@validate.TcState, String] {
+  @validate.tc_state_finish_try_table(value0, value1, value2, value3, value4)
 }
 
 ///|
@@ -21484,8 +21774,9 @@ pub fn ffi_validate_validate_memsec(
 #export_name("ffi_validate_validate_module")
 pub fn ffi_validate_validate_module(
   value0 : @lib.Module,
+  disabled_features : Array[@validate.ProposalFeature]?,
 ) -> Result[Unit, @validate.ValidationError] {
-  @validate.validate_module(value0)
+  @validate.validate_module(value0, disabled_features?)
 }
 
 ///|
@@ -21495,8 +21786,14 @@ pub fn ffi_validate_validate_module_with_trace(
   value0 : @lib.Module,
   value1 : (String) -> Unit,
   trace_all_funcs : Bool?,
+  disabled_features : Array[@validate.ProposalFeature]?,
 ) -> Result[Unit, @validate.ValidationError] {
-  @validate.validate_module_with_trace(value0, value1, trace_all_funcs?)
+  @validate.validate_module_with_trace(
+    value0,
+    value1,
+    trace_all_funcs?,
+    disabled_features?,
+  )
 }
 
 ///|
@@ -22031,6 +22328,16 @@ pub fn ffi_validate_Env_with_elems(
   value1 : Array[@lib.Elem],
 ) -> @validate.Env {
   @validate.Env::with_elems(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_Env_with_exact_reference_inference")
+pub fn ffi_validate_Env_with_exact_reference_inference(
+  receiver : @validate.Env,
+  value1 : Bool,
+) -> @validate.Env {
+  @validate.Env::with_exact_reference_inference(receiver, value1)
 }
 
 ///|
@@ -22782,6 +23089,18 @@ pub fn ffi_wast_KeywordTable_lookup(
   value1 : String,
 ) -> @wast.TokenType? {
   @wast.KeywordTable::lookup(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_wast_MemoryType_new")
+pub fn ffi_wast_MemoryType_new(
+  value0 : UInt64,
+  max : UInt64??,
+  shared : Bool?,
+  memory64 : Bool?,
+) -> @wast.MemoryType {
+  @wast.MemoryType::new(value0, max?, shared?, memory64?)
 }
 
 ///|
