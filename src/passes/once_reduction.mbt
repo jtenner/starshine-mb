@@ -567,8 +567,20 @@ fn or_analyze_instrs_flow(
       | @lib.BrOnNull(label)
       | @lib.BrOnNonNull(label)
       | @lib.BrOnCast(label, _, _, _)
-      | @lib.BrOnCastFail(label, _, _, _) =>
+      | @lib.BrOnCastFail(label, _, _, _)
+      | @lib.BrOnCastDescEq(label, _, _)
+      | @lib.BrOnCastDescEqFail(label, _, _) =>
         or_record_branch_state(branch_states, label, current)
+      @lib.Resume(_, handlers)
+      | @lib.ResumeThrow(_, _, handlers)
+      | @lib.ResumeThrowRef(_, handlers) =>
+        for handler in handlers {
+          match handler {
+            @lib.ResumeOnLabel(_, label) =>
+              or_record_branch_state(branch_states, label, current)
+            @lib.ResumeOnSwitch(_) => ()
+          }
+        }
       @lib.BrTable(labels, default_label) => {
         for label in labels {
           or_record_branch_state(branch_states, label, current)
@@ -781,8 +793,20 @@ fn or_rewrite_instrs_flow(
       | @lib.BrOnNull(label)
       | @lib.BrOnNonNull(label)
       | @lib.BrOnCast(label, _, _, _)
-      | @lib.BrOnCastFail(label, _, _, _) =>
+      | @lib.BrOnCastFail(label, _, _, _)
+      | @lib.BrOnCastDescEq(label, _, _)
+      | @lib.BrOnCastDescEqFail(label, _, _) =>
         or_record_branch_state(branch_states, label, current)
+      @lib.Resume(_, handlers)
+      | @lib.ResumeThrow(_, _, handlers)
+      | @lib.ResumeThrowRef(_, handlers) =>
+        for handler in handlers {
+          match handler {
+            @lib.ResumeOnLabel(_, label) =>
+              or_record_branch_state(branch_states, label, current)
+            @lib.ResumeOnSwitch(_) => ()
+          }
+        }
       @lib.BrTable(labels, default_label) => {
         for label in labels {
           or_record_branch_state(branch_states, label, current)

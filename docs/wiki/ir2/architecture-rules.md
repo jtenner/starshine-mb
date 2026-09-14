@@ -2254,3 +2254,8 @@ failures visible.
   every reference conditional branch as a possible exit before the sole tee.
   Resume handlers use the general path. A local read reached without a write
   cannot alias an arbitrary parameter. Both variants and command checks pass.
+
+- **Once facts follow all conditional exits:** descriptor-equality branches
+  and labeled resume handlers contribute their incoming state to branch joins
+  in both analysis and rewriting. A fallthrough initialization cannot justify
+  deleting a call after a taken handler/branch. All four regressions pass.
