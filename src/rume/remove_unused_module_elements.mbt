@@ -6270,7 +6270,7 @@ pub fn rume_run_module_pass(
     decl_only_elems,
     partial_used_types,
   ) = rume_collect_liveness(mod_, traps_never_happen~, closed_world~)
-  rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
+  rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems, used_funcs)
   let used_types = rume_finish_used_type_flags(
     mod_, partial_used_types, used_funcs, referenced_funcs, used_globals, used_tables,
     used_tags, used_elems, used_datas,
@@ -6285,25 +6285,82 @@ pub fn rume_run_module_pass(
 fn rume_prune_nonfunction_empty_const_active_elems(
   mod_ : @lib.Module,
   used_elems : @bitset.BitSet,
+  used_funcs : @bitset.BitSet,
 ) -> Unit {
+  let candidates : Array[Int] = []
   match mod_.elem_sec {
-    Some(@lib.ElemSec(elems)) => {
-      let mut idx = 0
-      while idx < elems.length() {
+    Some(@lib.ElemSec(elems)) =>
+      for idx = 0; idx < elems.length(); idx = idx + 1 {
         match elems[idx] {
           @lib.Elem(@lib.Active(table_idx, offset), kind) =>
-            if !rume_nonfunction_active_elem_requires_root(
+            if used_elems[idx] &&
+              !rume_nonfunction_active_elem_requires_root(
                 mod_, table_idx, offset, kind,
               ) &&
               !rume_elem_init_has_effect(kind) {
-              used_elems[idx] = false
+              candidates.push(idx)
             }
           _ => ()
         }
-        idx += 1
+      }
+    None => ()
+  }
+  if candidates.is_empty() {
+    return
+  }
+  // Empty initialization does not make the segment index unobservable. Keep
+  // any segment named by a surviving bulk-table or GC instruction.
+  let referenced = @bitset.BitSet::new(used_elems.length())
+  fn scan(body : Array[@lib.Instruction]) -> Unit {
+    for instr in body {
+      match instr {
+        @lib.ElemDrop(@lib.ElemIdx(index))
+        | @lib.TableInit(@lib.ElemIdx(index), _)
+        | @lib.ArrayNewElem(_, @lib.ElemIdx(index))
+        | @lib.ArrayInitElem(_, @lib.ElemIdx(index)) => {
+          let slot = index.to_int()
+          if slot >= 0 && slot < referenced.length() {
+            referenced[slot] = true
+          }
+        }
+        @lib.Block(_, @lib.Expr(nested))
+        | @lib.Loop(_, @lib.Expr(nested))
+        | @lib.TryTable(_, _, @lib.Expr(nested)) => scan(nested)
+        @lib.If(_, yes, no) => {
+          scan(yes)
+          match no {
+            Some(body) => scan(body)
+            None => ()
+          }
+        }
+        @lib.Try(_, @lib.Expr(nested), catches, _) => {
+          scan(nested)
+          for catch_ in catches {
+            match catch_ {
+              @lib.LegacyCatch(_, @lib.Expr(body))
+              | @lib.LegacyCatchAll(@lib.Expr(body)) => scan(body)
+            }
+          }
+        }
+        _ => ()
       }
     }
+  }
+  let imported = rume_imported_func_count(mod_)
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for idx = 0; idx < funcs.length(); idx = idx + 1 {
+        if imported + idx < used_funcs.length() && used_funcs[imported + idx] {
+          let @lib.Func(_, @lib.Expr(body)) = funcs[idx]
+          scan(body)
+        }
+      }
     None => ()
+  }
+  for idx in candidates {
+    if !referenced[idx] {
+      used_elems[idx] = false
+    }
   }
 }
 
@@ -6331,7 +6388,7 @@ pub fn rume_run_nonfunction_module_pass(
     traps_never_happen~,
     closed_world~,
   )
-  rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
+  rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems, used_funcs)
   let used_types = rume_finish_used_type_flags(
     mod_, partial_used_types, used_funcs, referenced_funcs, used_globals, used_tables,
     used_tags, used_elems, used_datas,

@@ -75,3 +75,16 @@ The 2026-08-28 implementation fuses direct type-use marking into the existing li
 - When adding or debugging coverage, pair every "drop or keep" fixture with at least one assertion about the surviving rewritten indices.
 - For table cleanup, state whether removing a default or overlapping write can expose a callable value and eliminate an indirect-call trap. Binaryen may change one trap kind into another; it may not silently remove the trap under default semantics.
 - For EH or stack switching, pair reachability assertions with catch/resume-handler tag remap assertions; keeping the declaration without rewriting the nested carrier is still incorrect.
+
+## Referenced empty active segments
+
+An empty, in-bounds active element segment may have no initialization effect
+and still require an index: retained `elem.drop`, `table.init`, `array.new_elem`,
+or `array.init_elem` instructions can reference it. The post-liveness pruning
+step scans retained function bodies before removing such candidates. It skips
+that scan when no live empty-active candidates exist. Both RUME variants use
+the same guard. The red fixtures previously remapped references to
+`0xffffffff`, producing invalid modules.
+
+Sources: `src/rume/remove_unused_module_elements.mbt`,
+`src/passes/rume_fourth_audit_test.mbt`, and the command dispatcher regressions.
