@@ -2239,3 +2239,8 @@ Sources: `src/passes/*_deep_audit_test.mbt`, command tests in
 `.tmp/correctness-audit-20260913b/`. Implementation and final fuzz verification
 are pending; this test-only checkpoint deliberately leaves the reproduced
 failures visible.
+
+- **Single-rounding conversion repaired:** Precompute converts i64 magnitudes
+  directly to f32 with integer guard/sticky bits and ties-to-even, preserving
+  the signed zero/overflow conventions of integer conversion. All 42 bounded
+  midpoint-neighbor tests and the command regression pass.

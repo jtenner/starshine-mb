@@ -5694,12 +5694,23 @@ fn precompute_raw_try_fold_unary(
       )
     (@lib.Instruction::F32ConvertI64S, Some(@lib.I64(v))) =>
       return Some(
-        @lib.Instruction::f32_const(@lib.F32(Float::from_double(v.to_double()))),
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            precompute_u64_to_f32(
+              if v < 0L {
+                0UL - v.reinterpret_as_uint64()
+              } else {
+                v.reinterpret_as_uint64()
+              },
+              negative=v < 0L,
+            ),
+          ),
+        ),
       )
     (@lib.Instruction::F32ConvertI64U, Some(@lib.I64(v))) =>
       return Some(
         @lib.Instruction::f32_const(
-          @lib.F32(Float::from_double(v.reinterpret_as_uint64().to_double())),
+          @lib.F32(precompute_u64_to_f32(v.reinterpret_as_uint64())),
         ),
       )
     (@lib.Instruction::F64ConvertI64S, Some(@lib.I64(v))) =>
@@ -11715,4 +11726,36 @@ fn precompute_propagate_append_heap_operand_effects(
   } else {
     out.push(@ir.hot_build_drop(func, node_id))
   }
+}
+
+///|
+// Integer arithmetic retains the sticky low bits that an intermediate f64
+// would lose at an f32 halfway boundary. Round once, ties to even.
+fn precompute_u64_to_f32(value : UInt64, negative? : Bool = false) -> Float {
+  if value == 0UL {
+    return 0.0F
+  }
+  let mut exponent = 63 - value.clz()
+  let mut significand = if exponent <= 23 {
+    value << (23 - exponent)
+  } else {
+    let shift = exponent - 23
+    let high = value >> shift
+    let remainder = value & ((1UL << shift) - 1UL)
+    let halfway = 1UL << (shift - 1)
+    if remainder > halfway || (remainder == halfway && (high & 1UL) != 0UL) {
+      high + 1UL
+    } else {
+      high
+    }
+  }
+  if significand == 0x1000000UL {
+    significand = significand >> 1
+    exponent += 1
+  }
+  let sign = if negative { 0x80000000U } else { 0U }
+  let bits = sign |
+    ((exponent + 127).to_uint() << 23) |
+    (significand.to_uint() & 0x7fffffU)
+  bits.reinterpret_as_int().reinterpret_as_float()
 }
