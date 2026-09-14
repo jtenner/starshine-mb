@@ -9495,9 +9495,13 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           // A write invalidates facts for every type-compatible import alias.
           if infos[slot].imported {
             for other = 0; other < infos.length(); other = other + 1 {
-              if infos[other].imported &&
-                infos[other].mutable_ &&
-                infos[other].value_type == infos[slot].value_type {
+              let may_alias = match
+                (infos[other].value_type, infos[slot].value_type) {
+                // Distinct defined-type indices may be structurally equal.
+                (@lib.RefTypeValType(_), @lib.RefTypeValType(_)) => true
+                (lhs, rhs) => lhs == rhs
+              }
+              if infos[other].imported && infos[other].mutable_ && may_alias {
                 facts[other] = None
               }
             }

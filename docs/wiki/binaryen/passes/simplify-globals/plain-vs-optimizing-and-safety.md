@@ -309,8 +309,7 @@ That is the real public-contract split to preserve.
 ## Imported mutable global aliases
 
 Distinct imported global indices can refer to one host `WebAssembly.Global`.
-Runtime constant propagation invalidates facts for every mutable import with
-the written import's value type, then records the new value for the written
+Runtime constant propagation invalidates facts for every potentially compatible mutable import, then records the new value for the written
 index. Defined globals remain distinct storage. Tests cover i32, i64, f32 and
 f64 imports in `src/passes/simplify_globals_alias_fourth_audit_test.mbt` and
 the command dispatcher. A native replay with two imports bound to one host
@@ -323,3 +322,10 @@ numeric equality: +0 and -0 are observably different under reinterpretation.
 The f32/f64 regressions in `src/passes/simplify_globals_fourth_audit_test.mbt`
 and the corresponding dispatcher tests cover both sign changes. This also
 avoids conflating literal identity with NaN numeric equality.
+
+Reference imports need special care: separate defined-type indices may denote
+structurally equivalent types (`src/validate/match.mbt`). Invalidation treats
+reference imports as potential aliases instead of relying on raw `ValType`
+equality. The red reference-alias tests use two identical function types and
+null/function writes through two imports; the final read must remain dynamic.
+See `simplify_globals_ref_alias_fourth_audit_test.mbt` and its dispatcher case.
