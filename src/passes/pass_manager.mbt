@@ -1915,17 +1915,20 @@ fn hot_pass_vacuum_collapse_constant_if(
     @ir.HotOp::If => ()
     _ => return false
   }
-  if @ir.hot_child_count(func, node_id) < 2 ||
-    hot_pass_vacuum_label_is_used(
-      func,
-      @ir.hot_control_node_label(func, node_id),
-    ) {
+  if @ir.hot_child_count(func, node_id) < 2 {
     return false
   }
   let take_then = match
     hot_pass_vacuum_i32_const_truthy(func, @ir.hot_child_get(func, node_id, 0)) {
     Some(value) => value
     None => return false
+  }
+  // Dynamic conditions cannot collapse, so reject them before the global scan.
+  if hot_pass_vacuum_label_is_used(
+      func,
+      @ir.hot_control_node_label(func, node_id),
+    ) {
+    return false
   }
   let selected_ref = if take_then {
     @ir.hot_region_then_ref(func, node_id)

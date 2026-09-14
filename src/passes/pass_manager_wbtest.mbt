@@ -25574,3 +25574,25 @@ test "SimplifyLocals forwards a dead local across inert void blocks only" {
     boundary,
   )
 }
+
+///|
+test "review2 vacuum retains dynamic effect and collapses constant branches" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module (import "env" "effect" (func $effect))
+      #| (func (param i32)
+      #|  (if (local.get 0) (then (call $effect)))
+      #|  (if (i32.const 1) (then (call $effect)))
+      #|  (if (i32.const 0) (then (call $effect)))))
+    ),
+  )
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]).unwrap()
+  let body = match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => body
+    _ => abort("expected function")
+  }
+  assert_eq(body.length(), 3)
+  assert_true(body[0] == @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  assert_true(body[1] is @lib.If(_, [@lib.Call(_)], None))
+  assert_true(body[2] == @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+}

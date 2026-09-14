@@ -309,3 +309,7 @@ That phase structure is the most important thing this page pins down.
 ## Freshness note
 
 The 2026-04-22 no-drift check remains useful historical provenance. Merged PR #8882 added the narrow imported-memory overlap path on 2026-07-10, and that behavior is released in `version_131`; v130 is only a historical evidence baseline, while the current local closeout uses an explicit verified v131 oracle. Use [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md) for exact source/commit provenance and keep release versus trunk claims distinct.
+
+## September 13, 2026 performance review
+
+Code rewriting now indexes parameter counts from the referenced flattened type prefix once per module, preserving mixed recursive-group slots, singleton lookup, and existing invalid-index fallbacks. See the [measured review](../../../tooling/tracing-playbook.md#september-13-2026-second-pass-opportunity-review) for paired native microbenchmarks, smoke coverage, and regression evidence.

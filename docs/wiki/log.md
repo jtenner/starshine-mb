@@ -23890,3 +23890,15 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   Binaryen-132 10,000-case lanes, and 40,000 exact baseline/current output matches.
   Retained existing oracle residuals and the 449 atomic-ordering independent
   validator limitations explicitly; no public API or new output family changed.
+
+- 2026-09-13: Filed the second four-agent reporting-only pass performance review
+  in the [tracing playbook](tooling/tracing-playbook.md#september-13-2026-second-pass-opportunity-review).
+  Root-only serial experiments retain Untee declaration-run scanning,
+  MemoryPacking parameter-count indexing, and Vacuum guard ordering. LocalCSE
+  compaction missed its performance gate and was removed after correcting the
+  proposed benchmark to the actual 16-instruction window limit. Final evidence:
+  13 paired microbenchmarks, 11,577 passing Wasm-GC tests, three original/baseline/
+  current runtime smoke fixtures, four verified-v132 10,000-case comparisons,
+  and 40,000 exact baseline/current output matches. Preserve existing Vacuum
+  cleanup residuals and MemoryPacking correctness/size tradeoffs; no new output
+  regression or public API change was observed.

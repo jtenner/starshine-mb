@@ -169,3 +169,47 @@ test "untee recurses into structured bodies" {
     other => fail("expected recursive tee expansion, got \{other}")
   }
 }
+
+///|
+test "review2 untee declaration runs preserve nondefaultable initialization" {
+  for count in [0U, 1U] {
+    let locals = @lib.Locals::from_decl_runs_preserving_groups([
+      @lib.LocalRun::new(2U, @lib.ValType::i32()),
+      @lib.LocalRun::new(
+        count,
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+        ),
+      ),
+    ])
+    let input = pass_test_module_from_wat(
+      "(module (func (local i32 i32) unreachable local.tee 0 drop))",
+    ).with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          locals,
+          @lib.Expr::new([
+            @lib.Instruction::unreachable_(),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+    let output = untee_run_module_pass(input)
+    assert_true(@validate.validate_module(output).is_ok())
+    let body = match output.code_sec {
+      Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => body
+      _ => abort("expected function")
+    }
+    assert_eq(body.length(), if count == 0U { 2 } else { 4 })
+    if count != 0U {
+      assert_true(
+        body[1] == @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      )
+      assert_true(
+        body[2] == @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      )
+    }
+  }
+}

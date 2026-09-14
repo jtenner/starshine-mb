@@ -284,3 +284,7 @@ Before calling a future Starshine port faithful, verify all of these against the
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-tnh.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-tnh-mvp.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum_all-features.wast>
+
+## September 13, 2026 performance review
+
+Constant-if collapse now rejects dynamic conditions before scanning whole-function label uses. Child-count and branch-target checks remain in place, preserving the transform set. See the [measured review](../../../tooling/tracing-playbook.md#september-13-2026-second-pass-opportunity-review) for paired native microbenchmarks, smoke coverage, and regression evidence.

@@ -349,3 +349,156 @@ Final CLI SHA-256:
 `e45d0d041b13277f4df49cde607d0d78ca86a9b97e4c4804f587676a9cdefda4`.
 The verified oracle is `.tmp/binaryen-version_132/bin/wasm-opt`; its hash and the
 fresh generator hash are recorded in `final-tools.sha256` and lane toolchains.
+
+## September 13, 2026 second pass opportunity review
+
+Four reporting-only reviewers inspected shared scheduling, module passes,
+locals/control, and expression passes. They made no changes and ran no tests,
+builds, benchmarks, or fuzzers. The root agent selected and evaluated the
+following four candidates serially against the starting dirty worktree; the
+first review's three retained optimizations above remain part of both baselines.
+
+| Candidate | Mechanism and preservation argument | Decision |
+| --- | --- | --- |
+| Vacuum constant-if guard order | Reject nonconstant conditions before scanning all nodes for label uses. Both predicates are read-only; retain child-count and branch-target checks. | Retain. |
+| MemoryPacking parameter-count index | Flatten only the referenced type prefix once, including nonfunction slots; preserve singleton lookup and zero fallback for absent, recursive, or invalid indices. | Retain. |
+| Untee declaration-run scan | Inspect each nonempty run once and stop at the first nonnullable reference. Zero-count runs must not enable initialization preservation. | Retain. |
+| LocalCSE stable window compaction | Replace temporary survivor arrays with ordered in-place compaction. | Reject: no demonstrated pass-local gain. |
+
+The LocalCSE review initially proposed 128–512-expression windows, but
+`lcse_raw_rewrite_instrs` returns unchanged above 16 instructions. Root review
+corrected that unreachable experiment to 16/128/512 functions containing
+10-instruction windows with reuse across an unrelated local write. Three paired
+rounds measured 27.981→26.991 µs, 218.414→218.501 µs, and 870.349→879.328 µs.
+The largest primary case regressed 1.0%, missing the predeclared 5% improvement
+gate. Its production change was removed; its smoke coverage, benchmark fixtures,
+and local rejected patch remain available. No claim is made that compaction
+cannot help another workload.
+
+Other reviewer hypotheses—DAE callee membership tracking, ReorderGlobals name
+sorting, SSA write-target lookup, and OptimizeCasts child-span iteration—were
+not selected or benchmarked. They remain source hypotheses, not measured wins.
+
+The dedicated [benchmark file](../../../src/passes_perf_long/review2_perf_test.mbt)
+constructs fixtures outside timing, validates public-pipeline preflight results,
+asserts transformations where expected, and checks reuse and determinism.
+Module-pass measurements exclude repeated final validation. Vacuum measures
+repeated direct HOT execution on an unchanged function, excluding lift/lower;
+it does not claim scheduler or whole-command speedups. Large ratios are specific
+to removing quadratic declaration/type scans and repeated negative label scans.
+The benchmark suite remains outside default `moon test`.
+
+Smoke tests guard [filter survivor order](../../../src/passes/local_cse_filter_wbtest.mbt),
+[mixed recursive type flattening](../../../src/passes/memory_packing_wbtest.mbt),
+[zero/nonzero nonnullable declaration groups](../../../src/passes/untee_test.mbt),
+and [dynamic versus constant branch effects](../../../src/passes/pass_manager_wbtest.mbt).
+All four checks passed before and after the prototype; the host-local 5%
+performance gate failed on the unchanged baseline before implementation.
+
+The retained source passes `moon info`, `moon fmt`, and all **11,577 tests** in
+`moon test --target wasm-gc`, with no public `.mbti` change. The preceding default
+linear-Wasm test run was interrupted during the passes package and is not claimed
+as a completed check; `final-wasm-gc-tests.log` is the completed full-suite evidence.
+
+All local evidence is under `.tmp/pass-perf-review2-20260913/`: the starting dirty
+patch and four original sources, baseline CLI, calibrated benchmark executables,
+three alternating rounds with ten samples each, gate results, rejected LocalCSE
+patch, validation logs, runtime fixtures, and exact fuzz argument arrays. Timings
+use native release, Moon 0.1.20260904 / moonc v0.10.12+1634b282e, and an AMD Ryzen 7
+8845HS. The paired runner holds `/tmp/starshine-perf-sweep-heavy.lock` and refuses
+samples alongside compiler/fuzzer jobs. They are synthetic local measurements,
+not Binaryen pass-local or production-artifact throughput claims.
+
+### Final retained-change measurements
+
+Medians below are medians of three round medians. All three primary cases clear
+the 5% improvement gate; small cases and all three unchanged LocalCSE controls
+clear the 10% regression limit.
+
+| Workload | Baseline (µs) | Retained (µs) | Speedup |
+| --- | ---: | ---: | ---: |
+| untee runs count=16 | 0.414 | 0.214 | 1.93× |
+| untee runs count=1024 | 511.351 | 2.402 | 212.84× |
+| untee runs count=4096 | 7534.503 | 8.714 | 864.61× |
+| untee grouped count=100000 | 634.592 | 0.184 | 3446.21× |
+| memory-packing count=16 | 2.414 | 2.199 | 1.10× |
+| memory-packing count=1024 | 1010.927 | 109.576 | 9.23× |
+| memory-packing count=4096 | 14874.387 | 462.489 | 32.16× |
+| local-cse count=16 | 27.890 | 28.194 | 0.99× |
+| local-cse count=128 | 213.847 | 215.484 | 0.99× |
+| local-cse count=512 | 872.981 | 854.520 | 1.02× |
+| vacuum dynamic ifs=16 (direct HOT) | 12.940 | 8.654 | 1.50× |
+| vacuum dynamic ifs=128 (direct HOT) | 336.320 | 63.519 | 5.29× |
+| vacuum dynamic ifs=512 (direct HOT) | 4597.365 | 247.560 | 18.57× |
+
+Reproduce with `moon bench --release --target native --package jtenner/starshine/passes_perf_long --file review2_perf_test.mbt`. The paired artifact includes executable SHA-256 identities and every underlying sample.
+
+### Runtime smoke evidence
+
+Three Node 26.8.2 fixtures validate and execute original, baseline, and retained
+outputs. Untee preserves results for zero, positive, and negative inputs; Vacuum
+preserves dynamic and constant-branch import-call counts; MemoryPacking preserves
+all 34 copied bytes and an out-of-bounds destination trap. All observations and
+baseline/current output bytes match. `runtime-smoke.mjs`, `.json`, and the WAT /
+Wasm fixtures are preserved in the local evidence directory. These are bounded
+runtime checks, separate from the generated structural comparisons below.
+
+### Generated regression evidence — verified Binaryen 132
+
+Four separate 10,000-case GenValid lanes use seed `0x5eed`, a freshly built
+explicit native Starshine CLI, the pinned prebuilt native generator, and the
+verified `.tmp/binaryen-version_132/bin/wasm-opt` oracle. Each uses
+`--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`, with eight case
+workers; lanes and all performance work are serial. No wasm-smith lane, cleanup
+normalizer, or optional generated runtime/property execution was enabled.
+Independent `wasm-tools 1.251.0` validation passes every generated output.
+
+| Pass / profile | Compared | Normalized | Cleanup-normalized | Residuals | Baseline/current byte matches | Binaryen cache hits/misses |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `vacuum` / `vacuum` | 10000 | 7830 | 0 | 2170 | 10000 | 10000/0 |
+| `memory-packing` / `memory-packing-all` | 10000 | 7288 | 0 | 2712 | 10000 | 6557/3443 |
+| `untee` / `ordinary GenValid` | 10000 | 10000 | 0 | 0 | 10000 | 2/9998 |
+| `local-cse` / `ordinary GenValid` | 10000 | 10000 | 0 | 0 | 10000 | 10000/0 |
+
+All four lanes have zero generator, output-validation, command, and configured
+property failures, with empty command-failure classes and zero Binaryen failure
+cache hits/misses. Separate fresh-output replay proves **40,000/40,000 exact
+baseline/current byte matches**. Starshine outputs were not cached. This is
+regression evidence against the starting worktree, not pass-wide Binaryen parity
+closeout or execution of all 40,000 generated modules.
+
+Residual classifications are agent judgments, not harness conclusions:
+
+- The 20 retained Vacuum diffs contain only removal of one or two inert `nop`s,
+  saving one or two canonical bytes; those inspected specimens are size wins.
+  The complete lane is 2,170 smaller and 7,830 equal canonical outputs, saving
+  3,250 bytes overall. Uninspected residuals receive no new blanket semantic
+  approval here; existing pass-dossier classifications remain separate.
+- MemoryPacking reproduces the exact documented [September 12 v132 counts and
+  sizes](../binaryen/passes/memory-packing/fuzzing.md#september-12-2026-size-parity-follow-up):
+  1,382 smaller active-segment checks (-8,292 canonical bytes), 7,288 equal
+  outputs, and 1,330 larger Memory64 preflights (+57,190 bytes). The retained
+  samples match those families. These are the dossier's existing correctness
+  wins, including a size cost: its source/runtime evidence establishes that
+  dropping the complete destination preflight allows partial writes before a
+  trap. Validation or size alone is not the classification basis. The new
+  parameter-count index changes none of these outputs.
+- Untee and the unchanged LocalCSE control both normalize all 10,000 cases.
+
+Selected leaf counts are recorded here for reproducibility:
+
+- `vacuum`: `vacuum-terminal-unreachable` 1160, `vacuum-constant-result-if` 1161, `vacuum-call-prefix-continuation` 1138, `vacuum-dropped-parent-effects` 1124, `vacuum-core` 2179, `vacuum-structural-wrappers` 1068, `vacuum-hazard-boundary` 1080, `vacuum-localset-prefix-preserve` 1090.
+
+- `memory-packing`: `memory-packing-segment-ops` 1382, `memory-packing-boundaries` 709, `memory-packing-active-ranges` 2010, `memory-packing-active-traps` 1284, `memory-packing-passive-splits` 2021, `memory-packing-defined-overlap` 1264, `memory-packing-memory64` 1330.
+
+- `untee`: `binaryen-oracle-portable` 10000.
+
+- `local-cse`: `binaryen-oracle-portable` 10000.
+
+Baseline CLI SHA-256: `e45d0d041b13277f4df49cde607d0d78ca86a9b97e4c4804f587676a9cdefda4`.
+
+Retained CLI SHA-256: `fd8c2c644d0fd1f845233b1d34d5ce00d2acac6e20c9dad2d2b23753d623bf82`.
+
+Exact arguments, tool identities, manifests, raw results, cache counters, and byte
+replays are preserved in `fuzz-commands.json`, `final-tools.json`, `fuzz-summary.json`,
+and the four lane directories under the local evidence root.

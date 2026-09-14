@@ -56,10 +56,12 @@ pub fn untee_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     let @lib.Func(locals, @lib.Expr(body)) = func
     // Definite initialization is checked even in polymorphic unreachable code.
     let mut preserve_initialization = false
-    for idx in 0..<locals.length() {
-      if locals[idx] is @lib.RefTypeValType(ref_type) &&
+    for run in locals.runs() {
+      if run.count() != 0U &&
+        run.val_type() is @lib.RefTypeValType(ref_type) &&
         ref_type.is_non_nullable() {
         preserve_initialization = true
+        break
       }
     }
     let (next_body, func_changed) = untee_rewrite_instrs(

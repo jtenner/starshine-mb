@@ -206,3 +206,7 @@ When this pass is eventually ported, these are the source-backed obligations to 
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/untee.wast>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Untee.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast>
+
+## September 13, 2026 performance review
+
+The pass inspects nonempty declaration runs once and stops at the first nonnullable reference, preserving the unreachable-initialization rule and ignoring zero-count groups. See the [measured review](../../../tooling/tracing-playbook.md#september-13-2026-second-pass-opportunity-review) for paired native microbenchmarks, smoke coverage, and regression evidence.

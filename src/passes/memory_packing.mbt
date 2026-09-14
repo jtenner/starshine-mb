@@ -1022,15 +1022,50 @@ fn mp_type_sec_func_param_count(
 
 ///|
 fn mp_defined_func_param_counts(mod_ : @lib.Module) -> Array[Int] {
-  let counts : Array[Int] = []
-  match mod_.func_sec {
-    Some(@lib.FuncSec(type_idxs)) =>
-      for type_idx in type_idxs {
-        counts.push(mp_type_sec_func_param_count(mod_.type_sec, type_idx))
+  let type_idxs = match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => type_idxs
+    None => return []
+  }
+  if type_idxs.length() <= 1 {
+    return type_idxs.map(fn(idx) {
+      mp_type_sec_func_param_count(mod_.type_sec, idx)
+    })
+  }
+  // Flatten only the referenced prefix, once for all defined functions.
+  // Unreferenced type tails and absent function sections need no table.
+  let mut last_slot = -1
+  for idx in type_idxs {
+    if mp_type_idx_flat_slot(idx) is Some(slot) && slot > last_slot {
+      last_slot = slot
+    }
+  }
+  let by_type : Array[Int] = []
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec in rec_types {
+        if by_type.length() > last_slot {
+          break
+        }
+        match rec {
+          @lib.SingleRecType(subtype) =>
+            by_type.push(mp_subtype_func_param_count(subtype).unwrap_or(0))
+          @lib.GroupRecType(subtypes) =>
+            for subtype in subtypes {
+              if by_type.length() > last_slot {
+                break
+              }
+              by_type.push(mp_subtype_func_param_count(subtype).unwrap_or(0))
+            }
+        }
       }
     None => ()
   }
-  counts
+  type_idxs.map(fn(idx) {
+    match mp_type_idx_flat_slot(idx) {
+      Some(slot) => by_type.get(slot).unwrap_or(0)
+      None => 0
+    }
+  })
 }
 
 ///|

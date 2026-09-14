@@ -415,3 +415,40 @@ test "memory-packing minimum-page proofs preserve endpoints and overflow guards"
     }
   }
 }
+
+///|
+test "review2 memory-packing flattened parameter counts preserve mixed groups" {
+  let types = @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::group([
+      @lib.SubType::comp_type(@lib.CompType::struct_([])),
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i64()], []),
+      ),
+    ]),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+    ),
+  ])
+  let fixture = @lib.Module::new()
+    .with_type_sec(types)
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(3U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+  assert_true(mp_defined_func_param_counts(fixture) == [2, 1, 0])
+  // Non-function and out-of-range function type indices are intentionally
+  // invalid; the helper retains its existing zero-count fallback.
+  let invalid = fixture.with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(1U),
+      @lib.TypeIdx::new(99U),
+      @lib.TypeIdx::rec(0U),
+    ]),
+  )
+  assert_true(mp_defined_func_param_counts(invalid) == [0, 0, 0])
+  assert_true(mp_defined_func_param_counts(@lib.Module::new()).is_empty())
+}
