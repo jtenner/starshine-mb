@@ -415,10 +415,17 @@ fn mp_active_rewrite(
   }
   let preserve_trap = !traps_never_happen &&
     mp_should_preserve_trap(mod_, base, bytes.length())
+  // An imported memory remains observable after failed instantiation. Splitting
+  // a possibly out-of-bounds segment must not write a prefix before its final
+  // range check traps; the original segment checks its entire range first.
+  let preserve_atomic_init = preserve_trap && mp_imported_mem_count(mod_) != 0
   match
     mp_active_rewrite_fast_single_range(mem_idx, base, bytes, preserve_trap) {
-    Some(rewritten) => return rewritten
-    None => ()
+    Some(rewritten) if !preserve_atomic_init || rewritten.length() <= 1 =>
+      return rewritten
+    Some(_) | None if preserve_atomic_init =>
+      return [@lib.Data::new(@lib.DataMode::active(mem_idx, expr), bytes)]
+    _ => ()
   }
   let ranges = mp_collect_ranges(bytes)
   if ranges.is_empty() {

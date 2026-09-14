@@ -2269,3 +2269,10 @@ failures visible.
   struct/array read with a constant evaluates non-discardable receiver
   operands first. A branchless receiver block may still call or write globals.
   All 12 effect fixtures and the command fixture pass.
+
+- **Imported initialization is all-or-nothing per segment:** memory packing
+  does not split a potentially out-of-bounds active segment when its memory
+  is imported and traps are observable. Single-range zero trimming remains valid. Writing a packed prefix before a final
+  trap sentinel changes host-visible memory after failed instantiation.
+
+  All 61 memory-packing checks, including the two new regressions, pass.
