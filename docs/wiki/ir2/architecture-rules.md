@@ -2615,3 +2615,6 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   with a single read/write in both the selected region and the whole function.
   Nested cleanup cannot delete a write observed outside its region. See
   `src/passes/dae_locals_fifth_audit_wbtest.mbt`.
+- DAE pair-result carrier reshaping proves eliminated payload/result writes
+  are dead and moved reads are independent of the else arm. Later local reads
+  retain their original assignments. See `src/passes/dae_pair_fifth_audit_wbtest.mbt`.

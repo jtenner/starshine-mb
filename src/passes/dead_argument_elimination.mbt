@@ -46872,10 +46872,25 @@ fn dae_try_rewrite_func408_pair_if_carrier_body_once(
         if result_get_idx >= body.length() {
           return None
         }
+        // The carrier rewrite eliminates these assignments and moves the if.
+        // Both eliminated values must be dead after the selected read, and the
+        // else arm must not depend on the previous result-local value.
+        if dae_instrs_reference_any_local_range(
+            body, result_get_idx + 1, body.length(), [payload_local, result_local],
+          ) || dae_instrs_reference_local(else_body, result_local) ||
+          dae_instrs_reference_any_local_range(
+            body, idx + 4, result_get_idx, [payload_local, result_local],
+          ) {
+          return None
+        }
         let mut pure_prefix_idx = idx + 4
         while pure_prefix_idx < result_get_idx {
           match body[pure_prefix_idx] {
-            @lib.I32Const(_) | @lib.LocalGet(_) | @lib.Nop => ()
+            @lib.I32Const(_) | @lib.Nop => ()
+            @lib.LocalGet(local_idx) =>
+              if dae_instrs_reference_local(else_body, local_idx) {
+                return None
+              }
             _ => return None
           }
           pure_prefix_idx += 1
