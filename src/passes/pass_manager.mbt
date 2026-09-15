@@ -77022,6 +77022,24 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   } else {
     cleaned
   }
+  let cleaned = if descriptor_name == "flatten" {
+    let trimmed = flatten_cleanup_lowered_root_trap(cleaned)
+    match (original_func, trimmed) {
+      (
+        Some(@lib.Func(original_locals, _)),
+        @lib.Func(_, @lib.Expr([@lib.Unreachable])),
+      ) =>
+        // No instruction can reference a scratch local in this body. Keep
+        // source declarations and their names; remove only lowering captures.
+        @lib.Func::new(
+          original_locals,
+          @lib.Expr::new([@lib.Instruction::unreachable_()]),
+        )
+      _ => trimmed
+    }
+  } else {
+    cleaned
+  }
   let cleaned = if descriptor_name == "precompute-propagate" {
     run_hot_pipeline_precompute_drop_void_self_branch_blocks(cleaned)
   } else {

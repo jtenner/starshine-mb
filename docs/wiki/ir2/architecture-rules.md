@@ -3124,3 +3124,29 @@ and [dispatcher tests](../../../src/cmd/dead_argument_elimination2_exception_par
 Local evidence: `dae2-exception-red-expanded.log`, `dae2-void-wrapper-red.log`,
 `dae2-void-wrapper-green.log`, `dae2-existing-tests.log`,
 `dae2-shared-cleanup-tests.log`, and `dae2-exception-repair/result.json`.
+
+#### Flatten unreachable continuation repair
+
+Lowered root instructions consisting of a singleton block/loop chain ending
+in `unreachable` now become the same unconditional trap, and the unreachable
+root suffix is removed. Earlier evaluations remain in order; a conditional
+trap does not authorize this cleanup. When the entire body is just the trap,
+unused lowering captures are removed while original local declarations remain.
+This avoids applying a generic local remapper to legacy exception scopes.
+
+Two positive regressions first failed; the conditional continuation control
+passes. All 659 flatten tests and the command regression pass, including the
+legacy payload/rethrow guard that caught an overbroad intermediate cleanup.
+Info/fmt pass without API changes. Fresh native
+`c7916ebfda6c0d06daad2cc56e97ded23b38d080b4e69290bd6415b266dc4785`
+produces saved case 8 at 34 raw / 34 canonical / 34 common-Oz bytes, versus
+verified Binaryen 132 at 36 / 36 / 34. Original and both outputs raise the
+expected Wasm trap, and outputs independently validate. This closes that
+fixture's raw loss; the aggregate renewal remains pending.
+
+Source: [flatten cleanup](../../../src/passes/flatten.mbt),
+[pass regressions](../../../src/passes/flatten_unreachable_parity_test.mbt), and
+[command regression](../../../src/cmd/flatten_unreachable_parity_wbtest.mbt).
+Local evidence: `flatten-parity-red.log`, `flatten-parity-green.log`,
+`flatten-existing-tests.log`, `flatten-command-green.log`, and
+`flatten-unreachable-repair/result.json`.

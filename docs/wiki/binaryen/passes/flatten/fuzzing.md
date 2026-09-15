@@ -158,3 +158,11 @@ Profile registration, exported runtime roots, family markers, aggregate selectio
 Treat any future raw mismatch as open until it is classified with inspected artifacts, validation, semantic reasoning, and relevant size/downstream evidence. Do not call a difference safe merely because both outputs validate or one output is smaller.
 
 The detailed discovery and repair record is [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
+
+### September 15 unreachable continuation repair
+
+Saved unreachable case 8 now lowers to the root trap without dead continuation
+or unused captures: raw/canonical 34 bytes versus v132's 36, common Oz 34/34,
+with the expected trap in all three versions. Red-first pass/command regressions
+and all 659 flatten tests pass. See [proof and limits](../../../ir2/architecture-rules.md#flatten-unreachable-continuation-repair);
+renew the aggregate before replacing historical counters.

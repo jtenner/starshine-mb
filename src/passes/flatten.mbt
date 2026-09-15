@@ -11506,3 +11506,30 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   pass_mark_mutated(ctx, func)
   HotPassResult::changed()
 }
+
+///|
+fn flatten_lowered_is_unconditional_trap(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Unreachable => true
+    @lib.Block(_, @lib.Expr([child])) | @lib.Loop(_, @lib.Expr([child])) =>
+      flatten_lowered_is_unconditional_trap(child)
+    _ => false
+  }
+}
+
+///|
+fn flatten_cleanup_lowered_root_trap(func : @lib.Func) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let next : Array[@lib.Instruction] = []
+  for instr in body {
+    // A singleton chain ending in unreachable has no effects or exits before
+    // the trap. Preserve all preceding evaluations and discard only the root
+    // continuation that cannot execute. Never infer this from an if arm.
+    if flatten_lowered_is_unconditional_trap(instr) {
+      next.push(@lib.Instruction::unreachable_())
+      return @lib.Func::new(locals, @lib.Expr::new(next))
+    }
+    next.push(instr)
+  }
+  func
+}
