@@ -2838,3 +2838,153 @@ audit repairs are committed separately; the 154 campaign checks and full
 11,954-test suite pass. README/API synchronization passes, with no public
 `.mbti` change. The remaining work is recorded in the active
 [parity backlog](../../../agent-todo.md), not hidden as accepted drift.
+
+### September 15 complete difference inventory and regression handoff
+
+This report inventories **all recorded September 15 final-lane differences**;
+it does not claim that every output has been inspected or that every difference
+is a defect. Earlier campaigns remain separately scoped in the
+[active backlog](../../../agent-todo.md). No compiler, replay, or fuzz execution
+was performed for this report; the evidence above is preserved unchanged.
+
+#### SSA timeout assessment
+
+**An SSA-induced denial of service is not established by these observations.**
+All twelve blocked SSA replays time out at 1,000 ms in the original module,
+Starshine output, and Binaryen output. The inspected original already contains
+nonterminating control flow. The compiler comparisons completed; these are
+execution-time observations, not recorded compiler hangs. Equal timeouts do
+not prove semantic equality, and inspection of one original is not a proof
+about all twelve cases. Their judgment remains **unknown/risky**.
+
+The execution harness has an existing containment mechanism:
+[`executeNodeObservationV2WithTimeout`](../../../scripts/lib/optimizer-runtime-executor.ts)
+spawns a separate Node process, sends SIGKILL on deadline, and resolves the
+observation after the child closes. The existing `Node observation process
+lifetime` tests in
+[`optimizer-runtime-executor.test.ts`](../../../scripts/lib/optimizer-runtime-executor.test.ts)
+cover a timed-out start followed by successful execution of another module.
+This is source/test coverage evidence, not a new resource-isolation signoff.
+Worker containment and optimizer semantic correctness need separate checks.
+
+**Confirmed reporting limitation:** the timeout fallback unconditionally emits
+an instantiation timeout with unknown compilation status, even though the
+parent has no phase-progress evidence. Consequently the recorded phase cannot
+establish whether compilation, instantiation, or an exported call consumed the
+deadline. A future harness regression should use controlled process events to
+assert an unknown execution phase when progress is absent, and accurate phase
+reporting when progress is available. Do not convert a timeout to a semantic
+match or erase the original timeout record.
+
+For defensive regression coverage, retain the existing process-lifetime test
+and add bounded tests of child-close ordering, cancellation, and subsequent
+worker-slot reuse using a simulated child process. Use terminating SSA fixtures
+with explicit iteration bounds to check loop-carried values, branch destinations,
+operand order, and typed aliases. Those fixtures test transformation contracts;
+they do not retroactively resolve the saved nonterminating observations. No
+new resource-exhaustion payload or vulnerability reproduction is part of this
+report.
+
+#### Inventory, units, and provenance
+
+The durable [family inventory](optimizer-difference-families.csv) contains
+**152 profile/label groups**. Of these, **103 contain normalized differences**;
+the remaining groups enter the inventory through size losses. Groups are
+metadata buckets, not proven common root causes: `unlabeled` means the generator
+record supplies no case label. Case counts are observations, not unique modules
+or independent bugs.
+
+The complete local case inventory is
+`.tmp/pass-audit-20260915/difference-report/all-differences.csv`:
+**106,387 records**, the union of 81,716 normalized mismatches and any raw or
+canonical size loss. The sets overlap; do not add their counts. It includes
+38,652 raw-larger and 1,460 canonical-larger observations, including losses
+hidden by normalized equality. For example, global-refining has no normalized
+mismatch but has 7,033 raw-size losses. Every row records pass, selected profile,
+case label/ID, comparison status, raw/canonical byte deltas, runtime outcome,
+sample judgment, available downstream delta, and retained-output availability.
+Positive deltas mean Starshine is larger. Blank downstream deltas mean unmeasured.
+
+`difference-report/reviewed-cases.csv` gives all 328 sampled judgments;
+`difference-report/manifest.json` records source and report SHA-256 hashes.
+These local files are ignored workspace artifacts, not durable attachments in
+Git. The family CSV is durable and records all groups, counts, byte-delta ranges,
+runtime coverage counts, and a first case ID. The input source is each lane's
+`final-fuzz/<pass>/cases.jsonl`; case IDs are scoped by pass. Retained complete
+output pairs are capped at twenty per lane, so the report cannot supply a
+complete textual diff for every observation. The case inventory explicitly
+records that distinction.
+
+Provenance remains `final-binaries.json`: source
+`af3c69dcac0001f52b3da9f4747944448a0b69b6`, native cmd SHA-256
+`5d15eb3582b70206f0eb6e82476b37e164cb31f7af88eaed10d72ee60cfa22b8`,
+verified Binaryen 132 SHA-256
+`1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
+Only `final-fuzz/` is used; the earlier sweep is not substituted.
+
+#### Remaining cases and regression contracts
+
+Priority is containment/reporting accuracy and valid semantic observation,
+then measured size losses, then unreviewed output shape. The following are
+**proposed regression contracts**, not newly confirmed optimizer bugs or tests
+already implemented. Extend implementing-pass and active command-dispatch tests
+for pass changes; put adapter behavior in harness tests. Assert IR fields,
+operands, labels and bytes directly. Establish a failing bounded test before a
+behavior fix; retain long seed sweeps in dedicated lanes.
+
+| Area | Evidence and open distinction | Regression contract |
+| --- | --- | --- |
+| SSA runtime containment | Twelve three-way timeouts; compiler comparisons completed | Simulated process deadline/close events preserve slot accounting and classify incomplete observations correctly; terminating loop fixtures preserve values and exits. |
+| SSA output shape | 6,250 differences: smoke 2,500, coverage 2,500, stress 1,250 | Preserve reaching definitions, loop-carried values, branch-copy liveness and identical static types for aliases. Compare effective local operations and raw/canonical size; runtime-blocked cases remain open. |
+| Reorder-globals adapter | Eleven blocked observations; original/Starshine global construction fails and oracle encoding has a separate compile block | Construct supported function-reference globals using the host API mapping, preserve mutability and distinct imported reference identities, and check remapping in element items/offsets, data offsets and table initializers. A compatible encoding check must preserve original bytes and outcomes as separate evidence. |
+| DAE2 continuation observation | Five observations blocked by runtime configuration | Feature capability/configuration must enter execution identity and cache keys. Check supported continuation behavior with bounded observations; unsupported configurations must report a capability block, not a semantic pass. |
+| DAE2 legacy exceptions | 730 canonical losses at +8 bytes; optimizing has 730 at +11 | Preserve catch order, tag identity, payloads and result types while reducing handler representation cost. Check direct and common-downstream sizes separately. |
+| Optimize-instructions tuple lanes | 1,080 differences; sampled case 196 is 74 vs 70 bytes after common cleanup | Preserve selected result lanes, effect/trap order and single evaluation while removing the +4-byte downstream loss. Raw/canonical wins alone do not close this case. |
+| Precompute | 7,446 differences; propagate has 7,953 | Check scalar/global/local-fact results, cleanup, competing label exits and effect boundaries. Separate transform correctness from canonical shape; do not infer entire-family wins from samples. |
+| Precompute atomic validation | 980 repeated exclusions of one fixture; fresh outputs equal original bytes | Preserve ordering and encoded bytes; track independent-validator capability separately. Identity evidence does not mean the rejected validator run passed. |
+| DAE / optimizing DAE | 6,250 / 4,847 differences; DAE has 1,250 raw losses | Check argument/result liveness, call effects and forwarded values; preserve cleanup normalizers and measure size before accepting remaining differences. |
+| Global-refining | Zero normalized differences; 7,033 raw losses | Preserve type/initializer compatibility and true stack producers; identify raw encoding overhead and measure before choosing a representation fix. |
+| Local-subtyping | 6,830 differences; all 10,000 outputs raw-larger | Preserve assignability and stack operand/result typing across joins and unreachable tails; separate type precision from encoding overhead. |
+| Flatten | 9,163 differences; 809 raw losses | Check result lanes and side-effect order across block/if/loop/branch payload lowering. Default results require proved no-fallthrough; measure scratch-local and block overhead. |
+| Heap2local | 7,526 differences; 3,565 raw losses | Preserve allocation identity, alias/escape behavior, field/element values and function result validity; compare reference-family encoding costs. |
+| Code-folding | 1,727 returns-unreachable and 1,649 internal-target-movement differences | Check lexical target ownership, fallthrough, continuation labels and exception effects before common-code motion; measure any retained divergence. |
+| Simplify-globals-optimizing | 4,945 differences in read-only-to-write, nested cleanup and initializer folding | Preserve global write/read order, initialization dependencies and all control-flow exits; compare canonical and downstream cleanup. |
+
+Existing SSA regression anchors are
+[`ssa_loop_fifth_audit_wbtest.mbt`](../../../src/passes/ssa_loop_fifth_audit_wbtest.mbt),
+[`ssa_mask_fifth_audit_wbtest.mbt`](../../../src/passes/ssa_mask_fifth_audit_wbtest.mbt),
+[`ssa_spill_fifth_audit_wbtest.mbt`](../../../src/passes/ssa_spill_fifth_audit_wbtest.mbt)
+and [`ssa_branchcopy_fifth_audit_wbtest.mbt`](../../../src/passes/ssa_branchcopy_fifth_audit_wbtest.mbt).
+Do not duplicate their already-covered invariants as new bugs. Harness follow-up
+also concerns [`optimizer-semantic-cache.ts`](../../../scripts/lib/optimizer-semantic-cache.ts)
+and the execution contract when runtime behavior/configuration changes.
+
+#### Exact blocked sample index
+
+Case numbers below are pass-local IDs in `runtime-replays-fresh/<pass>/cases.jsonl`.
+The full report names use `case-` plus the six-digit number and `-gen-valid`.
+
+| Pass | Case numbers | Recorded limitation |
+| --- | --- | --- |
+| ssa-nomerge | 2, 7, 8, 10, 15, 16, 18, 23, 24, 26, 31, 32 | All three versions time out; no semantic match claimed. |
+| reorder-globals | 7, 15, 23, 26, 30, 42, 66, 70, 71, 75, 78 | Function-reference global adapter and oracle compact-import encoding. |
+| dae2 | 50, 382, 8666 | Continuation runtime capability/configuration. |
+| dae2-optimizing | 15, 50 | Continuation runtime capability/configuration. |
+
+The DAE2 downstream exception is case 29: raw 141 vs 127 bytes, canonical
+135 vs 127, common-downstream 72 vs 102. OI case 196 is raw 166 vs 209,
+canonical 209 vs 226, common-downstream 74 vs 70. Both match sampled execution;
+each has a size regression in a distinct measurement stage. The mixed results
+must remain visible when defining acceptance criteria.
+
+#### Report validation and limits
+
+Inventory aggregation is checked against the preserved run: 81,716 normalized
+differences, 38,652 raw losses, 1,460 canonical losses, 300 sampled runtime
+matches and 28 blocks. All 328 reviewed observations join to a case record.
+The earlier judgments (216 sample wins, 40 size-losing, 44 parity gaps,
+28 unknown/risky) remain sample-scoped agent judgments. The family inventory
+intentionally leaves every group open pending sufficient family evidence.
+Zero property-failure counters are not property signoff: those modes were off.
+No new semantic pass, vulnerability, test result, or full parity closeout is
+claimed by this documentation update.
