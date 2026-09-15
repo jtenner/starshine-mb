@@ -111,69 +111,7 @@ fn precompute_type_cleanup_supported(mod_ : @lib.Module) -> Bool {
   if !has_gc {
     return false
   }
-  let expr_supported = fn(expr : @lib.Expr) {
-    precompute_type_cleanup_instrs_supported(expr.0)
-  }
-  match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
-      for func in funcs {
-        let @lib.Func(_, expr) = func
-        if !expr_supported(expr) {
-          return false
-        }
-      }
-    None => ()
-  }
-  match mod_.global_sec {
-    Some(@lib.GlobalSec(globals)) =>
-      for global in globals {
-        let @lib.Global(_, expr) = global
-        if !expr_supported(expr) {
-          return false
-        }
-      }
-    None => ()
-  }
-  match mod_.table_sec {
-    Some(@lib.TableSec(tables)) =>
-      for table in tables {
-        let @lib.Table(_, expr) = table
-        if expr is Some(expr) && !expr_supported(expr) {
-          return false
-        }
-      }
-    None => ()
-  }
-  match mod_.elem_sec {
-    Some(@lib.ElemSec(elems)) =>
-      for elem in elems {
-        let @lib.Elem(mode, kind) = elem
-        if mode is @lib.Active(_, offset) && !expr_supported(offset) {
-          return false
-        }
-        match kind {
-          @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
-            for expr in exprs {
-              if !expr_supported(expr) {
-                return false
-              }
-            }
-          _ => ()
-        }
-      }
-    None => ()
-  }
-  match mod_.data_sec {
-    Some(@lib.DataSec(datas)) =>
-      for data in datas {
-        let @lib.Data(mode, _) = data
-        if mode is @lib.Active(_, offset) && !expr_supported(offset) {
-          return false
-        }
-      }
-    None => ()
-  }
-  true
+  pass_type_cleanup_reference_surfaces_supported(mod_)
 }
 
 ///|

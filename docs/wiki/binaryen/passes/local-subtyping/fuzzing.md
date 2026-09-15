@@ -62,3 +62,12 @@ the surrounding stack and must not be evaluated again by a branch replacement.
 A reachable branch out of the descriptor-producing block prevents a false
 nonreturning proof. External execution is unavailable for this proposal; record
 structural validation separately when renewing the dedicated 10,000-case lane.
+
+### September 15 unused type-group repair
+
+Narrowed modules now prune unused whole recursion groups and singleton types
+under a conservative reference-surface guard. Group identities and type/field
+names are preserved; only smaller validated candidates are accepted. Four
+red-first pass regressions and all 95 local-subtyping tests pass.
+[Proof and limits](../../../ir2/architecture-rules.md#local-subtyping-unused-type-group-repair).
+Native aggregate renewal remains pending; do not replace historical counts yet.

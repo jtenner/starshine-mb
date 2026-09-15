@@ -3150,3 +3150,33 @@ Source: [flatten cleanup](../../../src/passes/flatten.mbt),
 Local evidence: `flatten-parity-red.log`, `flatten-parity-green.log`,
 `flatten-existing-tests.log`, `flatten-command-green.log`, and
 `flatten-unreachable-repair/result.json`.
+
+#### Local-subtyping unused type-group repair
+
+After actual local narrowing, a bounded cleanup removes unused type definitions
+and complete unused recursion groups. Root references include module signatures,
+imports, tables, globals, element/data expressions and function bodies. A live
+group retains every member; dependency closure preserves referenced supertypes
+and fields. The remap uses flattened global type indices, preserving group order
+and relative recursive indices. Type names and outer field-name indices are
+remapped and filtered together.
+
+The cleanup admits only the existing conservative precompute instruction surface,
+unshared function/struct/array types without descriptors, at most 128 flattened
+types and 4,096 code instructions. It does not split or deduplicate recursive
+groups. It accepts a candidate only when encoded bytes shrink and final module
+validation succeeds. Unsupported proposal references retain their original
+types; the default pass behavior remains available without this optional cleanup.
+
+Four pass regressions and a command regression first failed on retained type
+counts. They now cover dead singleton signatures/GC definitions, an unused
+recursive hierarchy, an indivisible live group, and name metadata. All 95
+local-subtyping tests pass. The precompute guard extraction preserves its
+previous admission behavior; all 302 precompute checks and the command
+regression pass. Final native/aggregate renewal remains pending. Info/fmt show no public API changes.
+
+Sources: [group cleanup](../../../src/passes/type_group_cleanup.mbt),
+[pass regressions](../../../src/passes/local_subtyping_type_parity_test.mbt), and
+[command regression](../../../src/cmd/local_subtyping_type_parity_wbtest.mbt).
+Local evidence: `local-types-red.log`, `local-types-green.log`,
+`local-types-existing.log`, and `local-types-command-red.log`.

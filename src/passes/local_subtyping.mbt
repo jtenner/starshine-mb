@@ -2063,7 +2063,11 @@ pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       }
     }
     if !changed {
-      return if did_change { current_mod } else { mod_ }
+      return if did_change {
+        pass_cleanup_unused_type_groups(current_mod)
+      } else {
+        mod_
+      }
     }
     current_mod = ls_rebuild_module(
       current_mod,
@@ -2072,5 +2076,5 @@ pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     did_change = true
     iteration += 1
   }
-  current_mod
+  pass_cleanup_unused_type_groups(current_mod)
 }
