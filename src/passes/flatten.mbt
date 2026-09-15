@@ -9933,7 +9933,9 @@ fn flatten_materialize_scalar_body_result(
   if !flatten_scalar_result_can_flow_directly(
       ctx, tail_result_type, body_result_type,
     ) {
-    if !flatten_value_type_is_defaultable(body_result_type) {
+    // Only a proven unreachable continuation may synthesize a default result.
+    if !flatten_region_has_no_fallthrough(func, @ir.HotRegionRef::root()) ||
+      !flatten_value_type_is_defaultable(body_result_type) {
       return false
     }
     let local_id = @ir.hot_append_body_local(func, body_result_type)
