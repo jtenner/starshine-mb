@@ -2630,3 +2630,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   competing exit to that block in the preceding operands. Distinct immutable
   descriptor allocations must remain distinguishable; see
   `src/passes/precompute_descriptor_fifth_audit_wbtest.mbt`.
+- Nested shifts use saturating total counts, not rotation-style modulo
+  arithmetic: logical overshifts yield zero after preserving operand effects,
+  and signed right shifts saturate at width minus one. See the forty bounded
+  cases in `src/passes/optimize_instructions_fifth_audit_test.mbt`.
