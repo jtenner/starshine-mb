@@ -3304,3 +3304,22 @@ module. Existing [SSA regression coverage](../../../src/passes/ssa_nomerge_test.
 checks unused appended locals and deliberately preserves equal-size dead holes.
 Sources: [coverage/stress builders](../../../src/validate/gen_valid_ssa.mbt),
 `ssa-static-review.json`, and the preserved runtime reports.
+
+#### Simplify-globals-optimizing fixed-family difference closure
+
+All 4,945 differing records belong to three fixed-input families: initializer
+folding (1,391), nested cleanup (1,427), and read-only-to-write (2,127). The head
+agent hashed every differing input and confirmed that all distinct hashes have
+retained output pairs. Independent canonical-tree review of all 20 pairs finds
+only nop removal or an earlier immutable i32 initializer alias retained instead
+of duplicating `40 + 2`. The numeric alias preserves the same value without
+identity, effects or trapping concerns, saving three raw/canonical bytes. Nop
+removal saves one byte. Existing common-Oz measurements do not regress.
+
+Agent judgment: these three fixed generated families are Starshine size wins,
+superseding their initial open-family status. No compiler repair is needed for
+these differences. This does not establish broad randomized SGO coverage: the
+full lane has only six unique generated inputs.
+Sources: [SGO profile builders](../../../src/validate/gen_valid.mbt),
+[pass](../../../src/passes/simplify_globals.mbt), and `sgo-static-review.json`.
+The original CSV and versioned comparison artifacts remain unchanged.

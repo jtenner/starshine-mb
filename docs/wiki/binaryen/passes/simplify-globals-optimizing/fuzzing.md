@@ -984,3 +984,13 @@ The final matrix used the rebuilt `_build/native/release/build/cmd/cmd.exe`, `--
 Artifacts are `.tmp/pass-fuzz-sgo-final-genvalid-100000`, `.tmp/pass-fuzz-sgo-final-dedicated-10000`, `.tmp/pass-fuzz-sgo-final-wasm-smith-10000`, and `.tmp/pass-fuzz-sgo-final-random-all-10000`. The dedicated lane selected all six leaves: same-init/dead-set `1404`, runtime propagation `2206`, startup propagation `1445`, nested cleanup `1427`, initializer folding `1391`, and read-only-to-write `2127`. The random-all lane selected all 15 aggregate leaves; exact counts are preserved in `result.json` and research note `1555`.
 
 The `44` wasm-smith non-compares are agent-classified Binaryen/tool failures: `binaryen-rec-group-zero` `39`, `binaryen-invalid-tag-index` `1`, `binaryen-table-index-out-of-range` `1`, and `binaryen-bad-section-size` `3`. They are not SGO semantic or output mismatches. Final closeout has zero raw mismatches, zero true semantic mismatches, zero Starshine command failures, and no unclassified comparison family.
+
+### September 15 fixed-family review
+
+Every distinct differing input in the three reported families has a retained
+output pair. Independent review of all 20 pairs finds only nop removal or
+preservation of an immutable numeric initializer alias instead of repeating
+`40 + 2`. The families save one or three raw/canonical bytes with no recorded
+common-Oz loss. These fixed-input differences are source-backed size wins;
+the six-input aggregate does not provide broad random diversity.
+[Proof and counts](../../../ir2/architecture-rules.md#simplify-globals-optimizing-fixed-family-difference-closure).
