@@ -620,3 +620,26 @@ describe("function-reference global imports", () => {
     expect(globals[3].value).toMatchObject({ type: "reference", relation: "null" });
   });
 });
+
+test("named immutable globals retain their value types through interface extraction", () => {
+  const { wasmPath } = compileWat(`(module
+    (import "env" "count" (global $count i32))
+    (import "env" "function" (global $function funcref))
+    (import "env" "external" (global $external externref))
+    (import "env" "mutable" (global $mutable (mut i64)))
+    (global $defined i64 (i64.const 9))
+    (export "count" (global $count))
+    (export "function" (global $function))
+    (export "external" (global $external))
+    (export "mutable" (global $mutable))
+    (export "defined" (global $defined)))`);
+  const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+  expect(runtimeInterface.imports.globals.map(({ valueType, mutable }) => ({ valueType, mutable }))).toEqual([
+    { valueType: "i32", mutable: false },
+    { valueType: "funcref", mutable: false },
+    { valueType: "externref", mutable: false },
+    { valueType: "i64", mutable: true },
+  ]);
+  expect(runtimeInterface.exports.filter((entry) => entry.kind === "global").map((entry) => entry.globalType?.valueType))
+    .toEqual(["i32", "funcref", "externref", "i64", "i64"]);
+});

@@ -151,7 +151,7 @@ function isUnsupportedReferenceType(type: WasmRuntimeValueType): boolean {
 function globalTypeFromForm(form: string): { valueType: WasmRuntimeValueType; mutable: boolean } {
   const mutable = /\(mut\s+([^\s)]+)\)/.exec(form);
   if (mutable) return { valueType: mutable[1], mutable: true };
-  const tail = /\bglobal\s+(?:\(;\s*\d+\s*;\)\s+)?(?:\$[^\s()]+\s+)?([^\s()]+)/.exec(form);
+  const tail = /\bglobal\s+(?:(?:\(;\s*\d+\s*;\)|\$[^\s()]+)\s+)*([^\s()$]+)/.exec(form);
   return { valueType: tail?.[1] ?? "unknown", mutable: false };
 }
 

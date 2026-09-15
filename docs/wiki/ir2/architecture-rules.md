@@ -3027,3 +3027,15 @@ limit or the eleven saved replays themselves. Those remain historical blocked
 observations until fresh verification. The test also exposed a separate
 interface-extraction issue with named immutable globals; that issue is queued
 separately. Evidence: `global-adapter-red.log` and `global-adapter-green.log`.
+
+#### Named immutable-global interface extraction
+
+The text fallback now skips a global's symbolic name and numeric index comment
+in either order before reading its immutable value type. Previously printed
+`$name` followed by an index comment could be mistaken for the type, blocking
+otherwise supported imports. A direct interface regression failed for i32,
+funcref and externref; it now checks imported and defined exported globals with
+a mutable-i64 control. All 100 selected harness checks pass. The execution
+contract is `node-v2-named-globals-v4`; red/green evidence is in
+`named-global-red.log` and `named-global-green.log`. This changes the fallback
+interface extractor, not optimizer behavior or the native interface emitter.
