@@ -899,7 +899,8 @@ async function instantiateRuntime(
   for (const imported of runtimeInterface.imports.globals) {
     if (imported.support === "unsupported" || imported.support === "scalar-adapter") throw new Error(`unsupported imported global ${imported.module}.${imported.field}: ${imported.valueType}`);
     const namespace = (imports[imported.module] ??= {});
-    const global = new WebAssembly.Global({ value: imported.valueType as WebAssembly.ValueType, mutable: imported.mutable }, zeroJsValue(imported.valueType) as never);
+    const valueType = imported.valueType === "funcref" ? "anyfunc" : imported.valueType;
+    const global = new WebAssembly.Global({ value: valueType as WebAssembly.ValueType, mutable: imported.mutable }, zeroJsValue(imported.valueType) as never);
     namespace[imported.field] = global;
     globals.set(imported.index, global);
   }

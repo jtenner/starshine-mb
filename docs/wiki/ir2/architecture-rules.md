@@ -3010,3 +3010,20 @@ executor/compare-task integration checks pass 82/82. No Moon or optimizer
 implementation changed. Local red/green logs are under the existing audit
 artifact directory (`process-attribution-red.log`, `process-green.log`,
 `process-integration.log`).
+
+#### Function-reference global construction
+
+The Node adapter now maps Wasm `funcref` globals to the JavaScript API's
+`anyfunc` descriptor, as it already does for tables. Immutable/mutable imports
+retain their declared mutability; externref behavior is unchanged. A bounded
+regression first failed with the saved descriptor error, then constructs both
+kinds, assigns two distinct Wasm function references to mutable globals, and
+checks their observed identities plus untouched null globals. All 99 selected
+runtime, process, cache, and compare-task checks pass. Execution contract
+`node-v2-funcref-globals-v3` invalidates earlier adapter observations.
+
+This fixes the construction blocker, not the separate compact-import engine
+limit or the eleven saved replays themselves. Those remain historical blocked
+observations until fresh verification. The test also exposed a separate
+interface-extraction issue with named immutable globals; that issue is queued
+separately. Evidence: `global-adapter-red.log` and `global-adapter-green.log`.

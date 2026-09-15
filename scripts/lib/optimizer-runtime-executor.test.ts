@@ -586,3 +586,37 @@ describe("Binaryen call.without.effects runtime contract", () => {
     expect(report.original.completeness).toBe("complete");
   });
 });
+
+describe("function-reference global imports", () => {
+  test("constructs immutable and mutable globals and observes distinct assigned references", async () => {
+    const { wasmPath } = compileWat(`(module
+      (import "env" "fixed" (global funcref))
+      (import "env" "left" (global (mut funcref)))
+      (import "env" "right" (global (mut funcref)))
+      (import "env" "external" (global externref))
+      (export "fixed" (global 0))
+      (export "left" (global 1))
+      (export "right" (global 2))
+      (export "external" (global 3))
+      (func $a) (func $b)
+      (elem declare func $a $b)
+      (func (export "assign") (result i32)
+        ref.func $a global.set 1
+        ref.func $b global.set 2
+        global.get 0 ref.is_null))`);
+    const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+    const plan = buildInvocationPlanV2(runtimeInterface, { seed: 1n, maxPairwise: 0 });
+    const observation = await executeNodeObservationV2WithTimeout(wasmPath, runtimeInterface, plan, {
+      mode: "independent", timeoutMs: 1000, memoryCapBytes: 1024, tableEntryCap: 16,
+    });
+    expect(observation.instantiation).toEqual({ status: "succeeded" });
+    expect(observation.completeness).toBe("complete");
+    const step = observation.steps.find((entry) => entry.exportName === "assign")!;
+    expect(step.outcome).toMatchObject({ kind: "returned", values: [{ type: "i32", signed: 1 }] });
+    const globals = step.stateAfter.globals;
+    expect(globals[0].value).toMatchObject({ type: "reference", relation: "null" });
+    expect(globals[1].value).toMatchObject({ type: "reference", relation: "funcref:0" });
+    expect(globals[2].value).toMatchObject({ type: "reference", relation: "funcref:1" });
+    expect(globals[3].value).toMatchObject({ type: "reference", relation: "null" });
+  });
+});
