@@ -133,3 +133,13 @@ Direct Binaryen-v131 behavior parity is closed. Reopen if:
 - Starshine produces any validation, generator, property, or command failure;
 - a residual contains a real reorder opportunity and cannot be classified from inspected source, input/output, size, and validity evidence;
 - either retained large-global fixture exceeds `2x` Binaryen pass-local time or the skipped native-release guard exceeds `20 ms`.
+
+### September 15 portable runtime renewal
+
+The eleven function-reference import cases now complete and match across the
+original, fresh Starshine and a separately encoded portable v132 oracle copy.
+All oracle re-disassemblies are identical; original compact-import bytes remain
+preserved. These cases have no exports/invocations and observe construction,
+instantiation and 129 imported globals. Raw compact-import size policy and name
+metadata remain distinct from this observation closure.
+[Provenance and limits](../../../ir2/architecture-rules.md#reorder-globals-compatible-encoding-runtime-renewal).

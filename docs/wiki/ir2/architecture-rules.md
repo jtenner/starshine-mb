@@ -3323,3 +3323,31 @@ full lane has only six unique generated inputs.
 Sources: [SGO profile builders](../../../src/validate/gen_valid.mbt),
 [pass](../../../src/passes/simplify_globals.mbt), and `sgo-static-review.json`.
 The original CSV and versioned comparison artifacts remain unchanged.
+
+#### Reorder-globals compatible-encoding runtime renewal
+
+All eleven saved function-reference import blockers now complete under the
+repaired Node adapter using a separate portable oracle encoding. Fresh Starshine
+and verified Binaryen 132 outputs are generated from each unchanged original
+input. The original oracle bytes are preserved; v132 wasm-dis/wasm-as produce
+a second copy with `--disable-compact-imports`. Re-disassembly is identical for
+every pair, and fresh Starshine/portable oracle outputs independently validate.
+
+Original, Starshine and portable-oracle observations match for all eleven cases.
+Their scope is compilation, import construction, instantiation and snapshots of
+129 imported globals: these modules have no exports or invocation steps. This
+unblocks the recorded observation plan, not arbitrary function behavior or
+non-null imported-reference combinations. The distinct-reference adapter unit
+regression separately checks assigned function identities.
+
+Compact-import size differences remain an explicit encoding-policy gap; the
+portable Node observation does not erase original raw-byte losses. Name-section
+overhead likewise remains metadata-preservation evidence, not dead-code cost.
+The binary encoder already exposes `compact_imports`, default false; this review
+does not change output policy to gain a smaller unsupported engine encoding.
+
+Local provenance: `parity-reorder-runtime/toolchain.json`, `results.json`, each
+`semantic-v2.json`, both preserved oracle encodings and paired disassemblies.
+Sources: [runtime adapter](../../../scripts/lib/optimizer-runtime-executor.ts),
+[encoder policy](../../../src/binary/api.mbt), and
+[original report](#runtime-review-and-remaining-parity-work).
