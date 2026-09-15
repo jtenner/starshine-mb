@@ -578,7 +578,8 @@ fn rg_rewrite_global_idx(
 
 ///|
 fn rg_rewrite_expr(expr : @lib.Expr, remap : Array[Int]) -> @lib.Expr {
-  let @lib.Expr(instrs) = expr
+  let @lib.Expr(original) = expr
+  let instrs = original.copy()
   rg_rewrite_instrs_in_place(instrs, remap)
   @lib.Expr::new(instrs)
 }
@@ -601,9 +602,11 @@ fn rg_rewrite_instrs_in_place(
           rg_rewrite_expr(body, remap),
         )
       @lib.If(block_type, then_body, else_body) => {
+        let then_body = then_body.copy()
         rg_rewrite_instrs_in_place(then_body, remap)
         let rewritten_else = match else_body {
           Some(body) => {
+            let body = body.copy()
             rg_rewrite_instrs_in_place(body, remap)
             Some(body)
           }

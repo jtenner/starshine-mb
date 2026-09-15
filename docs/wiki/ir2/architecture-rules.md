@@ -2649,3 +2649,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - Flatten preserves the scalar body result when subtype context cannot prove
   its flow; it must never substitute a default local value for that result
   (`src/passes/flatten_fifth_audit_test.mbt`).
+
+- Reorder-globals remaps owned instruction arrays; shared input expressions
+  and if arms must not be mutated and accidentally remapped twice
+  (`src/passes/reorder_globals_fifth_audit_wbtest.mbt`).
