@@ -49,6 +49,8 @@ fn precompute_type_cleanup_instrs_supported(
       | @lib.RefEq
       | @lib.RefAsNonNull
       | @lib.RefI31
+      | @lib.RefTest(_, _, _)
+      | @lib.RefCast(_, _, _)
       | @lib.StructNew(_)
       | @lib.StructNewDefault(_)
       | @lib.StructGet(_, _)

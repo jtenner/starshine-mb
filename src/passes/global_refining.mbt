@@ -1244,5 +1244,5 @@ pub fn global_refining_run_module_pass(
   if pass_module_has_legacy_try(refined) {
     return refined
   }
-  dfe_cleanup_raw_encoding(refined)
+  dfe_cleanup_raw_encoding(pass_cleanup_unused_type_groups(refined))
 }

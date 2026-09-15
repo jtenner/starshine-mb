@@ -69,3 +69,14 @@ bun fuzz compare-pass --pass global-refining --gen-valid-profile global-refining
 ```
 
 Final native results are pending campaign closeout.
+
+### Dedicated-profile unused type repair
+
+The first v132 reference-global aggregate exposed 7,500 raw size losses from
+unused sibling types. Global-refining now invokes bounded whole-group cleanup
+after refinement. The shared guard admits plain `ref.test` and `ref.cast`, whose
+heap-type operands the DFE scanner/remapper already handles. Red-first tests
+require dead sibling removal, retain types referenced only by these instructions,
+and check operand remapping plus independent validation. The command dispatcher
+also has a failing-before-fix sibling regression. Final aggregate renewal remains
+pending; canonical equality alone did not close these raw losses.
