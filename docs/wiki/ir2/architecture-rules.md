@@ -3059,3 +3059,28 @@ All 102 selected harness tests pass. Logs: `node-config-red.log`,
 missing configuration path; it does not claim that all continuation operations
 or the five saved blocked observations have passed. Engine capability and
 per-case outcomes remain separate from configuration support.
+
+#### OI multivalue wrapper size repair
+
+OI now uses the shared branchless-block cleanup for functions whose source has
+a multivalue producer, both on the raw admission path and after HOT lowering.
+Only parameter-free blocks without control transfers are flattened. Producers,
+local writes and lane order stay unchanged; the shared proof excludes branch,
+exception and continuation transfers. This removes wrappers that hinder later
+local cleanup without broadening OI's instruction-motion rules.
+
+The pass and command regressions failed first, then pass; all 1,466 existing
+OI tests pass. `moon info` and `moon fmt` pass with no `.mbti` changes. A freshly
+built native CLI (`96770c9e2b75267c85c7a1356c615bae1d74240e46603693e8f85bff382c8c42`)
+checks saved case 196 against the verified v132 oracle: Starshine raw size is
+160 bytes (previously 166), canonical 173 (previously 209), and common-downstream
+70 (previously 74). Binaryen remains 209 / 226 / 70. Downstream bytes now match
+exactly, and both executions return i32 1159 and i64 22. This supersedes the
++4-byte residual for this case; the full tuple-family renewal is still pending.
+
+Tests:
+[`optimize_instructions_tuple_parity_test.mbt`](../../../src/passes/optimize_instructions_tuple_parity_test.mbt)
+and [command regression](../../../src/cmd/optimize_instructions_tuple_parity_wbtest.mbt).
+Evidence: `oi-tuple-red.log`, `oi-tuple-command-red.log`, `oi-pass-tests.log`,
+`oi-native-build.log`, and `oi-tuple-repair/result.json`. Full-suite and final
+10,000-case affected-pass fuzz verification remain part of campaign closeout.

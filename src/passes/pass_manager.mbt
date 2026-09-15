@@ -76883,6 +76883,21 @@ fn run_hot_pipeline_precompute_drop_void_self_branch_blocks(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
+  func : @lib.Func,
+  original : @lib.Func?,
+  mod_ : @lib.Module,
+) -> (@lib.Func, Bool) {
+  match original {
+    Some(@lib.Func(_, @lib.Expr(body))) if run_hot_pipeline_raw_tuple_has_multivalue_producer(
+        body,
+        @ir.hot_module_context_from_module(mod_),
+      ) => pass_lower_cleanup_branchless_blocks(func, mod_)
+    _ => (func, false)
+  }
+}
+
+///|
 fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   func : @lib.Func,
   descriptor_name : String,
@@ -76982,6 +76997,15 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   let cleaned = run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
     cleaned, descriptor_name, mod_,
   )
+  let cleaned = if descriptor_name == "optimize-instructions" {
+    // Preserve lane evaluation order while removing branchless wrappers that
+    // obstruct downstream local cleanup after multivalue lowering.
+    run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
+      cleaned, original_func, mod_,
+    ).0
+  } else {
+    cleaned
+  }
   let cleaned = if descriptor_name == "precompute-propagate" {
     run_hot_pipeline_precompute_drop_void_self_branch_blocks(cleaned)
   } else {
@@ -78256,7 +78280,19 @@ fn run_hot_pipeline_func(
       options,
       oi_index~,
     ) {
-    Some(result) => return Ok(result)
+    Some(result) => {
+      let (cleaned, changed) = run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
+        result.func,
+        Some(run_hot_pipeline_original_func(mod_, func_idx)),
+        mod_,
+      )
+      return Ok({
+        reason: result.reason,
+        func: cleaned,
+        unchanged_original: result.unchanged_original && !changed,
+        trace_skip_raw: result.trace_skip_raw,
+      })
+    }
     None => ()
   }
   let merge_blocks_module_ctx = if descriptor.name == "merge-blocks" {
