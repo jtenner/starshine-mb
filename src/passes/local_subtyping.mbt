@@ -2027,11 +2027,100 @@ fn ls_ref_body_local_iteration_limit(funcs : Array[@lib.Func]) -> Int {
 }
 
 ///|
+fn ls_label_count(body : Array[@lib.Instruction]) -> UInt {
+  let mut count = 0U
+  for instr in body {
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Try(_, _, _, _) => count += 1U
+      _ => ()
+    }
+    ignore(
+      pass_lower_map_children(instr, fn(child) {
+        count += ls_label_count(child)
+        child
+      }),
+    )
+  }
+  count
+}
+
+///|
+// An explicit root return cannot fall through. Keep its entire evaluated prefix
+// and only discard the suffix; nested/conditional returns do not prove this.
+fn ls_remove_return_suffixes(mod_ : @lib.Module) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let label_limits : Map[UInt, UInt] = Map([])
+  let imported = ls_imported_func_count(mod_)
+  let next_funcs = funcs.mapi(fn(index, func) {
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    for end = 0; end + 1 < body.length(); end = end + 1 {
+      if body[end] is @lib.Return {
+        let kept = body[0:end + 1].to_array()
+        label_limits[(imported + index).to_uint()] = ls_label_count(kept)
+        return @lib.Func::new(locals, @lib.Expr::new(kept))
+      }
+    }
+    func
+  })
+  if label_limits.is_empty() {
+    return mod_
+  }
+  let candidate = mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+  match mod_.name_sec {
+    Some(names) =>
+      match names.label_names {
+        Some(@lib.IndirectNameMap(entries)) => {
+          let label_names = @lib.IndirectNameMap::new(
+            entries.map(fn(entry) {
+              let @lib.IndirectNameAssoc(index, @lib.NameMap(labels)) = entry
+              match label_limits.get(index) {
+                Some(limit) =>
+                  @lib.IndirectNameAssoc::new(
+                    index,
+                    @lib.NameMap::new(
+                      labels.filter(fn(label) { label.0 < limit }),
+                    ),
+                  )
+                None => entry
+              }
+            }),
+          )
+          candidate.with_name_sec(
+            @lib.NameSec::new(
+              module_name=names.module_name,
+              func_names=names.func_names,
+              local_names=names.local_names,
+              label_names=Some(label_names),
+              type_names=names.type_names,
+              table_names=names.table_names,
+              memory_names=names.memory_names,
+              global_names=names.global_names,
+              elem_names=names.elem_names,
+              data_names=names.data_names,
+              field_names=names.field_names,
+              tag_names=names.tag_names,
+            ),
+          )
+        }
+        None => candidate
+      }
+    None => candidate
+  }
+}
+
+///|
 pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   if pass_module_has_legacy_try(mod_) {
     return mod_
   }
-  let mut current_mod = mod_
+  let mut current_mod = ls_remove_return_suffixes(mod_)
   let mut iteration = 0
   let iteration_limit = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => ls_ref_body_local_iteration_limit(funcs)

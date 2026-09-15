@@ -88,3 +88,13 @@ two; cleanup now prunes the dead recursive group while preserving the i31
 conditional. All 97 other local-subtyping tests pass; the separate dead-return
 regression remains red. Final fuzz renewal must also cover both precompute
 variants because they share this guard.
+
+### Dead root-return continuation follow-up
+
+Local-subtyping removes only the suffix after an explicit root `return` before
+refinement. It preserves prefix effects, result production and conditional
+fallthrough. Label names for deleted suffix labels are removed; surviving labels
+and untouched functions keep their names. Three bounded pass cases first failed
+for retained instructions or names; the conditional control already passed.
+All 101 local-subtyping tests now pass. The dispatcher also has a red-first
+continuation regression. Aggregate renewal follows the global-refining repair.
