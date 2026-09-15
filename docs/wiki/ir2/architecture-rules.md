@@ -2618,3 +2618,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - DAE pair-result carrier reshaping proves eliminated payload/result writes
   are dead and moved reads are independent of the else arm. Later local reads
   retain their original assignments. See `src/passes/dae_pair_fifth_audit_wbtest.mbt`.
+- DAE2 treats a public recursive-group member as exposing every sibling,
+  even without an explicit type-reference edge. This preserves cross-module
+  type identity for imported/exported globals and tables. See
+  `src/passes/dead_argument_elimination2_fifth_audit_wbtest.mbt`.

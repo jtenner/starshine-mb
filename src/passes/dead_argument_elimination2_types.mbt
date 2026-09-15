@@ -162,6 +162,15 @@ fn dae2_prepare_type_locations(
   for index = 0; index < total; index = index + 1 {
     ignore(public_types.location())
   }
+  // Exposing any recursive-group member exposes the identity of the whole
+  // group, including siblings with no explicit reference edge between them.
+  // A star through the base keeps this closure linear in the group size.
+  for index = 0; index < total; index = index + 1 {
+    if bases[index] != index {
+      public_types.edge(index, bases[index])
+      public_types.edge(bases[index], index)
+    }
+  }
   for index = 0; index < total; index = index + 1 {
     let subtype = context.subtypes[index]
     let base = bases[index]
