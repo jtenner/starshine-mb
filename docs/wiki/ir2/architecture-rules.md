@@ -2657,3 +2657,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - Simplify-globals-optimizing includes continuation handler edges when
   proving a dropped block result unused; handlers retain the target arity
   (`src/passes/simplify_globals_fifth_audit_wbtest.mbt`).
+
+- Code-folding checks continuation handler labels before moving a suffix
+  out of its enclosing labels and treats resumptions as potentially throwing
+  when crossing exception regions (`code_folding_fifth_audit_wbtest.mbt`).

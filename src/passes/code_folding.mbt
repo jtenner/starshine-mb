@@ -233,6 +233,7 @@ fn code_folding_node_has_control_or_exit(
     | @ir.HotOp::Unreachable
     | @ir.HotOp::Throw
     | @ir.HotOp::Rethrow
+    | @ir.HotOp::Continuation
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Delegate => true
     _ => {
@@ -363,6 +364,13 @@ fn code_folding_branch_targets_survive_hoist_in_marks(
         ) {
         return false
       }
+    @ir.HotOp::Continuation => {
+      for label_id in @ir.hot_continuation_targets(func, node_id) {
+        if !code_folding_branch_target_survives_hoist_in_marks(func, index, epoch, label_id) {
+          return false
+        }
+      }
+    }
     @ir.HotOp::TryTable => return false
     _ => ()
   }
@@ -666,6 +674,7 @@ fn code_folding_terminating_node_may_throw(
     | @ir.HotOp::ReturnCallRef
     | @ir.HotOp::Throw
     | @ir.HotOp::Rethrow
+    | @ir.HotOp::Continuation
     | @ir.HotOp::ThrowRef => true
     _ => false
   }
@@ -962,6 +971,13 @@ fn code_folding_terminating_branch_targets_are_internal(
         ) {
         return false
       }
+    @ir.HotOp::Continuation => {
+      for label_id in @ir.hot_continuation_targets(func, node_id) {
+        if !code_folding_terminating_branch_target_is_internal(func, facts, epoch, label_id) {
+          return false
+        }
+      }
+    }
     @ir.HotOp::TryTable => return false
     _ => ()
   }
@@ -2237,6 +2253,7 @@ fn code_folding_node_may_throw_for_eh_move(
     | @ir.HotOp::ReturnCallRef
     | @ir.HotOp::Throw
     | @ir.HotOp::Rethrow
+    | @ir.HotOp::Continuation
     | @ir.HotOp::ThrowRef => return true
     _ => ()
   }
