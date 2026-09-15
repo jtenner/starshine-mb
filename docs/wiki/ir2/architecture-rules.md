@@ -2602,3 +2602,6 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - Registry help results are independent snapshots, including nested descriptor
   arrays; editing help metadata must not mutate executable pass requirements.
   See `src/passes/registry_fifth_audit_wbtest.mbt` and `src/passes/optimize.mbt`.
+- DAE preserves `eqz` around ordered floating comparisons: NaN makes both
+  opposite ordered comparisons false. The sixteen f32/f64 operand-order guards
+  in `src/passes/dae_float_fifth_audit_wbtest.mbt` reproduce the old wrong result.

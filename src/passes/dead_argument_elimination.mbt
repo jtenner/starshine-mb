@@ -9166,18 +9166,11 @@ fn dae_negate_compare_instr(instr : @lib.Instruction) -> @lib.Instruction? {
     @lib.I64GtU => Some(@lib.Instruction::i64_le_u())
     @lib.I64GeS => Some(@lib.Instruction::i64_lt_s())
     @lib.I64GeU => Some(@lib.Instruction::i64_lt_u())
+    // Ordered floating comparisons are not complements when either operand is NaN.
     @lib.F32Eq => Some(@lib.Instruction::f32_ne())
     @lib.F32Ne => Some(@lib.Instruction::f32_eq())
-    @lib.F32Lt => Some(@lib.Instruction::f32_ge())
-    @lib.F32Gt => Some(@lib.Instruction::f32_le())
-    @lib.F32Le => Some(@lib.Instruction::f32_gt())
-    @lib.F32Ge => Some(@lib.Instruction::f32_lt())
     @lib.F64Eq => Some(@lib.Instruction::f64_ne())
     @lib.F64Ne => Some(@lib.Instruction::f64_eq())
-    @lib.F64Lt => Some(@lib.Instruction::f64_ge())
-    @lib.F64Gt => Some(@lib.Instruction::f64_le())
-    @lib.F64Le => Some(@lib.Instruction::f64_gt())
-    @lib.F64Ge => Some(@lib.Instruction::f64_lt())
     _ => None
   }
 }
