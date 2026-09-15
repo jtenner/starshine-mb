@@ -79,3 +79,12 @@ local narrowed. Cleanup now runs at the fixed point even without a type change.
 The pass and dispatcher regressions first failed with four/three types instead
 of one. The remaining i31 admission and dead-return continuation regressions
 are separate pending repairs; renewed aggregate evidence follows those fixes.
+
+### i31 cleanup admission follow-up
+
+The shared type-remap guard now admits `ref.i31`, which has no type index.
+The pass and dispatcher fixtures first retained three type entries instead of
+two; cleanup now prunes the dead recursive group while preserving the i31
+conditional. All 97 other local-subtyping tests pass; the separate dead-return
+regression remains red. Final fuzz renewal must also cover both precompute
+variants because they share this guard.
