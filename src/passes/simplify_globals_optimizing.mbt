@@ -10031,6 +10031,16 @@ fn sgo_final_cleanup_instr_branches_to_depth(
     | @lib.BrOnCastDescEq(label_idx, _, _)
     | @lib.BrOnCastDescEqFail(label_idx, _, _) =>
       sgo_final_cleanup_label_targets_depth(label_idx, depth)
+    @lib.Resume(_, handlers)
+    | @lib.ResumeThrow(_, _, handlers)
+    | @lib.ResumeThrowRef(_, handlers) =>
+      handlers.any(fn(handler) {
+        match handler {
+          @lib.ResumeOnLabel(_, label) =>
+            sgo_final_cleanup_label_targets_depth(label, depth)
+          @lib.ResumeOnSwitch(_) => false
+        }
+      })
     @lib.BrTable(labels, default_label) => {
       if sgo_final_cleanup_label_targets_depth(default_label, depth) {
         return true

@@ -2653,3 +2653,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - Reorder-globals remaps owned instruction arrays; shared input expressions
   and if arms must not be mutated and accidentally remapped twice
   (`src/passes/reorder_globals_fifth_audit_wbtest.mbt`).
+
+- Simplify-globals-optimizing includes continuation handler edges when
+  proving a dropped block result unused; handlers retain the target arity
+  (`src/passes/simplify_globals_fifth_audit_wbtest.mbt`).
