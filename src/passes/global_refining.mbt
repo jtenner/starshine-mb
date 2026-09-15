@@ -937,7 +937,11 @@ fn gr_rewrite_ref_null_set_instrs(
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
         let slot = global_idx.reinterpret_as_int()
         if idx > 0 && slot >= 0 && slot < refined_globals.length() {
-          match (gr_null_write_producer(next, idx, mod_, func_type_indices), refined_globals[slot]) {
+          match
+            (
+              gr_null_write_producer(next, idx, mod_, func_type_indices),
+              refined_globals[slot],
+            ) {
             (Some(producer), Some(refined_ref_type)) => {
               next[producer] = @lib.Instruction::ref_null_type(refined_ref_type)
               changed = true
@@ -1215,7 +1219,8 @@ fn gr_null_write_producer(
   let mut depth = 0
   let mut index = consumer - 1
   while index >= 0 {
-    let (pops, pushes) = match dae_instr_stack_effect(instrs[index], mod_, func_type_indices) {
+    let (pops, pushes) = match
+      dae_instr_stack_effect(instrs[index], mod_, func_type_indices) {
       Some(effect) => effect
       None => return None
     }

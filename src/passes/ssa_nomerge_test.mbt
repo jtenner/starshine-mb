@@ -5905,12 +5905,16 @@ test "ssa-nomerge preserves distinct copied locals through nested loop branches"
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_defined_func(optimized, 2)
-  assert_eq(audit_count(instrs, fn(instr) {
-    match instr {
-      @lib.LocalSet(@lib.LocalIdx(4U)) | @lib.LocalTee(@lib.LocalIdx(4U)) => true
-      _ => false
-    }
-  }), 1)
+  assert_eq(
+    audit_count(instrs, fn(instr) {
+      match instr {
+        @lib.LocalSet(@lib.LocalIdx(4U)) | @lib.LocalTee(@lib.LocalIdx(4U)) =>
+          true
+        _ => false
+      }
+    }),
+    1,
+  )
 }
 
 ///|
@@ -6091,12 +6095,16 @@ test "ssa-nomerge preserves a distinct loop carrier across an unrelated tee" {
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
-  assert_eq(audit_count(instrs, fn(instr) {
-    match instr {
-      @lib.LocalSet(@lib.LocalIdx(6U)) | @lib.LocalTee(@lib.LocalIdx(6U)) => true
-      _ => false
-    }
-  }), 1)
+  assert_eq(
+    audit_count(instrs, fn(instr) {
+      match instr {
+        @lib.LocalSet(@lib.LocalIdx(6U)) | @lib.LocalTee(@lib.LocalIdx(6U)) =>
+          true
+        _ => false
+      }
+    }),
+    1,
+  )
 }
 
 ///|

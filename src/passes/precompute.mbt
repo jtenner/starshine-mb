@@ -1782,7 +1782,9 @@ fn precompute_heap_identity_for_node(
                 _ => ()
               }
             }
-            if precompute_heap_identity_has_alternative_exit(func, root_id, label) {
+            if precompute_heap_identity_has_alternative_exit(
+                func, root_id, label,
+              ) {
               return None
             }
           }
@@ -11823,7 +11825,9 @@ fn precompute_heap_identity_has_alternative_exit(
   node_id : Int,
   label : Int,
 ) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) { return false }
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
   if @ir.hot_branch_target(func, node_id) == Some(label) ||
     @ir.hot_branch_table_targets_for_node(func, node_id).contains(label) {
     return true
@@ -11831,13 +11835,19 @@ fn precompute_heap_identity_has_alternative_exit(
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Try | @ir.HotOp::TryTable => return true
     @ir.HotOp::Continuation =>
-      if @ir.hot_continuation_targets(func, node_id).contains(label) { return true }
+      if @ir.hot_continuation_targets(func, node_id).contains(label) {
+        return true
+      }
     _ => ()
   }
   for slot in 0..<@ir.hot_child_count(func, node_id) {
     if precompute_heap_identity_has_alternative_exit(
-        func, @ir.hot_child_get(func, node_id, slot), label,
-      ) { return true }
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        label,
+      ) {
+      return true
+    }
   }
   false
 }

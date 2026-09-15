@@ -17568,8 +17568,7 @@ fn dae_instr_has_branch(instr : @lib.Instruction) -> Bool {
     | @lib.ReturnCallRef(_)
     | @lib.Throw(_)
     | @lib.ThrowRef => true
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body)) =>
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
       body.any(fn(child) { dae_instr_has_branch(child) })
     @lib.If(_, then_body, Some(else_body)) =>
       then_body.any(fn(child) { dae_instr_has_branch(child) }) ||
@@ -35457,12 +35456,28 @@ fn dae_rewrite_single_local_instr(
       let rewritten_catches = catches.map(fn(catch_) {
         match catch_ {
           @lib.LegacyCatch(tag, @lib.Expr(body)) =>
-            @lib.LegacyCatch::tagged(tag, @lib.Expr::new(dae_rewrite_single_local_instrs(body, from_local, to_local)))
+            @lib.LegacyCatch::tagged(
+              tag,
+              @lib.Expr::new(
+                dae_rewrite_single_local_instrs(body, from_local, to_local),
+              ),
+            )
           @lib.LegacyCatchAll(@lib.Expr(body)) =>
-            @lib.LegacyCatch::all(@lib.Expr::new(dae_rewrite_single_local_instrs(body, from_local, to_local)))
+            @lib.LegacyCatch::all(
+              @lib.Expr::new(
+                dae_rewrite_single_local_instrs(body, from_local, to_local),
+              ),
+            )
         }
       })
-      @lib.Instruction::try_(block_type, @lib.Expr::new(dae_rewrite_single_local_instrs(body, from_local, to_local)), rewritten_catches, delegate~)
+      @lib.Instruction::try_(
+        block_type,
+        @lib.Expr::new(
+          dae_rewrite_single_local_instrs(body, from_local, to_local),
+        ),
+        rewritten_catches,
+        delegate~,
+      )
     }
     @lib.If(block_type, then_body, else_body) =>
       @lib.Instruction::if_(
@@ -37907,10 +37922,13 @@ fn dae_instr_references_local(
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       dae_instrs_reference_local(body, target_local)
     @lib.Try(_, @lib.Expr(body), catches, _) => {
-      if dae_instrs_reference_local(body, target_local) { return true }
+      if dae_instrs_reference_local(body, target_local) {
+        return true
+      }
       catches.any(fn(catch_) {
         match catch_ {
-          @lib.LegacyCatch(_, @lib.Expr(body)) | @lib.LegacyCatchAll(@lib.Expr(body)) =>
+          @lib.LegacyCatch(_, @lib.Expr(body))
+          | @lib.LegacyCatchAll(@lib.Expr(body)) =>
             dae_instrs_reference_local(body, target_local)
         }
       })
@@ -38206,9 +38224,17 @@ fn dae_local_usage_evidence_instr(
         let @lib.Expr(body) = match catch_ {
           @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
         }
-        child = dae_merge_local_usage_evidence(child, dae_local_usage_evidence(body, target_local))
+        child = dae_merge_local_usage_evidence(
+          child,
+          dae_local_usage_evidence(body, target_local),
+        )
       }
-      { target_local, get_count: child.get_count, write_count: child.write_count, has_try_table: true }
+      {
+        target_local,
+        get_count: child.get_count,
+        write_count: child.write_count,
+        has_try_table: true,
+      }
     }
     @lib.If(_, then_body, Some(else_body)) =>
       dae_merge_local_usage_evidence(
@@ -40689,12 +40715,32 @@ fn dae_replace_local_get_with_i32_const_instr(
       let rewritten_catches = catches.map(fn(catch_) {
         match catch_ {
           @lib.LegacyCatch(tag, @lib.Expr(body)) =>
-            @lib.LegacyCatch::tagged(tag, @lib.Expr::new(dae_replace_local_get_with_i32_const_instrs(body, target_local, value)))
+            @lib.LegacyCatch::tagged(
+              tag,
+              @lib.Expr::new(
+                dae_replace_local_get_with_i32_const_instrs(
+                  body, target_local, value,
+                ),
+              ),
+            )
           @lib.LegacyCatchAll(@lib.Expr(body)) =>
-            @lib.LegacyCatch::all(@lib.Expr::new(dae_replace_local_get_with_i32_const_instrs(body, target_local, value)))
+            @lib.LegacyCatch::all(
+              @lib.Expr::new(
+                dae_replace_local_get_with_i32_const_instrs(
+                  body, target_local, value,
+                ),
+              ),
+            )
         }
       })
-      @lib.Instruction::try_(block_type, @lib.Expr::new(dae_replace_local_get_with_i32_const_instrs(body, target_local, value)), rewritten_catches, delegate~)
+      @lib.Instruction::try_(
+        block_type,
+        @lib.Expr::new(
+          dae_replace_local_get_with_i32_const_instrs(body, target_local, value),
+        ),
+        rewritten_catches,
+        delegate~,
+      )
     }
     @lib.If(block_type, then_body, Some(else_body)) =>
       @lib.Instruction::if_(
@@ -40749,7 +40795,10 @@ fn dae_try_inline_i32_const_local_set_flat_once(
         ) >=
         protected_local_slots &&
         dae_local_usage_evidence_has_single_get_write(body, local_idx) &&
-        dae_local_usage_evidence_has_single_get_write(whole_body.unwrap_or(body), local_idx) &&
+        dae_local_usage_evidence_has_single_get_write(
+          whole_body.unwrap_or(body),
+          local_idx,
+        ) &&
         !dae_instrs_reference_any_local_range(body, 0, idx, [local_idx]) => {
         let without_set : Array[@lib.Instruction] = []
         let mut copy_idx = 0
@@ -40782,7 +40831,11 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
 ) -> Array[@lib.Instruction]? {
   let whole_body = Some(whole_body.unwrap_or(body))
   match
-    dae_try_inline_i32_const_local_set_flat_once(body, protected_local_slots, whole_body~) {
+    dae_try_inline_i32_const_local_set_flat_once(
+      body,
+      protected_local_slots,
+      whole_body~,
+    ) {
     Some(rewritten) => return Some(rewritten)
     None => ()
   }
@@ -40792,7 +40845,9 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.Block(block_type, @lib.Expr(child_body)) =>
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            child_body, protected_local_slots, whole_body~,
+            child_body,
+            protected_local_slots,
+            whole_body~,
           ) {
           Some(rewritten_child) => {
             let rewritten = body.copy()
@@ -40807,7 +40862,9 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.Loop(block_type, @lib.Expr(child_body)) =>
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            child_body, protected_local_slots, whole_body~,
+            child_body,
+            protected_local_slots,
+            whole_body~,
           ) {
           Some(rewritten_child) => {
             let rewritten = body.copy()
@@ -40822,7 +40879,9 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.TryTable(block_type, catches, @lib.Expr(child_body)) =>
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            child_body, protected_local_slots, whole_body~,
+            child_body,
+            protected_local_slots,
+            whole_body~,
           ) {
           Some(rewritten_child) => {
             let rewritten = body.copy()
@@ -40838,7 +40897,9 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.If(block_type, then_body, Some(else_body)) => {
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            then_body, protected_local_slots, whole_body~,
+            then_body,
+            protected_local_slots,
+            whole_body~,
           ) {
           Some(rewritten_then) => {
             let rewritten = body.copy()
@@ -40853,7 +40914,9 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
         }
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            else_body, protected_local_slots, whole_body~,
+            else_body,
+            protected_local_slots,
+            whole_body~,
           ) {
           Some(rewritten_else) => {
             let rewritten = body.copy()
@@ -40870,7 +40933,9 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.If(block_type, then_body, None) =>
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            then_body, protected_local_slots, whole_body~,
+            then_body,
+            protected_local_slots,
+            whole_body~,
           ) {
           Some(rewritten_then) => {
             let rewritten = body.copy()
@@ -46409,11 +46474,7 @@ fn dae_fold_ref_null_is_null_if_instrs(
   while idx < body.length() {
     if idx + 2 < body.length() {
       match (body[idx], body[idx + 1], body[idx + 2]) {
-        (
-          @lib.RefNull(_),
-          @lib.RefIsNull,
-          @lib.If(block_type, then_body, _),
-        ) => {
+        (@lib.RefNull(_), @lib.RefIsNull, @lib.If(block_type, then_body, _)) => {
           dae_append_selected_if_body(out, block_type, then_body)
           changed = true
           idx += 3
@@ -46917,11 +46978,15 @@ fn dae_try_rewrite_func408_pair_if_carrier_body_once(
         // Both eliminated values must be dead after the selected read, and the
         // else arm must not depend on the previous result-local value.
         if dae_instrs_reference_any_local_range(
-            body, result_get_idx + 1, body.length(), [payload_local, result_local],
-          ) || dae_instrs_reference_local(else_body, result_local) ||
-          dae_instrs_reference_any_local_range(
-            body, idx + 4, result_get_idx, [payload_local, result_local],
-          ) {
+            body,
+            result_get_idx + 1,
+            body.length(),
+            [payload_local, result_local],
+          ) ||
+          dae_instrs_reference_local(else_body, result_local) ||
+          dae_instrs_reference_any_local_range(body, idx + 4, result_get_idx, [
+            payload_local, result_local,
+          ]) {
           return None
         }
         let mut pure_prefix_idx = idx + 4

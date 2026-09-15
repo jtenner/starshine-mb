@@ -30,7 +30,6 @@ test "fifth audit simplify globals preserves continuation target arity" {
                         @lib.LabelIdx::new(1U),
                       ),
                     ]),
-
                   ]),
                 ),
                 @lib.Instruction::ref_null(@lib.HeapType::new(cont)),

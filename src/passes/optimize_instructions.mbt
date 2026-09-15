@@ -33403,14 +33403,19 @@ fn optimize_instructions_try_combine_nested_const_shift(
       let sum = outer_amount + inner_amount
       let combined = match instr {
         @lib.Instruction::I32Rotl | @lib.Instruction::I32Rotr => sum & mask_bits
-        @lib.Instruction::I32ShrS => if sum > mask_bits { mask_bits } else { sum }
+        @lib.Instruction::I32ShrS =>
+          if sum > mask_bits {
+            mask_bits
+          } else {
+            sum
+          }
         _ => {
           if sum > mask_bits {
             // Sequential logical shifts discard every input bit. Evaluate
             // effectful operands once, in their original order, before zero.
-            OiDroppedChildrenReplacementFact::from_child_ids(
-              ctx, func, [inner_lhs, inner_rhs, rhs_id],
-            ).replace_with_const_i32(ctx, func, node_id, @lib.I32(0))
+            OiDroppedChildrenReplacementFact::from_child_ids(ctx, func, [
+              inner_lhs, inner_rhs, rhs_id,
+            ]).replace_with_const_i32(ctx, func, node_id, @lib.I32(0))
             return true
           }
           sum
@@ -33462,14 +33467,19 @@ fn optimize_instructions_try_combine_nested_const_shift(
       let sum = outer_amount + inner_amount
       let combined = match instr {
         @lib.Instruction::I64Rotl | @lib.Instruction::I64Rotr => sum & mask_bits
-        @lib.Instruction::I64ShrS => if sum > mask_bits { mask_bits } else { sum }
+        @lib.Instruction::I64ShrS =>
+          if sum > mask_bits {
+            mask_bits
+          } else {
+            sum
+          }
         _ => {
           if sum > mask_bits {
             // Sequential logical shifts discard every input bit. Evaluate
             // effectful operands once, in their original order, before zero.
-            OiDroppedChildrenReplacementFact::from_child_ids(
-              ctx, func, [inner_lhs, inner_rhs, rhs_id],
-            ).replace_with_const_i64(ctx, func, node_id, @lib.I64(0L))
+            OiDroppedChildrenReplacementFact::from_child_ids(ctx, func, [
+              inner_lhs, inner_rhs, rhs_id,
+            ]).replace_with_const_i64(ctx, func, node_id, @lib.I64(0L))
             return true
           }
           sum

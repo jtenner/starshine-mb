@@ -24733,7 +24733,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_can_redirect_branch_copy_producer(
           return false
         }
       }
-      @lib.Nop | @lib.I32Const(_) | @lib.I64Const(_) | @lib.F32Const(_) | @lib.F64Const(_) => ()
+      @lib.Nop
+      | @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_) => ()
       // Moving a write across control or a call can expose it on another path.
       _ => return false
     }
@@ -24858,12 +24862,16 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_arm_copy_suffix(
   temp_id : Int,
   target_id : Int,
 ) -> Array[@lib.Instruction]? {
-  if body.is_empty() || body.any(dae_instr_has_branch) { return None }
+  if body.is_empty() || body.any(dae_instr_has_branch) {
+    return None
+  }
   let last = body.length() - 1
   match run_hot_pipeline_raw_ssa_nomerge_local_id_from_set(body[last]) {
     Some(id) if id == temp_id => {
       let rewritten = body.copy()
-      rewritten[last] = @lib.Instruction::local_set(@lib.LocalIdx::new(target_id.reinterpret_as_uint()))
+      rewritten[last] = @lib.Instruction::local_set(
+        @lib.LocalIdx::new(target_id.reinterpret_as_uint()),
+      )
       Some(rewritten)
     }
     _ => None
@@ -24917,7 +24925,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_before_branch_block_alias(
               branch_body[2],
             ) {
             (Some(temp_id), Some(target_id), @lib.Br(_)) =>
-              if dae_local_usage_evidence(whole_body, @lib.LocalIdx::new(temp_id.reinterpret_as_uint())).get_count == 1 &&
+              if dae_local_usage_evidence(
+                  whole_body,
+                  @lib.LocalIdx::new(temp_id.reinterpret_as_uint()),
+                ).get_count ==
+                1 &&
                 !run_hot_pipeline_raw_ssa_nomerge_body_reads_local_from(
                   instrs,
                   idx + 2,
@@ -24972,7 +24984,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
     match instrs[idx] {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-          body, whole_body=Some(whole_body),
+          body,
+          whole_body=Some(whole_body),
         )
         if body_changed {
           rewritten[idx] = @lib.Instruction::block(
@@ -24984,7 +24997,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-          body, whole_body=Some(whole_body),
+          body,
+          whole_body=Some(whole_body),
         )
         if body_changed {
           rewritten[idx] = @lib.Instruction::loop_(
@@ -24996,7 +25010,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-          body, whole_body=Some(whole_body),
+          body,
+          whole_body=Some(whole_body),
         )
         if body_changed {
           rewritten[idx] = @lib.Instruction::try_table(
@@ -25009,14 +25024,16 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-          then_body, whole_body=Some(whole_body),
+          then_body,
+          whole_body=Some(whole_body),
         )
         let mut next_else = else_body
         let mut else_changed = false
         match else_body {
           Some(body) => {
             let (body_next, body_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-              body, whole_body=Some(whole_body),
+              body,
+              whole_body=Some(whole_body),
             )
             if body_changed {
               next_else = Some(body_next)
@@ -25044,7 +25061,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
               ),
             ) {
             (Some(temp_id), Some(target_id)) =>
-              if dae_local_usage_evidence(whole_body, @lib.LocalIdx::new(temp_id.reinterpret_as_uint())).get_count == 1 &&
+              if dae_local_usage_evidence(
+                  whole_body,
+                  @lib.LocalIdx::new(temp_id.reinterpret_as_uint()),
+                ).get_count ==
+                1 &&
                 !run_hot_pipeline_raw_ssa_nomerge_body_reads_local_from(
                   instrs,
                   idx + 1,
@@ -25085,7 +25106,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
               ),
             ) {
             (Some(temp_id), Some(target_id)) => {
-              if dae_local_usage_evidence(whole_body, @lib.LocalIdx::new(temp_id.reinterpret_as_uint())).get_count != 1 { break }
+              if dae_local_usage_evidence(
+                  whole_body,
+                  @lib.LocalIdx::new(temp_id.reinterpret_as_uint()),
+                ).get_count !=
+                1 {
+                break
+              }
               let producer_idx = run_hot_pipeline_raw_ssa_nomerge_find_branch_copy_producer(
                 rewritten,
                 scan - 1,
@@ -25112,7 +25139,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
     }
   }
   let (alias_block_instrs, alias_block_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_if_before_branch_block_alias(
-    rewritten, whole_body=Some(whole_body),
+    rewritten,
+    whole_body=Some(whole_body),
   )
   if !changed && !alias_block_changed {
     return (instrs, false)
@@ -25254,10 +25282,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_find_mask_update_tee_from_local(
   // A derived mask is not an alias of its source. Require an explicit
   // assignment on every path that can reach the following eqz.
   let len = instrs.length()
-  if len < 2 || instrs.any(dae_instr_has_branch) { return None }
+  if len < 2 || instrs.any(dae_instr_has_branch) {
+    return None
+  }
   match (instrs[len - 2], instrs[len - 1]) {
-    (@lib.LocalTee(@lib.LocalIdx(fresh)), @lib.LocalSet(@lib.LocalIdx(target))) if target.reinterpret_as_int() == local_id && fresh != target =>
-        Some(fresh.reinterpret_as_int())
+    (@lib.LocalTee(@lib.LocalIdx(fresh)), @lib.LocalSet(@lib.LocalIdx(target))) if target.reinterpret_as_int() ==
+      local_id &&
+      fresh != target => Some(fresh.reinterpret_as_int())
     _ => None
   }
 }
@@ -25374,23 +25405,31 @@ fn run_hot_pipeline_raw_ssa_locals_equal_before(
   left : Int,
   right : Int,
 ) -> Bool {
-  if left == right { return true }
+  if left == right {
+    return true
+  }
   for idx = end_ - 1; idx >= 0; idx = idx - 1 {
     match instrs[idx] {
       @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let target = raw.reinterpret_as_int()
         if target == left || target == right {
-          if idx == 0 { return false }
+          if idx == 0 {
+            return false
+          }
           let other = if target == left { right } else { left }
           return match instrs[idx - 1] {
-            @lib.LocalGet(@lib.LocalIdx(source)) | @lib.LocalTee(@lib.LocalIdx(source)) =>
+            @lib.LocalGet(@lib.LocalIdx(source))
+            | @lib.LocalTee(@lib.LocalIdx(source)) =>
               source.reinterpret_as_int() == other
             _ => false
           }
         }
       }
-      @lib.Block(_, _) | @lib.Loop(_, _) | @lib.If(_, _, _)
-      | @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => return false
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return false
       _ => if dae_instr_has_branch(instrs[idx]) { return false }
     }
   }
@@ -25528,7 +25567,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
           if stored_id == set_id &&
             replacement_id >= 0 &&
             replacement_id != stale_id &&
-            run_hot_pipeline_raw_ssa_locals_equal_before(child_rewritten, idx, stale_id, replacement_id) {
+            run_hot_pipeline_raw_ssa_locals_equal_before(
+              child_rewritten, idx, stale_id, replacement_id,
+            ) {
             out.push(child_rewritten[idx])
             out.push(
               @lib.Instruction::local_get(
@@ -25576,7 +25617,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
           if stored_id == set_id &&
             same_typed_replacement &&
             first_id != last_spilled_local &&
-            run_hot_pipeline_raw_ssa_locals_equal_before(child_rewritten, idx, first_id, last_spilled_local) &&
+            run_hot_pipeline_raw_ssa_locals_equal_before(
+              child_rewritten, idx, first_id, last_spilled_local,
+            ) &&
             (
               first_id == set_id ||
               first_id > set_id ||

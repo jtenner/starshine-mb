@@ -364,13 +364,14 @@ fn code_folding_branch_targets_survive_hoist_in_marks(
         ) {
         return false
       }
-    @ir.HotOp::Continuation => {
+    @ir.HotOp::Continuation =>
       for label_id in @ir.hot_continuation_targets(func, node_id) {
-        if !code_folding_branch_target_survives_hoist_in_marks(func, index, epoch, label_id) {
+        if !code_folding_branch_target_survives_hoist_in_marks(
+            func, index, epoch, label_id,
+          ) {
           return false
         }
       }
-    }
     @ir.HotOp::TryTable => return false
     _ => ()
   }
@@ -971,13 +972,14 @@ fn code_folding_terminating_branch_targets_are_internal(
         ) {
         return false
       }
-    @ir.HotOp::Continuation => {
+    @ir.HotOp::Continuation =>
       for label_id in @ir.hot_continuation_targets(func, node_id) {
-        if !code_folding_terminating_branch_target_is_internal(func, facts, epoch, label_id) {
+        if !code_folding_terminating_branch_target_is_internal(
+            func, facts, epoch, label_id,
+          ) {
           return false
         }
       }
-    }
     @ir.HotOp::TryTable => return false
     _ => ()
   }
