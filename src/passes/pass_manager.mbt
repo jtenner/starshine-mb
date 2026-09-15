@@ -25405,6 +25405,36 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_locals_equal_before(
+  instrs : Array[@lib.Instruction],
+  end_ : Int,
+  left : Int,
+  right : Int,
+) -> Bool {
+  if left == right { return true }
+  for idx = end_ - 1; idx >= 0; idx = idx - 1 {
+    match instrs[idx] {
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let target = raw.reinterpret_as_int()
+        if target == left || target == right {
+          if idx == 0 { return false }
+          let other = if target == left { right } else { left }
+          return match instrs[idx - 1] {
+            @lib.LocalGet(@lib.LocalIdx(source)) | @lib.LocalTee(@lib.LocalIdx(source)) =>
+              source.reinterpret_as_int() == other
+            _ => false
+          }
+        }
+      }
+      @lib.Block(_, _) | @lib.Loop(_, _) | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => return false
+      _ => if dae_instr_has_branch(instrs[idx]) { return false }
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
   instrs : Array[@lib.Instruction],
   params : Array[@lib.ValType],
@@ -25474,43 +25504,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
   let call_result_aliases : Array[Int] = []
   let mut idx = 0
   while idx < child_rewritten.length() {
-    if idx + 6 < child_rewritten.length() &&
-      run_hot_pipeline_optimize_instructions_instr_is_plain_load(
-        child_rewritten[idx + 1],
-      ) {
-      match
-        (
-          child_rewritten[idx],
-          child_rewritten[idx + 2],
-          child_rewritten[idx + 3],
-          child_rewritten[idx + 4],
-          child_rewritten[idx + 5],
-          child_rewritten[idx + 6],
-        ) {
-        (
-          @lib.LocalGet(load_base),
-          @lib.LocalSet(spilled),
-          @lib.LocalGet(call_arg),
-          @lib.Call(_)
-          | @lib.CallIndirect(_, _)
-          | @lib.CallRef(_),
-          @lib.LocalGet(restored),
-          @lib.LocalTee(_),
-        ) if load_base == call_arg && spilled == restored => {
-          out.push(child_rewritten[idx])
-          out.push(child_rewritten[idx + 1])
-          out.push(child_rewritten[idx + 2])
-          out.push(child_rewritten[idx + 5])
-          out.push(child_rewritten[idx + 3])
-          out.push(child_rewritten[idx + 4])
-          out.push(child_rewritten[idx + 6])
-          changed = true
-          idx = idx + 7
-          continue
-        }
-        _ => ()
-      }
-    }
     if idx + 2 < child_rewritten.length() {
       match
         (
@@ -25571,7 +25564,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
           }
           if stored_id == set_id &&
             replacement_id >= 0 &&
-            replacement_id != stale_id {
+            replacement_id != stale_id &&
+            run_hot_pipeline_raw_ssa_locals_equal_before(child_rewritten, idx, stale_id, replacement_id) {
             out.push(child_rewritten[idx])
             out.push(
               @lib.Instruction::local_get(
@@ -25619,6 +25613,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
           if stored_id == set_id &&
             same_typed_replacement &&
             first_id != last_spilled_local &&
+            run_hot_pipeline_raw_ssa_locals_equal_before(child_rewritten, idx, first_id, last_spilled_local) &&
             (
               first_id == set_id ||
               first_id > set_id ||

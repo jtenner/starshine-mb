@@ -1546,7 +1546,7 @@ test "optimize-instructions raw trims dropped null non-null ref cast tail before
 }
 
 ///|
-test "ssa-nomerge repairs spilled load ordering before call results" {
+test "ssa-nomerge preserves spilled load ordering after call results" {
   let params = [@lib.ValType::i32()]
   let locals = @lib.Locals::from_types([
     @lib.ValType::i32(),
@@ -1573,9 +1573,9 @@ test "ssa-nomerge repairs spilled load ordering before call results" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     load,
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
     @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
   ])
 }

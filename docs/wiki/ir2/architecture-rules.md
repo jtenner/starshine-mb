@@ -2676,3 +2676,9 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   post-rewrite heuristic could modify a parameter on a loop exit; it is
   removed while the SSA rewrite and loop-carrier analysis remain active
   (`ssa_loop_fifth_audit_wbtest.mbt`, bounded execution regression).
+
+- SSA spill cleanup retains operand order around calls and proves explicit
+  reaching copies before substituting locals. Call results do not alias
+  arguments, and stack-map store order or local numbers do not prove value
+  equality (`ssa_spill_fifth_audit_wbtest.mbt`). The former spill-order
+  expectation swapped the callee result and restored value and is corrected.
