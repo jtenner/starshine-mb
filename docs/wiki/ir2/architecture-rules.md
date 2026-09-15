@@ -3351,3 +3351,23 @@ Local provenance: `parity-reorder-runtime/toolchain.json`, `results.json`, each
 Sources: [runtime adapter](../../../scripts/lib/optimizer-runtime-executor.ts),
 [encoder policy](../../../src/binary/api.mbt), and
 [original report](#runtime-review-and-remaining-parity-work).
+
+#### Precompute fixed-family difference closure
+
+The head agent hashed every differing input: precompute has seven distinct
+inputs across seven families, and precompute-propagate has eight across eight.
+All are represented by inspected output pairs after renewing the formerly
+missing precompute drop-cleanup case 44. Independent canonical-tree review of
+41 precompute and 40 propagate pairs finds only nop removal or
+`drop(local.tee x, value)` becoming `local.set x, value`. Both preserve value
+evaluation, assignment, effects and traps; the discarded tee result is unused.
+The renewed drop-cleanup pair is 24/24 raw/canonical bytes versus v132 25/25,
+with byte-identical eight-byte common-Oz outputs.
+
+Agent judgment: these fixed generated difference families are size wins. This
+does not establish broad random coverage or resolve the separate atomic input
+validator limit. The earlier six/seven counts covered retained pairs only; the
+complete input hash census above supersedes that narrower count.
+Sources: [precompute](../../../src/passes/precompute.mbt),
+[lowering cleanup](../../../src/passes/lower_capture_cleanup.mbt),
+`precompute-static-review.json`, and `parity-directed-size/precompute/`.

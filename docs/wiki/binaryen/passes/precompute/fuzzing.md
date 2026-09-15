@@ -141,3 +141,10 @@ original bytes. Verified Binaryen 132 interpretation executes the preserved
 body plus callable packed atomic-read regressions. This closes optimizer
 uncertainty for the recorded family; Node and wasm-tools ordering-2 support
 remain separate limitations, and historical blocked reports are unchanged.
+
+### September 15 fixed-input review
+
+The [complete input-hash and canonical-tree review](../../../ir2/architecture-rules.md#precompute-fixed-family-difference-closure)
+closes the saved fixed-family nop/tee-drop differences as measured size wins.
+The atomic validator boundary remains separate. Shared type-cleanup guard
+changes require a fresh aggregate renewal before final signoff.
