@@ -80544,6 +80544,11 @@ fn run_hot_pipeline_apply_hot_pass(
   } else {
     next_mod
   }
+  let next_mod = if descriptor.name == "heap2local" {
+    heap2local_cleanup_module_types(next_mod)
+  } else {
+    next_mod
+  }
   if descriptor.name == "redundant-set-elimination" {
     perf_stop_timer_opt(
       options.perf,
@@ -81538,7 +81543,13 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
     None => current_mod
   }
   if next_code_sec is None {
-    return Ok(candidate)
+    return Ok(
+      if descriptor.name == "heap2local" {
+        heap2local_cleanup_module_types(candidate)
+      } else {
+        candidate
+      },
+    )
   }
   match
     run_hot_pipeline_repair_touched_batch_writeback(
@@ -81548,7 +81559,14 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
       descriptor.name,
       options,
     ) {
-    Some(repaired) => Ok(repaired)
+    Some(repaired) =>
+      Ok(
+        if descriptor.name == "heap2local" {
+          heap2local_cleanup_module_types(repaired)
+        } else {
+          repaired
+        },
+      )
     None => {
       pipeline_trace_hook(
         options.trace,

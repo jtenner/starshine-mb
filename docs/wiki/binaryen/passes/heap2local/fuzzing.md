@@ -121,3 +121,11 @@ The dedicated profile intentionally focuses on validator-accepted H2L opportunit
 ## Required signoff use
 
 For ordinary H2L audit signoff, use `heap2local-all` as the pass-specific GenValid lane in addition to regular GenValid, explicit wasm-smith, and the broad random-all-profiles lane.
+
+### September 15 retained type overhead repair
+
+After writeback, guarded whole-group pruning removes unused signatures and
+recursive hierarchies while retaining stronger scalarization. Two red-first
+pass cases and all 72 heap2local tests pass, including direct byte reduction.
+[Proof and scope](../../../ir2/architecture-rules.md#heap2local-retained-type-overhead-repair).
+Final native aggregate renewal remains pending.

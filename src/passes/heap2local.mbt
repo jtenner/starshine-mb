@@ -3528,3 +3528,10 @@ fn h2l_write_dominates_read(
   }
   false
 }
+
+///|
+fn heap2local_cleanup_module_types(mod_ : @lib.Module) -> @lib.Module {
+  // Scalarization can leave whole type groups unused, including in functions
+  // admitted by the no-allocation fast path. Run after complete module writeback.
+  pass_cleanup_unused_type_groups(mod_)
+}

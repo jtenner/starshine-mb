@@ -3180,3 +3180,25 @@ Sources: [group cleanup](../../../src/passes/type_group_cleanup.mbt),
 [command regression](../../../src/cmd/local_subtyping_type_parity_wbtest.mbt).
 Local evidence: `local-types-red.log`, `local-types-green.log`,
 `local-types-existing.log`, and `local-types-command-red.log`.
+
+#### Heap2local retained type overhead repair
+
+Heap2local now applies the guarded whole-group cleanup after module writeback,
+including its no-allocation fast path and successfully repaired touched-function
+batches. The cleanup preserves live declarations and scalarized instructions;
+it removes unused signatures and dead recursive hierarchies. The same bounded
+reference-surface, identity, metadata, byte-size and validation guards used by
+local-subtyping apply.
+
+Two pass regressions first retained eight groups instead of three and four
+signatures instead of one; both now pass, including a direct encoded-size
+reduction assertion. All 72 heap2local tests pass. The command regression also
+failed first on retained signatures. Native oracle measurements and aggregate
+renewal follow after the remaining repairs.
+
+Sources: [module cleanup](../../../src/passes/heap2local.mbt),
+[pass regressions](../../../src/passes/heap2local_type_parity_test.mbt), and
+[command regression](../../../src/cmd/heap2local_type_parity_wbtest.mbt).
+Evidence: `heap-types-red.log`, `heap-types-green.log`,
+`heap-types-existing.log`, and `heap-types-command-red.log`. The original fixture
+parse failure was corrected before the intended retained-type failures.
