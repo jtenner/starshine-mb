@@ -1661,6 +1661,11 @@ pub enum GenValidProfile {
   ReorderGlobalsMetadataRemapProfile
   ReorderGlobalsThresholdProfile
   ReorderGlobalsAllProfile
+  GlobalRefiningPrivateWritesProfile
+  GlobalRefiningExportBoundariesProfile
+  GlobalRefiningImportAliasesProfile
+  GlobalRefiningSubtypeJoinsProfile
+  GlobalRefiningAllProfile
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidProfileMember {

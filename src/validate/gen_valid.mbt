@@ -1090,6 +1090,11 @@ pub enum GenValidProfile {
   ReorderGlobalsMetadataRemapProfile
   ReorderGlobalsThresholdProfile
   ReorderGlobalsAllProfile
+  GlobalRefiningPrivateWritesProfile
+  GlobalRefiningExportBoundariesProfile
+  GlobalRefiningImportAliasesProfile
+  GlobalRefiningSubtypeJoinsProfile
+  GlobalRefiningAllProfile
 } derive(Eq, Debug)
 
 ///|
@@ -1374,6 +1379,11 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ReorderGlobalsMetadataRemapProfile => "reorder-globals-metadata-remap"
     ReorderGlobalsThresholdProfile => "reorder-globals-threshold"
     ReorderGlobalsAllProfile => "reorder-globals-all"
+    GlobalRefiningPrivateWritesProfile => "global-refining-private-writes"
+    GlobalRefiningExportBoundariesProfile => "global-refining-export-boundaries"
+    GlobalRefiningImportAliasesProfile => "global-refining-import-aliases"
+    GlobalRefiningSubtypeJoinsProfile => "global-refining-subtype-joins"
+    GlobalRefiningAllProfile => "global-refining-all"
     CodeFoldingIfArmsProfile => "code-folding-if-arms"
     CodeFoldingBlockExitsProfile => "code-folding-block-exits"
     CodeFoldingReturnsProfile => "code-folding-returns"
@@ -1626,6 +1636,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | MergeBlocksAllProfile
     | RumeAllProfile
     | ReorderGlobalsAllProfile
+    | GlobalRefiningAllProfile
     | CodeFoldingAllProfile
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
@@ -1827,6 +1838,13 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(RumeCallableReferencesProfile, 2),
         GenValidProfileMember::new(RumeContinuationsDescriptorsProfile, 2),
         GenValidProfileMember::new(RumeIndexRemapStressProfile, 3),
+      ]
+    GlobalRefiningAllProfile =>
+      [
+        GenValidProfileMember::new(GlobalRefiningPrivateWritesProfile, 1),
+        GenValidProfileMember::new(GlobalRefiningExportBoundariesProfile, 1),
+        GenValidProfileMember::new(GlobalRefiningImportAliasesProfile, 1),
+        GenValidProfileMember::new(GlobalRefiningSubtypeJoinsProfile, 1),
       ]
     ReorderGlobalsAllProfile =>
       [
@@ -2234,6 +2252,7 @@ pub fn gen_valid_profile_members(
       ]
     RandomAllProfilesProfile =>
       [
+        GenValidProfileMember::new(GlobalRefiningAllProfile, 1),
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
         GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
         GenValidProfileMember::new(PassFuzzStressProfile, 1),
@@ -2586,6 +2605,11 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ReorderGlobalsMetadataRemapProfile,
     ReorderGlobalsThresholdProfile,
     ReorderGlobalsAllProfile,
+    GlobalRefiningPrivateWritesProfile,
+    GlobalRefiningExportBoundariesProfile,
+    GlobalRefiningImportAliasesProfile,
+    GlobalRefiningSubtypeJoinsProfile,
+    GlobalRefiningAllProfile,
     CodeFoldingIfArmsProfile,
     CodeFoldingBlockExitsProfile,
     CodeFoldingReturnsProfile,
@@ -2840,6 +2864,7 @@ pub fn gen_valid_profile_by_name(
     }
   }
   match normalized {
+    "global-refining" => Ok(GlobalRefiningAllProfile)
     "natural" => Ok(NaturalWideProfile)
     "coverage-forced" => Ok(CoverageForcedAllFeaturesProfile)
     "portable-coverage-forced" => Ok(CoverageForcedPortableProfile)
@@ -5980,6 +6005,15 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | RumeContinuationsDescriptorsProfile
     | RumeIndexRemapStressProfile => gen_valid_rume_profile_config(profile)
     RumeAllProfile => gen_valid_rume_profile_config(RumeDeadGraphProfile)
+    GlobalRefiningPrivateWritesProfile
+    | GlobalRefiningExportBoundariesProfile
+    | GlobalRefiningImportAliasesProfile
+    | GlobalRefiningSubtypeJoinsProfile =>
+      gen_valid_global_refining_profile_config(profile)
+    GlobalRefiningAllProfile =>
+      gen_valid_global_refining_profile_config(
+        GlobalRefiningPrivateWritesProfile,
+      )
     ReorderGlobalsHotTrafficProfile
     | ReorderGlobalsDependencySearchProfile
     | ReorderGlobalsImportedProfile
@@ -34502,6 +34536,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_rume_profile_config(config) {
     return gen_valid_rume_profile_module(ctx)
+  }
+  if gen_valid_is_global_refining_profile_config(config) {
+    return gen_valid_global_refining_profile_module(ctx)
   }
   if gen_valid_is_reorder_globals_profile_config(config) {
     return gen_valid_reorder_globals_profile_module(ctx)

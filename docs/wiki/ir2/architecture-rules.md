@@ -3225,3 +3225,32 @@ is the next separate repair. Sources: [pass boundary](../../../src/passes/global
 [command check](../../../src/cmd/global_refining_encoding_parity_wbtest.mbt).
 Evidence: `global-encoding-red.log`, `global-encoding-green.log`,
 `global-encoding-existing.log`, and `global-encoding-command-green.log`.
+
+#### Global-refining reference-global coverage repair
+
+`global-refining-all` (alias `global-refining`) now selects four seeded leaves:
+private writes, export boundaries, import aliases, and subtype joins. Every leaf
+contains reference globals and a callable exported function. Seed-derived field
+values and hierarchy depth vary the modules; private writes include nullable
+initializers, joins use genuinely distinct sibling structs, and exported mutable
+globals preserve their host-visible type. The function reads the written struct
+field (the immutable initializer in the export-boundary leaf), so invocation
+results observe generated values. Imported externref
+globals and immutable alias chains exercise host-compatible import boundaries.
+
+Two generator tests and a pass-facing test first failed on missing profiles.
+They now verify all leaves, deterministic generation, seed variation, validity,
+actual global/write/import/export surfaces and refinement/boundary behavior.
+All 1,833 validator tests pass. The reviewed API change adds five GenValidProfile
+variants; existing profile names remain available. The random-all aggregate also
+includes this new family, so its seed-to-member mapping changes with this version.
+
+This supersedes the missing-dedicated-profile limitation, not any historical
+versioned result. The 10,000-case verified-v132 dedicated lane is run at final
+verification; the old ordinary lane remains an encoding comparison.
+Sources: [generator](../../../src/validate/gen_valid_global_refining.mbt),
+[generator checks](../../../src/validate/gen_valid_global_refining_wbtest.mbt),
+and [pass checks](../../../src/passes/global_refining_profile_test.mbt).
+Evidence: `global-profile-red.log`, `global-profile-green.log`,
+`global-profile-pass-red.log`, `global-profile-pass-green.log`, and
+`global-profile-validate-tests.log`.

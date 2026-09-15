@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-21
+last_reviewed: 2026-09-15
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -25,7 +25,7 @@ The direct `ref_func.1` replay now validates externally. A validated O4z continu
 
 Renewed ordinary GenValid artifact `.tmp/pass-fuzz-global-refining-ref-func-indexed-10000` uses explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`: 10,000/10,000 compared, 10,000 normalized matches, zero mismatches, and zero validation/property/generator/command failures. Binaryen cache counters are 2 hits / 9,998 misses. This remains repair evidence rather than a complete four-lane closeout because no pass-owned dedicated profile exists yet.
 
-Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
+Historical ordinary lane (retained for provenance; use the dedicated profile below for new pass evidence):
 
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-refining --out-dir .tmp/pass-fuzz-global-refining --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
@@ -46,3 +46,26 @@ pass/command cases and all 24 global-refining tests pass.
 [Proof and scope](../../../ir2/architecture-rules.md#global-refining-generic-encoding-repair).
 A dedicated reference-global profile and final native renewal remain pending.
 Historical versioned comparison counts above are preserved.
+
+### September 15 dedicated reference-global aggregate
+
+Use `global-refining-all` (alias `global-refining`) for ordinary dedicated signoff:
+
+| Leaf | Generated contract |
+| --- | --- |
+| global-refining-private-writes | Narrower constructors/writes, nullable initializer variants |
+| global-refining-export-boundaries | Mutable public type retained; immutable value refinement |
+| global-refining-import-aliases | Mutable/immutable externref imports and dependent immutable aliases |
+| global-refining-subtype-joins | Distinct sibling writes and varying parent hierarchy depth |
+
+Field values vary by seed and exported functions read those values. Bounded
+red-first generator and pass tests pass, as do all 1,833 validator tests.
+This supersedes the absence-of-dedicated-profile limitation above; earlier
+v131/v132 counts keep their original scope. [Coverage proof](../../../ir2/architecture-rules.md#global-refining-reference-global-coverage-repair).
+
+```sh
+moon build --target native --release src/cmd
+bun fuzz compare-pass --pass global-refining --gen-valid-profile global-refining-all --count 10000 --seed 0x5eed --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version_132/bin/wasm-opt --require-binaryen-version 132 --out-dir .tmp/global-refining-dedicated
+```
+
+Final native results are pending campaign closeout.
