@@ -53,3 +53,39 @@ describe("observation worker failure attribution", () => {
     expect(child.signals).toEqual([]);
   });
 });
+
+test("stack-switching configuration reaches Node and changes observation identity", async () => {
+  const previous = process.env.STARSHINE_NODE_WASMFX;
+  try {
+    const observe = async (enabled: string) => {
+      process.env.STARSHINE_NODE_WASMFX = enabled;
+      const { child } = controlledChild();
+      let args: string[] = [];
+      const pending = executeNodeObservationV2WithTimeout("unused.wasm", runtimeInterface, plan, { ...options, timeoutMs: 1000 }, (_command, received) => {
+        args = received;
+        return child as unknown as ChildProcessWithoutNullStreams;
+      });
+      child.stdout.write(JSON.stringify({ ok: true, observation: {
+        schema: "starshine.optimizer-runtime-observation.v2",
+        runtime: { identity: "worker-base-identity", timeoutMs: 1000 },
+        mode: "independent", compilation: { status: "succeeded" }, instantiation: { status: "succeeded" },
+        completeness: "complete", blockedReasons: [], steps: [], importTrace: [],
+        resources: { globals: [], memories: [], tables: [] },
+      } }));
+      child.emit("close", 0, null);
+      return { args, observation: await pending };
+    };
+    const disabled = await observe("0");
+    const enabled = await observe("1");
+    const restored = await observe("0");
+    expect(enabled.args[0]).toBe("--experimental-wasm-wasmfx");
+    expect(disabled.args).toHaveLength(1);
+    expect(enabled.observation.runtime.identity).not.toBe(disabled.observation.runtime.identity);
+    expect(enabled.observation.runtime.identity).toContain(":config:");
+    expect(restored.observation.runtime.identity).toBe(disabled.observation.runtime.identity);
+    expect(disabled.observation.runtime.identity).toMatch(/^node:v/);
+  } finally {
+    if (previous === undefined) delete process.env.STARSHINE_NODE_WASMFX;
+    else process.env.STARSHINE_NODE_WASMFX = previous;
+  }
+});

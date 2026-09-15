@@ -643,3 +643,27 @@ test("named immutable globals retain their value types through interface extract
   expect(runtimeInterface.exports.filter((entry) => entry.kind === "global").map((entry) => entry.globalType?.valueType))
     .toEqual(["i32", "funcref", "externref", "i64", "i64"]);
 });
+
+test("configured Node supports a continuation type in a terminating module", async () => {
+  const { wasmPath } = compileWat(`(module
+    (type $target (func))
+    (type $continuation (cont $target))
+    (func (export "run") (result i32) i32.const 42))`);
+  const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+  const plan = buildInvocationPlanV2(runtimeInterface, { seed: 1n, maxPairwise: 0 });
+  const previous = process.env.STARSHINE_NODE_WASMFX;
+  try {
+    process.env.STARSHINE_NODE_WASMFX = "1";
+    const observation = await executeNodeObservationV2WithTimeout(wasmPath, runtimeInterface, plan, {
+      mode: "independent", timeoutMs: 1000, memoryCapBytes: 1024, tableEntryCap: 16,
+    });
+    expect(observation.compilation).toEqual({ status: "succeeded" });
+    expect(observation.completeness).toBe("complete");
+    expect(observation.runtime.identity).toContain(":config:");
+    expect(observation.steps.find((step) => step.exportName === "run")?.outcome)
+      .toMatchObject({ kind: "returned", values: [{ type: "i32", signed: 42 }] });
+  } finally {
+    if (previous === undefined) delete process.env.STARSHINE_NODE_WASMFX;
+    else process.env.STARSHINE_NODE_WASMFX = previous;
+  }
+});

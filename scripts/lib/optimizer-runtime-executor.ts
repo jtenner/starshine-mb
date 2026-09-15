@@ -1357,15 +1357,30 @@ export async function runNodeThreeWaySemanticOracleV2(
   };
 }
 
-let installedNodeIdentity: string | undefined;
+const installedNodeIdentities = new Map<string, string>();
+
+function nodeObservationArguments(): string[] {
+  const wasmfx = process.env.STARSHINE_NODE_WASMFX;
+  if (wasmfx !== undefined && wasmfx !== "0" && wasmfx !== "1") {
+    throw new Error("STARSHINE_NODE_WASMFX must be 0 or 1");
+  }
+  return wasmfx === "1" ? ["--experimental-wasm-wasmfx"] : [];
+}
 
 export function nodeObservationRuntimeIdentity(): string {
-  if (installedNodeIdentity !== undefined) return installedNodeIdentity;
-  const result = spawnSync("node", ["--version"], { encoding: "utf8", timeout: 5000 });
+  const args = nodeObservationArguments();
+  const nodeOptions = process.env.NODE_OPTIONS ?? "";
+  const configuration = JSON.stringify({ args, nodeOptions });
+  const cached = installedNodeIdentities.get(configuration);
+  if (cached !== undefined) return cached;
+  const result = spawnSync("node", [...args, "--version"], { encoding: "utf8", timeout: 5000 });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Node runtime probe failed: ${result.stderr}`);
-  installedNodeIdentity = `node:${result.stdout.trim()}`;
-  return installedNodeIdentity;
+  const suffix = args.length === 0 && nodeOptions === "" ? ""
+    : `:config:${crypto.createHash("sha256").update(configuration).digest("hex")}`;
+  const identity = `node:${result.stdout.trim()}${suffix}`;
+  installedNodeIdentities.set(configuration, identity);
+  return identity;
 }
 
 export async function executeNodeObservationV2WithTimeout(
@@ -1394,7 +1409,7 @@ export async function executeNodeObservationV2WithTimeout(
     // A host Worker inherits Bun's engine when the compare CLI runs under Bun.
     // Its terminate() can also leave nonterminating Wasm running. Use explicit
     // Node processes, and release a case slot only after the child has exited.
-    const child = spawnWorker("node", [fileURLToPath(new URL("./optimizer-runtime-v2-worker.ts", import.meta.url))], {
+    const child = spawnWorker("node", [...nodeObservationArguments(), fileURLToPath(new URL("./optimizer-runtime-v2-worker.ts", import.meta.url))], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let output = "";
@@ -1419,7 +1434,7 @@ export async function executeNodeObservationV2WithTimeout(
       try {
         const message = JSON.parse(output) as { ok: boolean; observation?: RuntimeObservationV2; detail?: string };
         resolve(message.ok && message.observation
-          ? message.observation
+          ? { ...message.observation, runtime: { ...message.observation.runtime, identity } }
           : failure(message.detail ?? "Node returned no observation", false));
       } catch (error) {
         resolve(failure(`invalid Node observation: ${String(error)}; ${diagnostic}`, false));

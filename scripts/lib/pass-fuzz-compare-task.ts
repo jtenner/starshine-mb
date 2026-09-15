@@ -4515,7 +4515,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     binaryen: verifiedBinaryenTool,
     semanticOracle: options.semanticOracle,
     semanticExecutionContract: options.semanticOracle === "node-v2" ? SEMANTIC_EXECUTION_CONTRACT : null,
-    semanticRuntimeIdentity: options.semanticOracle === "node-v2" ? optimizerRuntimeIdentity() : null,
+    semanticRuntimeIdentity: options.semanticOracle === "node-v2" ? nodeObservationRuntimeIdentity() : null,
   };
   if (options.resume) {
     if (!fs.existsSync(toolchainPath)) {
