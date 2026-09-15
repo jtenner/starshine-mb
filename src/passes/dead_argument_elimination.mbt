@@ -32196,13 +32196,13 @@ fn dae_fold_const_i32_eq_if_instrs_once(
           @lib.I32Const(@lib.I32(lhs)),
           @lib.I32Const(@lib.I32(rhs)),
           @lib.I32Eq,
-          @lib.If(_, then_body, else_body),
+          @lib.If(block_type, then_body, else_body),
         ) => {
           if lhs == rhs {
-            out.append(then_body)
+            dae_append_selected_if_body(out, block_type, then_body)
           } else {
             match else_body {
-              Some(body) => out.append(body)
+              Some(body) => dae_append_selected_if_body(out, block_type, body)
               None => ()
             }
           }
@@ -32214,13 +32214,13 @@ fn dae_fold_const_i32_eq_if_instrs_once(
           @lib.I64Const(@lib.I64(lhs)),
           @lib.I64Const(@lib.I64(rhs)),
           @lib.I64Eq,
-          @lib.If(_, then_body, else_body),
+          @lib.If(block_type, then_body, else_body),
         ) => {
           if lhs == rhs {
-            out.append(then_body)
+            dae_append_selected_if_body(out, block_type, then_body)
           } else {
             match else_body {
-              Some(body) => out.append(body)
+              Some(body) => dae_append_selected_if_body(out, block_type, body)
               None => ()
             }
           }
@@ -46355,9 +46355,9 @@ fn dae_fold_ref_null_is_null_if_instrs(
         (
           @lib.RefNull(_),
           @lib.RefIsNull,
-          @lib.If(@lib.ValTypeBlockType(_), then_body, _),
+          @lib.If(block_type, then_body, _),
         ) => {
-          out.append(then_body)
+          dae_append_selected_if_body(out, block_type, then_body)
           changed = true
           idx += 3
           continue
@@ -50116,4 +50116,18 @@ pub fn dae_run_module_pass(
   trace? : ((String) -> Unit)? = None,
 ) -> @lib.Module {
   dae_run_module_pass_with_trap_policy(mod_, optimize~, trace~)
+}
+
+///|
+fn dae_append_selected_if_body(
+  out : Array[@lib.Instruction],
+  block_type : @lib.BlockType,
+  body : Array[@lib.Instruction],
+) -> Unit {
+  if body.any(dae_instr_has_branch) {
+    // The selected arm still owns the original if label and its result arity.
+    out.push(@lib.Instruction::block(block_type, @lib.Expr::new(body)))
+  } else {
+    out.append(body)
+  }
 }

@@ -2605,3 +2605,6 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - DAE preserves `eqz` around ordered floating comparisons: NaN makes both
   opposite ordered comparisons false. The sixteen f32/f64 operand-order guards
   in `src/passes/dae_float_fifth_audit_wbtest.mbt` reproduce the old wrong result.
+- DAE constant-null/equality arm selection retains a block when the chosen
+  arm branches, preserving the removed `if` label and result arity. See
+  `src/passes/dae_labels_fifth_audit_wbtest.mbt`.
