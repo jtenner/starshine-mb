@@ -2611,3 +2611,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - DAE label-sensitive cleanup recognizes reference branches, descriptor
   branches, exception frames, and continuation handlers; they cannot be
   flattened by a branch-free proof. See `src/passes/dae_reference_labels_fifth_audit_wbtest.mbt`.
+- DAE constant-local substitution requires the write to precede its read,
+  with a single read/write in both the selected region and the whole function.
+  Nested cleanup cannot delete a write observed outside its region. See
+  `src/passes/dae_locals_fifth_audit_wbtest.mbt`.

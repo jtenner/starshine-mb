@@ -40698,6 +40698,7 @@ fn dae_replace_local_get_with_i32_const_instrs(
 fn dae_try_inline_i32_const_local_set_flat_once(
   body : Array[@lib.Instruction],
   protected_local_slots : Int,
+  whole_body? : Array[@lib.Instruction]? = None,
 ) -> Array[@lib.Instruction]? {
   let mut idx = 0
   while idx + 1 < body.length() {
@@ -40706,7 +40707,9 @@ fn dae_try_inline_i32_const_local_set_flat_once(
           local_idx,
         ) >=
         protected_local_slots &&
-        dae_local_usage_evidence_has_single_get_write(body, local_idx) => {
+        dae_local_usage_evidence_has_single_get_write(body, local_idx) &&
+        dae_local_usage_evidence_has_single_get_write(whole_body.unwrap_or(body), local_idx) &&
+        !dae_instrs_reference_any_local_range(body, 0, idx, [local_idx]) => {
         let without_set : Array[@lib.Instruction] = []
         let mut copy_idx = 0
         while copy_idx < body.length() {
@@ -40734,9 +40737,11 @@ fn dae_try_inline_i32_const_local_set_flat_once(
 fn dae_try_inline_i32_const_local_set_instrs_once(
   body : Array[@lib.Instruction],
   protected_local_slots : Int,
+  whole_body? : Array[@lib.Instruction]? = None,
 ) -> Array[@lib.Instruction]? {
+  let whole_body = Some(whole_body.unwrap_or(body))
   match
-    dae_try_inline_i32_const_local_set_flat_once(body, protected_local_slots) {
+    dae_try_inline_i32_const_local_set_flat_once(body, protected_local_slots, whole_body~) {
     Some(rewritten) => return Some(rewritten)
     None => ()
   }
@@ -40746,7 +40751,7 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.Block(block_type, @lib.Expr(child_body)) =>
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            child_body, protected_local_slots,
+            child_body, protected_local_slots, whole_body~,
           ) {
           Some(rewritten_child) => {
             let rewritten = body.copy()
@@ -40761,7 +40766,7 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.Loop(block_type, @lib.Expr(child_body)) =>
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            child_body, protected_local_slots,
+            child_body, protected_local_slots, whole_body~,
           ) {
           Some(rewritten_child) => {
             let rewritten = body.copy()
@@ -40776,7 +40781,7 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.TryTable(block_type, catches, @lib.Expr(child_body)) =>
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            child_body, protected_local_slots,
+            child_body, protected_local_slots, whole_body~,
           ) {
           Some(rewritten_child) => {
             let rewritten = body.copy()
@@ -40792,7 +40797,7 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.If(block_type, then_body, Some(else_body)) => {
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            then_body, protected_local_slots,
+            then_body, protected_local_slots, whole_body~,
           ) {
           Some(rewritten_then) => {
             let rewritten = body.copy()
@@ -40807,7 +40812,7 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
         }
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            else_body, protected_local_slots,
+            else_body, protected_local_slots, whole_body~,
           ) {
           Some(rewritten_else) => {
             let rewritten = body.copy()
@@ -40824,7 +40829,7 @@ fn dae_try_inline_i32_const_local_set_instrs_once(
       @lib.If(block_type, then_body, None) =>
         match
           dae_try_inline_i32_const_local_set_instrs_once(
-            then_body, protected_local_slots,
+            then_body, protected_local_slots, whole_body~,
           ) {
           Some(rewritten_then) => {
             let rewritten = body.copy()
