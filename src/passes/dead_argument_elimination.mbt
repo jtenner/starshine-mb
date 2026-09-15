@@ -17550,6 +17550,18 @@ fn dae_instr_has_branch(instr : @lib.Instruction) -> Bool {
     @lib.Br(_)
     | @lib.BrIf(_)
     | @lib.BrTable(_, _)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.Try(_, _, _, _)
+    | @lib.TryTable(_, _, _)
+    | @lib.Rethrow(_)
     | @lib.Return
     | @lib.ReturnCall(_)
     | @lib.ReturnCallIndirect(_, _)
@@ -17557,8 +17569,7 @@ fn dae_instr_has_branch(instr : @lib.Instruction) -> Bool {
     | @lib.Throw(_)
     | @lib.ThrowRef => true
     @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+    | @lib.Loop(_, @lib.Expr(body)) =>
       body.any(fn(child) { dae_instr_has_branch(child) })
     @lib.If(_, then_body, Some(else_body)) =>
       then_body.any(fn(child) { dae_instr_has_branch(child) }) ||

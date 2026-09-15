@@ -2608,3 +2608,6 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - DAE constant-null/equality arm selection retains a block when the chosen
   arm branches, preserving the removed `if` label and result arity. See
   `src/passes/dae_labels_fifth_audit_wbtest.mbt`.
+- DAE label-sensitive cleanup recognizes reference branches, descriptor
+  branches, exception frames, and continuation handlers; they cannot be
+  flattened by a branch-free proof. See `src/passes/dae_reference_labels_fifth_audit_wbtest.mbt`.
