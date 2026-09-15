@@ -927,6 +927,8 @@ fn gr_collect_func_global_sets(
 fn gr_rewrite_ref_null_set_instrs(
   instrs : Array[@lib.Instruction],
   refined_globals : Array[@lib.RefType?],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
 ) -> (Array[@lib.Instruction], Bool) {
   let next = instrs.copy()
   let mut changed = false
@@ -935,9 +937,9 @@ fn gr_rewrite_ref_null_set_instrs(
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
         let slot = global_idx.reinterpret_as_int()
         if idx > 0 && slot >= 0 && slot < refined_globals.length() {
-          match (next[idx - 1], refined_globals[slot]) {
-            (@lib.RefNull(_), Some(refined_ref_type)) => {
-              next[idx - 1] = @lib.Instruction::ref_null_type(refined_ref_type)
+          match (gr_null_write_producer(next, idx, mod_, func_type_indices), refined_globals[slot]) {
+            (Some(producer), Some(refined_ref_type)) => {
+              next[producer] = @lib.Instruction::ref_null_type(refined_ref_type)
               changed = true
             }
             _ => ()
@@ -946,7 +948,7 @@ fn gr_rewrite_ref_null_set_instrs(
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = gr_rewrite_ref_null_set_instrs(
-          body, refined_globals,
+          body, refined_globals, mod_, func_type_indices,
         )
         if body_changed {
           next[idx] = @lib.Instruction::block(
@@ -958,7 +960,7 @@ fn gr_rewrite_ref_null_set_instrs(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = gr_rewrite_ref_null_set_instrs(
-          body, refined_globals,
+          body, refined_globals, mod_, func_type_indices,
         )
         if body_changed {
           next[idx] = @lib.Instruction::loop_(
@@ -970,12 +972,12 @@ fn gr_rewrite_ref_null_set_instrs(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = gr_rewrite_ref_null_set_instrs(
-          then_body, refined_globals,
+          then_body, refined_globals, mod_, func_type_indices,
         )
         let (next_else, else_changed) = match else_body {
           Some(else_body) => {
             let (rewritten_else, changed) = gr_rewrite_ref_null_set_instrs(
-              else_body, refined_globals,
+              else_body, refined_globals, mod_, func_type_indices,
             )
             (Some(rewritten_else), changed)
           }
@@ -988,7 +990,7 @@ fn gr_rewrite_ref_null_set_instrs(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = gr_rewrite_ref_null_set_instrs(
-          body, refined_globals,
+          body, refined_globals, mod_, func_type_indices,
         )
         if body_changed {
           next[idx] = @lib.Instruction::try_table(
@@ -1014,12 +1016,13 @@ fn gr_rewrite_ref_null_sets_in_code(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return (mod_, false)
   }
+  let func_type_indices = dae_collect_func_type_indices(mod_)
   let next_funcs = funcs.copy()
   let mut changed = false
   for idx = 0; idx < funcs.length(); idx = idx + 1 {
     let @lib.Func(locals, @lib.Expr(body)) = funcs[idx]
     let (next_body, body_changed) = gr_rewrite_ref_null_set_instrs(
-      body, refined_globals,
+      body, refined_globals, mod_, func_type_indices,
     )
     if body_changed {
       next_funcs[idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
@@ -1200,4 +1203,27 @@ pub fn global_refining_run_module_pass(
     rewritten, refined_globals,
   )
   rewritten
+}
+
+///|
+fn gr_null_write_producer(
+  instrs : Array[@lib.Instruction],
+  consumer : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> Int? {
+  let mut depth = 0
+  let mut index = consumer - 1
+  while index >= 0 {
+    let (pops, pushes) = match dae_instr_stack_effect(instrs[index], mod_, func_type_indices) {
+      Some(effect) => effect
+      None => return None
+    }
+    if pushes > depth {
+      return if instrs[index] is @lib.RefNull(_) { Some(index) } else { None }
+    }
+    depth = depth - pushes + pops
+    index -= 1
+  }
+  None
 }

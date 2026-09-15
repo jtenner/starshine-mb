@@ -2634,3 +2634,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   arithmetic: logical overshifts yield zero after preserving operand effects,
   and signed right shifts saturate at width minus one. See the forty bounded
   cases in `src/passes/optimize_instructions_fifth_audit_test.mbt`.
+- Global-refining follows the actual stack producer of null writes across
+  nops, dropped values, and void calls before changing its annotation. The
+  declaration still narrows and intervening work remains intact. See
+  `src/passes/global_refining_fifth_audit_test.mbt`.
