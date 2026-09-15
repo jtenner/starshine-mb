@@ -108,3 +108,16 @@ Evidence in Dewdrop's `.tmp/starshine-pass-repairs/`:
 `genvalid-wave14-code-folding-{regular,aggregate}/result.json`,
 `generated-signoff-wave14-commands.json`, and
 `code-folding-aggregate-return-diff-review.json`.
+
+### September 15 fixed-family review
+
+The two differing generated families are fixed modules: all 1,727 returns inputs
+and 1,649 movement inputs each have one hash. All 20 retained canonical pairs
+differ only by a final bare void return, independently rechecked by the head
+agent; every family record saves one raw/canonical byte, with unchanged measured
+downstream output size. These specific families are source-backed size wins.
+
+The September 15 runtime plans have no invocation steps. Runtime-match totals
+therefore must not be interpreted as proof of executing the function bodies;
+closure rests on final-return equivalence and measured size. Historical counts
+above remain versioned evidence. [Detailed scope and hashes](../../../ir2/architecture-rules.md#code-folding-fixed-family-difference-closure).

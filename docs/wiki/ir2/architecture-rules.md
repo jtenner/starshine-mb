@@ -3254,3 +3254,28 @@ and [pass checks](../../../src/passes/global_refining_profile_test.mbt).
 Evidence: `global-profile-red.log`, `global-profile-green.log`,
 `global-profile-pass-red.log`, `global-profile-pass-green.log`, and
 `global-profile-validate-tests.log`.
+
+#### Code-folding fixed-family difference closure
+
+The September 15 returns (1,727 records) and movement (1,649 records) families
+each generate one fixed module. Read-only hashing of the complete 10,000-input
+lane confirms respective input SHA-256 values
+`b9269da60871a893aafc588f3f2479401ff319654af8bf9d3774660c3bab14ae` and
+`245b2b6d819e1dfddc4dbec0758f0ce0698d93bd1181fd9528416924eafdc2f4`.
+The head agent independently checked all 20 retained canonical WAT pairs: the
+sole difference is Binaryen's final bare void `return`. Earlier nested returns
+remain. Implicit function fallthrough is equivalent, saves one raw/canonical
+byte in every family record, and has unchanged measured common-Oz size.
+
+Agent judgment: these two fixed-input families are Starshine size wins,
+superseding their initial open-family handoff status. No compiler repair is
+needed for omission of the redundant return. This is not a claim about arbitrary
+code-folding inputs. The recorded runtime plans have no exports or invocation
+steps, so they prove instantiation only; static equivalence and size are the
+closure evidence. The original CSV remains the initial handoff snapshot.
+
+Sources: [fixed builders and dispatch](../../../src/validate/gen_valid.mbt),
+[pass regressions](../../../src/passes/code_folding_test.mbt), and
+[prior pass evidence](../binaryen/passes/code-folding/fuzzing.md).
+Local confirmation: `code-folding-static-review.json`; original lane and
+`downstream-results.json` retain versioned measurements.
