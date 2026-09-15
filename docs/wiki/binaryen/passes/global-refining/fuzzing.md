@@ -36,3 +36,13 @@ The 2026-08-20 nominal sibling-join repair used `.tmp/pass-fuzz-global-refining-
 Dedicated GenValid profile: none documented for this pass yet. This repair did not declare final pass closeout; a future closeout still needs a pass-owned profile that deliberately generates declared sibling subtype joins, plus the full four-lane matrix.
 
 If a future audit adds a pass-specific GenValid profile, update this page with the profile name, intended smoke/closeout count, any required `--require-feature` floors or `--normalize` flags, and the manifest fields needed for replay triage.
+
+### September 15 encoding and coverage distinction
+
+The current ordinary lane's 10,000 inputs contain no globals: its raw losses
+measure numeric-local grouping and unused/duplicate function types, not global
+refinement. The pass boundary now reuses guarded encoding cleanup; red-first
+pass/command cases and all 24 global-refining tests pass.
+[Proof and scope](../../../ir2/architecture-rules.md#global-refining-generic-encoding-repair).
+A dedicated reference-global profile and final native renewal remain pending.
+Historical versioned comparison counts above are preserved.

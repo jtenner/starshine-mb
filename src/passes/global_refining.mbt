@@ -1041,7 +1041,7 @@ fn gr_rewrite_ref_null_sets_in_code(
 }
 
 ///|
-pub fn global_refining_run_module_pass(
+fn gr_refine_module(
   mod_ : @lib.Module,
   closed_world? : Bool = false,
 ) -> @lib.Module {
@@ -1231,4 +1231,18 @@ fn gr_null_write_producer(
     index -= 1
   }
   None
+}
+
+///|
+pub fn global_refining_run_module_pass(
+  mod_ : @lib.Module,
+  closed_world? : Bool = false,
+) -> @lib.Module {
+  let refined = gr_refine_module(mod_, closed_world~)
+  // A module without candidate globals can still carry duplicate signatures
+  // and fragmented numeric local runs. Reuse the guarded encoding cleanup.
+  if pass_module_has_legacy_try(refined) {
+    return refined
+  }
+  dfe_cleanup_raw_encoding(refined)
 }

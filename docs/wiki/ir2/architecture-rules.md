@@ -3202,3 +3202,26 @@ Sources: [module cleanup](../../../src/passes/heap2local.mbt),
 Evidence: `heap-types-red.log`, `heap-types-green.log`,
 `heap-types-existing.log`, and `heap-types-command-red.log`. The original fixture
 parse failure was corrected before the intended retained-type failures.
+
+#### Global-refining generic encoding repair
+
+The pass's module boundary now reuses the existing guarded numeric-local
+grouping and plain-function-signature cleanup. This closes generic serialization
+overhead even when no global is a refinement candidate. Local references are
+renumbered with their declarations; only smaller validated encoding is accepted.
+Legacy exception modules retain their existing path. Global-refinement inference
+and public-boundary rules are unchanged.
+
+A pass regression first retained three signatures instead of one. It now also
+checks two grouped local runs, exact remapped local.set/get instructions and a
+smaller encoded module. The command regression failed first and passes; all 24
+global-refining tests pass. Info/fmt leave the public API unchanged. Shared
+cleanup tests and native aggregate renewal are recorded at final verification.
+
+This addresses the old lane's encoding issue, not its coverage gap: all 10,000
+September 15 ordinary inputs lack globals. A dedicated reference-global profile
+is the next separate repair. Sources: [pass boundary](../../../src/passes/global_refining.mbt),
+[regression](../../../src/passes/global_refining_encoding_parity_test.mbt), and
+[command check](../../../src/cmd/global_refining_encoding_parity_wbtest.mbt).
+Evidence: `global-encoding-red.log`, `global-encoding-green.log`,
+`global-encoding-existing.log`, and `global-encoding-command-green.log`.
