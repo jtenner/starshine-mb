@@ -2622,3 +2622,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   even without an explicit type-reference edge. This preserves cross-module
   type identity for imported/exported globals and tables. See
   `src/passes/dead_argument_elimination2_fifth_audit_wbtest.mbt`.
+- Precompute terminal-flow proofs account for reference/descriptor branches
+  and handler-bearing instructions before deleting a following tail or a
+  block label. Pass and command regressions retain the reachable global write
+  in `src/passes/precompute_fifth_audit_test.mbt`.
