@@ -533,7 +533,8 @@ describe("Node observation process lifetime", () => {
       const plan = buildInvocationPlanV2(runtimeInterface, { seed: 1n, maxPairwise: 0 });
       const observation = await executeNodeObservationV2WithTimeout(hung.wasmPath, runtimeInterface, plan, options);
       expect(observation.completeness).toBe("incomplete");
-      expect(observation.instantiation.status).toBe("timed-out");
+      expect(observation.instantiation.status).toBe("unknown");
+      expect(observation.steps).toEqual([]);
       expect(observation.blockedReasons).toEqual(["timeout:200ms"]);
     }
     const runtimeInterface = buildRuntimeInterfaceFromWasm(good.wasmPath);

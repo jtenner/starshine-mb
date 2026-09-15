@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -1372,6 +1372,7 @@ export async function executeNodeObservationV2WithTimeout(
   runtimeInterface: RuntimeInterfaceV1,
   plan: InvocationPlanV2,
   options: NodeObservationV2Options,
+  spawnWorker: (command: string, args: string[], options: { stdio: ["pipe", "pipe", "pipe"] }) => ChildProcessWithoutNullStreams = spawn,
 ): Promise<RuntimeObservationV2> {
   const identity = nodeObservationRuntimeIdentity();
   const failure = (detail: string, timedOut: boolean): RuntimeObservationV2 => ({
@@ -1379,24 +1380,12 @@ export async function executeNodeObservationV2WithTimeout(
     runtime: { identity, timeoutMs: options.timeoutMs },
     mode: options.mode,
     compilation: { status: "unknown" },
-    instantiation: timedOut
-      ? { status: "timed-out", timeoutMs: options.timeoutMs }
-      : { status: "failed", error: detail },
+    // Without a completed worker observation, the parent cannot know which
+    // execution phase was active when the process failed or exceeded its budget.
+    instantiation: { status: "unknown" },
     completeness: "incomplete",
     blockedReasons: [timedOut ? `timeout:${options.timeoutMs}ms` : `worker-failure:${detail}`],
-    steps: timedOut ? [{
-      stepIndex: -1,
-      exportName: null,
-      phase: "instantiation",
-      arguments: [],
-      importTraceStart: 0,
-      importTraceEnd: 0,
-      stateBefore: emptyState(),
-      outcome: { kind: "timed-out", timeoutMs: options.timeoutMs },
-      stateAfter: emptyState(),
-      stateDelta: [],
-      firstChangedResource: null,
-    }] : [],
+    steps: [],
     importTrace: [],
     resources: emptyState(),
   });
@@ -1404,7 +1393,7 @@ export async function executeNodeObservationV2WithTimeout(
     // A host Worker inherits Bun's engine when the compare CLI runs under Bun.
     // Its terminate() can also leave nonterminating Wasm running. Use explicit
     // Node processes, and release a case slot only after the child has exited.
-    const child = spawn("node", [fileURLToPath(new URL("./optimizer-runtime-v2-worker.ts", import.meta.url))], {
+    const child = spawnWorker("node", [fileURLToPath(new URL("./optimizer-runtime-v2-worker.ts", import.meta.url))], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let output = "";

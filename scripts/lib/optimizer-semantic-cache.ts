@@ -4,7 +4,7 @@ import path from "node:path";
 import { optimizerRuntimeIdentity } from "./optimizer-runtime";
 
 // Shared by cache keys and resumable run manifests.
-export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-intrinsic-calls-v1";
+export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-worker-phase-v2";
 
 export type SemanticCacheKeyInput = {
   original: Uint8Array;

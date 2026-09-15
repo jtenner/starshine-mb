@@ -2867,7 +2867,7 @@ cover a timed-out start followed by successful execution of another module.
 This is source/test coverage evidence, not a new resource-isolation signoff.
 Worker containment and optimizer semantic correctness need separate checks.
 
-**Confirmed reporting limitation:** the timeout fallback unconditionally emits
+**Reporting limitation at the report baseline (repaired below):** the timeout fallback unconditionally emits
 an instantiation timeout with unknown compilation status, even though the
 parent has no phase-progress evidence. Consequently the recorded phase cannot
 establish whether compilation, instantiation, or an exported call consumed the
@@ -2988,3 +2988,25 @@ intentionally leaves every group open pending sufficient family evidence.
 Zero property-failure counters are not property signoff: those modes were off.
 No new semantic pass, vulnerability, test result, or full parity closeout is
 claimed by this documentation update.
+
+### September 15 case-by-case difference repairs
+
+#### Worker timeout phase attribution
+
+The parent now reports unknown compilation/instantiation phases and no invented
+execution steps when a worker deadline or process failure prevents a complete
+observation. The reason remains an explicit timeout or worker failure, and the
+result remains incomplete. The child is still killed at the deadline and the
+case slot is released only after child close. Historical replay files remain
+unchanged; no blocked SSA case is reclassified as semantically matching.
+
+Two controlled-process regressions in
+[`optimizer-runtime-process.test.ts`](../../../scripts/lib/optimizer-runtime-process.test.ts)
+failed on the old attribution, then pass with the fix. The execution contract
+is bumped to `node-v2-worker-phase-v2` so cached/resumed observations cannot mix
+old and new classifications. The existing process-lifetime regression now
+expects the unknown phase. Runtime/comparison/cache checks pass 16/16, and
+executor/compare-task integration checks pass 82/82. No Moon or optimizer
+implementation changed. Local red/green logs are under the existing audit
+artifact directory (`process-attribution-red.log`, `process-green.log`,
+`process-integration.log`).

@@ -1,3 +1,4 @@
+import { SEMANTIC_EXECUTION_CONTRACT } from "./optimizer-semantic-cache";
 import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
@@ -1739,7 +1740,7 @@ describe("semantic execution contract resume guard", () => {
         schema: "starshine.optimizer-toolchain.v1", primaryValidator: "wasm-tools",
         requiredBinaryenVersion: "132",
         binaryen: { version: "132", sha256: crypto.createHash("sha256").update(source).digest("hex") },
-        semanticOracle: "node-v2", semanticExecutionContract: "node-v2-intrinsic-calls-v1", semanticRuntimeIdentity: "node:v26.3.0",
+        semanticOracle: "node-v2", semanticExecutionContract: SEMANTIC_EXECUTION_CONTRACT, semanticRuntimeIdentity: "node:v26.3.0",
       }));
       fs.writeFileSync(path.join(root, "cases.jsonl"), JSON.stringify({
         caseIndex: 1, generator: "gen-valid", status: "match", detail: "old observation",
