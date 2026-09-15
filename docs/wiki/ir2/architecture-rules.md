@@ -2638,3 +2638,6 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   nops, dropped values, and void calls before changing its annotation. The
   declaration still narrows and intervening work remains intact. See
   `src/passes/global_refining_fifth_audit_test.mbt`.
+- Local-subtyping narrows adjacent select operands only when the condition
+  is an independent scalar producer; a unary condition may consume the
+  apparent right operand. See `src/passes/local_subtyping_fifth_audit_test.mbt`.

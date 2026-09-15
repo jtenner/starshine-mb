@@ -1178,7 +1178,15 @@ fn ls_refine_selects_instrs(
     match next_instr {
       @lib.Select(types) => {
         let len = rewritten.length()
-        let candidate = if len >= 3 {
+        // The final instruction must independently produce the condition;
+        // a unary/binary condition can consume one of the apparent values.
+        let independent_condition = if len > 0 {
+          match rewritten[len - 1] {
+            @lib.I32Const(_) | @lib.LocalGet(_) | @lib.GlobalGet(_) => true
+            _ => false
+          }
+        } else { false }
+        let candidate = if len >= 3 && independent_condition {
           match (rewritten[len - 3], rewritten[len - 2]) {
             (@lib.LocalGet(left_idx), @lib.LocalGet(right_idx)) => {
               let left_type = match
