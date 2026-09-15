@@ -3599,11 +3599,9 @@ test "ssa-nomerge artifact parity freshens parameter scratch writes in nested un
 }
 
 ///|
-test "ssa-nomerge repairs nested mask eqz after freshened block update" {
-  // Reduced from the 2026-06-16 `json-as` SIMD whitespace artifact smoke.
-  // The legacy structured raw path can freshen an allocator bit-mask update into
-  // a nested block. The following `eqz` must observe the freshened mask, not the
-  // pre-update word, or TLSF leaves a stale non-empty size class bit set.
+test "ssa-nomerge preserves the original local after an unrelated nested mask update" {
+  // The nested mask is written to locals 4 and 5, never local 2.
+  // The later eqz must continue to observe local 2's original value 7.
   let source =
     #|(module
     #|  (memory 1)
@@ -3635,7 +3633,7 @@ test "ssa-nomerge repairs nested mask eqz after freshened block update" {
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_false(
+  assert_true(
     ssa_test_has_stale_mask_eqz_after_nested_update(instrs),
     msg=instrs.to_string(),
   )

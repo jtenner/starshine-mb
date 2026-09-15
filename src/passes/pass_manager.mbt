@@ -25288,29 +25288,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_find_mask_update_tee_from_local(
   instrs : Array[@lib.Instruction],
   local_id : Int,
 ) -> Int? {
-  let mut saw_source_get = false
-  let mut saw_and = false
-  let mut fresh_local = -1
-  for instr in instrs {
-    match instr {
-      @lib.LocalGet(@lib.LocalIdx(raw)) =>
-        if raw.reinterpret_as_int() == local_id {
-          saw_source_get = true
-        }
-      @lib.I32And => saw_and = saw_source_get
-      @lib.LocalTee(@lib.LocalIdx(raw)) => {
-        let tee_id = raw.reinterpret_as_int()
-        if saw_and && tee_id != local_id {
-          fresh_local = tee_id
-        }
-      }
-      _ => ()
-    }
-  }
-  if fresh_local >= 0 {
-    Some(fresh_local)
-  } else {
-    None
+  // A derived mask is not an alias of its source. Require an explicit
+  // assignment on every path that can reach the following eqz.
+  let len = instrs.length()
+  if len < 2 || instrs.any(dae_instr_has_branch) { return None }
+  match (instrs[len - 2], instrs[len - 1]) {
+    (@lib.LocalTee(@lib.LocalIdx(fresh)), @lib.LocalSet(@lib.LocalIdx(target))) if target.reinterpret_as_int() == local_id && fresh != target =>
+        Some(fresh.reinterpret_as_int())
+    _ => None
   }
 }
 

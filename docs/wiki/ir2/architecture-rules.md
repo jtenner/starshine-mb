@@ -2665,3 +2665,8 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - DAE local-use evidence and substitutions traverse legacy try bodies and
   every catch arm. Hidden handler reads keep assignments live; replacement
   and proof visitors cover the same regions (`dae_legacy_fifth_audit_wbtest.mbt`).
+
+- SSA mask read retargeting requires an explicit terminal tee/set copy to
+  the read local with no bypassing branch. A derived bit mask does not alias
+  its source (`ssa_mask_fifth_audit_wbtest.mbt`); the earlier artifact test
+  incorrectly expected the original source read to change and is corrected.
