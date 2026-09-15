@@ -77910,6 +77910,11 @@ fn run_hot_pipeline_raw_heap2local_v131_unreachable_array_flow(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
+  // This shortcut emits a bare return and therefore requires a void function.
+  match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+    Some(@lib.FuncType(_, results)) if results.is_empty() => ()
+    _ => return None
+  }
   let field = match @ir.hot_module_resolve_array_field(module_ctx, array_type) {
     Some(field) if field.unpack() == @lib.ValType::i32() => field
     _ => return None

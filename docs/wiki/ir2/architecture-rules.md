@@ -2641,3 +2641,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - Local-subtyping narrows adjacent select operands only when the condition
   is an independent scalar producer; a unary condition may consume the
   apparent right operand. See `src/passes/local_subtyping_fifth_audit_test.mbt`.
+
+- Heap2local's unreachable-array shortcut must prove a void function result
+  before emitting a bare return; multivalue blocks can hide a required array
+  return (`heap2local_fifth_audit_test.mbt` and command regression).
