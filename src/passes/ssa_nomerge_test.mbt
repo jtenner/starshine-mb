@@ -5834,12 +5834,9 @@ test "ssa-nomerge preserves loop carrier update before backedge" {
 }
 
 ///|
-test "ssa-nomerge preserves copied loop condition carrier through nested branches" {
-  // Reduced from json-as staticarray bool deserialization: the second scan loop
-  // freshens `srcStart` into a condition carrier, copies it back before the
-  // `if`, then updates `srcStart` inside nested branches before a plain
-  // backedge. The backedge must update the condition carrier, not only the
-  // copied canonical local, or the next iteration reuses a stale cursor.
+test "ssa-nomerge preserves distinct copied locals through nested loop branches" {
+  // This source copies the condition local but never writes it in the loop.
+  // Inferring a backedge update would change the source program's behavior.
   let source =
     #|(module
     #|  (memory 1)
@@ -5908,12 +5905,12 @@ test "ssa-nomerge preserves copied loop condition carrier through nested branche
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_defined_func(optimized, 2)
-  let text = instrs.to_string()
-  assert_true(
-    text.contains("(local.set (Local 4)) else") &&
-    text.contains("(local.set (Local 4)) ) ) (br (Label 1))"),
-    msg=text,
-  )
+  assert_eq(audit_count(instrs, fn(instr) {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(4U)) | @lib.LocalTee(@lib.LocalIdx(4U)) => true
+      _ => false
+    }
+  }), 1)
 }
 
 ///|
@@ -6065,11 +6062,9 @@ test "ssa-nomerge preserves loop carrier tee through stack spill before backedge
 }
 
 ///|
-test "ssa-nomerge retargets stale loop carrier tee before stack spill backedge" {
-  // Reduced from the final stale json-as `snapshotKey` output after local
-  // compaction: the loop condition reads local 6, but the backedge tees the
-  // next cursor into old local 3 before spilling and branching. The backedge
-  // write must be retargeted to the condition carrier.
+test "ssa-nomerge preserves a distinct loop carrier across an unrelated tee" {
+  // This source copies the condition local but never writes it in the loop.
+  // Inferring a backedge update would change the source program's behavior.
   let source =
     #|(module
     #|  (memory 1)
@@ -6096,12 +6091,12 @@ test "ssa-nomerge retargets stale loop carrier tee before stack spill backedge" 
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
-  let text = instrs.to_string()
-  assert_true(
-    text.contains("(local.tee (Local 6)), (i32.store") ||
-    text.contains("(local.tee (Local 6)) (i32.store"),
-    msg=text,
-  )
+  assert_eq(audit_count(instrs, fn(instr) {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(6U)) | @lib.LocalTee(@lib.LocalIdx(6U)) => true
+      _ => false
+    }
+  }), 1)
 }
 
 ///|

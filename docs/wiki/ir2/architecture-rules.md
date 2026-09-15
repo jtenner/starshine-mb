@@ -2670,3 +2670,9 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   the read local with no bypassing branch. A derived bit mask does not alias
   its source (`ssa_mask_fifth_audit_wbtest.mbt`); the earlier artifact test
   incorrectly expected the original source read to change and is corrected.
+
+- SSA loop updates come from actual assignment provenance, never from the
+  proximity of a condition read and an unrelated set/branch. The raw
+  post-rewrite heuristic could modify a parameter on a loop exit; it is
+  removed while the SSA rewrite and loop-carrier analysis remain active
+  (`ssa_loop_fifth_audit_wbtest.mbt`, bounded execution regression).
