@@ -147,3 +147,11 @@ forwarding cleanup removes labels, it removes stale label names only for the
 changed functions. Native aggregate renewal for these named variants is in
 progress. Exact counters,
 hashes and prior evidence remain in the [upgrade ledger](../../../raw/binaryen/2026-09-10-v132-validation.json).
+
+### September 15 local exception dispatch repair
+
+Red-first dispatch and unused-void-wrapper regressions now pass for both DAE2
+variants. Saved legacy exception case 29 is smaller at raw, canonical and
+common-Oz stages with matching executed return and global effects against
+verified v132. This supersedes that case's loss; historical aggregate counts
+remain pending renewal. See [proof, sizes and guards](../../../ir2/architecture-rules.md#dae2-known-local-exception-dispatch-repair).

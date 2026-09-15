@@ -3084,3 +3084,43 @@ and [command regression](../../../src/cmd/optimize_instructions_tuple_parity_wbt
 Evidence: `oi-tuple-red.log`, `oi-tuple-command-red.log`, `oi-pass-tests.log`,
 `oi-native-build.log`, and `oi-tuple-repair/result.json`. Full-suite and final
 10,000-case affected-pass fuzz verification remain part of campaign closeout.
+
+#### DAE2 known local exception dispatch repair
+
+After signature pruning, DAE2 replaces a statically selected local-tag throw
+with a branch carrying the same payload. The proof requires zero protected
+block inputs and a nonthrowing, nontrapping operand prefix; imported tags and
+exception-reference captures remain outside it. Catch declaration order and
+surrounding label depths are preserved. Unused void wrappers are removed only
+when no exception or continuation operations remain. Result blocks stay intact,
+and the final module validation still applies.
+
+Four bounded pass tests and one command test cover both variants, later tags,
+catch-all, imported alias boundaries, effectful payloads and captured identity.
+Dispatch and wrapper assertions failed before their implementations. All 58
+existing DAE2 and 284 shared vacuum tests pass; info/fmt show no API changes.
+The intermediate full suite passed 11,961 tests before the final void cleanup;
+final-source full-suite and aggregate renewal remain pending.
+
+Fresh native CLI `a8b8bd3c74677f4f122348b84bd823b17ea66c3cb90f7595f32b0ab86ba3746d`
+and verified Binaryen 132 compare saved case 29 as follows:
+
+| Variant | Starshine raw / canonical / common Oz | Binaryen raw / canonical / common Oz |
+| --- | --- | --- |
+| dae2 | 123 / 113 / 72 | 127 / 127 / 102 |
+| dae2-optimizing | 101 / 101 / 72 | 124 / 124 / 102 |
+
+Original and all four outputs return 1715822383 with exported effect counter 3;
+all outputs independently validate. The optimizing oracle uses `--dae2
+--simplify-locals --vacuum`, matching the harness mapping. This supersedes
+case 29's earlier size loss. The generated exception member in
+[`gen_valid_dae2.mbt`](../../../src/validate/gen_valid_dae2.mbt) varies the
+literal within this dispatch shape; renew both 10,000-case aggregates before
+closing their historical 730-case counters.
+
+Source and regressions: [legacy adaptation](../../../src/passes/dead_argument_elimination2_legacy.mbt),
+[pass tests](../../../src/passes/dead_argument_elimination2_exception_parity_wbtest.mbt),
+and [dispatcher tests](../../../src/cmd/dead_argument_elimination2_exception_parity_wbtest.mbt).
+Local evidence: `dae2-exception-red-expanded.log`, `dae2-void-wrapper-red.log`,
+`dae2-void-wrapper-green.log`, `dae2-existing-tests.log`,
+`dae2-shared-cleanup-tests.log`, and `dae2-exception-repair/result.json`.

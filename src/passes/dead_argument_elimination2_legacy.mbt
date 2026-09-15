@@ -472,3 +472,166 @@ fn dae2_legacy_has_rethrow(instrs : Array[@lib.Instruction]) -> Bool {
   }
   false
 }
+
+///|
+fn dae2_known_local_throw_target(
+  block_type : @lib.BlockType,
+  catches : Array[@lib.Catch],
+  body : Array[@lib.Instruction],
+  env : @validate.Env,
+  imported_tags : Int,
+) -> @lib.LabelIdx? {
+  let thrown = match body.last() {
+    Some(@lib.Throw(tag)) => tag
+    _ => return None
+  }
+  let @lib.TagIdx(raw_tag) = thrown
+  // Two imported tags can denote the same exception identity. A locally
+  // defined tag is fresh, so declaration-order matching by index is exact.
+  if raw_tag.to_int() < imported_tags ||
+    env.resolve_tag_functype(thrown) is None {
+    return None
+  }
+  match env.expand_blocktype(block_type) {
+    Ok((params, _)) if params.is_empty() => ()
+    _ => return None
+  }
+  for index = 0; index + 1 < body.length(); index = index + 1 {
+    match body[index] {
+      @lib.Nop
+      | @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.RefNull(_)
+      | @lib.RefFunc(_)
+      | @lib.LocalGet(_)
+      | @lib.GlobalGet(_) => ()
+      // In particular, a call can raise an exception before the final throw.
+      // Removing the protected region would change that earlier dispatch.
+      _ => return None
+    }
+  }
+  for catch_ in catches {
+    match catch_ {
+      @lib.Catch(tag, target) if tag == thrown => return Some(target)
+      @lib.CatchRef(tag, _) if tag == thrown => return None
+      @lib.CatchAll(target) => return Some(target)
+      @lib.CatchAllRef(_) => return None
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn dae2_fold_known_local_throws_body(
+  body : Array[@lib.Instruction],
+  env : @validate.Env,
+  imported_tags : Int,
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in body {
+    let instr = pass_lower_map_children(instr, fn(children) {
+      let (next, child_changed) = dae2_fold_known_local_throws_body(
+        children, env, imported_tags,
+      )
+      changed = changed || child_changed
+      next
+    })
+    match instr {
+      @lib.TryTable(bt, catches, @lib.Expr(protected_body)) =>
+        match
+          dae2_known_local_throw_target(
+            bt, catches, protected_body, env, imported_tags,
+          ) {
+          Some(target) => {
+            for index = 0
+                index + 1 < protected_body.length()
+                index = index + 1 {
+              out.push(protected_body[index])
+            }
+            // Catch targets are relative to the surrounding scope. Removing
+            // the try_table therefore makes that same depth an ordinary br.
+            // A catch-all target takes no payload; br discards excess values.
+            // Reference-capturing handlers are excluded by the target proof.
+            out.push(@lib.Instruction::br(target))
+            changed = true
+            continue
+          }
+          None => ()
+        }
+      _ => ()
+    }
+    out.push(instr)
+  }
+  (out, changed)
+}
+
+///|
+fn dae2_body_has_exception_or_continuation(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Rethrow(_)
+      | @lib.Suspend(_)
+      | @lib.Resume(_, _)
+      | @lib.ResumeThrow(_, _, _)
+      | @lib.ResumeThrowRef(_, _)
+      | @lib.StackSwitch(_, _) => return true
+      @lib.Block(_, @lib.Expr(children)) | @lib.Loop(_, @lib.Expr(children)) =>
+        if dae2_body_has_exception_or_continuation(children) {
+          return true
+        }
+      @lib.If(_, yes, no) => {
+        if dae2_body_has_exception_or_continuation(yes) {
+          return true
+        }
+        if no is Some(no) && dae2_body_has_exception_or_continuation(no) {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn dae2_fold_known_local_throws(mod_ : @lib.Module) -> @lib.Module {
+  let bodies = match mod_.code_sec {
+    Some(@lib.CodeSec(bodies)) => bodies
+    None => return mod_
+  }
+  let env = @validate.Env::new().with_module(mod_)
+  let imported_tags = @ir.hot_module_context_from_module(mod_).imported_tag_count
+  mod_.with_code_sec(
+    @lib.CodeSec::new(
+      bodies.map(fn(func) {
+        let @lib.Func(locals, @lib.Expr(body)) = func
+        let (body, changed) = dae2_fold_known_local_throws_body(
+          body, env, imported_tags,
+        )
+        let body = if changed && !dae2_body_has_exception_or_continuation(body) {
+          // Remove unused void scaffolding only after dispatch folding has
+          // eliminated exception scopes. Preserve every result block type.
+          run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
+            body,
+            true,
+            false,
+            flatten_results=false,
+          ).0
+        } else {
+          body
+        }
+        @lib.Func::new(locals, @lib.Expr::new(body))
+      }),
+    ),
+  )
+}

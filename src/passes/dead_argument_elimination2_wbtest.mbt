@@ -532,7 +532,7 @@ test "dae2 removes a whole tuple result without duplicating its effectful produc
 }
 
 ///|
-test "dae2 retains effectful legacy handlers and the throw that selects them" {
+test "dae2 preserves effectful legacy handlers while folding known local dispatch" {
   let source =
     #|(module (global $count (mut i32) (i32.const 0)) (tag $t (param i32))
     #| (func $producer (param i32) (result i32)
@@ -583,7 +583,9 @@ test "dae2 retains effectful legacy handlers and the throw that selects them" {
     }
   }
   @debug.assert_eq(calls, 2)
-  @debug.assert_eq(throws, 1)
+  // The local tag and literal payload select the same handler without
+  // constructing an exception; both effectful handler calls remain.
+  @debug.assert_eq(throws, 0)
 }
 
 ///|

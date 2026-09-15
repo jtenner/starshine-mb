@@ -64659,6 +64659,7 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
   instrs : Array[@lib.Instruction],
   include_void : Bool,
   fold_sign_extensions : Bool,
+  flatten_results? : Bool = true,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
@@ -64666,10 +64667,13 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          body, include_void, fold_sign_extensions,
+          body,
+          include_void,
+          fold_sign_extensions,
+          flatten_results~,
         )
         if (
-            block_type is @lib.ValTypeBlockType(_) ||
+            (flatten_results && block_type is @lib.ValTypeBlockType(_)) ||
             (include_void && block_type == @lib.BlockType::void_())
           ) &&
           !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(next_body) &&
@@ -64692,7 +64696,10 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          body, include_void, fold_sign_extensions,
+          body,
+          include_void,
+          fold_sign_extensions,
+          flatten_results~,
         )
         rewritten.push(
           @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
@@ -64703,13 +64710,19 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          then_body, include_void, fold_sign_extensions,
+          then_body,
+          include_void,
+          fold_sign_extensions,
+          flatten_results~,
         )
         let mut else_changed = false
         let next_else = match else_body {
           Some(body) => {
             let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-              body, include_void, fold_sign_extensions,
+              body,
+              include_void,
+              fold_sign_extensions,
+              flatten_results~,
             )
             else_changed = body_changed
             Some(next_body)
@@ -64723,7 +64736,10 @@ fn run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-          body, include_void, fold_sign_extensions,
+          body,
+          include_void,
+          fold_sign_extensions,
+          flatten_results~,
         )
         rewritten.push(
           @lib.Instruction::try_table(

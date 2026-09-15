@@ -763,6 +763,9 @@ fn dae2_run_module_pass(
       )
     None => candidate = candidate.without_name_sec()
   }
+  // Signature pruning can expose a statically selected adapted handler. Fold
+  // only plain catches of fresh local tags with non-throwing payload producers.
+  candidate = dae2_fold_known_local_throws(candidate)
   // No mutation escapes until every definition and call site has its new
   // signature. The module dispatcher rebuilds the HOT module context/caches.
   match @validate.validate_module(candidate) {
