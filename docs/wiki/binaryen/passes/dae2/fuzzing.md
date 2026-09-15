@@ -155,3 +155,9 @@ variants. Saved legacy exception case 29 is smaller at raw, canonical and
 common-Oz stages with matching executed return and global effects against
 verified v132. This supersedes that case's loss; historical aggregate counts
 remain pending renewal. See [proof, sizes and guards](../../../ir2/architecture-rules.md#dae2-known-local-exception-dispatch-repair).
+
+### September 15 continuation observations
+
+[Four configured Node suspend observations and the verified v132 interpreter regression](../../../ir2/architecture-rules.md#continuation-runtime-observation-renewal)
+renew the five saved continuation blockers with explicit engine-specific scope.
+The resume-throw case is checked only with the verified interpreter.

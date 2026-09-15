@@ -3371,3 +3371,33 @@ complete input hash census above supersedes that narrower count.
 Sources: [precompute](../../../src/passes/precompute.mbt),
 [lowering cleanup](../../../src/passes/lower_capture_cleanup.mbt),
 `precompute-static-review.json`, and `parity-directed-size/precompute/`.
+
+#### Continuation runtime observation renewal
+
+Four saved top-level suspend cases now complete under Node v26.8.2 with explicit
+WasmFX configuration: DAE2 cases 50, 382 and 8666, and optimizing case 50.
+Original, fresh Starshine and verified v132 outputs each make one invocation
+and report exactly `WasmFX: unhandled suspend`, as expected from source with no
+suspend handler. Their strict comparisons match. This conclusion uses the exact
+error text and inspected control flow, not merely equality of the harness's
+broad `unknown-runtime-trap` class. There is no imported state in these fixtures.
+
+Optimizing case 15 is byte-identical to the existing resume-throw interpreter
+regression (input SHA-256
+`a5ca385f43e2248a675048ab34c32ce379366f27d29e3ea956adc101cbaa522a`).
+The verified v132 interpreter regression passes six checks against fresh native
+Starshine: both variants, open/closed operation, and normal-return/trap negative
+controls. The expected outcome remains an uncaught exception. This case was not
+executed in the previously failing Node engine.
+
+Together with the eleven reorder-globals initialization observations, all
+sixteen non-SSA historical runtime blockers now have the scoped evidence above.
+The twelve nonterminating SSA fixtures remain excluded from runtime signoff.
+No equal-timeout or engine-failure outcome is promoted to a semantic match.
+
+Provenance: native SHA-256
+`538ebfad3d4e5149f9dd49299e2f2472a219fcc946a959fe4f72311b5e4c5fc6`,
+`parity-suspend-runtime/results.json` and per-engine observations,
+`parity-continuation-interpreter.log`, and the
+[interpreter regression](../../../tests/optimizer/regressions/dae2-resume-throw.test.ts).
+Historical observations and runtime identities remain unchanged.
