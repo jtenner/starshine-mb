@@ -2661,3 +2661,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
 - Code-folding checks continuation handler labels before moving a suffix
   out of its enclosing labels and treats resumptions as potentially throwing
   when crossing exception regions (`code_folding_fifth_audit_wbtest.mbt`).
+
+- DAE local-use evidence and substitutions traverse legacy try bodies and
+  every catch arm. Hidden handler reads keep assignments live; replacement
+  and proof visitors cover the same regions (`dae_legacy_fifth_audit_wbtest.mbt`).

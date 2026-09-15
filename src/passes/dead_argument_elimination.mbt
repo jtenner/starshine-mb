@@ -35453,6 +35453,17 @@ fn dae_rewrite_single_local_instr(
           dae_rewrite_single_local_instrs(body, from_local, to_local),
         ),
       )
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      let rewritten_catches = catches.map(fn(catch_) {
+        match catch_ {
+          @lib.LegacyCatch(tag, @lib.Expr(body)) =>
+            @lib.LegacyCatch::tagged(tag, @lib.Expr::new(dae_rewrite_single_local_instrs(body, from_local, to_local)))
+          @lib.LegacyCatchAll(@lib.Expr(body)) =>
+            @lib.LegacyCatch::all(@lib.Expr::new(dae_rewrite_single_local_instrs(body, from_local, to_local)))
+        }
+      })
+      @lib.Instruction::try_(block_type, @lib.Expr::new(dae_rewrite_single_local_instrs(body, from_local, to_local)), rewritten_catches, delegate~)
+    }
     @lib.If(block_type, then_body, else_body) =>
       @lib.Instruction::if_(
         block_type,
@@ -37895,6 +37906,15 @@ fn dae_instr_references_local(
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       dae_instrs_reference_local(body, target_local)
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if dae_instrs_reference_local(body, target_local) { return true }
+      catches.any(fn(catch_) {
+        match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(body)) | @lib.LegacyCatchAll(@lib.Expr(body)) =>
+            dae_instrs_reference_local(body, target_local)
+        }
+      })
+    }
     @lib.If(_, then_body, Some(else_body)) =>
       dae_instrs_reference_local(then_body, target_local) ||
       dae_instrs_reference_local(else_body, target_local)
@@ -38179,6 +38199,16 @@ fn dae_local_usage_evidence_instr(
         write_count: child.write_count,
         has_try_table: true,
       }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      let mut child = dae_local_usage_evidence(body, target_local)
+      for catch_ in catches {
+        let @lib.Expr(body) = match catch_ {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        child = dae_merge_local_usage_evidence(child, dae_local_usage_evidence(body, target_local))
+      }
+      { target_local, get_count: child.get_count, write_count: child.write_count, has_try_table: true }
     }
     @lib.If(_, then_body, Some(else_body)) =>
       dae_merge_local_usage_evidence(
@@ -40655,6 +40685,17 @@ fn dae_replace_local_get_with_i32_const_instr(
           dae_replace_local_get_with_i32_const_instrs(body, target_local, value),
         ),
       )
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      let rewritten_catches = catches.map(fn(catch_) {
+        match catch_ {
+          @lib.LegacyCatch(tag, @lib.Expr(body)) =>
+            @lib.LegacyCatch::tagged(tag, @lib.Expr::new(dae_replace_local_get_with_i32_const_instrs(body, target_local, value)))
+          @lib.LegacyCatchAll(@lib.Expr(body)) =>
+            @lib.LegacyCatch::all(@lib.Expr::new(dae_replace_local_get_with_i32_const_instrs(body, target_local, value)))
+        }
+      })
+      @lib.Instruction::try_(block_type, @lib.Expr::new(dae_replace_local_get_with_i32_const_instrs(body, target_local, value)), rewritten_catches, delegate~)
+    }
     @lib.If(block_type, then_body, Some(else_body)) =>
       @lib.Instruction::if_(
         block_type,
