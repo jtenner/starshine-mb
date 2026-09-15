@@ -420,7 +420,7 @@ let pass_registry_cache : HotPassRegistryCache = HotPassRegistryCache::new()
 
 ///|
 pub fn pass_registry_help_entries() -> Array[HotPassRegistryEntry] {
-  pass_registry_cache.help_entries
+  pass_registry_cache.help_entries.map(pass_registry_clone_entry)
 }
 
 ///|

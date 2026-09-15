@@ -2587,3 +2587,18 @@ parity backlog retains the 513 code-pushing canonical losses, 1,091 Heap2local
 raw-larger residuals, 41 OI downstream losses, and unsampled raw-size limits.
 All thirteen confirmed source-audit correctness defects are repaired; there
 are no remaining campaign test failures.
+
+## September 15 optimizer correctness audit
+
+Five reporting-only auditors reviewed the assigned executable pass families and
+shared dispatcher paths. The head agent alone authored and ran the regression
+campaign. This is targeted source review, not a proof of exhaustive correctness.
+The initial pass baseline was 7,846/7,846; the completed initial red campaign
+recorded 87 failures among 115 bounded pass checks and five failures among 19
+command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
+
+### Repair invariants
+
+- Registry help results are independent snapshots, including nested descriptor
+  arrays; editing help metadata must not mutate executable pass requirements.
+  See `src/passes/registry_fifth_audit_wbtest.mbt` and `src/passes/optimize.mbt`.
