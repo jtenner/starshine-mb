@@ -71,3 +71,11 @@ names are preserved; only smaller validated candidates are accepted. Four
 red-first pass regressions and all 95 local-subtyping tests pass.
 [Proof and limits](../../../ir2/architecture-rules.md#local-subtyping-unused-type-group-repair).
 Native aggregate renewal remains pending; do not replace historical counts yet.
+
+### No-change cleanup follow-up
+
+The first 10,000-case v132 renewal exposed dead signatures in modules where no
+local narrowed. Cleanup now runs at the fixed point even without a type change.
+The pass and dispatcher regressions first failed with four/three types instead
+of one. The remaining i31 admission and dead-return continuation regressions
+are separate pending repairs; renewed aggregate evidence follows those fixes.

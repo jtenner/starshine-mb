@@ -2032,7 +2032,6 @@ pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     return mod_
   }
   let mut current_mod = mod_
-  let mut did_change = false
   let mut iteration = 0
   let iteration_limit = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => ls_ref_body_local_iteration_limit(funcs)
@@ -2063,17 +2062,12 @@ pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       }
     }
     if !changed {
-      return if did_change {
-        pass_cleanup_unused_type_groups(current_mod)
-      } else {
-        mod_
-      }
+      return pass_cleanup_unused_type_groups(current_mod)
     }
     current_mod = ls_rebuild_module(
       current_mod,
       Some(@lib.CodeSec::new(rewritten_funcs)),
     )
-    did_change = true
     iteration += 1
   }
   pass_cleanup_unused_type_groups(current_mod)
