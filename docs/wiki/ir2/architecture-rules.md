@@ -2626,3 +2626,7 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   and handler-bearing instructions before deleting a following tail or a
   block label. Pass and command regressions retain the reachable global write
   in `src/passes/precompute_fifth_audit_test.mbt`.
+- A descriptor identity derived from a terminal block branch requires no
+  competing exit to that block in the preceding operands. Distinct immutable
+  descriptor allocations must remain distinguishable; see
+  `src/passes/precompute_descriptor_fifth_audit_wbtest.mbt`.
