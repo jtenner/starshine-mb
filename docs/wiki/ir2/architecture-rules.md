@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-14
+last_reviewed: 2026-09-15
 sources:
   - ./test-matrix.md
   - ./local-ssa-policy.md
@@ -2727,7 +2727,114 @@ commits cover the confirmed findings and their related cases.
 ### Repository checks
 
 `moon info` and `moon fmt` succeeded; `.mbti` review found no public API
-changes. The complete default `moon test` run passed all 11,953 tests,
-including the 153 campaign checks. All five auditors remained report-only
+changes. The complete default `moon test` run passed all 11,954 tests,
+including the 154 campaign checks. All five auditors remained report-only
 and completed without compiler use. Final native fuzz verification follows
 the repairs, using the explicit release binaries and verified v132 oracle.
+
+### Directed execution and validator boundary
+
+Final native compiler SHA-256:
+`5d15eb3582b70206f0eb6e82476b37e164cb31f7af88eaed10d72ee60cfa22b8`.
+Verified Binaryen 132 oracle SHA-256:
+`1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
+Directed Node execution matches original/Starshine/Binaryen for 19 SSA
+input vectors and 144 nested-shift input vectors. The archived pre-fix
+executable reproduced mask `0 -> 1`, loop `1 -> 42`, and spill `42 -> 7`
+wrong results; the fresh output restores each original result. This archived
+executable was an existing release snapshot, not a fresh build proving exact
+starting-HEAD provenance. The minimal public branch-copy probe was already
+shielded; its failing private-helper regressions establish the repaired
+nested-read and liveness defects.
+
+The precompute input-validator failures repeat one 70-byte relaxed-atomic
+fixture, SHA-256 `4cb77b16171b81ee2b3adbf18bb8cb989ce4e86a8c8c8357ecb61d144f995683`.
+Fresh Starshine and Binaryen outputs for both precompute variants equal those
+original bytes exactly. This renews optimizer identity evidence while keeping
+the external validator's unsupported ordering-2 failure explicit. Prior
+[atomic execution evidence](#september-13-atomic-runtime-block-verification)
+remains historical evidence for that unchanged fixture.
+
+Local evidence: `final-binaries.json`, `runtime-final.json`,
+`runtime-probes-before.json`, and `atomic-boundary-final.json`.
+
+### Final GenValid verification
+
+The first sweep preceded the additional SSA static-type guard and remains
+under `fuzz/`; only `final-fuzz/` establishes final-source evidence. All
+15 renewed lanes use explicit release binaries, verified Binaryen 132,
+`--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`, and seed
+`0x5eed`. Documented aggregates are used; global-refining uses ordinary
+GenValid because no dedicated profile is documented. DAE-family cleanup
+uses `drop-consts` and `unreachable-control-debris`. No wasm-smith lane ran.
+
+| Pass | Compared | Direct match | Cleanup match | Differences | Raw larger | Canonical larger |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| optimize-instructions | 10,000 | 8,920 | 0 | 1,080 | 4,233 | 0 |
+| precompute | 10,510 | 3,064 | 0 | 7,446 | 0 | 0 |
+| precompute-propagate | 10,510 | 2,557 | 0 | 7,953 | 0 | 0 |
+| dead-argument-elimination | 10,000 | 3,750 | 0 | 6,250 | 1,250 | 0 |
+| dae-optimizing | 10,000 | 5,153 | 0 | 4,847 | 0 | 0 |
+| dae2 | 10,000 | 2,879 | 667 | 6,454 | 3,998 | 730 |
+| dae2-optimizing | 10,000 | 2,233 | 0 | 7,767 | 3,591 | 730 |
+| global-refining | 10,000 | 10,000 | 0 | 0 | 7,033 | 0 |
+| local-subtyping | 10,000 | 3,170 | 0 | 6,830 | 10,000 | 0 |
+| flatten | 10,000 | 837 | 0 | 9,163 | 809 | 0 |
+| heap2local | 10,000 | 2,474 | 0 | 7,526 | 3,565 | 0 |
+| reorder-globals | 10,000 | 8,171 | 0 | 1,829 | 4,173 | 0 |
+| code-folding | 10,000 | 6,624 | 0 | 3,376 | 0 | 0 |
+| simplify-globals-optimizing | 10,000 | 5,055 | 0 | 4,945 | 0 | 0 |
+| ssa-nomerge | 10,000 | 3,750 | 0 | 6,250 | 0 | 0 |
+
+The 152,000 requested inputs yield **151,020 comparisons**, with zero
+optimizer validation, command, or property failures. The 980 input-validator
+failures are 490 copies of the verified atomic fixture in each precompute
+lane; each lane still exceeds 10,000 completed comparisons. Runtime execution
+is off in these broad lanes and is reported separately below.
+
+The **81,716 output differences are not harness-proven semantic matches**.
+Raw/canonical size counts are measurements, not acceptance judgments. The
+1,460 canonical size losses are the documented legacy-handler family:
+730 open DAE2 cases at +8 bytes and 730 optimizing cases at +11 bytes. See
+[prior DAE2 evidence](../binaryen/passes/dae2/fuzzing.md#september-11-renewed-aggregate-evidence).
+They remain size-losing parity gaps. Other unreviewed raw-size and shape
+differences remain open parity work; this audit does not declare full pass
+closeout. Exact commands, case records, profile counts, hashes, and counters
+are in `final-fuzz/`, `fuzz-plan.json`, and `final-fuzz-summary.json`.
+
+### Runtime review and remaining parity work
+
+Fresh three-way Node replays cover 328 retained/family-representative
+fixtures: **300 match**, 28 are blocked, and none reports an observed semantic
+mismatch. The blocks are 12 original SSA timeouts (all three versions time
+out; the inspected source has an unconditional repeating loop), 11
+reorder-globals cases whose function-reference import construction is rejected
+by the JavaScript adapter (the oracle's compact-import encoding is also
+unsupported by this Node configuration), and five DAE2 continuation cases
+requiring a stack-switching runtime flag not enabled by the harness. These
+remain blocked observations, not passing semantic checks.
+
+Common verified-Binaryen `-Oz` cleanup on 280 retained output pairs gives
+278 byte-identical pairs. OI case 196 (`runtime-multi-selected-effectful-lanes`)
+ends at 74 Starshine bytes versus 70 oracle bytes, renewing the existing
+downstream-size gap. DAE2 exception case 29 ends at 72 versus 102 bytes but
+starts with raw/canonical size losses; that downstream improvement does not
+close its direct-pass representation gap.
+
+The head agent's explicit **sample-scoped judgments**, not harness facts, are
+216 Starshine wins (observed equality plus a strict measured size benefit
+without raw/canonical/common-downstream loss), 40 size-losing cases, 44 parity
+gaps without complete benefit evidence, and 28 unknown/risky cases with
+blocked runtime observations. These labels apply only to the retained
+fixtures and observed inputs. Unsampled variants and remaining output-shape
+differences stay open; validity or smaller canonical output alone is not a
+semantic proof or acceptance decision. The repaired source contracts and
+bounded regressions remain necessary because aggregate profiles do not
+directly exercise every minimized audit case.
+
+Evidence: `runtime-replay-fresh-results.json`, `runtime-replays-fresh/`,
+`downstream-results.json`, and `mismatch-judgments.json`. All 23 confirmed
+audit repairs are committed separately; the 154 campaign checks and full
+11,954-test suite pass. README/API synchronization passes, with no public
+`.mbti` change. The remaining work is recorded in the active
+[parity backlog](../../../agent-todo.md), not hidden as accepted drift.

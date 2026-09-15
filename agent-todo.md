@@ -38,6 +38,7 @@
   interpreter checks execute the preserved body and packed atomic reads.
   Node still rejects ordering 2 even with shared Wasm enabled; retain that
   engine/independent-validator capability limit separately.
+- **September 15 remaining verification risks:** retain the [fifth audit's](docs/wiki/ir2/architecture-rules.md#runtime-review-and-remaining-parity-work) 730 legacy-handler size losses per DAE2 variant, OI's measured +4-byte downstream residual, and other raw-size/shape gaps without a measured win. Renew the 28 blocked runtime observations when bounded SSA execution probes, function-reference import construction/compact-import support, and continuation runtime configuration permit it. Keep the 980 repeated atomic input-validator exclusions distinct from optimizer failures; fresh outputs equal the original 70-byte fixture. The audit's 23 confirmed defects are repaired; its 154 guards, 11,954 default tests, and 151,020 final comparisons are complete.
 - **APIs / invariants:** preserve traps, operand order, local writes, lexical labels,
   and imported-tag alias priority. Keep original tool-blocked reports unchanged.
 - **Dependencies / exit:** compatible independent validation; red-first general
