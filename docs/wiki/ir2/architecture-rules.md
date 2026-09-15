@@ -2595,7 +2595,37 @@ shared dispatcher paths. The head agent alone authored and ran the regression
 campaign. This is targeted source review, not a proof of exhaustive correctness.
 The initial pass baseline was 7,846/7,846; the completed initial red campaign
 recorded 87 failures among 115 bounded pass checks and five failures among 19
-command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
+command checks. Four initial DAE2 failures were malformed table fixtures, then
+corrected before implementation; they are not counted as semantic defects.
+The expanded campaign contains 128 pass checks and 25 command checks. Later
+red runs added reachable continuation effects, legacy-handler local reads,
+SSA spill alias families, and outer-region temporary liveness. Local evidence
+is in `.tmp/pass-audit-20260915/`.
+
+The five report-only assignments covered control/SSA cleanup; local traffic,
+CSE and tuples; calls, DAE and inlining; heap/global/module cleanup; and
+instruction folding, types, facts and registry wiring. Only the head agent
+ran Moon, edited files, or committed repairs. Twenty-two separate correctness
+commits cover the confirmed findings and their related cases.
+
+### Findings not confirmed
+
+- The remove-unused-brs condition-write candidates retained evaluation order
+  in the tested public and private paths. Keep the bounded guards; the proposed
+  miscompile was not reproduced (`remove_unused_brs_fifth_audit_*`).
+- RSE and simplify-locals preserved the tested nondefaultable-local
+  initialization scope (`rse_fifth_audit_test.mbt`,
+  `simplify_locals_fifth_audit_test.mbt`). No repair was warranted.
+- Local-subtyping null-call result candidates validated after correcting the
+  typed function-reference fixture. Seven result signatures and the direct
+  helper guard pass; only the separate select operand finding was confirmed.
+- The tuple candidate was withdrawn because its synthetic tuple local cannot
+  represent the claimed valid scalar-local input.
+- Dynamic array allocation elimination also occurs in the verified Binaryen
+  132 vacuum oracle. An allocation-resource failure hypothesis alone did not
+  establish a distinct Starshine correctness defect; the resource policy
+  remains an uncertainty, not a claimed semantic win.
+
 
 ### Repair invariants
 
@@ -2687,3 +2717,11 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   eliminated temporaries and cannot cross control/call boundaries. Moving
   an if-arm's terminal assignment preserves its producer and rejects
   bypassing branches (`ssa_branchcopy_fifth_audit_wbtest.mbt`).
+
+### Repository checks
+
+`moon info` and `moon fmt` succeeded; `.mbti` review found no public API
+changes. The complete default `moon test` run passed all 11,953 tests,
+including the 153 campaign checks. All five auditors remained report-only
+and completed without compiler use. Final native fuzz verification follows
+the repairs, using the explicit release binaries and verified v132 oracle.
