@@ -25567,6 +25567,12 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
           if stored_id == set_id &&
             replacement_id >= 0 &&
             replacement_id != stale_id &&
+            run_hot_pipeline_raw_rewritten_local_type(
+              params, locals, extra_local_types, stale_id,
+            ) ==
+            run_hot_pipeline_raw_rewritten_local_type(
+              params, locals, extra_local_types, replacement_id,
+            ) &&
             run_hot_pipeline_raw_ssa_locals_equal_before(
               child_rewritten, idx, stale_id, replacement_id,
             ) {

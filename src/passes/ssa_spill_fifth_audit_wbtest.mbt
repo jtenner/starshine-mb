@@ -44,3 +44,27 @@ test "fifth audit SSA stored local does not alias another local" {
   )
   @debug.assert_eq(rewritten, body)
 }
+
+///|
+test "fifth audit SSA spill aliases preserve static reference types" {
+  let input = pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (memory 1) (global i32 (i32.const 0)) (func (param (ref $s)) (result i32) (local anyref i32) local.get 0 call 1 local.set 1 local.get 0 local.set 1 local.get 2 local.get 0 local.get 2 local.set 2 global.get 0 local.get 2 i32.store struct.get $s 0 i32.add) (func (param (ref $s)) (result anyref) local.get 0))",
+  )
+  assert_true(@validate.validate_module(input).is_ok())
+  let funcs = input.code_sec.unwrap().0.copy()
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[0]
+  let params = @ir.hot_module_resolve_func_type(
+      @ir.hot_module_context_from_module(input),
+      @lib.FuncIdx::new(0U),
+    ).unwrap().0
+  let (rewritten, _) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+    body,
+    params,
+    locals,
+    [],
+  )
+  funcs[0] = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+  assert_true(
+    @validate.validate_module(input.with_code_sec(@lib.CodeSec::new(funcs))).is_ok(),
+  )
+}

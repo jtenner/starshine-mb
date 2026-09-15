@@ -2597,7 +2597,7 @@ The initial pass baseline was 7,846/7,846; the completed initial red campaign
 recorded 87 failures among 115 bounded pass checks and five failures among 19
 command checks. Four initial DAE2 failures were malformed table fixtures, then
 corrected before implementation; they are not counted as semantic defects.
-The expanded campaign contains 128 pass checks and 25 command checks. Later
+The expanded campaign contains 129 pass checks and 25 command checks. Later
 red runs added reachable continuation effects, legacy-handler local reads,
 SSA spill alias families, and outer-region temporary liveness. Local evidence
 is in `.tmp/pass-audit-20260915/`.
@@ -2605,7 +2605,7 @@ is in `.tmp/pass-audit-20260915/`.
 The five report-only assignments covered control/SSA cleanup; local traffic,
 CSE and tuples; calls, DAE and inlining; heap/global/module cleanup; and
 instruction folding, types, facts and registry wiring. Only the head agent
-ran Moon, edited files, or committed repairs. Twenty-two separate correctness
+ran Moon, edited files, or committed repairs. Twenty-three separate correctness
 commits cover the confirmed findings and their related cases.
 
 ### Findings not confirmed
@@ -2717,6 +2717,12 @@ commits cover the confirmed findings and their related cases.
   eliminated temporaries and cannot cross control/call boundaries. Moving
   an if-arm's terminal assignment preserves its producer and rejects
   bypassing branches (`ssa_branchcopy_fifth_audit_wbtest.mbt`).
+
+- A reaching copy proves runtime equality but does not preserve the static
+  type of `local.get`. SSA spill substitutions also require equal declared
+  local types; widening a concrete struct reference to `anyref` can invalidate
+  a later `struct.get`. The additional red validation regression in
+  `ssa_spill_fifth_audit_wbtest.mbt` caught this during final review.
 
 ### Repository checks
 
