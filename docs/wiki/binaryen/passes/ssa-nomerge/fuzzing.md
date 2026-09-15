@@ -111,3 +111,14 @@ After replacing repeated per-changed-function current-artifact validation with o
   - Command failure classes: `starshine-unreachable-ref-validator=3`, `starshine-atomic-unshared-memory-validator=2`, `binaryen-command-failed=1`; no residual generic `starshine-command-failed` cases in this replay.
   - Cache: wasm-smith `0/0`; Binaryen `8` hits / `0` misses; Binaryen failures `1` hit / `0` misses.
   - Agent classification: the repaired `starshine-command-failed` abort family was pass-pipeline fail-closed coverage, not a semantic `ssa-nomerge` mismatch. The remaining Starshine-specific classes are validator feature/polymorphic-unreachable policy gaps surfaced by wasm-smith inputs that `wasm-tools --features all` and Binaryen accept; keep them separate from pass semantics until the validator policy is changed or the harness excludes those inputs.
+
+### September 15 timeout/difference distinction
+
+All 20 retained canonical pairs have identical executable trees modulo nop
+removal, with unchanged types for every referenced local. Twelve coverage/stress
+pairs differ only in unused declarations; their original and both outputs
+historically time out because the generator includes nonterminating loops.
+No new nontermination execution was performed. These are retained-pair static
+size wins, while the old runtime observations remain blocked; equal timeouts
+are not semantic matches or evidence of SSA-induced DoS.
+[Proof and scope](../../../ir2/architecture-rules.md#ssa-timeout-and-local-declaration-difference-review).

@@ -3279,3 +3279,28 @@ Sources: [fixed builders and dispatch](../../../src/validate/gen_valid.mbt),
 [prior pass evidence](../binaryen/passes/code-folding/fuzzing.md).
 Local confirmation: `code-folding-static-review.json`; original lane and
 `downstream-results.json` retain versioned measurements.
+
+#### SSA timeout and local-declaration difference review
+
+The head agent independently parsed all 20 retained canonical SSA output pairs.
+After removing nops and local declarations, their instruction trees are equal;
+every referenced local retains the same declared type. Eight smoke pairs differ
+by nop removal. The twelve coverage/stress pairs differ in unused local
+declarations and have no executable-instruction difference. These retained pairs
+support a static-equivalence size-win judgment: smoke raw/canonical -1 byte,
+coverage/stress raw -19 and canonical -3, with measured common-Oz delta zero.
+
+The twelve historical runtime timeouts occurred for the original and both
+optimizer outputs. Static inspection of the coverage builder identifies
+nonterminating loops; the stress profile reuses that builder. No nonterminating
+input or known engine-crash case was executed in this review. These observations
+do not establish SSA-induced nontermination or a compiler DoS. The worker-phase
+repair separately ensures an unreported worker phase remains unknown.
+
+Runtime signoff remains unavailable for the old nonterminating fixtures. Use
+separate terminating local-lifetime probes; do not count equal timeouts as
+semantic matches or extrapolate the retained proof to every varying generated
+module. Existing [SSA regression coverage](../../../src/passes/ssa_nomerge_test.mbt)
+checks unused appended locals and deliberately preserves equal-size dead holes.
+Sources: [coverage/stress builders](../../../src/validate/gen_valid_ssa.mbt),
+`ssa-static-review.json`, and the preserved runtime reports.
