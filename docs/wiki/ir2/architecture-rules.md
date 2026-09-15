@@ -2682,3 +2682,8 @@ command checks. Local evidence is in `.tmp/pass-audit-20260915/`.
   arguments, and stack-map store order or local numbers do not prove value
   equality (`ssa_spill_fifth_audit_wbtest.mbt`). The former spill-order
   expectation swapped the callee result and restored value and is corrected.
+
+- SSA branch-copy motion requires whole-function single-read evidence for
+  eliminated temporaries and cannot cross control/call boundaries. Moving
+  an if-arm's terminal assignment preserves its producer and rejects
+  bypassing branches (`ssa_branchcopy_fifth_audit_wbtest.mbt`).

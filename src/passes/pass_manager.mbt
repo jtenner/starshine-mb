@@ -24733,7 +24733,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_can_redirect_branch_copy_producer(
           return false
         }
       }
-      _ => ()
+      @lib.Nop | @lib.I32Const(_) | @lib.I64Const(_) | @lib.F32Const(_) | @lib.F64Const(_) => ()
+      // Moving a write across control or a call can expose it on another path.
+      _ => return false
     }
   }
   true
@@ -24856,61 +24858,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_arm_copy_suffix(
   temp_id : Int,
   target_id : Int,
 ) -> Array[@lib.Instruction]? {
-  if body.length() == 0 {
-    return None
-  }
-  let last_idx = body.length() - 1
-  match run_hot_pipeline_raw_ssa_nomerge_local_id_from_set(body[last_idx]) {
-    Some(set_id) =>
-      if set_id == temp_id {
-        if body.length() >= 2 {
-          match
-            run_hot_pipeline_raw_ssa_nomerge_local_id_from_get(
-              body[last_idx - 1],
-            ) {
-            Some(source_id) => {
-              let producer_idx = run_hot_pipeline_raw_ssa_nomerge_find_branch_copy_producer(
-                body,
-                last_idx - 2,
-                source_id,
-                target_id,
-              )
-              if producer_idx < 0 {
-                return None
-              }
-              let rewritten : Array[@lib.Instruction] = []
-              for idx = 0; idx < body.length(); idx = idx + 1 {
-                if idx == producer_idx {
-                  rewritten.push(
-                    @lib.Instruction::local_set(
-                      @lib.LocalIdx::new(target_id.reinterpret_as_uint()),
-                    ),
-                  )
-                } else if idx != last_idx - 1 && idx != last_idx {
-                  rewritten.push(body[idx])
-                }
-              }
-              Some(rewritten)
-            }
-            None => {
-              let rewritten = body.copy()
-              rewritten[last_idx] = @lib.Instruction::local_set(
-                @lib.LocalIdx::new(target_id.reinterpret_as_uint()),
-              )
-              Some(rewritten)
-            }
-          }
-        } else {
-          let rewritten = body.copy()
-          rewritten[last_idx] = @lib.Instruction::local_set(
-            @lib.LocalIdx::new(target_id.reinterpret_as_uint()),
-          )
-          Some(rewritten)
-        }
-      } else {
-        None
-      }
-    None => None
+  if body.is_empty() || body.any(dae_instr_has_branch) { return None }
+  let last = body.length() - 1
+  match run_hot_pipeline_raw_ssa_nomerge_local_id_from_set(body[last]) {
+    Some(id) if id == temp_id => {
+      let rewritten = body.copy()
+      rewritten[last] = @lib.Instruction::local_set(@lib.LocalIdx::new(target_id.reinterpret_as_uint()))
+      Some(rewritten)
+    }
+    _ => None
   }
 }
 
@@ -24945,7 +24901,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_branch_alias_suffix(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_before_branch_block_alias(
   instrs : Array[@lib.Instruction],
+  whole_body? : Array[@lib.Instruction]? = None,
 ) -> (Array[@lib.Instruction], Bool) {
+  let whole_body = whole_body.unwrap_or(instrs)
   let rewritten = instrs.copy()
   let mut changed = false
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
@@ -24959,7 +24917,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_before_branch_block_alias(
               branch_body[2],
             ) {
             (Some(temp_id), Some(target_id), @lib.Br(_)) =>
-              if !run_hot_pipeline_raw_ssa_nomerge_body_reads_local_from(
+              if dae_local_usage_evidence(whole_body, @lib.LocalIdx::new(temp_id.reinterpret_as_uint())).get_count == 1 &&
+                !run_hot_pipeline_raw_ssa_nomerge_body_reads_local_from(
                   instrs,
                   idx + 2,
                   temp_id,
@@ -25003,7 +24962,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_if_before_branch_block_alias(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
   instrs : Array[@lib.Instruction],
+  whole_body? : Array[@lib.Instruction]? = None,
 ) -> (Array[@lib.Instruction], Bool) {
+  let whole_body = whole_body.unwrap_or(instrs)
   let rewritten = instrs.copy()
   let remove = @bitset.BitSet::new(instrs.length())
   let mut changed = false
@@ -25011,7 +24972,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
     match instrs[idx] {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-          body,
+          body, whole_body=Some(whole_body),
         )
         if body_changed {
           rewritten[idx] = @lib.Instruction::block(
@@ -25023,7 +24984,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-          body,
+          body, whole_body=Some(whole_body),
         )
         if body_changed {
           rewritten[idx] = @lib.Instruction::loop_(
@@ -25035,7 +24996,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-          body,
+          body, whole_body=Some(whole_body),
         )
         if body_changed {
           rewritten[idx] = @lib.Instruction::try_table(
@@ -25048,14 +25009,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-          then_body,
+          then_body, whole_body=Some(whole_body),
         )
         let mut next_else = else_body
         let mut else_changed = false
         match else_body {
           Some(body) => {
             let (body_next, body_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
-              body,
+              body, whole_body=Some(whole_body),
             )
             if body_changed {
               next_else = Some(body_next)
@@ -25083,7 +25044,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
               ),
             ) {
             (Some(temp_id), Some(target_id)) =>
-              if !run_hot_pipeline_raw_ssa_nomerge_body_reads_local_from(
+              if dae_local_usage_evidence(whole_body, @lib.LocalIdx::new(temp_id.reinterpret_as_uint())).get_count == 1 &&
+                !run_hot_pipeline_raw_ssa_nomerge_body_reads_local_from(
                   instrs,
                   idx + 1,
                   temp_id,
@@ -25123,6 +25085,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
               ),
             ) {
             (Some(temp_id), Some(target_id)) => {
+              if dae_local_usage_evidence(whole_body, @lib.LocalIdx::new(temp_id.reinterpret_as_uint())).get_count != 1 { break }
               let producer_idx = run_hot_pipeline_raw_ssa_nomerge_find_branch_copy_producer(
                 rewritten,
                 scan - 1,
@@ -25149,7 +25112,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
     }
   }
   let (alias_block_instrs, alias_block_changed) = run_hot_pipeline_raw_ssa_nomerge_redirect_if_before_branch_block_alias(
-    rewritten,
+    rewritten, whole_body=Some(whole_body),
   )
   if !changed && !alias_block_changed {
     return (instrs, false)
