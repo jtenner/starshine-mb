@@ -91,7 +91,7 @@ It is a small whole-module **global declaration tightening** pass.
   - imported globals are never refined
   - open-world exported mutable globals are not refined
   - open-world exported immutable globals may still refine, but only to a valid public type
-  - current official `version_130` closed-world behavior still skips **all** exported globals here
+  - the reviewed official `version_130` closed-world behavior still skips **all** exported globals here
 - The actual upstream Binaryen rewrite surface is tiny:
   - change the declared global type
   - update `global.get` result types

@@ -20,8 +20,8 @@ sources:
   - ../../../src/validate/validate.mbt
   - ../../../src/cmd/cmd.mbt
   - ../../../src/cmd/cmd_wbtest.mbt
-  - ../../../src/binary/tests.mbt
-  - ../../../src/validate/gen_invalid_tests.mbt
+  - ../../../src/binary/tests_wbtest.mbt
+  - ../../../src/validate/gen_invalid_wbtest.mbt
   - ../../../src/fuzz/invalid_binary_wbtest.mbt
 related:
   - ../wasm-extended-name-section-boundary.md
@@ -158,7 +158,7 @@ Name validation rules remain:
 - function, type, tag, and the local Starshine label, table, memory, global, element, and data name maps must point at existing indices;
 - local names are official in the current checked source; label names and Starshine-local label names must point at an existing function and an in-range local or label inside that function;
 - field names must point at an existing struct type and an in-range field;
-- name validation failures report the `NameSectionFamily` through invalid-generation tests in [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt) and binary invalid tests in [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt).
+- name validation failures report the `NameSectionFamily` through invalid-generation tests in [`../../../src/validate/gen_invalid_wbtest.mbt`](../../../src/validate/gen_invalid_wbtest.mbt) and binary invalid tests in [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt).
 
 This is stricter than the core semantic rule that custom sections are ignored, and the label/table/memory/global/element/data families are broader than the current official name-section grammar. They now have an active Extended Name Section proposal home, but Starshine's current checks are still local structured-metadata checks until the proposal is finished and locally gated or adopted. The stricter local rule is intentional because Starshine uses structured names for diagnostics, pretty output, fuzz coverage, and pass-maintained index maps. Do not cite these local failures as official WebAssembly semantic invalidity.
 
@@ -225,6 +225,6 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - Compiler-facts representation: [`../../../src/representation/compiler_facts.mbt`](../../../src/representation/compiler_facts.mbt)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/compiler_facts_decode.mbt`](../../../src/binary/compiler_facts_decode.mbt), [`../../../src/binary/compiler_facts_encode.mbt`](../../../src/binary/compiler_facts_encode.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/compiler_facts_wbtest.mbt`](../../../src/binary/compiler_facts_wbtest.mbt)
-- Validation and invalid generation: [`../../../src/validate/compiler_facts.mbt`](../../../src/validate/compiler_facts.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
+- Validation and invalid generation: [`../../../src/validate/compiler_facts.mbt`](../../../src/validate/compiler_facts.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_wbtest.mbt`](../../../src/validate/gen_invalid_wbtest.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - CLI print selector implementation and tests: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../tooling/cli-command-and-dispatcher.md`](../tooling/cli-command-and-dispatcher.md)
 - Related docs: [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md`](../binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md)

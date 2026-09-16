@@ -20,7 +20,7 @@ related:
 # `type-merging`: DFA partitions, cast barriers, and refinalization
 
 This is the hardest part of `type-merging` to teach clearly.
-The 2026-04-24 primary-source manifest anchors the partition algorithm. The later [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md) corrects its old current-main freshness claim: current candidate visibility and final rewriting are both parameterized by a non-open `WorldMode`. This page describes the graph proof after that admission/visibility policy has been chosen.
+The 2026-04-24 primary-source manifest anchors the partition algorithm. The later [2026-07-11 world-mode recheck](index.md) corrects its old current-main freshness claim: current candidate visibility and final rewriting are both parameterized by a non-open `WorldMode`. This page describes the graph proof after that admission/visibility policy has been chosen.
 
 If you remember only one thing, remember this:
 
@@ -195,7 +195,7 @@ then it does not yet implement Binaryen `type-merging` honestly.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0294](./index.md)
 - [research note 0181](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeMerging.cpp>

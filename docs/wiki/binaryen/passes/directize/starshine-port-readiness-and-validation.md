@@ -25,7 +25,7 @@ sources:
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/lib/show.mbt
   - ../../../../../src/validate/typecheck.mbt
-  - ../../../../../src/validate/typecheck_negative_tests.mbt
+  - ../../../../../src/validate/typecheck_negative_wbtest.mbt
   - ../../../../../src/ir/hot_side_tables.mbt
   - ../../../../../src/ir/hot_lower.mbt
   - ../../../../../agent-todo.md
@@ -142,7 +142,7 @@ These surfaces make a HOT-assisted rewrite plausible, but they do not replace Bi
   - typechecks `call_indirect` by resolving a function type, validating a funcref-compatible table, popping the table index, then popping call parameters and pushing results.
 - `src/validate/typecheck.mbt:3216-3219`
   - dispatches `CallIndirect` and `ReturnCallIndirect` through the typechecker.
-- `src/validate/typecheck_negative_tests.mbt:332-391`
+- `src/validate/typecheck_negative_wbtest.mbt:332-391`
   - covers invalid table index, non-funcref-compatible tables, and tail-call mismatch negatives.
 
 The first pass tests should reuse validation aggressively. Known-trap rewrites and direct-call rewrites both change stack behavior enough that a text-only diff is too weak.

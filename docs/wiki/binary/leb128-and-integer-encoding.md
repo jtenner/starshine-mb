@@ -7,7 +7,7 @@ sources:
   - https://webassembly.github.io/spec/core/binary/conventions.html
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
-  - ../../../src/binary/tests.mbt
+  - ../../../src/binary/tests_wbtest.mbt
   - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/fuzz/invalid_binary_wbtest.mbt
   - ../../../src/cmd/fuzz_harness.mbt
@@ -128,7 +128,7 @@ The first byte continues and contributes payload `3`; the terminal byte contribu
 ff 7f  ->  -1 as a signed value
 ```
 
-The second payload carries the required sign-extension bits. Starshine locks bounded nonminimal signed/unsigned forms in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt), and the upstream conformance lane is [`tests/spec/binary-leb128.wast`](../../../tests/spec/binary-leb128.wast).
+The second payload carries the required sign-extension bits. Starshine locks bounded nonminimal signed/unsigned forms in [`src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt), and the upstream conformance lane is [`tests/spec/binary-leb128.wast`](../../../tests/spec/binary-leb128.wast).
 
 ### Malformed terminal or over-limit value
 
@@ -157,7 +157,7 @@ Do not call an external strictness difference a Starshine decoder defect merely 
 
 When changing LEB code or a field that carries a LEB:
 
-1. Add codec tests for compact output and, where the field allows it, bounded nonminimal input in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt).
+1. Add codec tests for compact output and, where the field allows it, bounded nonminimal input in [`src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt).
 2. Add negative coverage for EOF, over-limit byte count, out-of-range values, and maximum-width unused/sign-extension bits.
 3. For a module corruption, register the carrier in [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt) and lock its inventory/expected decode stage in [`src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt).
 4. If Core conformance behavior changes, exercise the static-harness route for [`tests/spec/binary-leb128.wast`](../../../tests/spec/binary-leb128.wast), described in [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md).
@@ -166,6 +166,6 @@ When changing LEB code or a field that carries a LEB:
 ## Sources
 
 - Official LEB rules: [Core binary values](https://webassembly.github.io/spec/core/binary/values.html) and [binary conventions](https://webassembly.github.io/spec/core/binary/conventions.html)
-- Core codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
+- Core codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt)
 - Fuzz inventory and canonicality classification: [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt)
 - Spec-suite evidence: [`../../../tests/spec/binary-leb128.wast`](../../../tests/spec/binary-leb128.wast)

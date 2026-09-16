@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-29
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
 related:
@@ -19,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-- Use official Binaryen `version_131`, tag commit `1f903c14babf829745b421b92ff0f286e93e4209`, as the current source oracle.
+- Use official Binaryen `version_132` as the current release oracle for new checks. The `version_131` tag commit `1f903c14babf829745b421b92ff0f286e93e4209` remains the historical source-review anchor for the material below.
 - The 2026-07-29 audit re-read the owner and both dedicated lit fixtures and recorded their exact SHA-256 values in [`./fuzzing.md`](./fuzzing.md).
 - The audit also corrected one important local interpretation: Binaryen's `module->globals` vector includes imported globals. The comparator keeps imports before definitions, but imported globals are still sorted among themselves.
 - The core implementation lives in `src/passes/ReorderGlobals.cpp`.

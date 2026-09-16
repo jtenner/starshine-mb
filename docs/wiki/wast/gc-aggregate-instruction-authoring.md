@@ -7,7 +7,7 @@ sources:
   - ../custom-descriptors/descriptor-instruction-surface.md
   - ../wasm-shared-everything-threads-boundary.md
   - ../wasm-more-array-constructors-boundary.md
-  - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
+  - ../binary/data-element-and-datacount-sections.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -229,7 +229,7 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 - Constant-expression boundary: [`../validate/constant-expressions.md`](../validate/constant-expressions.md), which records the current Core/local array-constructor admission contract and the superseded earlier claim.
 - Shared-Everything Threads boundary: [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md) and its cited official proposal sources
 - More Array Constructors boundary: [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md)
-- Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
+- Current data/data-count refresh: [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md)
 - Focused data-count/data-index guide: [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
 - Custom-descriptor instruction boundary: [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Type declaration companion: [`gc-type-authoring.md`](gc-type-authoring.md)

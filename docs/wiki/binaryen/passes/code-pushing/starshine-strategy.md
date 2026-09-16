@@ -344,7 +344,7 @@ Current Starshine `code-pushing` is active and closed for the current user-direc
 - [research note 0827](./index.md)
 - [research note 0825](./index.md)
 - [research note 0824](./index.md)
-- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`index.md`](index.md)
 - [research note 0822](./index.md)
 - [research note 0821](./index.md)
 - [research note 0820](./index.md)

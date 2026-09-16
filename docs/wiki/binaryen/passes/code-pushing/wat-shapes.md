@@ -693,7 +693,7 @@ Before expecting a `code-pushing` rewrite, ask:
 - [research note 0826](./index.md)
 - [research note 0825](./index.md)
 - [research note 0824](./index.md)
-- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`index.md`](index.md)
 - [research note 0819](./index.md)
 - [research note 0815](./index.md)
 - [research note 0814](./index.md)

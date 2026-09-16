@@ -6,7 +6,7 @@ sources:
   - ../wasm-relaxed-dead-code-validation-boundary.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
-  - ../../../src/validate/typecheck_negative_tests.mbt
+  - ../../../src/validate/typecheck_negative_wbtest.mbt
   - ../../../src/validate/validate.mbt
 related:
   - ../wasm-relaxed-dead-code-validation-boundary.md
@@ -95,7 +95,7 @@ By contrast, `br_if`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_c
 
 ### Missing operands after `unreachable` are accepted
 
-[`src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt) locks the direct mechanics:
+[`src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt) locks the direct mechanics:
 
 - `Typecheck unreachable pop1 returns bot (polymorphic stack)`
 - `Typecheck unreachable pop_expect succeeds for any type`
@@ -117,7 +117,7 @@ An `if` where one branch is unreachable and the other branch produces the result
   end)
 ```
 
-The validator uses the reachable branch's result. If both branches are nonfallthrough, the `if` continuation is nonfallthrough too. The focused tests are `Typecheck if with one unreachable branch merges to reachable` and `Typecheck if with both unreachable branches yields unreachable` in [`src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt).
+The validator uses the reachable branch's result. If both branches are nonfallthrough, the `if` continuation is nonfallthrough too. The focused tests are `Typecheck if with one unreachable branch merges to reachable` and `Typecheck if with both unreachable branches yields unreachable` in [`src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt).
 
 ### Branch payload checks still happen first
 
@@ -169,7 +169,7 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 | State model | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | `TcState` carries `stack`, `reachable`, `escape`, and reachable branch-escape summaries. |
 | Bottom synthesis | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | `pop1(...)` returns bottom only for underflow in unreachable states; `pop_expect(...)` accepts bottom for any expected type. |
 | End-stack checks | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | `validate_end_stack(...)` and function-body diagnostics reject underflow, mismatched results, and extra concrete values. |
-| Regression coverage | [`src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt), [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Bottom-pop tests, if/loop/block reachability tests, descriptor bottom tests, end-body stack-shape tests, and concrete-junk rejection tests. |
+| Regression coverage | [`src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt), [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Bottom-pop tests, if/loop/block reachability tests, descriptor bottom tests, end-body stack-shape tests, and concrete-junk rejection tests. |
 | Related authoring docs | [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), [`../wast/parametric-instruction-authoring.md`](../wast/parametric-instruction-authoring.md), [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md), [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) | Human-facing syntax and fixture guidance for the instruction families that interact with unreachable continuations. |
 
 ## Sources
@@ -177,4 +177,4 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 - Relaxed Dead Code Validation proposal boundary: [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md) and its cited official proposal sources
 - Runtime trap execution/host boundary: [`runtime-trap-semantics.md`](runtime-trap-semantics.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/appendix/algorithm.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>
-- Starshine implementation and tests: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
+- Starshine implementation and tests: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

@@ -103,8 +103,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
-  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
-  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
+  - index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../ir2/execution-plan.md
@@ -145,7 +144,7 @@ Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel
 | Binaryen `src/ir/properties.h` | Already-flat and control-flow tests | Supplies the constant-expression and control-flow-structure decisions that shape prelude migration. |
 | Binaryen `src/ir/manipulation.h` | Expression copy helper surface | Supplies expression copying used by tricky `br_if` flowing-out versus branch-target temp cases. |
 
-Primary current-main URLs are captured in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md) and rechecked for port-readiness in [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md). The tagged `version_130` conditional-branch refresh is [`../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md), the matching switch/unique-target refresh is [`../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md), and the loop/table composition refresh is [`../../../raw/binaryen/2026-07-13-flatten-version-130-loop-table-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-loop-table-refresh.md); the earlier `version_129` provenance remains [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md).
+Primary current-main URLs are captured in [`index.md`](index.md) and rechecked for port-readiness in [`index.md`](index.md). The tagged `version_130` conditional-branch refresh is [`../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md), the matching switch/unique-target refresh is [`../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-switch-refresh.md), and the loop/table composition refresh is [`../../../raw/binaryen/2026-07-13-flatten-version-130-loop-table-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-loop-table-refresh.md); the earlier `version_129` provenance remains [`index.md`](index.md).
 
 ## Binaryen implementation structure
 

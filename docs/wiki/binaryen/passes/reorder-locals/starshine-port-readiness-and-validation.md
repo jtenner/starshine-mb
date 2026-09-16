@@ -139,7 +139,7 @@ Start with small, semantic checks before running broader parity:
 ## Sources
 
 - Current preset-scheduling reconciliation: [research note 0709](./index.md)
-- [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
+- [`index.md`](index.md)
 - [research note 0430](./index.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./wat-shapes.md`](./wat-shapes.md)

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
@@ -114,7 +114,7 @@ The local owner file includes payload-forwarder, split-wrapper, raw-skip, and wr
 
 ## August 28, 2026 performance status
 
-The current artifact-scale pass body is no longer slower than Binaryen. Allocation-free unreachable-child planning, revision-keyed negative memoization, a one-pass raw control summary, and cached unchanged-lowering admission reduce the median pass from `6,266.946ms` to `188.440ms`, versus Binaryen v131 at `201.393ms`. Exact output is unchanged at 4,968,057 bytes.
+The recorded artifact-scale pass-body comparison is no longer slower than Binaryen. Allocation-free unreachable-child planning, revision-keyed negative memoization, a one-pass raw control summary, and cached unchanged-lowering admission reduce the median pass from `6,266.946ms` to `188.440ms`, versus Binaryen v131 at `201.393ms`. Exact output is unchanged at 4,968,057 bytes.
 
 Whole-command median falls from `11,580.004ms` to `1,915.570ms`, but remains `2.583x` Binaryen's `741.628ms`. That remaining blocker is no longer a DCE pass-body algorithm problem; it is the combined shared function envelope and command validation/encoding floor. Keep the absolute command P0 open while treating the DCE pass-local 1x goal as met.
 

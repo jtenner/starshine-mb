@@ -4,7 +4,7 @@ status: working
 last_reviewed: 2026-07-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
-  - ../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
+  - ../remove-exports/index.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
 related:
@@ -21,7 +21,7 @@ Do **not** run or copy a `compare-pass --pass mark-js-called` command as current
 
 That rejection proves only current tooling status. It does not compare Starshine with Binaryen and must not be reported as a smoke result, a command failure, or parity evidence.
 
-The upstream behavior remains useful planning input: Binaryen recognizes `configureAll` calls and synthesizes `binaryen.js.called` metadata for referred functions. See [`index.md`](index.md) and [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md).
+The upstream behavior remains useful planning input: Binaryen recognizes `configureAll` calls and synthesizes `binaryen.js.called` metadata for referred functions. See [`index.md`](index.md) and [`../remove-exports/index.md`](../remove-exports/index.md).
 
 ## Before a Runnable Lane Exists
 

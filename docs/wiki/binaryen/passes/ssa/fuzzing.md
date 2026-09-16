@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-30
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/LocalGraph.cpp
@@ -28,7 +28,11 @@ related:
 
 Full `ssa` is admitted by `pass-fuzz-compare` under canonical pass name `ssa`, mapped to Binaryen `--ssa`.
 
-All closeout results below used:
+The recorded closeout results below used Binaryen v131. They remain historical
+evidence; new comparison runs must use the current verified Binaryen 132 oracle
+described in the shared [compare-pass guide](../../../tooling/pass-fuzz-compare.md).
+
+The v131 closeout used:
 
 - Starshine native SHA-256 `a130c0c5f9f9bb3fcc1ad265dfc14e414d2f3184c9df1df01c0686774ee62b66`;
 - `_build/native/release/build/cmd/cmd.exe`;

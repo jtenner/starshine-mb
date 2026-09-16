@@ -6,7 +6,7 @@ sources:
   - validate/constant-expressions.md
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/more-array-constructors/blob/main/proposals/more-array-constructors/Overview.md
-  - raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
+  - binary/data-element-and-datacount-sections.md
   - ../../src/lib/types.mbt
   - ../../src/wast/keywords.mbt
   - ../../src/binary/decode.mbt

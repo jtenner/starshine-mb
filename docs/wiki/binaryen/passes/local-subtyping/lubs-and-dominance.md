@@ -6,6 +6,7 @@ sources:
   - ./index.md
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
+
 ---
 
 # `local-subtyping`: LUBs, dominance, and iteration

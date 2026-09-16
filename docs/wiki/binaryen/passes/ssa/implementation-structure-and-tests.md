@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
+  - index.md
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -27,7 +27,7 @@ related:
 
 # `ssa` implementation structure and tests
 
-This page is the compact "show me the real source surface" companion for the full-`ssa` sibling. Its direct tagged `version_129` URLs below preserve the owner, helper, and lit provenance; for scoped current-main and local-admission freshness, use [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md).
+This page is the compact "show me the real source surface" companion for the full-`ssa` sibling. Its direct tagged `version_129` URLs below preserve the owner, helper, and lit provenance; for scoped current-main and local-admission freshness, use [`index.md`](index.md).
 
 ## Upstream file map
 

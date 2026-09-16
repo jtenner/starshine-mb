@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-16
 sources:
   - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-- Use official Binaryen `version_131` as the current source oracle; see the [2026-07-28 source refresh](../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md).
+- Use official Binaryen `version_132` as the current source oracle for new checks; the [2026-07-28 v131 source refresh](../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md) remains historical evidence.
 - The v131 owner, `opt-utils.h`, and dedicated input fixture are byte-identical to the retained v130 hashes, so the released transform contract is unchanged.
 - The core implementation is `src/passes/DuplicateImportElimination.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
@@ -181,7 +181,7 @@ That helper rewrites only the function-name surface:
 - function exports
 
 This is the second main place the older dossier over-attributed behavior from nearby helpers.
-Current `version_131` does **not** use sibling replace helpers for globals, tables, or memories here.
+The reviewed `version_131` source does **not** use sibling replace helpers for globals, tables, or memories here.
 
 ## 6. Remove duplicate imported functions immediately
 
@@ -270,4 +270,4 @@ Starshine now has an active module-pass implementation, so read this as the ongo
   - start
   - function exports
 - Remove duplicate imported functions immediately.
-- If Starshine later widens the pass to globals/tables/memories/tags, document that as a deliberate divergence or future-upstream drift, not as current `version_131` behavior.
+- If Starshine later widens the pass to globals/tables/memories/tags, document that as a deliberate divergence or future-upstream drift, not as behavior established by the reviewed `version_131` source.

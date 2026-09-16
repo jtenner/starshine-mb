@@ -22,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_131` as the repo-wide public release baseline. This page's detailed owner contract remains grounded in the reviewed v130/v129 evidence until the targeted v131 renewal in `[V131-SPOT]001` is complete.
+- Use Binaryen `version_132` as the repo-wide public release baseline. This page's detailed owner contract remains grounded in the reviewed v130/v129 evidence until the targeted v131 renewal in `[V131-SPOT]001` is complete.
 - The 2026-04-22 `version_129` tagged recheck has been ingested; its direct owner, scheduler, helper, and lit-test URLs are retained under **Primary source URLs** below.
 - The retained 2026-05-05 research recheck found no semantic teaching drift in the reviewed owner, registry, helper, constructor, or lit-test surfaces.
 - The current [`CodeFolding.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp) owner records the already-present `version_130`/current-main cost structure: per-iteration exiting-branch caching, one lazy function-body target set per recursive search, and deterministic subset exploration. It supplements the semantic contract rather than superseding older retained provenance.

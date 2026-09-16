@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -20,7 +20,7 @@ related:
 
 This page gives beginner-friendly before/after sketches for the main source-backed shapes in Binaryen `gufa`.
 They are simplified teaching examples, not exact copied lit-file excerpts.
-The source-backed provenance for these families is captured in [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md). It corrects the analysis-owner map but does not assert a full source-diff or fresh execution result.
+The source-backed provenance for these families is captured in [`index.md`](index.md). It corrects the analysis-owner map but does not assert a full source-diff or fresh execution result.
 
 ## How to read these examples
 
@@ -446,8 +446,8 @@ A future Starshine port should keep these shape rules explicit:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
+- [`index.md`](index.md)
+- [`index.md`](index.md)
 - [research note 0471](./index.md)
 - [research note 0313](./index.md)
 - [research note 0163](./index.md)

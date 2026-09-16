@@ -154,7 +154,7 @@ The 2026-04-22 direct comparison and v130 closeout remain historical provenance,
 
 So the durable rule is:
 
-- use v131 for current release-anchored Starshine signoff;
+- use v132 for current release-anchored Starshine signoff; retain v131 signoff as historical evidence;
 - treat the imported/zero-filled/in-allocation/source-order path as required released behavior, not arbitrary-overlap permission; and
 - keep checked bounds, page-size, memory64, source-order, and instantiation-trap conditions explicit whenever this folder discusses overlap.
 

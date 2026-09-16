@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
+  - index.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -199,7 +199,7 @@ When it lands, test both:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md)
 - [research note 0451](./index.md)
 - [research note 0398](./index.md)

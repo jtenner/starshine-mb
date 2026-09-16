@@ -24,7 +24,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_131` as the current source oracle for this pass; the older v129 walk remains valid historical detail because the owner contract did not change.
+- Use Binaryen `version_132` as the current comparison oracle for this pass; the v131 source review remains historical provenance; the older v129 walk remains valid historical detail because the owner contract did not change.
 A 2026-05-05 current-main recheck on `SimplifyLocals.cpp`, `pass.cpp`, and the dedicated test pair found no teaching-relevant drift on the reviewed surfaces.
 - Use the retained 2026-04-25 source bridge plus the direct upstream URLs below for provenance, current-main spot-check scope, and the exact reviewed source/test URL set.
 - The core implementation is the shared `src/passes/SimplifyLocals.cpp` template.

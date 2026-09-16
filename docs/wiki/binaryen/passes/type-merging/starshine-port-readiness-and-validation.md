@@ -31,7 +31,7 @@ related:
 
 # Starshine port-readiness and validation for `type-merging`
 
-Use this page with the current status and Binaryen contract pages, plus the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md). It supersedes the older fresh bridge's Boolean-only current-main conclusion.
+Use this page with the current status and Binaryen contract pages, plus the [2026-07-11 world-mode recheck](index.md). It supersedes the older fresh bridge's Boolean-only current-main conclusion.
 
 This is a **future-port** page, not an implementation page.
 Starshine still does not implement `type-merging`.

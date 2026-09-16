@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-27
+last_reviewed: 2026-09-16
 sources:
   - ../release-horizon-and-oracles.md
-  - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
+  - remove-exports/index.md
   - ./remove-exports/index.md
   - ./vacuum/index.md
   - ../../../../src/cli/cli.mbt
@@ -39,7 +39,7 @@ related:
 
 ## 2026-08-27 direct wall-time inventory
 
-The current `[WALL]001` inventory screened 49 deduplicated direct passes on the 4,977,401-byte canonical artifact, SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`, using native CLI SHA-256 `3c40edc8a50c29f3c7a00ff025e03f0601618cbe2fa1486930c2259fd65bc0a1`, verified Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, and one warmup plus three serial measured pairs for material candidates on an AMD Ryzen 7 8845HS host. The per-tool `strip-debug` command floors are `866.894ms` Starshine and `514.042ms` Binaryen. All 44 completed comparable pairs preserve traced/no-trace Starshine byte identity; `flatten` and `merge-locals` intentionally fail closed as large-module no-ops, and `global-struct-inference-desc-cast` has no Binaryen-v131 CLI counterpart.
+The recorded `[WALL]001` inventory screened 49 deduplicated direct passes on the 4,977,401-byte canonical artifact, SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`, using native CLI SHA-256 `3c40edc8a50c29f3c7a00ff025e03f0601618cbe2fa1486930c2259fd65bc0a1`, verified Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, and one warmup plus three serial measured pairs for material candidates on an AMD Ryzen 7 8845HS host. The per-tool `strip-debug` command floors are `866.894ms` Starshine and `514.042ms` Binaryen. All 44 completed comparable pairs preserve traced/no-trace Starshine byte identity; `flatten` and `merge-locals` intentionally fail closed as large-module no-ops, and `global-struct-inference-desc-cast` has no Binaryen-v131 CLI counterpart.
 
 Two extreme blockers sit above the ordinary median table. `simplify-locals-nonesting` exceeded the 900-second Starshine screen limit while Binaryen completed in `1.275s` command / `0.773s` pass, a command lower bound above `706x`; an independent 60-second bounded replay also timed out. `coalesce-locals` spent `554.787s` in the Starshine module pass and `555.976s` in traced input handling versus Binaryen `3.171s` pass / `3.660s` command, or `174.94x` pass-local and `151.90x` command wall time; its completed traced/no-trace outputs are byte-identical.
 
@@ -145,7 +145,7 @@ A separate JSON-AS preset experiment measured `duplicate-function-elimination ->
 - Binaryen official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
 - Binaryen `version_131` release-impact audit: [research note 1573](../release-horizon-and-oracles.md)
 - Historical Binaryen `version_130` release-horizon recheck: [research note 0704](../release-horizon-and-oracles.md)
-- Binaryen `mark-js-called` / `remove-exports` current-main recheck: [`../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
+- Binaryen `mark-js-called` / `remove-exports` current-main recheck: [`remove-exports/index.md`](remove-exports/index.md)
 - Retained `mark-js-called` / `remove-exports` tracker expansion: [research note 0706](./remove-exports/index.md)
 - Superseded Binaryen `version_125` correction: [research note 0698](../release-horizon-and-oracles.md)
 - Binaryen late-pipeline package-surface recheck: research note 0699

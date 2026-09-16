@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -16,7 +16,7 @@ related:
 # `abstract-type-refining`: implementation structure and tests
 
 This page exists because `AbstractTypeRefining.cpp` is not a self-contained algorithm.
-If you read only that one file, you will miss where several of the real rules come from. The reviewed `version_130` source and fixture floor is captured in [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md); its current-`main` caveat replaces the older unqualified no-drift wording.
+If you read only that one file, you will miss where several of the real rules come from. The reviewed `version_130` source and fixture floor is captured in [`index.md`](index.md); its current-`main` caveat replaces the older unqualified no-drift wording.
 
 ## File map
 
@@ -233,7 +233,7 @@ So visible type-section shrinkage can be a combined effect.
 
 ## Freshness and evidence note
 
-The 2026-07-11 raw capture refreshes this page's tagged source floor to `version_130`: its reviewed owner and fixture routes preserve the documented GC/closed-world gate, struct-creation scan, TNH split, descriptor/exact-cast repairs, and late explicit-pass role. See [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md).
+The 2026-07-11 raw capture refreshes this page's tagged source floor to `version_130`: its reviewed owner and fixture routes preserve the documented GC/closed-world gate, struct-creation scan, TNH split, descriptor/exact-cast repairs, and late explicit-pass role. See [`index.md`](index.md).
 
 The same web review returned an internally inconsistent current-`main` API snapshot: the owner route and helper signature could not both compile as fetched. Therefore this page makes **no** `version_130`-to-main equality claim. Before porting, replay the owner, `module-utils`, `type-updating`, registration, and full fixture roster from one pinned checkout. Starshine's local status remains independently verifiable: it has no owner and rejects the boundary-only name; see [`./starshine-strategy.md`](./starshine-strategy.md).
 
@@ -265,7 +265,7 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md)
+- [`index.md`](index.md)
 - [research note 0295](./index.md)
 - [research note 0155](./index.md)
 - Binaryen `version_129`:

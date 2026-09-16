@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
-  - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
+  - binaryen-strategy.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/typecheck.mbt
@@ -72,7 +72,7 @@ The output module has:
 - **Type preservation:** every rewritten instruction must match the wasm32 operation signature after declarations are lowered.
 - **Unsigned result repair:** size results and successful grow results must use zero-extension, not sign-extension.
 - **Grow failure repair:** wasm32 grow returns `i32 -1` on failure, but wasm64 callers expect the 64-bit failure sentinel; lowered grows need explicit sentinel repair.
-- **Bulk-operation width selection:** `copy`/`init`/`fill` operands are not all the same width. Destination, source, value, and length positions must be handled independently, and current Starshine validation still has a memory64 `memory.fill` length caveat recorded in the current address-width refresh [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) and living validator matrix [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md).
+- **Bulk-operation width selection:** `copy`/`init`/`fill` operands are not all the same width. Destination, source, value, and length positions must be handled independently, and current Starshine validation still has a memory64 `memory.fill` length caveat recorded in the current address-width refresh [`binaryen-strategy.md`](binaryen-strategy.md) and living validator matrix [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md).
 - **Segment offset repair:** active data and element offsets are observable initialization behavior and cannot be left at the old address type; the reviewed source lowers those offset expressions to 32-bit form rather than proving the static-memarg high-offset trap rule for active segments.
 - **Limit caveat:** max limits above the 32-bit maximum are clamped, but the reviewed source asserts that min limits fit after lowering instead of exposing a polished user-facing diagnostic contract.
 
@@ -83,7 +83,7 @@ The output module has:
 - `memory.grow` / `table.grow`, which have operand wrapping plus failure-sentinel result repair, not just blind zero-extension.
 - SIMD and atomic memory instructions, which have normal address operands even though their payload/result types are unrelated to address width.
 - Active data/element offsets outside function bodies.
-- Table64 support in Starshine is currently uneven: [`typecheck_table_copy(...)`](../../../../../src/validate/typecheck.mbt#L1431-L1461) and [`typecheck_table_init(...)`](../../../../../src/validate/typecheck.mbt#L1464-L1492) derive address widths from table limits, and [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) derives only the destination/start operand from table limits, but Starshine still hard-codes `i32` for `table.fill` length plus `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` table indices/results. The current focused correction is [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), with the reusable living guide in [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md).
+- Table64 support in Starshine is currently uneven: [`typecheck_table_copy(...)`](../../../../../src/validate/typecheck.mbt#L1431-L1461) and [`typecheck_table_init(...)`](../../../../../src/validate/typecheck.mbt#L1464-L1492) derive address widths from table limits, and [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) derives only the destination/start operand from table limits, but Starshine still hard-codes `i32` for `table.fill` length plus `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` table indices/results. The current focused correction is [`binaryen-strategy.md`](binaryen-strategy.md), with the reusable living guide in [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md).
 
 ## Validation strategy
 
@@ -121,7 +121,7 @@ The future Starshine sequencing is spelled out in [`starshine-port-readiness-and
 - research note 0374
 - research note 0340
 - research note 0315
-- [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
+- [`binaryen-strategy.md`](binaryen-strategy.md)
 - [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>
 - Binaryen registration source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

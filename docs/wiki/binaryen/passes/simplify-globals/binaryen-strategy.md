@@ -21,7 +21,7 @@ This page teaches the algorithmic behavior.
 For the compact owner-file and shipped-test map, read [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) alongside it.
 For the reviewed owner/test freshness bridge, read [research note 0461](./index.md) alongside both pages; direct tagged release, source, and test URLs remain below.
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- The reviewed Binaryen `version_129` source is historical; use v132 for current comparisons.
 - The core implementation is `src/passes/SimplifyGlobals.cpp`.
 - Public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp`.
 - The optimizing variant's nested-runner behavior also depends on `src/pass.h`.

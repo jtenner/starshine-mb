@@ -5,7 +5,7 @@ last_reviewed: 2026-08-18
 sources:
   - descriptor-instruction-surface.md
   - ../../../src/validate/match.mbt
-  - ../../../src/validate/match_tests.mbt
+  - ../../../src/validate/match_wbtest.mbt
   - ../../../src/wast/exact_type_equivalence_test.mbt
 related:
   - ./descriptor-instruction-surface.md
@@ -35,7 +35,7 @@ Ordinary defined references also use canonical structural equivalence before fol
 
 This page owns the structural-equivalence rule. The descriptor instruction-family overview lives in [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), the `ref.get_desc` operand/result exactness flow lives in [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md), the broader WAST type authoring surface lives in [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), and the validator-side type-section normalization/subtype-matching contract lives in [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md).
 
-The current instruction-surface boundary is [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), building on the broader [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). These sources cover the Phase-3 custom-descriptors proposal, the upstream `ref.get_desc` bottom-input discussion, the V8 fix, and current Starshine validator sources. The proposal still uses exact heap types for descriptor-allocation soundness, but Starshine's structural exact-reference equivalence is a local validator implementation rule: it can compare structs, functions, and arrays because the shared `Match::matches(...)` engine works over the whole type system, not because the descriptor proposal standardizes metadata on every composite family.
+The current instruction-surface boundary is [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), building on the broader [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md). These sources cover the Phase-3 custom-descriptors proposal, the upstream `ref.get_desc` bottom-input discussion, the V8 fix, and current Starshine validator sources. The proposal still uses exact heap types for descriptor-allocation soundness, but Starshine's structural exact-reference equivalence is a local validator implementation rule: it can compare structs, functions, and arrays because the shared `Match::matches(...)` engine works over the whole type system, not because the descriptor proposal standardizes metadata on every composite family.
 
 ## Concrete Shapes
 
@@ -88,7 +88,7 @@ For recursive types, exact matching tracks visited `(TypeIdx, TypeIdx)` pairs. S
 | --- | --- | --- |
 | Matching entry point | [`src/validate/match.mbt`](../../../src/validate/match.mbt) | `Match::matches` dispatches ordinary ref matching and calls `exact_heaptype_matches(...)` when both sides need exact equality. |
 | Exact structural engine | [`src/validate/match.mbt`](../../../src/validate/match.mbt) | `exact_typeidx_matches_fuel(...)`, `exact_subtype_matches_fuel(...)`, and helper functions compare subtype metadata, supertypes, comps, fields, storage, vals, and refs with cycle guards. |
-| Focused tests | [`src/validate/match_tests.mbt`](../../../src/validate/match_tests.mbt), [`src/wast/exact_type_equivalence_test.mbt`](../../../src/wast/exact_type_equivalence_test.mbt) | Prove equal and unequal exact-shape behavior through validator-level helpers and WAST-facing fixtures. |
+| Focused tests | [`src/validate/match_wbtest.mbt`](../../../src/validate/match_wbtest.mbt), [`src/wast/exact_type_equivalence_test.mbt`](../../../src/wast/exact_type_equivalence_test.mbt) | Prove equal and unequal exact-shape behavior through validator-level helpers and WAST-facing fixtures. |
 | Static fixture policy | [`custom-descriptors/static-fixtures.md`](static-fixtures.md), [`src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt) | Keeps custom-descriptor static assertion success separate from runtime skips and mixed-runtime fixture debt. |
 | Element declaration support | [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`src/wast/passive_typed_elem_surface_test.mbt`](../../../src/wast/passive_typed_elem_surface_test.mbt) | The `exact.wast` front-end path also depends on typed empty element syntax; non-`funcref` typed element fixtures and declarative-mode preservation have their own WAST caveats. |
 
@@ -104,7 +104,7 @@ For recursive types, exact matching tracks visited `(TypeIdx, TypeIdx)` pairs. S
 
 When changing exact reference matching:
 
-1. Add the smallest failing fixture first in [`src/validate/match_tests.mbt`](../../../src/validate/match_tests.mbt) or [`src/wast/exact_type_equivalence_test.mbt`](../../../src/wast/exact_type_equivalence_test.mbt).
+1. Add the smallest failing fixture first in [`src/validate/match_wbtest.mbt`](../../../src/validate/match_wbtest.mbt) or [`src/wast/exact_type_equivalence_test.mbt`](../../../src/wast/exact_type_equivalence_test.mbt).
 2. Include both positive and negative shapes: equal different-index structs/functions, trailing-field struct non-equivalence, metadata mismatch, nullable mismatch, exactness-flag mismatch, and recursive-cycle cases when relevant.
 3. If the change affects descriptor-bearing types, also rerun or update the static-fixture policy in [`static-fixtures.md`](static-fixtures.md) and the `ref.get_desc` flow in [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md).
 4. Keep WAST element evidence routed through [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md); exact-reference changes should not silently claim that current WAST lowering preserves declarative mode or typed declarative text.
@@ -115,4 +115,4 @@ When changing exact reference matching:
 - Current primary-source bridge: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Type-section/subtyping contract: [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md)
 - Archived research docs: research note 0029, research note 0030, research note 0031
-- Current implementation and tests: [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/match_tests.mbt`](../../../src/validate/match_tests.mbt), [`../../../src/wast/exact_type_equivalence_test.mbt`](../../../src/wast/exact_type_equivalence_test.mbt)
+- Current implementation and tests: [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/match_wbtest.mbt`](../../../src/validate/match_wbtest.mbt), [`../../../src/wast/exact_type_equivalence_test.mbt`](../../../src/wast/exact_type_equivalence_test.mbt)

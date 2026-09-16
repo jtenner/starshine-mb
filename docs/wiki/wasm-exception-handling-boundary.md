@@ -4,14 +4,14 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - https://webassembly.github.io/spec/core/valid/instructions.html
-  - ../src/lib/types.mbt
-  - ../src/wast/parser.mbt
-  - ../src/wast/lower_to_lib.mbt
-  - ../src/wast/module_wast.mbt
-  - ../src/binary/decode.mbt
-  - ../src/binary/encode.mbt
-  - ../src/validate/validate.mbt
-  - ../src/validate/typecheck.mbt
+  - ../../src/lib/types.mbt
+  - ../../src/wast/parser.mbt
+  - ../../src/wast/lower_to_lib.mbt
+  - ../../src/wast/module_wast.mbt
+  - ../../src/binary/decode.mbt
+  - ../../src/binary/encode.mbt
+  - ../../src/validate/validate.mbt
+  - ../../src/validate/typecheck.mbt
 related:
   - wasm-feature-status-and-proposal-boundaries.md
   - wast/exception-tag-authoring.md
@@ -97,12 +97,12 @@ Validation accepts a nullable `exnref` operand. Execution still observes the ope
 
 | Layer | Current behavior | Evidence |
 | --- | --- | --- |
-| Core IR | Models tags, modern catch clauses, `Throw`, `ThrowRef`, `TryTable`, and decoded legacy `Try` with protected body, typed/catch-all bodies, and optional delegate target explicitly. | [`src/lib/types.mbt`](../src/lib/types.mbt). |
-| WAST text | Parses and prints tags, modern `try_table`, all four catch clauses, `throw`, `throw_ref`, and legacy compatibility syntax. | [`src/wast/parser.mbt`](../src/wast/parser.mbt), [`src/wast/module_wast.mbt`](../src/wast/module_wast.mbt), [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md). |
-| WAST lowering | Resolves tag ids through the imported-prefix tag index space, resolves modern catch labels against the enclosing context, and preserves accepted legacy `try` protected/catch bodies plus delegate targets as first-class `Instruction::Try`. | [`src/wast/lower_to_lib.mbt`](../src/wast/lower_to_lib.mbt). |
-| Binary codec | Decodes/encodes tag sections and tag types plus modern and legacy exception instruction opcodes. Binary-decoded legacy `Try` and accepted WAST legacy `try` both remain first-class core instructions. The tag type leading byte remains the current `0x00` attribute slot. | [`src/binary/decode.mbt`](../src/binary/decode.mbt), [`src/binary/encode.mbt`](../src/binary/encode.mbt), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md). |
-| Module validation | Validates imported and defined tag declarations before globals/code. Tag declarations may have results; exception uses enforce the empty-result restriction. | [`src/validate/validate.mbt`](../src/validate/validate.mbt), [`validate/module-validation-phases.md`](validate/module-validation-phases.md). |
-| Instruction typecheck | Checks throw payloads, nullable `throw_ref`, `try_table` body type, catch-label payload matching, and non-null exception-reference payloads for `catch_ref` / `catch_all_ref`. | [`src/validate/typecheck.mbt`](../src/validate/typecheck.mbt). |
+| Core IR | Models tags, modern catch clauses, `Throw`, `ThrowRef`, `TryTable`, and decoded legacy `Try` with protected body, typed/catch-all bodies, and optional delegate target explicitly. | [`src/lib/types.mbt`](../../src/lib/types.mbt). |
+| WAST text | Parses and prints tags, modern `try_table`, all four catch clauses, `throw`, `throw_ref`, and legacy compatibility syntax. | [`src/wast/parser.mbt`](../../src/wast/parser.mbt), [`src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md). |
+| WAST lowering | Resolves tag ids through the imported-prefix tag index space, resolves modern catch labels against the enclosing context, and preserves accepted legacy `try` protected/catch bodies plus delegate targets as first-class `Instruction::Try`. | [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt). |
+| Binary codec | Decodes/encodes tag sections and tag types plus modern and legacy exception instruction opcodes. Binary-decoded legacy `Try` and accepted WAST legacy `try` both remain first-class core instructions. The tag type leading byte remains the current `0x00` attribute slot. | [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md). |
+| Module validation | Validates imported and defined tag declarations before globals/code. Tag declarations may have results; exception uses enforce the empty-result restriction. | [`src/validate/validate.mbt`](../../src/validate/validate.mbt), [`validate/module-validation-phases.md`](validate/module-validation-phases.md). |
+| Instruction typecheck | Checks throw payloads, nullable `throw_ref`, `try_table` body type, catch-label payload matching, and non-null exception-reference payloads for `catch_ref` / `catch_all_ref`. | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt). |
 | Fuzzing and generators | GenValid and WAST arbitrary surfaces include exception/tag coverage; invalid lanes keep tag and catch-family diagnostics visible. | [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md). |
 | Optimizer passes | Any transform that deletes, moves, or rewrites tag/catch/throw carriers must preserve tag indices, catch label payloads, operand evaluation, and null-trap/rethrow behavior. | Pass-specific Binaryen dossiers plus [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md). |
 
@@ -131,4 +131,4 @@ When changing code or docs around Exception Handling:
 - Detailed WAST guide: [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md)
 - Binary tag/resource guide: [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md)
 - Validation phase and stack-polymorphism guides: [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md)
-- Current Starshine code: [`src/lib/types.mbt`](../src/lib/types.mbt), [`src/wast/parser.mbt`](../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../src/wast/module_wast.mbt), [`src/binary/decode.mbt`](../src/binary/decode.mbt), [`src/binary/encode.mbt`](../src/binary/encode.mbt), [`src/validate/validate.mbt`](../src/validate/validate.mbt), [`src/validate/typecheck.mbt`](../src/validate/typecheck.mbt)
+- Current Starshine code: [`src/lib/types.mbt`](../../src/lib/types.mbt), [`src/wast/parser.mbt`](../../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`src/validate/validate.mbt`](../../src/validate/validate.mbt), [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt)

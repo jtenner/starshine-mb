@@ -10,7 +10,7 @@ sources:
   - ../../../../../src/passes/pick_load_signs_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md

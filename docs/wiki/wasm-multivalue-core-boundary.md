@@ -81,7 +81,7 @@ The binary block-type immediate has three forms:
 
 The third row is the important one: a multi-result block cannot carry two result bytes inline. It refers to a function type whose parameter and result vectors describe the control boundary.
 
-Starshine makes this explicit in [`src/lib/types.mbt`](../src/lib/types.mbt): `FuncType` contains parameter/result arrays, while `BlockType` is void, one value type, or a type index. [`src/wast/lower_to_lib.mbt`](../src/wast/lower_to_lib.mbt) keeps the compact forms for void/single-result inline text, but creates or resolves a function type and emits `TypeIdxBlockType` for parameterized or multi-result control. [`src/binary/decode.mbt`](../src/binary/decode.mbt) and [`src/binary/encode.mbt`](../src/binary/encode.mbt) preserve the same three-way byte model.
+Starshine makes this explicit in [`src/lib/types.mbt`](../../src/lib/types.mbt): `FuncType` contains parameter/result arrays, while `BlockType` is void, one value type, or a type index. [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) keeps the compact forms for void/single-result inline text, but creates or resolves a function type and emits `TypeIdxBlockType` for parameterized or multi-result control. [`src/binary/decode.mbt`](../../src/binary/decode.mbt) and [`src/binary/encode.mbt`](../../src/binary/encode.mbt) preserve the same three-way byte model.
 
 ## Validation: Every Lane Matters
 
@@ -92,7 +92,7 @@ The validator operates on whole type arrays, not a special pair type:
 3. A `block` or `if` label is typed with `results`; a `loop` label is typed with `params`.
 4. A reachable child exit must leave exactly `results`; the outer continuation receives every result in order.
 
-[`src/validate/typecheck.mbt`](../src/validate/typecheck.mbt) implements this through `expand_blocktype`, array-based `pop_types` / `push_types`, and the structured-control checkers. The same array discipline applies to calls and returns: `typecheck_call`, `typecheck_call_indirect`, and `typecheck_call_ref` pop all declared parameters and push all declared results; `return` consumes the enclosing function's complete result vector.
+[`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) implements this through `expand_blocktype`, array-based `pop_types` / `push_types`, and the structured-control checkers. The same array discipline applies to calls and returns: `typecheck_call`, `typecheck_call_indirect`, and `typecheck_call_ref` pop all declared parameters and push all declared results; `return` consumes the enclosing function's complete result vector.
 
 ### Branch payload example
 
@@ -110,7 +110,7 @@ The validator operates on whole type arrays, not a special pair type:
 
 The `br_if` taken path transfers both lanes to `$done`. On the not-taken path it removes only the condition, so the `i32` and `i64` payload values remain. This is the multi-value version of the ordinary fallthrough rule in [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md).
 
-`br_table` is stricter still: every listed target and the default must accept equivalent full payload vectors. The invalid-fuzzer's `invalid-function-body-br-table-multivalue-payload-arity-mismatch` specimen is focused local regression evidence for this boundary; see [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt).
+`br_table` is stricter still: every listed target and the default must accept equivalent full payload vectors. The invalid-fuzzer's `invalid-function-body-br-table-multivalue-payload-arity-mismatch` specimen is focused local regression evidence for this boundary; see [`src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt).
 
 ## WAST Authoring Rules
 
@@ -120,18 +120,18 @@ The `br_if` taken path transfers both lanes to `$done`. On the not-taken path it
 - Give each lane a consumer. A void function cannot quietly leave two values at its end, and a branch payload must match its target's complete ordered contract.
 - Keep **typed `select`** separate. Starshine carries `Select(Array[ValType]?)`, including local multi-value typed-select regression coverage, but the portability caveat is owned by [`wast/parametric-instruction-authoring.md`](wast/parametric-instruction-authoring.md), not by ordinary Core multi-value.
 
-[`src/wast/parser.mbt`](../src/wast/parser.mbt) has focused parsing coverage for a function type with multiple results. [`src/wast/lower_to_lib.mbt`](../src/wast/lower_to_lib.mbt) is the source of truth for converting an inline WAST type use into compact or type-indexed core control.
+[`src/wast/parser.mbt`](../../src/wast/parser.mbt) has focused parsing coverage for a function type with multiple results. [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) is the source of truth for converting an inline WAST type use into compact or type-indexed core control.
 
 ## Starshine Support Map
 
 | Layer | Current support | Evidence |
 | --- | --- | --- |
-| Core model | Function param/result arrays; structured control references a `BlockType`. | [`src/lib/types.mbt`](../src/lib/types.mbt) |
-| WAST | Repeated function results plus block `TypeUse` parsing/lowering. | [`src/wast/parser.mbt`](../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../src/wast/lower_to_lib.mbt) |
-| Binary | Function type vectors and void/single/type-index block-type carriers roundtrip. | [`src/binary/decode.mbt`](../src/binary/decode.mbt), [`src/binary/encode.mbt`](../src/binary/encode.mbt), [`src/binary/tests.mbt`](../src/binary/tests.mbt) |
-| Validation | Whole-vector parameters, results, calls, returns, labels, and branch payloads. | [`src/validate/typecheck.mbt`](../src/validate/typecheck.mbt) |
-| Valid generation | `MultivalueControlFlow` records current generated control coverage, including type-indexed blocks. | [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](../src/validate/validate.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) |
-| Invalid generation | Focused invalid `br_table` arity mutation and repair. | [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt) |
+| Core model | Function param/result arrays; structured control references a `BlockType`. | [`src/lib/types.mbt`](../../src/lib/types.mbt) |
+| WAST | Repeated function results plus block `TypeUse` parsing/lowering. | [`src/wast/parser.mbt`](../../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) |
+| Binary | Function type vectors and void/single/type-index block-type carriers roundtrip. | [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`src/binary/tests_wbtest.mbt`](../../src/binary/tests_wbtest.mbt) |
+| Validation | Whole-vector parameters, results, calls, returns, labels, and branch payloads. | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) |
+| Valid generation | `MultivalueControlFlow` records current generated control coverage, including type-indexed blocks. | [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](../../src/validate/validate.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) |
+| Invalid generation | Focused invalid `br_table` arity mutation and repair. | [`src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt) |
 | IR / passes | Support is pass-specific. HOT/control/payload rewrites must prove every lane's order, type, branch target, effects, and traps. | [`ir2/cfg-contract.md`](ir2/cfg-contract.md), pass-local tests and dossiers |
 
 A pass's raw skip around multi-value control is therefore a conservative optimization boundary, **not** a general Core-feature gap. For example, Binaryen's `tuple-optimization` concerns its internal tuple-local representation; Starshine's documented narrow spill-carrier work is not a claim that WebAssembly itself has a tuple instruction. See [`binaryen/passes/tuple-optimization/index.md`](binaryen/passes/tuple-optimization/index.md).
@@ -158,5 +158,5 @@ When a transform touches a multi-value function, call, branch, or control node:
 - Official Core sources: [types](https://webassembly.github.io/spec/core/syntax/types.html), [instructions](https://webassembly.github.io/spec/core/syntax/instructions.html), [text instructions](https://webassembly.github.io/spec/core/text/instructions.html), [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html), [binary types](https://webassembly.github.io/spec/core/binary/types.html), and [binary instructions](https://webassembly.github.io/spec/core/binary/instructions.html)
 - Feature-status routing: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - WAST authoring: [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/parametric-instruction-authoring.md`](wast/parametric-instruction-authoring.md)
-- Core/binary/validation: [`src/lib/types.mbt`](../src/lib/types.mbt), [`src/binary/decode.mbt`](../src/binary/decode.mbt), [`src/binary/encode.mbt`](../src/binary/encode.mbt), [`src/validate/typecheck.mbt`](../src/validate/typecheck.mbt)
-- Fuzzing: [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt), [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt)
+- Core/binary/validation: [`src/lib/types.mbt`](../../src/lib/types.mbt), [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt)
+- Fuzzing: [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt)

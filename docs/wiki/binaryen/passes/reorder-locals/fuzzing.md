@@ -8,8 +8,9 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/passes/reorder_locals_test.mbt
+
 ---
 
 # `reorder-locals` Fuzzing Profile

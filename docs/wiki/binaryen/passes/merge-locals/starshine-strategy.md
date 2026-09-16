@@ -10,7 +10,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_merge_locals_tests.mbt
+  - ../../../../../src/validate/gen_valid_merge_locals_wbtest.mbt
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -43,7 +43,7 @@ The pass is registered publicly and scheduled in O4z immediately after `heap2loc
 | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | Candidate admission, no-candidate byte-preserving bypass, legacy-EH raw routing, HOT fallback. |
 | [`src/passes/merge_locals_test.mbt`](../../../../../src/passes/merge_locals_test.mbt) | Public pass, both orientations, control flow, tee candidates, rollback, unreachable preservation, legacy-`try`, and O4z slot tests. |
 | [`src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt) | Fifteen source-family leaves and `merge-locals-all`. |
-| [`src/validate/gen_valid_merge_locals_tests.mbt`](../../../../../src/validate/gen_valid_merge_locals_tests.mbt) | Profile validity, copy opportunity, source-family labels, GC type boundary, and four legacy-EH region forms. |
+| [`src/validate/gen_valid_merge_locals_wbtest.mbt`](../../../../../src/validate/gen_valid_merge_locals_wbtest.mbt) | Profile validity, copy opportunity, source-family labels, GC type boundary, and four legacy-EH region forms. |
 
 ## Source-family coverage
 

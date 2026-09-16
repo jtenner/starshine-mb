@@ -119,7 +119,7 @@ Reopen this audit only for a new semantic mismatch, a Starshine validation failu
 
 2026-06-20 dedicated GenValid profile follow-up evidence:
 
-- Added `gsi-desc-cast` as a deterministic composite GenValid profile in [`../../../../../src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt), with leaves for positive singleton rewrites, strict-subtype exact/non-exact split, zero-global bailout, multiple-global bailout, and unreachable-input bailout. Focused generator tests in [`../../../../../src/validate/gen_valid_tests.mbt`](../../../../../src/validate/gen_valid_tests.mbt) prove the profile resolves, samples every leaf, emits validating modules, and records the intended boundary/positive shapes.
+- Added `gsi-desc-cast` as a deterministic composite GenValid profile in [`../../../../../src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt), with leaves for positive singleton rewrites, strict-subtype exact/non-exact split, zero-global bailout, multiple-global bailout, and unreachable-input bailout. Focused generator tests in [`../../../../../src/validate/gen_valid_wbtest.mbt`](../../../../../src/validate/gen_valid_wbtest.mbt) prove the profile resolves, samples every leaf, emits validating modules, and records the intended boundary/positive shapes.
 - `moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt` — `80/80` passed after the red-first unknown-profile failure.
 - `moon test src/validate` — `1616/1616` passed.
 - `moon info` — completed with pre-existing warnings.

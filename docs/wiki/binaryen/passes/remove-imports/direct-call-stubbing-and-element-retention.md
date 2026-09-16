@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveImports.cpp
-  - ../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
+  - index.md
   - ../../../binary/function-import-export-and-code-sections.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/validate.mbt
@@ -164,7 +164,7 @@ planned-only [fuzzing guidance](fuzzing.md).
 
 - Upstream current-main owner, element-helper, and registration/scheduler: [`RemoveImports.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveImports.cpp), [`element-utils.h`](https://github.com/WebAssembly/binaryen/blob/main/src/ir/element-utils.h), and [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp)
 - Earlier detailed owner/element-helper source read:
-  [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
+  [`index.md`](index.md)
 - Local function-index repair inventory:
   [`../../../binary/function-import-export-and-code-sections.md`](../../../binary/function-import-export-and-code-sections.md)
 - Core import representation and validator:

@@ -3,7 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
+  - index.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -24,7 +24,7 @@ Do **not** run or publish a `compare-pass` smoke command for this pass today.
 - [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does not include `--abstract-type-refining` in `SUPPORTED_PASS_FLAGS`, so `bun fuzz compare-pass --pass abstract-type-refining ...` fails during option parsing before generation or oracle comparison.
 - Neither failure proves semantic parity, a safe no-op, or Binaryen compatibility. The current evidence is the registry/admission boundary described in [`./starshine-strategy.md`](./starshine-strategy.md), not a comparison count.
 
-This corrects the older page's misleading runnable-command wording. The reviewed upstream source floor is Binaryen `version_130`; the current-main web snapshot needs a pinned-checkout recheck before it can support a main-specific implementation claim. See [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md).
+This corrects the older page's misleading runnable-command wording. The reviewed upstream source floor is Binaryen `version_130`; the current-main web snapshot needs a pinned-checkout recheck before it can support a main-specific implementation claim. See [`index.md`](index.md).
 
 ## What a future lane must cover
 

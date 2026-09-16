@@ -8,7 +8,8 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
+
 ---
 
 # `precompute` Fuzzing Profile
@@ -54,7 +55,7 @@ All smoke uses explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`. Regular `.
 
 `precompute` has the dedicated `precompute-all` profile and is closed at Binaryen-v131-or-better behavior parity after the 2026-07-26 correctness-repair renewal. The current matrix uses explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`, `_build/native/release/build/cmd/cmd.exe`, cache `.tmp/pass-fuzz-cache-precompute-v131-renewal`, and the reviewed local/unreachable cleanup normalizers. Regular `100000`, dedicated `10000`, random all-profiles `10000`, and wasm-smith `10000` request lanes are complete. The only Starshine-larger family is intentional preservation of reachable `atomic.fence`; every other raw difference is a source-inspected smaller dead-value/control cleanup.
 
-The final closeout is recorded in [research note 0795](./index.md). The 2026-06-20 refresh in [research note 0785](./index.md) found the profile gap. The follow-up in [research note 0787](./index.md) added `precompute-all` in `src/validate/gen_valid.mbt` plus focused `src/validate/gen_valid_tests.mbt` coverage. The O4z follow-up in [research note 0788](./index.md) recovered only changed raw scalar folds under the O4z gate. The native-path follow-up in [research note 0789](./index.md) makes `_build/native/release/build/cmd/cmd.exe` the accepted explicit native compare path for this checkout after native build, records a green `1000`-case `precompute-all` smoke, and records an open regular GenValid blocker. The first reduction in [research note 0790](./index.md) fixes the sampled constant self-exiting `block br_if` subgap. The next reduction in [research note 0791](./index.md) fixes the constant-true self-branching loop result-tail subgap. The closeout-normalizer follow-up in [research note 0792](./index.md) classifies the remaining constant-false loop / mixed root-debris family as a Starshine no-op-control cleanup win and reruns the bounded regular lane with `0` mismatches. The O4z boundary follow-up in [research note 0793](./index.md) accepts only changed `raw-scalar-folds` under O4z and documents that remaining `o4z-precompute-noop` reasons are release boundaries with reopening criteria. The broad named GenValid lane currently available for the fourth closeout slot remains `pass-fuzz-stress`.
+The final closeout is recorded in [research note 0795](./index.md). The 2026-06-20 refresh in [research note 0785](./index.md) found the profile gap. The follow-up in [research note 0787](./index.md) added `precompute-all` in `src/validate/gen_valid.mbt` plus focused `src/validate/gen_valid_wbtest.mbt` coverage. The O4z follow-up in [research note 0788](./index.md) recovered only changed raw scalar folds under the O4z gate. The native-path follow-up in [research note 0789](./index.md) makes `_build/native/release/build/cmd/cmd.exe` the accepted explicit native compare path for this checkout after native build, records a green `1000`-case `precompute-all` smoke, and records an open regular GenValid blocker. The first reduction in [research note 0790](./index.md) fixes the sampled constant self-exiting `block br_if` subgap. The next reduction in [research note 0791](./index.md) fixes the constant-true self-branching loop result-tail subgap. The closeout-normalizer follow-up in [research note 0792](./index.md) classifies the remaining constant-false loop / mixed root-debris family as a Starshine no-op-control cleanup win and reruns the bounded regular lane with `0` mismatches. The O4z boundary follow-up in [research note 0793](./index.md) accepts only changed `raw-scalar-folds` under O4z and documents that remaining `o4z-precompute-noop` reasons are release boundaries with reopening criteria. The broad named GenValid lane currently available for the fourth closeout slot remains `pass-fuzz-stress`.
 
 ## Recommended smoke lane
 
@@ -64,7 +65,7 @@ For ordinary direct-pass development after rebuilding the native CLI, use the re
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass precompute --out-dir .tmp/pass-fuzz-precompute --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-For this checkout, use `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. A `target/native/...` artifact can coexist but is not signoff evidence unless freshness is verified against the current `_build/...` binary; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
+For this checkout, use `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. A `target/native/...` artifact can coexist but is not signoff evidence unless freshness is verified against the current `_build/...` binary; see [`../../../AGENTS.md`](../../../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
 When replaying the known branch-heavy cleanup family or the dedicated `precompute-all` profile, preserve the normalizers used by the latest recorded evidence so known dropped-constant/local-cleanup/unreachable-control debris reports as `cleanupNormalizedMatchCount` rather than raw mismatch noise:
 

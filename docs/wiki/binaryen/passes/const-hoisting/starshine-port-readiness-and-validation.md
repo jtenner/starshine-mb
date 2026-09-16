@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
+  - index.md
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/ir/hot_core.mbt
@@ -183,7 +183,7 @@ Binaryen immediately emits a prelude block and relies on later cleanup such as `
 
 ## Sources
 
-- [`../../../raw/wasm/2026-06-04-leb128-current-refresh.md`](../../../raw/wasm/2026-06-04-leb128-current-refresh.md)
+- [`index.md`](index.md)
 - [research note 0508](./index.md)
 - [research note 0428](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

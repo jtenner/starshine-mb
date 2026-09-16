@@ -8,9 +8,10 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/fuzz/main.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
+
 ---
 
 # `duplicate-import-elimination` fuzzing profile

@@ -23,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_131` as the current source oracle; the older v129 detail below remains valid because the owner contract did not change.
+Use Binaryen `version_132` as the current comparison oracle; the v131 source review remains historical provenance; the older v129 detail below remains valid because the owner contract did not change.
 The 2026-04-24 source inventory is retained in [research note 0329](./index.md), alongside the direct tagged URLs below.
 
 Primary files:

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
+  - ../gufa/index.md
   - ./index.md
 related:
   - ./index.md
@@ -19,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the tagged source oracle for this pass, and the [`2026-07-11 shared-oracle refresh`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) as current-main owner-map evidence. Archived research records that the consumed 2026-05-04 recheck found no teaching-relevant drift; direct tagged URLs elsewhere in this dossier preserve the reviewed-source catalog.
+Use Binaryen `version_129` as the tagged source oracle for this pass, and the [`2026-07-11 shared-oracle refresh`](../gufa/index.md) as current-main owner-map evidence. Archived research records that the consumed 2026-05-04 recheck found no teaching-relevant drift; direct tagged URLs elsewhere in this dossier preserve the reviewed-source catalog.
 
 The core implementation is the shared `src/passes/GUFA.cpp` engine. Public registration comes from `src/passes/pass.cpp`, whole-program facts come from `src/ir/possible-contents.h`, and the strongest dedicated behavior file is `test/lit/passes/gufa-cast-all.wast`.
 

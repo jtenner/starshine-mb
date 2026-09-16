@@ -10,7 +10,7 @@ sources:
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/PickLoadSigns.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/properties.h

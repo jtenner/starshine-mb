@@ -1,6 +1,6 @@
 # Numbered Research Workspace
 
-Current status: **empty of numbered research notes as of 2026-07-18**. The 1,757 investigations present at the start of the closeout were absorbed into living wiki pages and removed. [`../../research-archive-closeout.md`](../../research-archive-closeout.md) records the result and ownership policy. Exact deleted text remains available through git history.
+Current status: **90 numbered research notes are present as of 2026-09-16**. The 2026-07-18 closeout removed the 1,757 notes that existed at that point, but later investigations reopened this temporary workspace. [`../../research-archive-closeout.md`](../../research-archive-closeout.md) records the historical result and ownership policy; exact text for deleted notes remains available through git history.
 
 This directory remains the temporary workspace for substantial repo-authored investigations that need a numbered document while active. It is not a permanent agent-only archive.
 
@@ -12,7 +12,7 @@ New notes use `[serial]-[YYYY-MM-DD]-[kebab-title].md` with the next zero-padded
 - repository history for deleted or moved serials;
 - historical duplicate prefixes.
 
-Deleted and historical serials remain reserved. Do not fill holes or reuse a number because this directory is empty.
+Deleted and historical serials remain reserved. Do not fill holes or reuse a number because the directory is temporarily empty or because a serial is absent from the current checkout.
 
 ## Investigation lifecycle
 

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
+  - index.md
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h
@@ -37,7 +37,7 @@ This page explains the single easiest thing to miss when moving from `ssa-nomerg
 
 ## The source-backed core rule
 
-In `SSAify.cpp`, when a `local.get` has more than one reaching set and `allowMerges` is true, Binaryen does the source-backed work captured in the tagged manifests and reconfirmed on the reviewed 2026-07-11 current-main surface ([`2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md)): 
+In `SSAify.cpp`, when a `local.get` has more than one reaching set and `allowMerges` is true, Binaryen does the source-backed work captured in the tagged manifests and reconfirmed on the reviewed 2026-07-11 current-main surface ([`2026-07-11-ssa-current-main-and-local-admission-recheck.md`](index.md)):
 
 1. allocates a fresh merge local
 2. retargets that get to the merge local

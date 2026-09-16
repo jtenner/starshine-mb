@@ -5,10 +5,9 @@ last_reviewed: 2026-07-10
 sources:
   - https://github.com/WebAssembly/spec/tree/main/interpreter
   - code-metadata-and-function-annotations.md
-  - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
+  - element-segment-authoring.md
   - https://webassembly.github.io/spec/core/text/modules.html
-  - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - code-metadata-and-function-annotations.md
+  - ../validate/memory-table-address-widths.md
   - ../../README.md
 related:
   - ../wasm-typed-function-references-boundary.md
@@ -119,4 +118,4 @@ The WAST pages deliberately keep text-surface gaps visible instead of smoothing 
 
 ## Sources
 
-This catalog consolidates reviewed focused WAST pages and their committed manifests, including the 2026-07-10 official script-lifecycle recheck for definition/instance forms, the 2026-06-05 typed-function-reference boundary, numeric data-segment proposal routing, the 2026-06-04 element-segment, ordinary control-flow, and reference call/cast/branch source-routing refreshes plus the earlier 2026-05-20 reference-branch and `call_ref` refreshes. The broad current source families are the official WebAssembly text/syntax/validation pages captured through the focused manifests under [`../raw/wasm/`](../raw/wasm/), Starshine's WAST implementation under [`../../../src/wast/`](../../../src/wast/), core/binary definitions under [`../../../src/lib/`](../../../src/lib/) and [`../../../src/binary/`](../../../src/binary/), validator surfaces under [`../../../src/validate/`](../../../src/validate/), and fuzzing/generator surfaces under [`../../../src/fuzz/`](../../../src/fuzz/).
+This catalog consolidates reviewed focused WAST pages and their source manifests, including the 2026-07-10 official script-lifecycle recheck for definition/instance forms, the 2026-06-05 typed-function-reference boundary, numeric data-segment proposal routing, the 2026-06-04 element-segment, ordinary control-flow, and reference call/cast/branch source-routing refreshes plus the earlier 2026-05-20 reference-branch and `call_ref` refreshes. The broad current source families are the official WebAssembly text/syntax/validation pages cited by the focused pages and their manifests, Starshine's WAST implementation under [`../../../src/wast/`](../../../src/wast/), core/binary definitions under [`../../../src/lib/`](../../../src/lib/) and [`../../../src/binary/`](../../../src/binary/), validator surfaces under [`../../../src/validate/`](../../../src/validate/), and fuzzing/generator surfaces under [`../../../src/fuzz/`](../../../src/fuzz/). Retained committed raw captures are cataloged under [`../raw/README.md`](../raw/README.md).

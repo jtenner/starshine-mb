@@ -124,7 +124,7 @@ Do not infer a rewrite merely because the output validates. In particular, movin
 - `src/passes/merge_blocks.mbt` implements region-root flattening, branch-free loop/block-wrapper removal, dropped self-target branch cleanup, expression-child prefix lifting, category-aware effect reordering, and the O4z-only redundant self-`br_if` wrapper cleanup.
 - `src/passes/pass_manager.mbt` owns narrow raw/lowered bridges for flat calls, the official ordered-atomic shape, dropped multivalue literals, nested dropped branch payloads, scalar spill/local compaction, bottom-reference refinalization, and unused reference-catch payloads.
 - `src/passes/merge_blocks_test.mbt`, `src/passes/pass_manager_wbtest.mbt`, and `src/passes/code_folding_test.mbt` cover the direct transform families, negative effect/type guards, official v131 fixtures, and post-`code-folding` block-exit/EH neighborhoods.
-- `src/validate/gen_valid.mbt` and `src/validate/gen_valid_merge_blocks_tests.mbt` own the stable four-family `merge-blocks-all` aggregate.
+- `src/validate/gen_valid.mbt` and `src/validate/gen_valid_merge_blocks_wbtest.mbt` own the stable four-family `merge-blocks-all` aggregate.
 - The refreshed review matrix is exact for regular, dedicated, and every comparable wasm-smith case; all 173 random-all residuals are the unchanged strictly smaller Starshine neighboring-profile representations totaling `-1130` bytes. Focused runtime and the retained native-release benchmark reclose the trap-order and drop-parent-index review.
 
 ## Validation guidance

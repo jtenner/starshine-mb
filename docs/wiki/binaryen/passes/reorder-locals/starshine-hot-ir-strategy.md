@@ -30,7 +30,7 @@ This page describes the **current local MoonBit implementation**, not the full u
 
 The 2026-07-12 public-scheduling update keeps the current policy explicit: the standalone module pass is active, and public `optimize` / `shrink` now schedule the Binaryen-shaped three-slot cleanup story that the repo already had ordered-neighborhood evidence for. The early one-slot reconciliation note [`0709`](./index.md) is now superseded for live preset state by [`1561`](./index.md).
 The 2026-07-28 refresh re-proved the explicit pass against official Binaryen `version_131`, retained the copy-on-write output-loss repair for pure same-type permutations, expanded the dedicated aggregate to ten leaves with independent equal-count first-use ordering, replayed both official fixtures byte-exact, and completed regular `100000`, dedicated/idempotence `10000`, random-all `10000`, and wasm-smith `10000` lanes. See [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
-For the retained manifests of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md); [research note 0472](./index.md) preserves the earlier current-main recheck.
+For the retained manifests of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`index.md`](index.md); [research note 0472](./index.md) preserves the earlier current-main recheck.
 
 ## Current local surface
 

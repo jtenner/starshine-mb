@@ -22,7 +22,7 @@ related:
 
 # Binaryen strategy for `type-merging`
 
-This page is anchored to the immutable 2026-04-24 primary-source manifest and the later source bridges. The [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md) supersedes the earlier current-main bridge's “comment typo only” conclusion: `version_130` and current `main` carry `worldMode` through admission, private-type collection, and `TypeMapper` rewriting. The older `version_129` sources remain the algorithm baseline; the newer bridge is the current policy correction.
+This page is anchored to the immutable 2026-04-24 primary-source manifest and the later source bridges. The [2026-07-11 world-mode recheck](index.md) supersedes the earlier current-main bridge's “comment typo only” conclusion: `version_130` and current `main` carry `worldMode` through admission, private-type collection, and `TypeMapper` rewriting. The older `version_129` sources remain the algorithm baseline; the newer bridge is the current policy correction.
 
 ## What the pass really is
 
@@ -359,7 +359,7 @@ That is the real Binaryen strategy for `type-merging`.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0462](./index.md)
 - [research note 0294](./index.md)
 - [research note 0181](./index.md)

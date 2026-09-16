@@ -151,7 +151,7 @@ What it actually is in `version_129`:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md)
+- [`binaryen-strategy.md`](binaryen-strategy.md)
 - research note 0295
 - research note 0155
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

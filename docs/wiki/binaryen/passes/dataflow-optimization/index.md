@@ -38,7 +38,7 @@ related:
 - It is currently **unimplemented** in Starshine's active optimizer.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `dataflow-optimization` / `dfo` slice**.
-- Binaryen `version_131` is the repo-wide public release baseline. This pass's latest bounded evidence remains the 2026-07-11 `version_130`/current-`main` reconciliation, which found no behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surfaces: upstream remains a flat-input DataFlow SSA IR pass, while Starshine only tracks the local removed spelling `dataflow-optimization`.
+- Binaryen `version_132` is the repo-wide public release baseline. This pass's latest bounded evidence remains the 2026-07-11 `version_130`/current-`main` reconciliation, which found no behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surfaces: upstream remains a flat-input DataFlow SSA IR pass, while Starshine only tracks the local removed spelling `dataflow-optimization`.
 - The refreshed IR2 registry docs now list it in the current removed-name migration gap rather than beside active `local-subtyping`; see [research note 0063](../../../ir2/registry-map.md) and [research note 0065](../../../ir2/execution-plan.md).
 
 ## Why this pass matters
@@ -48,7 +48,7 @@ So this folder is an explicit tracker expansion for another real local registry 
 
 This pass is worth teaching because its name is misleading.
 A beginner may hear `dataflow-optimization` and imagine a huge generic optimizer.
-The current `version_130` contract is much smaller:
+The reviewed `version_130` contract is much smaller:
 
 - run only on already **flat** code
 - build a separate **DataFlow SSA IR**
@@ -123,7 +123,7 @@ So this is best taught as:
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
-- Current Binaryen `version_130` implementation and test sources:
+- Reviewed Binaryen `version_130` implementation and test sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/graph.h>

@@ -1,6 +1,6 @@
 ---
 kind: research
-status: current
+status: working
 last_reviewed: 2026-07-18
 sources:
   - ../../binaryen/passes/vacuum/index.md

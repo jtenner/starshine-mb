@@ -74,7 +74,7 @@ The function reference may come from `ref.func`, a table read, a global, a block
 | Core AST | Separate ordinary and tail reference-call variants. | [`Instruction::CallRef(TypeIdx)`](../../src/lib/types.mbt) pushes results; `ReturnCallRef(TypeIdx)` is tail-call control flow. |
 | Binary codec | Opcode `0x14` decodes/encodes `call_ref`; opcode `0x15` decodes/encodes `return_call_ref`. | [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt). |
 | Validation | The immediate must resolve to a function type. Starshine pops a nullable reference to that function heap type after the callee parameters. `return_call_ref` also checks that the callee results match the current function results and then makes the continuation unreachable. | [`typecheck_call_ref(...)`](../../src/validate/typecheck.mbt), [`typecheck_return_call_ref(...)`](../../src/validate/typecheck.mbt), [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md). |
-| Generator/fuzz | Valid generation can produce natural and coverage-forced reference-call flows. | [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`src/validate/gen_valid_tests.mbt`](../../src/validate/gen_valid_tests.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md). |
+| Generator/fuzz | Valid generation can produce natural and coverage-forced reference-call flows. | [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`src/validate/gen_valid_wbtest.mbt`](../../src/validate/gen_valid_wbtest.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md). |
 
 ## Concrete Shapes
 

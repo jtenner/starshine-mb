@@ -16,8 +16,8 @@ related:
   - ../../../../../src/passes/ssa_nomerge_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
-  - ../../../../../src/validate/gen_valid_ssa_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
+  - ../../../../../src/validate/gen_valid_ssa_wbtest.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts

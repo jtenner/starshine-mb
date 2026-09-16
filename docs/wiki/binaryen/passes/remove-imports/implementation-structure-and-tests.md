@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveImports.cpp
-  - ../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
+  - index.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/lib/module.mbt
   - ../../../../../src/validate/validate.mbt
@@ -21,7 +21,7 @@ related:
 ## Upstream Owner Map
 
 The reviewed Binaryen implementation is intentionally compact. Its durable
-source map is refreshed against current-main [`RemoveImports.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveImports.cpp) and recorded in detail by the [2026-07-10 source read](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md):
+source map is refreshed against current-main [`RemoveImports.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveImports.cpp) and recorded in detail by the [2026-07-10 source read](index.md):
 
 | Upstream location | Responsibility | What it does **not** prove |
 | --- | --- | --- |
@@ -116,7 +116,7 @@ meaningful compared-case threshold all exist.
 
 - Current-main owner/helper/registration/scheduler: [`RemoveImports.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveImports.cpp), [`element-utils.h`](https://github.com/WebAssembly/binaryen/blob/main/src/ir/element-utils.h), and [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp)
 - Earlier detailed owner/helper/registration read:
-  [`../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
+  [`index.md`](index.md)
 - Local representations and lowerer:
   [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt),
   [`../../../../../src/lib/module.mbt`](../../../../../src/lib/module.mbt),

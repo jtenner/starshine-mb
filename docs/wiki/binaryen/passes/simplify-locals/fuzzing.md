@@ -8,7 +8,7 @@ sources:
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_ssa.mbt
   - ../../../../../src/validate/gen_valid_simplify_locals.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ./transform-family-inventory.md
 ---
 

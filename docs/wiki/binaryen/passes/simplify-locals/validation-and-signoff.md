@@ -27,7 +27,7 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
-## Current Binaryen-v131 closeout
+## Historical Binaryen-v131 closeout
 
 - Oracle: official `wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
 - Starshine: post-rebase `_build/native/release/build/cmd/cmd.exe`, SHA-256 `ae518fc0bf248ce1066003e63b269e75d4375835828ab7945fedd94711849ce9`.

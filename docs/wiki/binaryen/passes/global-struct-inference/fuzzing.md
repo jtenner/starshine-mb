@@ -16,7 +16,7 @@ moon build --target native --release src/cmd
 bun fuzz compare-pass --count 10000 --seed 0x5eed --pass global-struct-inference --out-dir .tmp/pass-fuzz-global-struct-inference --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-The documented wrapper reaches the same harness implementation as the direct script. Do not substitute a merely present `target/native/...` artifact for the freshly built `_build/native/...` executable unless a timestamp or hash confirms it is current; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
+The documented wrapper reaches the same harness implementation as the direct script. Do not substitute a merely present `target/native/...` artifact for the freshly built `_build/native/...` executable unless a timestamp or hash confirms it is current; see [`../../../AGENTS.md`](../../../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
 Dedicated GenValid profile: none documented for this pass yet.
 

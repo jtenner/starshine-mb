@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-09-01
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
-  - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
+  - index.md
   - ./index.md
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/pass_manager.mbt

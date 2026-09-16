@@ -9,11 +9,12 @@ sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_reorder_globals.mbt
-  - ../../../../../src/validate/gen_valid_reorder_globals_tests.mbt
+  - ../../../../../src/validate/gen_valid_reorder_globals_wbtest.mbt
   - ../../../../../src/passes/reorder_globals_wbtest.mbt
   - ../../../../../src/passes_perf_long/reorder_globals_perf_test.mbt
   - ../../../../../src/fuzz/main.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
+
 ---
 
 # `reorder-globals` fuzzing profile
@@ -34,7 +35,7 @@ Use `--gen-valid-profile reorder-globals-all`. The weighted aggregate has seven 
 | `reorder-globals-metadata-remap` | 2 | exported-global and structured global-name remapping |
 | `reorder-globals-threshold` | 1 | 127-global public no-op, 128-global equal-cost stability, and 129-global ULEB opportunity |
 
-The aggregate aliases are `reorder-globals`, `reorder-globals-closeout`, and `reorder-globals-all-profiles`. Manifest metadata records the selected leaf plus a pass-owned family label. `src/validate/gen_valid_reorder_globals_tests.mbt` validates every seeded subfamily, and `src/fuzz/main_wbtest.mbt` requires all seven leaves and all 20 labels to appear in a bounded aggregate manifest.
+The aggregate aliases are `reorder-globals`, `reorder-globals-closeout`, and `reorder-globals-all-profiles`. Manifest metadata records the selected leaf plus a pass-owned family label. `src/validate/gen_valid_reorder_globals_wbtest.mbt` validates every seeded subfamily, and `src/fuzz/main_wbtest.mbt` requires all seven leaves and all 20 labels to appear in a bounded aggregate manifest.
 
 Focused white-box coverage in `src/passes/reorder_globals_wbtest.mbt` separately proves the zero/raw/summed/exponential search vectors, the exact `0.095` exponential factor, true ULEB-cost selection, and first-candidate tie stability.
 

@@ -166,7 +166,7 @@ Those are part of the algorithm, not optional polish.
 
 ## Freshness note
 
-The 2026-07-11 current-`main` recheck reread the owner, registration/scheduler, and four dedicated lit files. The core pass and fixture contract still match `version_129` on the reviewed surfaces. The material drift is interface-level: `TypeRefining` now rejects `WorldMode::Open` and carries the same `worldMode` into public-type classification plus `GlobalTypeRewriter`. This preserves the closed-world semantic requirement while making policy consistency an explicit future-port invariant; see [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
+The 2026-07-11 current-`main` recheck reread the owner, registration/scheduler, and four dedicated lit files. The core pass and fixture contract still match `version_129` on the reviewed surfaces. The material drift is interface-level: `TypeRefining` now rejects `WorldMode::Open` and carries the same `worldMode` into public-type classification plus `GlobalTypeRewriter`. This preserves the closed-world semantic requirement while making policy consistency an explicit future-port invariant; see [`index.md`](index.md).
 
 That is a narrow freshness note, not a proof that every neighboring helper file is identical.
 
@@ -198,7 +198,7 @@ That is exactly why this pass is easy to underestimate from the name alone.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0303](./index.md)
 - [research note 0150](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)

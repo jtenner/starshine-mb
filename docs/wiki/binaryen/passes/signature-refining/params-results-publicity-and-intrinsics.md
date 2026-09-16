@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -23,7 +23,7 @@ This page exists because the easiest way to misunderstand `signature-refining` i
 - handling `call.without.effects`
 
 Binaryen treats those as separate problems.
-The current correction is captured in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md); it supersedes the older 2026-05-05 freshness conclusion for continuation behavior. The local Starshine status is tracked in [`./starshine-strategy.md`](./starshine-strategy.md).
+The current correction is captured in [`index.md`](index.md); it supersedes the older 2026-05-05 freshness conclusion for continuation behavior. The local Starshine status is tracked in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## The most important split: `canModify` vs `canModifyParams`
 
@@ -269,7 +269,7 @@ Once that split is clear, the pass becomes much easier to teach and to port.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0451](./index.md)
 - [research note 0307](./index.md)
 - [research note 0152](./index.md)

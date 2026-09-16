@@ -7,7 +7,8 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
+
 ---
 
 # `code-pushing` Fuzzing Profile
@@ -20,7 +21,7 @@ Recommended ordinary GenValid smoke lane:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --out-dir .tmp/pass-fuzz-code-pushing --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Native-path note: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` artifact may coexist, but it is not signoff evidence unless timestamp/hash comparison verifies that it is the freshly built executable; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
+Native-path note: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` artifact may coexist, but it is not signoff evidence unless timestamp/hash comparison verifies that it is the freshly built executable; see [`../../../AGENTS.md`](../../../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
 ## September 12, 2026 correctness repair evidence
 

@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-09-02
 sources:
   - ../simplify-locals/index.md
-  - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
+  - index.md
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt

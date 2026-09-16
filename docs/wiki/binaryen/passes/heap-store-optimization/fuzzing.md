@@ -8,6 +8,7 @@ sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
+
 ---
 
 # `heap-store-optimization` Fuzzing Profile

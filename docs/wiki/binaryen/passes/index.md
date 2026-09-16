@@ -5,8 +5,8 @@ last_reviewed: 2026-07-28
 sources:
   - ../release-horizon-and-oracles.md
   - ./asyncify/index.md
-  - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
+  - remove-exports/index.md
+  - remove-imports/index.md
   - ./remove-exports/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ./monomorphize/index.md
@@ -73,7 +73,7 @@ sources:
   - ./global-struct-inference/index.md
   - ./ssa-nomerge/index.md
   - ./reorder-locals/index.md
-  - ../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
+  - reorder-locals/index.md
   - ./remove-unused-names/index.md
   - ./tuple-optimization/index.md
   - ./remove-unused-module-elements/index.md
@@ -82,7 +82,6 @@ sources:
   - ./simplify-locals/index.md
   - ./type-refining/index.md
   - ./type-finalizing/index.md
-  - ../../raw/binaryen/2026-07-11-type-finality-current-main-world-mode-recheck.md
   - ./type-un-finalizing/index.md
   - ./remove-unused-non-function-elements/index.md
   - ./remove-unused/index.md
@@ -141,7 +140,7 @@ related:
 - [`vacuum/index.md`](vacuum/index.md) - Refreshed folder with a landing page plus Binaryen strategy, source-confirmed implementation/test map, effect/TNH, WAT-shape, an immutable raw primary-source manifest, and a refreshed Starshine code-map page; the dossier now also makes explicit that Binaryen `version_129` `vacuum` is concentrated in `Vacuum.cpp`, that visible helper ownership lives in `branch-hints.h` and `drop.h`, that the reviewed official `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, and that current Starshine still lives in a tiny `pass_manager.mbt` recursive-`nop` subset plus pipeline-level validation/writeback hygiene.
 - [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Refreshed hot-pass dossier with a landing page plus Binaryen strategy, source-confirmed implementation/test map, control-type / EH-repair notes, WAT-shape, a fresh current-main bridge, and refreshed Starshine strategy/code-map pages; the dossier now also makes explicit that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, that a 2026-05-05 current-main recheck stayed aligned on the reviewed surfaces, that upstream `dce` is a small `TypeUpdater`-centered unreachable-shape pass, and that current Starshine is a broader HOT rewrite family with exact MoonBit owner-file, raw-skip, writeback-guard, and test-lane pointers.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Refreshed hot-pass dossier with a landing page plus Binaryen strategy, source-confirmed implementation/test map, control-name / implicit-block / delegate notes, WAT-shape catalog, the new Starshine HOT-strategy page, and the existing parser-gap note; the folder now also makes explicit that Binaryen `version_129` `remove-unused-names` is concentrated in `RemoveUnusedNames.cpp`, that `branch-utils.h` and `shared-constants.h` own the generic scope-target and caller-delegate helper surface, and that current Starshine is a narrower HOT subset centered on same-typed block peeling and dead-label loop demotion rather than the full generic label-cleanup pass.
-- [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Refreshed hot-pass dossier with a landing page plus Binaryen strategy, upstream implementation/test map, true WAT-shape catalog, a dedicated Starshine strategy page, the existing local family and bailout pages, parity notes, and immutable raw primary-source manifests; the folder now also makes explicit that local `version_130` is the current RUB release oracle, that the RUB-A matrix maps main flow cleanup, switch cleanup, EH throw cleanup, loop cleanup, block sinking, GC BrOn cleanup, JumpThreader, final optimizer, branch hints, and branch-to-trap behavior to follow-up slices, and that GC is baseline rather than optional/gated for this audit unless a local parser/tool blocker is documented.
+- [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Refreshed hot-pass dossier with a landing page plus Binaryen strategy, upstream implementation/test map, true WAT-shape catalog, a dedicated Starshine strategy page, the existing local family and bailout pages, parity notes, and immutable raw primary-source manifests; the folder now also makes explicit that the retained v131 RUB release-oracle audit is historical and current comparisons use Binaryen 132, that the RUB-A matrix maps main flow cleanup, switch cleanup, EH throw cleanup, loop cleanup, block sinking, GC BrOn cleanup, JumpThreader, final optimizer, branch hints, and branch-to-trap behavior to follow-up slices, and that GC is baseline rather than optional/gated for this audit unless a local parser/tool blocker is documented.
 - [`optimize-instructions/index.md`](optimize-instructions/index.md) - Refreshed hot-pass dossier with a landing page plus Binaryen strategy, source-confirmed implementation/test map, GC/call_ref/trap-sensitive notes, WAT-shape catalog, a dedicated Starshine strategy page, the exact Starshine HOT code-map companion, and both raw primary-source manifests; the folder now also makes explicit that the official Binaryen `version_129` release page re-checked on 2026-04-22 showed publish date **2026-04-01**, that the 2026-05-05 current-main spot check stayed aligned on the reviewed surfaces, and that the retired slot-16 / slot-44 generated-artifact failures were HOT-lower/writeback issues rather than a still-open pass-local corruption family.
 - [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Refreshed folder with a landing page plus Binaryen strategy, implementation/test-map page, swap/control-flow safety, WAT-shape, compact validation bridge, current Starshine HOT-strategy, and immutable raw primary-source manifests; the dossier now records the 2026-05-05 current-main no-teaching-drift bridge and maps exact MoonBit registry, preset, dispatcher, raw fast-skip, helper-cluster, focused-test, perf-test, and CLI-replay line ranges instead of only high-level HOT framing.
 - [`heap2local/index.md`](heap2local/index.md) - Refreshed folder with a landing page plus Binaryen strategy, source-confirmed implementation/test-map page, validation/special-case guide, WAT-shape catalog, current Starshine HOT-strategy, parity page, and immutable raw primary-source manifests; the dossier now records the 2026-04-25 current-main source bridge, fixes stale touched-area parity wording around upstream atomic array access, maps exact MoonBit registry/preset/dispatcher/candidate-analysis/rewrite/focused-test/primary-test line ranges, and keeps explicit that upstream `heap2local` is conservative GC scalarization for nonescaping exclusive allocations rather than generic heap-to-stack allocation.

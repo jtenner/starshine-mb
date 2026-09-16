@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-09-16
 sources:
   - https://nodejs.org/api/wasi.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
@@ -127,17 +127,17 @@ The three jobs and their exact local equivalents are:
    bun fuzz run --suite binary-roundtrip --profile smoke --seed 0x5eed --target wasm-gc
    ```
 
-3. **`dae-differential`** runs the retained-versus-fresh callsite-path tests, the topology-changing dead-suffix guard, a fresh native release build, and a deterministic 10,000-case direct-DAE GenValid signoff against Binaryen `131`:
+3. **`dae-differential`** runs the retained-versus-fresh callsite-path tests, the topology-changing dead-suffix guard, a fresh native release build, and a deterministic 10,000-case direct-DAE GenValid signoff against the current Binaryen `132` baseline:
 
    ```text
    moon update
    moon test --package jtenner/starshine/passes --file dead_argument_elimination_wbtest.mbt --filter '*retained dropped-result graph*'
    moon test --package jtenner/starshine/passes --file dead_argument_elimination_wbtest.mbt --filter '*complete dead-suffix call removal reports topology change*'
    moon build --target native --release src/cmd
-   bun fuzz compare-pass --count 10000 --seed 0x5eed --pass dead-argument-elimination --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/ci-dae-genvalid --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" --max-failures 1 --no-reduce-mismatches
+   bun fuzz compare-pass --count 10000 --seed 0x5eed --pass dead-argument-elimination --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/ci-dae-genvalid --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" --require-binaryen-version 132 --max-failures 1 --no-reduce-mismatches
    ```
 
-For the third command group, set `BINARYEN_DIR` to an extracted official `binaryen-version_131` directory. CI downloads the official x86-64 Linux release archive. The 10,000-case lane is bounded, deterministic, and matches the repository-standard ordinary pass signoff count described below. Existing specialized workflows remain supplemental; their push triggers also name the repository's actual primary branch, `master`. Every workflow that installs MoonBit runs `moon update` before invoking workspace commands, so clean GitHub-hosted checkouts resolve `moonbitlang/x`. The Node workflow checks the package's static clean-checkout export/bin contract and JavaScript syntax because the runtime adapter wasm files are intentionally local-only and ignored; artifact-backed Node runtime testing remains a release/local lane. The examples workflow uses only active pass flags and the Node-24-compatible `actions/cache@v5`.
+For the third command group, set `BINARYEN_DIR` to an extracted official `binaryen-version_132` directory. CI downloads the official x86-64 Linux release archive. The 10,000-case lane is bounded, deterministic, and matches the repository-standard ordinary pass signoff count described below. Existing specialized workflows remain supplemental; their push triggers also name the repository's actual primary branch, `master`. Every workflow that installs MoonBit runs `moon update` before invoking workspace commands, so clean GitHub-hosted checkouts resolve `moonbitlang/x`. The Node workflow checks the package's static clean-checkout export/bin contract and JavaScript syntax because the runtime adapter wasm files are intentionally local-only and ignored; artifact-backed Node runtime testing remains a release/local lane. The examples workflow uses only active pass flags and the Node-24-compatible `actions/cache@v5`.
 
 ## Fuzz And Pass-Oracle Boundaries
 

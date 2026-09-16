@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
+  - index.md
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h
@@ -21,7 +21,7 @@ related:
 
 # `ssa` WAT shapes
 
-This page is the beginner-friendly shape catalog for full Binaryen `ssa`. It is anchored by the committed tagged-source manifests and the scoped 2026-07-11 current-main/local-admission recheck [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md).
+This page is the beginner-friendly shape catalog for full Binaryen `ssa`. It is anchored by the committed tagged-source manifests and the scoped 2026-07-11 current-main/local-admission recheck [`index.md`](index.md).
 
 The most important rule to remember is:
 

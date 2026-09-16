@@ -139,7 +139,7 @@ The rebuilt-native raw smoke at `.tmp/pass-fuzz-flatten-profiles-smoke3-20260731
 
 The earlier 120-case residuals were concentrated in `flatten-br-if` (`9`), `flatten-legacy-eh` (`8`), and `flatten-multivalue` (`13`). The `br_if` family is a measured Starshine win candidate: its representative raw output is `66` bytes versus Binaryen's `78`, runtime results agree, and both sides converge byte-for-byte to `33` bytes under Binaryen v131 `-Oz`. The multivalue profile now isolates plain, `br`, `br_if`, and `br_table` forms in four exported functions. Exact dropped-result ownership and reverse-lane proofs flatten all four public shapes; representative raw output is `197` bytes versus Binaryen's `468`, all runtime results agree, and both sides converge byte-for-byte to `59` bytes under v131 `-Oz`. First-class HOT lifting now admits single-arm tagged catches, typed catch payload lanes, `catch_all`, result-typed tries, direct delegates, and legacy `rethrow`; unrelated HOT pipelines lower those forms without flattening them. A representative legacy result try is `67` bytes versus Binaryen's `71`, with runtime agreement and byte-for-byte convergence to `37` bytes under v131 `-Oz`. Multi-arm legacy tries remain an explicit HOT representation boundary.
 
-The current full deterministic lanes use native SHA-256 `4b60d4b09f573a82419cef9d5ef5a6d88018a4a7edf6c18f7e44b97e017bb217` and explicit Binaryen v131:
+The recorded full deterministic lanes used native SHA-256 `4b60d4b09f573a82419cef9d5ef5a6d88018a4a7edf6c18f7e44b97e017bb217` and explicit Binaryen v131:
 
 - default GenValid: `10,000/10,000`, `4,200` direct plus `5,800` compare-normalized matches, zero mismatches or failures, and `10,000/10,000` idempotence;
 - `flatten-legacy-eh`: `10,000/10,000` compare-normalized matches, zero failures, `10,000/10,000` idempotence, and zero runtime semantic mismatches;
@@ -151,7 +151,7 @@ Artifacts are `.tmp/pass-fuzz-flatten-default-10000-hot-lift-20260731`, `.tmp/pa
 
 The exact historical `gen-valid-000003.wasm` repro now succeeds through public `--flatten` and `-O4z`, and both outputs validate with `wasm-tools --features all`. Replaying the first 1,000 inputs from the saved expanded RUB corpus through the rebuilt public `-O4z` path yields `1,000/1,000` valid outputs with zero command or validation failures; the latest artifacts are under `.tmp/rub-o4z-schedule-validity-1000-repaired4-20260731`.
 
-Profile registration, exported runtime roots, family markers, aggregate selection, and manifest case labels are tested in [`src/validate/gen_valid_tests.mbt`](../../../../../src/validate/gen_valid_tests.mbt) and [`src/fuzz/main_wbtest.mbt`](../../../../../src/fuzz/main_wbtest.mbt).
+Profile registration, exported runtime roots, family markers, aggregate selection, and manifest case labels are tested in [`src/validate/gen_valid_wbtest.mbt`](../../../../../src/validate/gen_valid_wbtest.mbt) and [`src/fuzz/main_wbtest.mbt`](../../../../../src/fuzz/main_wbtest.mbt).
 
 ## Classification rule
 

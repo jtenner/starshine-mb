@@ -91,7 +91,7 @@ Additional implementation substrate now mapped in [`./starshine-port-readiness-a
 - `src/wast/lower_to_lib.mbt:2171-2252` plus `src/lib/types.mbt:198-212`, `221`, and `780-785` for table/element/mutation shapes.
 - `src/lib/types.mbt:526-531`, `src/binary/decode.mbt:2544-2564`, `src/binary/encode.mbt:2008-2028`, and `src/lib/show.mbt:866-882` for direct/indirect call representation and roundtrip.
 - `src/ir/hot_side_tables.mbt:249-254` and `src/ir/hot_lower.mbt:993-1018` for HOT signature/table side data and lowering.
-- `src/validate/typecheck.mbt:907-944` and `3216-3219` plus negative tests in `src/validate/typecheck_negative_tests.mbt:332-391` for validation of call-indirect table/type boundaries.
+- `src/validate/typecheck.mbt:907-944` and `3216-3219` plus negative tests in `src/validate/typecheck_negative_wbtest.mbt:332-391` for validation of call-indirect table/type boundaries.
 
 That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status, reusable substrates, and future landing zone.
 

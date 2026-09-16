@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-26
 sources:
   - ../../release-horizon-and-oracles.md
-  - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -81,7 +81,7 @@ Important source-backed blockers include:
 - multiple active segments with dynamic offsets,
 - overlapping active segments—except for the released v131 imported-memory exception.
 
-The historical `version_129` / `version_130` rule is an unconditional overlap bailout. Binaryen v131 adds one constrained path: `zeroFilledMemory`, one imported memory, and a checked proof that the overlapping active segments are within the declared initial allocation. It then zeroes earlier bytes trampled by later segments before ordinary range analysis. This is a source-order rewrite, not a relaxed overlap predicate; see [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+The historical `version_129` / `version_130` rule is an unconditional overlap bailout. Binaryen v131 adds one constrained path: `zeroFilledMemory`, one imported memory, and a checked proof that the overlapping active segments are within the declared initial allocation. It then zeroes earlier bytes trampled by later segments before ordinary range analysis. This is a source-order rewrite, not a relaxed overlap predicate; see [`index.md`](index.md).
 
 Beginner takeaway:
 
@@ -308,7 +308,7 @@ That phase structure is the most important thing this page pins down.
 
 ## Freshness note
 
-The 2026-04-22 no-drift check remains useful historical provenance. Merged PR #8882 added the narrow imported-memory overlap path on 2026-07-10, and that behavior is released in `version_131`; v130 is only a historical evidence baseline, while the current local closeout uses an explicit verified v131 oracle. Use [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md) for exact source/commit provenance and keep release versus trunk claims distinct.
+The 2026-04-22 no-drift check remains useful historical provenance. Merged PR #8882 added the narrow imported-memory overlap path on 2026-07-10, and that behavior is released in `version_131`; v130 is only a historical evidence baseline, while the current local closeout uses an explicit verified v131 oracle. Use [`index.md`](index.md) for exact source/commit provenance and keep release versus trunk claims distinct.
 
 ## September 13, 2026 performance review
 

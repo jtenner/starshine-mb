@@ -73,8 +73,8 @@ When evidence is uncertain, say so. Useful labels include `current-main recheck`
 
 | Source kind | Preferred location | Example use |
 | --- | --- | --- |
-| Official WebAssembly, proposal, or tool docs | Topic directory such as `raw/wasm/`, `raw/binaryen/`, `raw/moonbit/`, or `raw/wiki/` | Current-source bridge for a living page. |
-| Local run or investigation summary | `raw/research/[serial]-[YYYY-MM-DD]-[title].md` | Compare-pass audit, parity investigation, design spike, or substantial debugging session. Before creating one, scan `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/` and use the next unused zero-padded serial; preserve historical duplicate serial prefixes as provenance but do not create a new duplicate. |
+| Official WebAssembly, proposal, or tool docs | A living topic page with direct official links; use `raw/binaryen/` only when an immutable committed Binaryen capture is needed | Current-source bridge for a living page. |
+| Local run or investigation summary | `../raw/research/README.md` | Compare-pass audit, parity investigation, design spike, or substantial debugging session. Before creating one, scan `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/` and use the next unused zero-padded serial; preserve historical duplicate serial prefixes as provenance but do not create a new duplicate. |
 | Completed old planning doc | `raw/research/` plus live-reference repointing | Preserve provenance after a living page becomes canonical. |
 | Large generated artifacts | Usually not committed; promote only the minimal durable summary | Counts, command, classification, hashes, and reduced repro if needed. |
 

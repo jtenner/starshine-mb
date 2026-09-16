@@ -4,7 +4,7 @@ status: working
 last_reviewed: 2026-07-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
-  - ../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
+  - index.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
 related:
@@ -21,7 +21,7 @@ Do **not** run or copy a `compare-pass --pass remove-exports` command as current
 
 That rejection is a status check, not a failed smoke lane and not parity evidence. It cannot show that Starshine preserves the host-visible ABI policy required by this pass.
 
-The upstream behavior remains planning input: Binaryen filters matching `Export` entries by parameterized wildcard patterns, while retaining definitions and index spaces. See [`index.md`](index.md) and [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md).
+The upstream behavior remains planning input: Binaryen filters matching `Export` entries by parameterized wildcard patterns, while retaining definitions and index spaces. See [`index.md`](index.md) and [`index.md`](index.md).
 
 ## Before a Runnable Lane Exists
 

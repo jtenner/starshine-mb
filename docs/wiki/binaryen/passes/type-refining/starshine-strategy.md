@@ -38,7 +38,7 @@ related:
 
 # Starshine Strategy For `type-refining`
 
-Use this page with the retained 2026-07-11 current-main world-mode recheck: [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md). Direct `version_129` URLs in the dossier retain the tagged algorithm baseline.
+Use this page with the retained 2026-07-11 current-main world-mode recheck: [`index.md`](index.md). Direct `version_129` URLs in the dossier retain the tagged algorithm baseline.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 For first-slice sequencing, validation fixtures, and Binaryen oracle lanes, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

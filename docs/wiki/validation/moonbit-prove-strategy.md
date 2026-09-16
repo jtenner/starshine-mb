@@ -25,8 +25,8 @@ related:
   - ../tooling/validation-gates.md
   - ../tooling/moonbit-workspace-package-map.md
   - ../validate/fuzz-hardening.md
-  - ../../../src/validate/env_tests.mbt
-  - ../../../src/validate/typecheck_negative_tests.mbt
+  - ../../../src/validate/env_wbtest.mbt
+  - ../../../src/validate/typecheck_negative_wbtest.mbt
   - ../../../src/binary/encode.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/bitset/bitset.mbt
@@ -140,5 +140,5 @@ The important maintenance rule is to distinguish **proved/exported** from **wire
   - [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
   - [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
 - Existing validator executable oracles:
-  - [`../../../src/validate/env_tests.mbt`](../../../src/validate/env_tests.mbt)
-  - [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt)
+  - [`../../../src/validate/env_wbtest.mbt`](../../../src/validate/env_wbtest.mbt)
+  - [`../../../src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt)

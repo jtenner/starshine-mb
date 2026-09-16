@@ -5,7 +5,7 @@ last_reviewed: 2026-08-25
 sources:
   - ../wast/static-assertion-harness.md
   - https://webassembly.github.io/spec/core/valid/index.html
-  - ../raw/wasm/2026-06-04-leb128-current-refresh.md
+  - ../binary/leb128-and-integer-encoding.md
   - ../../../src/fuzz/gen_invalid_wbtest.mbt
   - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/fuzz/invalid_repro.mbt
@@ -16,9 +16,9 @@ sources:
   - ../../../src/cmd/fuzz_harness.mbt
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../src/validate/gen_valid.mbt
-  - ../../../src/validate/gen_valid_tests.mbt
+  - ../../../src/validate/gen_valid_wbtest.mbt
   - ../../../src/validate/gen_invalid.mbt
-  - ../../../src/validate/gen_invalid_tests.mbt
+  - ../../../src/validate/gen_invalid_wbtest.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/wast/spec_harness.mbt
 related:
@@ -146,5 +146,5 @@ The key invariant is that coverage means **the intended strategy ran and reached
 - Completed execution plan / historical slice ledger: research note 0089
 - WAST static assertion model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
 - Diagnostic-family and invalid-repro contract: [WebAssembly 3.0 validation overview](https://webassembly.github.io/spec/core/valid/index.html), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md)
-- LEB128 binary-integer source refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md)
+- LEB128 binary-integer source refresh: [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md), [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md)
 - Active follow-up backlog, if any: [`../../../agent-todo.md`](../../../agent-todo.md)

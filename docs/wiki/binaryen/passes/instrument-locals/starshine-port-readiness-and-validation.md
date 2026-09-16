@@ -128,7 +128,7 @@ Start with fixtures modeled on [`./wat-shapes.md`](./wat-shapes.md):
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md)
+- [`index.md`](index.md)
 - [research note 0499](./index.md)
 - [research note 0397](./index.md)
 - [research note 0287](./index.md)

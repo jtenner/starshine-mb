@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-29
 sources:
   - ./index.md
-  - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
+  - index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -289,7 +289,7 @@ If Starshine chooses to deviate from any of those, the deviation should be docum
 ## Sources
 
 - [research note 0689](./index.md)
-- [`../../../raw/wasm/2026-06-04-leb128-current-refresh.md`](../../../raw/wasm/2026-06-04-leb128-current-refresh.md)
+- [`index.md`](index.md)
 - [research note 0367](./index.md)
 - [research note 0125](./index.md)
 - [research note 0270](./index.md)

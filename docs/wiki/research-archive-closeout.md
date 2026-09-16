@@ -1,7 +1,7 @@
 ---
 kind: decision
-status: strong
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-09-16
 sources:
   - ../README.md
   - ./tooling/wiki-maintenance-playbook.md
@@ -12,11 +12,11 @@ related:
   - ./log.md
 ---
 
-# Numbered Research Archive Closeout
+# Numbered Research Archive Closeout (2026-07-18 snapshot)
 
 ## Decision
 
-On 2026-07-18, all remaining numbered documents under `docs/wiki/raw/research/` were processed into living wiki ownership and removed. The directory keeps only its lifecycle README. Exact historical text remains recoverable from git history; current developer guidance must come from maintained wiki pages, repository source/tests, and retained primary-source captures under the other `docs/wiki/raw/` topic directories.
+On 2026-07-18, all remaining numbered documents under `docs/wiki/raw/research/` were processed into living wiki ownership and removed. That was a snapshot of the workspace at closeout time. Exact historical text remains recoverable from git history; current developer guidance must come from maintained wiki pages, repository source/tests, and retained primary-source captures under `docs/wiki/raw/`.
 
 This was a knowledge-lifecycle cleanup, not a claim that old investigations were unimportant. Deleting the agent-only copies was allowed only after every note had a durable owner and every live reference was repointed or absorbed.
 
@@ -26,7 +26,11 @@ This was a knowledge-lifecycle cleanup, not a claim that old investigations were
 - Notes already referenced by living docs, indexes, or the wiki log: **1,752**.
 - Previously unreferenced notes explicitly lifted during closeout: **5**.
 - Durable owner pages selected after topic-owner corrections: **140**.
-- Remaining numbered files in `docs/wiki/raw/research/`: **0**.
+- Remaining numbered files in `docs/wiki/raw/research/` at the closeout snapshot: **0**.
+
+## Post-closeout workspace
+
+Later investigations reopened the temporary workspace. As of 2026-09-16, `docs/wiki/raw/research/` contains 90 numbered notes, including active work and retained evidence. Its [`README`](raw/research/README.md) is the current lifecycle entry point; the zero-note result above remains the historical result of the 2026-07-18 closeout.
 
 Largest absorbed clusters:
 
@@ -61,14 +65,14 @@ The resulting wiki intentionally prefers reusable contracts over one-file-per-pr
 
 - Git history is the source for exact deleted note text.
 - Living pages preserve current conclusions and direct source/test links.
-- Retained topic captures under `docs/wiki/raw/binaryen/`, `raw/wasm/`, `raw/validation/`, and sibling directories remain immutable primary-source evidence.
+- Retained topic captures under `docs/wiki/raw/binaryen/` remain immutable primary-source evidence. Other topic capture directories mentioned by the original closeout were later absorbed into living pages and removed; their old paths are preserved in git history.
 - `docs/wiki/log.md` records the bulk closeout and earlier research chronology.
 
 Do not restore deleted numbered notes merely to recover an old link. Recover the text from git when needed, verify it against current source, and update the living owner page. A genuinely new substantial investigation may still use the numbered research workflow defined by the schema, but it should be absorbed promptly once its durable conclusions stabilize.
 
 ## Validation requirements
 
-A complete archive closeout must verify:
+A complete archive closeout must verify the following for the workspace snapshot being closed:
 
 - no numbered research files remain;
 - no deleted filename or `raw/research/<numbered-note>` link remains in the worktree;

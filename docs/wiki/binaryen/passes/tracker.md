@@ -6,8 +6,8 @@ sources:
   - ../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../release-horizon-and-oracles.md
   - ./asyncify/index.md
-  - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
+  - remove-exports/index.md
+  - remove-imports/index.md
   - ./remove-exports/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
   - ./monomorphize/index.md
@@ -33,7 +33,7 @@ sources:
   - ./simplify-locals-notee/index.md
   - ./strip-target-features/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
-  - ../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
+  - signext-lowering/index.md
   - ./signext-lowering/index.md
   - ./discard-global-effects/index.md
   - ./global-effects/index.md
@@ -67,7 +67,7 @@ sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp
   - ./global-struct-inference/index.md
   - ./ssa-nomerge/index.md
-  - ../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
+  - reorder-locals/index.md
   - ./reorder-locals/index.md
   - ./remove-unused-names/index.md
   - ./tuple-optimization/index.md
@@ -189,7 +189,7 @@ If these ever disagree, update this tracker in the same change. The 2026-05-06 a
 - Already renewed and closed: `pick-load-signs`.
 - Targeted v131 spot-check owners are now recorded by their dossiers: `code-pushing`, `remove-unused-brs`, the `precompute` / `precompute-propagate` family, heap-store optimization, tuple optimization, and the SimplifyLocals family have closed direct/represented reviews. Reopen only on new v131 evidence, not on the superseded aggregate spot-check list.
 - The 56-slot / 38-owner O4z scheduler is unchanged. Reopen direct behavior before changing preset order.
-- Bare `wasm-opt` currently resolves to `version_116`; v131 evidence must pass an explicit verified `--wasm-opt-bin`.
+- Bare `wasm-opt` currently resolves to `version_116`; release-baseline evidence must pass an explicit verified `--wasm-opt-bin`.
 
 ## Active implemented passes
 
@@ -493,7 +493,7 @@ A good future expansion should now look like the successful second-wave dossiers
 - [research note 0344](./global-struct-inference/index.md)
 - [research note 0140](./global-struct-inference/index.md)
 - [research note 0141](./ssa-nomerge/index.md)
-- [`../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
+- [`reorder-locals/index.md`](reorder-locals/index.md)
 - [research note 0430](./reorder-locals/index.md)
 - [research note 0142](./reorder-locals/index.md)
 - [research note 0143](./remove-unused-names/index.md)

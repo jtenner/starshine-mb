@@ -6,7 +6,7 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid_directize.mbt
-  - ../../../../../src/validate/gen_valid_directize_tests.mbt
+  - ../../../../../src/validate/gen_valid_directize_wbtest.mbt
   - ../../../../../src/passes/directize_test.mbt
   - ../../../../../src/passes/directize_wbtest.mbt
   - ../../../../../src/passes_perf_long/directize_perf_test.mbt

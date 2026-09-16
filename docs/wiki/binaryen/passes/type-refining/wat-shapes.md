@@ -15,7 +15,7 @@ related:
 
 # `type-refining` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen `type-refining`. The 2026-07-11 current-main recheck preserves these shape families; its only material addition is the policy-carrying `WorldMode` interface around public-type classification and global type rewriting, not a new WAT transform family. See [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
+This page is the beginner-friendly shape catalog for Binaryen `type-refining`. The 2026-07-11 current-main recheck preserves these shape families; its only material addition is the policy-carrying `WorldMode` interface around public-type classification and global type rewriting, not a new WAT transform family. See [`index.md`](index.md).
 
 ## Read this page with one mental model
 

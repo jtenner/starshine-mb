@@ -287,7 +287,7 @@ Beginner shorthand:
 ## 3. This is not a generic import-cleanup pass
 
 A useful anti-shape is anything that would require rewriting non-function import users.
-Current `version_131` does not do that here.
+The reviewed `version_131` source does not do that here.
 
 ## Easy mental checklist for future Starshine work
 

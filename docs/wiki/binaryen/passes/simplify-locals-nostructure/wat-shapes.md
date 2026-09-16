@@ -23,7 +23,7 @@ related:
 
 This page is the beginner-friendly shape catalog for Binaryen’s `simplify-locals-nostructure` pass.
 
-The current local oracle is Binaryen `version_130` (`wasm-opt version 130`). The 2026-06-30 source refresh found the dedicated no-structure and nearby-variant tests unchanged from `version_130`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. See [research note 1399](./index.md).
+The current comparison oracle is Binaryen `version_132`; the v130 source refresh below remains historical evidence. The 2026-06-30 source refresh found the dedicated no-structure and nearby-variant tests unchanged from `version_130`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. See [research note 1399](./index.md).
 
 ## Read this page with one mental model
 
@@ -461,7 +461,7 @@ If the answer to the last question is “yes,” expect Binaryen to leave that f
 
 ## Source strength note
 
-- The positive and negative shapes above come directly from the dedicated `simplify-locals-nostructure` tests, the nearby variant tests, and the current `version_130` implementation comments.
+- The positive and negative shapes above come directly from the dedicated `simplify-locals-nostructure` tests, the nearby variant tests, and the reviewed `version_130` implementation comments.
 - The `try` / `try_table` bailout summary is derived from the pass source rather than from a tiny dedicated no-structure-only lit file.
 
 ## Sources

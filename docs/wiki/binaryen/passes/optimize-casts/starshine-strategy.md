@@ -73,7 +73,7 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/optimize_casts_wbtest.mbt`
     - covers the conservative negative heap/ref matcher for exact refs, abstract disjoint heaps, nullable non-null-target failures, and inexact-ref conservatism
 - dedicated generated coverage
-  - `src/validate/gen_valid.mbt` / `src/validate/gen_valid_tests.mbt`
+  - `src/validate/gen_valid.mbt` / `src/validate/gen_valid_wbtest.mbt`
     - register and test `optimize-casts-all` plus leaves for later reuse, early motion, barriers, best-cast, `ref.as_non_null`, static folds, and the GC/local cleanup neighborhood
   - `docs/wiki/binaryen/passes/optimize-casts/fuzzing.md`
     - documents the aggregate, selected-profile metadata, closeout-scale matrix, accepted residual policies, and reopening criteria

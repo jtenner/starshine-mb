@@ -9,7 +9,7 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_precompute_propagate_tests.mbt
+  - ../../../../../src/validate/gen_valid_precompute_propagate_wbtest.mbt
 related:
   - ./index.md
   - ./starshine-strategy.md
@@ -82,7 +82,7 @@ Each generated module includes:
 - a bounded chained propagation/evaluation shape;
 - a parameter/nonconstant boundary.
 
-Focused tests in `src/validate/gen_valid_precompute_propagate_tests.mbt` prove stable lookup, profile limits, validation, and the intended trigger floor.
+Focused tests in `src/validate/gen_valid_precompute_propagate_wbtest.mbt` prove stable lookup, profile limits, validation, and the intended trigger floor.
 
 ## Recommended development smoke
 

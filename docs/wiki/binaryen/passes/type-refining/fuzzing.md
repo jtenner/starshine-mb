@@ -31,7 +31,7 @@ bun fuzz compare-pass --list-passes
 
 ## Why ordinary GenValid is insufficient by itself
 
-The normal upstream pass is a non-open-world GC type-graph rewrite: it infers private struct-field types from writes, then repairs reads and writes after the declarations become narrower. Current Binaryen carries one `WorldMode` policy through public-type classification and global rewriting; its GUFA sibling shares the rewrite back end but uses different inference. A generic random lane can neither identify which variant ran nor prove the required fixups. See [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
+The normal upstream pass is a non-open-world GC type-graph rewrite: it infers private struct-field types from writes, then repairs reads and writes after the declarations become narrower. Current Binaryen carries one `WorldMode` policy through public-type classification and global rewriting; its GUFA sibling shares the rewrite back end but uses different inference. A generic random lane can neither identify which variant ran nor prove the required fixups. See [`index.md`](index.md).
 
 Before a runnable lane exists, focused fixtures must cover at least:
 

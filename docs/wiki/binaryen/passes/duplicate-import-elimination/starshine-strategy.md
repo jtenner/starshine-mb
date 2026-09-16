@@ -10,7 +10,7 @@ sources:
   - ../../../../../src/passes/duplicate_import_elimination_test.mbt
   - ../../../../../src/passes/legacy_eh_audit_wbtest.mbt
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/fuzz/main.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -51,7 +51,7 @@ Current source evidence is especially strong:
 - registry and public preset references: [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - module-pass dispatch: [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - family generators and aggregate: [`src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt)
-- generator assertions: [`src/validate/gen_valid_tests.mbt`](../../../../../src/validate/gen_valid_tests.mbt)
+- generator assertions: [`src/validate/gen_valid_wbtest.mbt`](../../../../../src/validate/gen_valid_wbtest.mbt)
 - manifest family labels: [`src/fuzz/main.mbt`](../../../../../src/fuzz/main.mbt)
 - manifest coverage test: [`src/fuzz/main_wbtest.mbt`](../../../../../src/fuzz/main_wbtest.mbt)
 

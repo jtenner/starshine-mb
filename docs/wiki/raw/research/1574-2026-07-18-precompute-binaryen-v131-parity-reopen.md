@@ -1,6 +1,6 @@
 ---
 kind: research
-status: completed
+status: supported
 last_reviewed: 2026-07-26
 sources:
   - https://github.com/WebAssembly/binaryen/releases/tag/version_131
@@ -10,7 +10,7 @@ sources:
   - ../../../../src/passes/precompute_test.mbt
   - ../../../../src/passes/precompute_wbtest.mbt
   - ../../../../src/validate/gen_valid.mbt
-  - ../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../src/validate/gen_valid_wbtest.mbt
 related:
   - ./1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../binaryen/passes/precompute/index.md

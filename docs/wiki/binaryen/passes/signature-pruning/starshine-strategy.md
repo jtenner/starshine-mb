@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - ./index.md
-  - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
+  - index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt
@@ -35,7 +35,7 @@ related:
 
 # Starshine Strategy For `signature-pruning`
 
-Use this page together with the retained 2026-04-24 source follow-up in [research note 0304](./index.md), the 2026-07-11 `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md), the typed-function-reference boundary in [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md), and the implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the retained 2026-04-24 source follow-up in [research note 0304](./index.md), the 2026-07-11 `version_130` / current-main recheck in [`index.md`](index.md), the typed-function-reference boundary in [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md), and the implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status

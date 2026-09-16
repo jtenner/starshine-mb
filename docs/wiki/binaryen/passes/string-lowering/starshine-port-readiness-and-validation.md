@@ -5,7 +5,7 @@ last_reviewed: 2026-07-18
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/string-lowering_types.wast
-  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
+  - index.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md

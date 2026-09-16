@@ -17,7 +17,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the current release source oracle for this pass. The older `version_129` dossier remains useful historical context, but the 2026-06-20 refresh found a small behavior-relevant source drift: four movement checks now use directional `orderedBefore(...)` instead of broad symmetric `invalidates(...)`.
+Use Binaryen `version_132` as the current comparison oracle for this pass; the v130 source review remains historical provenance. The older `version_129` dossier remains useful historical context, but the 2026-06-20 refresh found a small behavior-relevant source drift: four movement checks now use directional `orderedBefore(...)` instead of broad symmetric `invalidates(...)`.
 
 Primary files:
 

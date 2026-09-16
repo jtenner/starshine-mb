@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
-  - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
+  - index.md
   - ./index.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/typecheck.mbt
@@ -113,7 +113,7 @@ The current local code already has the key representational split a future port 
 - [`memarg_check(...)`](../../../../../src/validate/typecheck.mbt#L1532-L1576) validates static `MemArg.offset` separately from stack operand typing.
 - [`typecheck_memory_size(...)`](../../../../../src/validate/typecheck.mbt#L2552-L2558) / [`typecheck_memory_grow(...)`](../../../../../src/validate/typecheck.mbt#L2561-L2571) derive operand and result types from memory limits.
 - [`typecheck_memory_copy(...)`](../../../../../src/validate/typecheck.mbt#L2612-L2639) already models `memory.copy` positions independently.
-- [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code table index/result positions to `i32`; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) is only destination-width-aware and still types length as `i32`. The current table64 correction is [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), so table64 validation cleanup remains a prerequisite.
+- [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code table index/result positions to `i32`; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) is only destination-width-aware and still types length as `i32`. The current table64 correction is [`index.md`](index.md), so table64 validation cleanup remains a prerequisite.
 - `src/binary/encode.mbt:1208-1284` encodes the existing limit forms; a lowering pass must rewrite declarations before encoding.
 
 ## Minimum reduced tests for this corrected slice
@@ -134,7 +134,7 @@ A future Starshine port should add at least these tests before calling the out-o
 - [research note 0411](./index.md)
 - [research note 0374](./index.md)
 - [research note 0340](./index.md)
-- [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
+- [`index.md`](index.md)
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/memory64-lowering.wast>
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)

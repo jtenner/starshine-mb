@@ -35,7 +35,7 @@ related:
 
 - `reorder-globals` is an upstream Binaryen late module / boundary-shaped global-layout pass.
 - It now has an active direct Starshine module-pass port; `reorder-globals-always` remains boundary-only.
-- The current source oracle is official Binaryen `version_131`, tag commit `1f903c14babf829745b421b92ff0f286e93e4209`.
+- The current source oracle is official Binaryen `version_132`; the reviewed v131 tag remains historical source provenance.
 - In Binaryen `version_131`, it runs near the very end of the no-DWARF optimize pipeline.
 - Its job is to reorder the complete imported-plus-defined global vector so that more index-sensitive globals get smaller indices, while keeping all imports before definitions and preserving global-initializer dependency order.
 

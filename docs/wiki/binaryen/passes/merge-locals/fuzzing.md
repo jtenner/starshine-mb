@@ -7,7 +7,8 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/merge-locals_all-features.wast
   - ./index.md
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_merge_locals_tests.mbt
+  - ../../../../../src/validate/gen_valid_merge_locals_wbtest.mbt
+
 ---
 
 # `merge-locals` fuzzing profiles

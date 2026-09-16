@@ -10,9 +10,8 @@ sources:
   - https://webassembly.github.io/spec/core/syntax/types.html#memory-types
   - https://webassembly.github.io/spec/core/valid/types.html#memory-types
   - https://webassembly.github.io/spec/core/binary/types.html#memory-types
-  - https://github.com/WebAssembly/proposals
-  - raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
+  - validate/memory-table-address-widths.md
+  - wasm-linear-memory-threads-boundary.md
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
   - ../../src/binary/encode.mbt

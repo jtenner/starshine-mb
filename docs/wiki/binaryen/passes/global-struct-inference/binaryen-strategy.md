@@ -425,7 +425,7 @@ The 2026-07-11 `version_130` / current-main recheck found no behavior-bearing dr
 - current `main` still shows the plain `gsi` / sibling `gsi-desc-cast` factory split
 - current `main` `gsi.wast` remains the dedicated plain-pass proof surface reviewed for this dossier
 
-So the current wiki should treat `version_130` as the released semantic oracle without an active trunk-drift caveat. The 2026-07-11 check is a focused owner/registration/fixture bridge, not a full semantic diff across all post-release history.
+The wiki should retain `version_130` as historical semantic provenance without an active trunk-drift caveat; current comparisons use v132. The 2026-07-11 check is a focused owner/registration/fixture bridge, not a full semantic diff across all post-release history.
 
 ## What a future port or parity pass must preserve
 

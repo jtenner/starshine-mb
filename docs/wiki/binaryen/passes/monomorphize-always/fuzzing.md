@@ -6,9 +6,6 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
-  - ../../../tooling/pass-fuzz-compare.md
-  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
-  - ../../../../../src/passes/optimize.mbt
 related:
   - ./index.md
   - ../monomorphize/index.md

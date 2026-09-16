@@ -9,10 +9,10 @@ sources:
   - ../../../src/validate/validate.mbt
   - ../../../src/wast/arbitrary.mbt
   - ../../../src/wast/fuzz_tests.mbt
-  - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
-  - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
-  - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
+  - ../wast/exception-tag-authoring.md
+  - ../validate/memory-table-address-widths.md
+  - ../binary/data-element-and-datacount-sections.md
+  - ../wast/element-segment-authoring.md
   - ../wasm-linear-memory-threads-boundary.md
 related:
   - ../wast/control-flow-authoring.md

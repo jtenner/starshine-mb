@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-29
+last_reviewed: 2026-09-16
 sources:
   - ../../../../../src/validate/gen_valid_merge_similar_functions.mbt
   - ../../../../../src/validate/gen_valid_merge_similar_functions_wbtest.mbt
@@ -56,7 +56,11 @@ These are not MSF parity normalizers. They cover pre-existing command-level diff
 
 The dedicated aggregate needs neither normalizer and is exact.
 
-## Final commands
+## Historical v131 final commands
+
+The commands and results in this section are the recorded v131 closeout. New
+comparison runs must use the current verified Binaryen 132 oracle described in
+the shared [compare-pass guide](../../../tooling/pass-fuzz-compare.md).
 
 Build once:
 
@@ -96,7 +100,7 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed \
 
 Use the same pinned tool flags for the 10,000-case `--wasm-smith` lane and the 10,000-case `random-all-profiles` lane at seed `0x5555`.
 
-## Final results
+## Historical v131 final results
 
 - regular: 100,000/100,000; 96,352 ordinary plus 3,648 cleanup-normalized; zero residuals/failures
 - dedicated: 10,000/10,000 exact normalized; zero failures

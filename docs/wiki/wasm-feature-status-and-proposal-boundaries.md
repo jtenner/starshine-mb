@@ -26,11 +26,9 @@ sources:
   - https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md
   - https://webassembly.github.io/spec/core/syntax/types.html
   - wasm-linear-memory-threads-boundary.md
-  - raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
-  - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
-  - raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
+  - validate/type-section-and-subtyping.md
   - https://raw.githubusercontent.com/WebAssembly/custom-descriptors/main/proposals/custom-descriptors/Overview.md
-  - raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
+  - custom-descriptors/descriptor-instruction-surface.md
   - ../../src/validate/gen_valid.mbt
 related:
   - wasm-typed-function-references-boundary.md
@@ -229,7 +227,7 @@ When changing a feature-status claim:
 - Memory Control boundary: [`wasm-memory-control-boundary.md`](wasm-memory-control-boundary.md)
 - Wide Arithmetic opcode sources: [proposal overview](https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md) and focused page [`wasm-wide-arithmetic-boundary.md`](wasm-wide-arithmetic-boundary.md)
 - Relaxed Atomics boundary: [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md) and its cited official proposal sources
-- Linear-memory Threads/shared-memory boundary: [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md), [`raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md), [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md)
+- Linear-memory Threads/shared-memory boundary: [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md), [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md), [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md)
 - JSPI host-async boundary: [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md)
 - ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md) and its cited official ESM/Node sources
 - Exception Handling boundary: [`wasm-exception-handling-boundary.md`](wasm-exception-handling-boundary.md), [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md)

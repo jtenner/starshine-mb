@@ -6,8 +6,6 @@ sources:
   - wasm-linear-memory-threads-boundary.md
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/relaxed-atomics/blob/main/proposals/relaxed-atomics/Overview.md
-  - raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
-  - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - wast/atomic-memory-instruction-authoring.md
   - wast/gc-aggregate-instruction-authoring.md
   - ../../src/lib/types.mbt

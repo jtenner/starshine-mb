@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -16,7 +16,7 @@ related:
 # `signature-refining` WAT shapes
 
 This page is a beginner-friendly catalog of the main WAT / module-shape families Binaryen `signature-refining` rewrites, preserves, or bails out on.
-The current-source correction is captured in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), and the current Starshine status is in [`./starshine-strategy.md`](./starshine-strategy.md).
+The current-source correction is captured in [`index.md`](index.md), and the current Starshine status is in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 The pass is shape-driven, but the important shapes are not just inside one function body.
 They often include:
@@ -504,7 +504,7 @@ Those are the shapes a future port must preserve if it wants to match upstream B
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0451](./index.md)
 - [research note 0307](./index.md)
 - [research note 0152](./index.md)

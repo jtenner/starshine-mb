@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - ../wasm-compact-import-section-boundary.md
-  - ../raw/wasm/2026-06-04-leb128-current-refresh.md
+  - leb128-and-integer-encoding.md
   - https://webassembly.github.io/spec/core/binary/modules.html
   - https://webassembly.github.io/spec/core/syntax/modules.html
   - https://webassembly.github.io/spec/core/valid/modules.html
@@ -13,7 +13,7 @@ sources:
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
   - ../../../src/validate/validate.mbt
-  - ../../../src/binary/tests.mbt
+  - ../../../src/binary/tests_wbtest.mbt
 related:
   - custom-and-name-sections.md
   - leb128-and-integer-encoding.md
@@ -140,9 +140,9 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 - Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
 - Compact Import Section boundary: [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md)
 - Official WebAssembly 3.0 sources: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html), and [module validation](https://webassembly.github.io/spec/core/valid/modules.html)
-- LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
+- LEB128 binary integer refresh: [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Core module representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
-- Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
+- Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt)
 - Validation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - Section-specific pages: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md)
 - Fixture-facing WAST resource declarations: [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md)

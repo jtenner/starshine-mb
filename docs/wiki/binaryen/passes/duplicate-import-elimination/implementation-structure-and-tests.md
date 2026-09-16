@@ -49,7 +49,7 @@ The file's own top comment includes the most important scope correction:
 
 - `TODO: non-function imports too`
 
-That is the clearest source-backed proof that current `version_131` is function-import-only here.
+That is the clearest source-backed proof that the reviewed `version_131` source is function-import-only here.
 
 ## `src/passes/opt-utils.h`
 
@@ -251,7 +251,7 @@ It is another reason the earlier broad dossier needed correction.
 | `src/passes/pass.cpp` | Public pass registration and late post-pass scheduler placement |
 | `test/passes/duplicate-import-elimination.wast` | Function-only positive and negative input shapes |
 | `test/passes/duplicate-import-elimination.txt` | The expected canonicalized output for those shapes |
-| `src/validate/gen_valid.mbt` / `src/validate/gen_valid_tests.mbt` | Five dedicated GenValid leaves covering body/tail references, identity policy, module code, legacy EH/`try_table`, and all four non-function negative import kinds |
+| `src/validate/gen_valid.mbt` / `src/validate/gen_valid_wbtest.mbt` | Five dedicated GenValid leaves covering body/tail references, identity policy, module code, legacy EH/`try_table`, and all four non-function negative import kinds |
 | `src/fuzz/main.mbt` / `src/fuzz/main_wbtest.mbt` | Manifest `profile_case_label` metadata and coverage for all 13 DIE family labels |
 | `src/passes/duplicate_import_elimination_test.mbt` | Encode/decode/transform/validate/idempotence checks for every leaf and identity/EH variant, plus raw-name and annotation-owner repair regressions |
 

@@ -19,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_131` as the current source oracle for this pass family.
+Use Binaryen `version_132` as the current comparison oracle for this pass family; the v131 source review remains historical provenance.
 
 Primary files:
 

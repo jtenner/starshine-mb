@@ -9,7 +9,7 @@ sources:
   - ../../../../../src/passes/code_pushing_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -31,7 +31,7 @@ related:
 
 The first 2026-06-20 audit-widening slice adds Binaryen-backed post-`if` read support when the local is read in exactly one `if` arm and the opposite arm cannot fall through. The note [`0806`](./index.md) records the Binaryen oracle probe, red-first test, implementation guard, and focused evidence.
 
-The second 2026-06-20 audit slice refreshed the current `version_130` Binaryen source/lit surface. The new bridge [`2026-06-20-code-pushing-version-130-source-lit-refresh`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md) and research note [`0807`](./index.md) supersede the older current-main bridge for release-gating decisions. The refresh found stable owner structure, `effects.orderedBefore(cumulativeEffects)` replacing the older invalidation checks, and a new `code-pushing-atomics.wast` proof surface for GC reads across shared atomic loads/stores.
+The second 2026-06-20 audit slice refreshed the current `version_130` Binaryen source/lit surface. The new bridge [`2026-06-20-code-pushing-version-130-source-lit-refresh`](index.md) and research note [`0807`](./index.md) supersede the older current-main bridge for release-gating decisions. The refresh found stable owner structure, `effects.orderedBefore(cumulativeEffects)` replacing the older invalidation checks, and a new `code-pushing-atomics.wast` proof surface for GC reads across shared atomic loads/stores.
 
 The third 2026-06-20 audit slice added non-mutating segment-window inventory in [`0808`](./index.md). `code_pushing_push_point_kind(...)` recognizes ordinary `if`, dropped push-point wrappers, locally representable conditional branches, and switch/`br_table` roots; `code_pushing_segment_window_diagnostic(...)` reports SFA/use/effect rejection reasons before any broad `optimizeSegment(...)` movement is enabled. Whitebox tests cover `candidate:if`, `candidate:dropped-if`, `candidate:conditional-branch`, `reject:prefix-local-read`, `reject:multiple-local-writes`, and `reject:ordered-before-barrier`.
 
@@ -133,7 +133,7 @@ Current Starshine code locations:
 | [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Focused positives and guard tests for mutating behavior |
 | [`src/passes/code_pushing_wbtest.mbt`](../../../../../src/passes/code_pushing_wbtest.mbt) | Whitebox segment-window inventory and rejection-reason tests |
 | [`src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt) | Dedicated `code-pushing-all` / leaf profile generation |
-| [`src/validate/gen_valid_tests.mbt`](../../../../../src/validate/gen_valid_tests.mbt) | Profile resolution, sampling, validating-module, and candidate-shape tests |
+| [`src/validate/gen_valid_wbtest.mbt`](../../../../../src/validate/gen_valid_wbtest.mbt) | Profile resolution, sampling, validating-module, and candidate-shape tests |
 
 ## Gap to Binaryen
 
@@ -218,7 +218,7 @@ Starshine `code-pushing` is closed for the current user-directed CP audit. The o
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`index.md`](index.md)
 - [research note 0828](./index.md)
 - [research note 0827](./index.md)
 - [research note 0822](./index.md)

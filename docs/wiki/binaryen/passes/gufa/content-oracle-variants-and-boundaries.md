@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -250,8 +250,8 @@ If you want the correct beginner-to-intermediate mental model, remember:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
+- [`index.md`](index.md)
+- [`index.md`](index.md)
 - [research note 0471](./index.md)
 - [research note 0313](./index.md)
 - [research note 0163](./index.md)

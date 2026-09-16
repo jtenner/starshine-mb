@@ -7,11 +7,10 @@ sources:
   - ../wasm-multi-memory-boundary.md
   - ../wasm-memory-control-boundary.md
   - ../wasm-relaxed-atomics-boundary.md
-  - ../raw/wasm/2026-06-04-leb128-current-refresh.md
+  - leb128-and-integer-encoding.md
   - https://webassembly.github.io/spec/core/binary/instructions.html
   - https://webassembly.github.io/spec/core/binary/modules.html
   - https://webassembly.github.io/spec/core/binary/values.html
-  - https://webassembly.github.io/spec/core/valid/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
@@ -19,7 +18,7 @@ sources:
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/wast/lower_to_lib.mbt
-  - ../../../src/binary/tests.mbt
+  - ../../../src/binary/tests_wbtest.mbt
 related:
   - ../wasm-multi-memory-boundary.md
   - ../wasm-typed-function-references-boundary.md
@@ -91,7 +90,7 @@ Starshine's core representation is deliberately semantic enough for validators a
 2. `else` (`0x05`) splits only an `if` frame's then/else bodies;
 3. malformed nesting must fail without consuming unrelated trailing bytes.
 
-The decoder also has an instruction nesting limit and reports `InstructionNestingLimitExceeded` for adversarially deep payloads; [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) has focused coverage for that guard. Both instruction and expression encoding use an explicit control-work stack in [`encode_control.mbt`](../../../src/binary/encode_control.mbt). Sequence cursors keep pending work proportional to nesting depth, not instruction count. Leaf encoding does not recurse into control bodies. Each expression appends `0x0B`; legacy delegated `try` ends with `delegate` instead. A bounded nested-`if` regression in [`encode_control_wbtest.mbt`](../../../src/binary/encode_control_wbtest.mbt) checks exact bytes through both public entry points without increasing the host stack size.
+The decoder also has an instruction nesting limit and reports `InstructionNestingLimitExceeded` for adversarially deep payloads; [`src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt) has focused coverage for that guard. Both instruction and expression encoding use an explicit control-work stack in [`encode_control.mbt`](../../../src/binary/encode_control.mbt). Sequence cursors keep pending work proportional to nesting depth, not instruction count. Leaf encoding does not recurse into control bodies. Each expression appends `0x0B`; legacy delegated `try` ends with `delegate` instead. A bounded nested-`if` regression in [`encode_control_wbtest.mbt`](../../../src/binary/encode_control_wbtest.mbt) checks exact bytes through both public entry points without increasing the host stack size.
 
 ### Block types
 
@@ -199,7 +198,7 @@ can become invalid if a pass deletes the default memory, changes an i64 memory t
 Before committing a pass, fuzzer change, or binary/WAST codec change that touches instructions:
 
 - Update both decode and encode paths for every new instruction variant; keep prefixed opcode families symmetric.
-- Add or refresh binary roundtrip coverage in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) for new opcodes, immediates, lane arrays, memargs, or blocktypes.
+- Add or refresh binary roundtrip coverage in [`src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt) for new opcodes, immediates, lane arrays, memargs, or blocktypes.
 - Add validator/typechecker coverage for semantic stack effects, not just decode success.
 - If an instruction refers to functions, tables, memories, globals, tags, types, elements, data segments, locals, labels, or the local string pool, update the relevant section page's rewrite checklist.
 - For text support, update the WAST parser/lowerer/printer path as well as binary encode/decode.
@@ -222,10 +221,10 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Multi-memory Core boundary: [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md) and its cited official Core sources
 - Relaxed Atomics boundary: [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md) and its cited official proposal sources
 - SIMD lane-immediate validation: [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
-- LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
+- LEB128 binary integer refresh: [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Official WebAssembly 3.0 sources: [binary instructions](https://webassembly.github.io/spec/core/binary/instructions.html), [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [binary values](https://webassembly.github.io/spec/core/binary/values.html), and [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html)
-- Local implementation evidence: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), and [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
+- Local implementation evidence: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), and [`../../../src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
-- Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
+- Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt)
 - Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - Text path: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md), [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), [`../wast/atomic-memory-instruction-authoring.md`](../wast/atomic-memory-instruction-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md), [`../wast/simd-authoring.md`](../wast/simd-authoring.md)

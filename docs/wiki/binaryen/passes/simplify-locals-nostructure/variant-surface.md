@@ -29,7 +29,7 @@ This page focuses on the easiest part of Binaryen’s locals family to misunders
 - what it surprisingly leaves on
 - and how that differs from the nearby public variants
 
-The current local oracle is Binaryen `version_130` (`wasm-opt version 130`). The 2026-06-30 source refresh found the dedicated no-structure and nearby-variant tests unchanged from `version_130`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. See [research note 1399](./index.md).
+The current comparison oracle is Binaryen `version_132`; the v130 source refresh below remains historical evidence. The 2026-06-30 source refresh found the dedicated no-structure and nearby-variant tests unchanged from `version_130`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. See [research note 1399](./index.md).
 
 ## The whole family in one table
 

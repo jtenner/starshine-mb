@@ -11,11 +11,11 @@ reject-only boundary: `RuntimeFunctionBuilder`, `runtime_function_builder_new`,
 public APIs. Consumers use ordinary Dew algorithms and explicit Core instruction
 constructors; there is no runtime-name dispatch entry point.
 
-The 13 old rejection groups, containing 100 names, moved to the consumer's
-`src/backend/starshine_retired_runtime_names_wbtest.mbt`. They now require exact
-`UnsupportedBuiltin` errors from the native emitter instead of calling a
-provider method that always returned false. The seven Core bridge behavior
-tests remain. A public-interface test checks that the removed API stays absent.
+The 13 old rejection groups, containing 100 names, moved to the parent
+consumer's native emitter tests. They now require exact `UnsupportedBuiltin`
+errors from the native emitter instead of calling a provider method that always
+returned false. This repository retains the seven Core bridge behavior tests,
+and its public-interface test checks that the removed API stays absent.
 
 ## Library storage and checks
 

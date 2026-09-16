@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
+  - ../gufa/index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -82,7 +82,7 @@ So the pass is best read as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) — current shared oracle owner-map; not a complete source-diff claim.
+- [`../gufa/index.md`](../gufa/index.md) — current shared oracle owner-map; not a complete source-diff claim.
 - research note 0311
 - research note 0189
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

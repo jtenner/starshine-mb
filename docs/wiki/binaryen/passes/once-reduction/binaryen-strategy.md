@@ -437,7 +437,7 @@ That is much broader than the current local test file.
 
 The 2026-04-22 source review recorded that the official Binaryen `version_129` release page showed publish date **2026-04-01** and that the reviewed current-`main` `OnceReduction.cpp` plus dedicated `once-reduction.wast` surfaces had no teaching-relevant drift at that time. The retained 2026-06-08 behavior inventory then checked `version_130` and found the owner and dedicated lit file unchanged from `version_129` for this pass.
 
-So the current wiki should continue treating `version_129` / `version_130` as the released semantic oracle on the reviewed surfaces, with direct tagged URLs and the retained source/lit inventory as provenance.
+The wiki should retain `version_129` / `version_130` as reviewed historical semantic provenance, with direct tagged URLs and the retained source/lit inventory; current comparisons use v132.
 
 ## What a future port or parity pass must preserve
 

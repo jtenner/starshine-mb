@@ -105,7 +105,7 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
+- [`binaryen-strategy.md`](binaryen-strategy.md)
 - research note 0388
 - research note 0288
 - research note 0231

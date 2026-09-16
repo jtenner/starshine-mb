@@ -3,7 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-10
 sources:
-  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
+  - index.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -38,4 +38,4 @@ bun fuzz compare-pass --pass signext-lowering --count 10000 --seed 0x5eed \
   --min-compared <meaningful-count> [--gen-valid-profile <future-profile>]
 ```
 
-Before calling that lane signoff, include reduced fixtures for all five rewrite shapes, effectful children, `i64.extend_i32_s` preservation, enabled-feature cleanup, and no-feature no-op behavior. The Binaryen gate and feature-clear distinction are recorded in [`../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md).
+Before calling that lane signoff, include reduced fixtures for all five rewrite shapes, effectful children, `i64.extend_i32_s` preservation, enabled-feature cleanup, and no-feature no-op behavior. The Binaryen gate and feature-clear distinction are recorded in [`index.md`](index.md).

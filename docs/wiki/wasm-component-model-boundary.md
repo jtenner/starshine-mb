@@ -12,7 +12,6 @@ sources:
   - https://github.com/WebAssembly/component-model/blob/main/design/mvp/Explainer.md
   - https://component-model.bytecodealliance.org/design/wit.html
   - https://component-model.bytecodealliance.org/advanced/canonical-abi.html
-  - https://github.com/WebAssembly/proposals
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
   - ../../src/wast/parser.mbt

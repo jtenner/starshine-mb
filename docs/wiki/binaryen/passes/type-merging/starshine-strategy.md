@@ -36,7 +36,7 @@ related:
 
 # Starshine Strategy For `type-merging`
 
-Use this page with the raw primary-source manifest and the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md). That recheck supersedes the older current-main bridge's Boolean-gate conclusion: current Binaryen carries `worldMode` from admission into private-type classification and type rewriting. The goal here is to show the exact current Starshine status and the infrastructure a future parity port must resolve.
+Use this page with the raw primary-source manifest and the [2026-07-11 world-mode recheck](index.md). That recheck supersedes the older current-main bridge's Boolean-gate conclusion: current Binaryen carries `worldMode` from admission into private-type classification and type rewriting. The goal here is to show the exact current Starshine status and the infrastructure a future parity port must resolve.
 
 ## The honest current status
 

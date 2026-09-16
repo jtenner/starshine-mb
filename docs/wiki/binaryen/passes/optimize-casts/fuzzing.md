@@ -7,7 +7,8 @@ sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ./index.md
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
+
 ---
 
 # `optimize-casts` Fuzzing Profile

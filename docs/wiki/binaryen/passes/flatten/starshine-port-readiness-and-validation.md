@@ -86,11 +86,8 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
-  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
-  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
+  - index.md
   - ./index.md
-  - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
-  - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../ir2/execution-plan.md

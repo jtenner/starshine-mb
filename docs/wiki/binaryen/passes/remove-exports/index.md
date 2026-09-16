@@ -4,7 +4,7 @@ status: supported
 starshine_status: upstream-only
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
+  - fuzzing.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
@@ -25,7 +25,7 @@ related:
 
 ## Overview
 
-`remove-exports` is Binaryen's parameterized export-section filter. The 2026-07-11 source recheck in [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md) confirms that reviewed `version_130` and current `main` retain the same small contract: match export names by user-supplied patterns and remove the matching export entries. The 2026-06-04 read remains historical provenance.
+`remove-exports` is Binaryen's parameterized export-section filter. The 2026-07-11 source recheck in [`fuzzing.md`](fuzzing.md) confirms that reviewed `version_130` and current `main` retain the same small contract: match export names by user-supplied patterns and remove the matching export entries. The 2026-06-04 read remains historical provenance.
 
 For a beginner: an export is how a WebAssembly module exposes a function, table, memory, global, or tag to the host. Removing an export can make the binary smaller or more private, but it changes the module's public ABI. That makes this pass more like an ABI-shaping or packaging pass than an ordinary internal optimizer.
 
@@ -36,7 +36,7 @@ For an implementer: do not confuse `remove-exports` with [`remove-unused-module-
 | Surface | Status |
 | --- | --- |
 | Upstream release horizon | Present in Binaryen `version_130`; the retained 2026-07-11 owner/fixture recheck preserves the reviewed release and current-main evidence. |
-| Upstream owner/test files | `src/passes/RemoveExports.cpp` and `test/lit/passes/remove-exports.wast` in reviewed `version_130`; the 2026-07-11 current-`main` owner/fixture/registration recheck found no behavior-bearing drift. See [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md). |
+| Upstream owner/test files | `src/passes/RemoveExports.cpp` and `test/lit/passes/remove-exports.wast` in reviewed `version_130`; the 2026-07-11 current-`main` owner/fixture/registration recheck found no behavior-bearing drift. See [`fuzzing.md`](fuzzing.md). |
 | Starshine registry | Not registered on 2026-06-04; focused `src/` searches found no `remove-exports` or `RemoveExports` pass spelling. |
 | Starshine prerequisite representation | Present: `Export`, `ExportSec`, and `Module.export_sec` in [`src/lib/types.mbt`](../../../../../src/lib/types.mbt). |
 | Starshine codec/text prerequisites | The normal binary encode/decode and WAST parse/lower paths already know exports; a future pass should reuse those surfaces instead of inventing a pass-local export model. |
@@ -81,7 +81,7 @@ Current [`fuzzing.md`](fuzzing.md) is deliberately **planned-only**: `remove-exp
 
 ## Sources
 
-- Current-main recheck: [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
+- Current-main recheck: [`fuzzing.md`](fuzzing.md)
 - Tracker-expansion note: research note 0706
 - Local export representation: [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
 - Local binary codec: [`../../../../../src/binary/encode.mbt`](../../../../../src/binary/encode.mbt), [`../../../../../src/binary/decode.mbt`](../../../../../src/binary/decode.mbt)

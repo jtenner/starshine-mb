@@ -6,9 +6,10 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/passes/rse.mbt
   - ../../../../../src/passes/rse_test.mbt
+
 ---
 
 # `rse` Fuzzing Profile

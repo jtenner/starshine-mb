@@ -4,12 +4,12 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - ../../release-horizon-and-oracles.md
-  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
+  - index.md
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
-  - ../../../../../src/binary/tests.mbt
+  - ../../../../../src/binary/tests_wbtest.mbt
   - ../../../../../src/wast/keywords.mbt
   - ../../../../../src/wast/parser.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
@@ -81,7 +81,7 @@ The fastest read-along path through the current Starshine status is:
     - binds the decode-time stringref context
   - [`src/binary/decode.mbt#L160-L170`](../../../../../src/binary/decode.mbt#L160-L170)
     - maps string literal indices back to bytes
-  - [`src/binary/tests.mbt#L1817-L1859`](../../../../../src/binary/tests.mbt#L1817-L1859)
+  - [`src/binary/tests_wbtest.mbt#L1817-L1859`](../../../../../src/binary/tests_wbtest.mbt#L1817-L1859)
     - roundtrips a module with `string.const` literals and a `stringrefs` section
 - validation and HOT roundtrip support
   - [`src/validate/typecheck.mbt#L3063`](../../../../../src/validate/typecheck.mbt#L3063)

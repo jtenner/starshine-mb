@@ -80,7 +80,7 @@ The 2026-07-28 audit read the released `version_131` owner plus both dedicated f
 | [`src/passes/merge_locals_test.mbt`](../../../../../src/passes/merge_locals_test.mbt) | Public spelling, both orientations, cross-control influence, tee candidates, rollback, unreachable preservation, legacy `try`, and O4z placement. |
 | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | Candidate admission, byte-preserving no-candidate bypass, legacy-EH routing, and HOT fallback. |
 | [`src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt) | Fifteen source-family leaves plus `merge-locals-all`. |
-| [`src/validate/gen_valid_merge_locals_tests.mbt`](../../../../../src/validate/gen_valid_merge_locals_tests.mbt) | Validity, copy opportunities, exact labels, type topology, and four legacy-EH region forms. |
+| [`src/validate/gen_valid_merge_locals_wbtest.mbt`](../../../../../src/validate/gen_valid_merge_locals_wbtest.mbt) | Validity, copy opportunities, exact labels, type topology, and four legacy-EH region forms. |
 | [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) | Direct Binaryen-v131 comparison, replay, runtime, and idempotence evidence. |
 
 The only raw regional specialization is legacy EH because general HOT lift still rejects decoded legacy `Try`. The bridge rewrites only region-local straight-line copy traffic, preserves block types, catch order and kind, tags, and delegate targets, and leaves wider cross-region traffic unchanged.

@@ -1,6 +1,6 @@
 ---
 kind: research
-status: retained
+status: supported
 last_reviewed: 2026-07-17
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp
@@ -13,7 +13,7 @@ sources:
   - ../../../../src/passes/pass_manager.mbt
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/validate/gen_valid.mbt
-  - ../../../../src/validate/gen_valid_precompute_propagate_tests.mbt
+  - ../../../../src/validate/gen_valid_precompute_propagate_wbtest.mbt
 related:
   - ../../binaryen/passes/precompute-propagate/index.md
   - ../../binaryen/passes/precompute-propagate/fuzzing.md

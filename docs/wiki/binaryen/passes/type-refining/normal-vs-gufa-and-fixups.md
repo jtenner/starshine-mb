@@ -15,7 +15,7 @@ related:
 
 # `type-refining`: normal vs GUFA and why fixups are mandatory
 
-The 2026-07-11 current-main recheck preserves this normal-vs-GUFA and repair contract, while requiring one world/visibility policy to flow from the non-open gate through public-type classification and global rewriting; see [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
+The 2026-07-11 current-main recheck preserves this normal-vs-GUFA and repair contract, while requiring one world/visibility policy to flow from the non-open gate through public-type classification and global rewriting; see [`index.md`](index.md).
 
 This page covers the part of the pass that is easiest to misunderstand:
 

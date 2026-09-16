@@ -26,7 +26,7 @@ related:
 
 # Upstream implementation structure and test map for `type-merging`
 
-Use this page with the 2026-04-24 raw primary-source manifest and the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md). The latter supersedes the prior current-main bridge's claim that `version_129` differed only cosmetically; this page remains the teaching map.
+Use this page with the 2026-04-24 raw primary-source manifest and the [2026-07-11 world-mode recheck](index.md). The latter supersedes the prior current-main bridge's claim that `version_129` differed only cosmetically; this page remains the teaching map.
 
 ## Why this page exists
 
@@ -57,7 +57,7 @@ The implementation file is what expands it into the real contract.
 
 ## Freshness check against current `main`
 
-The [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md) corrects the old conclusion. Compared with `version_129`, `version_130` and current `main` replace the Boolean `closedWorld` entry check with a `WorldMode::Open` rejection and carry `worldMode` through both `ModuleUtils::getPrivateHeapTypes(...)` and `TypeMapper(...)`.
+The [2026-07-11 world-mode recheck](index.md) corrects the old conclusion. Compared with `version_129`, `version_130` and current `main` replace the Boolean `closedWorld` entry check with a `WorldMode::Open` rejection and carry `worldMode` through both `ModuleUtils::getPrivateHeapTypes(...)` and `TypeMapper(...)`.
 
 Current `main` still registers the same public name and retains the dedicated lit file. The partition-refinement algorithm and test families remain the right teaching baseline, but `version_129` is **not** sufficient as the current world-policy oracle. Future ports must model one world/visibility policy across gate, candidate collection, and rewrite.
 
@@ -171,7 +171,7 @@ If you want the shortest high-confidence ownership map:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0294](./index.md)
 - [research note 0181](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeMerging.cpp>

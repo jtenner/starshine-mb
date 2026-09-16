@@ -3321,7 +3321,7 @@ superseding their initial open-family status. No compiler repair is needed for
 these differences. This does not establish broad randomized SGO coverage: the
 full lane has only six unique generated inputs.
 Sources: [SGO profile builders](../../../src/validate/gen_valid.mbt),
-[pass](../../../src/passes/simplify_globals.mbt), and `sgo-static-review.json`.
+[pass](../../../src/passes/simplify_globals_optimizing.mbt), and `sgo-static-review.json`.
 The original CSV and versioned comparison artifacts remain unchanged.
 
 #### Reorder-globals compatible-encoding runtime renewal

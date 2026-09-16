@@ -8,6 +8,7 @@ sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/fuzz/main.mbt
+
 ---
 
 # `tuple-optimization` Fuzzing Profile

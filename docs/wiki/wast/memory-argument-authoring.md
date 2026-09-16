@@ -5,7 +5,6 @@ last_reviewed: 2026-06-05
 sources:
   - ../wasm-multi-memory-boundary.md
   - ../validate/memory-table-address-widths.md
-  - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/wast/module_wast.mbt
@@ -126,7 +125,7 @@ Implication: if a test must prove nonzero memory-index behavior today, use a dir
 
 ### Bulk memory and active data offsets are adjacent, not identical
 
-Bulk-memory instructions carry resource indices separately from scalar/SIMD `MemArg`. Their stack operand widths are also positional, not family-wide; the focused 2026-06-04 refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) records the current official matrix and Starshine code-map split. In short, `memory.init` keeps data-segment source offset and length as `i32`, mixed-width `memory.copy` uses the minimum address type for length, and `memory.fill` should use the selected memory address type for both destination and length even though current Starshine still hard-codes the length slot to `i32`.
+Bulk-memory instructions carry resource indices separately from scalar/SIMD `MemArg`. Their stack operand widths are also positional, not family-wide; the focused 2026-06-04 refresh in [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md) records the current official matrix and Starshine code-map split. In short, `memory.init` keeps data-segment source offset and length as `i32`, mixed-width `memory.copy` uses the minimum address type for length, and `memory.fill` should use the selected memory address type for both destination and length even though current Starshine still hard-codes the length slot to `i32`.
 
 ```wat
 (module
@@ -153,7 +152,7 @@ Active data-segment offsets are another nearby concept. An active data segment h
 | WAST lowering | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | `wt_align_pow_from_text_align(...)`, `wt_mem_arg(...)`, `wt_load_store(...)`, SIMD memory lowering, and memory-instruction defaulting to `MemIdx(0)`. |
 | WAST printing | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | `render_memarg(...)` and memory instruction printing. |
 | Core IR | [`src/lib/types.mbt`](../../../src/lib/types.mbt), [`src/lib/eq.mbt`](../../../src/lib/eq.mbt) | Core `MemArg(U32, MemIdx?, U64)`, memory instruction variants, and equality for default versus explicit memory `0`. |
-| Binary codec | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) | Explicit-memory-index memarg encoding/decoding, bulk-memory immediates, malformed memarg errors, and roundtrip coverage. |
+| Binary codec | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt) | Explicit-memory-index memarg encoding/decoding, bulk-memory immediates, malformed memarg errors, and roundtrip coverage. |
 | Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) | `memarg_check(...)`, selected-memory address typing, offset-width checks, memory limit validation, `memory.copy` mixed-width typing, and data-count preconditions; section-level memory limit and shared-memory rules are centralized in the resource guide. |
 | Generator/fuzz | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) | `[FZG]005` nonzero memarg/width coverage, `[FZG]006` memory limit/proposal coverage routed through [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md), `[FZG]017` atomic memargs through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md), and invalid memory64/shared cases. |
 
@@ -161,7 +160,7 @@ Active data-segment offsets are another nearby concept. An active data segment h
 
 When changing memory-argument text, binary, or validation behavior:
 
-1. **Start with the layer that owns the behavior.** WAST alignment syntax belongs in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt); binary immediate preservation belongs in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt); address-width stack typing belongs in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt).
+1. **Start with the layer that owns the behavior.** WAST alignment syntax belongs in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt); binary immediate preservation belongs in [`src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt); address-width stack typing belongs in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt).
 2. **Test defaults and explicit forms separately.** `None` and `Some(MemIdx(0))` may compare equal, but nonzero memory indices must roundtrip and validate distinctly.
 3. **Include memory32 and memory64 fixtures at the right layer.** Memory64 changes the stack address type and `memory.size` / `memory.grow` widths; current WAST declarations only cover the memory32 limit path, so memory64 declaration evidence needs direct core/binary fixtures or new text-surface work first. i32 memories still need offset-range rejection tests, and memory declaration limit validity should be checked against [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md).
 4. **Do not conflate `MemArg.offset` with active-segment offsets.** If a pass changes data segment layout, update [`data-segment-authoring.md`](data-segment-authoring.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), and any memory-packing or memory64-lowering pages rather than only this WAST page.
@@ -174,13 +173,13 @@ When changing memory-argument text, binary, or validation behavior:
 - WAST printing emits `align=` in byte-alignment form and does not show explicit memory indices for ordinary memory arguments.
 - Generator and binary coverage are broader than WAST text coverage for multi-memory. Keep those layers distinct when writing signoff claims, and route declaration-level memory64/shared-memory validity through [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md).
 - `memory.copy` length typing uses the minimum address type of the two memories locally. Mixed memory32/memory64 fixtures are therefore better validator tests than simple one-memory examples.
-- Current Starshine validation still types `memory.fill` length as `i32` for memory64; [`memory-instruction-authoring.md`](memory-instruction-authoring.md) and [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) record this as a local/spec divergence rather than an intended long-term contract.
+- Current Starshine validation still types `memory.fill` length as `i32` for memory64; [`memory-instruction-authoring.md`](memory-instruction-authoring.md) and [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md) record this as a local/spec divergence rather than an intended long-term contract.
 
 ## Sources
 
 - Current multi-memory Core boundary: [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md) and its cited official Core sources
 - Current memory64/table64 Core/status and validator matrix: [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
-- Detailed memory/table address-width validator refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
+- Detailed memory/table address-width validator refresh: [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Resource-section validation contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/_download/WebAssembly.pdf>
 - Historical proposal/context surfaces checked by older manifests: <https://webassembly.github.io/multi-memory/core/text/modules.html>, <https://webassembly.github.io/memory64/core/>; use the 2026-06-05 Core/status bridge before making current memory64/table64 status claims.

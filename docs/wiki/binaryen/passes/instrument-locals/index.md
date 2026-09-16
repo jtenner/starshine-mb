@@ -103,7 +103,7 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md)
+- [`binaryen-strategy.md`](binaryen-strategy.md)
 - research note 0287
 - research note 0227
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

@@ -23,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the original detailed tagged oracle for this folder, with `version_131` as the current public release baseline. V131 additionally rewrites string-bearing tag signatures through the same singleton-signature type fixup used for functions; older pages that described only functions are incomplete.
+Use Binaryen `version_129` as the original detailed tagged oracle for this folder, with `version_132` as the current public release baseline. V131 additionally rewrites string-bearing tag signatures through the same singleton-signature type fixup used for functions; older pages that described only functions are incomplete.
 On 2026-04-24 the official GitHub `version_129` release page showed publish date **2026-04-01 14:31**. The older 2026-04-24 and 2026-04-26 captures remain provenance for the original contract and port map.
 The main sources are:
 

@@ -34,7 +34,7 @@ The purpose here is to map the reviewed Binaryen contract to the exact current S
 
 ## Honest current status
 
-`simplify-globals-optimizing` is **implemented and audit-complete for the current Binaryen `version_130` / Starshine v0.1.0 scope**.
+`simplify-globals-optimizing` is **implemented and audit-complete for the recorded Binaryen `version_130` / Starshine v0.1.0 scope**.
 The implementation lives in [`src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt) and is wired as an active module pass through [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 The 2026-07-06 through 2026-07-07 recursive audit in [research note 1555](./index.md) classified the Binaryen v130 source/lit families, implemented the remaining supported families test-first, recorded source-backed negatives, met the strict 1x timing target, and completed the fresh four-lane direct matrix.
 

@@ -1,9 +1,9 @@
 ---
 kind: research
-status: current
+status: working
 last_reviewed: 2026-07-19
 sources:
-  - ../binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../binaryen/passes/dae-optimizing/index.md
   - ../../binaryen/passes/dae-optimizing/binaryen-strategy.md
   - ../../binaryen/passes/dae-optimizing/starshine-strategy.md
   - ../../../../src/passes/dead_argument_elimination.mbt

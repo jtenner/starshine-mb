@@ -18,7 +18,7 @@ related:
 
 # `type-merging` WAT and module shapes
 
-This page is the beginner-friendly shape catalog for Binaryen `type-merging`. It is anchored to the 2026-04-24 primary-source manifest, the [2026-07-11 world-mode recheck](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md), and the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md). These examples describe graph behavior only after Binaryen's current non-open-world admission/visibility policy has admitted the module.
+This page is the beginner-friendly shape catalog for Binaryen `type-merging`. It is anchored to the 2026-04-24 primary-source manifest, the [2026-07-11 world-mode recheck](index.md), and the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md). These examples describe graph behavior only after Binaryen's current non-open-world admission/visibility policy has admitted the module.
 
 The pass is module-shaped, so many of the most important "shapes" are really **type-graph patterns**, not tiny one-expression peepholes.
 
@@ -377,7 +377,7 @@ If any of those fail, Binaryen usually preserves the type.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0294](./index.md)
 - [research note 0181](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeMerging.cpp>

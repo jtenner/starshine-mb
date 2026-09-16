@@ -36,7 +36,7 @@ This page is the local strategy overview for the Binaryen-v131 closeout, the 202
 
 ## Short version
 
-Starshine's represented direct behavior was closed against Binaryen `version_131` on the 2026-07-31 reviewed binary. The same-target two-arm `if` rewrite emits `drop(condition)` before the branch, preserving calls, local/global mutation, reads, and traps. The completed 2026-08-01 speedup slice preserves those artifact bytes, passes full Moon `10177/10177`, and improves pass-local median from `595.227ms` to `227.250ms`; current Binaryen-v131 median is `289.650ms`, so Starshine is now comfortably faster at `0.785x` by independent medians and about `1.27x` Binaryen throughput. A maintainer-approved bounded re-sign removes `[RUB-PERF]001` from the active backlog while retaining the 2026-07-31 full matrix as behavioral provenance. The implementation combines focused raw admission/no-op filters with a HOT fixpoint covering the staged upstream families:
+Starshine's represented direct behavior was closed against Binaryen `version_131` on the 2026-07-31 reviewed binary. The same-target two-arm `if` rewrite emits `drop(condition)` before the branch, preserving calls, local/global mutation, reads, and traps. The completed 2026-08-01 speedup slice preserves those artifact bytes, passes full Moon `10177/10177`, and improves pass-local median from `595.227ms` to `227.250ms`; recorded Binaryen-v131 median is `289.650ms`, so Starshine is now comfortably faster at `0.785x` by independent medians and about `1.27x` Binaryen throughput. A maintainer-approved bounded re-sign removes `[RUB-PERF]001` from the active backlog while retaining the 2026-07-31 full matrix as behavioral provenance. The implementation combines focused raw admission/no-op filters with a HOT fixpoint covering the staged upstream families:
 
 - tail branch and return flow cleanup
 - constant and one-/two-arm branch cleanup
@@ -64,7 +64,7 @@ The remaining documented differences are product-level boundaries such as expres
 | public registration and exact three-slot preset placement | `src/passes/optimize.mbt` |
 | focused behavior and boundary tests | `src/passes/remove_unused_brs_test.mbt` and `src/passes/remove_unused_brs_wbtest.mbt` |
 | exact scheduler contract | `src/passes/registry_test.mbt` |
-| 21-leaf generator and profile tests | `src/validate/gen_valid.mbt`, `src/validate/gen_valid_remove_unused_brs_tests.mbt`, and `src/validate/gen_valid_tests.mbt` |
+| 21-leaf generator and profile tests | `src/validate/gen_valid.mbt`, `src/validate/gen_valid_remove_unused_brs_wbtest.mbt`, and `src/validate/gen_valid_wbtest.mbt` |
 | long native-release performance lane | `src/passes_perf_long/remove_unused_brs_perf_test.mbt` |
 | ordered artifact/CLI replay | `src/cmd/cmd_wbtest.mbt` |
 

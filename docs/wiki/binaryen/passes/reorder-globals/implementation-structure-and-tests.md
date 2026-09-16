@@ -155,7 +155,7 @@ Starshine now has a direct public-pass owner file for `reorder-globals`.
 | `src/passes_perf_long/reorder_globals_perf_test.mbt` | Skipped native-release guard for 2,000 imported globals and a 2,000-global initializer chain, each with 20,000 hot uses and a 20 ms median ceiling. |
 | `src/passes/legacy_eh_audit_wbtest.mbt` | Protected-body, typed-catch, catch-all, and delegate-preserving traffic/rewrite proof. |
 | `src/validate/gen_valid_reorder_globals.mbt` | Seven pass-owned GenValid leaves covering function traffic, candidate search, imported globals, module code, legacy EH, metadata, and threshold boundaries. |
-| `src/validate/gen_valid_reorder_globals_tests.mbt` | Resolves the aggregate and validates every seeded subfamily. |
+| `src/validate/gen_valid_reorder_globals_wbtest.mbt` | Resolves the aggregate and validates every seeded subfamily. |
 | `src/fuzz/main_wbtest.mbt` | Requires all seven selected leaves and all 20 family labels in the bounded manifest. |
 | `docs/wiki/binaryen/passes/reorder-globals/fuzzing.md` | Records the final explicit-v131 four-lane matrix, residual classifications, performance, and reopening criteria. |
 | `src/passes/optimize.mbt` | Registers `reorder-globals` as a module pass while keeping `reorder-globals-always` boundary-only. |

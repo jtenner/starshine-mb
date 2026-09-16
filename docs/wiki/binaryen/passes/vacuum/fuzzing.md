@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-01
+last_reviewed: 2026-09-16
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -117,17 +117,17 @@ Against the explicit verified Binaryen v131 oracle, regular `.tmp/pass-fuzz-vacu
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass.
 
-Current Binaryen-v131 direct behavior is closed for the represented `vacuum` surface. The 2026-07-21 `[VACUUM-PARITY]002` matrix first closed three selected families and identified three broad size-losing families. Recovered slice `[VACUUM-PARITY]003` then closed fresh-GC `struct.get` / `ref.eq` / `ref.test` observation debris, unshared-or-immutable-shared `struct.atomic.get*` from concrete nonnull receivers, and loop-local `drop(local.get)` inside branchy structured control. Nullable reads, shared mutable atomic synchronization, trapping arithmetic, observed allocations, and self/back branches remain protected. The current required matrix leaves only measured six-byte Starshine wins: symmetric side-effect-free `if` removals in random-all, and the established loop-carried constant/local-shape win in wasm-smith case `3694`. Ordered O4z placement remains separate under `[O4Z-PRESET]001`.
+The recorded Binaryen-v131 direct behavior is closed for the represented `vacuum` surface. The 2026-07-21 `[VACUUM-PARITY]002` matrix first closed three selected families and identified three broad size-losing families. Recovered slice `[VACUUM-PARITY]003` then closed fresh-GC `struct.get` / `ref.eq` / `ref.test` observation debris, unshared-or-immutable-shared `struct.atomic.get*` from concrete nonnull receivers, and loop-local `drop(local.get)` inside branchy structured control. Nullable reads, shared mutable atomic synchronization, trapping arithmetic, observed allocations, and self/back branches remain protected. The recorded required matrix leaves only measured six-byte Starshine wins: symmetric side-effect-free `if` removals in random-all, and the established loop-carried constant/local-shape win in wasm-smith case `3694`. Ordered O4z placement remains separate under `[O4Z-PRESET]001`.
 
 The earlier v0.1.0 audit remains useful historical evidence: regular GenValid was green at `100000/100000`, explicit wasm-smith had one inspected Starshine-win residual plus `44` Binaryen/tool failures, the dedicated aggregate leaves were green, and the then-current broad random-all-profiles lane was green at `10000/10000`. Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) separately records the shared-DAG performance repair and proves that repair did not create its observed mismatch corpus.
 
-Reference command:
+Historical v131 reference command:
 
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt
 ```
 
-Latest direct parity evidence:
+Latest recorded direct parity evidence (v131):
 
 - 2026-07-21 `[VACUUM-PARITY]003`: the explicit native release `_build/native/release/build/cmd/cmd.exe` has SHA-256 `b50992c06f385befe65ea0c9cc19e60324e5ff2ad9978edee8974247c572b86a`; the official `wasm-opt version 131 (version_131)` oracle has SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. Focused vacuum tests pass `97/97`, command-dispatch tests pass `16/16`, and full `moon test` passes `9748/9748`.
 - Reduced saved cases `4616`, `7968`, and `5369` exactly match Binaryen v131. They respectively cover removable fresh-GC observations with trapping operands preserved, dropped exact-nonnull atomic gets only for unshared structs or immutable shared fields, and loop-local dropped reads without removing loops, branches, writes, or trapping drops.

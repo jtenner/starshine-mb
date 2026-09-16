@@ -5,7 +5,8 @@ created: 2026-07-17
 updated: 2026-07-17
 sources:
   - ./1643-2026-07-17-daeo-func8185-i64-zero-carrier.md
-  - ../binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../binaryen/passes/dae-optimizing/index.md
+
 ---
 
 # DAEO Func 8185 post-O0 residual

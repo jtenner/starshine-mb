@@ -112,7 +112,7 @@ A safe Starshine implementation would need all of these, in order:
 
 1. **Status recheck:** refresh the proposal source bridge and record whether the rendered draft has caught up; use the maintained overview's `0xFC 19..22` placement unless the upstream project changes it.
 2. **Core model:** add explicit instruction variants and constructor helpers in [`src/lib/types.mbt`](../../src/lib/types.mbt).
-3. **Binary:** add proposal-gated decode/encode cases for `0xFC 19..22`, malformed/overwide/reserved-subopcode tests, and explicit non-reinterpretation tests proving `13..17` remain Core table instructions in [`src/binary/tests.mbt`](../../src/binary/tests.mbt).
+3. **Binary:** add proposal-gated decode/encode cases for `0xFC 19..22`, malformed/overwide/reserved-subopcode tests, and explicit non-reinterpretation tests proving `13..17` remain Core table instructions in [`src/binary/tests_wbtest.mbt`](../../src/binary/tests_wbtest.mbt).
 4. **Validation:** add stack typing for four-input/two-output add/sub and two-input/two-output multiply in [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), including unreachable/bottom behavior through [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md).
 5. **WAST:** add keywords, parser classifications, lowerer mapping, printer output, and text roundtrip tests in `src/wast`.
 6. **Generator/fuzzing:** add a feature gate, opcode counts, profile routing, and external-validator adapter classification before treating random inputs as ordinary valid modules.

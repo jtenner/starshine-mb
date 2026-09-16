@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
-  - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
+  - index.md
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -37,8 +37,8 @@ The local code has enough wasm64/table64 representation to plan a port, but not 
 - `src/lib/types.mbt:1263` maps limits to address value types, and `src/lib/types.mbt:1366` models mixed-width copy length selection.
 - [`memarg_check(...)`](../../../../../src/validate/typecheck.mbt#L1532-L1576) already rejects high static memory-operation `offset=` immediates for i32 memories.
 - [`typecheck_memory_size(...)`](../../../../../src/validate/typecheck.mbt#L2552-L2558), [`typecheck_memory_grow(...)`](../../../../../src/validate/typecheck.mbt#L2561-L2571), [`typecheck_memory_init(...)`](../../../../../src/validate/typecheck.mbt#L2574-L2609), and [`typecheck_memory_copy(...)`](../../../../../src/validate/typecheck.mbt#L2612-L2639) derive memory stack types from memory limits.
-- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L2642-L2660) derives `memory.fill` destination width from memory limits but still hard-codes the length operand to `i32`; the current refresh in [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) records this local/spec divergence.
-- [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code `i32` table index/result positions; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) is only partially widened locally because its destination/start operand uses the table limit width but its length operand remains `i32`. [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) records this local/spec divergence.
+- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L2642-L2660) derives `memory.fill` destination width from memory limits but still hard-codes the length operand to `i32`; the current refresh in [`index.md`](index.md) records this local/spec divergence.
+- [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code `i32` table index/result positions; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) is only partially widened locally because its destination/start operand uses the table limit width but its length operand remains `i32`. [`index.md`](index.md) records this local/spec divergence.
 
 ## Port goal
 

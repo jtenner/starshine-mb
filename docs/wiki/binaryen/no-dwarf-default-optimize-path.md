@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-02
+last_reviewed: 2026-09-16
 sources:
   - ./release-horizon-and-oracles.md
   - ./passes/ssa-nomerge/index.md
@@ -57,7 +57,7 @@ Starshine's public optimize/shrink registry descriptors and runtime rosters now 
 
 ## 2026-07-18 release-order refresh
 
-Binaryen `version_131` preserves the v130 default scheduler exactly. The detailed historical path below remains useful, while pass-local behavior must now be read against the v131 release-impact audit. In particular, unchanged order does not mean unchanged owner contracts: OI, memory-packing, RUME, directize, heap2local, and inlining are reopened separately.
+Binaryen `version_131` preserves the v130 default scheduler exactly. The detailed historical path below remains useful, while current pass-local behavior must now be read against the v132 baseline; the v131 release-impact audit remains historical evidence. In particular, unchanged order does not mean unchanged owner contracts: OI, memory-packing, RUME, directize, heap2local, and inlining are reopened separately.
 
 ## 2026-06-14 `ssa-nomerge` scheduling anchors
 
@@ -104,8 +104,8 @@ The JSON-AS `strip-debug` investigation established two durable boundaries. Dire
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
 - The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_132` release baseline and the release-horizon note first.
-- On 2026-07-18, bare `wasm-opt --version` resolved to TinyGo's `version_116`. Current v131 evidence must pass an explicit verified official v131 binary through `--wasm-opt-bin`.
-- Earlier command-based evidence tied to `version_125`, `version_129`, or `version_130` remains historical until rerun against the explicit v131 oracle when the owning pass changed.
+- On 2026-07-18, bare `wasm-opt --version` resolved to TinyGo's `version_116`. Historical v131 evidence must pass an explicit verified official v131 binary through `--wasm-opt-bin`; new evidence uses the verified v132 oracle.
+- Earlier command-based evidence tied to `version_125`, `version_129`, or `version_130` remains historical until rerun against the explicit v132 oracle when the owning pass changed.
 - The post-SGO late-tail neighborhood `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` is directly oracle-proven for v0.1.0 scheduling purposes: the 10k ordered-neighborhood fuzz lane is green, same-input RUME comparisons are canonical-green on both SGO-side artifact inputs, and the remaining debug-artifact first diff is inherited SGO representation/function-layout drift feeding RUME before the later string/reorder/directize tail changes anything. Public `optimize` and `shrink` now append this accepted suffix; see [research note 0571](./passes/late-pipeline-dispatch.md) and [research note 0572](./passes/late-pipeline-dispatch.md).
 - `scripts/self-optimize-compare.ts` now runs `moon build --target native --release --package jtenner/starshine/cmd` and invokes the built `_build/native/release/build/cmd/cmd.exe` by default, so recorded Starshine command timings measure the native CLI rather than a `moon run` wrapper unless `--starshine-bin` overrides it.
 

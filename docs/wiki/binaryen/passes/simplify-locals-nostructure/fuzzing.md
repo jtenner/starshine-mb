@@ -1,25 +1,29 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-16
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_ssa.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
+
 ---
 
 # `simplify-locals-nostructure` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
-## Local-lifetime repair checks (2026-09-10)
+## Historical v131 local-lifetime repair checks (2026-09-10)
 
-This is the current evidence after the branch-join, carried-value, and replacement
-order fixes. It supersedes the four source-failure blockers in the earlier
-loop-counter run below. The native release optimizer SHA-256 is
+This is the latest recorded evidence after the branch-join, carried-value, and
+replacement-order fixes. Its Binaryen comparisons use v131; new comparison runs
+must use the current verified v132 oracle described in the shared
+[compare-pass guide](../../../tooling/pass-fuzz-compare.md). It supersedes the
+four source-failure blockers in the earlier loop-counter run below. The native
+release optimizer SHA-256 is
 `c12666b64811f3ed5548b28735d46d9eda85c098d81b12f3a83f57250bfcaf5f`.
 
 - All **10,995 native tests pass** in 307.876 seconds. The release build passes
@@ -39,8 +43,8 @@ loop-counter run below. The native release optimizer SHA-256 is
   produce byte-identical raw output with the earlier loop-only binary. These
   remain output/parity gaps, not runtime equivalence proof or accepted wins.
 
-Both lanes use explicit prebuilt current native Starshine and GenValid binaries,
-pinned Binaryen 131, seed `0x5eed`, `--jobs auto --max-subprocesses 8`, mismatch
+Both recorded lanes used explicit prebuilt native Starshine and GenValid
+binaries, pinned Binaryen 131, seed `0x5eed`, `--jobs auto --max-subprocesses 8`, mismatch
 artifact cap 20, and cache reuse (10000 hits, zero misses per lane). No reduction
 or external generator runs in this refresh. Validation, generator, property,
 and command failure counts are zero. Runtime execution is off in these GenValid
@@ -53,7 +57,7 @@ Retained local runs in Dewdrop: `.tmp/cli-optimization-logs/corpus-final`,
 The build, full suite, corpus, and generated-lane aggregate times exceed
 Dewdrop's 30-second budget and remain performance bugs.
 
-## Loop-counter repair checks (2026-09-10)
+## Historical v131 loop-counter repair checks (2026-09-10)
 
 This bounded repair uses pinned Binaryen 131 and a fresh native release CLI.
 The regular GenValid lane compares **10000/10000**, all canonically equal,
@@ -471,7 +475,7 @@ Bounded GenValid refresh after the same const/nop fix was green but **not** fina
 
 Focused generator coverage:
 
-- `src/validate/gen_valid_tests.mbt` resolves all SLNS profile names and aliases, checks aggregate membership and feature toggles, and proves the straight-line/effect leaves emit local-traffic opportunities.
+- `src/validate/gen_valid_wbtest.mbt` resolves all SLNS profile names and aliases, checks aggregate membership and feature toggles, and proves the straight-line/effect leaves emit local-traffic opportunities.
 - `src/fuzz/main_wbtest.mbt` proves composite batch manifests preserve the requested aggregate label and record deterministic `selected_profile` values.
 
 ## Current closeout status

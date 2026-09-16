@@ -225,6 +225,6 @@ If someone remembers only one sentence from this page, it should be this:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
+- [`index.md`](index.md)
 - [research note 0288](./index.md)
 - [research note 0231](./index.md)

@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - ../../release-horizon-and-oracles.md
-  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -23,7 +23,7 @@ For Starshine implementation sequencing, especially the split between default JS
 
 ## V131 status
 
-Binaryen v131 keeps the default JSON path, magic-import fallback, assert-mode failure, and `string-lowering.wast` proof split described here. Its behavior-bearing delta is elsewhere in the pass: singleton public tag payload types now receive the same `string`-to-`extern` repair as affected function signatures. That type-repair expansion does not change this page's JSON/import-mode contract; see [`./binaryen-strategy.md`](./binaryen-strategy.md) for the type boundary and [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md) for source provenance.
+Binaryen v131 keeps the default JSON path, magic-import fallback, assert-mode failure, and `string-lowering.wast` proof split described here. Its behavior-bearing delta is elsewhere in the pass: singleton public tag payload types now receive the same `string`-to-`extern` repair as affected function signatures. That type-repair expansion does not change this page's JSON/import-mode contract; see [`./binaryen-strategy.md`](./binaryen-strategy.md) for the type boundary and [`index.md`](index.md) for source provenance.
 
 ## The problem this page answers
 
@@ -124,7 +124,7 @@ If someone asks "how does Binaryen keep the actual string data after lowering?",
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md)
+- [`index.md`](index.md)
 - [research note 0284](./index.md)
 - [research note 0215](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>

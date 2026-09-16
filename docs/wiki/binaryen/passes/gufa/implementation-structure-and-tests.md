@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -219,7 +219,7 @@ The 2026-07-11 bridge reread these current-main surfaces:
 - `src/ir/possible-contents.cpp`
 - `test/lit/passes/gufa.wast`, `gufa-optimizing.wast`, and `gufa-cast-all.wast`
 
-It confirms the public owner/variant/fixture map and corrects the missing implementation-owner citation. It does **not** claim a complete internal source diff or a fresh Binaryen execution run, so retain the explicit uncertainty in [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md).
+It confirms the public owner/variant/fixture map and corrects the missing implementation-owner citation. It does **not** claim a complete internal source diff or a fresh Binaryen execution run, so retain the explicit uncertainty in [`index.md`](index.md).
 
 ## Porting checklist this page suggests
 
@@ -234,8 +234,8 @@ A future Starshine port needs answers to at least these questions:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
+- [`index.md`](index.md)
+- [`index.md`](index.md)
 - [research note 0471](./index.md)
 - [research note 0313](./index.md)
 - [research note 0163](./index.md)

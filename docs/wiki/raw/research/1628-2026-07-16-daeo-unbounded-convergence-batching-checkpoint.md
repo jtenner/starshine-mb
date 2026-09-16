@@ -1,10 +1,10 @@
 ---
 kind: research
-status: active
+status: working
 created: 2026-07-16
 updated: 2026-07-16
 sources:
-  - ../binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../binaryen/passes/dae-optimizing/index.md
   - ../../../../src/passes/dead_argument_elimination.mbt
   - ../../../../src/passes/dae_optimizing_test.mbt
   - ../../../../src/passes/pass_manager.mbt

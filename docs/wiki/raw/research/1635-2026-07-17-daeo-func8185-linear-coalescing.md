@@ -8,7 +8,7 @@ sources:
   - ../../../../src/passes/dae_optimizing_test.mbt
   - ../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../src/passes/coalesce_locals.mbt
-  - ../binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../binaryen/passes/dae-optimizing/index.md
   - ./1634-2026-07-17-daeo-func8186-stack-carried-literal-suffix.md
   - ./1633-2026-07-17-daeo-func8185-productive-cleanup-order.md
 ---

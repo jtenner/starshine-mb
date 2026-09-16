@@ -164,7 +164,7 @@ A dedicated folder was still justified because:
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness bridge: spelling-policy first step, no-rewrite skeleton, flat-copy first slice, disabled tee/structure/nesting negatives, late-cleanup follow-up, and Binaryen `--simplify-locals-nonesting` oracle ladder.
 - [`./fuzzing.md`](./fuzzing.md)
-  Current compare-pass status, flatness-aware aggregate profile, refreshed v131 counts, and idempotence evidence.
+  Recorded compare-pass status, flatness-aware aggregate profile, refreshed v131 counts, and idempotence evidence.
 
 ## Current maintenance rule
 

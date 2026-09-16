@@ -1,6 +1,6 @@
 ---
 kind: research
-status: complete
+status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/wasm-interpreter.h
@@ -8,17 +8,7 @@ sources:
   - ../../../../src/passes/precompute_test.mbt
   - ../../../../src/passes/precompute_wbtest.mbt
   - ../../../../src/validate/gen_valid.mbt
-  - ../../../../src/validate/gen_valid_precompute_propagate_tests.mbt
-  - ../../../../.tmp/binaryen-version-130/Precompute.cpp
-  - ../../../../.tmp/binaryen-version-130-bin/bin/wasm-opt
-  - ../../../../.tmp/pass-fuzz-precompute-gap-close-final4-aggregate-10000/result.json
-  - ../../../../.tmp/pass-fuzz-precompute-gap-close-final4-plain-aggregate-10000/result.json
-  - ../../../../.tmp/pass-fuzz-precompute-gap-close-final4-regular-10000/result.json
-  - ../../../../.tmp/pass-fuzz-precompute-gap-close-final4-stress-10000/result.json
-  - ../../../../.tmp/pass-fuzz-precompute-gap-close-final4-wasm-smith-10000/result.json
-  - ../../../../.tmp/pass-fuzz-precompute-gap-close-final4-random-all-10000/result.json
-  - ../../../../.tmp/pass-fuzz-precompute-gap-close-final4-runtime-1000/result.json
-  - ../../../../.tmp/benchmark-precompute-gap-close-final2-2026-07-18/benchmark-summary.json
+  - ../../../../src/validate/gen_valid_precompute_propagate_wbtest.mbt
 related:
   - ../../binaryen/passes/precompute/index.md
   - ../../binaryen/passes/precompute/fuzzing.md

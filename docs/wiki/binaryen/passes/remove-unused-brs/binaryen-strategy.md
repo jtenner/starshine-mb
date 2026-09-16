@@ -39,7 +39,7 @@ This page is the source-backed answer to four questions:
 
 ## Upstream source rule
 
-Treat Binaryen `version_131` as the normative release oracle for this page. The 2026-07-30 closeout used the verified official `wasm-opt version 131 (version_131)` binary, and the tagged `RemoveUnusedBrs.cpp` is unchanged from v130.
+The recorded v131 closeout used Binaryen `version_131` as the normative oracle for this page; current comparisons use v132. The 2026-07-30 closeout used the verified official `wasm-opt version 131 (version_131)` binary, and the tagged `RemoveUnusedBrs.cpp` is unchanged from v130.
 
 The core source stack is:
 

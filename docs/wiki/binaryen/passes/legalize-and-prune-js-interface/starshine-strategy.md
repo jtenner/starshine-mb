@@ -9,7 +9,7 @@ sources:
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
-  - ../../../../../src/binary/tests.mbt
+  - ../../../../../src/binary/tests_wbtest.mbt
   - ../../../../../src/wast/keywords.mbt
   - ../../../../../src/wast/module_wast.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
@@ -90,7 +90,7 @@ The fastest read-along path through the current local status is:
     - decodes import sections
   - [`src/binary/decode.mbt#L2303-L2308`](../../../../../src/binary/decode.mbt#L2303-L2308)
     - decodes export sections
-  - [`src/binary/tests.mbt#L586-L608`](../../../../../src/binary/tests.mbt#L586-L608)
+  - [`src/binary/tests_wbtest.mbt#L586-L608`](../../../../../src/binary/tests_wbtest.mbt#L586-L608)
     - fuzz-roundtrips import and export sections
 - WAT import/export and `ref.func` surfaces inherited from the plain sibling's future-port map
   - [`src/wast/keywords.mbt#L30-L31`](../../../../../src/wast/keywords.mbt#L30-L31)

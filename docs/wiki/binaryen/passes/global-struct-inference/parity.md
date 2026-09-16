@@ -38,7 +38,7 @@ related:
 
 ## Historical executable paths versus current reruns
 
-The detailed commands below are **historical evidence**: they retain the `target/native/...` executable that was actually used for those 2026-06 runs. They must not be copied as current signoff commands. For every rerun, first build `moon build --target native --release src/cmd`, then invoke `bun fuzz compare-pass --pass global-struct-inference ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` executable is usable only after an explicit timestamp or hash comparison proves it is the freshly built binary. This path correction changes neither the recorded result nor its parity classification; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
+The detailed commands below are **historical evidence**: they retain the `target/native/...` executable that was actually used for those 2026-06 runs. They must not be copied as current signoff commands. For every rerun, first build `moon build --target native --release src/cmd`, then invoke `bun fuzz compare-pass --pass global-struct-inference ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` executable is usable only after an explicit timestamp or hash comparison proves it is the freshly built binary. This path correction changes neither the recorded result nor its parity classification; see [`../../../AGENTS.md`](../../../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
 ## 2026-06-04 struct atomic get follow-up
 

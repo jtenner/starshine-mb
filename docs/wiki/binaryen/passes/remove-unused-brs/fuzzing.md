@@ -7,9 +7,10 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_remove_unused_brs_tests.mbt
+  - ../../../../../src/validate/gen_valid_remove_unused_brs_wbtest.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
+
 ---
 
 # `remove-unused-brs` Fuzzing Profile

@@ -7,14 +7,14 @@ sources:
   - https://webassembly.github.io/spec/core/binary/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - validate/memory-table-address-widths.md
-  - ../src/lib/types.mbt
-  - ../src/lib/eq.mbt
-  - ../src/binary/decode.mbt
-  - ../src/binary/encode.mbt
-  - ../src/validate/typecheck.mbt
-  - ../src/validate/gen_valid.mbt
-  - ../src/wast/parser.mbt
-  - ../src/wast/lower_to_lib.mbt
+  - ../../src/lib/types.mbt
+  - ../../src/lib/eq.mbt
+  - ../../src/binary/decode.mbt
+  - ../../src/binary/encode.mbt
+  - ../../src/validate/typecheck.mbt
+  - ../../src/validate/gen_valid.mbt
+  - ../../src/wast/parser.mbt
+  - ../../src/wast/lower_to_lib.mbt
 related:
   - wasm-feature-status-and-proposal-boundaries.md
   - validate/memory-table-address-widths.md
@@ -55,7 +55,7 @@ Do not confuse multi-memory with nearby memory features:
 | Memory Control | Future discard/commit/protection/mapping/BYOB memory-management operations. | [`wasm-memory-control-boundary.md`](wasm-memory-control-boundary.md). |
 | Binaryen `multi-memory-lowering` | A compatibility transform that rewrites many memories into one combined memory. | [`binaryen/passes/multi-memory-lowering/index.md`](binaryen/passes/multi-memory-lowering/index.md). |
 
-The local `GenValidProposalFeature::MultiMemoryFeature` name in [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt) is fuzzing vocabulary, not standards-status evidence. It says which toggles are needed for Starshine's generator to emit selected-memory surfaces; it does not make multi-memory an active proposal row.
+The local `GenValidProposalFeature::MultiMemoryFeature` name in [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) is fuzzing vocabulary, not standards-status evidence. It says which toggles are needed for Starshine's generator to emit selected-memory surfaces; it does not make multi-memory an active proposal row.
 
 ## Concrete Shapes
 
@@ -69,7 +69,7 @@ MemArg(U32(2), Some(MemIdx(0)), U64(8))   ;; explicit memory 0
 MemArg(U32(2), Some(MemIdx(1)), U64(8))   ;; explicit memory 1
 ```
 
-Starshine equality intentionally treats `None` and `Some(MemIdx(0))` as equal in [`src/lib/eq.mbt`](../src/lib/eq.mbt), but keeps `Some(MemIdx(1))` distinct. Binary decode/encode preserves explicit memory indices through the local `align + 64` memarg convention in [`src/binary/decode.mbt`](../src/binary/decode.mbt) and [`src/binary/encode.mbt`](../src/binary/encode.mbt). Validation then checks the selected memory exists and that the stack address type matches that memory's address width in [`memarg_check(...)`](../src/validate/typecheck.mbt).
+Starshine equality intentionally treats `None` and `Some(MemIdx(0))` as equal in [`src/lib/eq.mbt`](../../src/lib/eq.mbt), but keeps `Some(MemIdx(1))` distinct. Binary decode/encode preserves explicit memory indices through the local `align + 64` memarg convention in [`src/binary/decode.mbt`](../../src/binary/decode.mbt) and [`src/binary/encode.mbt`](../../src/binary/encode.mbt). Validation then checks the selected memory exists and that the stack address type matches that memory's address width in [`memarg_check(...)`](../../src/validate/typecheck.mbt).
 
 ### `memory.size`, `memory.grow`, and `memory.fill`
 
@@ -91,7 +91,7 @@ Instruction::memory_fill(MemIdx::new(1))
 MemoryCopy(dst_mem, src_mem)
 ```
 
-Validation in [`typecheck_memory_copy(...)`](../src/validate/typecheck.mbt) checks both memories. If memory64 combines with multi-memory, the destination address uses the destination memory's width, the source address uses the source memory's width, and the length uses the narrower width. This is why a correct test names operand roles as **destination**, **source**, and **length** instead of saying “the memory operand.”
+Validation in [`typecheck_memory_copy(...)`](../../src/validate/typecheck.mbt) checks both memories. If memory64 combines with multi-memory, the destination address uses the destination memory's width, the source address uses the source memory's width, and the length uses the narrower width. This is why a correct test names operand roles as **destination**, **source**, and **length** instead of saying “the memory operand.”
 
 ### `memory.init` and active data segments
 
@@ -113,13 +113,13 @@ Those are separate carriers. A pass that remaps memories must update both `Memor
 
 | Layer | Current behavior | Evidence |
 | --- | --- | --- |
-| Core IR | Represents `MemIdx`, optional selected-memory memargs, explicit memory operands on size/grow/fill/copy/init, and active data-segment memory parents. | [`src/lib/types.mbt`](../src/lib/types.mbt). |
-| Core equality | Treats omitted memidx and explicit memory `0` as equivalent, while preserving nonzero memory identity. | [`src/lib/eq.mbt`](../src/lib/eq.mbt). |
-| Binary decode/encode | Preserves explicit memargs, `memory.size` / `memory.grow` indices, and `0xFC` bulk-memory memory operands. | [`src/binary/decode.mbt`](../src/binary/decode.mbt), [`src/binary/encode.mbt`](../src/binary/encode.mbt), [`src/binary/tests.mbt`](../src/binary/tests.mbt). |
-| Validation | Checks selected memories exist and stack-types selected-memory operands; `memory.copy` keeps destination/source memories distinct. | [`src/validate/typecheck.mbt`](../src/validate/typecheck.mbt), [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md). |
-| WAST text | Currently narrower: WAST-local memargs carry `align`/`offset` only, and high-level memory instructions lower/print as memory `0`. | [`src/wast/parser.mbt`](../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../src/wast/module_wast.mbt), [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md). |
-| Generator/fuzzing | Has local feature-gate vocabulary and valid/invalid coverage for memory variants; this is local generation evidence, not proposal-status evidence. | [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md). |
-| Passes | Existing passes must preserve/remap memory carriers they touch. Binaryen `multi-memory-lowering` is a future compatibility-lowering dossier, not active Starshine support. | [`binaryen/passes/multi-memory-lowering/index.md`](binaryen/passes/multi-memory-lowering/index.md), [`src/passes/memory_packing.mbt`](../src/passes/memory_packing.mbt). |
+| Core IR | Represents `MemIdx`, optional selected-memory memargs, explicit memory operands on size/grow/fill/copy/init, and active data-segment memory parents. | [`src/lib/types.mbt`](../../src/lib/types.mbt). |
+| Core equality | Treats omitted memidx and explicit memory `0` as equivalent, while preserving nonzero memory identity. | [`src/lib/eq.mbt`](../../src/lib/eq.mbt). |
+| Binary decode/encode | Preserves explicit memargs, `memory.size` / `memory.grow` indices, and `0xFC` bulk-memory memory operands. | [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`src/binary/tests_wbtest.mbt`](../../src/binary/tests_wbtest.mbt). |
+| Validation | Checks selected memories exist and stack-types selected-memory operands; `memory.copy` keeps destination/source memories distinct. | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md). |
+| WAST text | Currently narrower: WAST-local memargs carry `align`/`offset` only, and high-level memory instructions lower/print as memory `0`. | [`src/wast/parser.mbt`](../../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md). |
+| Generator/fuzzing | Has local feature-gate vocabulary and valid/invalid coverage for memory variants; this is local generation evidence, not proposal-status evidence. | [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md). |
+| Passes | Existing passes must preserve/remap memory carriers they touch. Binaryen `multi-memory-lowering` is a future compatibility-lowering dossier, not active Starshine support. | [`binaryen/passes/multi-memory-lowering/index.md`](binaryen/passes/multi-memory-lowering/index.md), [`src/passes/memory_packing.mbt`](../../src/passes/memory_packing.mbt). |
 
 ## Current Gaps And Caveats
 
@@ -146,4 +146,4 @@ When changing selected-memory behavior:
 - WAST selected-memory boundaries: [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>
 - Historical proposal context: <https://webassembly.github.io/multi-memory/core/text/modules.html>
-- Starshine implementation: [`../src/lib/types.mbt`](../src/lib/types.mbt), [`../src/lib/eq.mbt`](../src/lib/eq.mbt), [`../src/binary/decode.mbt`](../src/binary/decode.mbt), [`../src/binary/encode.mbt`](../src/binary/encode.mbt), [`../src/validate/typecheck.mbt`](../src/validate/typecheck.mbt), [`../src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt), [`../src/wast/parser.mbt`](../src/wast/parser.mbt), [`../src/wast/lower_to_lib.mbt`](../src/wast/lower_to_lib.mbt), [`../src/wast/module_wast.mbt`](../src/wast/module_wast.mbt)
+- Starshine implementation: [`../src/lib/types.mbt`](../../src/lib/types.mbt), [`../src/lib/eq.mbt`](../../src/lib/eq.mbt), [`../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt)

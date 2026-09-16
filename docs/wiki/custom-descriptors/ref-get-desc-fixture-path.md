@@ -9,7 +9,7 @@ sources:
   - ../../../src/wast/module_wast.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/typecheck.mbt
-  - ../../../src/validate/typecheck_negative_tests.mbt
+  - ../../../src/validate/typecheck_negative_wbtest.mbt
 related:
   - ./descriptor-instruction-surface.md
   - ../wast/gc-type-authoring.md
@@ -42,7 +42,7 @@ related:
 
 Use this page for `ref.get_desc` fixture, lowering, validator, generator, or pass work. Use [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) for the broader descriptor-aware instruction family (`struct.new_desc`, `struct.new_default_desc`, `ref.test_desc*`, and `ref.cast_desc_eq*`), [`exact-reference-equivalence.md`](exact-reference-equivalence.md) for the lower-level exact-ref structural equality rule, [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for authoring `describes` / `descriptor` metadata, and [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md) for the validator phase that proves descriptor metadata pairs are structurally valid before instructions can rely on them.
 
-The current instruction-surface boundary is [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), building on [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). These sources cover the Phase-3 custom-descriptors proposal, the upstream bottom-input discussion, the V8 fix, and current Starshine parser/lowerer/typechecker/static-harness code. Durable conclusion: proposal descriptor metadata is still struct-oriented, while Starshine WAST can still parse/lower broader local array-metadata fixtures that validation rejects as non-struct descriptor metadata.
+The current instruction-surface boundary is [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), building on [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md). These sources cover the Phase-3 custom-descriptors proposal, the upstream bottom-input discussion, the V8 fix, and current Starshine parser/lowerer/typechecker/static-harness code. Durable conclusion: proposal descriptor metadata is still struct-oriented, while Starshine WAST can still parse/lower broader local array-metadata fixtures that validation rejects as non-struct descriptor metadata.
 
 ## Concrete Flow
 
@@ -103,7 +103,7 @@ The custom-descriptors issue and V8 fix rechecked for this page both call out th
     (ref.get_desc $plain))) ;; invalid: type without descriptor
 ```
 
-The validator starts by resolving the inspected type through `Env::resolve_struct_descriptor_type(...)`. That path requires a struct subtype with descriptor metadata. A non-reference operand, an unknown type index, a type without a descriptor, or an operand from an incompatible hierarchy is rejected by `typecheck_ref_get_desc(...)` / `descriptor_result_type(...)`; focused negative tests live in [`src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt).
+The validator starts by resolving the inspected type through `Env::resolve_struct_descriptor_type(...)`. That path requires a struct subtype with descriptor metadata. A non-reference operand, an unknown type index, a type without a descriptor, or an operand from an incompatible hierarchy is rejected by `typecheck_ref_get_desc(...)` / `descriptor_result_type(...)`; focused negative tests live in [`src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt).
 
 ## Starshine Implementation Map
 
@@ -112,7 +112,7 @@ The validator starts by resolving the inspected type through `Env::resolve_struc
 | Text keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`src/wast/lexer.mbt`](../../../src/wast/lexer.mbt) | Recognizes `ref.get_desc` and parses its `Index` immediate; parses `describes` / `descriptor` metadata clauses with `describes` before `descriptor`. |
 | Text printer | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints `ref.get_desc <idx>` and type metadata clauses so roundtrip tests expose lost immediates or metadata. |
 | Lowering | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Resolves the instruction immediate and metadata ids to flat `TypeIdx` values; validates descriptor metadata order in WAST-to-module tests. |
-| Core/binary | [`src/lib/types.mbt`](../../../src/lib/types.mbt), [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) | Carries `Instruction::RefGetDesc(TypeIdx)` through core construction and binary roundtrip. |
+| Core/binary | [`src/lib/types.mbt`](../../../src/lib/types.mbt), [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt) | Carries `Instruction::RefGetDesc(TypeIdx)` through core construction and binary roundtrip. |
 | Typechecking | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/env.mbt`](../../../src/validate/env.mbt), [`src/validate/match.mbt`](../../../src/validate/match.mbt) | Pops a reference-or-bottom operand, checks the inspected type's descriptor metadata and operand compatibility, and computes exact/non-exact result type. |
 | Static fixture harness | [`custom-descriptors/static-fixtures.md`](static-fixtures.md), [`src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt) | Keeps `ref_get_desc.wast` on the static path and prevents runtime skips from being counted as descriptor conformance. |
 
@@ -142,8 +142,8 @@ After any rewrite, rerun validation. The common failure modes are `type without 
 
 - For parser/printer changes, add focused tests near the existing descriptor keyword and module WAST tests in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) or [`src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt).
 - For lowering changes, use [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) fixtures that inspect the lowered `TypeIdx` / metadata shape and then call `@validate.validate_module(...)` when the fixture should be valid.
-- For validator changes, add or update positive tests in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) and negative tests in [`src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt).
-- For exactness changes, also update [`exact-reference-equivalence.md`](exact-reference-equivalence.md) and the structural matching tests in [`src/validate/match_tests.mbt`](../../../src/validate/match_tests.mbt).
+- For validator changes, add or update positive tests in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) and negative tests in [`src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt).
+- For exactness changes, also update [`exact-reference-equivalence.md`](exact-reference-equivalence.md) and the structural matching tests in [`src/validate/match_wbtest.mbt`](../../../src/validate/match_wbtest.mbt).
 - For spec-harness changes, keep pass/skip/fail semantics routed through [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) and [`static-fixtures.md`](static-fixtures.md).
 
 ## Sources
@@ -151,4 +151,4 @@ After any rewrite, rerun validation. The common failure modes are `type without 
 - Current instruction-surface boundary: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Current primary-source bridge: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Archived fixture-path research: research note 0022, research note 0023, research note 0024, research note 0025, research note 0026, research note 0027, research note 0028
-- Current implementation and tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt); shared bottom-value contract: [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md)
+- Current implementation and tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt); shared bottom-value contract: [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md)

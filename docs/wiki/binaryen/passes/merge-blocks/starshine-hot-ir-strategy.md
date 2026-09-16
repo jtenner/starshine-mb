@@ -94,7 +94,7 @@ This is deliberately more explicit than an AST rewrite. It also means a source-a
   - checked-in v131 main/atomic fixtures, stack-safe call/drop repair, bottom-reference refinalization, scalar/type-indexed spill flattening, and local compaction.
 - `src/passes/code_folding_test.mbt`
   - O4z post-`code-folding` block-exit cleanup and unused reference-catch payload conversion.
-- `src/validate/gen_valid_merge_blocks_tests.mbt`
+- `src/validate/gen_valid_merge_blocks_wbtest.mbt`
   - aggregate membership, aliases, labels, validity, deterministic routing, and random-all membership.
 - `src/passes/optimize_test.mbt:382-403`, `407-428`, `469-512`
   - repeated preset-slot exposure and `simplify-locals -> merge-blocks` handoff.

@@ -5,7 +5,7 @@ last_reviewed: 2026-07-18
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
-  - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
+  - index.md
   - ../../../../../src/passes/memory_packing.mbt
   - ../../../../../src/passes/memory_packing_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -40,7 +40,7 @@ Starshine currently supports:
 - conservative no-split handling for GC `array.new_data` / `array.init_data`, plus data-index, data-name, and `data_count` repair;
 - `__llvm*` no-split handling, segment-count limiting, `trapsNeverHappen`, and active-only user-scan elision.
 
-The important v131 boundary is Binaryen's released imported-memory overlap exception. Starshine now matches it: defined-memory overlaps are neutralized in source order, while imported-memory overlaps require `zero_filled_memory` and a proof that every active segment fits within the declared minimum. The proof compares page counts instead of overflowing maximal memory64 byte sizes and admits only the exact `2^64` endpoint special case. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+The important v131 boundary is Binaryen's released imported-memory overlap exception. Starshine now matches it: defined-memory overlaps are neutralized in source order, while imported-memory overlaps require `zero_filled_memory` and a proof that every active segment fits within the declared minimum. The proof compares page counts instead of overflowing maximal memory64 byte sizes and admits only the exact `2^64` endpoint special case. See [`index.md`](index.md).
 
 ## Why this remains a module pass
 

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -22,7 +22,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_130` as the current tagged source anchor for this pass family; retain the older `version_129` captures as historical provenance.
-- The committed raw manifest [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) is the current owner-map and uncertainty anchor for plain `gufa`.
+- The committed raw manifest [`index.md`](index.md) is the current owner-map and uncertainty anchor for plain `gufa`.
 - The core pass implementation is `src/passes/GUFA.cpp`.
 - The core analysis helper spans `src/ir/possible-contents.h` (public vocabulary/API) and `src/ir/possible-contents.cpp` (analysis implementation).
 - Public registration comes from `src/passes/pass.cpp`.
@@ -316,8 +316,8 @@ That is the main durable teaching value of this dossier.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
+- [`index.md`](index.md)
+- [`index.md`](index.md)
 - [research note 0471](./index.md)
 - [research note 0313](./index.md)
 - [research note 0163](./index.md)

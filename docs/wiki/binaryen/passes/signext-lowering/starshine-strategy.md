@@ -3,7 +3,7 @@ kind: strategy
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
+  - index.md
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -65,7 +65,7 @@ These surfaces are necessary but not sufficient. None of them rewrites sign-exte
 ## Local caveats found during source mapping
 
 - [`src/lib/show.mbt:1337-1341`](../../../../../src/lib/show.mbt) currently prints sign-extension mnemonics without underscores, such as `i32.extend8s`. Binaryen and WAT syntax use `i32.extend8_s`. Treat this as WAT-output hygiene to verify before writing any roundtrip-oriented `signext-lowering` tests; binary decode already roundtrips the direct opcodes, so the printer is the only current mismatch.
-- A current repository search found no Binaryen-like `FeatureSet::SignExt` or structured `target_features` model. Starshine preserves opaque custom sections in the binary layer, so a faithful port must decide both how to admit the enabled path and whether feature removal means deleting or rewriting a custom section, adding a feature model, or documenting instruction-only lowering as an intentional divergence. The upstream gate is documented in [`../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md).
+- A current repository search found no Binaryen-like `FeatureSet::SignExt` or structured `target_features` model. Starshine preserves opaque custom sections in the binary layer, so a faithful port must decide both how to admit the enabled path and whether feature removal means deleting or rewriting a custom section, adding a feature model, or documenting instruction-only lowering as an intentional divergence. The upstream gate is documented in [`index.md`](index.md).
 
 ## Future implementation shape
 

@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-29
 sources:
   - ./index.md
-  - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
+  - index.md
   - ../../../../../src/passes/reorder_globals.mbt
   - ../../../../../src/passes/reorder_globals_test.mbt
   - ../../../../../src/passes/reorder_globals_wbtest.mbt

@@ -7,7 +7,7 @@ sources:
   - ./1644-2026-07-17-daeo-func8185-post-o0-residual.md
   - ./1643-2026-07-17-daeo-func8185-i64-zero-carrier.md
   - ./1627-2026-07-16-daeo-consumed-call-argument-slot-checkpoint.md
-  - ../binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../binaryen/passes/dae-optimizing/index.md
   - ../../../../src/passes/pass_manager.mbt
   - ../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---

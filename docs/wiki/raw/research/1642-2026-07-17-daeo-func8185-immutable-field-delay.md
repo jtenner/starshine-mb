@@ -8,7 +8,8 @@ sources:
   - ../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../src/passes/dae_optimizing_test.mbt
   - ./1641-2026-07-17-daeo-func8184-null-guard-and-call-argument.md
-  - ../binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../binaryen/passes/dae-optimizing/index.md
+
 ---
 
 # DAEO Func 8185 immutable field delay

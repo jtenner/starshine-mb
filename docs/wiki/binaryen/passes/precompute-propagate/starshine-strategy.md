@@ -6,8 +6,7 @@ sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
-  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
-  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
+  - index.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_propagate_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -15,7 +14,7 @@ sources:
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_precompute_propagate_tests.mbt
+  - ../../../../../src/validate/gen_valid_precompute_propagate_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -137,11 +136,11 @@ Registry, preset, and nested scheduler expectations are covered in:
 - [`src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt);
 - [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt).
 
-Generator name, limits, validation, and trigger floors are covered by [`src/validate/gen_valid_precompute_propagate_tests.mbt`](../../../../../src/validate/gen_valid_precompute_propagate_tests.mbt).
+Generator name, limits, validation, and trigger floors are covered by [`src/validate/gen_valid_precompute_propagate_wbtest.mbt`](../../../../../src/validate/gen_valid_precompute_propagate_wbtest.mbt).
 
 ## Signoff summary
 
-The public-port closeout is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md); the current v131 correctness-repair renewal is in [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md).
+The public-port closeout is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md); the recorded v131 correctness-repair renewal is in [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md).
 
 Current results against explicit Binaryen `version_131`:
 

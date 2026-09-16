@@ -137,7 +137,7 @@ related:
 - CLI and artifact replay coverage:
   [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - Local release-oracle watch:
-  Binaryen `version_131` is the current oracle. Its `RemoveUnusedBrs.cpp` is unchanged from v130, preserving the 2026-02-27 branch-to-trap behavior and relaxed JumpThreader one-child block retargeting behavior.
+  Binaryen `version_131` was the oracle for this recorded parity matrix; current comparisons use v132. Its `RemoveUnusedBrs.cpp` is unchanged from v130, preserving the 2026-02-27 branch-to-trap behavior and relaxed JumpThreader one-child block retargeting behavior.
 
 ## What Is Already In Good Shape
 

@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-27
 sources:
   - ./index.md
-  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
+  - index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -21,8 +21,8 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_131` as the current released audit oracle for this pass. The 2026-07-27 audit found the `version_131` owner and dedicated lit files byte-identical to `version_130`; older v129/v130 prose remains valid as unchanged-contract provenance.
-For the retained v130 manifest and unchanged-contract provenance, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [research note 1400](./index.md). The v131 closeout and local validation bridge are current in [`./parity.md`](./parity.md), [`./fuzzing.md`](./fuzzing.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use Binaryen `version_132` as the current comparison oracle for this pass; the v131 audit found the owner and dedicated lit files byte-identical to `version_130`, and remains historical source provenance. Older v129/v130 prose remains valid as unchanged-contract provenance.
+For the retained v130 manifest and unchanged-contract provenance, see [`index.md`](index.md) and [research note 1400](./index.md). The v131 closeout and local validation bridge are current in [`./parity.md`](./parity.md), [`./fuzzing.md`](./fuzzing.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 Primary files:
 
@@ -51,7 +51,7 @@ Durable result:
 
 - all reviewed owner/lit surfaces match `version_130` exactly;
 - the explicit oracle reports `wasm-opt version 131 (version_131)`;
-- current audit evidence cites `version_131` while preserving older manifests as unchanged-contract provenance.
+- the recorded audit evidence cites `version_131` while preserving older manifests as unchanged-contract provenance; new comparisons use v132.
 
 ## File landmarks worth keeping explicit
 

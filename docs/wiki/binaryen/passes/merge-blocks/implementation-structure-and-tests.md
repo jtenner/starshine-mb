@@ -150,7 +150,7 @@ For a behavior change:
 4. use a pass-targeted `compare-pass --pass merge-blocks ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` lane; and
 5. classify output differences from inspected transform evidence rather than validation alone.
 
-Do not use a stale `target/native/...` artifact as current signoff evidence; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
+Do not use a stale `target/native/...` artifact as current signoff evidence; see [`../../../AGENTS.md`](../../../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
 ## Correctness hardening and closeout
 

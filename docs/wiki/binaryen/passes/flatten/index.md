@@ -134,8 +134,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
-  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
-  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
+  - binaryen-strategy.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../ir2/execution-plan.md
@@ -621,7 +620,7 @@ Flatten now fails closed on two exact pre-mutation relations: a later global wri
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md)
-- [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md)
+- [`binaryen-strategy.md`](binaryen-strategy.md)
 - research note 0422
 - research note 0360
 - research note 0267

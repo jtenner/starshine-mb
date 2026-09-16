@@ -7,7 +7,8 @@ sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ./index.md
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
+
 ---
 
 # `heap2local` Fuzzing Profile
@@ -112,7 +113,7 @@ The adjacent GC/local-cleanup neighborhood was replayed incrementally from the s
 
 ## Closeout status
 
-H2L is audit-complete for the representable Binaryen v131 direct-pass/O4z scope. The required four-lane matrix is current; sequential branch-target and unreachable-flow behavior is focused and green; dedicated and random residuals have equal H2L-operation presence and strictly smaller Starshine output; wasm-smith's sole residual is generic unreachable-control debris; and the rebuilt v131 O4z H2L slot is an exact `4180576`-byte canonical match with pass-local `101.912ms` Starshine versus `160.650ms` Binaryen. Reopen for validation/property failures, H2L-operation drift, a size-losing residual, or when shared reference-valued ordered atomic RMW/cmpxchg becomes representable.
+H2L is audit-complete for the representable Binaryen v131 direct-pass/O4z scope. The recorded four-lane matrix is complete; sequential branch-target and unreachable-flow behavior is focused and green; dedicated and random residuals have equal H2L-operation presence and strictly smaller Starshine output; wasm-smith's sole residual is generic unreachable-control debris; and the rebuilt v131 O4z H2L slot is an exact `4180576`-byte canonical match with pass-local `101.912ms` Starshine versus `160.650ms` Binaryen. Reopen for validation/property failures, H2L-operation drift, a size-losing residual, or when shared reference-valued ordered atomic RMW/cmpxchg becomes representable.
 
 ## Known exclusions
 

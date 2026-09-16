@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
+  - binaryen-strategy.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -85,13 +85,13 @@ So the pass is best read as:
 
 - Treat this folder as the canonical home for future `gufa` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary/module pass for it.
-- Cite [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) for current upstream owner-map and uncertainty, [`./binaryen-strategy.md`](./binaryen-strategy.md) for mechanics, [`./starshine-strategy.md`](./starshine-strategy.md) for current local status, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the missing validation bridge.
+- Cite [`binaryen-strategy.md`](binaryen-strategy.md) for current upstream owner-map and uncertainty, [`./binaryen-strategy.md`](./binaryen-strategy.md) for mechanics, [`./starshine-strategy.md`](./starshine-strategy.md) for current local status, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the missing validation bridge.
 - Keep the relationship to [`../type-refining/index.md`](../type-refining/index.md) explicit instead of teaching GUFA only as a side note inside the `type-refining` folder.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
-- [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
+- [`binaryen-strategy.md`](binaryen-strategy.md)
+- [`binaryen-strategy.md`](binaryen-strategy.md)
 - research note 0471
 - research note 0313
 - research note 0163

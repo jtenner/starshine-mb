@@ -144,7 +144,7 @@ The better model is:
 
 ## Version-131 freshness note
 
-The 2026-07-18 audit found `src/passes/PickLoadSigns.cpp`, the relevant `properties.h` helper behavior, and `test/lit/passes/pick-load-signs_sign-ext.wast` unchanged from v130. `version_131` is the current oracle for this implementation/test map.
+The 2026-07-18 audit found `src/passes/PickLoadSigns.cpp`, the relevant `properties.h` helper behavior, and `test/lit/passes/pick-load-signs_sign-ext.wast` unchanged from v130. The 2026-07-18 v131 audit is the historical oracle for this implementation/test map; new comparisons use v132.
 
 ## Porting takeaway
 

@@ -8,6 +8,7 @@ sources:
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/local_subtyping_wbtest.mbt
+
 ---
 
 # `local-subtyping` validation and closeout
@@ -51,7 +52,7 @@ Legacy `try` and the two historical invalid Binaryen nondefaultable-local output
 
 ## Performance and integration validation
 
-A seven-run same-session CLI wall-time comparison on `tests/node/dist/starshine-debug-wasi.wasm` used the current native release Starshine and official Binaryen v131 with all features enabled. Starshine measurements were `779, 749, 758, 759, 752, 741, 746 ms` (median `752 ms`); Binaryen measurements were `701, 719, 723, 713, 694, 703, 713 ms` (median `713 ms`). Starshine is within about `5.5%` of Binaryen wall time and comfortably meets the repository's `>=50%` target. Starshine's internal pass timer reported `116079 us`; its output validates externally.
+A seven-run same-session CLI wall-time comparison on `tests/node/dist/starshine-debug-wasi.wasm` used the then-current native release Starshine and recorded official Binaryen v131 with all features enabled. Starshine measurements were `779, 749, 758, 759, 752, 741, 746 ms` (median `752 ms`); Binaryen measurements were `701, 719, 723, 713, 694, 703, 713 ms` (median `713 ms`). Starshine is within about `5.5%` of Binaryen wall time and comfortably meets the repository's `>=50%` target. Starshine's internal pass timer reported `116079 us`; its output validates externally.
 
 Serial validation passed `moon info`, `moon fmt`, and full native `moon test` at `9943/9943`. The wasm-gc full gate passed formatting, check, and `9943/9943` tests. Its combined in-process `all ci` fuzz invocation aborted in the wasm runtime without a diagnostic after the suites accumulated; rerunning every one of the 14 CI fuzz suites separately at fixed seed `1785073488347772` passed, and the native aggregate at the same seed passed all suites including `86820` binary roundtrips. README/API sync passed. A direct `--debug-serial-passes --local-subtyping` run on the debug self artifact passed and validated; the broader self-optimized `-O4z` build later failed in `flatten` after that pass had already mutated thousands of functions, with `InvalidBranchArity` before flattening function `7676`, so that existing pipeline failure is not attributed to local-subtyping.
 

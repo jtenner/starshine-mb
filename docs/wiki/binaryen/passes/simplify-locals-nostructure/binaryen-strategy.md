@@ -25,7 +25,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_131` as the current source oracle for this pass.
+- Use Binaryen `version_132` as the current comparison oracle for this pass; the v131 source review remains historical provenance.
 - The core implementation is the shared `src/passes/SimplifyLocals.cpp` template.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:

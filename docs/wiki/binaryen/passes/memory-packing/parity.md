@@ -5,7 +5,7 @@ last_reviewed: 2026-09-12
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
-  - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
+  - index.md
   - ../ssa-nomerge/index.md
   - ../../../../../src/passes/memory_packing.mbt
   - ../../../../../src/passes/memory_packing_test.mbt
@@ -153,7 +153,7 @@ The sole wasm-smith cleanup-normalized case has no data section and differs only
 
 The 2026-06-07 gap audit originally kept one main documented Binaryen gap around lowered `memory.init` operand side effects plus narrower option/validity gaps found by static inspection. The operand side-effect gap is now covered for the local rewrite surface: lowered active and split-passive constant-source/size `memory.init` rewrites evaluate and drop the original destination/source/size operands before the replacement `nop` or `unreachable`. A later closeout fixture also collapses trap-only destination debris to a single explicit trap when the destination operand is already an unconditional `unreachable` with only `drop`/`nop` debris.
 
-The earlier option-surface conclusion was correct for the 2026-06-07 snapshot: local `wasm-opt --version` reported `version_130`, and the then-reviewed `main` source was byte-identical. It is no longer a current-main claim. Merged PR #8882 changed `MemoryPacking.cpp` on 2026-07-10 without adding a new pass option: when `zeroFilledMemory` is true and the sole memory is imported, Binaryen can handle a provably-in-allocation overlap by neutralizing earlier bytes trampled by later active segments before ordinary packing. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+The earlier option-surface conclusion was correct for the 2026-06-07 snapshot: local `wasm-opt --version` reported `version_130`, and the then-reviewed `main` source was byte-identical. It is no longer a current-main claim. Merged PR #8882 changed `MemoryPacking.cpp` on 2026-07-10 without adding a new pass option: when `zeroFilledMemory` is true and the sole memory is imported, Binaryen can handle a provably-in-allocation overlap by neutralizing earlier bytes trampled by later active segments before ordinary packing. See [`index.md`](index.md).
 
 This became a concrete released v131 parity gap and is now closed. Starshine's implementation follows the full source-order, checked bounds, fixed page-size, and memory64 proof rather than broadly permitting imported overlap. Existing v130 closeout evidence remains historical; the current signoff is the explicit-v131 closeout above.
 
@@ -231,7 +231,7 @@ A later 2026-06-07 side-effect preservation slice added focused TDD for active o
 Source/option refresh:
 
 - Local oracle: `wasm-opt --version` -> `wasm-opt version 130 (version_130)`.
-- Online source check: `version_130` and `main` were byte-identical on 2026-06-07. That is historical only: PR #8882 changed the imported-memory overlap path on 2026-07-10 and the change is included in released `version_131`. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md) and the v131 release-impact audit.
+- Online source check: `version_130` and `main` were byte-identical on 2026-06-07. That is historical only: PR #8882 changed the imported-memory overlap path on 2026-07-10 and the change is included in released `version_131`. See [`index.md`](index.md) and the v131 release-impact audit.
 
 Validation and artifact replay:
 
@@ -277,6 +277,6 @@ Keep these as reopening watchpoints only if future evidence shows observability;
 - Saved generated-artifact slot and Binaryen debug-log facts are copied into the committed O4z audit note [research note 0700](./index.md); any older `.artifacts` path is a local replay identifier, not a durable source link.
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MemoryPacking.cpp>
 - Binaryen `version_130` pass source used for the 2026-06-07 gap audit: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/MemoryPacking.cpp>
-- Imported-overlap source refresh, now released in v131: [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md)
+- Imported-overlap source refresh, now released in v131: [`index.md`](index.md)
 - Implementation: [`../../../../../src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt)
 - Focused tests: [`../../../../../src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt)

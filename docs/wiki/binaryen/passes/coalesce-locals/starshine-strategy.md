@@ -62,7 +62,7 @@ The fastest read-along path through the current Starshine status is:
 - pass-specific generator profile
   - `src/validate/gen_valid.mbt`
     - `coalesce-locals-all` aggregate plus straight-line, structured, and loop-copy-through leaves for dedicated closeout fuzzing
-  - `src/validate/gen_valid_tests.mbt`
+  - `src/validate/gen_valid_wbtest.mbt`
     - profile-name/alias and emitted-trigger coverage
 - active pass-name status
   - `src/passes/optimize.mbt:277`

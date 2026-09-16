@@ -25,7 +25,7 @@ related:
   - imported globals stay untouched
   - exported mutable globals stay untouched in open world
   - exported immutable globals may refine in open world only when the new type is public
-  - current official `version_130` closed-world behavior still skips all exported globals
+  - the reviewed official `version_130` closed-world behavior still skips all exported globals
 - The current Starshine implementation now matches the broad exported-boundary split on the direct parity lane: mutable exports stay untouched, immutable exports can refine only when the refined type remains public, closed-world exports stay untouched, and private globals still tighten from initializer-plus-write LUBs.
 - The 2026-06-03 O4z audit restored the direct `global-refining` slot under `-O4z` options and added initializer coverage for `ref.func`, `ref.i31`, `string.const`, and exact GC constructor results.
 - The 2026-06-18 `[GR-002]` slice aligned Starshine's function-reference LUB behavior with the then-pinned Binaryen `version_130` exact-ref surface. This historical conclusion is superseded for current pinned v131 execution by `[GR-008]`: v131 emits non-exact indexed `ref.func` facts, and exact mutable-global refinement can fail external validation.

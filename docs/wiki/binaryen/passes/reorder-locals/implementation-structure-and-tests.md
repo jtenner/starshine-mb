@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
-  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
+  - index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -26,8 +26,8 @@ Use it when you need to answer "which upstream file proves what?" without re-rea
 
 ## Source rule
 
-Use Binaryen `version_131` as the current released oracle. The 2026-07-27 audit found the v131 owner/lit files byte-identical to v130, so older line-oriented notes still describe the same algorithm.
-For the retained manifests of the reviewed official release, source, and test URLs, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md); [research note 0472](./index.md) preserves the earlier current-main recheck.
+Use Binaryen `version_132` as the current released oracle for new checks. The 2026-07-27 audit found the v131 owner/lit files byte-identical to v130, so older line-oriented notes still describe the same algorithm and remain historical source evidence.
+For the retained manifests of the reviewed official release, source, and test URLs, see [`index.md`](index.md); [research note 0472](./index.md) preserves the earlier current-main recheck.
 
 The 2026-07-27 v131 source/test refresh found no owner/lit drift. The same audit added copy-on-write pass and CLI regressions plus a permutation-only GenValid leaf after discovering that shared-array mutation could make the CLI reuse original bytes for a pure same-type remap. Current signoff lives in [`./parity.md`](./parity.md), [`./fuzzing.md`](./fuzzing.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

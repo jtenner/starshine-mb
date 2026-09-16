@@ -5,11 +5,7 @@ last_reviewed: 2026-07-26
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
-  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
-  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
-  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
-  - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
+  - index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

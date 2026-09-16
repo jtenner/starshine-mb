@@ -99,7 +99,7 @@ The correct caveat is narrower: Binaryen has a `Pusher` / segment algorithm, but
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`index.md`](index.md)
 - [research note 0829](./index.md)
 - [research note 0828](./index.md)
 - [research note 0826](./index.md)

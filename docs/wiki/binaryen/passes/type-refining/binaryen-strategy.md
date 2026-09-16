@@ -35,7 +35,7 @@ Primary files:
 - `test/lit/passes/type-refining-gufa-exact.wast`
 - `test/lit/passes/type-refining-gufa-rmw.wast`
 
-The 2026-07-11 current-`main` recheck preserves the reviewed `version_129` gates, phase split, repair structure, registration, and dedicated lit surface. It records one material interface drift: the owner now rejects `WorldMode::Open` rather than reading an old boolean-only `closedWorld` option, and it threads the same `worldMode` through public-type classification and `GlobalTypeRewriter`. This is still a closed-world semantic requirement, not a claim that all non-open modes have identical visibility/rewrite permissions; see [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md).
+The 2026-07-11 current-`main` recheck preserves the reviewed `version_129` gates, phase split, repair structure, registration, and dedicated lit surface. It records one material interface drift: the owner now rejects `WorldMode::Open` rather than reading an old boolean-only `closedWorld` option, and it threads the same `worldMode` through public-type classification and `GlobalTypeRewriter`. This is still a closed-world semantic requirement, not a claim that all non-open modes have identical visibility/rewrite permissions; see [`index.md`](index.md).
 
 So this dossier treats `version_129` as the normative algorithm oracle while treating current `main` as the API/policy drift watch.
 
@@ -445,7 +445,7 @@ That is the real strategy a future strict-parity port must preserve.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0303](./index.md)
 - [research note 0150](./index.md)
 - Binaryen `version_129`:

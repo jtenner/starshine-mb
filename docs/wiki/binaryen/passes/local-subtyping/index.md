@@ -8,7 +8,7 @@ sources:
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/local_subtyping_wbtest.mbt
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
@@ -58,7 +58,7 @@ The pass:
 - Owner: `src/passes/local_subtyping.mbt`.
 - Direct behavior: `src/passes/local_subtyping_test.mbt` (`77` focused tests).
 - Internal subtype/raw/refinalization contracts: `src/passes/local_subtyping_wbtest.mbt` (`4` focused white-box tests).
-- Generator families: `src/validate/gen_valid.mbt` and `src/validate/gen_valid_tests.mbt`.
+- Generator families: `src/validate/gen_valid.mbt` and `src/validate/gen_valid_wbtest.mbt`.
 - Registry/preset/dispatch: `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, registry tests, optimize tests, and CLI tests.
 
 ## v131 evidence

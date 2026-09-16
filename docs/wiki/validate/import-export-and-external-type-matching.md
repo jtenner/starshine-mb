@@ -10,7 +10,7 @@ sources:
   - ../../../src/validate/match.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
-  - ../../../src/validate/gen_invalid_tests.mbt
+  - ../../../src/validate/gen_invalid_wbtest.mbt
   - ../../../src/lib/types.mbt
   - ../../../src/wast/lower_to_lib.mbt
 related:
@@ -177,6 +177,6 @@ When a pass, generator, or fixture changes import/export structure:
 - Module-validation phase and official model: [`module-validation-phases.md`](module-validation-phases.md), [WebAssembly 3.0 module validation](https://webassembly.github.io/spec/core/valid/modules.html), and [runtime instantiation](https://webassembly.github.io/spec/core/exec/modules.html)
 - Resource-section validation contract: [`resource-sections-and-limits.md`](resource-sections-and-limits.md)
 - Validation implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
-- Invalid-fuzzer evidence: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt)
+- Invalid-fuzzer evidence: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid_wbtest.mbt`](../../../src/validate/gen_invalid_wbtest.mbt)
 - Core/binary/WAST surfaces: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Related pages: [`module-validation-phases.md`](module-validation-phases.md), [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`resource-sections-and-limits.md`](resource-sections-and-limits.md), [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md), [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)

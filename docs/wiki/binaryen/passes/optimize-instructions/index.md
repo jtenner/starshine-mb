@@ -1,10 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-16
 sources:
   - ../../release-horizon-and-oracles.md
-  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
+  - binaryen-strategy.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
@@ -21,7 +21,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
-  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
+  - binaryen-strategy.md
   - ./parity-matrix.json
   - ./sweep-report.md
   - ../../../../../scripts/oi-parity-sweep.ts
@@ -72,12 +72,12 @@ On the canonical production input, direct no-trace wall time falls from a 6.717-
 
 Full no-trace O4z samples after the repair span 116.390–119.283 seconds versus the 127.316-second DAEO checkpoint. The exact final terminal-dispatch binary measured 119.283 seconds while preserving the exact 4,637,852-byte output and SHA-256 `c8d21481c2f1cd0c7a1b62c0284b44bfedf185a9268aa93c4024558d1669823a`; aggregate host variance is larger than the isolated 90-millisecond direct-pass gain. Remaining final traced OptimizeInstructions owners are lowering 0.219 seconds, HOT pass work 0.129, revision indexing 0.099, visitor roots 0.096, batch writeback validation 0.064, raw descriptor/preflight work 0.053, and lifting 0.036.
 
-The final aggregate `pass-oi-all` signoff requested and compared 10,000 cases at seed `0x5eed`: 8,920 normalized matches, the established 1,080 strictly smaller tuple-wrapper residuals, and zero validation, property, generator, or command failures. Every residual selects `pass-oi-tuple`; canonical deltas are -41..-5 bytes with a -9,952-byte aggregate and zero nonnegative cases. The Node runtime subsystem checked 8,657 cases with 1,343 unsupported and no execution failures; its comparable summary contains 3,107 equal results, 256 equal traps, and zero semantic mismatches. The final replay uses native SHA-256 `1e35f458bc37b44ffa58dcbb657a9e14d77028bb0def77ab9746030a4d33dc15` and records Binaryen cache 8,943 hits / 1,057 misses. This current aggregate lane revalidates the routing change against the maintained v131 profile; the historical complete four-lane closeout remains the broader parity record.
+The final aggregate `pass-oi-all` signoff requested and compared 10,000 cases at seed `0x5eed`: 8,920 normalized matches, the established 1,080 strictly smaller tuple-wrapper residuals, and zero validation, property, generator, or command failures. Every residual selects `pass-oi-tuple`; canonical deltas are -41..-5 bytes with a -9,952-byte aggregate and zero nonnegative cases. The Node runtime subsystem checked 8,657 cases with 1,343 unsupported and no execution failures; its comparable summary contains 3,107 equal results, 256 equal traps, and zero semantic mismatches. The final replay uses native SHA-256 `1e35f458bc37b44ffa58dcbb657a9e14d77028bb0def77ab9746030a4d33dc15` and records Binaryen cache 8,943 hits / 1,057 misses. This recorded aggregate lane revalidated the routing change against the historical v131 profile; new aggregate signoff uses the current verified v132 oracle, and the complete four-lane v131 closeout remains the broader parity record.
 
 ## Role
 
 - `optimize-instructions` is an active implemented **hot pass** in Starshine.
-- In upstream Binaryen `version_131`, `optimize-instructions` is a function-parallel post-walk peephole and canonicalization pass.
+- In the recorded upstream Binaryen `version_131` snapshot, `optimize-instructions` is a function-parallel post-walk peephole and canonicalization pass.
 - The public summary in `pass.cpp` is only `optimizes instruction combinations`.
 
 That summary is true, but it is far too small.
@@ -165,7 +165,7 @@ What it actually is in `version_129`:
   - Compare-pass smoke lane plus OI-specific GenValid profiles and first-layer metamorphic smoke transforms used by the parity matrix.
 - research note 0444
   - Retained research bridge for the 2026-05-05 current-main no-drift spot check.
-- [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md)
+- [`binaryen-strategy.md`](binaryen-strategy.md)
   - `[O4Z-AUDIT-OI-A]` `version_130` source/lit matrix mapping upstream visitor and lit families to current Starshine coverage, explicit boundaries, and follow-up slice owners.
 
 ## Freshness and provenance note
@@ -174,7 +174,7 @@ Current durable answer:
 
 - the detailed prose still mostly teaches from the reviewed `version_129` dossier because that is where the original deep read was filed;
 - the 2026-06-19 `version_130` source/lit matrix remains the broad owner/family inventory and the 2026-07-12 closeout remains the historical local evidence baseline;
-- Binaryen `version_131` is now the release oracle and changes equal-input `ref.eq`, identical-arm `select`, idempotent/deep-effect equality, directional movement checks, and non-concrete select bailout behavior;
+- The recorded Binaryen `version_131` source review was the release-oracle snapshot for changes to equal-input `ref.eq`, identical-arm `select`, idempotent/deep-effect equality, directional movement checks, and non-concrete select bailout behavior; new comparison evidence uses v132;
 - the 2026-07-19 focused fixtures, explicit-v131 four-lane matrix, and O4z replays close that representable surface; ordered memory-atomic acquire/release behavior remains explicitly blocked on instruction representation.
 
 ## Current O4z audit inventory
@@ -231,7 +231,7 @@ OptimizeInstructions shared the Winch multivalue function-exit `br_table` failur
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - research note 0726 records the current OI behavior-gap inventory and `[O4Z-AUDIT-OI-A]` through `[O4Z-AUDIT-OI-N]` backlog split.
-- [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md) completes `[O4Z-AUDIT-OI-A]` with the `version_130` source/lit matrix and slice ownership map.
+- [`binaryen-strategy.md`](binaryen-strategy.md) completes `[O4Z-AUDIT-OI-A]` with the `version_130` source/lit matrix and slice ownership map.
 - research note 0727 completes `[O4Z-AUDIT-OI-B]` with direct compare-pass and saved O4z slot16/slot44 replay evidence before behavior changes.
 - research note 0728 completes `[O4Z-AUDIT-OI-C]` with raw no-op gate trace coverage, structured gate ordering repair, and outside-gate public cleanup evidence.
 - research note 0729 completes `[O4Z-AUDIT-OI-D]` with default scalar arithmetic, float spelling, wrap-constant, and relational canonicalization coverage plus direct 10000 compare evidence.

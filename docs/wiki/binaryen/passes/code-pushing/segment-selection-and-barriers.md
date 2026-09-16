@@ -61,7 +61,7 @@ available. The existing nested-write proof also observes potential import aliase
 
 The v0.1.0 release-gating closeout for `[O4Z-AUDIT-CP]` is recorded in [research note 0892](./index.md). This page remains the movement/barrier guide and reopening checklist: future `code-pushing` work should start here if a new Binaryen-positive probe, generated mismatch, validation failure, source drift, or preset-neighborhood requirement appears.
 
-The current source-backed Binaryen frame after the 2026-06-20 `version_130` refresh is:
+The recorded source-backed Binaryen frame after the 2026-06-20 `version_130` refresh is:
 
 - `LocalAnalyzer` finds single-first-assignment locals;
 - `Pusher` scans block-root segments;
@@ -94,7 +94,7 @@ Current Starshine is stricter than Binaryen's full `isPushable(...)` model: it m
 
 ## Barrier 3: intervening effects must not invalidate or order before the value
 
-`optimizeSegment(...)` accumulates effects between source and destination and refuses movement when the candidate value's effects are ordered before the cumulative intervening effects. This is the current `version_130` source wording; older notes that describe only invalidation are now incomplete.
+`optimizeSegment(...)` accumulates effects between source and destination and refuses movement when the candidate value's effects are ordered before the cumulative intervening effects. This is the reviewed `version_130` source wording; older notes that describe only invalidation are now incomplete.
 
 Beginner rule: even if the value looks simple, it cannot cross a sibling that can make computing it later observe a different world or violate ordered-before constraints.
 
@@ -159,7 +159,7 @@ A future broader Starshine port should preserve these rules before widening moti
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`index.md`](index.md)
 - [research note 0829](./index.md)
 - [research note 0828](./index.md)
 - [research note 0826](./index.md)

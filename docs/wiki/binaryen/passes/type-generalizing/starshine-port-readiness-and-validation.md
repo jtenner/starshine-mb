@@ -135,7 +135,7 @@ If a local port lands, update:
 - [`./starshine-strategy.md`](./starshine-strategy.md) from boundary-only status to implementation map;
 - [`./wat-shapes.md`](./wat-shapes.md) with Starshine-supported versus upstream-only families;
 - [`../tracker.md`](../tracker.md) and [`../index.md`](../index.md);
-- [`../../index.md`](../../index.md) and [`../../log.md`](../../log.md);
+- [`../../index.md`](../../../index.md) and [`../../log.md`](../../../log.md);
 - `agent-todo.md` if the pass becomes an active backlog slice.
 
 ## Current safest answer

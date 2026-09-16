@@ -9,8 +9,8 @@ sources:
   - https://github.com/WebAssembly/binaryen/releases/tag/version_131
   - https://github.com/WebAssembly/binaryen/compare/version_130...version_131
   - https://github.com/WebAssembly/binaryen/commit/1251efbc1ea471c1311d2726b2bbe061ff2a291c
-  - ../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
-  - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
+  - passes/memory-packing/index.md
+  - passes/remove-exports/index.md
   - ./passes/remove-exports/index.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_130
   - https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md
@@ -55,7 +55,7 @@ The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel
 - 2026-06-02: correction note 0698 temporarily moved the wiki baseline back to `version_125`; keep it as provenance, not as the current baseline.
 - 2026-06-04: the official GitHub `version_130` release page, changelog, and Chromium mirror re-established v130 as the stable baseline, superseding the temporary `version_125` correction.
 - 2026-07-15: Binaryen published `version_131` at tag commit `1f903c14babf829745b421b92ff0f286e93e4209`.
-- 2026-07-18: research note 1573 audited the complete v130-to-v131 range, confirmed the default pass order is unchanged, added the new pass to the tracker, and reopened the six affected Starshine implementation areas. This supersedes v130 for current release-horizon decisions.
+- 2026-07-18: research note 1573 audited the complete v130-to-v131 range, confirmed the default pass order is unchanged, added the new pass to the tracker, and reopened the six affected Starshine implementation areas. This superseded v130 for release-horizon decisions at that time; v132 is the current baseline.
 
 - 2026-09-10: the verified v132 tag and exact v131-to-v132 inventory supersede v131 as the comparison baseline; historical pass signoffs retain their original oracle.
 
@@ -119,12 +119,12 @@ Starshine's own reference-branch semantics still live in [`../wast/reference-ins
 ## Sources
 
 - Retained release-horizon recheck: research note 0704
-- Pass-specific `mark-js-called` / `remove-exports` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
+- Pass-specific `mark-js-called` / `remove-exports` current-main recheck: [`passes/remove-exports/index.md`](passes/remove-exports/index.md)
 - Retained `mark-js-called` / `remove-exports` tracker expansion: [research note 0706](./passes/remove-exports/index.md)
 - Superseded 2026-06-02 correction: research note 0698
 - Historical 2026-06-01 bridge: ingested and removed; its release-horizon facts are retained in the 0704 recheck above.
 - Official BrOn assertion-fix commit: <https://github.com/WebAssembly/binaryen/commit/1251efbc1ea471c1311d2726b2bbe061ff2a291c>
-- Current-main `memory-packing` drift bridge: [`../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md)
+- Current-main `memory-packing` drift bridge: [`passes/memory-packing/index.md`](passes/memory-packing/index.md)
 - V131 release-impact audit: research note 1573
 - Official GitHub `version_131` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_131>
 - Official GitHub v130-to-v131 compare: <https://github.com/WebAssembly/binaryen/compare/version_130...version_131>

@@ -35,7 +35,7 @@ Use this page when writing, reducing, or widening WAST fixtures that read or wri
 - global instructions: `global.get` and `global.set`;
 - nearby constant-expression use of immutable `global.get` in Starshine.
 
-These instructions look simple, but they connect several layers: WAST `$` identifiers, core numeric index spaces, binary opcode immediates, validator stack effects, constant-expression phase context, name-section metadata, and mutating-pass repair. The current context-sensitive `global.get` initializer refresh is [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md); the local parser, lowerer, printer, codec, validator, and generator sources cited below ground the remaining variable-instruction layer map.
+These instructions look simple, but they connect several layers: WAST `$` identifiers, core numeric index spaces, binary opcode immediates, validator stack effects, constant-expression phase context, name-section metadata, and mutating-pass repair. The current context-sensitive `global.get` initializer refresh is [`../validate/constant-expressions.md`](../validate/constant-expressions.md); the local parser, lowerer, printer, codec, validator, and generator sources cited below ground the remaining variable-instruction layer map.
 
 ## Beginner Mental Model
 

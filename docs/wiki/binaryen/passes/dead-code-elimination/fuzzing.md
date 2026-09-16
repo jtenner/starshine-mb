@@ -15,7 +15,7 @@ sources:
 Recommended smoke lane for future DCE changes: run the ordinary GenValid compare-pass lane for this pass, adding the documented `local-cleanup-debris` normalizer when the expected raw diff is Starshine-only local/no-op cleanup:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-dead-code-elimination --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt --require-binaryen-version 131
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dead-code-elimination --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-dead-code-elimination --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version_132/bin/wasm-opt --require-binaryen-version 132
 ```
 
 ## 2026-09-02 Binaryen-v131 raw-admission renewal

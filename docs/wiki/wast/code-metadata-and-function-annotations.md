@@ -9,7 +9,7 @@ sources:
   - https://webassembly.github.io/spec/metadata/code/branch-hinting.html
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md
-  - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
+  - ../binaryen/passes/remove-exports/index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/toolchain-inlining.wast
   - ../binaryen/passes/inlining/binaryen-strategy.md
@@ -175,7 +175,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 
 - Official custom/name/code-metadata/branch-hint sources: <https://webassembly.github.io/spec/core/appendix/custom.html>, <https://webassembly.github.io/spec/metadata/code/>, and <https://webassembly.github.io/spec/metadata/code/branch-hinting.html>.
 - Compilation Hints boundary: [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md), with <https://github.com/WebAssembly/proposals> and <https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md>.
-- Binaryen `mark-js-called` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
+- Binaryen `mark-js-called` current-main recheck: [`../binaryen/passes/remove-exports/index.md`](../binaryen/passes/remove-exports/index.md)
 - Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
 - WAST identifier/name boundary: [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)
 - Binaryen v131 inlining and strip-toolchain evidence: [release-impact audit](../binaryen/release-horizon-and-oracles.md), direct tagged URLs in [`../binaryen/passes/inlining/binaryen-strategy.md`](../binaryen/passes/inlining/binaryen-strategy.md), and the direct official source links in [`../binaryen/passes/strip-toolchain-annotations/index.md`](../binaryen/passes/strip-toolchain-annotations/index.md)

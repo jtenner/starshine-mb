@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-26
 sources:
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../tooling/pass-fuzz-compare.md

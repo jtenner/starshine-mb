@@ -7,7 +7,7 @@ sources:
   - https://github.com/WebAssembly/relaxed-dead-code-validation/blob/main/proposals/relaxed-dead-code-validation/Overview.md
   - https://webassembly.github.io/spec/core/appendix/algorithm.html
   - ../../src/validate/typecheck.mbt
-  - ../../src/validate/typecheck_negative_tests.mbt
+  - ../../src/validate/typecheck_negative_wbtest.mbt
   - ../../src/validate/validate.mbt
   - ../../src/lib/types.mbt
 related:
@@ -77,7 +77,7 @@ The relaxed proposal asks whether more of those dead-code stack constraints shou
 | Current unreachable transition | [`TcState::set_unreachable(...)`](../../src/validate/typecheck.mbt) | Clears the concrete stack, marks the continuation unreachable, and records terminal escape. |
 | Bottom synthesis | [`TcState::pop1(...)`](../../src/validate/typecheck.mbt) | Returns `ValType::bottom()` only when the real stack underflows in an unreachable state. |
 | Bottom type carrier | [`ValType::bottom()` / `BotValType`](../../src/lib/types.mbt) | Local validator-only bottom value; binary encoding rejects bottom value types. |
-| Current negative evidence | [`src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), [`src/validate/validate.mbt`](../../src/validate/validate.mbt) | Bottom-pop tests, branch payload checks, unreachable branch merges, and concrete-stack-junk rejection. |
+| Current negative evidence | [`src/validate/typecheck_negative_wbtest.mbt`](../../src/validate/typecheck_negative_wbtest.mbt), [`src/validate/validate.mbt`](../../src/validate/validate.mbt) | Bottom-pop tests, branch payload checks, unreachable branch merges, and concrete-stack-junk rejection. |
 | WAST authoring | [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md) | Human-facing syntax and rewrite guidance for current control-flow fixtures. |
 
 ## Validation And Future-Port Checklist
@@ -111,4 +111,4 @@ Avoid:
 - Current Core/Starshine stack-polymorphism guide: [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md)
 - Feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - Current typechecker: [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt)
-- Current validation tests: [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt)
+- Current validation tests: [`../../src/validate/typecheck_negative_wbtest.mbt`](../../src/validate/typecheck_negative_wbtest.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt)

@@ -299,7 +299,7 @@ Several guards recur across the implementation:
 - Stack-effect and result/local-set hazards memoize shared HOT DAG nodes; exact root hazards now stop at the raw boundary before lift.
 - Nested dead-suffix cleanup carries a seen bitset and obtains CFG lazily only after an exact syntactic candidate survives.
 - The initial HOT summary gates literal-multivalue accounting, which uses lightweight exact node-use counts instead of eager full use-def. Single-result refinalization also skips whole-function scans when the cycle label count proves there are no branch references.
-- The debug artifact remains byte-identical while five-run medians improve from `595.227ms` to `227.250ms` pass-local and from about `11.565s` to `3.328s` whole-command. Current Binaryen-v131 pass median is `289.650ms`, making Starshine `0.785x` by independent medians (`0.780x` paired median), about `1.27x` Binaryen throughput.
+- The debug artifact remains byte-identical while five-run medians improve from `595.227ms` to `227.250ms` pass-local and from about `11.565s` to `3.328s` whole-command. Recorded Binaryen-v131 pass median is `289.650ms`, making Starshine `0.785x` by independent medians (`0.780x` paired median), about `1.27x` Binaryen throughput.
 - Remaining aggregate raw-boundary work still reflects several independent recursive classifiers. The next architectural step is one reusable per-function raw-facts index, not another artifact-specific skip.
 - `[RUB-PERF]001` is removed from the active backlog under a maintainer-approved bounded re-sign. The 2026-07-31 full matrix remains the behavior baseline; future artifact-byte, validation, runtime, or residual-family drift reopens the pass.
 

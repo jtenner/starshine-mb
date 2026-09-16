@@ -6,7 +6,7 @@ sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
-  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
+  - index.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_propagate_test.mbt
   - ../../../../../src/passes/optimize.mbt

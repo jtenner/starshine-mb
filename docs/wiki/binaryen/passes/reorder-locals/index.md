@@ -1,9 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
+  - binaryen-strategy.md
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/reorder_locals_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -97,7 +97,7 @@ So this is **not** coalescing, **not** liveness-based dead-store cleanup, and **
 - The pass rewrites local-user indices and function-local name maps.
 - Upstream explicitly declares that it does **not** need non-nullable-local fixups.
 - The dedicated print-roundtrip tests show that declaration order after reordering must survive binary writing and reading, not just in-memory AST mutation.
-- A 2026-07-27 audit found `ReorderLocals.cpp` and the dedicated lit files byte-identical between `version_130` and `version_131`; current evidence uses official `wasm-opt version 131 (version_131)`.
+- A 2026-07-27 audit found `ReorderLocals.cpp` and the dedicated lit files byte-identical between `version_130` and `version_131`; recorded v131 evidence used official `wasm-opt version 131 (version_131)`.
 
 ## Biggest beginner correction
 
@@ -146,7 +146,7 @@ What it actually is in `version_131`:
 
 ## Freshness note
 
-The current released oracle is official `wasm-opt version 131 (version_131)`. The 2026-07-27 audit compared the v131 owner and dedicated `reorder-locals*` lit files with the retained v130 copies and found them byte-identical. The older v129/v130 notes remain useful algorithm provenance, but current closeout claims use v131.
+The current released oracle is official Binaryen `version_132`. The 2026-07-27 audit compared the v131 owner and dedicated `reorder-locals*` lit files with the retained v130 copies and found them byte-identical. The older v129/v130 notes remain useful algorithm provenance, while the v131 comparison remains historical evidence; new closeout claims use v132.
 
 The 2026-07-27 audit repaired a Starshine copy-on-write bug that could lose pure same-type local-index permutations at the CLI boundary. The 2026-07-28 refresh then split equal-count first-use ordering into its own dedicated leaf, expanded the aggregate to ten leaves, replayed both official v131 fixtures byte-exact with debug names preserved, and reran the full required matrix. See [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
@@ -164,10 +164,10 @@ The 2026-07-27 audit repaired a Starshine copy-on-write bug that could lose pure
 
 - Binaryen-v131 closeout: [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md)
 - `version_130` source inventory and unchanged-contract provenance: research note 1400
-- Retained v130 primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
+- Retained v130 primary-source manifest: [`binaryen-strategy.md`](binaryen-strategy.md)
 - Public preset scheduling: research note 1561
 - Earlier one-slot reconciliation: research note 0709
-- [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
+- [`binaryen-strategy.md`](binaryen-strategy.md)
 - research note 0430
 - research note 0253
 - research note 0142

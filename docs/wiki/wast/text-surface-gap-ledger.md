@@ -5,9 +5,9 @@ last_reviewed: 2026-06-05
 sources:
   - code-metadata-and-function-annotations.md
   - ../wasm-more-array-constructors-boundary.md
-  - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
-  - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
+  - ../wasm-linear-memory-threads-boundary.md
+  - ../validate/memory-table-address-widths.md
+  - element-segment-authoring.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt

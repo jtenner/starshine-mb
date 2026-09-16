@@ -379,7 +379,7 @@ The earlier landing page mostly existed to track naming evidence, so the richer 
 
 Current durable answer:
 
-- The current local release oracle is `wasm-opt version 130 (version_130)`.
+- The current comparison oracle is Binaryen `version_132`; the v130 source and evidence below remain historical.
 - Binaryen `pass.cpp` still registers `heap-store-optimization` in `version_130`.
 - The official Binaryen GitHub `version_129` release page re-checked on 2026-04-22 showed publish date **2026-04-01**.
 - The current upstream changelog still records `Add a new --heap-store-optimization pass. (#6882)` under `v119`.
@@ -392,7 +392,7 @@ Current durable answer:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `heap-store-optimization` parity and scheduler research.
-- Use Binaryen `version_130` as the current release source oracle.
+- Use Binaryen `version_132` as the current release source oracle; the v130 source review remains historical provenance.
 - Keep the narrow-scope correction explicit:
   - this pass is mainly about folding `struct.set` into nearby `struct.new` families
   - it is not yet generic GC heap dead-store elimination or load forwarding

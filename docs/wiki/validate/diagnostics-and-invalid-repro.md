@@ -8,14 +8,14 @@ sources:
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/validate/gen_invalid.mbt
-  - ../../../src/validate/gen_invalid_tests.mbt
+  - ../../../src/validate/gen_invalid_wbtest.mbt
   - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/fuzz/invalid_text.mbt
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../src/fuzz/invalid_repro_wbtest.mbt
   - ../../../src/fuzz/main.mbt
   - ../../../src/binary/decode.mbt
-  - ../../../src/binary/tests.mbt
+  - ../../../src/binary/tests_wbtest.mbt
 related:
   - ./module-validation-phases.md
   - ./resource-sections-and-limits.md
@@ -44,7 +44,7 @@ The official WebAssembly validation sources checked on 2026-05-19 define the sem
 
 Use this page as the focused companion to [`module-validation-phases.md`](module-validation-phases.md). The phase page answers "what does the validator check, and in what order?" This page answers "what user-visible family should the failure report, and how do I produce a stable repro?"
 
-Binary decode failures that occur inside a known section carry the section id, byte offset, and section span through [`ModuleDecodeErrorDetail`](../../../src/binary/decode.mbt). The stable `[FUZ]1056A1` fixture in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) locks the malformed type-section case at section id `1`, offset `8`, and length `5`; `[FUZ]1056A4` adds a malformed `name` custom-section fixture at section id `0`, offset `8`, and length `16`, and invalid-binary repro metadata roundtrips that location as `binary:section=0:offset=8:length=16`. The public `decode_module(...)` wrapper still exposes the established `DecodeAt(error, offset, length)` shape while detail callers can inspect `section_id`.
+Binary decode failures that occur inside a known section carry the section id, byte offset, and section span through [`ModuleDecodeErrorDetail`](../../../src/binary/decode.mbt). The stable `[FUZ]1056A1` fixture in [`src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt) locks the malformed type-section case at section id `1`, offset `8`, and length `5`; `[FUZ]1056A4` adds a malformed `name` custom-section fixture at section id `0`, offset `8`, and length `16`, and invalid-binary repro metadata roundtrips that location as `binary:section=0:offset=8:length=16`. The public `decode_module(...)` wrapper still exposes the established `DecodeAt(error, offset, length)` shape while detail callers can inspect `section_id`.
 
 ## Beginner Model
 
@@ -130,7 +130,7 @@ A new validator family is not done when the validator rejects. It is done when a
 5. Apply the invalid mutation.
 6. Validate that the mutated module rejects with the strategy's expected family.
 
-The tests in [`src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt) lock the important cases: valid seed before mutation, expected family after mutation, minimal seeds, seed-profile naming, prereq widening, representative type/import/function/element/tag/datacount/export/start families, and focused function-body operand-stack mismatches for call, branch, `if`, untyped select, exception, memory, table, bulk-table, local, global, return, reference-cast, reference-test, reference-branch cast, SIMD lane-index, and SIMD operand stack-type instructions including splat, swizzle, bitselect, extract, replace, load, store, load-extend, load-splat, and load-zero forms.
+The tests in [`src/validate/gen_invalid_wbtest.mbt`](../../../src/validate/gen_invalid_wbtest.mbt) lock the important cases: valid seed before mutation, expected family after mutation, minimal seeds, seed-profile naming, prereq widening, representative type/import/function/element/tag/datacount/export/start families, and focused function-body operand-stack mismatches for call, branch, `if`, untyped select, exception, memory, table, bulk-table, local, global, return, reference-cast, reference-test, reference-branch cast, SIMD lane-index, and SIMD operand stack-type instructions including splat, swizzle, bitselect, extract, replace, load, store, load-extend, load-splat, and load-zero forms.
 
 Use `repro_seed(...)` for persisted reports by default. It keeps artifacts compact while preserving the semantic seed profile in report metadata.
 
@@ -183,6 +183,6 @@ When changing validator diagnostics or invalid repros:
 - Official validation model: [overview](https://webassembly.github.io/spec/core/valid/index.html), [modules](https://webassembly.github.io/spec/core/valid/modules.html), and [instructions](https://webassembly.github.io/spec/core/valid/instructions.html)
 - Validator phase map and official model: [`./module-validation-phases.md`](module-validation-phases.md), [WebAssembly 3.0 module validation](https://webassembly.github.io/spec/core/valid/modules.html), and [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html)
 - Diagnostic implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt)
-- AST invalid generation: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt)
-- Binary/text/spec invalid and repro surfaces: [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../../../src/fuzz/invalid_repro_wbtest.mbt`](../../../src/fuzz/invalid_repro_wbtest.mbt), [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
+- AST invalid generation: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate/gen_invalid_wbtest.mbt`](../../../src/validate/gen_invalid_wbtest.mbt)
+- Binary/text/spec invalid and repro surfaces: [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../../../src/fuzz/invalid_repro_wbtest.mbt`](../../../src/fuzz/invalid_repro_wbtest.mbt), [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt)
 - Related pages: [`./fuzz-hardening.md`](fuzz-hardening.md), [`./ref-func-declarations.md`](ref-func-declarations.md), [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md), [`../tooling/node-package-surface.md`](../tooling/node-package-surface.md), [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)

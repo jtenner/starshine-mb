@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -17,7 +17,7 @@ related:
 
 This page focuses on the easiest part of the pass to misread.
 
-This page is anchored by the reviewed `version_130` source/admission refresh [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md), its retained direct tagged URLs and 2026-04-24 follow-up research, and the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md).
+This page is anchored by the reviewed `version_130` source/admission refresh [`index.md`](index.md), its retained direct tagged URLs and 2026-04-24 follow-up research, and the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 If you only remember one thing from this page, remember this:
 

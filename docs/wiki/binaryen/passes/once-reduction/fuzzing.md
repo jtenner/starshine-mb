@@ -7,8 +7,9 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
+
 ---
 
 # `once-reduction` Fuzzing Profile
@@ -27,7 +28,7 @@ The stable dedicated profile is `once-reduction-tail-calls` (aliases: `once-redu
 - a reference tail call followed by an unreachable noncanonical once-global write; and
 - repeated direct calls proving that dead post-tail accesses did not poison candidate discovery.
 
-The profile intentionally keeps indirect/reference targets conservative. Both use a separate inert helper, and a declarative function-index element makes `ref.func` valid without populating the indirect-call table or exposing the once function. The profile exercises terminal scanning and cleanup, not speculative indirect-call resolution. `src/validate/gen_valid_tests.mbt` locks profile resolution, tail-call feature admission, helper isolation, oracle-compatible element encoding, validation, and emitted instruction shapes.
+The profile intentionally keeps indirect/reference targets conservative. Both use a separate inert helper, and a declarative function-index element makes `ref.func` valid without populating the indirect-call table or exposing the once function. The profile exercises terminal scanning and cleanup, not speculative indirect-call resolution. `src/validate/gen_valid_wbtest.mbt` locks profile resolution, tail-call feature admission, helper isolation, oracle-compatible element encoding, validation, and emitted instruction shapes.
 
 Dedicated signoff command:
 

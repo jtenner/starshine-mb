@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - ./index.md
-  - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
+  - index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/env.mbt
@@ -27,7 +27,7 @@ related:
 # Starshine port readiness and validation for `signature-pruning`
 
 Use this page as the implementation bridge between Binaryen's source-backed `signature-pruning` contract and Starshine's current boundary-only status.
-The 2026-07-11 `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md) supersedes the older current-main freshness claim without changing the source-backed port boundary; [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md) narrows the local `call_ref` fixture guidance below.
+The 2026-07-11 `version_130` / current-main recheck in [`index.md`](index.md) supersedes the older current-main freshness claim without changing the source-backed port boundary; [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md) narrows the local `call_ref` fixture guidance below.
 The pass is still unimplemented locally; this page exists so a future port starts with the right module/type rewrite shape instead of a misleading HOT peephole.
 
 ## Current local decision

@@ -5,11 +5,7 @@ last_reviewed: 2026-09-03
 sources:
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
-  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
-  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
-  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
-  - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
+  - binaryen-strategy.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
@@ -133,7 +129,7 @@ The superseding integrated run is `.tmp/pass-performance-sweep-20260903-final-br
   - different public pass name
   - different scheduler usage
   - different reachable fixed points because of the extra propagation phase
-- Treat the retained 2026-04-24 follow-up research [`../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md) and direct tagged URLs as the source provenance anchor, and its retained research mirror [`../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md) as the current-main freshness anchor.
+- Treat the retained 2026-04-24 follow-up research [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md) and direct tagged URLs as the source provenance anchor, and its retained research mirror [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md) as the current-main freshness anchor.
 - Keep the exact local-worklist contract explicit too:
   - not generic SCCP
   - not an unbounded fixed-point loop
@@ -166,11 +162,11 @@ The focused `precompute-propagate` regression now requires the folded `I64(107)`
 ## Sources
 
 - [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md)
-- [`../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md)
-- [`../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md`](../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md)
-- [`../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md`](../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md)
-- [`../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md`](../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md)
+- [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md)
+- [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md)
+- [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md)
+- [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md)
+- [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

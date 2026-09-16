@@ -31,7 +31,7 @@ related:
 ## Role
 
 - `simplify-globals-optimizing` is an upstream Binaryen late global optimizing pass.
-- It is **implemented and audit-complete for the current Binaryen `version_130` / Starshine v0.1.0 scope** as an active module pass in [`../../../../../src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt), with registry and dispatcher wiring in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt). The exact local contract, source-backed exclusions, and reopening criteria live in [`./starshine-strategy.md`](./starshine-strategy.md).
+- It is **implemented and audit-complete for the recorded Binaryen `version_130` / Starshine v0.1.0 scope** as an active module pass in [`../../../../../src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt), with registry and dispatcher wiring in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt). The exact local contract, source-backed exclusions, and reopening criteria live in [`./starshine-strategy.md`](./starshine-strategy.md).
 - Binaryen also exposes the related plain pass name `simplify-globals`.
 - The `simplify-globals-optimizing` variant is the same core global pass **plus** a nested rerun of the default function optimization pipeline on changed functions.
 
@@ -125,7 +125,7 @@ On fresh original-input primes, alternating traced old/new runs reduce median `p
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for `simplify-globals-optimizing` research, implementation notes, and port planning.
-- Keep it marked **audit-complete for the current v130/v0.1.0 scope** while preserving explicit reopening criteria for new semantic mismatches, validation failures, measured size/performance regressions, or upstream behavior drift. Plain `simplify-globals` remains a separate boundary-only contract.
+- Keep it marked **audit-complete for the recorded v130/v0.1.0 scope** while preserving explicit reopening criteria for new semantic mismatches, validation failures, measured size/performance regressions, or upstream behavior drift. Plain `simplify-globals` remains a separate boundary-only contract.
 - New `simplify-globals-optimizing` findings should update the strategy page, the linear-trace / read-only-to-write page, and the port-readiness page together so the global algorithm story, scheduler story, and Starshine validation plan stay aligned.
 
 ## Sources

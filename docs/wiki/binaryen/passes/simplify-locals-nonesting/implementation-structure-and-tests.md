@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-09-02
 sources:
-  - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
+  - index.md
   - ./index.md
   - ../../../../../src/passes/simplify_locals_variants_test.mbt
   - ../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt
@@ -223,7 +223,7 @@ rule remains:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md)
+- [`index.md`](index.md)
 - [research note 0331](./index.md)
 - [research note 0186](./index.md)
 - Binaryen `version_129` sources:

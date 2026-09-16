@@ -28,7 +28,7 @@ related:
 
 This is the authoritative release ledger for plain `dead-argument-elimination` / `dae` and `dae-optimizing` / `dead-argument-elimination-optimizing`. The row-level lifecycle reconciliation was renewed through the 2026-07-23 canonical-core production-diagnostics slice; older hashes and counts below remain historical evidence checkpoints rather than current closure claims.
 
-It supersedes older prose that called selected DAE slices “closed” while the complete generic pass remained open. A row is closed only when its source-owned behavior is generic or narrowly classified, has focused positive and negative coverage, has current Binaryen-v131 generated evidence, and has no correctness-critical selected-definition dependency.
+It supersedes older prose that called selected DAE slices “closed” while the complete generic pass remained open. A row is closed only when its source-owned behavior is generic or narrowly classified, has focused positive and negative coverage, has recorded Binaryen-v131 generated evidence, and has no correctness-critical selected-definition dependency.
 
 ## Historical source and baseline identity (2026-07-19)
 

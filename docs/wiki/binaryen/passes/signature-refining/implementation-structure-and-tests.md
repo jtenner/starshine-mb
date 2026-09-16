@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -217,7 +217,7 @@ The dedicated late-file tests show it matters for both param and result refineme
 
 ## Freshness note
 
-The older 2026-05-05 manifest is retained as historical provenance, but the current source bridge is [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md). Its `version_130` / current-main reread found two corrections:
+The older 2026-05-05 manifest is retained as historical provenance, but the current source bridge is [`index.md`](index.md). Its `version_130` / current-main reread found two corrections:
 
 - continuation-used signature types now receive the full `canModify = false` blocker, rather than `version_129`'s params-only freeze; and
 - `worldMode` is passed to both public-heap-type discovery and the global signature rewriter.
@@ -252,7 +252,7 @@ That is exactly why this pass is easy to underestimate from the name alone.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0451](./index.md)
 - [research note 0307](./index.md)
 - [research note 0152](./index.md)

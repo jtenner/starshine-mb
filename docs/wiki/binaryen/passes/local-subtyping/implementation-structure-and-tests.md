@@ -8,7 +8,8 @@ sources:
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/local_subtyping_wbtest.mbt
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
+
 ---
 
 # `local-subtyping`: implementation and tests
@@ -59,6 +60,6 @@ The July 26, 2026 refresh used official Binaryen v131 and the hashes recorded in
 - official i31 control-result refinalization;
 - validator-aligned abstract heap relationships.
 
-`src/validate/gen_valid_tests.mbt` proves profile resolution, all seven aggregate members, deterministic aggregate sampling, external validation, and a visible trigger for every leaf.
+`src/validate/gen_valid_wbtest.mbt` proves profile resolution, all seven aggregate members, deterministic aggregate sampling, external validation, and a visible trigger for every leaf.
 
 Registry, dispatcher, preset, and CLI behavior remain covered in their existing owner tests.

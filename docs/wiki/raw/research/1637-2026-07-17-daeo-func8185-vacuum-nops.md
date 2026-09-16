@@ -7,7 +7,7 @@ sources:
   - ../../../../src/passes/pass_manager.mbt
   - ../../../../src/passes/dae_optimizing_test.mbt
   - ../../../../src/passes/pass_manager_wbtest.mbt
-  - ../binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../binaryen/passes/dae-optimizing/index.md
   - ./1636-2026-07-17-daeo-func8185-branch-result-if.md
 ---
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-31
+last_reviewed: 2026-09-16
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../release-horizon-and-oracles.md
@@ -78,7 +78,7 @@ Scheduler placement is also closed. Starshine's public optimize/shrink roster no
 - `remove-unused-brs` is an active implemented **hot pass** in Starshine.
 - Current large-artifact correctness/runtime evidence is note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md): rollback-capable changed-function batch validation plus three source-backed fail-closed guards replace a `580.178s` invalid direct output with valid byte-identical `3.239s` / `3.068s` repeats. The current artifact reaches a byte-identical fixed point after three productive applications; regular `10000` compare is fully normalized, and the dedicated `115`-mismatch accepted family is runtime-all-equal with zero validation failures.
 - The folder retains historical research plus direct `version_131` source and lit URLs below, so the release/source/test provenance does not depend on an intermediate capture.
-- In the current upstream oracle, Binaryen `version_131`, it is a function-parallel structured-control cleanup pass.
+- In the recorded upstream v131 oracle, it is a function-parallel structured-control cleanup pass.
 - The short public description in `pass.cpp` says it removes breaks that are not needed.
 - That description is true, but incomplete.
 
@@ -127,7 +127,7 @@ This makes RUB relevant to:
 - Branch hints are part of the upstream Binaryen contract.
 - `never-unconditionalize` is part of the upstream Binaryen contract.
 - Starshine documents those two surfaces as RUB-N/RUB-X metadata/pass-option blockers until expression-level code metadata and pass-arg plumbing exist locally.
-- `version_131` is the release oracle. `RemoveUnusedBrs.cpp` is byte-identical to the retained v130 owner, so the JumpThreader relaxation, branch-to-trap behavior, helper contracts, and official transform families carry forward unchanged.
+- The recorded v131 audit used `version_131` as its release oracle. `RemoveUnusedBrs.cpp` is byte-identical to the retained v130 owner, so the JumpThreader relaxation, branch-to-trap behavior, helper contracts, and official transform families carry forward unchanged.
 
 ## Biggest beginner correction
 
@@ -197,7 +197,7 @@ What it actually is in `version_131`:
 
 ## Freshness note
 
-This landing page is anchored on the verified official Binaryen `version_131` binary (`wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`). The 2026-07-30 source audit confirms `RemoveUnusedBrs.cpp` is unchanged from v130; `pass.cpp` still schedules exactly three RUB applications in the 56-slot top-level optimizer roster.
+The source and behavior dossier on this landing page is anchored on the verified official Binaryen `version_131` binary (`wasm-opt version 131 (version_131)`, SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`). The 2026-07-30 source audit confirms `RemoveUnusedBrs.cpp` is unchanged from v130; `pass.cpp` still schedules exactly three RUB applications in the 56-slot top-level optimizer roster. New comparison runs use the current verified v132 oracle described in the page banner.
 
 For `[O4Z-AUDIT-RUB-A]`, WebAssembly 3.0 baseline features are assumed enabled by default. Do not treat GC as optional gated behavior in the Starshine RUB matrix unless a local parser/tool limitation is recorded as a blocker.
 

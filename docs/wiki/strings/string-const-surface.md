@@ -19,7 +19,7 @@ related:
   - ../../../src/wast/keywords.mbt
   - ../../../src/lib/types.mbt
   - ../../../src/binary/encode.mbt
-  - ../../../src/binary/tests.mbt
+  - ../../../src/binary/tests_wbtest.mbt
   - ../../../src/ir/hot_side_tables.mbt
 ---
 

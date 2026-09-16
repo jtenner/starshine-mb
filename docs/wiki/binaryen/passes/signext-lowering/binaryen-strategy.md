@@ -3,7 +3,7 @@ kind: strategy
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -15,7 +15,7 @@ related:
 
 # Binaryen strategy for `signext-lowering`
 
-Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated instruction-shape proof is `test/lit/passes/signext-lowering.wast`. The source history is retained in the older manifests, while the current contract—including the entry `hasSignExt()` gate—is in [`../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md).
+Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated instruction-shape proof is `test/lit/passes/signext-lowering.wast`. The source history is retained in the older manifests, while the current contract—including the entry `hasSignExt()` gate—is in [`index.md`](index.md).
 
 ## Primary-source line map
 

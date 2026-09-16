@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the newest reviewed tagged source oracle for this pass, anchored by [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md); retain the immutable 2026-04-24 `version_129` manifest as historical provenance. The 2026-07-11 web retrieval found an internally inconsistent current-`main` API snapshot, so it does **not** establish a main no-drift claim; pin one checkout before using main-specific behavior for implementation or signoff.
+Use Binaryen `version_130` as the newest reviewed tagged source oracle for this pass, anchored by [`index.md`](index.md); retain the immutable 2026-04-24 `version_129` manifest as historical provenance. The 2026-07-11 web retrieval found an internally inconsistent current-`main` API snapshot, so it does **not** establish a main no-drift claim; pin one checkout before using main-specific behavior for implementation or signoff.
 
 Primary files:
 
@@ -401,7 +401,7 @@ The public one-line summary in `pass.cpp` hides that entire story.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md)
+- [`index.md`](index.md)
 - [research note 0295](./index.md)
 - [research note 0155](./index.md)
 - Binaryen `version_129`:

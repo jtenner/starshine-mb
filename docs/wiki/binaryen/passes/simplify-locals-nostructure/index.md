@@ -51,7 +51,7 @@ Closed on 2026-07-27. The refreshed aggregate completed `10000/10000`: `7115` ex
   - top-level slot `22`
 - The repo backlog previously tracked the remaining ordered-slot follow-up under `SLNS`; that exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay is now proven and the standalone slice is closed.
 - The current Starshine tuple-slot gate still sees the no-structure pass as active, and the public presets still stay conservative, but the remaining caution now belongs to neighboring tuple/local-cluster slices rather than this pass's own ordered-slot proof.
-- The current local oracle is official Binaryen `version_131` (`wasm-opt version 131 (version_131)`). The 2026-07-27 renewal confirmed that the dedicated no-structure tests, `SimplifyLocals.cpp`, and reviewed locals helpers are unchanged from v130; shared pass/global-effect drift was probed directly. The refreshed aggregate and idempotence evidence below supersedes the earlier v130 profile.
+- The current comparison oracle is official Binaryen `version_132`; the v131 renewal below remains historical evidence. The 2026-07-27 renewal confirmed that the dedicated no-structure tests, `SimplifyLocals.cpp`, and reviewed locals helpers are unchanged from v130; shared pass/global-effect drift was probed directly. The refreshed aggregate and idempotence evidence below supersedes the earlier v130 profile.
 
 ## Beginner summary
 

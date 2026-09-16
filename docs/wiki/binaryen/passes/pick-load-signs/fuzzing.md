@@ -1,12 +1,12 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ./index.md
   - ../../../../../src/validate/gen_valid.mbt
-  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 related:
@@ -40,7 +40,7 @@ The former profile blind spots are gone: unsigned shifts are mutating, i64 cases
 
 ## Generator tests
 
-`src/validate/gen_valid_tests.mbt` proves:
+`src/validate/gen_valid_wbtest.mbt` proves:
 
 - profile and alias resolution;
 - aggregate sampling of all 11 leaves;
@@ -78,7 +78,7 @@ Classify those mismatches as measured Starshine wins, not generic representation
 
 ## Final lane commands
 
-Use a current native release build and the official v131 executable:
+Use a current native release build and the official v132 executable for new runs. The v131 executable and results below are historical evidence:
 
 ```sh
 moon build --target native --release src/cmd

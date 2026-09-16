@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
-  - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
+  - index.md
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -76,9 +76,9 @@ Together these exact locations make current request behavior an unknown-pass cas
 - [`typecheck_memory_size(...)`](../../../../../src/validate/typecheck.mbt#L2552-L2558) and [`typecheck_memory_grow(...)`](../../../../../src/validate/typecheck.mbt#L2561-L2571) derive their types from `mem_at_of(...)`.
 - [`typecheck_memory_init(...)`](../../../../../src/validate/typecheck.mbt#L2574-L2609) derives `memory.init` destination width from the selected memory while keeping passive-data source and length as `i32`.
 - [`typecheck_memory_copy(...)`](../../../../../src/validate/typecheck.mbt#L2612-L2639) derives `memory.copy` destination, source, and length widths from the participating memories.
-- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L2642-L2660) derives the `memory.fill` destination width from the selected memory but still hard-codes the length operand to `i32`; [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) records this local/spec divergence.
+- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L2642-L2660) derives the `memory.fill` destination width from the selected memory but still hard-codes the length operand to `i32`; [`index.md`](index.md) records this local/spec divergence.
 - [`typecheck_table_copy(...)`](../../../../../src/validate/typecheck.mbt#L1431-L1461) and [`typecheck_table_init(...)`](../../../../../src/validate/typecheck.mbt#L1464-L1492) use table limits for address-width positions; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) only uses the table limit for the destination/start operand and still types length as `i32`.
-- [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code `i32` positions, so table64 support is not coherent enough to advertise a faithful `table64-lowering` port yet. The current focused correction is [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md).
+- [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code `i32` positions, so table64 support is not coherent enough to advertise a faithful `table64-lowering` port yet. The current focused correction is [`index.md`](index.md).
 
 ## Future implementation shape
 
@@ -153,7 +153,7 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 - [research note 0374](./index.md)
 - [research note 0340](./index.md)
 - [research note 0315](./index.md)
-- [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
+- [`index.md`](index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
 - [`../../../../../src/binary/decode.mbt`](../../../../../src/binary/decode.mbt)

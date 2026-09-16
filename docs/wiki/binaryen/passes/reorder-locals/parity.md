@@ -6,7 +6,7 @@ sources:
   - ./index.md
   - ./fuzzing.md
   - ./multivalue-call-scope.md
-  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
+  - index.md
   - ../tracker.md
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/reorder_locals_test.mbt

@@ -10,6 +10,7 @@ sources:
   - ../../../../src/passes/pass_manager.mbt
   - ../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../src/passes/ssa_nomerge_test.mbt
+
 ---
 
 # SSA no-merge batch writeback unblocks public DAEO prefixes

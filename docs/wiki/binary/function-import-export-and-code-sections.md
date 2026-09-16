@@ -5,9 +5,8 @@ last_reviewed: 2026-07-11
 sources:
   - ../validate/ref-func-declarations.md
   - ../wasm-compact-import-section-boundary.md
-  - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
-  - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
+  - ../binaryen/passes/remove-exports/index.md
+  - ../binaryen/passes/remove-imports/index.md
   - https://webassembly.github.io/spec/core/binary/modules.html
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
@@ -17,7 +16,7 @@ sources:
   - ../../../src/validate/env.mbt
   - ../../../src/validate_proof/func_index.mbt
   - ../../../src/wast/lower_to_lib.mbt
-  - ../../../src/binary/tests.mbt
+  - ../../../src/binary/tests_wbtest.mbt
   - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/fuzz/invalid_binary_wbtest.mbt
 related:
@@ -109,7 +108,7 @@ These helpers matter for diagnostics and pass writeback. A failure in defined bo
 | Decode exports/start/code | [`Decode for ExportSec`](../../../src/binary/decode.mbt#L2303-L2308), [`Decode for StartSec`](../../../src/binary/decode.mbt#L2311-L2319), and [`Decode for CodeSec`](../../../src/binary/decode.mbt#L1817-L1822) preserve the separate section surfaces. | `src/binary/decode.mbt` |
 | Encode sections | [`Encode for ImportSec`](../../../src/binary/encode.mbt#L1138-L1140), [`FuncSec`](../../../src/binary/encode.mbt#L1294-L1296), [`ExportSec`](../../../src/binary/encode.mbt#L1338-L1340), [`StartSec`](../../../src/binary/encode.mbt#L1353-L1357), and [`CodeSec`](../../../src/binary/encode.mbt#L1461-L1465) write section ids `2`, `3`, `7`, `8`, and `10`. | `src/binary/encode.mbt` |
 | Encode whole module | [`Encode for Module`](../../../src/binary/encode.mbt#L1638-L1724) emits the standard sections in canonical order, with import before function declarations and code after data-count/element handling. | `src/binary/encode.mbt` |
-| Round-trip fuzz | [`run_binary_roundtrip_fuzz`](../../../src/binary/tests.mbt#L446-L679) includes independent arbitrary round-trips for `ImportSec`, `FuncSec`, `ExportSec`, `StartSec`, and `CodeSec` among the section family. Focused invalid-binary export descriptor byte carriers live in [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt) and [`src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt). | `src/binary/tests.mbt`; `src/fuzz/invalid_binary.mbt`; `src/fuzz/invalid_binary_wbtest.mbt` |
+| Round-trip fuzz | [`run_binary_roundtrip_fuzz`](../../../src/binary/tests_wbtest.mbt#L446-L679) includes independent arbitrary round-trips for `ImportSec`, `FuncSec`, `ExportSec`, `StartSec`, and `CodeSec` among the section family. Focused invalid-binary export descriptor byte carriers live in [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt) and [`src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt). | `src/binary/tests_wbtest.mbt`; `src/fuzz/invalid_binary.mbt`; `src/fuzz/invalid_binary_wbtest.mbt` |
 
 Starshine does not preserve a source-level interleaving of imports, functions, exports, and start declarations after lowering. The core module preserves the semantic section surfaces and index targets. The binary-invalid lane locks the export descriptor decode surface with `invalid-export-kind-byte`, malformed export index ULEB carriers (`malformed-export-func-index-uleb`, `malformed-export-table-index-uleb`, `malformed-export-memory-index-uleb`, `malformed-export-global-index-uleb`, `malformed-export-tag-index-uleb`), and overwide export index ULEB carriers (`overwide-export-func-index-uleb`, `overwide-export-table-index-uleb`, `overwide-export-memory-index-uleb`, `overwide-export-global-index-uleb`, `overwide-export-tag-index-uleb`). Function and import/tag type-index decode coverage now includes both unterminated and overwide carriers: `malformed-function-section-type-index-uleb`, `overwide-function-section-type-index-uleb`, `malformed-import-func-type-index-uleb`, `overwide-import-func-type-index-uleb`, `malformed-import-tag-type-index-uleb`, and `overwide-import-tag-type-index-uleb`.
 
@@ -214,13 +213,13 @@ Existing pass dossiers that depend on this checklist include:
 
 - Current `ref.func` declaration boundary: [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md)
 - Compact Import Section proposal boundary: [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md)
-- Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
-- Binaryen `remove-exports` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
-- Current Binaryen behavior recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
-- Binaryen `remove-imports` source read: [`../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
+- Superseded historical `ref.func` / start refresh: [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md)
+- Binaryen `remove-exports` current-main recheck: [`../binaryen/passes/remove-exports/index.md`](../binaryen/passes/remove-exports/index.md)
+- Current Binaryen behavior recheck: [`../binaryen/passes/remove-exports/index.md`](../binaryen/passes/remove-exports/index.md)
+- Binaryen `remove-imports` source read: [`../binaryen/passes/remove-imports/index.md`](../binaryen/passes/remove-imports/index.md)
 - Official module/binary/validation/text rules: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [module validation](https://webassembly.github.io/spec/core/valid/modules.html), and [text modules](https://webassembly.github.io/spec/core/text/modules.html)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
-- Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
+- Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests_wbtest.mbt`](../../../src/binary/tests_wbtest.mbt)
 - Validation and proof helpers: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate_proof/func_index.mbt`](../../../src/validate_proof/func_index.mbt)
 - WAST lowering and authoring: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md)
 - Related docs: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../binaryen/passes/reorder-functions/index.md`](../binaryen/passes/reorder-functions/index.md), [`../binaryen/passes/remove-unused-module-elements/index.md`](../binaryen/passes/remove-unused-module-elements/index.md)

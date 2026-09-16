@@ -2,7 +2,7 @@
 kind: entity
 status: strong
 starshine_status: active
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-16
 sources:
   - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/DuplicateImportElimination.cpp
@@ -108,7 +108,7 @@ The pass implementation did not change during this renewal. Retained direct fixt
 - [`identity-and-rewrite-surface.md`](./identity-and-rewrite-surface.md): duplicate key and user-retargeting contract.
 - [`wat-shapes.md`](./wat-shapes.md): positive and negative module shapes.
 - [`starshine-strategy.md`](./starshine-strategy.md): local implementation, family verdicts, invariants, and reopening criteria.
-- [`fuzzing.md`](./fuzzing.md): current profiles and full v131 closeout evidence.
+- [`fuzzing.md`](./fuzzing.md): current profiles and historical v131 closeout evidence.
 
 ## Reopening criteria
 

@@ -5,7 +5,7 @@ last_reviewed: 2026-08-22
 sources:
   - https://webassembly.github.io/spec/core/valid/instructions.html#constant-expressions
   - https://webassembly.github.io/spec/core/valid/modules.html
-  - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
+  - ref-func-declarations.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/match.mbt
@@ -84,7 +84,7 @@ For binary/data layout details, pair this page with [`../binary/data-element-and
 
 ## Unified Core Allowlist And Local Proposal Additions
 
-The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. Its context-sensitive `global.get` rule is easy to misread: global initializers can refer to imported or previous globals, while table initializers may refer only to imported globals. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). Keep the official array-constructor allowance separate from Starshine's ordinary body support for `array.*` instructions; the local gate and focused tests below establish the current boundary.
+The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. Its context-sensitive `global.get` rule is easy to misread: global initializers can refer to imported or previous globals, while table initializers may refer only to imported globals. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`ref-func-declarations.md`](ref-func-declarations.md). Keep the official array-constructor allowance separate from Starshine's ordinary body support for `array.*` instructions; the local gate and focused tests below establish the current boundary.
 
 Starshine's [`validate_const_instr(...)`](../../../src/validate/validate.mbt) now mirrors the bounded Core numeric rule instead of maintaining numeric denylists per context. The shared allowlist contains:
 
@@ -188,7 +188,7 @@ When changing constant-expression behavior:
 - Official constant-expression validation: <https://webassembly.github.io/spec/core/valid/instructions.html#constant-expressions>
 - Official module validation: <https://webassembly.github.io/spec/core/valid/modules.html>
 - Aggregate-instruction companion: [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
-- Current `ref.func` / start `refs` refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
+- Current `ref.func` / start `refs` refresh: [`ref-func-declarations.md`](ref-func-declarations.md)
 - Validator implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Generator and invalid-fuzzer evidence: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt)
 - Related validator pages: [`module-validation-phases.md`](module-validation-phases.md), [`ref-func-declarations.md`](ref-func-declarations.md), [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
+  - index.md
   - ./index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/const-hoisting.wast
@@ -188,7 +188,7 @@ This is one of those passes where “roughly similar behavior” is easy to get 
 
 ## Sources
 
-- [`../../../raw/wasm/2026-06-04-leb128-current-refresh.md`](../../../raw/wasm/2026-06-04-leb128-current-refresh.md)
+- [`index.md`](index.md)
 - [research note 0508](./index.md)
 - [research note 0182](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
+  - index.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -18,7 +18,7 @@ related:
 
 # `signext-lowering` WAT shapes
 
-This page lists the concrete shapes transformed by Binaryen `signext-lowering` on its **enabled `SignExt` feature path** and the nearby shapes it deliberately does not own. If Binaryen's module feature set does not include `SignExt`, the pass returns without rewriting; see [`../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md).
+This page lists the concrete shapes transformed by Binaryen `signext-lowering` on its **enabled `SignExt` feature path** and the nearby shapes it deliberately does not own. If Binaryen's module feature set does not include `SignExt`, the pass returns without rewriting; see [`index.md`](index.md).
 
 ## Shape family 1: `i32.extend8_s`
 

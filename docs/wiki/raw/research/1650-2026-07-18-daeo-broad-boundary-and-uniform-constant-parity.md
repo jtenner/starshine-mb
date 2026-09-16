@@ -5,7 +5,7 @@ last_reviewed: 2026-07-19
 superseded_by:
   - ./1651-2026-07-19-daeo-block-fallthrough-validation-and-local-cleanup.md
 sources:
-  - ../binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../binaryen/passes/dae-optimizing/index.md
   - ../../binaryen/passes/dae-optimizing/binaryen-strategy.md
   - ../../binaryen/passes/dae-optimizing/signature-updates-and-nested-reruns.md
   - ../../../../src/passes/dead_argument_elimination.mbt
@@ -15,7 +15,7 @@ sources:
   - ../../../../src/passes/precompute.mbt
   - ../../../../src/passes/precompute_test.mbt
   - ../../../../src/validate/gen_valid.mbt
-  - ../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../src/fuzz/main_wbtest.mbt
   - ./1645-2026-07-17-daeo-final-direct-closeout-matrix.md
   - ./1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md

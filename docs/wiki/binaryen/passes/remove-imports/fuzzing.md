@@ -6,7 +6,7 @@ sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveImports.cpp
-  - ../../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
+  - index.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
 related:

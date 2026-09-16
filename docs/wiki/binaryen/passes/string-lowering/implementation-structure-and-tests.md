@@ -5,7 +5,7 @@ last_reviewed: 2026-07-18
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/string-lowering_types.wast
-  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
+  - index.md
   - ./index.md
 related:
   - ./index.md
@@ -187,7 +187,7 @@ So the working conclusion is:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md)
+- [`index.md`](index.md)
 - [research note 0284](./index.md)
 - [research note 0215](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>

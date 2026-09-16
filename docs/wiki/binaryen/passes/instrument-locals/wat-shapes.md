@@ -20,7 +20,7 @@ related:
 
 This page is a beginner-friendly catalog of the main IR shapes Binaryen rewrites.
 The examples are schematic: they show the contract, not verbatim full lit output.
-The current-primary-source manifest for this shape catalog is [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md); [research note 0287](./index.md) remains the tagged-release anchor.
+The current-primary-source manifest for this shape catalog is [`index.md`](index.md); [research note 0287](./index.md) remains the tagged-release anchor.
 
 ## 1. `local.get i32` -> wrapped `get_i32` call
 

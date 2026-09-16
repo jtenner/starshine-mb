@@ -14,7 +14,7 @@ sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
-  - ../../../../../src/binary/tests.mbt
+  - ../../../../../src/binary/tests_wbtest.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../strings/string-const-surface.md
   - ../../no-dwarf-default-optimize-path.md
@@ -107,7 +107,7 @@ The old registry-bookkeeping gap is closed for direct pass execution.
   - `with_binary_decode_stringrefs_context(...)` and `decode_string_const_literal(...)`
 - [`src/binary/decode.mbt#L3078-L3082`](../../../../../src/binary/decode.mbt#L3078-L3082)
   - binary opcode decode back to `Instruction::string_const(literal)`
-- [`src/binary/tests.mbt#L1817-L1854`](../../../../../src/binary/tests.mbt#L1817-L1854)
+- [`src/binary/tests_wbtest.mbt#L1817-L1854`](../../../../../src/binary/tests_wbtest.mbt#L1817-L1854)
   - `module roundtrip preserves string.const literals and stringrefs section`
 - [`src/wast/lower_to_lib.mbt#L2389`](../../../../../src/wast/lower_to_lib.mbt#L2389)
   - WAT string literal lowering to `Instruction::string_const(bytes)`
@@ -149,7 +149,7 @@ The repo already has focused tests proving that string literals survive the curr
 
 - [`src/wast/lower_to_lib.mbt#L7238-L7262`](../../../../../src/wast/lower_to_lib.mbt#L7238-L7262)
   - WAST lowering keeps `string.const` literals intact
-- [`src/binary/tests.mbt#L1817-L1854`](../../../../../src/binary/tests.mbt#L1817-L1854)
+- [`src/binary/tests_wbtest.mbt#L1817-L1854`](../../../../../src/binary/tests_wbtest.mbt#L1817-L1854)
   - binary encode/decode roundtrip preserves `string.const` literals and Starshine's local `stringrefs` section
 
 Those tests matter for a future pass because Binaryen `string-gathering` deduplicates by literal payload.
@@ -206,7 +206,7 @@ See [`../../../strings/string-const-surface.md`](../../../strings/string-const-s
 
 - [`src/binary/encode.mbt#L72-L103`](../../../../../src/binary/encode.mbt#L72-L103), [`#L1578-L1645`](../../../../../src/binary/encode.mbt#L1578-L1645)
 - [`src/binary/decode.mbt#L148-L171`](../../../../../src/binary/decode.mbt#L148-L171), [`#L3078-L3082`](../../../../../src/binary/decode.mbt#L3078-L3082)
-- [`src/binary/tests.mbt#L1817-L1854`](../../../../../src/binary/tests.mbt#L1817-L1854)
+- [`src/binary/tests_wbtest.mbt#L1817-L1854`](../../../../../src/binary/tests_wbtest.mbt#L1817-L1854)
 - [`src/wast/lower_to_lib.mbt#L2389`](../../../../../src/wast/lower_to_lib.mbt#L2389), [`#L7238-L7262`](../../../../../src/wast/lower_to_lib.mbt#L7238-L7262)
 - [`src/ir/hot_builders.mbt#L285-L293`](../../../../../src/ir/hot_builders.mbt#L285-L293), [`src/ir/hot_lift.mbt#L1291-L1294`](../../../../../src/ir/hot_lift.mbt#L1291-L1294), and [`src/ir/hot_lower.mbt#L196-L197`](../../../../../src/ir/hot_lower.mbt#L196-L197)
 

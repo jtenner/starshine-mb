@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
+  - index.md
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -35,7 +35,7 @@ related:
 
 # Starshine Strategy For `signature-refining`
 
-Use this page together with the current source correction in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), the typed-function-reference boundary in [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md), the retained 2026-05-05 research recheck [research note 0451](./index.md), the 2026-04-26 readiness source inventory, and the retained 2026-04-24 research inventory in [research note 0307](./index.md).
+Use this page together with the current source correction in [`index.md`](index.md), the typed-function-reference boundary in [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md), the retained 2026-05-05 research recheck [research note 0451](./index.md), the 2026-04-26 readiness source inventory, and the retained 2026-04-24 research inventory in [research note 0307](./index.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 For implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That bridge spells out the safe no-rewrite analyzer, first direct-call param-refinement slice, later result/`call_ref`/`call.without.effects` slices, and validation ladder.
@@ -263,7 +263,7 @@ Keep the scheduler relationship explicit instead of folding the passes together.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
+- [`index.md`](index.md)
 - [research note 0451](./index.md)
 - [research note 0307](./index.md)
 - [research note 0152](./index.md)

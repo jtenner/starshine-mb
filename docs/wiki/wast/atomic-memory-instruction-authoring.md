@@ -8,14 +8,12 @@ sources:
   - ../wasm-linear-memory-threads-boundary.md
   - ../wasm-relaxed-atomics-boundary.md
   - https://github.com/WebAssembly/proposals
-  - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
-  - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
-  - ../../../src/binary/tests.mbt
+  - ../../../src/binary/tests_wbtest.mbt
   - ../../../src/validate/typecheck.mbt
-  - ../../../src/validate/typecheck_negative_tests.mbt
+  - ../../../src/validate/typecheck_negative_wbtest.mbt
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/ir/hot_lift.mbt
