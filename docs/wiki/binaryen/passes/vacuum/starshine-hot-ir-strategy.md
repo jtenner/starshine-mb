@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-01
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - index.md
   - ./index.md
   - ../late-pipeline-dispatch.md
@@ -66,7 +65,7 @@ The rewrite logic is currently centered on these HOT helpers in `src/passes/pass
 - `hot_pass_vacuum_remove_empty_if(...)`, which removes an empty void `if` after recursively cleaning its arms, discards a removable pure condition, and otherwise preserves condition evaluation in Binaryen's `drop(condition)` shape
 - `hot_pass_remove_region_nops(ctx, func, region_ref)`, which handles the ordinary recursive region cleanup
 
-Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) found that the former tee-admission query recursively revisited shared HOT expression children and became exponential on current-artifact Func `151`. The 2026-07-21 parity slice removed that tee-presence requirement and moved the node-state memoization to the complete local-only removability proof. Each HOT DAG node is now classified at most once as visiting, removable, or rejected while the proof traverses ordinary children and structured regions.
+The absorbed 1649 evidence found that the former tee-admission query recursively revisited shared HOT expression children and became exponential on current-artifact Func `151`. The 2026-07-21 parity slice removed that tee-presence requirement and moved the node-state memoization to the complete local-only removability proof. Each HOT DAG node is now classified at most once as visiting, removable, or rejected while the proof traverses ordinary children and structured regions.
 
 The recursive region helper walks a region root list and now handles these cleanup families:
 

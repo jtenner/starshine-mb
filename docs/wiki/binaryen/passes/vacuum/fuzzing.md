@@ -3,7 +3,6 @@ kind: workflow
 status: supported
 last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---
@@ -119,7 +118,7 @@ Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pas
 
 The recorded Binaryen-v131 direct behavior is closed for the represented `vacuum` surface. The 2026-07-21 `[VACUUM-PARITY]002` matrix first closed three selected families and identified three broad size-losing families. Recovered slice `[VACUUM-PARITY]003` then closed fresh-GC `struct.get` / `ref.eq` / `ref.test` observation debris, unshared-or-immutable-shared `struct.atomic.get*` from concrete nonnull receivers, and loop-local `drop(local.get)` inside branchy structured control. Nullable reads, shared mutable atomic synchronization, trapping arithmetic, observed allocations, and self/back branches remain protected. The recorded required matrix leaves only measured six-byte Starshine wins: symmetric side-effect-free `if` removals in random-all, and the established loop-carried constant/local-shape win in wasm-smith case `3694`. Ordered O4z placement remains separate under `[O4Z-PRESET]001`.
 
-The earlier v0.1.0 audit remains useful historical evidence: regular GenValid was green at `100000/100000`, explicit wasm-smith had one inspected Starshine-win residual plus `44` Binaryen/tool failures, the dedicated aggregate leaves were green, and the then-current broad random-all-profiles lane was green at `10000/10000`. Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) separately records the shared-DAG performance repair and proves that repair did not create its observed mismatch corpus.
+The earlier v0.1.0 audit remains useful historical evidence: regular GenValid was green at `100000/100000`, explicit wasm-smith had one inspected Starshine-win residual plus `44` Binaryen/tool failures, the dedicated aggregate leaves were green, and the then-current broad random-all-profiles lane was green at `10000/10000`. The absorbed 1649 evidence separately records the shared-DAG performance repair and proves that repair did not create its observed mismatch corpus.
 
 Historical v131 reference command:
 
@@ -148,7 +147,7 @@ Latest recorded direct parity evidence (v131):
 
 Latest current-artifact performance evidence:
 
-- 2026-07-18: the explicit native binary SHA-256 `9ec46fa0dc46b209478d71e2357ffeddbee180b05b1dcc8d92d2572a5f42c8c6` completes extracted Func `151` in `0.674s` and the full current artifact in `4.092s`; both outputs validate, the extracted output is byte-identical to the pre-fix output, and all `115` current bounded-compare mismatch inputs are byte-identical under pre-change and final Starshine binaries. See note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md).
+- 2026-07-18: the explicit native binary SHA-256 `9ec46fa0dc46b209478d71e2357ffeddbee180b05b1dcc8d92d2572a5f42c8c6` completes extracted Func `151` in `0.674s` and the full current artifact in `4.092s`; both outputs validate, the extracted output is byte-identical to the pre-fix output, and all `115` current bounded-compare mismatch inputs are byte-identical under pre-change and final Starshine binaries. This is the absorbed 1649 performance record.
 
 Latest historical direct closeout evidence:
 

@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - binaryen-strategy.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -120,7 +119,7 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - dropped `struct.atomic.get*` from concrete nonnull receivers when the declared struct is unshared, or shared with an immutable field; nullable receivers and shared mutable fields remain
   - loop-local `drop(local.get)` cleanup inside branchy structured functions without removing the loop or its self/back branch
   - Binaryen-style single-`nop` function-body canonicalization when `vacuum` rewrites or re-lowers an otherwise empty function body
-- Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) closed a newly proven current-artifact wall-time owner. The 2026-07-21 parity slice moved that memoization to the complete local-only-body proof, so removing the old tee-presence gate does not reintroduce exponential traversal on shared HOT DAGs.
+- The absorbed 1649 evidence closed a newly proven current-artifact wall-time owner. The 2026-07-21 parity slice moved that memoization to the complete local-only-body proof, so removing the old tee-presence gate does not reintroduce exponential traversal on shared HOT DAGs.
 - A fresh 2026-04-20 source check corrected an earlier repo-local note:
   - the 2026-02-27 explicit-`unreachable` preservation change belongs to Chromium commit `f284d54...`, not `9ee4a25...`
   - that change is already present in Binaryen `version_129`
