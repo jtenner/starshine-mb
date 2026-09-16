@@ -1010,3 +1010,17 @@ exact producer/call/drop sequences in 110 multivalue tests and direct instructio
 checks for descriptor, allocation, assignment, and unreachable-select cases.
 All 1,482 selected OI checks pass. Both DAE touched-body checks pass unchanged
 after the selection repair. The user subsequently authorized fuzz renewal.
+
+### September 16 current-source renewal
+
+The [final-source renewal](../../../ir2/architecture-rules.md#september-16-final-source-fuzz-renewal)
+supersedes pending aggregate-renewal notes above. Fresh native binaries and
+verified Binaryen 132 complete the following comparison checks:
+
+- `optimize-instructions`: 10,000 compared; 8,920 normalized and 0 cleanup-normalized matches; 1,080 residuals; 2,744 raw-larger and zero canonical-larger outputs.
+
+There are zero output-validation or command failures. The full default suite
+passes 12,030 tests. Runtime properties were off; retained raw losses remain
+parity gaps and existing semantic classifications are not broadened by size
+alone. Commands, binary hashes, family counts and exclusions are in the linked
+renewal record.

@@ -129,3 +129,17 @@ recursive hierarchies while retaining stronger scalarization. Two red-first
 pass cases and all 72 heap2local tests pass, including direct byte reduction.
 [Proof and scope](../../../ir2/architecture-rules.md#heap2local-retained-type-overhead-repair).
 Final native aggregate renewal remains pending.
+
+### September 16 current-source renewal
+
+The [final-source renewal](../../../ir2/architecture-rules.md#september-16-final-source-fuzz-renewal)
+supersedes pending aggregate-renewal notes above. Fresh native binaries and
+verified Binaryen 132 complete the following comparison checks:
+
+- `heap2local`: 10,000 compared; 2,474 normalized and 0 cleanup-normalized matches; 7,526 residuals; 0 raw-larger and zero canonical-larger outputs.
+
+There are zero output-validation or command failures. The full default suite
+passes 12,030 tests. Runtime properties were off; retained raw losses remain
+parity gaps and existing semantic classifications are not broadened by size
+alone. Commands, binary hashes, family counts and exclusions are in the linked
+renewal record.

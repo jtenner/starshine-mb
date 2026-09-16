@@ -181,3 +181,18 @@ fixture preserves all three imported producer calls, their order and the sink
 call while requiring removal of the unnecessary block. All 63 DAE2 pass tests
 pass, including EH, indirect-call identity and argument-effect regressions.
 Final fuzz renewal is explicitly deferred at the user's request.
+
+### September 16 current-source renewal
+
+The [final-source renewal](../../../ir2/architecture-rules.md#september-16-final-source-fuzz-renewal)
+supersedes pending aggregate-renewal notes above. Fresh native binaries and
+verified Binaryen 132 complete the following comparison checks:
+
+- `dae2`: 10,000 compared; 2,879 normalized and 667 cleanup-normalized matches; 6,454 residuals; 567 raw-larger and zero canonical-larger outputs.
+- `dae2-optimizing`: 10,000 compared; 2,233 normalized and 0 cleanup-normalized matches; 7,767 residuals; 624 raw-larger and zero canonical-larger outputs.
+
+There are zero output-validation or command failures. The full default suite
+passes 12,030 tests. Runtime properties were off; retained raw losses remain
+parity gaps and existing semantic classifications are not broadened by size
+alone. Commands, binary hashes, family counts and exclusions are in the linked
+renewal record.

@@ -148,3 +148,20 @@ The [complete input-hash and canonical-tree review](../../../ir2/architecture-ru
 closes the saved fixed-family nop/tee-drop differences as measured size wins.
 The atomic validator boundary remains separate. Shared type-cleanup guard
 changes require a fresh aggregate renewal before final signoff.
+
+### September 16 current-source renewal
+
+The [final-source renewal](../../../ir2/architecture-rules.md#september-16-final-source-fuzz-renewal)
+supersedes pending aggregate-renewal notes above. Fresh native binaries and
+verified Binaryen 132 complete the following comparison checks:
+
+- `precompute`: 10,510 compared; 3,064 normalized and 0 cleanup-normalized matches; 7,446 residuals; 0 raw-larger and zero canonical-larger outputs.
+- `precompute-propagate`: 10,510 compared; 2,557 normalized and 0 cleanup-normalized matches; 7,953 residuals; 0 raw-larger and zero canonical-larger outputs.
+
+There are zero output-validation or command failures. The full default suite
+passes 12,030 tests. Runtime properties were off; retained raw losses remain
+parity gaps and existing semantic classifications are not broadened by size
+alone. Commands, binary hashes, family counts and exclusions are in the linked
+renewal record.
+
+Each variant excludes 490 copies of the known atomic-ordering-2 input at the independent-validator gate; all 10,510 remaining inputs are compared.

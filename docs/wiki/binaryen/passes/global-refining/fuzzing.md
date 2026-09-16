@@ -90,3 +90,18 @@ function offsets. The command dispatcher covers the named case. Grouping
 intentionally skips opaque, undecoded name payloads rather than corrupting their
 indices. The common grouping helper now carries its permutation to the existing
 name rewriter. Full-suite verification follows the remaining parity repairs.
+
+### September 16 current-source renewal
+
+The [final-source renewal](../../../ir2/architecture-rules.md#september-16-final-source-fuzz-renewal)
+supersedes pending aggregate-renewal notes above. Fresh native binaries and
+verified Binaryen 132 complete the following comparison checks:
+
+- `global-refining-ordinary`: 10,000 compared; 2,967 normalized and 0 cleanup-normalized matches; 7,033 residuals; 0 raw-larger and zero canonical-larger outputs.
+- `global-refining-dedicated`: 10,000 compared; 2,500 normalized and 0 cleanup-normalized matches; 7,500 residuals; 0 raw-larger and zero canonical-larger outputs.
+
+There are zero output-validation or command failures. The full default suite
+passes 12,030 tests. Runtime properties were off; retained raw losses remain
+parity gaps and existing semantic classifications are not broadened by size
+alone. Commands, binary hashes, family counts and exclusions are in the linked
+renewal record.

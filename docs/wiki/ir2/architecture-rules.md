@@ -3478,3 +3478,123 @@ a removed type slot; its replacement checks actual shared signature identity
 and the preserved i32 result. The second full run passes completely. Logs:
 `saved-cases-info.log`, `saved-cases-final-fmt.log`, and
 `saved-cases-final-test.log` under `.tmp/pass-audit-20260915/`.
+
+#### Four bounded OI residual repairs
+
+The next four ordinary OI cleanup families are repaired in individual commits:
+
+- `d58198019`: saved local-facts case 20 and ref-GC case 5 lose redundant
+  parameter-free branchless result blocks. A preorder label map preserves
+  surviving names across imports and untouched functions, clearing cached
+  encoded names after remapping.
+- `a23a88dd8`: saved ref-GC case 2 loses its dead root-`unreachable` suffix.
+  Prefix effects remain ordered; conditional unreachable preserves fallthrough.
+- `9fc60f61b`: saved table-get/call-ref case 108 loses a redundant declarative
+  element segment. Coverage comes from retained module declaration sources;
+  duplicate-only declarations keep their first necessary segment. Active and
+  passive segments stay unchanged, element names are remapped, and indexed
+  element operations skip this bounded cleanup.
+- `0870617f0`: saved call-ref case 7 interns duplicate simple signatures through
+  the existing complete guarded remapper. Imported indirect-call contracts
+  remain valid, and only validated encoded-byte reductions are accepted.
+
+All 17 focused pass/dispatcher checks pass. Before implementation, 11 of the
+13 pass checks and all four dispatcher checks failed; the two existing boundary
+controls already passed. The shared post-writeback finalizer keeps all four
+repairs after repair paths that can restore original functions.
+
+Sources: [control cleanup](../../../src/passes/optimize_instructions_control_cleanup.mbt),
+[element cleanup](../../../src/passes/optimize_instructions_element_cleanup.mbt),
+[finalizer](../../../src/passes/optimize_instructions_cleanup.mbt),
+[block tests](../../../src/passes/oi_residual_blocks_wbtest.mbt),
+[suffix tests](../../../src/passes/oi_residual_unreachable_wbtest.mbt),
+[element tests](../../../src/passes/oi_residual_elements_wbtest.mbt), and
+[signature tests](../../../src/passes/oi_residual_signatures_wbtest.mbt).
+
+Full verification exposed two touched-function regressions: cleanup reached
+untouched DAE bodies, affecting both block structure and dead-tail result
+liveness. `d522b328f` threads the selection through final body cleanup; both
+existing DAE tests pass unchanged. Another 116 checks expected removed wrappers
+or dead suffixes; `bbcbbe5b6` replaces those expectations with exact instruction
+sequences, including all 110 multivalue call/drop order checks. The complete
+1,482-test OI selection passes with no tests removed or skipped. The final
+default suite passes **12,030/12,030**, and info/fmt pass without public API
+changes (`oi-residual-final-*.log` under `.tmp/pass-audit-20260915/`).
+
+The user subsequently authorized final-source native rebuilds and fuzz renewal.
+Historical size deltas and mismatch counts remain unchanged until that run is
+recorded. Descriptor/exact-null and continuation graph remapping remain open;
+the known nonterminating SSA and Node resume-throw fixtures were not executed.
+
+#### September 16 final-source fuzz renewal
+
+The user resumed fuzzing after the four OI repairs and the touched-function
+follow-up. Source `bbcbbe5b6` passes **12,030/12,030** default tests and info/fmt
+without public API changes. Both native release binaries were rebuilt serially
+before comparison. This supersedes the pending/deferred renewal notes above.
+
+- Starshine command SHA-256: `7b03cae3e71c9b8f39e62d46a510b3a591b70c6e4b6a5aaf641cd83f4baa7339`.
+- GenValid SHA-256: `1426f1a0e51ce401ff06f9b64129d3516d0e262771ee06c98954f47fc3a9ef9d`.
+- Verified Binaryen **132** SHA-256: `1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
+
+All nine lanes complete their minimum 10,000 comparisons using seed `0x5eed`,
+eight workers/subprocesses, explicit current native binaries, the documented
+aggregate profiles, and at most 20 mismatch artifacts per lane. Both DAE2 lanes
+include dropped-constant and unreachable/control-debris normalization. No
+external generator or runtime property lane was enabled.
+
+| Lane | Compared | Normalized | Cleanup normalized | Residual | Raw larger | Canonical larger | Excluded inputs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| optimize-instructions | 10,000 | 8,920 | 0 | 1,080 | 2,744 | 0 | 0 |
+| dae2 | 10,000 | 2,879 | 667 | 6,454 | 567 | 0 | 0 |
+| dae2-optimizing | 10,000 | 2,233 | 0 | 7,767 | 624 | 0 | 0 |
+| local-subtyping | 10,000 | 3,170 | 0 | 6,830 | 765 | 0 | 0 |
+| heap2local | 10,000 | 2,474 | 0 | 7,526 | 0 | 0 | 0 |
+| global-refining-ordinary | 10,000 | 2,967 | 0 | 7,033 | 0 | 0 | 0 |
+| global-refining-dedicated | 10,000 | 2,500 | 0 | 7,500 | 0 | 0 | 0 |
+| precompute | 10,510 | 3,064 | 0 | 7,446 | 0 | 0 | 490 |
+| precompute-propagate | 10,510 | 2,557 | 0 | 7,953 | 0 | 0 | 490 |
+
+Total: **91,020 compared / 92,000 requested**, with zero output-validation or
+command failures and zero larger canonical outputs. Aggregate raw/canonical
+byte deltas are **−400,695 / −486,199**. The 980 generator-failure records are
+490 per precompute variant, all the same 70-byte input
+`4cb77b16171b81ee2b3adbf18bb8cb989ce4e86a8c8c8357ecb61d144f995683`, rejected
+by the independent validator for atomic consistency ordering 2. They retain the
+previously documented input-validator limitation; they are not optimizer-output
+failures. This run does not renew runtime equivalence or exercise the known
+nonterminating SSA and Node resume-throw fixtures.
+
+The five saved OI fixtures have identical input hashes to the earlier campaign
+and now match v132 in both raw and canonical size:
+
+| Saved case | Earlier Starshine raw | Current Starshine raw | v132 raw |
+| --- | ---: | ---: | ---: |
+| 2 | 68 | 48 | 48 |
+| 5 | 46 | 43 | 43 |
+| 7 | 56 | 49 | 49 |
+| 20 | 77 | 71 | 71 |
+| 108 | 75 | 71 | 71 |
+
+**Agent judgment:** the remaining **4,700 raw-larger observations across 27
+profile families remain size-losing parity gaps**, even though their canonical
+outputs are equal or smaller. OI retains 2,744 cases across GC-aggregate,
+call-reference, and descriptor profiles; DAE2 retains 567 continuation cases,
+optimizing DAE2 retains 624 continuation cases, and local-subtyping retains
+765 `control-refinalize` cases. Raw losses were previously 4,233 / 3,268 /
+2,861 / 4,696 respectively. Dedicated global-refining's prior 7,500 raw losses
+are absent in this run. These reductions close sampled encoding families only.
+
+The other residuals retain their existing source/runtime judgments in the
+[difference inventory](#september-15-complete-difference-inventory-and-regression-handoff)
+and pass dossiers; smaller output or successful validation alone is not new
+semantic evidence. Broader unsampled shapes, downstream behavior, proposal
+remapping, raw compact-import policy, and runtime capability gaps remain open.
+
+Evidence is preserved under `.tmp/pass-audit-20260915/`: `parity-renewal-2-fuzz/`
+contains per-lane commands, toolchains, cases and retained diffs;
+`parity-renewal-2-summary.json` records all 98 residual/status groups;
+`parity-renewal-2-input-exclusions.json` records the input hash/error audit;
+`oi-residual-saved-case-renewal.json` records the five unchanged input hashes
+and sizes; `parity-renewal-2-binaries.json` and `parity-renewal-2-source.json`
+record executable and source identities. Earlier campaign results are intact.
