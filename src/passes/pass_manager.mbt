@@ -17626,19 +17626,19 @@ fn run_hot_pipeline_raw_numeric_local_type(ty : @lib.ValType) -> Bool {
 fn run_hot_pipeline_raw_group_body_locals_by_type_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
-) -> (@lib.Func, Bool) {
+) -> (@lib.Func, Array[Int]?) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if locals.length() <= 1 {
-    return (func, false)
+    return (func, None)
   }
   for param in params {
     if !run_hot_pipeline_raw_numeric_local_type(param) {
-      return (func, false)
+      return (func, None)
     }
   }
   for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
     if !run_hot_pipeline_raw_numeric_local_type(locals.get(local_idx)) {
-      return (func, false)
+      return (func, None)
     }
   }
   let buckets : Array[@lib.ValType] = []
@@ -17649,7 +17649,7 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
     }
   }
   if buckets.length() <= 1 {
-    return (func, false)
+    return (func, None)
   }
   let param_count = params.length()
   let total_local_count = param_count + locals.length()
@@ -17674,7 +17674,7 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
     }
   }
   if !changed {
-    return (func, false)
+    return (func, None)
   }
   (
     @lib.Func::new(
@@ -17683,7 +17683,7 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
         run_hot_pipeline_raw_compact_rewrite_local_refs(instrs, local_remap),
       ),
     ),
-    true,
+    Some(local_remap),
   )
 }
 
@@ -17691,28 +17691,38 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
 fn run_hot_pipeline_raw_group_body_locals_by_type_module(
   mod_ : @lib.Module,
 ) -> @lib.Module {
+  // Opaque name bytes cannot be safely permuted without decoding them.
+  if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
+    return mod_
+  }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
       let module_ctx = @ir.hot_module_context_from_module(mod_)
       let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let remaps : Array[Array[Int]?] = []
       let mut changed = false
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
         let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
-        let (grouped, func_changed) = run_hot_pipeline_raw_group_body_locals_by_type_func(
+        let (grouped, remap) = run_hot_pipeline_raw_group_body_locals_by_type_func(
           funcs[code_idx],
           params,
         )
         next_funcs.push(grouped)
-        if func_changed {
+        remaps.push(remap)
+        if remap is Some(_) {
           changed = true
         }
       }
       if changed {
-        mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+        let candidate = mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+        match rl_rewrite_name_sec(mod_.name_sec, imported_func_count, remaps) {
+          Some(names) => candidate.with_name_sec(names)
+          None => candidate
+        }
       } else {
         mod_
       }

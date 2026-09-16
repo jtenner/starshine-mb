@@ -80,3 +80,13 @@ require dead sibling removal, retain types referenced only by these instructions
 and check operand remapping plus independent validation. The command dispatcher
 also has a failing-before-fix sibling regression. Final aggregate renewal remains
 pending; canonical equality alone did not close these raw losses.
+
+### Grouped-local debug-name repair
+
+Follow-up source review found that numeric-local grouping rewrote instructions
+but left local names at old indices. Two red-first regressions now require the
+same local permutation for names, preserving parameter indices and imported
+function offsets. The command dispatcher covers the named case. Grouping
+intentionally skips opaque, undecoded name payloads rather than corrupting their
+indices. The common grouping helper now carries its permutation to the existing
+name rewriter. Full-suite verification follows the remaining parity repairs.
