@@ -942,3 +942,13 @@ raw/canonical/downstream sizes 160/173/70 versus v132's 209/226/70; downstream
 bytes are identical and sampled return values match. This supersedes that
 case's +4-byte downstream loss. Two red-first pass/command regressions and
 1,466 existing OI tests pass; full-suite and aggregate renewal remain pending.
+
+### Post-writeback unused type-group repair
+
+OI now invokes bounded whole-group pruning only after writeback repair, so
+restored original functions cannot inherit remapped type indices prematurely.
+The ordinary, nondeferred, stacked and touched-function routes share the
+finalizer. Five red-first pass tests require unused struct/array removal and
+correct surviving array indices; the command regression covers both aggregate
+shapes. Live recursion groups and unsupported proposal guards are preserved.
+Final fuzz renewal is deferred at the user's request.

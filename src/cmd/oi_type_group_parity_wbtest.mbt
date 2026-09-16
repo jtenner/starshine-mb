@@ -3,9 +3,24 @@ test "optimize-instructions command type group parity removes unused aggregate d
   for
     wat in [
       "(module (type (struct (field i32))) (type (array (mut i32))) (func (export \"run\") (result (ref 0)) i32.const 1 struct.new 0))",
-      "(module (type (struct (field i32))) (type (array (mut i32))) (func (export \"run\") (result (ref 1)) i32.const 1 array.new_fixed 1 1))",
+      "(module (type (struct (field i32))) (type (array (mut i32))) (func (export \"run\") (result (ref 1)) unreachable))",
     ] {
     let input = @passes.pass_test_module_from_wat(wat)
+    let input = if wat.contains("unreachable") {
+      input.with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(
+            @lib.Locals::new([]),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(1),
+              @lib.Instruction::array_new_fixed(@lib.TypeIdx::new(1U), 1U),
+            ]),
+          ),
+        ]),
+      )
+    } else {
+      input
+    }
     let output = optimize_module_with_pass_flags(
       input,
       ["optimize-instructions"],

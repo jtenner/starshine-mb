@@ -80623,7 +80623,7 @@ fn run_hot_pipeline_apply_hot_pass(
           "guard:optimize-instructions-writeback-batch",
           batch_guard_start_us,
         )
-        return Ok(repaired_mod)
+        return Ok(oi_cleanup_module_encoding(repaired_mod))
       }
       None => {
         perf_stop_timer_opt(
@@ -80818,6 +80818,8 @@ fn run_hot_pipeline_apply_hot_pass(
     } else if descriptor.name == "precompute" ||
       descriptor.name == "precompute-propagate" {
       precompute_cleanup_unused_gc_types(mod_, next_mod)
+    } else if descriptor.name == "optimize-instructions" {
+      oi_cleanup_module_encoding(next_mod)
     } else {
       next_mod
     },
@@ -81023,9 +81025,14 @@ fn run_hot_pipeline_apply_hot_pass_stack(
       run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
     None => current_mod
   }
+  let output = if descriptors.any(fn(d) { d.name == "vacuum" }) {
+    vacuum_remove_unused_declarations(output)
+  } else {
+    output
+  }
   Ok(
-    if descriptors.any(fn(d) { d.name == "vacuum" }) {
-      vacuum_remove_unused_declarations(output)
+    if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
+      oi_cleanup_module_encoding(output)
     } else {
       output
     },
@@ -81269,13 +81276,26 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
     None => current_mod
   }
   if next_code_sec is None {
-    return Ok(candidate)
+    return Ok(
+      if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
+        oi_cleanup_module_encoding(candidate)
+      } else {
+        candidate
+      },
+    )
   }
   match
     run_hot_pipeline_repair_touched_batch_writeback(
       mod_, candidate, touched, "filtered-hot-stack", options,
     ) {
-    Some(repaired) => Ok(repaired)
+    Some(repaired) =>
+      Ok(
+        if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
+          oi_cleanup_module_encoding(repaired)
+        } else {
+          repaired
+        },
+      )
     None => {
       pipeline_trace_hook(
         options.trace,
@@ -81556,6 +81576,8 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
     return Ok(
       if descriptor.name == "heap2local" {
         heap2local_cleanup_module_types(candidate)
+      } else if descriptor.name == "optimize-instructions" {
+        oi_cleanup_module_encoding(candidate)
       } else {
         candidate
       },
@@ -81573,6 +81595,8 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
       Ok(
         if descriptor.name == "heap2local" {
           heap2local_cleanup_module_types(repaired)
+        } else if descriptor.name == "optimize-instructions" {
+          oi_cleanup_module_encoding(repaired)
         } else {
           repaired
         },
