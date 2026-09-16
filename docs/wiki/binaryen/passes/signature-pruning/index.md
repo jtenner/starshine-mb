@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignaturePruning.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/SignaturePruning.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/signature-pruning.wast
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../tracker.md
@@ -30,7 +31,7 @@ related:
 
 - `signature-pruning` is an upstream Binaryen **module pass**.
 - It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- In Binaryen `version_129`, the public pass summary in `pass.cpp` is:
+- In Binaryen `version_132`, the public pass summary in `pass.cpp` is:
   - `remove params from function signature types where possible`
 
 That summary is true, but too small.
@@ -63,7 +64,7 @@ It is **heap-type-level dead-argument elimination for nominal function signature
 
 ## Most important durable takeaways
 
-- The dossier is anchored to the retained 2026-04-24 source follow-up in research note 0304, the 2026-07-11 review of the official [`version_130`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SignaturePruning.cpp) and [`current-main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignaturePruning.cpp) owner surfaces, the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md), and the implementation-readiness ladder in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+- The dossier is anchored to the verified Binaryen `version_132` owner and fixture, while retaining the v129–v131 source reviews as historical provenance; the Starshine status bridge is in [`./starshine-strategy.md`](./starshine-strategy.md), and the implementation-readiness ladder is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - `signature-pruning` is **not** part of the repo's main open-world no-DWARF `-O` / `-Os` path.
 - The default scheduler places it only in the **closed-world GC/type cluster** after `type-refining` and before `signature-refining` / `global-refining`.
 - The pass body itself checks:
@@ -75,7 +76,7 @@ It is **heap-type-level dead-argument elimination for nominal function signature
 - Binaryen decides per **function heap type**, so one live or blocked sibling can stop pruning for the entire type family.
 - Constant-actual rewriting is part of the real contract, not optional polish.
 - Side-effect localization plus one extra cycle is part of the real contract too.
-- A narrow 2026-07-11 `version_130` / current-main recheck on the owner, registration/default-pipeline, and dedicated lit surfaces found no behavior-bearing drift; it supersedes the older current-main freshness claim without replacing the `version_129` historical anchor.
+- The v132 owner and fixture confirm the current policy surface: open-world execution is rejected through `WorldMode`, tables remain a hard no-op boundary, and the same world mode is used for public-type discovery and signature rewriting.
 
 ## Beginner warning: what the name hides
 
@@ -99,7 +100,7 @@ What it sounds like:
 
 - a small arity-cleanup pass over signatures
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a closed-world, GC-gated module pass with:
   - per-function entry-liveness analysis for parameters
@@ -114,7 +115,7 @@ What it actually is in `version_129`:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, main phases, and the exact two-cycle rewrite contract.
+  - Deep dive into the actual Binaryen `version_132` implementation, helper dependencies, scheduler placement, main phases, and the exact two-cycle rewrite contract.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - File map for `SignaturePruning.cpp`, `param-utils.*`, `module-utils.*`, `type-updating.h`, `intrinsics.*`, and the dedicated lit file, plus the narrow current-`main` freshness note.
 - [`./constant-actuals-localization-and-boundaries.md`](./constant-actuals-localization-and-boundaries.md)
@@ -136,12 +137,13 @@ What it actually is in `version_129`:
   - it belongs to Binaryen's closed-world GC/type cluster
   - it does **not** belong to the repo's current open-world no-DWARF optimize path
 - Keep the distinction between `signature-pruning` and the later `signature-refining` pass explicit.
-- Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract.
+- Keep any future v133/current-main drift notes explicit instead of silently rewriting the verified `version_132` contract.
 
 ## Sources
 
 - research note 0404
-- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignaturePruning.cpp>
+- Binaryen v132 owner: <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/SignaturePruning.cpp>
+- Binaryen v132 fixture: <https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/signature-pruning.wast>
 - research note 0470
 - research note 0304
 - research note 0151
@@ -152,7 +154,7 @@ What it actually is in `version_129`:
 - [`../index.md`](../index.md)
 - [`../type-refining/binaryen-strategy.md`](../type-refining/binaryen-strategy.md)
 - [`../global-refining/binaryen-strategy.md`](../global-refining/binaryen-strategy.md)
-- Binaryen `version_129` sources:
+- Binaryen `version_129` historical sources:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignaturePruning.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/param-utils.h>

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/ConstHoisting.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/const-hoisting.wast
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/support/insert_ordered.h
@@ -38,7 +40,7 @@ That means the best mental model is:
 
 ## Public surface and scheduler meaning
 
-The reviewed official Binaryen GitHub [`version_129` release](https://github.com/WebAssembly/binaryen/releases/tag/version_129), rechecked on 2026-04-23, showed publish date **2026-04-01**.
+The verified Binaryen v132 owner and fixture define the current contract; the older v129 release record remains historical provenance.
 A focused 2026-05-06 current-`main` recheck retained in [research note 0508](./index.md) did not surface teaching-relevant drift in `ConstHoisting.cpp`, `literal.h`, `pass.cpp`, `wasm-binary.h`, or `const-hoisting.wast`; the local first-slice checklist is maintained in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 `src/passes/pass.cpp` registers `const-hoisting` as a public pass.
@@ -248,7 +250,7 @@ Everything is local to one function body.
 ## 3. No `v128`
 
 `v128` always returns false in `worthHoisting`.
-That is an explicit scope boundary in `version_129`.
+That is an explicit scope boundary in `version_132`.
 
 ## 4. No zero special case yet
 
@@ -310,7 +312,7 @@ That is the real Binaryen strategy for `const-hoisting`.
 - [research note 0508](./index.md)
 - [research note 0182](./index.md)
 - [research note 0225](./index.md)
-- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>
+- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/ConstHoisting.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/support/insert_ordered.h>

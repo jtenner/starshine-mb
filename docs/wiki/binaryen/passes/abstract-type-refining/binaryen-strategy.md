@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - index.md
   - ./index.md
@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_130` as the newest reviewed historical tagged source provenance for this pass; new comparisons use the verified `version_132` baseline. The pass is anchored by [`index.md`](index.md); retain the immutable 2026-04-24 `version_129` manifest as historical provenance. The 2026-07-11 web retrieval found an internally inconsistent current-`main` API snapshot, so it does **not** establish a main no-drift claim; pin one checkout before using main-specific behavior for implementation or signoff.
+Treat Binaryen `version_132` as the current source and fixture baseline for this pass; v129–v131 materials below are historical provenance. The pass is anchored by [`index.md`](index.md); retain the immutable 2026-04-24 `version_129` manifest as historical provenance. The v132 owner review establishes the current policy surface: the pass rejects `WorldMode::Open` and threads the same world mode through public-type classification and type rewriting. Pin a checkout before using future main-specific behavior for implementation or signoff.
 
 Primary files:
 
@@ -366,7 +366,7 @@ A future port must preserve this step.
 
 ## What the pass does **not** do
 
-Binaryen `abstract-type-refining` in `version_129` does **not** do any of these:
+Binaryen `abstract-type-refining` in `version_132` does **not** do any of these:
 
 - it does not run in open world
 - it does not optimize without GC
@@ -385,7 +385,7 @@ What it sounds like:
 
 - a declaration merge pass for abstract types
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a closed-world struct-only module pass with creation scanning, created-subtype propagation, TNH-only singleton-child refinement, always-on bottomization, descriptor/exact-cast preoptimization, use-site type rewriting that preserves declared supertypes, and final refinalization.
 
@@ -401,10 +401,12 @@ The public one-line summary in `pass.cpp` hides that entire story.
 
 ## Sources
 
+- Binaryen v132 owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/AbstractTypeRefining.cpp>
+- Binaryen v132 fixture: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/abstract-type-refining.wast>
 - [`index.md`](index.md)
 - [research note 0295](./index.md)
 - [research note 0155](./index.md)
-- Binaryen `version_129`:
+- Binaryen `version_129` historical sources:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/AbstractTypeRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/subtypes.h>

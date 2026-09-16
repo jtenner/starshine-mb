@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp
   - ./index.md
@@ -18,8 +18,8 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as historical primary source provenance for this pass; new comparisons use the verified `version_132` baseline, using the direct tagged URLs below and the retained 2026-04-24 follow-up research.
-The historical 2026-04-24 follow-up recorded a narrow current-`main` no-drift claim. That claim is superseded by the 2026-07-11 recheck in [`MinimizeRecGroups.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp): current `main` preserves the algorithm and test roster, but threads one `getPassOptions().worldMode` policy through heap-type visibility collection and final global type rewriting.
+Treat Binaryen `version_132` as the current source and fixture baseline for this pass; v129–v131 materials below are historical provenance, using the direct tagged URLs below and the retained 2026-04-24 follow-up research.
+The historical 2026-04-24 follow-up and 2026-07-11 recheck are retained as provenance. The v132 owner review confirms that the algorithm and test roster remain intact while one `getPassOptions().worldMode` policy now flows through heap-type visibility collection and final global type rewriting.
 
 Primary files:
 
@@ -346,7 +346,7 @@ So the pass is feature-sensitive by design.
 
 ## What the pass does **not** do
 
-Binaryen `minimize-rec-groups` in `version_129` does **not** do any of these:
+Binaryen `minimize-rec-groups` in `version_132` does **not** do any of these:
 
 - it does not run without GC
 - it does not require closed world
@@ -365,7 +365,7 @@ What it sounds like:
 
 - a simple SCC splitter for type sections
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a GC-only explicit module pass that performs SCC splitting, valid-order repair, feature-sensitive shape comparison, lazy equivalence-class canonicalization, permutation-based disambiguation, brand-based fallback, and finally whole-module type plus metadata rewriting.
 
@@ -381,7 +381,8 @@ The public one-line summary in `pass.cpp` hides almost all of that story.
 
 ## Sources
 
-- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp>
+- Binaryen v132 owner: <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/MinimizeRecGroups.cpp>
+- Binaryen v132 fixture: <https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/minimize-rec-groups.wast>
 - [research note 0290](./index.md)
 - [research note 0156](./index.md)
 - Binaryen `version_129`:

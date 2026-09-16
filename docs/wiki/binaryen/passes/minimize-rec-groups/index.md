@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/MinimizeRecGroups.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/minimize-rec-groups.wast
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../tooling/pass-fuzz-compare.md
@@ -30,7 +31,7 @@ related:
 - It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt#L127-L139`](../../../../../src/passes/optimize.mbt#L127-L139).
 - Upstream Binaryen `pass.cpp` registers the public CLI name:
   - `minimize-rec-groups`
-- In Binaryen `version_129`, the public pass summary in `pass.cpp` is:
+- In Binaryen `version_132`, the public pass summary in `pass.cpp` is:
   - `Split types into minimal recursion groups`
 
 That summary is true, but too small.
@@ -69,7 +70,7 @@ It is **SCC-based rec-group minimization plus identity preservation under Binary
 ## Most important durable takeaways
 
 - `minimize-rec-groups` is **not** part of the repo's main open-world no-DWARF `-O` / `-Os` path.
-- In the reviewed `version_129` scheduler surface, it is an **explicit pass only**: registered in `pass.cpp`, but not inserted into the default optimize presets.
+- In the reviewed v132 scheduler surface, it is an **explicit pass only**: registered in `pass.cpp`, but not inserted into the default optimize presets.
 - The pass body checks:
   - GC features enabled
   - otherwise it returns immediately
@@ -82,7 +83,7 @@ It is **SCC-based rec-group minimization plus identity preservation under Binary
 - Exactness can therefore matter in one run and disappear in another.
 - The pass prefers **valid permutations** of isomorphic groups before adding **brand types**.
 - Brand insertion is part of the intended algorithm, not an accidental fallback.
-- The final rewrite updates not just type definitions, but also type names and recorded indices under the same explicit world/visibility policy used to select candidates.
+- The final rewrite updates not just type definitions, but also type names and recorded indices under the same explicit world/visibility policy used to select candidates; v132 passes that policy through both visibility collection and global rewriting.
 
 ## Beginner warning: what the name hides
 
@@ -106,7 +107,7 @@ What it sounds like:
 
 - a type-section shrink pass that always makes recursion groups smaller
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a GC-only explicit module pass that:
   - collects private vs public heap-type visibility,
@@ -120,9 +121,9 @@ What it actually is in `version_129`:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the actual Binaryen `version_129` algorithm, helper dependencies, scheduler placement, and the exact phase structure.
+  - Deep dive into the actual Binaryen `version_132` algorithm, helper dependencies, scheduler placement, and the exact phase structure.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  - File map for `MinimizeRecGroups.cpp`, `pass.cpp`, `module-utils.h`, `type-updating.*`, `strongly_connected_components.h`, `topological_sort.h`, `disjoint_sets.h`, `wasm-type-shape.*`, and the official lit roster, including the current-main correction that `WorldMode` must flow consistently through visibility collection and global rewriting.
+  - File map for `MinimizeRecGroups.cpp`, `pass.cpp`, `module-utils.h`, `type-updating.*`, `strongly_connected_components.h`, `topological_sort.h`, `disjoint_sets.h`, `wasm-type-shape.*`, and the v132 lit roster, including the requirement that `WorldMode` flow consistently through visibility collection and global rewriting.
 - [`./permutations-brands-and-public-conflicts.md`](./permutations-brands-and-public-conflicts.md)
   - Focused guide to the hardest half of the pass: why SCC splitting is not enough, how canonicalization and valid topological permutations work, when brands become necessary, how public groups constrain private output, and why exactness is feature-sensitive.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -137,19 +138,19 @@ What it actually is in `version_129`:
 - Treat this folder as the canonical home for future `minimize-rec-groups` research in this repo.
 - Keep this dossier clearly labeled as an **upstream-only boundary-only** pass for Starshine today.
 - Keep the scheduler story honest:
-  - Binaryen `version_129` registers the pass
+  - Binaryen v132 registers the pass
   - but does **not** place it in the default optimize presets on the reviewed surface
 - Keep the identity-preservation story explicit:
   - SCC splitting is necessary but insufficient
   - shape collisions are the hard part
   - brands are part of the real contract
 - Keep the public/private split explicit instead of implying the pass can rewrite ABI-visible groups.
-- Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract. The 2026-07-11 recheck supersedes the old no-drift freshness claim with one concrete policy-interface correction.
+- Keep any future v133/current-main drift notes explicit instead of silently rewriting the verified `version_132` contract.
 - Keep [`./fuzzing.md`](./fuzzing.md) planned-only until a real module pass, harness admission, and a GC-rec-group-aware input profile can produce meaningful compared cases.
 
 ## Sources
 
-- Binaryen current owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/MinimizeRecGroups.cpp>; registration: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>; current lit roster: `minimize-rec-groups{,-brands,-desc,-exact,-ignore-exact}.wast` under <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/>.
+- Binaryen v132 owner: <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/MinimizeRecGroups.cpp>; fixture roster: `minimize-rec-groups{,-brands,-desc,-exact,-ignore-exact}.wast` under <https://github.com/WebAssembly/binaryen/tree/version_132/test/lit/passes>.
 - research note 0290
 - research note 0156
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

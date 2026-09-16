@@ -1,3 +1,9 @@
+### 2026-09-16 — Binaryen v132 behavior refresh: abstract, recursion, constants, and signatures
+
+- Re-read Binaryen v132 owners for `abstract-type-refining`, `minimize-rec-groups`, `const-hoisting`, and `signature-pruning`, then refreshed their canonical landing and strategy pages.
+- Documented current behavior changes and boundaries: `WorldMode` now governs the closed-world/public-type/rewrite policy for the type and signature passes; MinimizeRecGroups carries the same policy through visibility and rewriting; ConstHoisting retains exact literal grouping, strict byte profitability, and no `v128` support.
+- Preserved v129–v131 source catalogs and measurements as historical evidence. No runtime, parity, or implementation signoff is claimed.
+
 ### 2026-09-16 — Binaryen v132 behavior refresh: type and GC passes
 
 - Re-read the Binaryen v132 owners and representative lit fixtures for `signature-refining`, `type-finalizing`, `type-refining`, and `global-type-optimization`. Updated their canonical landing and strategy pages from v129/current-main ambiguity to the verified v132 baseline.

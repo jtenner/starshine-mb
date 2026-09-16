@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignaturePruning.cpp
@@ -21,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as historical source provenance for this pass; new comparisons use the verified `version_132` baseline, anchored by the retained 2026-04-24 source follow-up in [research note 0304](./index.md).
+Treat Binaryen `version_132` as the current source and fixture baseline for this pass; v129–v131 materials below are historical provenance, anchored by the retained 2026-04-24 source follow-up in [research note 0304](./index.md).
 
 Primary files:
 
@@ -41,13 +41,13 @@ Primary files:
 - `src/cfg/liveness-traversal.h`
 - `test/lit/passes/signature-pruning.wast`
 
-A 2026-07-11 review of the official [`version_130`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SignaturePruning.cpp) and [`current-main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignaturePruning.cpp) sources supersedes the older current-main freshness claim.
+The historical 2026-07-11 review of the official [`version_130`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SignaturePruning.cpp) and [`current-main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignaturePruning.cpp) sources supersedes the older current-main freshness claim.
 Durable result:
 
 - the reviewed `version_130` and current-main pass contract still matches the `version_129` teaching algorithm on the important gates, phase split, and helper policy
 - no behavior-bearing drift surfaced in the reviewed owner, registration/default-pipeline, or dedicated lit surfaces
 
-So this dossier treats `version_129` as the normative algorithm oracle and records future upstream drift explicitly instead of silently rewriting the story.
+So this dossier treats `version_132` as the normative algorithm oracle and records future upstream drift explicitly instead of silently rewriting the story.
 
 ## High-level intent
 
@@ -418,7 +418,7 @@ These non-goals are worth keeping explicit:
 
 ## Bottom line
 
-Binaryen `signature-pruning` in `version_129` is a **closed-world, GC-gated, heap-type-level dead-argument-elimination pass with constant-actual promotion and one delayed localization rerun**.
+Binaryen `signature-pruning` in `version_132` is a **closed-world, GC-gated, heap-type-level dead-argument-elimination pass with constant-actual promotion and one delayed localization rerun**.
 
 The pass name sounds flatter than the implementation really is.
 The source says otherwise:
@@ -434,11 +434,12 @@ That is the strategy a future strict-parity port must preserve.
 
 ## Sources
 
-- Binaryen current-main owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignaturePruning.cpp>
+- Binaryen v132 owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/SignaturePruning.cpp>
+- Binaryen v132 fixture: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/signature-pruning.wast>
 - [research note 0304](./index.md)
 - [research note 0151](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-- Binaryen `version_129`:
+- Binaryen `version_129` historical sources:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignaturePruning.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/param-utils.h>

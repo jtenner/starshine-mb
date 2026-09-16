@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/ConstHoisting.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/const-hoisting.wast
   - ../../../../../src/passes/optimize.mbt
   - ../../../ir2/registry-map.md
   - ../optimize-added-constants/index.md
@@ -48,7 +50,7 @@ A better beginner summary is:
 - `const-hoisting` is small, but it teaches an optimization idea that beginner readers often miss: **binary encoding size economics are not the same thing as runtime speed or generic constant folding**.
 - It sits naturally beside already-covered size and literal-neighbor passes like `precompute*`, `optimize-added-constants*`, `simplify-locals*`, and `merge-similar-functions`, but it solves a different problem from all of them.
 - The upstream implementation and tests are tiny enough to audit exactly, which makes it a good high-confidence source-backed addition.
-- The folder now also has immutable raw primary-source manifests, a 2026-05-06 current-main freshness bridge, a 2026-04-27 implementation-readiness bridge, and dedicated Starshine status / validation pages, so readers no longer need to reconstruct release provenance or local port-planning from older research notes alone.
+- The folder now also has immutable historical source manifests, a verified v132 owner/fixture baseline, an implementation-readiness bridge, and dedicated Starshine status / validation pages.
 
 ## Beginner summary
 
@@ -80,9 +82,9 @@ So this pass is best taught as:
   - `3`-byte constants need `6` uses
   - `4`-byte constants need `4` uses
   - `8`-byte constants need `2` uses
-- `v128` constants are explicitly unsupported in `version_129`.
+- `v128` constants are explicitly unsupported in `version_132`.
 - The pass inserts a function-entry prelude block and relies on later cleanup such as `merge-blocks` to smooth structure afterwards.
-- A focused 2026-05-06 current-`main` recheck found no teaching-relevant drift in the implementation, registration, helper, or dedicated lit surfaces; it mainly adds a fresher upstream anchor and keeps the stale `f64` threshold comment caveat explicit.
+- The v132 owner confirms the same narrow contract: exact literal grouping, signed-LEB/fixed-width byte accounting, strict `after < before` profitability, no `v128`, and function-local prelude insertion. The upstream zero-hoisting TODO remains an unimplemented future optimization, not current behavior.
 - A 2026-04-27 port-readiness recheck again found no teaching-relevant upstream drift and now pins the first Starshine slice to existing HOT scalar constants, local builders, fresh-local append support, and signed-LEB byte accounting surfaces.
 
 ## What this pass sounds like versus what it actually does
@@ -91,7 +93,7 @@ What it sounds like:
 
 - hoist constants into locals whenever they repeat
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a function-local raw-binary-size pass over already-materialized literal constants
 - with exact encoded-size measurement for integers and fixed byte widths for floats

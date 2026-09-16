@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/AbstractTypeRefining.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/AbstractTypeRefining.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/abstract-type-refining.wast
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../index.md
@@ -29,7 +30,7 @@ related:
 - It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - Upstream Binaryen `pass.cpp` registers the public CLI name:
   - `abstract-type-refining`
-- In Binaryen `version_129`, the public pass summary in `pass.cpp` is:
+- In Binaryen `version_132`, the public pass summary in `pass.cpp` is:
   - `refine and merge abstract (never-created) types`
 
 That summary is true, but too small.
@@ -86,8 +87,8 @@ It is **closed-world creation-evidence-based struct-type refinement**.
 - Only in `--traps-never-happen` mode can an abstract parent refine to a unique live child branch.
 - Declared subtype edges are intentionally preserved here.
 - Descriptor/exact-cast repair is part of the real contract, not optional polish.
-- The retained direct `version_129` release/source/test URLs and 2026-04-24 follow-up research anchor the dossier's initial review, while the refreshed Starshine page maps the current local boundary-only status to exact code locations.
-- The 2026-07-11 refresh confirms the reviewed `version_130` owner and fixture contract, but records an internally inconsistent web `main` API snapshot. It deliberately does **not** turn that snapshot into a current-main no-drift claim; a future implementation must recheck one pinned checkout before relying on main-specific behavior.
+- The verified v132 owner and fixture anchor the current behavior; v129–v131 URLs and measurements remain historical provenance, while the Starshine page maps the current local boundary-only status to exact code locations.
+- The v132 source confirms that the pass rejects `WorldMode::Open` and carries the same world-mode policy into public-type discovery and type rewriting; this is the current policy contract, not merely a historical boolean gate.
 
 ## Beginner warning: what the name hides
 
@@ -111,7 +112,7 @@ What it sounds like:
 
 - a generic nominal-type merge pass for abstract types
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a closed-world struct-only module pass with:
   - concrete `struct.new*` creation scanning
@@ -126,9 +127,9 @@ What it actually is in `version_129`:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the actual Binaryen `version_129` algorithm, helper dependencies, scheduler placement, and the exact phase structure.
+  - Deep dive into the actual Binaryen `version_132` algorithm, helper dependencies, scheduler placement, and the exact phase structure.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  - File map for `AbstractTypeRefining.cpp`, `pass.cpp`, `subtypes.h`, `type-updating.*`, `module-utils.h`, `localize.h`, `drop.h`, and the official lit roster, plus the important fact that current `main` still matches the reviewed `version_129` surfaces.
+  - File map for `AbstractTypeRefining.cpp`, `pass.cpp`, `subtypes.h`, `type-updating.*`, `module-utils.h`, `localize.h`, `drop.h`, and the v132 lit roster, with older v129–v131 surfaces retained as historical provenance.
 - [`./traps-never-happen-exact-casts-and-descriptors.md`](./traps-never-happen-exact-casts-and-descriptors.md)
   - Focused guide to the hardest half of the pass: why TNH matters, why exact casts often collapse to bottom/null checks instead of refining to a live child, and how descriptor casts / `ref.get_desc` / `struct.new_desc` are repaired safely.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -144,10 +145,10 @@ What it actually is in `version_129`:
   - it belongs to Binaryen's closed-world GC/type cluster
   - it does **not** belong to the repo's current open-world no-DWARF optimize path
 - Keep the scope boundary explicit:
-  - the current `version_129` implementation is **struct-only**
+  - the current `version_132` implementation is **struct-only**
   - arrays/functions are TODOs, not current behavior
 - Keep the “leave subtype edges to `unsubtyping`” rule explicit instead of quietly implying this pass already does full relation minimization.
-- Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract.
+- Keep any future v133/current-main drift notes explicit instead of silently rewriting the verified `version_132` contract.
 
 ## Sources
 
@@ -159,7 +160,7 @@ What it actually is in `version_129`:
 - [`../index.md`](../index.md)
 - [`../global-struct-inference/binaryen-strategy.md`](../global-struct-inference/binaryen-strategy.md)
 - [`../unsubtyping/binaryen-strategy.md`](../unsubtyping/binaryen-strategy.md)
-- Binaryen `version_129` sources:
+- Binaryen `version_129` historical sources:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/AbstractTypeRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/subtypes.h>
