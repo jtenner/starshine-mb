@@ -1004,3 +1004,9 @@ Touched-function OI routes pass their selection into final body cleanup, keeping
 untouched bodies intact while module-wide type/element index cleanup remains
 consistent. The existing DAE nested merge-blocks regression caught this boundary
 red in full verification and passes after selection threading.
+
+Full-suite review also replaces obsolete wrapper-presence expectations with
+exact producer/call/drop sequences in 110 multivalue tests and direct instruction
+checks for descriptor, allocation, assignment, and unreachable-select cases.
+All 1,482 selected OI checks pass. Both DAE touched-body checks pass unchanged
+after the selection repair. The user subsequently authorized fuzz renewal.

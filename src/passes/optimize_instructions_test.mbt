@@ -179,42 +179,23 @@ test "optimize-instructions preserves multi-use local assignment payloads" {
     Ok(mod_) => mod_
     Err(err) => fail("expected optimize-instructions success, got \{err}")
   }
-  match optimized.code_sec {
-    Some(
-      @lib.CodeSec(
-        [
-          @lib.Func(
-            _,
-            @lib.Expr(
-              [
-                @lib.Block(
-                  _,
-                  @lib.Expr(
-                    [
-                      @lib.LocalGet(source),
-                      @lib.I32Const(@lib.I32(74)),
-                      @lib.I32Add,
-                      @lib.LocalSet(assigned),
-                      ..,
-                    ]
-                  )
-                ),
-                @lib.LocalGet(returned),
-              ]
-            )
-          ),
-        ]
-      )
-    ) => {
-      @debug.assert_eq(source, @lib.LocalIdx::new(0U))
-      @debug.assert_eq(assigned, @lib.LocalIdx::new(1U))
-      @debug.assert_eq(returned, assigned)
-    }
-    other =>
-      fail(
-        "expected complete assignment payload before both local uses, got \{other}",
-      )
-  }
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  @debug.assert_eq(body[0:4].to_array(), [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(74),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ])
+  @debug.assert_eq(
+    body.last(),
+    Some(@lib.Instruction::local_get(@lib.LocalIdx::new(1U))),
+  )
+  assert_eq(
+    body
+    .filter(fn(instr) { instr is @lib.LocalSet(@lib.LocalIdx(1U)) })
+    .length(),
+    1,
+  )
 }
 
 ///|
@@ -35558,24 +35539,14 @@ test "optimize-instructions folds ref.test_desc null operands from descriptor te
     _ => fail("expected optimized non-null ref.test_desc function")
   }
   @debug.assert_eq(nullable_body, [
-    @lib.Instruction::block(
-      @lib.BlockType::val_type(@lib.ValType::i32()),
-      @lib.Expr::new([
-        @lib.Instruction::ref_null(described_heap),
-        @lib.Instruction::drop(),
-        @lib.Instruction::i32_const(@lib.I32(1)),
-      ]),
-    ),
+    @lib.Instruction::ref_null(described_heap),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(1)),
   ])
   @debug.assert_eq(nonnull_body, [
-    @lib.Instruction::block(
-      @lib.BlockType::val_type(@lib.ValType::i32()),
-      @lib.Expr::new([
-        @lib.Instruction::ref_null(described_heap),
-        @lib.Instruction::drop(),
-        @lib.Instruction::i32_const(@lib.I32(0)),
-      ]),
-    ),
+    @lib.Instruction::ref_null(described_heap),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(0)),
   ])
 }
 
@@ -37140,16 +37111,11 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
         @lib.Instruction::global_get(@lib.GlobalIdx::new((arg % 2).to_uint())),
       )
     } else if effectful_block_call_args {
-      expected.push(
-        @lib.Instruction::block(
-          @lib.BlockType::val_type(@lib.ValType::i32()),
-          @lib.Expr::new([
-            @lib.Instruction::i32_const(@lib.I32(300 + arg)),
-            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
-            @lib.Instruction::i32_const(@lib.I32(200 + arg)),
-          ]),
-        ),
-      )
+      expected.append([
+        @lib.Instruction::i32_const(@lib.I32(300 + arg)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(200 + arg)),
+      ])
     } else if direct_call_args {
       expected.push(
         @lib.Instruction::call(@lib.FuncIdx::new((arg + 2).to_uint())),
@@ -51244,47 +51210,25 @@ test "optimize-instructions moves br_on_cast_fail combined effect ref.get_desc n
         other => fail("expected cast operand local.get 0, got \{other}")
       }
       match body[1] {
-        @lib.Block(
-          _,
-          @lib.Expr(
-            [
-              @lib.Block(
-                _,
-                @lib.Expr(
-                  [
-                    @lib.I32Const(@lib.I32(1)),
-                    @lib.GlobalSet(@lib.GlobalIdx(0U)),
-                    @lib.LocalGet(@lib.LocalIdx(0U)),
-                  ]
-                )
-              ),
-              @lib.BrOnCastFail(
-                @lib.LabelIdx(1U),
-                @lib.CastOp(true, false, false, false),
-                source_heap,
-                target_heap
-              ),
-              @lib.Drop,
-              @lib.Block(
-                _,
-                @lib.Expr(
-                  [
-                    @lib.I32Const(@lib.I32(2)),
-                    @lib.GlobalSet(@lib.GlobalIdx(0U)),
-                    @lib.LocalGet(@lib.LocalIdx(1U)),
-                  ]
-                )
-              ),
-            ]
-          )
-        ) => {
-          @debug.assert_eq(source_heap, described_heap)
-          @debug.assert_eq(target_heap, described_heap)
-        }
+        @lib.Block(_, @lib.Expr(child)) =>
+          @debug.assert_eq(child, [
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::br_on_cast_fail(
+              @lib.LabelIdx::new(1U),
+              true,
+              described_heap,
+              false,
+              described_heap,
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(2),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ])
         other =>
-          fail(
-            "expected unflattened combined-effect br_on_cast_fail descriptor child, got \{other}",
-          )
+          fail("expected branch-preserving descriptor child, got \{other}")
       }
       match body[2] {
         @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
@@ -72634,15 +72578,9 @@ test "optimize-instructions earlier and later tuple.extract localization survive
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block through full simplify-locals boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --simplify-locals` localizes the probed multivalue
-  // block through tuple scratch plus scalar-local traffic around the
-  // non-selected effect (`.tmp/oi-m-tuple-full-simplify-neighbor-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // a direct-HOT replay of the OI-localized tuple block is a separate verifier
-  // boundary (`InvalidChildRef`). Do not report this as full simplify-locals
-  // neighbor parity until one of those paths is fixed.
+test "optimize-instructions preserves ordered multivalue effects without wrappers through full simplify-locals boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -72664,23 +72602,13 @@ test "optimize-instructions intentionally keeps public multivalue block through 
         "expected public multivalue full simplify-locals boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 1)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block through tuple scratch plus scalar-local traffic around the
-  // non-selected effect (`.tmp/oi-m-tuple-optimization-neighbor-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -72702,23 +72630,13 @@ test "optimize-instructions intentionally keeps public multivalue block through 
         "expected public multivalue tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 1)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with two later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-two-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -72744,24 +72662,13 @@ test "optimize-instructions intentionally keeps public multivalue block with two
         "expected public multivalue two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 2)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with three later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-three-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -72791,25 +72698,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thr
         "expected public multivalue three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 3)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with four later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-four-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -72843,26 +72738,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fou
         "expected public multivalue four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 4)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with five later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-five-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -72900,27 +72782,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fiv
         "expected public multivalue five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 5)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with six later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-six-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -72962,28 +72830,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 6)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seven later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-seven-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73029,29 +72882,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 7)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eight later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-eight-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73101,30 +72938,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 8)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with nine later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-nine-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73178,31 +72998,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 9)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ten later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ten later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-ten-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ten later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73260,32 +73062,13 @@ test "optimize-instructions intentionally keeps public multivalue block with ten
         "expected public multivalue ten-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(10U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 10)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eleven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eleven later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-eleven-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eleven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73347,33 +73130,13 @@ test "optimize-instructions intentionally keeps public multivalue block with ele
         "expected public multivalue eleven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(11U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 11)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twelve later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twelve later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twelve-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twelve later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73439,34 +73202,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twelve-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(12U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 12)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirteen later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirteen later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-thirteen-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirteen later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73536,35 +73278,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirteen-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(13U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 13)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fourteen later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fourteen later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-fourteen-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fourteen later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73638,36 +73358,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fou
         "expected public multivalue fourteen-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(14U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 14)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifteen later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifteen later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-fifteen-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifteen later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73745,37 +73442,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifteen-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(15U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 15)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixteen later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixteen later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-sixteen-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixteen later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73857,38 +73530,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixteen-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(16U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 16)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventeen later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventeen later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-seventeen-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventeen later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -73977,39 +73625,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventeen-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(17U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 17)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighteen later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighteen later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-eighteen-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighteen later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -74102,40 +73724,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighteen-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(18U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 18)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with nineteen later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with nineteen later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-nineteen-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with nineteen later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -74232,41 +73827,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue nineteen-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(19U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 19)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -74367,42 +73934,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(20U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 20)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty-one later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty-one later non-selected effects through tuple
-  // scratch plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-one-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty-one later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -74507,42 +74045,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-one-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(21U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 21)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty-two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty-two later non-selected effects through tuple
-  // scratch plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-two-effects-probe.wat`).
-  // Starshine keeps the public block/drop spelling until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty-two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -74651,44 +74160,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(22U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 22)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty-three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty-three later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-three-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty-three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -74801,45 +74279,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(23U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 23)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty-four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty-four later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-four-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty-four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -74956,46 +74402,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(24U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 24)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty-five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty-five later non-selected effects through tuple scratch
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-five-effects-probe.wat`).
-  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
-  // do not report this as tuple-optimization neighbor parity until tuple-scratch
-  // reconstruction/localization is implemented locally.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty-five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -75116,46 +74529,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(25U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 24)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 25)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty-six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty-six later non-selected effects through `tuple.make 27`
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-six-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty-six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -75280,47 +74660,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(26U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 24)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 25)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 26)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty-seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty-seven later non-selected effects through `tuple.make 28`
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-seven-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty-seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -75449,48 +74795,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(27U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 24)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 25)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 26)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 27)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty-eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty-eight later non-selected effects through `tuple.make 29`
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-eight-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty-eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -75623,49 +74934,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(28U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 24)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 25)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 26)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 27)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 28)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with twenty-nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with twenty-nine later non-selected effects through `tuple.make 30`
-  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-twenty-nine-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with twenty-nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -75802,50 +75077,13 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
         "expected public multivalue twenty-nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(29U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 24)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 25)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 26)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 27)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 28)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 29)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty later non-selected effects through `tuple.make 31`
-  // plus tuple/scalar-local traffic (`.tmp/oi-m-tuple-optimization-thirty-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -75986,52 +75224,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(30U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 24)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 25)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 26)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 27)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 28)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 29)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 30)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty-one later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty-one later non-selected effects through
-  // `tuple.make 32` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-thirty-one-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty-one later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -76176,53 +75375,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-one-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(31U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 24)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 25)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 26)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 27)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 28)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 29)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 30)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 31)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty-two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty-two later non-selected effects through
-  // `tuple.make 33` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-thirty-two-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty-two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -76371,43 +75530,7 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(32U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 24)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 25)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 26)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 27)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 28)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 29)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 30)"), msg=pretty)
-  assert_true(pretty.contains("call (Func 31)"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 32)
 }
 
 ///|
@@ -76443,14 +75566,9 @@ fn optimize_instructions_tuple_optimization_effect_boundary_fixture(
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty-three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty-three later non-selected effects through
-  // `tuple.make 34` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-thirty-three-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty-three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(33),
@@ -76462,25 +75580,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(33U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 33; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 33)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty-four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty-four later non-selected effects through
-  // `tuple.make 35` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-thirty-four-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty-four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(34),
@@ -76492,25 +75598,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(34U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 34; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 34)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty-five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty-five later non-selected effects through
-  // `tuple.make 36` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-thirty-five-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty-five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(35),
@@ -76522,25 +75616,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(35U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 35; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 35)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty-six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty-six later non-selected effects through
-  // `tuple.make 37` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-thirty-six-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty-six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(36),
@@ -76552,25 +75634,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(36U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 36; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 36)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty-seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty-seven later non-selected effects through
-  // `tuple.make 38` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-thirty-seven-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty-seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(37),
@@ -76582,25 +75652,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(37U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 37; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 37)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty-eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty-eight later non-selected effects through
-  // `tuple.make 39` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-thirty-eight-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty-eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(38),
@@ -76612,25 +75670,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(38U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 38; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 38)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with thirty-nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with thirty-nine later non-selected effects through
-  // `tuple.make 40` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-thirty-nine-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with thirty-nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(39),
@@ -76642,25 +75688,13 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
         "expected public multivalue thirty-nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(39U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 39; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 39)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty later non-selected effects through
-  // `tuple.make 41` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(40),
@@ -76672,25 +75706,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(40U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 40; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 40)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty-one later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty-one later non-selected effects through
-  // `tuple.make 42` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-one-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty-one later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(41),
@@ -76702,25 +75724,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-one-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(41U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 41; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 41)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty-two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty-two later non-selected effects through
-  // `tuple.make 43` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-two-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty-two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(42),
@@ -76732,25 +75742,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(42U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 42; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 42)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty-three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty-three later non-selected effects through
-  // `tuple.make 44` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-three-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty-three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(43),
@@ -76762,25 +75760,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(43U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 43; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 43)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty-four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty-four later non-selected effects through
-  // `tuple.make 45` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-four-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty-four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(44),
@@ -76792,25 +75778,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(44U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 44; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 44)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty-five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty-five later non-selected effects through
-  // `tuple.make 46` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-five-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty-five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(45),
@@ -76822,25 +75796,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(45U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 45; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 45)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty-six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty-six later non-selected effects through
-  // `tuple.make 47` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-six-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty-six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(46),
@@ -76852,25 +75814,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(46U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 46; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 46)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty-seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty-seven later non-selected effects through
-  // `tuple.make 48` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-seven-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty-seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(47),
@@ -76882,25 +75832,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(47U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 47; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 47)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty-eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty-eight later non-selected effects through
-  // `tuple.make 49` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-eight-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty-eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(48),
@@ -76912,25 +75850,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(48U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 48; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 48)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with forty-nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with forty-nine later non-selected effects through
-  // `tuple.make 50` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-forty-nine-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with forty-nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(49),
@@ -76942,25 +75868,13 @@ test "optimize-instructions intentionally keeps public multivalue block with for
         "expected public multivalue forty-nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(49U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 49; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 49)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty later non-selected effects through
-  // `tuple.make 51` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(50),
@@ -76972,25 +75886,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(50U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 50; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 50)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty-one later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty-one later non-selected effects through
-  // `tuple.make 52` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-one-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty-one later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(51),
@@ -77002,25 +75904,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-one-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(51U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 51; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 51)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty-two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty-two later non-selected effects through
-  // `tuple.make 53` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-two-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty-two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(52),
@@ -77032,25 +75922,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(52U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 52; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 52)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty-three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty-three later non-selected effects through
-  // `tuple.make 54` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-three-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty-three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(53),
@@ -77062,25 +75940,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(53U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 53; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 53)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty-four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty-four later non-selected effects through
-  // `tuple.make 55` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-four-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty-four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(54),
@@ -77092,25 +75958,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(54U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 54; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 54)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty-five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty-five later non-selected effects through
-  // `tuple.make 56` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-five-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty-five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(55),
@@ -77122,25 +75976,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(55U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 55; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 55)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty-six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty-six later non-selected effects through
-  // `tuple.make 57` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-six-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty-six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(56),
@@ -77152,25 +75994,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(56U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 56; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 56)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty-seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty-seven later non-selected effects through
-  // `tuple.make 58` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-seven-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty-seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(57),
@@ -77182,25 +76012,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(57U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 57; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 57)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty-eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty-eight later non-selected effects through
-  // `tuple.make 59` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-eight-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty-eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(58),
@@ -77212,25 +76030,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(58U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 58; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 58)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with fifty-nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with fifty-nine later non-selected effects through
-  // `tuple.make 60` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-fifty-nine-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with fifty-nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(59),
@@ -77242,25 +76048,13 @@ test "optimize-instructions intentionally keeps public multivalue block with fif
         "expected public multivalue fifty-nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(59U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 59; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 59)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty later non-selected effects through
-  // `tuple.make 61` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(60),
@@ -77272,25 +76066,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(60U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 60; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 60)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty-one later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty-one later non-selected effects through
-  // `tuple.make 62` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-one-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty-one later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(61),
@@ -77302,25 +76084,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-one-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(61U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 61; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 61)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty-two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty-two later non-selected effects through
-  // `tuple.make 63` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-two-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty-two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(62),
@@ -77332,25 +76102,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(62U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 62; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 62)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty-three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty-three later non-selected effects through
-  // `tuple.make 64` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-three-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty-three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(63),
@@ -77362,25 +76120,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(63U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 63; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 63)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty-four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty-four later non-selected effects through
-  // `tuple.make 65` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-four-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty-four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(64),
@@ -77392,25 +76138,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(64U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 64; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 64)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty-five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty-five later non-selected effects through
-  // `tuple.make 66` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-five-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty-five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(65),
@@ -77422,25 +76156,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(65U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 65; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 65)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty-six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty-six later non-selected effects through
-  // `tuple.make 67` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-six-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty-six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(66),
@@ -77452,25 +76174,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(66U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 66; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 66)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty-seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty-seven later non-selected effects through
-  // `tuple.make 68` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-seven-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty-seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(67),
@@ -77482,25 +76192,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(67U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 67; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 67)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty-eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty-eight later non-selected effects through
-  // `tuple.make 69` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-eight-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty-eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(68),
@@ -77512,25 +76210,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(68U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 68; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 68)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with sixty-nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with sixty-nine later non-selected effects through
-  // `tuple.make 70` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-sixty-nine-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with sixty-nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(69),
@@ -77542,25 +76228,13 @@ test "optimize-instructions intentionally keeps public multivalue block with six
         "expected public multivalue sixty-nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(69U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 69; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 69)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy later non-selected effects through
-  // `tuple.make 71` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(70),
@@ -77572,25 +76246,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(70U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 70; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 70)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy-one later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy-one later non-selected effects through
-  // `tuple.make 72` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-one-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy-one later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(71),
@@ -77602,25 +76264,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-one-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(71U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 71; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 71)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy-two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy-two later non-selected effects through
-  // `tuple.make 73` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-two-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy-two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(72),
@@ -77632,25 +76282,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(72U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 72; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 72)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy-three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy-three later non-selected effects through
-  // `tuple.make 74` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-three-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy-three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(73),
@@ -77662,25 +76300,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(73U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 73; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 73)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy-four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy-four later non-selected effects through
-  // `tuple.make 75` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-four-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy-four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(74),
@@ -77692,25 +76318,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(74U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 74; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 74)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy-five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy-five later non-selected effects through
-  // `tuple.make 76` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-five-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy-five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(75),
@@ -77722,25 +76336,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(75U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 75; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 75)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy-six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy-six later non-selected effects through
-  // `tuple.make 77` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-six-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy-six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(76),
@@ -77752,25 +76354,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(76U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 76; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 76)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy-seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy-seven later non-selected effects through
-  // `tuple.make 78` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-seven-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy-seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(77),
@@ -77782,25 +76372,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(77U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 77; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 77)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy-eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy-eight later non-selected effects through
-  // `tuple.make 79` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-eight-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy-eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(78),
@@ -77812,25 +76390,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(78U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 78; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 78)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with seventy-nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with seventy-nine later non-selected effects through
-  // `tuple.make 80` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-seventy-nine-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with seventy-nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(79),
@@ -77842,25 +76408,13 @@ test "optimize-instructions intentionally keeps public multivalue block with sev
         "expected public multivalue seventy-nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(79U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 79; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 79)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty later non-selected effects through
-  // `tuple.make 81` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(80),
@@ -77872,25 +76426,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(80U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 80; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 80)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty-one later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty-one later non-selected effects through
-  // `tuple.make 82` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-one-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty-one later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(81),
@@ -77902,25 +76444,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-one-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(81U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 81; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 81)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty-two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty-two later non-selected effects through
-  // `tuple.make 83` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-two-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty-two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(82),
@@ -77932,25 +76462,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(82U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 82; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 82)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty-three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty-three later non-selected effects through
-  // `tuple.make 84` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-three-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty-three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(83),
@@ -77962,25 +76480,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(83U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 83; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 83)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty-four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty-four later non-selected effects through
-  // `tuple.make 85` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-four-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty-four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(84),
@@ -77992,25 +76498,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(84U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 84; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 84)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty-five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty-five later non-selected effects through
-  // `tuple.make 86` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-five-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty-five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(85),
@@ -78022,25 +76516,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(85U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 85; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 85)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty-six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty-six later non-selected effects through
-  // `tuple.make 87` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-six-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty-six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(86),
@@ -78052,25 +76534,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(86U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 86; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 86)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty-seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty-seven later non-selected effects through
-  // `tuple.make 88` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-seven-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty-seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(87),
@@ -78082,25 +76552,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(87U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 87; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 87)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty-eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty-eight later non-selected effects through
-  // `tuple.make 89` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-eight-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty-eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(88),
@@ -78112,25 +76570,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(88U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 88; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 88)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with eighty-nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with eighty-nine later non-selected effects through
-  // `tuple.make 90` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-eighty-nine-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with eighty-nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(89),
@@ -78142,25 +76588,13 @@ test "optimize-instructions intentionally keeps public multivalue block with eig
         "expected public multivalue eighty-nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(89U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 89; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 89)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety later non-selected effects through
-  // `tuple.make 91` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(90),
@@ -78172,25 +76606,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(90U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 90; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 90)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety-one later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety-one later non-selected effects through
-  // `tuple.make 92` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-one-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety-one later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(91),
@@ -78202,25 +76624,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-one-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(91U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 91; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 91)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety-two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety-two later non-selected effects through
-  // `tuple.make 93` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-two-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety-two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(92),
@@ -78232,25 +76642,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(92U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 92; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 92)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety-three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety-three later non-selected effects through
-  // `tuple.make 94` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-three-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety-three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(93),
@@ -78262,25 +76660,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(93U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 93; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 93)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety-four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety-four later non-selected effects through
-  // `tuple.make 95` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-four-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety-four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(94),
@@ -78292,25 +76678,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(94U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 94; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 94)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety-five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety-five later non-selected effects through
-  // `tuple.make 96` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-five-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety-five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(95),
@@ -78322,25 +76696,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(95U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 95; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 95)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety-six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety-six later non-selected effects through
-  // `tuple.make 97` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-six-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety-six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(96),
@@ -78352,25 +76714,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(96U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 96; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 96)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety-seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety-seven later non-selected effects through
-  // `tuple.make 98` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-seven-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety-seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(97),
@@ -78382,25 +76732,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(97U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 97; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 97)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety-eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety-eight later non-selected effects through
-  // `tuple.make 99` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-eight-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety-eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(98),
@@ -78412,25 +76750,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(98U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 98; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 98)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with ninety-nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with ninety-nine later non-selected effects through
-  // `tuple.make 100` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-ninety-nine-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with ninety-nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(99),
@@ -78442,25 +76768,13 @@ test "optimize-instructions intentionally keeps public multivalue block with nin
         "expected public multivalue ninety-nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(99U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 99; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 99)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred later non-selected effects through
-  // `tuple.make 101` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(100),
@@ -78472,25 +76786,13 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(100U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 100; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 100)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred one later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred one later non-selected effects through
-  // `tuple.make 102` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-one-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred one later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(101),
@@ -78502,25 +76804,13 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-one-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(101U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 101; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 101)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred two later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred two later non-selected effects through
-  // `tuple.make 103` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-two-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred two later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(102),
@@ -78532,25 +76822,13 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-two-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(102U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 102; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 102)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred three later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred three later non-selected effects through
-  // `tuple.make 104` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-three-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred three later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(103),
@@ -78562,25 +76840,13 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-three-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(103U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 103; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 103)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred four later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred four later non-selected effects through
-  // `tuple.make 105` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-four-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred four later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(104),
@@ -78592,25 +76858,13 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-four-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(104U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 104; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 104)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred five later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred five later non-selected effects through
-  // `tuple.make 106` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-five-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred five later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(105),
@@ -78622,25 +76876,13 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-five-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(105U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 105; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 105)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred six later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred six later non-selected effects through
-  // `tuple.make 107` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-six-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred six later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(106),
@@ -78652,25 +76894,13 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-six-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(106U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 106; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 106)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred seven later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred seven later non-selected effects through
-  // `tuple.make 108` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-seven-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred seven later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(107),
@@ -78682,25 +76912,13 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-seven-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(107U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 107; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 107)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred eight later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred eight later non-selected effects through
-  // `tuple.make 109` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-eight-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred eight later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(108),
@@ -78712,25 +76930,13 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-eight-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(108U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 108; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 108)
 }
 
 ///|
-test "optimize-instructions intentionally keeps public multivalue block with one hundred nine later effects through tuple-optimization boundary" {
-  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
-  // `--optimize-instructions --tuple-optimization` localizes the probed
-  // multivalue block with one hundred nine later non-selected effects through
-  // `tuple.make 110` plus tuple/scalar-local traffic
-  // (`.tmp/oi-m-tuple-optimization-one-hundred-nine-effects-probe.wat`).
-  // Starshine keeps the public multivalue block/drop spelling until local
-  // tuple-scratch reconstruction/localization exists.
+test "optimize-instructions preserves ordered multivalue effects without wrappers with one hundred nine later effects through tuple-optimization boundary" {
+  // Removing a branchless result wrapper preserves every producer in order.
+  // Check the exact call/drop sequence and absence of new scratch locals.
   let optimized = match
     pass_test_run_pipeline(
       optimize_instructions_tuple_optimization_effect_boundary_fixture(109),
@@ -78742,14 +76948,7 @@ test "optimize-instructions intentionally keeps public multivalue block with one
         "expected public multivalue one-hundred-nine-effect tuple-optimization boundary success, got \{err}",
       )
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(109U))
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("drop"), msg=pretty)
-  for i = 0; i < 109; i = i + 1 {
-    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
-  }
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
+  optimize_instructions_assert_flat_effect_sequence(optimized, 109)
 }
 
 ///|
@@ -79009,8 +77208,13 @@ test "optimize-instructions localizes non-default repeated array.new_fixed effec
   )
   @debug.assert_eq(block_allocations, [(7L, 2L)])
   @debug.assert_eq(block_result, [1L])
-  optimize_instructions_assert_strings_in_order(block_const, [
-    "block", "local.set (Local 0)", "array.new",
+  let @lib.Func(_, @lib.Expr(block_body)) = optimized.code_sec.unwrap().0[1]
+  @debug.assert_eq(block_body, [
+    @lib.Instruction::i32_const(9),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_const(2),
+    @lib.Instruction::array_new(array_type),
   ])
 }
 
@@ -85645,9 +83849,8 @@ test "optimize-instructions v131 canonical binary select conflict is a smaller S
 
 ///|
 test "optimize-instructions v131 does not materialize non-concrete select arms" {
-  // The arm checks optimize to unreachable, whose bottom type cannot be used for
-  // a scratch local. Binaryen v131 and the production Starshine path leave the
-  // select in place rather than materializing an invalid non-concrete local.
+  // The first null assertion traps before any other operand or condition.
+  // Trimming the dead suffix requires no non-concrete scratch local.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -85666,15 +83869,9 @@ test "optimize-instructions v131 does not materialize non-concrete select arms" 
     Ok(mod_) => mod_
     Err(err) => fail("expected v131 non-concrete select success, got \{err}")
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("select"), msg=pretty)
-  assert_false(pretty.contains("local.set"), msg=pretty)
-  assert_false(pretty.contains("local.get"), msg=pretty)
-  @debug.assert_eq(
-    optimize_instructions_test_count_substring(pretty, "unreachable"),
-    2,
-    msg=pretty,
-  )
+  let @lib.Func(locals, @lib.Expr(body)) = optimized.code_sec.unwrap().0[1]
+  assert_eq(locals.length(), 0)
+  @debug.assert_eq(body, [@lib.Instruction::unreachable_()])
 }
 
 ///|
@@ -86106,4 +84303,22 @@ test "optimize-instructions handles local select operands inside a value block" 
     #|    i32.const 1 i32.add))
   let output = pass_test_run_pipeline(source, ["optimize-instructions"]).unwrap()
   ignore(@validate.validate_module(output).unwrap())
+}
+
+///|
+fn optimize_instructions_assert_flat_effect_sequence(
+  mod_ : @lib.Module,
+  count : Int,
+) -> Unit raise {
+  assert_true(@validate.validate_module(mod_).is_ok())
+  let @lib.Func(locals, @lib.Expr(body)) = mod_.code_sec.unwrap().0[count]
+  assert_eq(locals.length(), 0)
+  let expected = [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]
+  for i = 0; i < count; i = i + 1 {
+    expected.push(@lib.Instruction::call(@lib.FuncIdx::new(i.to_uint())))
+  }
+  for i = 0; i < count; i = i + 1 {
+    expected.push(@lib.Instruction::drop())
+  }
+  @debug.assert_eq(body, expected)
 }
