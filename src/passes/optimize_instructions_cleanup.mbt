@@ -22,8 +22,10 @@ fn oi_cleanup_module_encoding(mod_ : @lib.Module) -> @lib.Module {
     }
     None => mod_
   }
-  pass_cleanup_unused_type_groups(
-    oi_cleanup_declarative_elements(oi_cleanup_control(candidate)),
+  dfe_cleanup_simple_type_encoding(
+    pass_cleanup_unused_type_groups(
+      oi_cleanup_declarative_elements(oi_cleanup_control(candidate)),
+    ),
   )
 }
 

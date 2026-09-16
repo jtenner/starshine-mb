@@ -990,3 +990,12 @@ opaque name payload skips this cleanup. Surviving element names are remapped.
 Red-first pass/dispatcher regressions in `oi_residual_elements_wbtest.mbt` cover
 saved case 108, declaration validity, names, and the indexed-segment boundary.
 Fuzz remains deferred.
+
+### Duplicate simple-signature cleanup
+
+OI now runs the existing type-only interning/remapping helper after writeback
+and unused-group pruning. It accepts only a validated byte reduction for
+independent unshared simple function signatures, retaining the helper's guards
+for recursive/proposal graphs, legacy try, and opaque names. Red-first tests in
+`oi_residual_signatures_wbtest.mbt` cover saved call-ref case 7 and an imported
+indirect-call contract; command dispatch covers the saved case. Fuzz is deferred.
