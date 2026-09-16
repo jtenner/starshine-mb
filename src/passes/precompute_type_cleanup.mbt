@@ -1,6 +1,7 @@
 ///|
 // The shared DFE remapper predates several proposal instructions. Admit only
 // instructions whose type references it scans and rewrites, including children.
+// Scalar i32.add carries no type index and is preserved unchanged.
 fn precompute_type_cleanup_instrs_supported(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -65,7 +66,6 @@ fn precompute_type_cleanup_instrs_supported(
       | @lib.ArrayGetS(_)
       | @lib.ArrayGetU(_)
       | @lib.ArraySet(_)
-      // Scalar addition carries no type index; its operands remain unchanged.
       | @lib.ArrayLen => ()
       _ => return false
     }

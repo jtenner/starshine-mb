@@ -1034,3 +1034,12 @@ and an effect/name-remapping fixture failed before the change; pass and
 dispatcher checks require the dead type to disappear while live indices,
 arithmetic order and type names stay correct. Sources:
 `precompute_type_cleanup.mbt` and `oi_size_scalar_types_wbtest.mbt`.
+
+### September 16 unused function declarations
+
+OI now removes raw declaration-only element segments when no `ref.func` sites
+remain. Direct calls do not require declarations. Runtime element-index uses,
+active/passive or expression segments, and opaque names retain the existing
+conservative guards. The normal element-name remapper removes stale names and
+clears cached name bytes. Red-first saved case 6 and name/call preservation
+checks are in `oi_size_unused_declarations_wbtest.mbt`, with dispatcher coverage.

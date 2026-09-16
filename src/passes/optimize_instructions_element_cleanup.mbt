@@ -55,6 +55,12 @@ fn oi_cleanup_declarative_elements(mod_ : @lib.Module) -> @lib.Module {
       }
     None => ()
   }
+  // A raw declaration only enables ref.func validation. With no ref.func
+  // sites and no active/passive/initializer segments, none are required.
+  let declarations_unused = elems.all(fn(elem) {
+      elem is @lib.Elem(@lib.Declarative, @lib.FuncsElemKind(_))
+    }) &&
+    !o4z_canonicalize_final_size_module_has_ref_func(mod_)
   let declared : Map[UInt, Bool] = Map([])
   // Match validation's declaration sources: body ref.func and start do not
   // declare a function. Seed coverage only with sites that will be retained.
@@ -96,7 +102,8 @@ fn oi_cleanup_declarative_elements(mod_ : @lib.Module) -> @lib.Module {
   for elem in elems {
     match elem {
       @lib.Elem(@lib.Declarative, @lib.FuncsElemKind(funcs)) => {
-        if funcs.all(fn(func) {
+        if declarations_unused ||
+          funcs.all(fn(func) {
             let @lib.FuncIdx(index) = func
             declared.contains(index)
           }) {
