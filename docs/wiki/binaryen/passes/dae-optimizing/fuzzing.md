@@ -4,8 +4,6 @@ status: supported
 last_reviewed: 2026-09-16
 sources:
   - ../../../ir2/architecture-rules.md
-  - ../../../raw/research/1629-2026-07-16-daeo-direct-gc-batch-performance.md
-  - ../../../raw/research/1628-2026-07-16-daeo-unbounded-convergence-batching-checkpoint.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../dead-argument-elimination/fuzzing.md
@@ -154,9 +152,9 @@ The retained Func 8187 normalized-literal-chain evidence records the focused Fun
 
 The retained Func 8429 payoff-convergence evidence records the focused Func `8429` completion smokes with explicit native SHA-256 `6057190705590291c3deeca348a48276aa43d7bd9d2980bd3400152f9ba74122`: dedicated `.tmp/pass-fuzz-dae-optimizing-func8429-final-converged-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-func8429-final-converged-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures, and Binaryen cache `1000/0`. These focused smokes accompany valid byte-identical first/second artifact outputs; they do not replace the required four-lane closeout matrix.
 
-Research note [`1629`](../../../raw/research/1629-2026-07-16-daeo-direct-gc-batch-performance.md) records post-fusion smoke evidence with native SHA-256 `ac02b98c3649966b5cacb8c6dbefebb36a4918839131a9ca5368ab84fea2ddb0`: dedicated `.tmp/pass-fuzz-daeo-fused-dedicated-1000-20260716` and regular `.tmp/pass-fuzz-daeo-fused-regular-1000-20260716` each compare and normalize `1000/1000` with zero mismatches or validation/generator/property/command failures and Binaryen cache `1000/0`. These are performance-slice smokes, not replacements for the note-1628 `10000`-case lanes or the required four-lane closeout matrix.
+The absorbed 1629 evidence records post-fusion smoke evidence with native SHA-256 `ac02b98c3649966b5cacb8c6dbefebb36a4918839131a9ca5368ab84fea2ddb0`: dedicated `.tmp/pass-fuzz-daeo-fused-dedicated-1000-20260716` and regular `.tmp/pass-fuzz-daeo-fused-regular-1000-20260716` each compare and normalize `1000/1000` with zero mismatches or validation/generator/property/command failures and Binaryen cache `1000/0`. These are performance-slice smokes, not replacements for the 1628 checkpoint's `10000`-case lanes or the required four-lane closeout matrix.
 
-Research note [`1628`](../../../raw/research/1628-2026-07-16-daeo-unbounded-convergence-batching-checkpoint.md) records the post-convergence checkpoint with explicit native Starshine and Binaryen v130: dedicated `.tmp/pass-fuzz-daeo-final-dedicated-10000-20260716` and regular `.tmp/pass-fuzz-daeo-final-regular-10000-20260716` each compare `10000/10000`, normalize all `10000`, and have zero mismatches or validation/generator/property/command failures under both DAE cleanup normalizers. Optimize, shrink, and O4z still run DAEO exactly once and emit the same valid 38-byte dedicated-profile output. This is fresh generated and scheduling evidence, not full closeout: wasm-smith and random-all were not refreshed.
+The absorbed 1628 evidence records the post-convergence checkpoint with explicit native Starshine and Binaryen v130: dedicated `.tmp/pass-fuzz-daeo-final-dedicated-10000-20260716` and regular `.tmp/pass-fuzz-daeo-final-regular-10000-20260716` each compare `10000/10000`, normalize all `10000`, and have zero mismatches or validation/generator/property/command failures under both DAE cleanup normalizers. Optimize, shrink, and O4z still run DAEO exactly once and emit the same valid 38-byte dedicated-profile output. This is fresh generated and scheduling evidence, not full closeout: wasm-smith and random-all were not refreshed.
 
 Research note [`1568`](./index.md) records post-tuple-cleanup evidence from native commit `cf08ff06f`:
 

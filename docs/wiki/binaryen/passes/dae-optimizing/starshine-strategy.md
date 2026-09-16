@@ -3,9 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1630-2026-07-16-daeo-forwarded-cycle-priority.md
-  - ../../../raw/research/1629-2026-07-16-daeo-direct-gc-batch-performance.md
-  - ../../../raw/research/1628-2026-07-16-daeo-unbounded-convergence-batching-checkpoint.md
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_argument_elimination.mbt
