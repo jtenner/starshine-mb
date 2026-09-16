@@ -17126,7 +17126,17 @@ test "dae-optimizing preserves grouped function results while removing params" {
     Err(err) => fail("expected grouped-type DAE pipeline success, got \{err}")
   }
   match optimized.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs[0], caller_type)
+    Some(@lib.FuncSec(type_idxs)) => {
+      // Dead type groups may be pruned after OI writeback. The target must
+      // still reuse the caller's signature and preserve its i32 result.
+      assert_eq(type_idxs[0], type_idxs[1])
+      @debug.assert_eq(
+        @validate.Env::new()
+        .with_module(optimized)
+        .resolve_functype(type_idxs[0]),
+        Some(@lib.FuncType::new([], [@lib.ValType::i32()])),
+      )
+    }
     None => abort("missing rewritten function section")
   }
   match @validate.validate_module(optimized) {
