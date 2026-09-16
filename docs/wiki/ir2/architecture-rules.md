@@ -3401,3 +3401,50 @@ Provenance: native SHA-256
 `parity-continuation-interpreter.log`, and the
 [interpreter regression](../../../tests/optimizer/regressions/dae2-resume-throw.test.ts).
 Historical observations and runtime identities remain unchanged.
+
+#### Renewed directed downstream-size evidence
+
+Fresh native `538ebfad3d4e5149f9dd49299e2f2472a219fcc946a959fe4f72311b5e4c5fc6`
+and verified v132 outputs independently validate for sixteen retained inputs.
+Every pair has byte-identical output after the same `-Oz` pipeline. This fills
+the nine previously missing OI downstream measurements and rechecks the repaired
+tuple case. Six OI fixtures have no exports/start and reduce to an empty module;
+their downstream equality alone does not prove body execution.
+
+| Pass/case | Starshine raw/canonical/Oz | v132 raw/canonical/Oz |
+| --- | ---: | ---: |
+| optimize-instructions / 196 | 160/173/70 | 209/226/70 |
+| optimize-instructions / 259 | 105/106/37 | 127/132/37 |
+| optimize-instructions / 264 | 260/352/111 | 352/393/111 |
+| optimize-instructions / 287 | 79/84/8 | 105/110/8 |
+| optimize-instructions / 336 | 74/97/8 | 97/102/8 |
+| optimize-instructions / 353 | 81/86/8 | 107/112/8 |
+| optimize-instructions / 359 | 118/119/43 | 140/145/43 |
+| optimize-instructions / 414 | 103/124/8 | 124/129/8 |
+| optimize-instructions / 450 | 120/137/8 | 173/191/8 |
+| optimize-instructions / 515 | 80/101/8 | 101/106/8 |
+| local-subtyping / 3 | 67/67/34 | 68/68/34 |
+| local-subtyping / 9 | 68/68/34 | 69/69/34 |
+| heap2local / 2 | 51/51/34 | 51/51/34 |
+| heap2local / 4 | 78/76/34 | 107/107/34 |
+| global-refining / 1 | 4206/4206/41 | 4209/4209/41 |
+| precompute / 44 | 24/24/8 | 25/25/8 |
+
+These are fixture-scoped size measurements. Semantic conclusions also require
+the pass contracts and retained runtime/static evidence; validation and smaller
+bytes alone do not establish equivalence. The two repaired historical downstream
+losses (OI 196 and DAE2 29) are described in their dedicated repair sections.
+Provenance: `parity-directed-size/results.json`, exact input/tool hashes, paired
+raw/canonical/Oz artifacts, and `parity-dae2-exception-repair/result.json`.
+
+#### Usage-pause checkpoint
+
+The [active resume checklist](../../../agent-todo.md#resume-checkpoint--september-15-user-requested-usage-pause)
+is authoritative for pending work at the user's requested pause. Subsequent
+local-subtyping, global-refining, grouped-local-name and DAE2 signature fixes
+have focused passing checks, but the last complete 11,978-test suite and
+80,000-comparison first renewal precede those follow-ups. Three bounded pass
+regressions are intentionally red: DAE2 result wrappers, OI unused aggregate
+types, and OI numeric typed selects. Their dispatcher counterparts are saved
+and compile, but still need focused red runs. Native binaries must be rebuilt
+after all remaining source fixes before final aggregate signoff.

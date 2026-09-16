@@ -2,6 +2,130 @@
 
 ## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
+### Resume checkpoint — September 15, user-requested usage pause
+
+**Resume here.** The user requested saving progress because usage is running low.
+Do not restart the audit or repeat historical fuzz lanes without rebuilding.
+The current checkpoint supersedes older “renewal pending” statements below.
+
+- **Workflow:** reuse the original five report-only agents; they must not edit,
+  run Moon/compiler/runtime/fuzz, or commit. Root alone writes/tests/fixes.
+  Serialize every Moon command. Use simple individual commits; the user
+  explicitly waived the commit skill. Run final fuzz after source fixes.
+- **Latest completed source repairs:** `614460fe6` removes unused signatures on
+  local-subtyping's unchanged path; `db0d07b27` admits index-free `ref.i31` to
+  guarded cleanup; `b3706bd27` trims dead root-return suffixes and stale suffix
+  label names; `8d004bd5e` prunes global-refining's unused sibling types and
+  supports plain cast/test type roots; `1cf3f55da` remaps grouped-local debug
+  names (parameters/import offsets preserved; opaque name bytes skip grouping).
+- **DAE2 signature repair (`7f3cb7e54`):** guarded type-only interning now runs
+  on unchanged and rewritten exits. Four pass regressions first failed, then
+  all 62 DAE2 pass tests passed. An older indirect-call check now compares the
+  actual call-site and callee signatures instead of fixed duplicate slots.
+  All four command checks also pass; evidence is in
+  `dae2-signature-cmd-green.log`.
+- **Current verification limit:** latest complete default suite is **11,978
+  passing tests**, before the subsequent local-subtyping/global-type/name and
+  DAE2 signature follow-ups. Focused checks pass: 101 local-subtyping, 27
+  global-refining, 302 precompute, 3 local-grouping and their dispatcher checks.
+  There is no final full-suite or final-source fuzz signoff for the new commits.
+- **Intentional pending red fixtures:** DAE2 result-wrapper removal,
+  OI unused aggregate type groups, and OI numeric typed-select cleanup. Pass
+  files: `src/passes/dae2_result_wrapper_parity_test.mbt`,
+  `oi_type_group_parity_test.mbt`, `oi_numeric_select_parity_test.mbt`;
+  corresponding dispatcher files are under `src/cmd/*_wbtest.mbt`.
+  They are unfinished behavior tests, not defects to silence or skip. Their
+  checkpoint logs end in `*-checkpoint-red.log` and confirm one failure per
+  pass fixture; command counterparts still
+  need focused red verification. A draft select-constructor syntax error was
+  corrected to `Instruction::select()` before checkpoint verification.
+
+#### Next cases, one fix and commit at a time
+
+1. **DAE2 effectful-argument result wrapper:** pass fixture requires three
+   imported producer calls to remain ordered and removes only the unnecessary
+   result block. Saved case10 has +3 wrapper bytes and -2 dead-local bytes,
+   net raw +1. Reuse `pass_lower_cleanup_branchless_blocks` after candidate
+   rewriting, preserving returns/traps/EH/continuation labels and metadata.
+   Existing helpers: `lower_capture_cleanup.mbt:205` and
+   `dae2_fold_known_local_throws` in `dead_argument_elimination2_legacy.mbt`.
+2. **OI aggregate types:** 1,138 first-renewal raw losses are unused array
+   (+3) or struct (+6) definitions. Apply `pass_cleanup_unused_type_groups`
+   **after** writeback repair. Direct raw/HOT converge in
+   `run_hot_pipeline_apply_hot_pass`: successful OI repair return and final
+   nondeferred return both need cleanup. Never remap types before repair can
+   restore an original function using old indices. Also test stack/touched
+   entrypoints if wiring them. The helper deliberately excludes unsupported
+   proposal/reference surfaces; keep whole recursion groups and metadata.
+3. **OI numeric typed selects:** memory-bulk case11 has four scalar numeric
+   typed selects costing +8 code bytes; section differences give net +5.
+   Remove only redundant numeric single-result annotations; preserve reference
+   annotations, atomic opcodes, memory arguments, operand order and effects.
+4. **Other OI residues:** local-facts case20 has two result blocks (+6);
+   ref-GC case5 one block (+3); ref-GC case2 also retains a suffix after
+   unreachable. Descriptor37 has type-only residue; descriptor27 has nested
+   producer/result blocks; descriptor52/74 exact typed null versus shorter
+   bottom null plus types. Descriptor support needs a complete safe remapper,
+   not widening the existing guard blindly. Call-ref includes duplicate
+   signatures and redundant declarative elements (table-get case108 +4).
+5. **Continuation raw overhead:** DAE2 case15 has retained continuation type
+   graphs and expression-form declarative elements. Existing DFE/group cleanup
+   does not fully scan/remap continuation instructions. Complete that closure
+   before admitting these graphs. `dfe_canonicalize_elem_segments` may handle
+   the separate eligible element encoding case. Do not execute the known Node
+   resume-throw failure or nonterminating SSA fixtures.
+
+#### Preserved verification / artifacts
+
+All paths below are under `.tmp/pass-audit-20260915/` unless stated otherwise.
+Do not overwrite earlier artifacts or relabel their source/tool versions.
+
+- `final-fuzz/`: original 151,020 comparisons and original report evidence.
+- `parity-final-fuzz/`: first repair renewal, eight lanes × 10,000 = **80,000**
+  compared, no validation/command/generator failures. Runtime properties were
+  off; this is not universal semantic evidence. Zero canonical losses in all
+  eight lanes. Raw losses: OI 4,233; DAE2 3,268; optimizing 2,861; flatten 0;
+  local-subtyping 4,696; heap2local 0; ordinary global-refining 0; dedicated
+  global-refining 7,500. The later source fixes target the remaining counters;
+  do not claim those counters are closed until renewed.
+- `parity-final-tests.log`: 11,978 passing tests. Runtime harness logs:
+  `parity-runtime-unit.log` (17), `parity-runtime-integration.log` (84 passing,
+  one existing nonterminating-start test filtered, unchanged).
+- `parity-directed-size/`: 16 fresh directed cases, all independently valid,
+  all common-Oz output pairs byte-identical. `parity-raw-residual-review/`:
+  fresh raw/canonical/downstream output pairs for each remaining OI/DAE2 raw
+  family, including normalized matches previously lacking retained raw bytes.
+  These were compiled/inspected, not executed. `results.json` carries hashes.
+- Runtime blocks: eleven reorder cases now have matching initialization/import
+  snapshots using separately preserved portable v132 encodings; no functions
+  are exported or invoked. Four top-level suspend cases match exact unhandled
+  suspend errors in configured Node. The resume-throw case matches the existing
+  verified v132 interpreter regression (6 checks). Twelve SSA nontermination
+  fixtures remain outside runtime signoff. See `parity-reorder-runtime/`,
+  `parity-suspend-runtime/`, `parity-continuation-interpreter.log` and wiki.
+- Static closures: `code-folding-static-review.json`, `ssa-static-review.json`,
+  `sgo-static-review.json`, `precompute-static-review.json`. Precompute now has
+  all seven/eight distinct differing input hashes represented in 41/40 inspected
+  pairs; only nop or tee/drop cleanup remains in those fixed inputs. Do not
+  extrapolate fixed-family proofs to arbitrary generated modules.
+- Existing native cmd/fuzz builds **predate the debug-name and DAE2 signature
+  repairs** and are stale for final signoff. Their exact checkpoint hashes are
+  in `parity-renewal-2-preliminary-binaries.json`. Rebuild cmd and fuzz serially.
+  Verified v132 oracle: `.tmp/binaryen-version_132/bin/wasm-opt`, SHA-256
+  `1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
+- `run-parity-renewal-2.py` is prepared but **not run**. Extend its six-lane plan
+  with OI and both DAE2 variants after the new fixes, then run against fresh
+  explicit native binaries. Use ≥10,000 compared per lane (precompute variants
+  request 11,000 because of known atomic input exclusions), jobs auto, max
+  subprocesses8/artifacts20. No wasm-smith. Keep DAE2 cleanup normalizers.
+- **Exit criteria:** finish individual red-first repairs; `moon info`, fmt,
+  full default tests, review `.mbti`; rebuild native cmd/fuzz; renew every
+  affected aggregate; classify remaining raw/canonical/runtime gaps honestly;
+  update wiki index/log/backlog. Compact-import policy, retained name metadata,
+  atomic independent-validator limits and unsupported proposal remapping remain
+  explicit gaps unless new evidence resolves them.
+
+
 - **Goal / why:** close the remaining output-size and independent-validator gaps
   without weakening the completed optimizer correctness repairs.
 - **First audit delivered:** five reporting-only audits, 82 bounded regressions, 44 repair
@@ -41,6 +165,7 @@
 - **September 15 remaining verification risks:** retain the [fifth audit's](docs/wiki/ir2/architecture-rules.md#runtime-review-and-remaining-parity-work) 730 legacy-handler size losses per DAE2 variant, OI's measured +4-byte downstream residual, and other raw-size/shape gaps without a measured win. Renew the 28 blocked runtime observations when bounded SSA execution probes, function-reference import construction/compact-import support, and continuation runtime configuration permit it. Keep the 980 repeated atomic input-validator exclusions distinct from optimizer failures; fresh outputs equal the original 70-byte fixture. The audit's 23 confirmed defects are repaired; its 154 guards, 11,954 default tests, and 151,020 final comparisons are complete.
 - **Difference-report handoff:** [152 profile/label groups and regression contracts](docs/wiki/ir2/architecture-rules.md#september-15-complete-difference-inventory-and-regression-handoff) inventory all September 15 recorded differences, including normalized matches with raw losses. Keep SSA-induced DoS unconfirmed: original and both outputs time out. The [independent retained-pair proof](docs/wiki/ir2/architecture-rules.md#ssa-timeout-and-local-declaration-difference-review) confirms unchanged canonical instructions/referenced local types; use separate terminating probes for runtime evidence. The [worker-phase repair](docs/wiki/ir2/architecture-rules.md#worker-timeout-phase-attribution) is complete with two red-first controlled-event regressions and 98 passing harness checks; child-close/slot-release containment is preserved. The function-reference global descriptor repair also passes 99 harness checks; renew the saved replays after resolving compact-import/runtime capability gaps. The named immutable-global interface extraction repair is also complete, with 100 selected harness checks passing. Explicit stack-switching configuration (`STARSHINE_NODE_WASMFX=1`) and configuration-aware Node cache/resume identities now pass 102 harness checks. The saved continuation observations and compatible-encoding checks are renewed with engine-specific scope; twelve SSA nontermination fixtures remain outside runtime signoff. Pass parity cases remain open. Full local case inventory: `.tmp/pass-audit-20260915/difference-report/`.
 - **OI tuple repair:** [branchless wrapper cleanup](docs/wiki/ir2/architecture-rules.md#oi-multivalue-wrapper-size-repair) closes saved case 196's +4-byte downstream loss: fresh v132 comparison is 70/70 bytes with identical output, smaller raw/canonical Starshine output, and matching returns. The pass/command regressions and 1,466 OI tests pass. Renew the affected aggregate before extending this closure to the historical family counts above.
+- **DAE2 raw signature repair:** four red-first pass cases and dispatcher counterparts cover unchanged/rewritten paths in both variants. Guarded dedup removes existing simple duplicate signatures; all 62 pass tests pass. Renew both aggregates after wrapper/type follow-ups.
 - **DAE2 exception repair:** [known local dispatch folding](docs/wiki/ir2/architecture-rules.md#dae2-known-local-exception-dispatch-repair) closes saved case 29 with smaller raw/canonical/downstream outputs for both variants and matching return/global effects. Four pass tests, one command test, 58 existing DAE2 and 284 shared cleanup tests pass. Renew both aggregates before closing the historical 730-case counters.
 - **Flatten trap repair:** [unreachable continuation cleanup](docs/wiki/ir2/architecture-rules.md#flatten-unreachable-continuation-repair) closes saved case 8: 34/34 raw/canonical versus v132 36/36, common Oz 34/34, expected trap preserved. All 659 flatten tests and command regression pass; aggregate renewal remains pending.
 - **Local-subtyping renewal follow-up:** the first 10,000-case renewal leaves 4,696 raw losses. No-change signature cleanup, i31 instruction admission and dead root-return continuations are repaired, with all 101 local-subtyping tests passing. Renew the aggregate after all three fixes.
