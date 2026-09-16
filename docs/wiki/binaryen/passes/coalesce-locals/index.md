@@ -4,7 +4,6 @@ status: strong
 starshine_status: active
 last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1651-2026-07-19-daeo-block-fallthrough-validation-and-local-cleanup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
