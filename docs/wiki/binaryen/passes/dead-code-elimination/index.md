@@ -1,9 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-02
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
   - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
@@ -139,7 +138,7 @@ The same date's direct debug-artifact compare first exposed type-index-only cano
 
 So the tagged source remains a strong current oracle for this folder, and the active Starshine direct pass plus the ordered DCE prefix are re-proven under the refreshed mixed-generator compare lane.
 
-Research note [`1648`](../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md) added current-artifact execution evidence without reopening the behavior audit: DCE now batches changed-function writeback validation, restores internally invalid candidates independently, and falls back to the original per-function path. External validation exposed additional GC/multivalue failures that the internal validator missed, so depth-aware self-target branch fallthrough, a multivalue local-carrier boundary, and unchanged-function writeback preservation were added red-first. The fresh direct artifact was valid and deterministic in `2.847s` / `2.471s`, reached fixed point on the third application, and kept the regular and dedicated count-10000 corpora at their established classifications. Public shrink then advanced past DCE and stalled in the same vacuum raw-preclean owner as public optimize.
+The July 17 batch-writeback repair added current-artifact execution evidence without reopening the behavior audit: DCE now batches changed-function writeback validation, restores internally invalid candidates independently, and falls back to the original per-function path. External validation exposed additional GC/multivalue failures that the internal validator missed, so depth-aware self-target branch fallthrough, a multivalue local-carrier boundary, and unchanged-function writeback preservation were added red-first. The fresh direct artifact was valid and deterministic in `2.847s` / `2.471s`, reached fixed point on the third application, and kept the regular and dedicated count-10000 corpora at their established classifications. Public shrink then advanced past DCE and stalled in the same vacuum raw-preclean owner as public optimize. The recorded measurements used historical Binaryen v130; new comparison signoff uses Binaryen 132.
 
 ## 2026-09-02 artifact-scale performance closure
 

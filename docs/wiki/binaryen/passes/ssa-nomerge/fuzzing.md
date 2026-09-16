@@ -1,9 +1,8 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1646-2026-07-17-ssa-nomerge-batch-writeback.md
   - index.md
   - ./parity.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -63,7 +62,7 @@ Subsequent classification split those 71 cases into 54 declaration-only residual
 
 ## 2026-07-17 Batch-writeback refresh
 
-After replacing repeated per-changed-function current-artifact validation with one rollback-capable changed-function batch, `.tmp/pass-fuzz-ssa-nomerge-batch-writeback-100000-20260717` reran the required dedicated aggregate with explicit Binaryen v130, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe` at SHA-256 `34a21a0bfba0c86520635429047ef8fb4cc0d32f50b0ff060b5d10327d04d680`. It requested/compared `100000/100000`, normalized all `100000`, and had zero cleanup-normalized matches, mismatches, validation/generator/property/command failures; Binaryen cache was `21055/78945`. The direct current artifact completes in deterministic valid byte-identical `43.846s` / `44.954s` wall repeats instead of timing out after `600s`. This is behavior-preserving runtime evidence, not a reopened transform-family audit.
+The July 17 batch-writeback refresh replaced repeated per-changed-function current-artifact validation with one rollback-capable changed-function batch. The recorded `.tmp/pass-fuzz-ssa-nomerge-batch-writeback-100000-20260717` aggregate used historical Binaryen v130, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe` at SHA-256 `34a21a0bfba0c86520635429047ef8fb4cc0d32f50b0ff060b5d10327d04d680`. It requested/compared `100000/100000`, normalized all `100000`, and had zero cleanup-normalized matches, mismatches, validation/generator/property/command failures; Binaryen cache was `21055/78945`. The direct current artifact completes in deterministic valid byte-identical `43.846s` / `44.954s` wall repeats instead of timing out after `600s`. This is historical behavior-preserving runtime evidence; new comparison signoff uses Binaryen 132.
 
 ## 2026-06-16 Final Lane Results
 

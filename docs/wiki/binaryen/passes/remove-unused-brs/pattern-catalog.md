@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-30
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ./index.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt

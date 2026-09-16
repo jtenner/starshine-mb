@@ -1,15 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-25
+last_reviewed: 2026-09-16
 sources:
   - ../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md
   - ../../../raw/research/1653-2026-07-19-daeo-unified-call-facts-tail-boundaries-and-filtered-validation.md
   - ../../../raw/research/1652-2026-07-19-dae-incoming-liveness-written-constants-and-bottom-results.md
   - ../../../raw/research/1651-2026-07-19-daeo-block-fallthrough-validation-and-local-cleanup.md
   - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
-  - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
-  - ../../../raw/research/1646-2026-07-17-ssa-nomerge-batch-writeback.md
   - ../../../raw/research/1645-2026-07-17-daeo-final-direct-closeout-matrix.md
   - ../../../raw/research/1644-2026-07-17-daeo-func8185-post-o0-residual.md
   - ../../../raw/research/1643-2026-07-17-daeo-func8185-i64-zero-carrier.md
@@ -139,9 +137,9 @@ Final explicit Binaryen-v131 regular, dedicated, wasm-smith, and random-all lane
 
 Research note [`1645`](../../../raw/research/1645-2026-07-17-daeo-final-direct-closeout-matrix.md) completed the then-current direct generated signoff before notes `1650` and `1651` widened behavior. The freshly relinked explicit native binary drove Binaryen-v130 regular `100000`, dedicated `10000`, wasm-smith `10000`, and random-all `10000` lanes with both DAE normalizers. Regular and dedicated were fully normalized; wasm-smith had only the unchanged `44` Binaryen/oracle failures; random-all retained the exact note-`1627` `367` measured/source-backed cleanup wins, with all `3670` residual files byte-identical and no unknown/risky, generated size-losing, validation, or true-semantic residual. That direct closeout was complete for the then-current behavior, not a substitute for the later v131 renewal.
 
-Research note [`1646`](../../../raw/research/1646-2026-07-17-ssa-nomerge-batch-writeback.md) resolved the former early public shrink/O4z SSA no-merge owner by batching changed-function validation with per-function rollback and fallback. Direct current-artifact SSA no-merge completed in valid byte-identical `43.846s` / `44.954s` repeats instead of timing out after `600s`; its dedicated aggregate remained `100000/100000` normalized.
+The [SSA no-merge dossier](../ssa-nomerge/index.md) records the July 17 repair of the former early public shrink/O4z owner by batching changed-function validation with per-function rollback and fallback. Direct current-artifact SSA no-merge completed in valid byte-identical `43.846s` / `44.954s` repeats instead of timing out after `600s`; its dedicated aggregate remained `100000/100000` normalized. The recorded measurements used historical Binaryen v130.
 
-Research note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md) closed the next direct prefix owner test-first. The old direct RUB path took `580.178s` and emitted invalid Func `3397`; the retained path batches changed-function validation, restores invalid candidates independently, and fails closed on the proved multivalue-carrier, nullable-return/non-null-result, and giant-table convergence families. Final direct repeats were valid, byte-identical, and `3.239s` / `3.068s`; regular `10000` compare was fully normalized, and the dedicated accepted family had `115/115` runtime-equal outcomes. The public modes still did not reach DAEO: optimize remained in direct vacuum, shrink's earliest remaining owner was DCE per-function validation, and O4z remained in true HSO pass-local hotspots. Exact-once DAEO placement and plain-DAE separation remained unchanged.
+The [RemoveUnusedBrs dossier](../remove-unused-brs/index.md) records the next direct prefix repair test-first. The old direct RUB path took `580.178s` and emitted invalid Func `3397`; the retained path batches changed-function validation, restores invalid candidates independently, and fails closed on the proved multivalue-carrier, nullable-return/non-null-result, and giant-table convergence families. Final direct repeats were valid, byte-identical, and `3.239s` / `3.068s`; regular `10000` compare was fully normalized, and the dedicated accepted family had `115/115` runtime-equal outcomes. The public modes still did not reach DAEO: optimize remained in direct vacuum, shrink's earliest remaining owner was DCE per-function validation, and O4z remained in true HSO pass-local hotspots. Exact-once DAEO placement and plain-DAE separation remained unchanged. These measurements used historical Binaryen v130.
 
 Research note [`1644`](../../../raw/research/1644-2026-07-17-daeo-func8185-post-o0-residual.md) exhausted the remaining local movement/coalescing audit: the exact documented downstream O0 replay was fixed at Func `8185` body `2458` through no-structure/vacuum and only visited temporary `2459` representation states. The final Binaryen DAEO `2429` had no isolated downstream owner, so `+29` remained a parity gap but speculative rewrites were closed pending direct internal source/trace, a minimized reproducer, or measured Starshine benefit.
 

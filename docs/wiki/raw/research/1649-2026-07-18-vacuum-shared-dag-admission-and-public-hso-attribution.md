@@ -6,7 +6,7 @@ sources:
   - ../../binaryen/passes/vacuum/index.md
   - ../../binaryen/passes/vacuum/starshine-hot-ir-strategy.md
   - ../../binaryen/passes/dae-optimizing/index.md
-  - ./1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
+  - ../../binaryen/passes/dead-code-elimination/index.md
   - ../../../../src/passes/pass_manager.mbt
   - ../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../agent-todo.md
@@ -16,14 +16,14 @@ related:
   - ../../binaryen/passes/vacuum/starshine-hot-ir-strategy.md
   - ../../binaryen/passes/dae-optimizing/index.md
   - ./1645-2026-07-17-daeo-final-direct-closeout-matrix.md
-  - ./1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
+  - ../../binaryen/passes/dead-code-elimination/index.md
 ---
 
 # Vacuum Shared-DAG Admission And Public HSO Attribution
 
 ## Question
 
-After note `1648` advanced public shrink through DCE and remove-unused-brs, can the shared optimize/shrink vacuum blocker be accelerated without weakening vacuum's existing effect, trap, branch, structured-write, or writeback guards, and where do the public modes stop next?
+After the July 17 DCE batch-writeback repair advanced public shrink through DCE and remove-unused-brs, can the shared optimize/shrink vacuum blocker be accelerated without weakening vacuum's existing effect, trap, branch, structured-write, or writeback guards, and where do the public modes stop next?
 
 ## Scope and preserved contracts
 
@@ -179,7 +179,7 @@ Longer `600s` traces from the memoized implementation reached HSO Func `1513` wi
 
 The final cleaned binary was then rerun for `180s` in each mode. Both runs passed vacuum, entered HSO, and were still inside the earliest large HSO owner, Func `60`; DAEO start count remained `0`. This confirms the final committed code has the same next-owner attribution.
 
-O4z was already independently source-attributed to HSO in notes `1646` and `1648`; its O4z vacuum path is an intentional no-op, so this vacuum change does not alter that mode's earlier HSO ownership.
+O4z was already independently source-attributed to HSO in the [SSA no-merge](../../binaryen/passes/ssa-nomerge/index.md) and [DCE](../../binaryen/passes/dead-code-elimination/index.md) dossiers; its O4z vacuum path is an intentional no-op, so this vacuum change does not alter that mode's earlier HSO ownership.
 
 ## Decision
 

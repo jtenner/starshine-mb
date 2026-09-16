@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-09-02
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -191,7 +190,7 @@ The practical meaning is:
 - restores invalid candidates independently;
 - falls back to the old per-function path if batch validation fails.
 
-Research note [`1648`](../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md) also records three external-validator safety lessons that the internal batch validator did not fully enforce:
+The July 17 DCE batch-writeback repair also recorded three external-validator safety lessons that the internal batch validator did not fully enforce:
 
 - branch-depth-aware fallthrough must treat a self-targeting branch as completing its result block;
 - multivalue control results immediately drained into local carriers remain fail-closed;

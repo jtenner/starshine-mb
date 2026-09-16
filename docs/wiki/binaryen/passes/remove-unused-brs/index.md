@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../release-horizon-and-oracles.md
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -76,7 +75,7 @@ Scheduler placement is also closed. Starshine's public optimize/shrink roster no
 ## Role
 
 - `remove-unused-brs` is an active implemented **hot pass** in Starshine.
-- Current large-artifact correctness/runtime evidence is note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md): rollback-capable changed-function batch validation plus three source-backed fail-closed guards replace a `580.178s` invalid direct output with valid byte-identical `3.239s` / `3.068s` repeats. The current artifact reaches a byte-identical fixed point after three productive applications; regular `10000` compare is fully normalized, and the dedicated `115`-mismatch accepted family is runtime-all-equal with zero validation failures.
+- The July 17 batch-writeback repair is the retained large-artifact correctness/runtime evidence: rollback-capable changed-function batch validation plus three source-backed fail-closed guards replace a `580.178s` invalid direct output with valid byte-identical `3.239s` / `3.068s` repeats. The current artifact reaches a byte-identical fixed point after three productive applications; regular `10000` compare is fully normalized, and the dedicated `115`-mismatch accepted family is runtime-all-equal with zero validation failures. These measurements used the historical Binaryen v130 oracle; new comparisons target Binaryen 132.
 - The folder retains historical research plus direct `version_131` source and lit URLs below, so the release/source/test provenance does not depend on an intermediate capture.
 - In the recorded upstream v131 oracle, it is a function-parallel structured-control cleanup pass.
 - The short public description in `pass.cpp` says it removes breaks that are not needed.
