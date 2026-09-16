@@ -1,10 +1,17 @@
 ///|
 // Run after all writeback repair: restored functions still use original indices.
-fn oi_cleanup_module_encoding(mod_ : @lib.Module) -> @lib.Module {
+fn oi_cleanup_module_encoding(
+  mod_ : @lib.Module,
+  touched? : Array[Bool]? = None,
+) -> @lib.Module {
   let mut changed = false
   let candidate = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let next = funcs.map(fn(func) {
+      let next = funcs.mapi(fn(index, func) {
+        if touched is Some(selected) &&
+          (index >= selected.length() || !selected[index]) {
+          return func
+        }
         let @lib.Func(locals, @lib.Expr(body)) = func
         let (body, rewritten) = oi_remove_numeric_select_annotations(body)
         changed = changed || rewritten
@@ -24,7 +31,7 @@ fn oi_cleanup_module_encoding(mod_ : @lib.Module) -> @lib.Module {
   }
   dfe_cleanup_simple_type_encoding(
     pass_cleanup_unused_type_groups(
-      oi_cleanup_declarative_elements(oi_cleanup_control(candidate)),
+      oi_cleanup_declarative_elements(oi_cleanup_control(candidate, touched~)),
     ),
   )
 }

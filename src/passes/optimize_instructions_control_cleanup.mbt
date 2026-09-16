@@ -1,5 +1,8 @@
 ///|
-fn oi_cleanup_control(mod_ : @lib.Module) -> @lib.Module {
+fn oi_cleanup_control(
+  mod_ : @lib.Module,
+  touched? : Array[Bool]? = None,
+) -> @lib.Module {
   // Undecoded label names cannot be safely renumbered.
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
     return mod_
@@ -11,7 +14,12 @@ fn oi_cleanup_control(mod_ : @lib.Module) -> @lib.Module {
   let env = @validate.Env::new().with_module(mod_)
   let remaps : Array[Array[Int]?] = []
   let mut changed = false
-  let rewritten = funcs.map(fn(func) {
+  let rewritten = funcs.mapi(fn(index, func) {
+    if touched is Some(selected) &&
+      (index >= selected.length() || !selected[index]) {
+      remaps.push(None)
+      return func
+    }
     let @lib.Func(locals, @lib.Expr(body)) = func
     // Only a root unreachable makes every following root instruction dead.
     let mut end = body.length()

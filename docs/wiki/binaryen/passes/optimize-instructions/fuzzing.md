@@ -999,3 +999,8 @@ independent unshared simple function signatures, retaining the helper's guards
 for recursive/proposal graphs, legacy try, and opaque names. Red-first tests in
 `oi_residual_signatures_wbtest.mbt` cover saved call-ref case 7 and an imported
 indirect-call contract; command dispatch covers the saved case. Fuzz is deferred.
+
+Touched-function OI routes pass their selection into final body cleanup, keeping
+untouched bodies intact while module-wide type/element index cleanup remains
+consistent. The existing DAE nested merge-blocks regression caught this boundary
+red in full verification and passes after selection threading.

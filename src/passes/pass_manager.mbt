@@ -81278,7 +81278,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
   if next_code_sec is None {
     return Ok(
       if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
-        oi_cleanup_module_encoding(candidate)
+        oi_cleanup_module_encoding(candidate, touched=Some(touched))
       } else {
         candidate
       },
@@ -81291,7 +81291,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
     Some(repaired) =>
       Ok(
         if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
-          oi_cleanup_module_encoding(repaired)
+          oi_cleanup_module_encoding(repaired, touched=Some(touched))
         } else {
           repaired
         },
@@ -81577,7 +81577,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
       if descriptor.name == "heap2local" {
         heap2local_cleanup_module_types(candidate)
       } else if descriptor.name == "optimize-instructions" {
-        oi_cleanup_module_encoding(candidate)
+        oi_cleanup_module_encoding(candidate, touched=Some(touched))
       } else {
         candidate
       },
@@ -81596,7 +81596,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         if descriptor.name == "heap2local" {
           heap2local_cleanup_module_types(repaired)
         } else if descriptor.name == "optimize-instructions" {
-          oi_cleanup_module_encoding(repaired)
+          oi_cleanup_module_encoding(repaired, touched=Some(touched))
         } else {
           repaired
         },
