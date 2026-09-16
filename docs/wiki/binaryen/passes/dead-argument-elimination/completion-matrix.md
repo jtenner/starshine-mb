@@ -32,7 +32,7 @@ It supersedes older prose that called selected DAE slices “closed” while the
 
 ## Historical source and baseline identity (2026-07-19)
 
-- Repository: `/home/jtenner/Projects/starshine-mb`
+- Repository: the Starshine repository root
 - Branch: `main`
 - HEAD: `07ec02a6d2b7cac069b9c0dcc7605c6e90851331`
 - Working tree before baseline: clean

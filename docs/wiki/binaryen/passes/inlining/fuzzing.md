@@ -52,10 +52,10 @@ Representative invocation inside the held lock:
 
 ```text
 bun scripts/self-optimize-compare.ts \
-  /home/jtenner/Projects/starshine-mb/.tmp/production-smoke/size-attribution-accurate/common-star-canonical.wasm \
+  .tmp/production-smoke/size-attribution-accurate/common-star-canonical.wasm \
   --out-dir .tmp/module-pass-sweep-20260903/inlining-cow-ab/1-after \
   --starshine-bin .tmp/module-pass-sweep-20260903/bin/cow-capacity-cmd.exe \
-  --wasm-opt-bin /home/jtenner/Projects/starshine-mb/.tmp/binaryen-version-131-bin/bin/wasm-opt \
+  --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt \
   --moon /bin/true --timing-only --wall-attribution --inlining
 ```
 

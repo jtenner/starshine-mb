@@ -1,3 +1,7 @@
+### 2026-09-16 — Documentation portability cleanup
+
+- Scanned committed docs for machine-specific absolute paths. Replaced absolute repository paths in the living Inlining fuzzing and DAE completion pages with repository-relative/root-neutral wording; retained absolute paths inside the immutable v132 raw validation capture as historical source data. No raw source capture was rewritten.
+
 ### 2026-09-16 — Large Binaryen pass-document scan
 
 - Scanned 883 individual pass wiki documents for stale current-oracle declarations, historical version references, review metadata, and current-main wording. Normalized 40 explicit v129-v131 strategy/oracle declarations across type, GC, locals, memory, string, globals, SSA, and cleanup dossiers to the verified Binaryen 132 comparison baseline while preserving historical source inventories and measurements. No blanket `last_reviewed` rewrite was made; dates remain evidence of the last page-specific review.
