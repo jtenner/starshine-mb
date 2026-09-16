@@ -952,3 +952,12 @@ finalizer. Five red-first pass tests require unused struct/array removal and
 correct surviving array indices; the command regression covers both aggregate
 shapes. Live recursion groups and unsupported proposal guards are preserved.
 Final fuzz renewal is deferred at the user's request.
+
+### Numeric select annotation repair
+
+OI removes a single scalar numeric select annotation after writeback, including
+within nested control bodies. Untyped select uses the same operands and result
+type. Reference and multi-value annotations remain unchanged. Red-first atomic
+fixtures require unchanged load/operand instructions for i32, i64, f32 and f64;
+a reference control requires its annotation to survive. The dispatcher covers
+the original atomic-path case. Fuzz remains deferred at the user's request.

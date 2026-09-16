@@ -37192,7 +37192,7 @@ fn optimize_instructions_test_assert_descriptor_call_operand_miss(
           @lib.LocalIdx::new((base_local + 2).to_uint()),
         ),
       )
-      expected.push(@lib.Instruction::select(types=Some([@lib.ValType::i32()])))
+      expected.push(@lib.Instruction::select())
     } else {
       expected.push(
         @lib.Instruction::local_get(@lib.LocalIdx::new((arg + 1).to_uint())),
