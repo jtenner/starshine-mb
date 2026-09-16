@@ -21,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the tagged source oracle for this pass.
+- Treat Binaryen `version_129` as the tagged historical source oracle for this pass; new comparisons use the verified `version_132` baseline.
 - Use the retained 2026-04-24 follow-up research [research note 0296](./index.md) and the direct tagged URLs below for the original source review.
 - Use [research note 0440](./index.md) for the retained 2026-05-04 current-`main` no-teaching-drift recheck and exact Starshine bridge anchors.
 - The core implementation is `src/passes/Precompute.cpp`.

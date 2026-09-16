@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the main source oracle for this page. The direct tagged URLs below retain the pass, registration, oracle, and lit-test source set; the retained 2026-07-11 refresh supplies the current shared-oracle owner map.
+Treat Binaryen `version_129` as the main historical source oracle for this page; new comparisons use the verified `version_132` baseline. The direct tagged URLs below retain the pass, registration, oracle, and lit-test source set; the retained 2026-07-11 refresh supplies the current shared-oracle owner map.
 
 Primary online sources:
 

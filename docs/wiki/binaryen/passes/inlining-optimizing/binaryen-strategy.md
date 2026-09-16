@@ -24,7 +24,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` for the original detailed suffix walkthrough and `version_131` for the released shared-inliner policy. V131 consumes function-level `@binaryen.inline` `NeverInline` (`"\00"`) / `AlwaysInline` (`"\7f"`) before generic full-inline profitability. The owner is shared `src/passes/Inlining.cpp`; the unique optimizing suffix remains in `src/passes/opt-utils.h`.
+Use the verified Binaryen `version_132` owner for current comparisons; retain `version_129` and `version_131` for the original suffix walkthrough and released shared-inliner policy as historical provenance. V131 consumes function-level `@binaryen.inline` `NeverInline` (`"\00"`) / `AlwaysInline` (`"\7f"`) before generic full-inline profitability. The owner is shared `src/passes/Inlining.cpp`; the unique optimizing suffix remains in `src/passes/opt-utils.h`.
 
 Primary URLs:
 

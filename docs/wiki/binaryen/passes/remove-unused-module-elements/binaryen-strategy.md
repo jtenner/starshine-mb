@@ -30,7 +30,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` for the original graph-algorithm walkthrough and `version_131` for the released table semantics. V131 treats table default initializers as possible callees and conservatively retains element writes when defaults or overlapping segments mean pruning could eliminate an indirect-call trap.
+Use the verified Binaryen `version_132` owner for current comparisons; retain `version_129` and `version_131` for the original graph-algorithm walkthrough and released table semantics as historical provenance. V131 treats table default initializers as possible callees and conservatively retains element writes when defaults or overlapping segments mean pruning could eliminate an indirect-call trap.
 
 Primary files:
 

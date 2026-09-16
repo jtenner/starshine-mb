@@ -22,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_131` as the primary source oracle for this pass. The 2026-07-18 audit found the PLS owner, helper behavior, and dedicated lit file byte-identical to `version_130`; see [research note 1572](./index.md).
+Treat Binaryen `version_131` as historical primary source provenance for this pass; new comparisons use the verified `version_132` baseline. The 2026-07-18 audit found the PLS owner, helper behavior, and dedicated lit file byte-identical to `version_130`; see [research note 1572](./index.md).
 
 Primary files:
 

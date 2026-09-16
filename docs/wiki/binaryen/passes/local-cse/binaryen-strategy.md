@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the tagged source oracle for this pass.
+- Treat Binaryen `version_129` as historical tagged source provenance for this pass; new comparisons use the verified `version_132` baseline.
 - The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**; the retained tagged release/source/test URLs are listed below and cross-checked by the current-main source bridges.
 - A focused 2026-05-05 current-`main` recheck on `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, helper files, and `local-cse.wast` found no teaching-relevant contract drift and is captured at [research note 0453](./index.md).
 - A 2026-05-06 line-anchor refresh retained in [research note 0495](./index.md) pinned the exact current-main source locations used below and kept the Starshine code-map anchors honest.

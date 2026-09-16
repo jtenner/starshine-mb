@@ -26,7 +26,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
+Treat Binaryen `version_129` as historical source provenance for this pass; new comparisons use the verified `version_132` baseline.
 The reviewed official Binaryen release page on 2026-05-04 still shows `version_129` as the stable oracle; the retained current-main recheck and direct tagged URLs preserve the reviewed release and source provenance.
 
 Core upstream files:

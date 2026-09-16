@@ -1,3 +1,7 @@
+### 2026-09-16 — Large Binaryen pass-document scan
+
+- Scanned 883 individual pass wiki documents for stale current-oracle declarations, historical version references, review metadata, and current-main wording. Normalized 40 explicit v129-v131 strategy/oracle declarations across type, GC, locals, memory, string, globals, SSA, and cleanup dossiers to the verified Binaryen 132 comparison baseline while preserving historical source inventories and measurements. No blanket `last_reviewed` rewrite was made; dates remain evidence of the last page-specific review.
+
 ### 2026-09-16 — Binaryen 132 individual pass dossier refresh
 
 - Re-read Binaryen v132 owner sources for Inlining, SimplifyLocals, Untee, MultiMemoryLowering, and Souperify. Refreshed their landing/strategy/shape pages with current v132 owner links and review dates, clarified current-contract wording, and preserved v129–v131 campaigns and URLs as historical evidence rather than current parity signoff. No new runtime or compare-pass campaign is claimed.

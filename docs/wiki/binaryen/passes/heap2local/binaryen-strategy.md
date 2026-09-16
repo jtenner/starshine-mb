@@ -23,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_131` as the released source oracle for this pass. The original `version_129` walkthrough remains useful for the core algorithm, but v131 adds per-allocation analysis resets and fixture-backed multi-allocation/cmpxchg correctness that the older contract did not include.
+Treat Binaryen `version_131` as historical released source provenance for this pass; new comparisons use the verified `version_132` baseline. The original `version_129` walkthrough remains useful for the core algorithm, but v131 adds per-allocation analysis resets and fixture-backed multi-allocation/cmpxchg correctness that the older contract did not include.
 
 Primary files:
 

@@ -19,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass family, grounded in the retained 2026-04-25 source bridge and the direct official URLs below.
+Treat Binaryen `version_129` as historical source provenance for this pass family; new comparisons use the verified `version_132` baseline, grounded in the retained 2026-04-25 source bridge and the direct official URLs below.
 The core sources are:
 
 - `src/passes/Souperify.cpp`

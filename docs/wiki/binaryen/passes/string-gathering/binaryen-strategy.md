@@ -22,7 +22,7 @@ On 2026-04-23 the reviewed official Binaryen GitHub release page for `version_12
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the tagged source oracle for this pass, with the 2026-05-04 current-main recheck as a freshness check.
+- Treat Binaryen `version_129` as historical tagged source provenance for this pass; new comparisons use the verified `version_132` baseline, with the 2026-05-04 current-main recheck as a freshness check.
 - The core implementation lives in `src/passes/StringLowering.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.

@@ -28,7 +28,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` / `version_130` as the released source oracle for this pass. The committed research manifests preserve the tagged contract. A 2026-07-11 reread of current-main [`SSAify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and [`ssa.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast) confirms that the shared `SSAify(bool allowMerges)` algorithm and scheduler split remain as described below. It is a dated source reading, not a claim of byte-for-byte trunk equivalence.
+Treat Binaryen `version_129` / `version_130` as historical released source provenance for this pass; new comparisons use the verified `version_132` baseline. The committed research manifests preserve the tagged contract. A 2026-07-11 reread of current-main [`SSAify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and [`ssa.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast) confirms that the shared `SSAify(bool allowMerges)` algorithm and scheduler split remain as described below. It is a dated source reading, not a claim of byte-for-byte trunk equivalence.
 
 Primary files:
 

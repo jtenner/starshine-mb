@@ -29,7 +29,7 @@ For the compact owner/test map, use [`./implementation-structure-and-tests.md`](
 - The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 - The retained 2026-05-05 current-`main` recheck is recorded in [research note 0476](./index.md).
 - The retained 2026-04-26 port-readiness digest is [research note 0380](./index.md); it reuses the same upstream source families to derive the local implementation slice order rather than changing the algorithm contract.
-- Those older rechecks describe the pre-v131 segment-driven contract. Use Binaryen `version_131` as the released source oracle: it adds table default-initializer classification and a dedicated `directize_init.wast` fixture.
+- Those older rechecks describe the pre-v131 segment-driven contract. Treat Binaryen `version_131` as historical released source provenance; new comparisons use the verified `version_132` baseline: it adds table default-initializer classification and a dedicated `directize_init.wast` fixture.
 - The core implementation lives in `src/passes/Directize.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.

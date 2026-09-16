@@ -21,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the historical source oracle for this pass, anchored by the retained 2026-04-24 source follow-up in [research note 0304](./index.md).
+Treat Binaryen `version_129` as historical source provenance for this pass; new comparisons use the verified `version_132` baseline, anchored by the retained 2026-04-24 source follow-up in [research note 0304](./index.md).
 
 Primary files:
 

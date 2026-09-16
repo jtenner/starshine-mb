@@ -25,7 +25,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the tagged contract anchor for this sibling pass. The 2026-05-05 sibling reread found no teaching-relevant drift in the sibling toggle itself. The shared-engine 2026-07-11 current-main reread additionally makes one inherited correctness constraint explicit: default cleanup must not turn a possible wrong-type `call_indirect` trap into a null-entry trap by removing the responsible active element initializer. That current source rule applies to this sibling too; rooting defined functions changes the initial function roots, not shared table semantics.
+Treat Binaryen `version_129` as the tagged historical contract anchor for this sibling pass; new comparisons use the verified `version_132` baseline. The 2026-05-05 sibling reread found no teaching-relevant drift in the sibling toggle itself. The shared-engine 2026-07-11 current-main reread additionally makes one inherited correctness constraint explicit: default cleanup must not turn a possible wrong-type `call_indirect` trap into a null-entry trap by removing the responsible active element initializer. That current source rule applies to this sibling too; rooting defined functions changes the initial function roots, not shared table semantics.
 
 Primary source files:
 

@@ -17,7 +17,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the tagged oracle for this folder, anchored by the raw primary-source manifest.
+Treat Binaryen `version_129` as the tagged historical oracle for this folder; new comparisons use the verified `version_132` baseline, anchored by the raw primary-source manifest.
 On 2026-04-24 the official GitHub release page for `version_129` showed publish date **2026-04-01 14:31**.
 
 Primary sources:

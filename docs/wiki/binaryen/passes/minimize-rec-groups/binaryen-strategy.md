@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass, using the direct tagged URLs below and the retained 2026-04-24 follow-up research.
+Treat Binaryen `version_129` as historical primary source provenance for this pass; new comparisons use the verified `version_132` baseline, using the direct tagged URLs below and the retained 2026-04-24 follow-up research.
 The historical 2026-04-24 follow-up recorded a narrow current-`main` no-drift claim. That claim is superseded by the 2026-07-11 recheck in [`MinimizeRecGroups.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp): current `main` preserves the algorithm and test roster, but threads one `getPassOptions().worldMode` policy through heap-type visibility collection and final global type rewriting.
 
 Primary files:

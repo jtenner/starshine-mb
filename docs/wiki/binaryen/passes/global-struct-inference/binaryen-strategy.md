@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the released primary source oracle for this pass. The retained released/current source bridge is Binaryen [`version_130` `GlobalStructInference.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp) and [current-main owner](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalStructInference.cpp); the older 2026-05-06 bridge remains provenance for the earlier `version_129` correction.
+Treat Binaryen `version_130` as historical released source provenance for this pass; new comparisons use the verified `version_132` baseline. The retained released/current source bridge is Binaryen [`version_130` `GlobalStructInference.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp) and [current-main owner](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalStructInference.cpp); the older 2026-05-06 bridge remains provenance for the earlier `version_129` correction.
 
 Primary files:
 

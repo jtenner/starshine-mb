@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the main source oracle for this page. Archived research records the consumed 2026-05-04 current-main no-drift recheck; the direct tagged URLs in this dossier preserve the reviewed-source catalog.
+Treat Binaryen `version_129` as the main historical source oracle for this page; new comparisons use the verified `version_132` baseline. Archived research records the consumed 2026-05-04 current-main no-drift recheck; the direct tagged URLs in this dossier preserve the reviewed-source catalog.
 
 
 ## File map

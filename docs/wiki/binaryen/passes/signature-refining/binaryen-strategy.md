@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the historical algorithm anchor for this pass, with its source inventory retained in [research note 0307](./index.md) and the direct tagged URLs below. Current-contract claims must use the later `version_130` / current-main bridge below.
+Treat Binaryen `version_129` as historical algorithm provenance for this pass; new comparisons use the verified `version_132` baseline, with its source inventory retained in [research note 0307](./index.md) and the direct tagged URLs below. Current-contract claims must use the verified `version_132` baseline and a fresh source review; the later `version_130` / current-main bridge below remains historical evidence.
 
 Primary files:
 

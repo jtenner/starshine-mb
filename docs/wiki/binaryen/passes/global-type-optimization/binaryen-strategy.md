@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass, anchored by the retained 2026-06-02 current-main recheck in [research note 0694](./index.md); the direct tagged URLs below preserve the earlier source catalog after its manifest is consumed.
+Treat Binaryen `version_129` as historical source provenance for this pass; new comparisons use the verified `version_132` baseline, anchored by the retained 2026-06-02 current-main recheck in [research note 0694](./index.md); the direct tagged URLs below preserve the earlier source catalog after its manifest is consumed.
 
 Primary files:
 

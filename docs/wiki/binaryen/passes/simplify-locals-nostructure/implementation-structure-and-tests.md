@@ -116,7 +116,7 @@ Use that sibling for the complete five-variant family; use this page when you on
 
 ## Freshness note
 
-Use Binaryen `version_131` as the stable source oracle; the v130 source map below remains applicable because the reviewed owner/helper surface did not change.
+Treat Binaryen `version_131` as the stable historical source oracle; new comparisons use the verified `version_132` baseline; the v130 source map below remains applicable because the reviewed owner/helper surface did not change.
 The 2026-06-30 source refresh in [research note 1399](./index.md) found the dedicated no-structure and nearby-variant tests unchanged from `version_129`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. Helper drift in `EffectAnalyzer`, `LinearExecutionWalker`, and `Properties` remains relevant to the active effect/refinalization audit.
 
 ## Upstream file map

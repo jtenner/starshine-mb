@@ -24,7 +24,7 @@ This page maps the source and test files that define upstream Binaryen's `coales
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged source oracle. The retained 2026-05-05 research recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces; the direct current-main URLs in the dossier remain the durable freshness evidence.
+Treat Binaryen `version_129` as the tagged historical source oracle; new comparisons use the verified `version_132` baseline. The retained 2026-05-05 research recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces; the direct current-main URLs in the dossier remain the durable freshness evidence.
 
 Primary upstream sources:
 

@@ -19,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the stable source oracle for this pass. The retained 2026-07-11 shared-oracle refresh is the current owner-map/uncertainty bridge; the direct tagged URLs below retain the exact `gufa-optimizing` source and test surfaces. It is a focused refresh, not a complete version-to-`main` diff.
+Treat Binaryen `version_129` as the stable historical source oracle for this pass; new comparisons use the verified `version_132` baseline. The retained 2026-07-11 shared-oracle refresh is the current owner-map/uncertainty bridge; the direct tagged URLs below retain the exact `gufa-optimizing` source and test surfaces. It is a focused refresh, not a complete version-to-`main` diff.
 
 Primary online sources:
 

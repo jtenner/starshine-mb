@@ -31,7 +31,7 @@ This page maps the Binaryen files and tests that define `local-cse`, then maps t
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle and [research note 0453](./index.md) plus [research note 0495](./index.md) as the latest freshness bridges. The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces, and the 2026-05-06 note only refreshed local line anchors.
+Treat Binaryen `version_129` as the tagged historical oracle, and use the verified `version_132` baseline for new comparisons. The latest freshness bridges are [research note 0453](./index.md) plus [research note 0495](./index.md). The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces, and the 2026-05-06 note only refreshed local line anchors.
 
 Primary upstream sources:
 

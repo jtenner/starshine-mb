@@ -23,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` for the original detailed rewrite walkthrough and `version_131` for the released world-mode policy. The v131 owner and `remove-unused-types-open.wast` supersede the earlier unresolved current-main admission wording.
+Use the verified Binaryen `version_132` owner for current comparisons; retain `version_129` and `version_131` for the original rewrite walkthrough and released world-mode policy as historical provenance. The v131 owner and `remove-unused-types-open.wast` supersede the earlier unresolved current-main admission wording.
 
 Primary files:
 

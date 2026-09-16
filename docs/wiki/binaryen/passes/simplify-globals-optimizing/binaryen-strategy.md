@@ -21,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the stable source oracle for this pass, with the 2026-05-18 current-`main` refresh as a no-drift check rather than a replacement contract.
+- Treat Binaryen `version_129` as the stable historical source oracle for this pass; new comparisons use the verified `version_132` baseline, with the 2026-05-18 current-`main` refresh as a no-drift check rather than a replacement contract.
 - The retained 2026-04-24 research inventory and [research note 0376](./index.md) record the official release page, reviewed `version_129` and current-`main` source URLs, helper headers, lit-test roster, and focused port-readiness recheck.
 - The core implementation is `src/passes/SimplifyGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.

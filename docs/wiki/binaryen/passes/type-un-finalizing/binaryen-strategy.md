@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` direct source URLs as the tagged algorithm baseline for this pass. The 2026-07-11 current-main recheck preserves the owner/registration/lit contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global rewriting. This is **not** a closed-world-only gate; it is one policy a future port must apply consistently. See [Binaryen current-main `TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp).
+Treat Binaryen `version_129` direct source URLs as historical algorithm provenance for this pass; new comparisons use the verified `version_132` baseline. The 2026-07-11 current-main recheck preserves the owner/registration/lit contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global rewriting. This is **not** a closed-world-only gate; it is one policy a future port must apply consistently. See [Binaryen current-main `TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp).
 
 The core sources are:
 

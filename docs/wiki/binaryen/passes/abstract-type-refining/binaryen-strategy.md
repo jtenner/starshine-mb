@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the newest reviewed tagged source oracle for this pass, anchored by [`index.md`](index.md); retain the immutable 2026-04-24 `version_129` manifest as historical provenance. The 2026-07-11 web retrieval found an internally inconsistent current-`main` API snapshot, so it does **not** establish a main no-drift claim; pin one checkout before using main-specific behavior for implementation or signoff.
+Treat Binaryen `version_130` as the newest reviewed historical tagged source provenance for this pass; new comparisons use the verified `version_132` baseline. The pass is anchored by [`index.md`](index.md); retain the immutable 2026-04-24 `version_129` manifest as historical provenance. The 2026-07-11 web retrieval found an internally inconsistent current-`main` API snapshot, so it does **not** establish a main no-drift claim; pin one checkout before using main-specific behavior for implementation or signoff.
 
 Primary files:
 

@@ -19,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` direct source URLs as the tagged algorithm baseline for this pass. The retained 2026-04-27 readiness bridge and 2026-07-11 world-mode recheck supply dated current-main provenance; the latter supersedes the older boolean-only freshness claim.
+Treat the Binaryen `version_129` direct source URLs as historical algorithm provenance for this pass; new comparisons use the verified `version_132` baseline. The retained 2026-04-27 readiness bridge and 2026-07-11 world-mode recheck supply dated current-main provenance; the latter supersedes the older boolean-only freshness claim.
 
 Primary files:
 

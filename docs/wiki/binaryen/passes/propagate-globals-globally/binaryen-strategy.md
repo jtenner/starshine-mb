@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the reviewed tagged source oracle for this pass. Direct URLs below retain the release page, `SimplifyGlobals.cpp`, `pass.cpp`, and dedicated lit-file provenance; the 2026-04-24 source correction and retained 2026-05-05 research mirror preserve the reviewed conclusions and freshness layer: [research note 0459](./index.md).
+Treat Binaryen `version_129` as the reviewed historical tagged source oracle for this pass; new comparisons use the verified `version_132` baseline. Direct URLs below retain the release page, `SimplifyGlobals.cpp`, `pass.cpp`, and dedicated lit-file provenance; the 2026-04-24 source correction and retained 2026-05-05 research mirror preserve the reviewed conclusions and freshness layer: [research note 0459](./index.md).
 
 Primary source URLs:
 

@@ -17,7 +17,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
+Treat Binaryen `version_129` as historical primary source provenance for this pass; new comparisons use the verified `version_132` baseline.
 
 Primary files:
 

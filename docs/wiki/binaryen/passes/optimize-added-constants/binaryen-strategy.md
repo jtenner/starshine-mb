@@ -22,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_131` as the repo-wide release baseline for new research; this page's detailed implementation notes remain anchored to the reviewed `version_129` source set and later current-main recheck until a behavior-specific v131 reread replaces them.
+- Use the verified Binaryen `version_132` baseline for new research; retain the reviewed v129/v131 source notes below as historical provenance; this page's detailed implementation notes remain anchored to the reviewed `version_129` source set and later current-main recheck until a behavior-specific v131 reread replaces them.
 - The original release-tag source review is retained through [research note 0300](./index.md) and the direct tagged URLs below.
 - The retained 2026-05-05 current-main source-anchor recheck is [research note 0465](./index.md).
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.

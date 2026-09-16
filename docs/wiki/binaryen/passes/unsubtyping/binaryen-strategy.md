@@ -23,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` for the original detailed relation-fixed-point walkthrough and `version_131` for the released world-policy contract. The v131 owner and open-world fixture supersede the earlier trunk-only admission wording.
+Use the verified Binaryen `version_132` owner for current comparisons; retain `version_129` and `version_131` for the original relation-fixed-point walkthrough and released world-policy contract as historical provenance. The v131 owner and open-world fixture supersede the earlier trunk-only admission wording.
 
 Primary files:
 
