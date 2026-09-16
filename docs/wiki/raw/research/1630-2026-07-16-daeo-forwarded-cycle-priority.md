@@ -8,7 +8,7 @@ sources:
   - ../../../../src/passes/dead_argument_elimination_wbtest.mbt
   - ../../../../src/passes/pass_manager.mbt
   - ./1629-2026-07-16-daeo-direct-gc-batch-performance.md
-  - ./1627-2026-07-16-daeo-consumed-call-argument-slot-checkpoint.md
+  - ../../binaryen/passes/dae-optimizing/index.md
 ---
 
 # DAEO forwarded-cycle priority and multi-cycle recovery
