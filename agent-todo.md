@@ -4,14 +4,15 @@
 
 ### Resume checkpoint — September 15, user-requested usage pause
 
-**Resume here.** The user requested saving progress because usage is running low.
-Do not restart the audit or repeat historical fuzz lanes without rebuilding.
-The current checkpoint supersedes older “renewal pending” statements below.
+**Resume here.** The usage-pause checkpoint was resumed to fix its three saved
+red cases. Those source repairs are complete; the user explicitly deferred fuzz.
+Do not restart the audit or reuse stale binaries for later signoff. This status
+supersedes older pending-red statements in the checkpoint and wiki history.
 
 - **Workflow:** reuse the original five report-only agents; they must not edit,
   run Moon/compiler/runtime/fuzz, or commit. Root alone writes/tests/fixes.
   Serialize every Moon command. Use simple individual commits; the user
-  explicitly waived the commit skill. Run final fuzz after source fixes.
+  explicitly waived the commit skill. Fuzz is deferred by the latest instruction.
 - **Latest completed source repairs:** `614460fe6` removes unused signatures on
   local-subtyping's unchanged path; `db0d07b27` admits index-free `ref.i31` to
   guarded cleanup; `b3706bd27` trims dead root-return suffixes and stale suffix
@@ -24,51 +25,34 @@ The current checkpoint supersedes older “renewal pending” statements below.
   actual call-site and callee signatures instead of fixed duplicate slots.
   All four command checks also pass; evidence is in
   `dae2-signature-cmd-green.log`.
-- **Current verification limit:** latest complete default suite is **11,978
-  passing tests**, before the subsequent local-subtyping/global-type/name and
-  DAE2 signature follow-ups. Focused checks pass: 101 local-subtyping, 27
-  global-refining, 302 precompute, 3 local-grouping and their dispatcher checks.
-  There is no final full-suite or final-source fuzz signoff for the new commits.
-- **Intentional pending red fixtures:** DAE2 result-wrapper removal,
-  OI unused aggregate type groups, and OI numeric typed-select cleanup. Pass
-  files: `src/passes/dae2_result_wrapper_parity_test.mbt`,
-  `oi_type_group_parity_test.mbt`, `oi_numeric_select_parity_test.mbt`;
-  corresponding dispatcher files are under `src/cmd/*_wbtest.mbt`.
-  They are unfinished behavior tests, not defects to silence or skip. Their
-  checkpoint logs end in `*-checkpoint-red.log` and confirm one failure per
-  pass fixture; command counterparts still
-  need focused red verification. A draft select-constructor syntax error was
-  corrected to `Instruction::select()` before checkpoint verification.
+- **Current verification:** all **12,013 default Moon tests pass** after the
+  three saved-case repairs; `moon info` and formatting pass without public API
+  changes. The first full run found one outdated fixed type-index expectation;
+  the grouped DAE regression now checks shared signature identity and the exact
+  preserved i32 result after compaction. The second full run is entirely green.
+  Logs: `saved-cases-info.log`, `saved-cases-final-fmt.log`, and
+  `saved-cases-final-test.log` under `.tmp/pass-audit-20260915/`.
+  **Final-source native builds and fuzz remain deferred**, not completed.
+- **Three saved red cases repaired:** DAE2 flattens branchless argument result
+  wrappers while preserving producer order; OI prunes unused aggregate types
+  after writeback repair on ordinary/stacked/touched paths; OI strips only
+  redundant scalar numeric select annotations. The reference-select annotation
+  and atomic-prefix controls pass. Fixtures remain in their original pass and
+  command files. Additional writeback-path coverage is in
+  `src/passes/oi_type_group_paths_wbtest.mbt`. No pending-red tests remain from
+  this checkpoint. Focused counts: 63 DAE2 and 1,474 OI pass checks; dispatcher
+  checks pass, and the full-suite result is recorded above.
 
 #### Next cases, one fix and commit at a time
 
-1. **DAE2 effectful-argument result wrapper:** pass fixture requires three
-   imported producer calls to remain ordered and removes only the unnecessary
-   result block. Saved case10 has +3 wrapper bytes and -2 dead-local bytes,
-   net raw +1. Reuse `pass_lower_cleanup_branchless_blocks` after candidate
-   rewriting, preserving returns/traps/EH/continuation labels and metadata.
-   Existing helpers: `lower_capture_cleanup.mbt:205` and
-   `dae2_fold_known_local_throws` in `dead_argument_elimination2_legacy.mbt`.
-2. **OI aggregate types:** 1,138 first-renewal raw losses are unused array
-   (+3) or struct (+6) definitions. Apply `pass_cleanup_unused_type_groups`
-   **after** writeback repair. Direct raw/HOT converge in
-   `run_hot_pipeline_apply_hot_pass`: successful OI repair return and final
-   nondeferred return both need cleanup. Never remap types before repair can
-   restore an original function using old indices. Also test stack/touched
-   entrypoints if wiring them. The helper deliberately excludes unsupported
-   proposal/reference surfaces; keep whole recursion groups and metadata.
-3. **OI numeric typed selects:** memory-bulk case11 has four scalar numeric
-   typed selects costing +8 code bytes; section differences give net +5.
-   Remove only redundant numeric single-result annotations; preserve reference
-   annotations, atomic opcodes, memory arguments, operand order and effects.
-4. **Other OI residues:** local-facts case20 has two result blocks (+6);
+1. **Other OI residues:** local-facts case20 has two result blocks (+6);
    ref-GC case5 one block (+3); ref-GC case2 also retains a suffix after
    unreachable. Descriptor37 has type-only residue; descriptor27 has nested
    producer/result blocks; descriptor52/74 exact typed null versus shorter
    bottom null plus types. Descriptor support needs a complete safe remapper,
    not widening the existing guard blindly. Call-ref includes duplicate
    signatures and redundant declarative elements (table-get case108 +4).
-5. **Continuation raw overhead:** DAE2 case15 has retained continuation type
+2. **Continuation raw overhead:** DAE2 case15 has retained continuation type
    graphs and expression-form declarative elements. Existing DFE/group cleanup
    does not fully scan/remap continuation instructions. Complete that closure
    before admitting these graphs. `dfe_canonicalize_elem_segments` may handle
@@ -114,12 +98,13 @@ Do not overwrite earlier artifacts or relabel their source/tool versions.
   Verified v132 oracle: `.tmp/binaryen-version_132/bin/wasm-opt`, SHA-256
   `1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
 - `run-parity-renewal-2.py` is prepared but **not run**. Extend its six-lane plan
-  with OI and both DAE2 variants after the new fixes, then run against fresh
+  with OI and both DAE2 variants when fuzz work resumes, then run against fresh
   explicit native binaries. Use ≥10,000 compared per lane (precompute variants
   request 11,000 because of known atomic input exclusions), jobs auto, max
   subprocesses8/artifacts20. No wasm-smith. Keep DAE2 cleanup normalizers.
-- **Exit criteria:** finish individual red-first repairs; `moon info`, fmt,
-  full default tests, review `.mbti`; rebuild native cmd/fuzz; renew every
+- **Exit criteria:** the saved red cases, info/fmt/default tests and API review
+  are complete. For remaining parity work, use individual red-first repairs;
+  rebuild native cmd/fuzz when fuzz work resumes; renew every
   affected aggregate; classify remaining raw/canonical/runtime gaps honestly;
   update wiki index/log/backlog. Compact-import policy, retained name metadata,
   atomic independent-validator limits and unsupported proposal remapping remain

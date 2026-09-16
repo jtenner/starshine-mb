@@ -3448,3 +3448,33 @@ regressions are intentionally red: DAE2 result wrappers, OI unused aggregate
 types, and OI numeric typed selects. Their dispatcher counterparts are saved
 and compile, but still need focused red runs. Native binaries must be rebuilt
 after all remaining source fixes before final aggregate signoff.
+
+#### Saved red-case repairs after the usage checkpoint
+
+All three saved cases now have individual source fixes:
+
+- DAE2 removes branchless result wrappers after signature rewriting, preserving
+  the ordered imported argument producers and sink call. Its 63 pass checks
+  and dispatcher regression pass.
+- OI prunes unused whole aggregate type groups after writeback repair on direct,
+  nondeferred, stacked and touched routes. Five initially failing pass cases
+  and the dispatcher now validate and assert correctly remapped array indices.
+- OI removes only scalar numeric select annotations, preserving all operands,
+  atomic-load prefixes and required reference-select annotations. Its complete
+  1,474-check pass selection and the numeric dispatcher case pass.
+
+The former three intentional red cases are resolved; the checkpoint description
+above remains historical. The user explicitly deferred fuzz renewal, and native
+binaries still need rebuilding before that later run. Other raw-size families
+and proposal-remapping limits remain in the active backlog.
+Sources: [DAE2](../../../src/passes/dead_argument_elimination2.mbt),
+[OI finalizer](../../../src/passes/optimize_instructions_cleanup.mbt),
+[writeback-path regressions](../../../src/passes/oi_type_group_paths_wbtest.mbt),
+and [numeric-select regressions](../../../src/passes/oi_numeric_select_parity_test.mbt).
+
+Final default verification passes **12,013/12,013** tests, plus info/fmt with
+no public API changes. The first full run exposed one old DAE assertion tied to
+a removed type slot; its replacement checks actual shared signature identity
+and the preserved i32 result. The second full run passes completely. Logs:
+`saved-cases-info.log`, `saved-cases-final-fmt.log`, and
+`saved-cases-final-test.log` under `.tmp/pass-audit-20260915/`.
