@@ -13,15 +13,31 @@ fn oi_cleanup_control(mod_ : @lib.Module) -> @lib.Module {
   let mut changed = false
   let rewritten = funcs.map(fn(func) {
     let @lib.Func(locals, @lib.Expr(body)) = func
+    // Only a root unreachable makes every following root instruction dead.
+    let mut end = body.length()
+    for i = 0; i < body.length(); i = i + 1 {
+      if body[i] is @lib.Unreachable {
+        end = i + 1
+        break
+      }
+    }
+    let trimmed = end < body.length()
+    let prefix = if trimmed { body[0:end].to_array() } else { body }
     let keep : Array[Bool] = []
     let (next, rewritten, _) = pass_lower_flatten_branchless_blocks(
-      body,
+      prefix,
       env,
       label_keep=Some(keep),
     )
-    if !rewritten {
+    if !rewritten && !trimmed {
       remaps.push(None)
       return func
+    }
+    if trimmed {
+      let dead_labels = ls_label_count(body[end:].to_array()).to_int()
+      for i = 0; i < dead_labels; i = i + 1 {
+        keep.push(false)
+      }
     }
     changed = true
     let mut next_label = 0

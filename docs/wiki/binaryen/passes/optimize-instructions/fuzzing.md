@@ -971,3 +971,11 @@ are cleared. Opaque undecoded names retain the original structure. Saved cases
 20 and 5 and a metadata regression live in
 `src/passes/oi_residual_blocks_wbtest.mbt`; the active dispatcher has its own
 saved-case regression. These tests failed before the repair. Fuzz is deferred.
+
+### Dead root-unreachable suffix cleanup
+
+OI finalization truncates instructions after a root `unreachable`, preserving
+the entire evaluated prefix. It removes names for deleted suffix labels while
+retaining live labels. A conditional unreachable does not truncate fallthrough.
+Red-first pass/dispatcher tests cover saved case 2, prefix effects, and names in
+`oi_residual_unreachable_wbtest.mbt`. Fuzz remains deferred.
