@@ -22,7 +22,7 @@ fn oi_cleanup_module_encoding(mod_ : @lib.Module) -> @lib.Module {
     }
     None => mod_
   }
-  pass_cleanup_unused_type_groups(candidate)
+  pass_cleanup_unused_type_groups(oi_cleanup_control(candidate))
 }
 
 ///|

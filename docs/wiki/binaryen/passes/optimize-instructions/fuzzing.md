@@ -961,3 +961,13 @@ type. Reference and multi-value annotations remain unchanged. Red-first atomic
 fixtures require unchanged load/operand instructions for i32, i64, f32 and f64;
 a reference control requires its annotation to survive. The dispatcher covers
 the original atomic-path case. Fuzz remains deferred at the user's request.
+
+### Residual result-block cleanup
+
+The post-writeback finalizer removes parameter-free blocks whose contents do
+not transfer control, using the shared lowering proof. Label-name ordinals are
+remapped across imports and untouched functions, and stale encoded name caches
+are cleared. Opaque undecoded names retain the original structure. Saved cases
+20 and 5 and a metadata regression live in
+`src/passes/oi_residual_blocks_wbtest.mbt`; the active dispatcher has its own
+saved-case regression. These tests failed before the repair. Fuzz is deferred.

@@ -205,15 +205,33 @@ fn pass_lower_compact_captures(
 fn pass_lower_flatten_branchless_blocks(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
+  label_keep? : Array[Bool]? = None,
 ) -> (Array[@lib.Instruction], Bool, Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut branchless = true
   for instr in instrs {
+    let label_slot = match (label_keep, instr) {
+      (
+        Some(keep),
+        @lib.Block(_, _)
+        | @lib.Loop(_, _)
+        | @lib.If(_, _, _)
+        | @lib.TryTable(_, _, _)
+        | @lib.Try(_, _, _, _),
+      ) => {
+        let slot = keep.length()
+        keep.push(true)
+        Some(slot)
+      }
+      _ => None
+    }
     let mut children_branchless = true
     let instr = pass_lower_map_children(instr, fn(body) {
       let (next, child_changed, child_branchless) = pass_lower_flatten_branchless_blocks(
-        body, env,
+        body,
+        env,
+        label_keep~,
       )
       changed = changed || child_changed
       children_branchless = children_branchless && child_branchless
@@ -253,6 +271,10 @@ fn pass_lower_flatten_branchless_blocks(
           Ok((params, _)) if params.is_empty() => {
             // No instruction refers to this or an outer label. With no block
             // parameters, the same ordered producers leave the same results.
+            match (label_keep, label_slot) {
+              (Some(keep), Some(slot)) => keep[slot] = false
+              _ => ()
+            }
             out.append(body)
             changed = true
             continue
