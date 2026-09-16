@@ -27,9 +27,18 @@ test "round2 dae2 preserves equivalent indirect call types with unequal liveness
   ).unwrap()
   assert_true(@validate.validate_module(output).is_ok())
   let env = @validate.Env::new().with_module(output)
-  assert_true(
-    env.resolve_functype(@lib.TypeIdx::new(0U)) ==
-    env.resolve_functype(@lib.TypeIdx::new(1U)),
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  let required = match body.last() {
+    Some(@lib.CallIndirect(type_idx, _)) => type_idx
+    _ => fail("expected retained indirect call")
+  }
+  let actual = output.func_sec.unwrap().0[0]
+  // Equivalent signatures may now share an index. Compare the callee and
+  // call-site contracts rather than assuming both original slots survive.
+  @debug.assert_eq(env.resolve_functype(actual), env.resolve_functype(required))
+  @debug.assert_eq(
+    env.resolve_functype(actual),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [])),
   )
 }
 

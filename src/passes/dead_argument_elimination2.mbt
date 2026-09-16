@@ -563,7 +563,7 @@ fn dae2_run_module_pass(
     // Captures and legacy-handler adaptation are analysis scaffolding. When
     // no definition or call signature changes, keep the original expression
     // structure rather than making users pay for that scaffolding in output.
-    return Ok(original)
+    return Ok(dfe_cleanup_simple_type_encoding(original))
   }
   let mut types = match mod_.type_sec {
     Some(types) => types
@@ -770,7 +770,11 @@ fn dae2_run_module_pass(
   // signature. The module dispatcher rebuilds the HOT module context/caches.
   match @validate.validate_module(candidate) {
     Ok(_) =>
-      Ok(dae_prune_unused_simple_func_types(candidate, preserve_names=true))
+      Ok(
+        dfe_cleanup_simple_type_encoding(
+          dae_prune_unused_simple_func_types(candidate, preserve_names=true),
+        ),
+      )
     Err(err) => Err("dae2: invalid rewritten module: \{err}")
   }
 }

@@ -161,3 +161,14 @@ remain pending renewal. See [proof, sizes and guards](../../../ir2/architecture-
 [Four configured Node suspend observations and the verified v132 interpreter regression](../../../ir2/architecture-rules.md#continuation-runtime-observation-renewal)
 renew the five saved continuation blockers with explicit engine-specific scope.
 The resume-throw case is checked only with the verified interpreter.
+
+### Existing duplicate-signature repair
+
+Fresh raw section inspection identifies retained identical simple signatures in
+the intrinsics, call-ref and open-world families. Four pass and four dispatcher
+regressions fail before cleanup: both variants retain two void signatures on
+unchanged and rewritten paths. Both DAE2 exits now reuse guarded type-only
+canonicalization; local grouping is not involved. All 62 DAE2 pass tests pass.
+An earlier indirect-call regression now compares actual callee/call-site types
+and their retained i32 parameter instead of assuming duplicate slots survive.
+Recursive, shared, subtyping and legacy graphs retain the existing guard.

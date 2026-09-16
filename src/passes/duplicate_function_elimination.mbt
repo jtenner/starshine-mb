@@ -4513,7 +4513,16 @@ fn dfe_group_numeric_locals_if_smaller(mod_ : @lib.Module) -> @lib.Module {
 
 ///|
 fn dfe_cleanup_raw_encoding(mod_ : @lib.Module) -> @lib.Module {
-  let grouped = dfe_group_numeric_locals_if_smaller(mod_)
+  dfe_cleanup_simple_type_encoding(dfe_group_numeric_locals_if_smaller(mod_))
+}
+
+///|
+fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_legacy_try(mod_) ||
+    (mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_)) {
+    return mod_
+  }
+  let grouped = mod_
   let types = match grouped.type_sec {
     Some(@lib.TypeSec(types)) => types
     None => return grouped
