@@ -1024,3 +1024,13 @@ passes 12,030 tests. Runtime properties were off; retained raw losses remain
 parity gaps and existing semantic classifications are not broadened by size
 alone. Commands, binary hashes, family counts and exclusions are in the linked
 renewal record.
+
+### September 16 scalar-add type cleanup
+
+The shared bounded type-group cleanup now admits `i32.add`, which has no type
+indices and is unchanged by the remapper. This removes unused sibling types
+from OI GC fixtures whose helper functions increment a global. Saved case 3
+and an effect/name-remapping fixture failed before the change; pass and
+dispatcher checks require the dead type to disappear while live indices,
+arithmetic order and type names stay correct. Sources:
+`precompute_type_cleanup.mbt` and `oi_size_scalar_types_wbtest.mbt`.

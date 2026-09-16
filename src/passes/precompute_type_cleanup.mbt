@@ -38,6 +38,7 @@ fn precompute_type_cleanup_instrs_supported(
       | @lib.LocalTee(_)
       | @lib.GlobalGet(_)
       | @lib.GlobalSet(_)
+      | @lib.I32Add
       | @lib.I32Const(_)
       | @lib.I64Const(_)
       | @lib.F32Const(_)
@@ -64,6 +65,7 @@ fn precompute_type_cleanup_instrs_supported(
       | @lib.ArrayGetS(_)
       | @lib.ArrayGetU(_)
       | @lib.ArraySet(_)
+      // Scalar addition carries no type index; its operands remain unchanged.
       | @lib.ArrayLen => ()
       _ => return false
     }
