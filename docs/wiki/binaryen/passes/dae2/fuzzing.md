@@ -172,3 +172,12 @@ canonicalization; local grouping is not involved. All 62 DAE2 pass tests pass.
 An earlier indirect-call regression now compares actual callee/call-site types
 and their retained i32 parameter instead of assuming duplicate slots survive.
 Recursive, shared, subtyping and legacy graphs retain the existing guard.
+
+### Effectful-argument result-wrapper repair
+
+After signature rewriting, DAE2 flattens branchless result wrappers through
+the existing label-aware lowering cleanup. The red-first pass and dispatcher
+fixture preserves all three imported producer calls, their order and the sink
+call while requiring removal of the unnecessary block. All 63 DAE2 pass tests
+pass, including EH, indirect-call identity and argument-effect regressions.
+Final fuzz renewal is explicitly deferred at the user's request.

@@ -766,6 +766,12 @@ fn dae2_run_module_pass(
   // Signature pruning can expose a statically selected adapted handler. Fold
   // only plain catches of fresh local tags with non-throwing payload producers.
   candidate = dae2_fold_known_local_throws(candidate)
+  // Removed arguments can leave result wrappers around ordered producers.
+  // Only flatten blocks without label-dependent control transfers.
+  let cleaned_bodies = candidate.code_sec.unwrap().0.map(fn(func) {
+    pass_lower_cleanup_branchless_blocks(func, candidate).0
+  })
+  candidate = candidate.with_code_sec(@lib.CodeSec::new(cleaned_bodies))
   // No mutation escapes until every definition and call site has its new
   // signature. The module dispatcher rebuilds the HOT module context/caches.
   match @validate.validate_module(candidate) {
