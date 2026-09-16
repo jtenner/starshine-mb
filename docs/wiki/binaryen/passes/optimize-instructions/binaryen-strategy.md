@@ -1,12 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ../../release-horizon-and-oracles.md
-  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/OptimizeInstructions.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions_idempotent.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions-global-effects-idempotent.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/OptimizeInstructions.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/optimize-instructions_idempotent.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/optimize-instructions-global-effects-idempotent.wast
   - ./index.md
 related:
   - ./index.md
@@ -24,7 +24,7 @@ related:
 
 ## Upstream source rule
 
-This page's explanatory strategy prose was originally written against Binaryen `version_129` and remains useful for the broad pass model. For release-gating work, use Binaryen `version_131`. The 2026-07-19 refresh closes the representable v131 changes to equal-input `ref.eq`, identical-arm `select`, idempotent parent/child effect ordering, and directional trap/effect movement. The acquire/release-specific global-effects fixture remains blocked on ordered memory-atomic representation, not deferred optimizer logic.
+This page's explanatory strategy prose was originally written against older Binaryen tags and remains useful for the broad pass model. For current release-gating work, use Binaryen `version_132`; the v131 measurements and v130 matrix remain historical evidence. The 2026-07-19 refresh closes the representable v131 changes to equal-input `ref.eq`, identical-arm `select`, idempotent parent/child effect ordering, and directional trap/effect movement. The acquire/release-specific global-effects fixture remains blocked on ordered memory-atomic representation, not deferred optimizer logic.
 
 Primary files:
 
@@ -64,7 +64,7 @@ The shipped lit tests are also part of the contract here, especially:
 
 Binaryen uses `optimize-instructions` to simplify instruction-shaped code *after* first forcing many expressions into more canonical forms.
 
-That sounds small, but the real `version_129` pass is broad.
+That sounds small, but the v132 pass is broad.
 
 It combines:
 
@@ -454,7 +454,7 @@ The pass genuinely owns a broad slice of Binaryen's mid- to late-function simpli
 
 ## Bottom line
 
-Binaryen `optimize-instructions` in `version_129` is a layered pass:
+Binaryen `optimize-instructions` in v132 is a layered pass:
 
 - pre-scan locals
 - canonicalize shapes

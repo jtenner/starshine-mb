@@ -1,16 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_all-features.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_vacuum_remove-unused-names.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh-legacy.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-stack-switching.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dce_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dce_vacuum_remove-unused-names.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dce-stack-switching.wast
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -25,7 +25,7 @@ related:
 
 ## Major correction
 
-A direct `version_129` source reread shows that Binaryen `dce` is much narrower than the older local dossier claimed.
+The v132 source confirms that Binaryen `dce` is much narrower than the older local dossier claimed.
 
 It is **not** a broad effect-driven dead-result optimizer with helper block-target walkers, dedicated `visitDrop(...)` logic, flattening, and refinalization.
 
@@ -53,8 +53,7 @@ Primary dedicated tests:
 - `test/lit/passes/dce-eh-legacy.wast`
 - `test/lit/passes/dce-stack-switching.wast`
 
-The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
-A 2026-05-05 current-main recheck found no teaching-relevant drift between `version_129` and current `main` in `src/passes/DeadCodeElimination.cpp`.
+The v132 owner and representative lit files were re-read on 2026-09-16; no teaching-relevant drift from the documented narrow contract was found.
 
 ## Public pass identity and placement
 
@@ -202,7 +201,7 @@ The legacy EH lit file shows why this matters: adding blocks can move `pop` into
 
 ## What the real source does **not** support
 
-These older local claims are not part of the actual `version_129` pass:
+These older local claims are not part of the v132 pass:
 
 - no `BranchSeeker`
 - no `UnneededBlockSeeker`
@@ -214,7 +213,7 @@ These older local claims are not part of the actual `version_129` pass:
 - no `ReFinalize`
 - no `handleNonDefaultableLocals(...)`
 
-Those ideas may be relevant to neighboring passes, but they are not Binaryen `dce` as shipped in `version_129`.
+Those ideas may be relevant to neighboring passes, but they are not Binaryen `dce` as shipped in v132.
 
 ## Beginner-safe summary
 

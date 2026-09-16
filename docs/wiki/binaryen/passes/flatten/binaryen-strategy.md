@@ -22,7 +22,7 @@ Use this page together with the direct tagged `version_129` source URLs in the u
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Treat the reviewed Binaryen `version_129` source as historical provenance for this pass; new comparisons use the verified `version_132` baseline.
 - The reviewed official release surface on 2026-04-23 still anchored this dossier on Binaryen `version_129`, whose GitHub release page showed publish date **2026-04-01**.
 - The core implementation lives in `src/passes/Flatten.cpp`.
 - The formal flat-IR contract lives in `src/ir/flat.h`.

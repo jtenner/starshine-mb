@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp
   - ../../../../../src/passes/remove_unused_names.mbt
@@ -9,13 +9,13 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/shared-constants.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/README.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.txt
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/RemoveUnusedNames.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/ir/branch-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/shared-constants.h
+  - https://github.com/WebAssembly/binaryen/blob/version_132/README.md
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names.txt
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/remove-unused-names.wast
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/remove-unused-names.txt
 related:
@@ -40,7 +40,7 @@ related:
 - `remove-unused-names` is an active implemented **hot pass** in Starshine.
 - The 2026-06-03 O4z audit direct revalidation reached 9975 compared cases with 9975 normalized matches, 0 semantic mismatches, and 25 Binaryen/canonicalization command failures under `--count 10000 --seed 0x5eed --keep-going-after-command-failures`.
 - A 2026-06-03 direct rewrite-kernel follow-up added a real branchless raw rewrite lane for candidate-heavy functions; on the 50k repeated `(block (block (nop)))` fixture the pass-local median improved from about `148.047 ms` to `4.749 ms` while preserving the same 9975 / 10000 normalized-match direct compare result.
-- In upstream Binaryen `version_129`, `pass.cpp` describes it as:
+- In upstream Binaryen `version_132`, `pass.cpp` describes it as:
   - removes names from locations that are never branched to
 
 That short sentence is true, but it is very easy to misread.
@@ -86,7 +86,7 @@ That makes this pass relevant to both the canonical scheduler docs and the artif
 - Loop demotion is narrower than it sounds.
   - It only happens when the loop label is dead **and** the body type matches the loop type.
 - `try` / delegate handling has a special caller-target cleanup rule.
-- The 2026-07-11 `version_130` / current-main source recheck found no behavior-bearing drift in the core owner, generic scope-target helpers, caller-delegate sentinel, public scheduling, or dedicated base fixture.
+- The 2026-09-16 v132 source review found no behavior-bearing drift in the core owner, generic scope-target helpers, caller-delegate sentinel, public scheduling, or dedicated base fixture.
 
 ## Biggest beginner correction
 
@@ -104,7 +104,7 @@ What it sounds like:
 
 - remove some unimportant names
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a syntactic scope-name-use tracker
 - a dead control-label remover
@@ -129,7 +129,7 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-The 2026-07-11 primary-source reread found **no behavior-bearing drift between `version_130` and current `main`** in the reviewed core surfaces:
+The 2026-09-16 v132 source review found **no behavior-bearing drift from the documented contract** in the reviewed core surfaces:
 
 - `src/passes/RemoveUnusedNames.cpp`
 - `src/passes/pass.cpp` registration and three no-DWARF scheduler placements

@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/SimplifyLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.txt
@@ -314,6 +315,8 @@ If you want one short memory hook, use this:
 Use these shapes with the local first-slice plan in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md); do not use full `simplify-locals` as this sibling's oracle.
 
 ## Sources
+
+- Current Binaryen v132 owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/SimplifyLocals.cpp>
 
 - [research note 0331](./index.md)
 - [research note 0186](./index.md)

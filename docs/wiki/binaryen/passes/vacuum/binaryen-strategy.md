@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
 related:
@@ -17,7 +17,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass.
+Use Binaryen `version_132` as the current source oracle for this pass.
 
 Primary files:
 
@@ -42,7 +42,7 @@ Durable result:
 - `f284d54...` is the actual 2026-02-27 `Vacuum.cpp` change that preserves explicit `unreachable` at function scope
 - that change is already in `version_129`
 - `9ee4a25...` is actually a `RemoveUnusedBrs.cpp` change
-- current GitHub `main` still matches `version_129` `Vacuum.cpp` in substance
+- the v132 `Vacuum.cpp` source remains the release oracle; current `main` is a separate drift watch
 
 So the repo's older “trunk-only drift” framing for that `vacuum` behavior was too strong.
 
@@ -313,7 +313,7 @@ This matters because:
 
 - explicit `unreachable` should still propagate to callers and later passes
 
-This safeguard is already part of `version_129`.
+This safeguard is present in the v132 release oracle.
 
 ## Scheduler placement is part of the pass meaning
 

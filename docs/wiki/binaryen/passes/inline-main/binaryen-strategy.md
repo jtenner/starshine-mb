@@ -19,7 +19,7 @@ related:
 
 ## Source anchor
 
-Use Binaryen `version_129` as the current source oracle for this pass. The retained 2026-04-24 source review is [research note 0319](./index.md), which also records the narrow current-main drift check and the exact official source/test URL set.
+The reviewed Binaryen `version_129` source is historical provenance for this pass. New comparisons use the verified `version_132` baseline; the retained 2026-04-24 source review is [research note 0319](./index.md), which records the narrow current-main drift check and exact official source/test URL set.
 
 ## One-sentence summary
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/MultiMemoryLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ./index.md
@@ -19,7 +20,7 @@ related:
 
 ## High-level algorithm
 
-Binaryen's `version_129` `multi-memory-lowering` strategy is:
+The reviewed Binaryen v132 `multi-memory-lowering` strategy is:
 
 1. bail out when the module has zero or one memory;
 2. validate that all memories can be represented as ranges inside one combined memory;
@@ -36,7 +37,7 @@ The pass is therefore a module-layout and feature-lowering pass, not a local pee
 
 ## Source locations
 
-The source-backed contract is concentrated in Binaryen `version_129`:
+The current source-backed contract is concentrated in Binaryen `version_132`; older v129 links remain historical provenance:
 
 - `src/passes/MultiMemoryLowering.cpp`
   - file comments: pass goal, feature-disabling intent, and bounds-check overflow caveat;
@@ -53,7 +54,7 @@ The source-backed contract is concentrated in Binaryen `version_129`:
 - `src/passes/passes.h`
   - public constructor declarations.
 
-The owner, registration, and factory surfaces are directly available in Binaryen's [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp), and [`passes.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h).
+The owner, registration, and factory surfaces are directly available in Binaryen's [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/MultiMemoryLowering.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp), and [`passes.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h).
 
 ## Combined memory layout
 

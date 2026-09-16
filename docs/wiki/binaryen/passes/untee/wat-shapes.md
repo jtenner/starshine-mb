@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/Untee.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/untee.wast
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast
   - ./index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp
@@ -16,7 +18,7 @@ related:
 
 # `untee` WAT shapes
 
-Use this page with the tagged `version_129` source URLs listed below and the 2026-07-11 current-main dedicated-lit reread. The recheck confirms these focused source shapes without claiming a full upstream audit.
+Use this page with the reviewed Binaryen v132 owner and focused oracle; the tagged `version_129` source URLs listed below are historical provenance and the 2026-07-11 current-main dedicated-lit reread. The recheck confirms these focused source shapes without claiming a full upstream audit.
 
 This page is the beginner-friendly shape catalog for Binaryen `untee`.
 
@@ -218,7 +220,7 @@ Those may still appear around a rewritten tee, but they are not candidate kinds 
 
 ## Sources
 
-- Current Binaryen focused oracle: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast>
+- Current Binaryen v132 owner and focused oracle: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/Untee.cpp> and <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/untee.wast>
 - [research note 0347](./index.md)
 - [research note 0185](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>

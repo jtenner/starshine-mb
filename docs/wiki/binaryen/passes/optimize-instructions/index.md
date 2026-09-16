@@ -77,7 +77,7 @@ The final aggregate `pass-oi-all` signoff requested and compared 10,000 cases at
 ## Role
 
 - `optimize-instructions` is an active implemented **hot pass** in Starshine.
-- In the recorded upstream Binaryen `version_131` snapshot, `optimize-instructions` is a function-parallel post-walk peephole and canonicalization pass.
+- In the Binaryen `version_132` release snapshot, `optimize-instructions` is a function-parallel post-walk peephole and canonicalization pass.
 - The public summary in `pass.cpp` is only `optimizes instruction combinations`.
 
 That summary is true, but it is far too small.
@@ -107,7 +107,7 @@ A better beginner summary is:
 
 - Binaryen `optimize-instructions` is **not** just constant folding.
 - Binaryen `optimize-instructions` is **not** just integer arithmetic peepholes.
-- The real `version_129` pass combines:
+- The v132 pass combines:
   1. local bit/sign-extension prescan
   2. canonicalization of compares and commutative shapes
   3. arithmetic, boolean, and ternary-shell cleanup
@@ -199,7 +199,7 @@ OptimizeInstructions shared the Winch multivalue function-exit `br_table` failur
 
 - Treat this folder as the canonical home for future `optimize-instructions` parity and scheduler research.
 - Start grouped parity work from [`./parity-matrix.json`](./parity-matrix.json) and [`./sweep-report.md`](./sweep-report.md). Do not add another one-off OI behavior probe without linking it to a matrix row or using it to update a row's status/evidence.
-- Use Binaryen `version_130` as the release-gating O4z source/lit matrix for new implementation slices; use the older `version_129` dossier prose as historical explanatory material until fully refreshed.
+- Use Binaryen `version_132` as the release-gating source/lit oracle for new implementation slices; use the older v129/v130 dossier prose and matrices as historical explanatory material.
 - Keep the Binaryen strategy page, Starshine strategy page, parity matrix, and fuzzing page in sync whenever the in-tree implementation grows beyond the current integer / boolean / control-focused HOT subset.
 - Keep the landing page honest about the ordered-artifact story:
   - slot `16` is retired

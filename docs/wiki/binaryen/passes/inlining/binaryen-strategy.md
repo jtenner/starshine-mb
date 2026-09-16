@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/toolchain-inlining.wast
   - ../../release-horizon-and-oracles.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/Inlining.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - ./index.md
 related:
@@ -23,7 +24,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` for the original detailed inliner walkthrough and `version_131` for the source review of compilation-hint policy introduced there. New comparisons use `version_132`; the release delta does not change the inlining owner. V131 gives `toolchainInlineHint` an exact `@binaryen.inline` WAT/binary producer and consumes it before generic full-inline profitability. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
+Use the reviewed Binaryen `version_132` owner for the current detailed inliner walkthrough; `version_129` remains historical provenance for the original walkthrough and `version_131` for the source review of compilation-hint policy introduced there. New comparisons use `version_132`; the release delta does not change the inlining owner. V131 gives `toolchainInlineHint` an exact `@binaryen.inline` WAT/binary producer and consumes it before generic full-inline profitability. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
 
 Primary upstream URLs:
 
@@ -56,7 +57,7 @@ Binaryen `inlining` is a late whole-module function-boundary pass that classifie
 | --- | --- | --- |
 | Scan | Build `FunctionInfo` summaries for every function | Profitability and deletion depend on module-wide facts, not only one call node |
 | Classify | Cache `Full`, split pattern, or `Uninlineable` mode | Later callsite planning should not redo structural checks |
-| Discover | Collect reachable direct `call` / `return_call` actions | Reviewed `version_129` chosen-action surface is intentionally narrower than arbitrary indirect calls |
+| Discover | Collect reachable direct `call` / `return_call` actions | Reviewed v132 chosen-action surface is intentionally narrower than arbitrary indirect calls |
 | Filter | Choose actions deterministically and avoid same-wave races | Prevent inline-into/inline-from conflicts, recursive blowups, and giant combined functions |
 | Rewrite | Copy callee body into caller | Requires local, return, tail-call, label, reachability, and type repair |
 | Cleanup | Remove dead private helpers and temporary split helpers | Inlining changes the function graph, not just one expression |
@@ -105,7 +106,7 @@ A maybe-growing trivial wrapper is still tiny but can use constants, skipped loc
 
 The official `inlining-trivial-instructions.wast` and `inlining-trivial-calls-1.wast` files are the best proof surfaces for this distinction.
 
-## 4. Reviewed `version_129` action planning is direct-call based
+## 4. Reviewed v132 action planning is direct-call based
 
 The most important correction for this dossier is scope:
 

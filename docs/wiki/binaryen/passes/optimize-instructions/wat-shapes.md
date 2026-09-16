@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
 related:
@@ -15,7 +15,7 @@ related:
 
 # `optimize-instructions` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `optimize-instructions` pass. The 2026-06-19 `version_130` matrix now maps these shapes to active Starshine O4z slices; the examples remain explanatory, while implementation ownership lives in [`index.md`](index.md).
+This page is the beginner-friendly shape catalog for Binaryen's `optimize-instructions` pass. The v132 source review confirms these shape families; the 2026-06-19 `version_130` matrix remains historical Starshine O4z evidence; the examples remain explanatory, while implementation ownership lives in [`index.md`](index.md).
 
 ## Read this page with one mental model
 

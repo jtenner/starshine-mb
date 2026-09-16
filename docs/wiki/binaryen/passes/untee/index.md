@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/Untee.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Untee.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast
   - ../../../../../src/passes/untee.mbt
@@ -77,7 +78,7 @@ So this pass is best taught as:
 - If the tee's value is already `unreachable`, the tee wrapper is deleted instead of expanded.
 - Nested tees expand inside-out because the walk is postorder.
 - The source comment explicitly says this flatter form can help passes like `code-pushing`.
-- The direct `version_129` source URLs below preserve the reviewed release, source, and test provenance; the checked official Binaryen release page showed publish date **2026-04-01**.
+- The direct `version_129` source URLs below preserve historical release, source, and test provenance; the current owner reviewed for this page is Binaryen `version_132`.
 - The 2026-07-11 current-main reread found no behavior-bearing drift in the owner, registration/default-scheduler surface, constructor declaration, or focused lit oracle; it supersedes the 2026-04-25 freshness claim while preserving that capture as history.
 - Binaryen builds an expression-tree sequence, while Starshine's raw stack-program representation appends `local.set` then `local.get`; focused root, nested, unreachable, and structured-body tests make that representation distinction explicit. Direct Binaryen-oracle comparison remains required for future changes.
 - The 2026-05-06 direct pass-fuzz revalidation remains the recorded direct-pass parity evidence after the fuzzer / compare-harness refresh.
@@ -90,7 +91,7 @@ What it sounds like:
 - maybe the same thing as `simplify-locals-notee`
 - maybe a flatten-era preset helper
 
-What it actually is in `version_129`:
+What it actually is in the reviewed v132 owner:
 
 - a very small pass that rewrites one exact IR node family, `local.tee`
 - by making the write and the result value explicit

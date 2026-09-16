@@ -1,24 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/remove-unused-names.wast
   - ./index.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.txt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_precompute.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_precompute.txt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_vacuum.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_vacuum.txt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_vacuum_ignore-implicit-traps.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_vacuum_ignore-implicit-traps.txt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_remove-unused-brs_vacuum.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_remove-unused-brs_vacuum.txt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_code-folding.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_code-folding.txt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_merge-blocks_all-features.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_merge-blocks_all-features.txt
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names.txt
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_precompute.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_precompute.txt
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_vacuum.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_vacuum.txt
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_vacuum_ignore-implicit-traps.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_vacuum_ignore-implicit-traps.txt
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_remove-unused-brs_vacuum.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_remove-unused-brs_vacuum.txt
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_code-folding.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_code-folding.txt
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_merge-blocks_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/passes/remove-unused-names_merge-blocks_all-features.txt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -41,7 +41,7 @@ The key reminder for every example below is:
 
 - these are **control-label** shapes, not debug-name shapes
 
-The 2026-07-11 `version_130` / current-main reread found the dedicated fixture pair unchanged and the underlying owner/helper contract current. The compact proof-surface rule is:
+The 2026-09-16 v132 source review found the dedicated fixture pair consistent with the underlying owner/helper contract. The compact proof-surface rule is:
 
 - the dedicated `remove-unused-names.wast` / `.txt` pair proves the core block / loop / `br_table` families directly
 - the larger `*_precompute`, `*_vacuum`, `*_remove-unused-brs_vacuum`, `*_code-folding`, and `*_merge-blocks_all-features` files prove the surrounding cleanup-cluster interactions
@@ -446,7 +446,7 @@ If your IR or writer does not have the same implicit-block rule, you must recrea
 
 ## Freshness boundary
 
-This catalog's direct fixture claims are grounded in the linked `version_130` and current-main fixture sources. They do not establish that every neighboring combination fixture was freshly compared.
+This catalog's direct fixture claims are grounded in the linked Binaryen v132 fixture sources. They do not establish that every neighboring combination fixture was freshly compared.
 
 ## Bottom line
 

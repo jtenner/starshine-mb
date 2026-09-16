@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/MultiMemoryLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - ../../../wasm-custom-page-sizes-boundary.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
@@ -178,7 +179,7 @@ The reviewed source preserves import/export identity only through the combined f
 
 ## Bailout family 3: mixed memory properties
 
-All memories must share address type, sharedness, and input page size. `multi-memory-lowering` is not the pass that reconciles memory32 with memory64, shared with unshared memory, or different custom page sizes. Separately, equal non-default input page size is not yet a positive output shape: current `addCombinedMemory()` does not visibly assign `pageSizeLog2` to the combined memory, so preservation is unproven pending upstream constructor or fixture evidence. For Starshine specifically, page size is only a Binaryen/future-port caveat today because current `MemType` has no page-size field; see [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md) and [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp).
+All memories must share address type, sharedness, and input page size. `multi-memory-lowering` is not the pass that reconciles memory32 with memory64, shared with unshared memory, or different custom page sizes. Separately, equal non-default input page size is not yet a positive output shape: reviewed v132 `addCombinedMemory()` does not visibly assign `pageSizeLog2` to the combined memory, so preservation is unproven pending upstream constructor or fixture evidence. For Starshine specifically, page size is only a Binaryen/future-port caveat today because current `MemType` has no page-size field; see [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md) and [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp).
 
 ## Bailout family 4: non-constant active data offset
 

@@ -17,7 +17,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_130` as the current source oracle for this pass; the 2026-07-02 recursive audit fetched `src/passes/OptimizeCasts.cpp` and `test/lit/passes/optimize-casts.wast` into `.tmp/oc-audit/` and rechecked the local source/lit inventory.
+- Treat Binaryen `version_130` as historical source provenance for this pass; new comparisons use the verified `version_132` baseline. The 2026-07-02 recursive audit fetched `src/passes/OptimizeCasts.cpp` and `test/lit/passes/optimize-casts.wast` into `.tmp/oc-audit/` and rechecked the local source/lit inventory.
 - The `version_130` pass keeps the same teaching-relevant contract previously captured from `version_129`: a function-parallel, GC-gated pass with strict earlier cast motion and looser later cast reuse, both limited to `ref.cast` and `ref.as_non_null` local-flow refinements.
 - The `version_130` lit file still enumerates the same practical behavior families: `ref.as`, `ref.as-no`, `ref.cast`, write and call barriers, `best` / `best-2`, fallthrough blocks, `multiple`, `move-cast-1` through `move-cast-6`, already-refined/non-nullable negatives, side-effect barriers, separate-index `ref.as_non_null`, mixed `ref.as_non_null` / `ref.cast` cases, nested/unoptimizable casts, tee barriers, repeated casts, nonlinear boundaries, and helper functions.
 - Scheduler placement still comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.

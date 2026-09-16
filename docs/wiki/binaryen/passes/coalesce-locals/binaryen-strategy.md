@@ -17,7 +17,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Treat the reviewed Binaryen `version_129` source as historical provenance for this pass; new comparisons use the verified `version_132` baseline.
 - The core implementation is `src/passes/CoalesceLocals.cpp`.
 - The tagged release, source, helper, and test URLs reviewed for this dossier are retained directly in the primary-source lists below and on the landing page.
 - The retained 2026-05-05 research recheck is the focused historical freshness bridge: it found no teaching-relevant drift on the checked owner, scheduler, helper, and dedicated-test surfaces and refreshed the then-current local code anchors.

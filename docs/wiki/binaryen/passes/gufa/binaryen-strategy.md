@@ -21,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_130` as the current tagged source anchor for this pass family; retain the older `version_129` captures as historical provenance.
+- Treat the Binaryen `version_130` source anchor and older `version_129` captures as historical provenance; new comparisons use the verified `version_132` baseline.
 - The committed raw manifest [`index.md`](index.md) is the current owner-map and uncertainty anchor for plain `gufa`.
 - The core pass implementation is `src/passes/GUFA.cpp`.
 - The core analysis helper spans `src/ir/possible-contents.h` (public vocabulary/API) and `src/ir/possible-contents.cpp` (analysis implementation).

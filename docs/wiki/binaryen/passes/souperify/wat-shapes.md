@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/Souperify.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/flatten_simplify-locals-nonesting_souperify_enable-threads.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -269,4 +271,4 @@ When predicting output, ask:
 - does single-use mode force some children back to `var`?
 - do loops or unsupported ops cut the slice off?
 
-That checklist matches the real `version_129` pass much better than assuming `souperify` is a general optimizer.
+That checklist matches the reviewed v132 pass much better; the retained v129 fixture references are historical, rather than current evidence that `souperify` is a general optimizer.

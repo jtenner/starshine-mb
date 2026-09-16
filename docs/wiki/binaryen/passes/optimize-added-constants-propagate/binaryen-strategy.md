@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Treat the reviewed Binaryen `version_129` source as historical provenance for this pass; new comparisons use the verified `version_132` baseline.
 - The sibling-specific source/test map is retained in [research note 0330](./index.md); the retained 2026-05-05 recheck anchors the shared owner and registration surfaces.
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.
 - The 2026-05-05 source-anchor digest for the plain sibling is still useful here because this sibling shares the same owner file and registration surface.

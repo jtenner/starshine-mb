@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-16
 sources:
   - ../release-horizon-and-oracles.md
   - ./asyncify/index.md
@@ -69,7 +69,7 @@ sources:
   - ./memory-packing/index.md
   - ./once-reduction/index.md
   - ./global-refining/index.md
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/GlobalStructInference.cpp
   - ./global-struct-inference/index.md
   - ./ssa-nomerge/index.md
   - ./reorder-locals/index.md

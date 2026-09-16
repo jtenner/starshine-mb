@@ -22,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-Use the 2026-06-01 freshness capture as the current source oracle: [research note 0688](./index.md).
+Use the 2026-06-01 freshness capture as historical source evidence: [research note 0688](./index.md). New comparisons use the verified Binaryen `version_132` baseline.
 
 The key official sources are:
 

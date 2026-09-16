@@ -25,7 +25,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the current tagged source oracle for this pass. The 2026-07-11 focused current-main reread found no behavior-bearing drift in the reviewed owner, generic helper, caller-sentinel, scheduler, or dedicated-fixture surfaces; use `version_129` only as historical provenance for the older research notes.
+Use Binaryen `version_132` as the current tagged source oracle for this pass. The 2026-09-16 focused source review found no behavior-bearing drift in the reviewed owner, generic helper, caller-sentinel, scheduler, or dedicated-fixture surfaces; older tags remain historical provenance.
 
 Primary files:
 

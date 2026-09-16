@@ -19,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass family.
+The reviewed Binaryen `version_129` source is historical provenance for this pass family; new comparisons use the verified `version_132` baseline.
 
 The retained [`2026-05-05 archived research recheck`](./index.md) records the current comparison anchors. The tagged `version_129` source catalog retained from the consumed manifest is:
 

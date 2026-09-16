@@ -21,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the current tagged source anchor for this page. The retained 2026-05-05 and 2026-07-11 source bridges plus the direct tagged URLs below preserve the earlier `version_129` provenance without depending on the consumed manifest.
+The retained `version_130` anchor and 2026-05-05/2026-07-11 source bridges are historical provenance for this page; new comparisons use the verified `version_132` baseline. The direct tagged URLs below preserve the earlier `version_129` provenance without depending on the consumed manifest.
 
 The 2026-07-11 refresh rechecked current `main` on the owner, registration, oracle header **and implementation**, and dedicated lit-test surfaces. It corrects the older owner map by adding `possible-contents.cpp`; it is a focused source reread, not a complete version-to-main diff.
 

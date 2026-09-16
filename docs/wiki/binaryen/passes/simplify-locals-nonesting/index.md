@@ -2,8 +2,9 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-09-02
+last_reviewed: 2026-09-16
 sources:
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/SimplifyLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -37,7 +38,7 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
-## Binaryen-v131 renewal
+## Historical Binaryen-v131 renewal
 
 Closed on 2026-07-27. The refreshed aggregate completed `10000/10000`: `7684` exact matches and `2316` strictly smaller Starshine outputs (`-6..-2` bytes), with zero validation, property, generator, or command failures. Idempotence is `1000/1000`.
 
@@ -78,7 +79,7 @@ The trace still shows a broad unchanged envelope rather than a hidden raw bypass
 
 A reusable native-release benchmark in `src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt` builds 2,048 functions outside `it.bench(...)`, requires 2,048 nonesting admissions and zero pass mutations, locks the unchanged final local carrier, and measures registry dispatch with only final-module validation disabled. It reports `10.80ms +/- 113.06us` on x86_64 AMD Ryzen 7 8845HS with MoonBit `0.1.20260713`.
 
-Final explicit-v131 renewal is `10000/10000` normalized in the regular lane. The dedicated aggregate is `5,026` normalized plus `4,974` canonically smaller Starshine outputs, with zero canonical size losses or validation, property, generator, or command failures. The mismatch set is exact by selected profile: all 2,209 flat-parent cases remove only Binaryen-retained `nop`s; all 2,765 family-coverage cases remove `nop` debris and flatten an untargeted void loop around the same ordered `local.set`. Those are source-backed, measured Starshine cleanup wins rather than a broad normalizer. `[P0-WALL-SLNONESTING]` is closed. The 283,042-byte canonical size gap remains separate under `[SIZE]001`.
+The final explicit-v131 renewal is `10000/10000` normalized in the regular lane. The dedicated aggregate is `5,026` normalized plus `4,974` canonically smaller Starshine outputs, with zero canonical size losses or validation, property, generator, or command failures. The mismatch set is exact by selected profile: all 2,209 flat-parent cases remove only Binaryen-retained `nop`s; all 2,765 family-coverage cases remove `nop` debris and flatten an untargeted void loop around the same ordered `local.set`. Those are source-backed, measured Starshine cleanup wins rather than a broad normalizer. `[P0-WALL-SLNONESTING]` is closed. The 283,042-byte canonical size gap remains separate under `[SIZE]001`.
 
 ## Why this pass matters
 

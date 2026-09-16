@@ -33,7 +33,7 @@ related:
 
 # Upstream implementation structure and test map for `remove-unused-names`
 
-This page is the compact file/test map for the real Binaryen `remove-unused-names` contract. Use `version_130` as the current tagged oracle; the 2026-07-11 current-main reread found no behavior-bearing drift in the owner, generic helper, caller-sentinel, scheduler, or dedicated fixture surfaces.
+This page is the compact file/test map for the real Binaryen `remove-unused-names` contract. Use `version_132` as the current tagged oracle; the 2026-09-16 source review found no behavior-bearing drift in the owner, generic helper, caller-sentinel, scheduler, or dedicated fixture surfaces.
 
 ## Main implementation file
 

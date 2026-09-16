@@ -17,7 +17,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Treat the reviewed Binaryen `version_129` source as historical provenance for this pass; new comparisons use the verified `version_132` baseline.
 - The retained 2026-05-04 current-main research digest and the 2026-04-26 readiness check retain the source bridge for this dossier.
 - The official `version_129` GitHub release page was re-checked on 2026-04-24 and showed publish date **2026-04-01 14:31**.
 - A focused 2026-05-04 current-`main` recheck on the owner file, registration file, helper headers, and dedicated lit roster again did not surface a teaching-relevant contract drift beyond this page's claims.

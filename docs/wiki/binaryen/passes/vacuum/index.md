@@ -62,7 +62,7 @@ runtime failures in SimplifyLocals, OptimizeCasts, or Heap2Local.
 ## Role
 
 - `vacuum` is an active implemented **hot pass** in Starshine.
-- In upstream Binaryen `version_129`, `vacuum` is a function-parallel cleanup pass whose public summary is `removes obviously unneeded code`.
+- In upstream Binaryen `version_132`, `vacuum` is a function-parallel cleanup pass whose public summary is `removes obviously unneeded code`.
 - The real job is broader than the current in-tree Starshine implementation and narrower than a full DCE pass.
 
 A good beginner summary is:
@@ -209,7 +209,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, visitor phases, and the corrected freshness story.
+  - Deep dive into the actual Binaryen `version_132` implementation, helper dependencies, scheduler placement, visitor phases, and the corrected freshness story.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Compact source-confirmed owner/test-map page for `Vacuum.cpp`, the direct helper dependencies, public pass registration, nested rerun context, and the shipped `vacuum-*` lit family.
 - [`./effect-pruning-and-traps-never-happen.md`](./effect-pruning-and-traps-never-happen.md)
@@ -245,13 +245,13 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` audit root and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Vacuum.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-hints.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/drop.h>
+- Binaryen `version_132` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/Vacuum.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/passes.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/opt-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_132/src/ir/branch-hints.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_132/src/ir/drop.h>
 - Representative Binaryen `version_129` tests:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-func.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-gc.wast>

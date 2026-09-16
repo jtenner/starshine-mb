@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-03
+last_reviewed: 2026-09-16
 sources:
   - ../../release-horizon-and-oracles.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/Inlining.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/tools/optimization-options.h
   - ../../../../../src/cli/cli.mbt
@@ -32,7 +33,7 @@ related:
 
 ## Status
 
-Starshine's plain `inlining` pass is supported at Binaryen `version_131` behavior parity for the represented direct-inliner surface. The July 19, 2026 audit accounts for every v131 transform and policy family in `Inlining.cpp`:
+Starshine's plain `inlining` pass is supported for the represented direct-inliner surface; the current upstream owner reviewed here is Binaryen `version_132`. The recorded v131 campaign remains historical evidence, not current v132 signoff. The July 19, 2026 audit accounts for every v131 transform and policy family in `Inlining.cpp`:
 
 - released `@binaryen.inline` Never/Always policy;
 - tiny, one-caller, shrinking-trivial, may-grow-trivial, flexible, loop, and combined-size profitability;
@@ -92,7 +93,7 @@ open. See [fuzzing](./fuzzing.md) for the 2026-09-10 comparison refresh.
 
 ## Profitability policy
 
-The implemented order matches v131:
+The implemented order matches the reviewed v132 owner; the v131 label on the retained campaign below is historical:
 
 1. reject explicit no-full-inline policy;
 2. honor toolchain Never/Always hints;

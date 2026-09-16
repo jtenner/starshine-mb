@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Treat the reviewed Binaryen `version_129` source as historical provenance for this pass; new comparisons use the verified `version_132` baseline.
 - The retained 2026-04-25 [`implementation/test-map research bridge`](./index.md) records the direct tagged/current source map, no teaching-relevant current-`main` drift, and the compact owner-file / lit-proof map.
 - The [`2026-05-05 archived research recheck`](./index.md) records the same then-current contract and points the dossier at the readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - The core implementation is `src/passes/DeadArgumentElimination.cpp`.

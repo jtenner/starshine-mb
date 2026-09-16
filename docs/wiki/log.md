@@ -1,4 +1,10 @@
+### 2026-09-16 — Binaryen 132 individual pass dossier refresh
+
+- Re-read Binaryen v132 owner sources for Inlining, SimplifyLocals, Untee, MultiMemoryLowering, and Souperify. Refreshed their landing/strategy/shape pages with current v132 owner links and review dates, clarified current-contract wording, and preserved v129–v131 campaigns and URLs as historical evidence rather than current parity signoff. No new runtime or compare-pass campaign is claimed.
+
 ### 2026-09-16 — Binaryen 132 transform and shape catalog
+
+- Audited the high-traffic DCE, Vacuum, OptimizeInstructions, and RemoveUnusedNames shape/strategy pages against Binaryen v132 owner sources and representative tests. Repointed current-oracle citations and wording to v132, retained v129–v131 measurements as historical evidence, and corrected the OI page to distinguish unchanged v132 source behavior from the older v130 Starshine matrix.
 
 - Absorbed the tagged v132 source and regression fixtures into the [upgrade record](binaryen/version-132-upgrade.md), which now catalogs the released constraint-analysis, DAE2, atomic-order, descriptor, compact-import, waitqueue, multibyte-array, and MakeSharedObjects shapes, plus metadata and validation-only changes.
 - Refreshed the focused constraint-analysis and DAE2 pages, compact-import and atomic boundaries, shared-memory status pages, and WAST gap ledger so v132 WAST and pass-registration claims match local source and test evidence. The exact release inventory and selected intake remain historical source records; no temporary research note was needed.

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -25,9 +25,11 @@ related:
 
 # `souperify`
 
+> **Current owner review — September 16, 2026:** the v132 `Souperify.cpp` owner was re-read. The retained v129 fixtures and extraction measurements below are historical evidence; this refresh does not claim a new v132 parity campaign.
+
 ## Role
 
-- `souperify` is a real public upstream Binaryen pass in `version_129`.
+- `souperify` is a real public upstream Binaryen pass; the current owner reviewed here is Binaryen `version_132`.
 - It has a public sibling, `souperify-single-use`.
 - In this repo it is currently **upstream-only**.
 - It is **not** in the local Starshine pass registry, not even as a boundary-only or removed name.
@@ -47,7 +49,7 @@ So this dossier is an explicit tracker expansion.
 
 - the existing [`../flatten/index.md`](../flatten/index.md), [`../simplify-locals-nonesting/index.md`](../simplify-locals-nonesting/index.md), and [`../dataflow-optimization/index.md`](../dataflow-optimization/index.md) folders already depend on teaching where Souper extraction fits,
 - but the tracker and pass map did not yet give `souperify` its own canonical page,
-- and the real `version_129` contract is different enough from ordinary optimization passes that leaving it as a side mention makes neighboring docs harder to trust.
+- and the real extraction contract is different enough from ordinary optimization passes that leaving it as a side mention makes neighboring docs harder to trust.
 
 The 2026-04-25 source bridge added an immutable raw Binaryen manifest and a Starshine status page, so the folder now has the full source-to-local chain rather than only the earlier direct-URL research note.
 
@@ -140,7 +142,7 @@ This dossier keeps four splits explicit:
   - [`../flatten/index.md`](../flatten/index.md)
   - [`../simplify-locals-nonesting/index.md`](../simplify-locals-nonesting/index.md)
   - [`../dataflow-optimization/index.md`](../dataflow-optimization/index.md)
-- Binaryen `version_129` sources:
+- Historical Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Souperify.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/graph.h>
