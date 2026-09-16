@@ -15,7 +15,7 @@ related:
   - ../../binaryen/passes/vacuum/fuzzing.md
   - ../../binaryen/passes/vacuum/starshine-hot-ir-strategy.md
   - ../../binaryen/passes/dae-optimizing/index.md
-  - ./1645-2026-07-17-daeo-final-direct-closeout-matrix.md
+  - ../../binaryen/passes/dae-optimizing/index.md
   - ../../binaryen/passes/dead-code-elimination/index.md
 ---
 
@@ -34,7 +34,7 @@ The preserved safety contract is:
 - calls, memory/table mutation, trapping conversions, and explicit control remain subject to the existing vacuum guards;
 - root local-set/stack-effect and branchy structured-write safeguards remain unchanged;
 - the raw precleaner and writeback validation remain unchanged;
-- the direct DAEO closeout in note `1645` remains authoritative at raw `3203060`, canonical `3263950`, and accepted `+1494`, with both DAE normalizers;
+- the direct DAEO closeout recorded in the maintained dossier remains authoritative at raw `3203060`, canonical `3263950`, and accepted `+1494`, with both DAE normalizers;
 - public optimize, shrink, and O4z must still reach exactly one DAEO execution after late HSO and immediately before `inlining-optimizing` before the release audit can close.
 
 ## Source attribution
@@ -185,6 +185,6 @@ O4z was already independently source-attributed to HSO in the [SSA no-merge](../
 
 The optimize/shrink vacuum blocker is closed without weakening safety or changing output. Public optimize, shrink, and O4z now share one pass owner: heap-store optimization.
 
-The DAEO release audit remains incomplete because none of the three large public modes reaches the locked DAEO slot yet. Direct DAEO evidence remains closed and authoritative under note `1645`.
+The DAEO release audit remains incomplete because none of the three large public modes reaches the locked DAEO slot yet. Direct DAEO evidence remains closed and authoritative in the maintained dossier.
 
 The next bounded slice should be HSO-specific and should begin with red-first source/performance attribution for the repeated Func `60`, Func `445`, Func `1004`, and Func `1513` families. It must preserve HSO effect/trap/control correctness, output validity, finite convergence, and the locked one-time DAEO schedule before rerunning all three public modes.

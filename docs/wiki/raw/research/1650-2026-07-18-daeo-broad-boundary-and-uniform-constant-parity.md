@@ -17,7 +17,6 @@ sources:
   - ../../../../src/validate/gen_valid.mbt
   - ../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../src/fuzz/main_wbtest.mbt
-  - ./1645-2026-07-17-daeo-final-direct-closeout-matrix.md
   - ./1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
 ---
 
@@ -36,7 +35,7 @@ The fixed input is:
 - `13,162` defined functions
 - `21` imported functions
 
-The prior retained endpoint from notes `1643`-`1645` was:
+The prior retained endpoint from the July 17 DAEO closeout sequence was:
 
 - raw Starshine `3,203,060`
 - canonical Starshine `3,263,950`
@@ -417,7 +416,7 @@ Current green local validation after the admission repair and bounded final conv
 
 The earlier focused precompute `41/41`, validate GenValid `159/159`, and fuzz manifest/batch `101/101` checks remain the last direct checks for those unchanged surfaces. The Binaryen-v130 DAEO/coalesce 1000-case smokes remain historical endpoint evidence only.
 
-The required regular `100000`, dedicated `10000`, wasm-smith `10000`, and random-all `10000` closeout matrix has not been rerun for the final widened behavior. Note `1645` remains prior semantic closeout evidence, not current post-change signoff.
+The required regular `100000`, dedicated `10000`, wasm-smith `10000`, and random-all `10000` closeout matrix has not been rerun for the final widened behavior. The July 17 direct-closeout record remains prior semantic closeout evidence, not current post-change signoff.
 
 ## Remaining work
 

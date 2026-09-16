@@ -30,7 +30,7 @@ This was a knowledge-lifecycle cleanup, not a claim that old investigations were
 
 ## Post-closeout workspace
 
-Later investigations reopened the temporary workspace. As of 2026-09-16, `docs/wiki/raw/research/` contains 84 numbered notes, including active work and retained evidence. Three supported `precompute` notes and three supported writeback/validity notes (`1646`–`1648`) were absorbed into the living pass dossiers on that date. Its [`README`](raw/research/README.md) is the current lifecycle entry point; the zero-note result above remains the historical result of the 2026-07-18 closeout.
+Later investigations reopened the temporary workspace. As of 2026-09-16, `docs/wiki/raw/research/` contains 69 numbered notes, including active work and retained evidence. Three supported `precompute` notes, three supported writeback/validity notes (`1646`–`1648`), and the supported DAEO closeout sequence (`1631`–`1645`) were absorbed into the living pass dossiers on that date. Its [`README`](raw/research/README.md) is the current lifecycle entry point; the zero-note result above remains the historical result of the 2026-07-18 closeout.
 
 Largest absorbed clusters:
 
