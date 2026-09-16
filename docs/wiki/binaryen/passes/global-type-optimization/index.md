@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/GlobalTypeOptimization.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/gto-removals.wast
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../index.md
@@ -33,7 +35,7 @@ related:
   - `gto`
 - The local tracker and registry use the fuller descriptive name:
   - `global-type-optimization`
-- In Binaryen `version_129`, the public pass summary in `pass.cpp` is:
+- In Binaryen `version_132`, the public pass summary in `pass.cpp` is:
   - `globally optimize GC types`
 
 That summary is true, but too small.
@@ -48,6 +50,10 @@ A better beginner summary is:
 
 So this is not generic GC type inference.
 It is **closed-world private-struct mutability and layout cleanup**.
+
+### v132 fixture evidence
+
+The v132 removal fixture confirms the key distinction: reads keep fields, writes alone do not, constructor operands do not keep unread fields alive, and removed `struct.set`/`struct.new` operands still preserve side effects and null or unreachable traps.
 
 ## Why this pass matters
 
@@ -76,7 +82,7 @@ It is **closed-world private-struct mutability and layout cleanup**.
 - Field removal is hierarchy-aware and may reorder parent fields so children can still append compatible layouts.
 - Instruction rewrite happens before type rewrite.
 - Removed writes preserve value side effects and null-trap ordering, and removed trapping module-initializer operands become fresh globals.
-- A 2026-06-02 current-main recheck, captured in research note 0694, plus the earlier 2026-04-24 primary-source manifest, found no teaching-relevant drift in the reviewed owner, registration, helper, or lit surfaces beyond the existing `version_129` contract.
+- The verified v132 owner and `gto-removals.wast` fixture confirm the current contract: unread or write-only fields may disappear, reads keep fields alive, constructor operands do not by themselves keep fields alive, and removed writes/new operands still require side-effect and trap preservation.
 
 ## Beginner warning: what the name hides
 
@@ -101,7 +107,7 @@ What it sounds like:
 
 - a broad GC-type optimizer
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a closed-world, private-struct-only module pass with:
   - field read/write tracking
@@ -113,7 +119,7 @@ What it actually is in `version_129`:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, and the exact phase order.
+  - Deep dive into the actual Binaryen `version_132` implementation, helper dependencies, scheduler placement, and the exact phase order.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - File map for `GlobalTypeOptimization.cpp`, `struct-utils.h`, `type-updating.*`, `js-utils.h`, and the official lit roster, plus the narrow current-`main` freshness note.
 - [`./field-removal-subtyping-js-interop-and-traps.md`](./field-removal-subtyping-js-interop-and-traps.md)
@@ -137,7 +143,7 @@ What it actually is in `version_129`:
 - Keep the upstream/local naming split explicit:
   - `gto` upstream
   - `global-type-optimization` in the local registry/tracker
-- Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract.
+- Keep any future v133/current-main drift notes explicit instead of silently rewriting the verified `version_132` contract.
 
 ## Sources
 
@@ -149,7 +155,9 @@ What it actually is in `version_129`:
 - [`../global-refining/binaryen-strategy.md`](../global-refining/binaryen-strategy.md)
 - [`../global-struct-inference/binaryen-strategy.md`](../global-struct-inference/binaryen-strategy.md)
 - [`../remove-unused-types/binaryen-strategy.md`](../remove-unused-types/binaryen-strategy.md)
-- Binaryen `version_129` sources:
+- Binaryen `version_129` historical sources:
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/GlobalTypeOptimization.cpp>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/gto-removals.wast>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/GlobalTypeOptimization.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/struct-utils.h>

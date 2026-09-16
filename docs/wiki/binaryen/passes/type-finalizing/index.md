@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/TypeFinalizing.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/type-finalizing.wast
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt
@@ -53,7 +54,7 @@ So this folder is another explicit, source-backed upstream-only registry expansi
 - The pass sits directly beside already-documented GC/type neighbors like `remove-unused-types`, `type-merging`, and `unsubtyping`.
 - It is easy to misread from the name alone as a broad type optimizer.
 - The folder now has immutable 2026-04-24 and 2026-04-27 primary-source manifests, a dedicated Starshine status/port-strategy page, and a first-slice validation bridge.
-- The real `version_129` contract is much smaller and more specific:
+- The verified `version_132` contract is much smaller and more specific:
   - rewrite only **private** heap types
   - only finalize **leaf** private types
   - use one global type-section rewrite helper
@@ -75,6 +76,8 @@ So this pass is best taught as:
 - not field/type inference
 - not a default optimization-pipeline pass
 
+The v132 fixture makes the boundary concrete: public types remain unchanged, private leaf types can toggle, private parents with subtypes remain open during finalization, and function heap types participate in the same rewrite.
+
 ## Most important durable takeaways
 
 - `type-finalizing` is a GC-only **module** pass.
@@ -82,7 +85,7 @@ So this pass is best taught as:
 - It only modifies **private** heap types.
 - In finalizing mode, it only modifies **leaf** private types.
 - In unfinalizing mode, the sibling can reopen private types unconditionally.
-- The visible work happens through a tiny `GlobalTypeRewriter` subclass that only toggles `setOpen(...)` on selected type-builder entries.
+- The visible work happens through a tiny `GlobalTypeRewriter` subclass that only toggles `setOpen(...)` on selected type-builder entries; the v132 fixture confirms that public types and non-leaf parents remain unchanged while private leaves and function heap types may change.
 - The pass has a dedicated lit file that proves:
   - public types stay unchanged
   - private leaf types can change
@@ -92,7 +95,7 @@ So this pass is best taught as:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Deep dive into the actual Binaryen `version_129` contract, helper dependencies, and algorithmic phases.
+  Deep dive into the actual Binaryen `version_132` contract, helper dependencies, and algorithmic phases.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   File-by-file and test-by-test map of the upstream sources that define the pass and its sibling split.
 - [`./leaf-types-public-boundaries-and-sibling-split.md`](./leaf-types-public-boundaries-and-sibling-split.md)
@@ -129,7 +132,7 @@ So this pass is best taught as:
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeFinalizing.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/type-finalizing.wast>
+- Binaryen `version_132` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/TypeFinalizing.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/type-finalizing.wast>

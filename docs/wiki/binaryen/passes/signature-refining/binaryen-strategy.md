@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp
   - ./index.md
@@ -20,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as historical algorithm provenance for this pass; new comparisons use the verified `version_132` baseline, with its source inventory retained in [research note 0307](./index.md) and the direct tagged URLs below. Current-contract claims must use the verified `version_132` baseline and a fresh source review; the later `version_130` / current-main bridge below remains historical evidence.
+Treat Binaryen `version_132` as the current algorithm and fixture baseline for this pass; v129–v131 materials below are historical provenance, with its source inventory retained in [research note 0307](./index.md) and the direct tagged URLs below. Current-contract claims must use the verified `version_132` baseline and a fresh source review; the later `version_130` / current-main bridge below remains historical evidence.
 
 Primary files:
 
@@ -39,12 +39,12 @@ Primary files:
 
 This dossier also has a dedicated Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
-The 2026-05-05 current-`main` recheck is now historical only. A focused 2026-07-11 reread of the official [`version_130`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SignatureRefining.cpp) and [`current-main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp) sources found two current-contract corrections:
+The 2026-05-05 and 2026-07-11 rereads are historical context. The verified v132 owner and fixture review of the official [`version_130`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SignatureRefining.cpp) and [`current-main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp) sources found two current-contract corrections:
 
 - a continuation-used signature now gets `canModify = false`, so neither params nor results may refine; `version_129` only froze params;
 - `worldMode` now reaches both `getPublicHeapTypes(...)` and `GlobalTypeRewriter::updateSignatures(...)`.
 
-The GC/no-table gates, heap-type aggregation, LUB phases, intrinsic repair, public registration, and closed-world scheduler neighborhood remain on the reviewed surface. Use `version_129` for the historical teaching algorithm, but use the 2026-07-11 bridge for current behavior and do not repeat the older no-drift conclusion.
+The GC/no-table gates, heap-type aggregation, LUB phases, intrinsic repair, public registration, and closed-world scheduler neighborhood remain on the reviewed surface. Use `version_132` for the current teaching algorithm and behavior and do not repeat the older no-drift conclusion.
 
 ## High-level intent
 
@@ -423,7 +423,7 @@ These non-goals are worth keeping explicit:
 
 ## Bottom line
 
-Binaryen `signature-refining` in `version_129` is a **GC-gated, heap-type-level subtype-tightening pass for nominal function signatures**.
+Binaryen `signature-refining` in `version_132` is a **GC-gated, heap-type-level subtype-tightening pass for nominal function signatures**.
 
 The source says to think of it this way:
 
@@ -438,7 +438,8 @@ That is the strategy a future strict-parity port must preserve.
 
 ## Sources
 
-- Binaryen current-main owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignatureRefining.cpp>
+- Binaryen v132 owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/SignatureRefining.cpp>
+- Binaryen v132 fixture: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/signature-refining.wast>
 - [research note 0307](./index.md)
 - [research note 0152](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)

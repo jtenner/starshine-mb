@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeRefining.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/TypeRefining.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/type-refining.wast
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../index.md
@@ -31,7 +32,7 @@ related:
 - The exact local status and future port map live in [`./starshine-strategy.md`](./starshine-strategy.md): no owner file, no active preset role, no active backlog slice, and no separately registered `type-refining-gufa` sibling today.
 - The implementation-readiness ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): analyzer-first scope, first mutating slice, shape-to-validation checklist, Binaryen oracle lanes, and local code surfaces.
 - Current Binaryen `main` preserves the closed-world semantic boundary but now carries `WorldMode` through the open-world rejection, public-type classification, and global type rewrite. A future port needs one consistent world/visibility policy, not an old boolean-only gate; see Binaryen's current-main [`TypeRefining.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeRefining.cpp).
-- In Binaryen `version_129`, the public pass summary in `pass.cpp` is:
+- In Binaryen `version_132`, the public pass summary in `pass.cpp` is:
   - `apply more specific subtypes to type fields where possible`
 
 That summary is true, but too vague.
@@ -45,13 +46,17 @@ A better beginner summary is:
 So this is not generic type optimization.
 It is **closed-world private struct-field refinement plus read/write repair**.
 
+### v132 fixture evidence
+
+The v132 fixture shows that field inference uses writes and propagates through subtype hierarchies: repeated child writes can refine a field to the child type, mutable parent/child fields converge to a legal common type, nullable defaults preserve nullability, and field reads are repaired after the declaration changes rather than being used as inference constraints.
+
 ## Why this pass matters
 
 - The main no-DWARF / saved-`-O4z` parity queue is now fully dossier-covered, so this campaign needs another eligible pass from the tracker's upstream-only registry table.
 - `type-refining` is already named in the local boundary-only registry, so this is a real Starshine-facing pass name.
 - The current `global-refining` dossier already records it as the first closed-world GC/type-tightening neighbor before `signature-pruning`, `signature-refining`, and `global-refining`.
-- The pass already had a living dossier and Starshine status bridge; the 2026-04-27 refresh adds the missing implementation-readiness bridge so future work can start from a safe analyzer-first plan instead of a one-shot type-section rewrite.
-- The official implementation hides several teaching traps that deserve a stable wiki home:
+- The pass already had a living dossier and Starshine status bridge; the implementation-readiness bridge keeps future work on a safe analyzer-first plan instead of a one-shot type-section rewrite.
+- The v132 implementation and fixture surface retain several teaching traps that deserve a stable wiki home:
   - upstream ships both `type-refining` and `type-refining-gufa`
   - the pass body itself requires `--closed-world`
   - the normal variant infers only from direct struct traffic plus limited fallthrough copies
@@ -98,7 +103,7 @@ What it sounds like:
 
 - a broad type-tightening cleanup pass
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a closed-world, GC-only module pass with:
   - a normal direct-struct-traffic inference mode
@@ -112,7 +117,7 @@ What it actually is in `version_129`:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, main phases, and the exact rewrite/fixup contract.
+  - Deep dive into the actual Binaryen `version_132` implementation, helper dependencies, scheduler placement, main phases, and the exact rewrite/fixup contract.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - File map for `TypeRefining.cpp`, `pass.cpp`, `struct-utils.h`, `lubs.h`, `possible-contents.h`, `type-updating.h`, and the dedicated lit family, plus the narrow current-`main` freshness note.
 - [`./normal-vs-gufa-and-fixups.md`](./normal-vs-gufa-and-fixups.md)
@@ -134,7 +139,7 @@ What it actually is in `version_129`:
   - it belongs to Binaryen's closed-world GC/type cluster
   - it does **not** belong to the repo's current open-world no-DWARF optimize path
 - Keep the distinction between `type-refining` and `type-refining-gufa` explicit.
-- Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract.
+- Keep any future v133/current-main drift notes explicit instead of silently rewriting the verified `version_132` contract.
 - Keep the analyzer-first sequencing and WAT `struct.set` fixture caveat from [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) visible until implementation work resolves them.
 
 ## Sources

@@ -1,3 +1,9 @@
+### 2026-09-16 — Binaryen v132 behavior refresh: type and GC passes
+
+- Re-read the Binaryen v132 owners and representative lit fixtures for `signature-refining`, `type-finalizing`, `type-refining`, and `global-type-optimization`. Updated their canonical landing and strategy pages from v129/current-main ambiguity to the verified v132 baseline.
+- Corrected behavior-level descriptions: signature refinement now documents `call_ref`, LUB aggregation, shared heap-type fanout, unreachable/export/table boundaries, and full continuation blockers; type finalization documents public-root preservation and private-leaf/function-heap participation; type refinement documents subtype propagation, mutable-field convergence, nullable defaults, and post-rewrite read repair; GTO documents read-vs-write liveness, constructor non-keepalive, and trap/side-effect preservation.
+- Preserved v129–v131 URLs and measurements as historical provenance. This update adds no runtime or parity signoff.
+
 ### 2026-09-16 — Documentation portability cleanup
 
 - Scanned committed docs for machine-specific absolute paths. Replaced absolute repository paths in the living Inlining fuzzing and DAE completion pages with repository-relative/root-neutral wording; retained absolute paths inside the immutable v132 raw validation capture as historical source data. No raw source capture was rewritten.

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeRefining.cpp
   - ./index.md
@@ -19,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Treat the Binaryen `version_129` direct source URLs as historical algorithm provenance for this pass; new comparisons use the verified `version_132` baseline. The retained 2026-04-27 readiness bridge and 2026-07-11 world-mode recheck supply dated current-main provenance; the latter supersedes the older boolean-only freshness claim.
+Treat Binaryen `version_132` as the current algorithm and fixture baseline for this pass; v129–v131 materials below are historical provenance. The retained 2026-04-27 readiness bridge and 2026-07-11 world-mode recheck supply dated current-main provenance; the latter supersedes the older boolean-only freshness claim.
 
 Primary files:
 
@@ -35,9 +35,9 @@ Primary files:
 - `test/lit/passes/type-refining-gufa-exact.wast`
 - `test/lit/passes/type-refining-gufa-rmw.wast`
 
-The 2026-07-11 current-`main` recheck preserves the reviewed `version_129` gates, phase split, repair structure, registration, and dedicated lit surface. It records one material interface drift: the owner now rejects `WorldMode::Open` rather than reading an old boolean-only `closedWorld` option, and it threads the same `worldMode` through public-type classification and `GlobalTypeRewriter`. This is still a closed-world semantic requirement, not a claim that all non-open modes have identical visibility/rewrite permissions; see [`index.md`](index.md).
+The verified v132 owner and fixture preserve the reviewed gates, phase split, repair structure, registration, and dedicated lit surface. It records one material interface drift: the owner now rejects `WorldMode::Open` rather than reading an old boolean-only `closedWorld` option, and it threads the same `worldMode` through public-type classification and `GlobalTypeRewriter`. This is still a closed-world semantic requirement, not a claim that all non-open modes have identical visibility/rewrite permissions; see [`index.md`](index.md).
 
-So this dossier treats `version_129` as the normative algorithm oracle while treating current `main` as the API/policy drift watch.
+So this dossier treats `version_132` as the normative algorithm oracle while treating current `main` as the API/policy drift watch.
 
 ## High-level intent
 
@@ -431,7 +431,7 @@ These non-goals are worth keeping explicit:
 
 ## Bottom line
 
-Binaryen `type-refining` in `version_129` is a **closed-world private struct-field refiner with a mandatory repair pipeline**.
+Binaryen `type-refining` in `version_132` is a **closed-world private struct-field refiner with a mandatory repair pipeline**.
 
 The pass name sounds broader than the implementation really is.
 The source says otherwise:
@@ -446,6 +446,8 @@ That is the real strategy a future strict-parity port must preserve.
 ## Sources
 
 - [`index.md`](index.md)
+- Binaryen v132 owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/TypeRefining.cpp>
+- Binaryen v132 fixture: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/type-refining.wast>
 - [research note 0303](./index.md)
 - [research note 0150](./index.md)
 - Binaryen `version_129`:

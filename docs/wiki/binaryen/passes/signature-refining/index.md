@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/SignatureRefining.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/signature-refining.wast
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../index.md
@@ -28,7 +29,7 @@ related:
 
 - `signature-refining` is an upstream Binaryen **module pass**.
 - It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- In Binaryen `version_129`, the public pass summary in `pass.cpp` is:
+- In Binaryen `version_132`, the public pass summary in `pass.cpp` is:
   - `apply more specific subtypes to signature types where possible`
 
 That summary is true, but too small.
@@ -44,6 +45,10 @@ A better beginner summary is:
 
 So this is not generic signature cleanup.
 It is **heap-type-level subtype-tightening for nominal function signatures**.
+
+### v132 fixture evidence
+
+The v132 lit fixture confirms that refinement covers direct calls and `call_ref`, combines nullable and non-nullable arguments through LUBs, updates every function sharing a signature heap type, refines reachable result values, and leaves signatures unchanged when only unreachable calls, exports, or tables prevent a safe rewrite.
 
 ## Why this pass matters
 
@@ -72,8 +77,8 @@ It is **heap-type-level subtype-tightening for nominal function signatures**.
 - Parameter refinement comes from **call operand LUBs**.
 - Result refinement comes from **returned-value LUBs**.
 - `call.without.effects` is part of the real contract, not a side note.
-- The dossier is anchored to direct `version_129` source URLs, the retained 2026-04-24 research inventory, the superseded 2026-05-05 freshness bridge, and the 2026-07-11 official [`version_130/current-main review`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp), plus the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
-- The 2026-07-11 owner reread found two behavior-bearing current-version corrections: continuation-used signatures now freeze the whole type rather than only params, and `worldMode` now reaches both public-type discovery and the global signature rewriter.
+- The dossier is anchored to the verified Binaryen `version_132` owner and lit fixture, while retaining older v129–v131 source reviews as historical provenance, plus the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+- The v132 owner and fixture review confirms two behavior-bearing boundaries: continuation-used signatures freeze the whole type rather than only params, and `worldMode` reaches both public-type discovery and the global signature rewriter.
 - The older 2026-05-05 no-drift conclusion is retained as historical provenance but is superseded for current-contract claims.
 
 ## Beginner warning: what the name hides
@@ -99,7 +104,7 @@ What it sounds like:
 
 - a small signature-tightening cleanup pass
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a GC-gated module pass with:
   - per-function direct `call` / `call_ref` collection
@@ -115,7 +120,7 @@ What it actually is in `version_129`:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, main phases, and the exact one-pass rewrite contract.
+  - Deep dive into the actual Binaryen `version_132` implementation, helper dependencies, scheduler placement, main phases, and the exact one-pass rewrite contract.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - File map for `SignatureRefining.cpp`, `lubs.*`, `module-utils.*`, `type-updating.*`, `intrinsics.*`, and the dedicated lit file, plus the narrow current-`main` freshness note.
 - [`./params-results-publicity-and-intrinsics.md`](./params-results-publicity-and-intrinsics.md)
@@ -139,11 +144,12 @@ What it actually is in `version_129`:
 - Keep the distinction between `signature-pruning` and `signature-refining` explicit.
 - Keep the distinction between scheduler gating and pass-local gates explicit.
 - Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) as the first stop for future implementation planning, especially the direct `call_ref` text-surface gap and the missing `call.without.effects` local intrinsic surface.
-- Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract.
+- Keep any future v133/current-main drift notes explicit instead of silently rewriting the verified `version_132` contract.
 
 ## Sources
 
-- Binaryen current-main owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignatureRefining.cpp>
+- Binaryen v132 owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/SignatureRefining.cpp>
+- Binaryen v132 fixture: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/signature-refining.wast>
 - research note 0398
 - research note 0307
 - research note 0152

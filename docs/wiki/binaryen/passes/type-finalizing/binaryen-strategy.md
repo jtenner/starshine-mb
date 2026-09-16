@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/TypeFinalizing.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/type-finalizing.wast
   - ./index.md
 related:
   - ./index.md
@@ -20,8 +21,8 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as historical tagged source provenance for this pass; new comparisons use the verified `version_132` baseline; the direct tagged source URLs below retain that provenance. The 2026-07-11 current-main recheck preserves the GC/private-leaf contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global type rewriting. This is **not** a new closed-world-only gate; it is a policy input a future port must model consistently. See [Binaryen current-main `TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp).
-The core sources are:
+Treat Binaryen `version_132` as the current tagged source and fixture baseline for this pass; v129–v131 materials below are historical provenance; the direct tagged source URLs below retain that provenance. The 2026-07-11 current-main recheck preserves the GC/private-leaf contract but records one material helper-interface drift: current `main` threads `getPassOptions().worldMode` through both private-type selection and global type rewriting. This is **not** a new closed-world-only gate; it is a policy input a future port must model consistently. See [Binaryen current-main `TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp).
+The v132 core sources and fixture are:
 
 - `src/passes/TypeFinalizing.cpp`
 - `src/passes/pass.cpp`
@@ -36,15 +37,15 @@ Important helper surfaces the pass relies on conceptually:
 
 Primary source URLs:
 
-- <https://github.com/WebAssembly/binaryen/releases/tag/version_129>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeFinalizing.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/releases/tag/version_132>
+- <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/TypeFinalizing.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/subtypes.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/type-updating.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/type-updating.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/type-finalizing.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/type-finalizing.wast>
 
 ## The pass in one sentence
 

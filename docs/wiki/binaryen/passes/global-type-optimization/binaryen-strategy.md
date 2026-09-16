@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-16
 sources:
   - ./index.md
 related:
@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Treat Binaryen `version_129` as historical source provenance for this pass; new comparisons use the verified `version_132` baseline, anchored by the retained 2026-06-02 current-main recheck in [research note 0694](./index.md); the direct tagged URLs below preserve the earlier source catalog after its manifest is consumed.
+Treat Binaryen `version_132` as the current source and fixture baseline for this pass; v129–v131 materials below are historical provenance, anchored by the retained 2026-06-02 current-main recheck in [research note 0694](./index.md); the direct tagged URLs below preserve the earlier source catalog after its manifest is consumed.
 
 Primary files:
 
@@ -554,7 +554,7 @@ without needing a separate pass-specific repair mechanism for each.
 
 ## What the pass does **not** do
 
-Binaryen `gto` in `version_129` does **not** do any of these:
+Binaryen `gto` in `version_132` does **not** do any of these:
 
 - it does not run in open world
 - it does not optimize public types
@@ -571,7 +571,7 @@ What it sounds like:
 
 - a broad GC type optimizer
 
-What it actually is in `version_129`:
+What it actually is in `version_132`:
 
 - a closed-world private-struct mutability/removal pass with hierarchy propagation, JS-boundary keepalive rules, instruction-before-type rewriting, and explicit trap-preservation logic.
 
@@ -587,6 +587,8 @@ The public one-line summary in `pass.cpp` hides that entire story.
 
 ## Sources
 
+- Binaryen v132 owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/GlobalTypeOptimization.cpp>
+- Binaryen v132 fixture: <https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/test/lit/passes/gto-removals.wast>
 - [research note 0306](./index.md)
 - [research note 0153](./index.md)
 - Binaryen `version_129`:
