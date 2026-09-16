@@ -5,38 +5,42 @@
 ### Resume checkpoint — September 15, user-requested usage pause
 
 **Updated September 16:** the pause was resumed, the three saved red cases and
-four subsequent ordinary OI families are fixed, and the user-authorized fuzz
-renewal is complete. Do not restart the audit. Durable repair history and the
-full current evidence live in the [renewal report](docs/wiki/ir2/architecture-rules.md#september-16-final-source-fuzz-renewal).
+four subsequent ordinary OI families and two further size families are fixed;
+the user-authorized fuzz renewal is complete. Do not restart the audit. Durable repair history and the
+full current evidence live in the [size follow-up report](docs/wiki/ir2/architecture-rules.md#september-16-further-oi-size-reductions).
 
 - **Workflow:** original five agents report only; root alone writes tests,
   edits, runs compilers/runtimes and commits. Serialize Moon commands. The user
   waived the commit skill and requested individual fix commits.
-- **Current source:** `bbcbbe5b6` includes the four OI fixes (`d58198019`,
-  `a23a88dd8`, `9fc60f61b`, `0870617f0`), the touched-function boundary repair
-  (`d522b328f`), and exact instruction-order regression updates. All **12,030
-  default Moon tests pass**, plus info/fmt with no public API changes. The
-  previous 118 full-suite failures are resolved: two DAE checks pass unchanged
-  after the scope repair; 116 obsolete wrapper/suffix checks now assert effects.
-- **Fresh verification:** both native binaries rebuilt; nine lanes complete
+- **Current source:** `48a37ed54` admits index-free `i32.add` to bounded type
+  cleanup; `8e6ad179a` drops declaration-only elements after the last `ref.func`
+  use disappears. All six new regressions were red first; all **12,036 default
+  tests pass**, plus info/fmt with no API changes. Prior fixes and test history
+  remain in the [durable report](docs/wiki/ir2/architecture-rules.md#september-16-further-oi-size-reductions).
+- **Fresh verification:** rebuilt command/generator binaries complete nine lanes,
   **91,020 / 92,000** comparisons, zero output-validation/command failures and
-  zero canonical size losses. Runtime properties were off. The 980 exclusions
-  are the known atomic-ordering-2 input rejected by the independent validator.
-  All five saved OI fixtures (2/5/7/20/108) now match v132 raw/canonical size.
-- **Remaining raw-size counts:** OI **2,744** (GC aggregate 1,138; descriptors
-  1,090; call references 516), DAE2 **567** continuations, optimizing DAE2 **624**
-  continuations, local-subtyping **765** control-refinalize cases. These **4,700
-  observations in 27 families remain parity gaps**, even with equal/smaller
-  canonical output. Heap2local, both global-refining lanes and both precompute
-  lanes have no raw losses in this renewal. The earlier 7,500 dedicated
-  global-refining losses and fixed ordinary OI families are closed for this
-  sampled aggregate, not for arbitrary proposal graphs.
+  zero canonical size losses. All 980 exclusions retain the atomic-ordering-2
+  independent-validator limit. Runtime properties were off. Eight non-OI lanes
+  have unchanged result counts and size totals from the prior renewal.
+- **Size closures:** OI GC-aggregate losses **1,138 → 0** and call-reference
+  losses **516 → 0**, saving **9,939 raw bytes** across the same 10,000 inputs.
+  Every OI canonical size is unchanged and no raw size increases. Saved cases
+  3 and 6 now match v132 at 91 and 53 bytes. No prior expectations were changed.
+- **Remaining raw-size counts:** OI descriptors **1,090**, DAE2 continuations
+  **567**, optimizing DAE2 continuations **624**, local-subtyping control
+  refinalization **765**. These **3,046 observations in seven families remain
+  parity gaps**. Heap2local, both global-refining and both precompute lanes have
+  no raw losses in this renewal. Closures apply to the measured cohort; broader
+  proposal, downstream, and runtime work remains open.
+- **Latest evidence:** `.tmp/size-followup-20260916/` contains final test/build
+  logs, `size-followup-fuzz/`, `size-followup-summary.json`, paired input/size
+  comparisons, source/binary hashes, and `verification-audit.json` with per-lane
+  cache and selected-profile counts. Preserve the earlier evidence below.
 
 #### Next cases, one fix and commit at a time
 
-1. **OI raw encoding:** inspect current GC-aggregate/call-reference residues
-   alongside descriptor37 type residue, descriptor27 producer/result structure,
-   and descriptor52/74 exact-null encoding. Use fresh outputs before extending
+1. **OI descriptor encoding:** inspect descriptor37 type residue, descriptor27
+   producer/result structure, and descriptor52/74 exact-null encoding. Use fresh outputs before extending
    cleanup. A complete type-reference remapper is required for proposal graphs;
    do not widen simple-type guards blindly. Saved fixture repairs are complete.
 2. **Continuation encoding:** DAE2 case15 and related continuation graphs still

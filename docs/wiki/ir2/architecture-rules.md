@@ -3598,3 +3598,84 @@ contains per-lane commands, toolchains, cases and retained diffs;
 `oi-residual-saved-case-renewal.json` records the five unchanged input hashes
 and sizes; `parity-renewal-2-binaries.json` and `parity-renewal-2-source.json`
 record executable and source identities. Earlier campaign results are intact.
+
+#### September 16 further OI size reductions
+
+Two bounded follow-ups target the fresh residual inventory:
+
+- `48a37ed54` admits index-free `i32.add` to the shared type-cleanup guard.
+  Arithmetic helper functions no longer prevent removing unused sibling GC
+  types. A live-struct fixture checks preserved global effects, shifted type
+  indices and surviving type names; saved OI case 3 has dispatcher coverage.
+- `8e6ad179a` removes raw declaration-only element sections after the last
+  `ref.func` use disappears. Direct calls need no declaration. Existing guards
+  preserve active/passive/expression segments, runtime element-index uses and
+  opaque names; the normal remapper removes deleted element names and cached
+  name bytes. Saved OI case 6 and exact call/name preservation checks cover it.
+
+All six new pass/dispatcher checks failed before implementation and pass after
+the respective repairs. Five existing element guards also pass. Sources:
+[scalar guard](../../../src/passes/precompute_type_cleanup.mbt),
+[element cleanup](../../../src/passes/optimize_instructions_element_cleanup.mbt),
+[scalar regressions](../../../src/passes/oi_size_scalar_types_wbtest.mbt), and
+[declaration regressions](../../../src/passes/oi_size_unused_declarations_wbtest.mbt).
+The previous renewal remains unchanged; new evidence is stored separately under
+`.tmp/size-followup-20260916/`.
+
+Final default verification passes **12,036/12,036** tests; info/fmt pass with no
+public API changes. No existing expectations needed adjustment for these two
+fixes. Logs: `full-test.log`, `info.log`, and `final-fmt.log` in the new evidence
+root.
+
+Fresh native saved-case replay independently validates both outputs. Case 3
+shrinks **94 → 91 bytes**, matching v132; its only printed-IR change is removal
+of the unused array type. Case 6 shrinks **60 → 53 bytes**, also matching v132;
+its only printed-IR change is removal of the unused declaration. Function
+bodies remain identical in both before/after pairs. `direct-size-check.json`
+and the raw Wasm/WAT pairs preserve this evidence.
+
+The fresh OI aggregate compares the **same 10,000 input byte strings** as the
+previous renewal. GC-aggregate raw losses fall **1,138 → 0** (6,327 bytes saved),
+and call-reference losses fall **516 → 0** (3,612 bytes saved). OI's total raw
+losses fall **2,744 → 1,090**; the remaining cases are descriptor profiles.
+Canonical sizes are unchanged. These two sampled families have no remaining raw-size losses. Cleanup adds no
+locals and preserves effect order and evaluated call arguments.
+`oi-paired-comparison.json` records the input-cohort audit and profile deltas.
+
+The final-source rerun at `8e6ad179a` completes **91,020 / 92,000** comparisons
+across the same nine profiles and flags as the prior renewal. There are zero
+output-validation/command failures and zero canonical size losses. The eight
+non-OI lanes have identical comparison counts and raw/canonical size totals to
+the preceding run. All 980 excluded inputs are the same documented 70-byte
+atomic-ordering-2 fixture. Runtime properties remain off.
+
+| Targeted OI profile | Previous raw-larger cases | Current | Bytes saved |
+| --- | ---: | ---: | ---: |
+| GC aggregate | 1,138 | 0 | 6,327 |
+| Call reference | 516 | 0 | 3,612 |
+| Total targeted | 1,654 | 0 | 9,939 |
+
+**Agent judgment:** these sampled encoding gaps are closed by the explicit
+unused-type/declaration proofs, unchanged input cohort, independent validation,
+and nonincreasing per-case raw size with unchanged per-case canonical size.
+The remaining **3,046 observations in seven raw-size families remain parity
+gaps**: OI descriptors 1,090, DAE2 continuations 567, optimizing DAE2
+continuations 624, and local-subtyping control refinalization 765. Existing
+semantic judgments and unsampled proposal/runtime limits remain unchanged.
+
+Current command SHA-256 is
+`2579635d1374c1fc483380840745862dc529e26f9e2fd50896c9e16a725fcbcf`;
+current GenValid SHA-256 is
+`58dfc937ac16eec240f77955f19443e1070967100b522c26941adcc110b57085`.
+The oracle is the same verified v132 hash recorded above. Oracle cache hits /
+misses are **91,020 / 0**; Starshine outputs are fresh. Per-lane cache counters
+and selected profile counts are retained in `verification-audit.json`.
+
+All new artifacts are under `.tmp/size-followup-20260916/`: `size-followup-fuzz/`
+contains commands, toolchains, result files and retained diffs;
+`size-followup-summary.json` records 78 residual/status groups;
+`previous-comparison.json` and `oi-paired-comparison.json` preserve measured
+deltas; `size-followup-binaries.json`, `size-followup-source.json`, and
+`verification-audit.json` preserve provenance and the unchanged excluded input
+hash. This supersedes the prior 4,700-observation backlog count without changing
+its historical artifacts.

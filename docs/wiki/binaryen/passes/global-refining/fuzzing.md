@@ -105,3 +105,13 @@ passes 12,030 tests. Runtime properties were off; retained raw losses remain
 parity gaps and existing semantic classifications are not broadened by size
 alone. Commands, binary hashes, family counts and exclusions are in the linked
 renewal record.
+
+### September 16 scalar/declaration size follow-up
+
+The shared scalar-add guard follow-up passes all 12,036 default tests. Fresh
+native comparison repeats this dossier's preceding dedicated/ordinary lane
+counts and size totals unchanged, with zero output-validation or command
+failures and zero canonical size losses. Existing input-validator and runtime
+limits remain unchanged.
+Current binary hashes, per-lane cache/profile counts and scoped judgments are
+in the [size follow-up report](../../../ir2/architecture-rules.md#september-16-further-oi-size-reductions).

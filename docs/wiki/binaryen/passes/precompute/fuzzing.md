@@ -165,3 +165,13 @@ alone. Commands, binary hashes, family counts and exclusions are in the linked
 renewal record.
 
 Each variant excludes 490 copies of the known atomic-ordering-2 input at the independent-validator gate; all 10,510 remaining inputs are compared.
+
+### September 16 scalar/declaration size follow-up
+
+The shared scalar-add guard follow-up passes all 12,036 default tests. Fresh
+native comparison repeats this dossier's preceding dedicated/ordinary lane
+counts and size totals unchanged, with zero output-validation or command
+failures and zero canonical size losses. Existing input-validator and runtime
+limits remain unchanged.
+Current binary hashes, per-lane cache/profile counts and scoped judgments are
+in the [size follow-up report](../../../ir2/architecture-rules.md#september-16-further-oi-size-reductions).

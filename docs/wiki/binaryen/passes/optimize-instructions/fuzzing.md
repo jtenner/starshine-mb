@@ -1043,3 +1043,13 @@ active/passive or expression segments, and opaque names retain the existing
 conservative guards. The normal element-name remapper removes stale names and
 clears cached name bytes. Red-first saved case 6 and name/call preservation
 checks are in `oi_size_unused_declarations_wbtest.mbt`, with dispatcher coverage.
+
+### September 16 scalar/declaration size follow-up
+
+The two additional fixes pass all 12,036 default tests. Fresh 10,000-case OI
+comparison closes all 1,138 GC-aggregate and 516 call-reference raw losses,
+saving 9,939 bytes across identical inputs. Canonical sizes are unchanged;
+1,090 descriptor raw losses remain. There are zero output-validation or command
+failures, and no canonical size losses.
+Current binary hashes, per-lane cache/profile counts and scoped judgments are
+in the [size follow-up report](../../../ir2/architecture-rules.md#september-16-further-oi-size-reductions).
