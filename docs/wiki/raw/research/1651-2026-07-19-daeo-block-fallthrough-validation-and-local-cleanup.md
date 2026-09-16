@@ -10,7 +10,6 @@ sources:
   - ../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../src/validate/typecheck.mbt
   - ../../../../src/validate/validate.mbt
-  - ./1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
 ---
 
 # DAEO block fallthrough validation and local cleanup

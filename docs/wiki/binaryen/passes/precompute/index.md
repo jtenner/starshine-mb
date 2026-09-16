@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - binaryen-strategy.md
   - ../../../../../src/passes/precompute.mbt
@@ -181,7 +180,7 @@ What the documented upstream contract is (initially read at `version_129`, then 
 
 ## 2026-07-18 exact-null fold used by DAEO
 
-Research note [`1650`](../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md) records the DAEO-facing exact case: `ref.is_null(ref.null ...)` becomes `i32.const 1` in both the raw unary evaluator and HOT IR. The raw path is owned by `precompute_raw_try_fold_unary(...)`; the HOT path is covered by `precompute_try_fold_ref_is_null(...)`, which also retains the broader current fresh-reference identity reasoning. Focused tests cover untyped raw execution, typed execution after DAE-style local compaction, and direct HOT execution through the propagate-prefix descriptor.
+The absorbed DAEO evidence records the DAEO-facing exact case: `ref.is_null(ref.null ...)` becomes `i32.const 1` in both the raw unary evaluator and HOT IR. The raw path is owned by `precompute_raw_try_fold_unary(...)`; the HOT path is covered by `precompute_try_fold_ref_is_null(...)`, which also retains the broader current fresh-reference identity reasoning. Focused tests cover untyped raw execution, typed execution after DAE-style local compaction, and direct HOT execution through the propagate-prefix descriptor.
 
 This shared fold lets immutable-global struct-field propagation expose a null call argument and remove a downstream parameter without adding a DAEO-only final-shape rewrite. At the time it did not by itself close the separate plain-precompute v131 renewal; that renewal is now closed by the 2026-07-26 direct matrix above, while DAEO's scheduler context remains documented separately.
 
