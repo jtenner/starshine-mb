@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-16
 sources:
   - wasm-linear-memory-threads-boundary.md
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/relaxed-atomics/blob/main/proposals/relaxed-atomics/Overview.md
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/basic/relaxed-atomics.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/validation/relaxed-atomics.wast
   - wast/atomic-memory-instruction-authoring.md
   - wast/gc-aggregate-instruction-authoring.md
   - ../../src/lib/types.mbt
@@ -42,6 +44,10 @@ orders; `--all-features` clears explicit disabling. This supersedes the previous
 missing-gate and linear-text boundaries. `pause` remains outside this intake.
 
 For beginners: changing an atomic order is semantic, not cosmetic. Optimizers must preserve acquire, release, and sequentially consistent edges in the correct direction.
+
+The release-level shape catalog groups these order-bearing forms with the
+ordering-sensitive load/store and Precompute eligibility rules:
+[Binaryen 132 atomic shapes](binaryen/version-132-upgrade.md#atomic-orders-ordering-sensitive-eligibility).
 
 ## Current Surface
 

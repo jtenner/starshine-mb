@@ -2,11 +2,19 @@
 kind: entity
 status: working
 starshine_status: active-partial
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
   - https://github.com/WebAssembly/binaryen/pull/8994
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-control-flow.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-cycles.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-indirect.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-open-world.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-intrinsics.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-returns.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-cont.wast
   - ../../../../../src/passes/dead_argument_elimination2.mbt
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
   - ../../../../../src/passes/dead_argument_elimination2_legacy.mbt
@@ -22,7 +30,9 @@ related:
 
 `dae2` is a runnable Starshine module pass targeting Binaryen **132**. It solves
 unused parameters and entire function-result tuples in one dependency graph.
-It is separate from ordinary `dae` and is opt-in.
+It is separate from ordinary `dae` and is opt-in. The [shape catalog](wat-shapes.md)
+maps the released result, control-flow, cycle, indirect, open-world, intrinsic,
+return and continuation fixtures to their rewrite boundaries.
 
 This September 10 implementation supersedes this dossier's earlier upstream-only
 status and parameter-only account. Binaryen #8903 added result usage to the

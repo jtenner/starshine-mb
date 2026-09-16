@@ -2,10 +2,12 @@
 kind: entity
 status: working
 starshine_status: active-partial
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/ConstraintAnalysis.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/ir/constraint.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/constraint-analysis.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/constraint-analysis-loops.wast
   - ../../../../../src/passes/constraint_analysis.mbt
   - ../../../../../src/passes/constraint_domain.mbt
   - ../../../../../src/passes/constraint_analysis_wbtest.mbt
@@ -13,6 +15,7 @@ sources:
   - ../../../../../src/validate/gen_valid_constraint.mbt
 related:
   - ./fuzzing.md
+  - ./wat-shapes.md
   - ../../version-132-upgrade.md
   - ../tracker.md
 ---
@@ -62,3 +65,9 @@ cost evidence are tracked in the [132 upgrade](../../version-132-upgrade.md).
 Registration does not establish complete opportunity parity or justify a preset
 change. Later tee, unreachable-state, width, overflow, mixed-signedness, NaN and
 convergence corrections remain part of the correctness intake contract.
+
+Use the [v132 shape catalog](wat-shapes.md) for concrete before/after forms.
+It separates straight-line predicates, copy chains, branch joins, relational
+fusing, loop widening and unreachable cleanup from the solver's internal state
+normalization. The release page also records the exact v131-to-v132 commit
+families and the distinction between released behavior and post-tag guardrails.

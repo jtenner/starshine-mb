@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/proposals/blob/main/README.md
   - https://github.com/WebAssembly/compact-import-section/blob/main/proposals/compact-import-section/Overview.md
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/basic/compact-imports.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/unit/test_compact_imports.py
   - https://webassembly.github.io/compact-import-section/
   - https://github.com/WebAssembly/proposals
   - ../../src/lib/types.mbt
@@ -34,6 +36,12 @@ ordered `ImportSec(Array[Import])`. Ordinary encoding remains the default;
 compaction. Imports never reorder, so function/table/memory/global/tag indices
 keep their logical meaning. The group count counts declarations, while the
 expanded list counts imports.
+
+For the Binaryen 132 shape inventory, the two forms are the per-item group and
+the shared-description group. Both are expanded to ordinary logical imports
+before later validation or optimization; they are serialization forms rather
+than new import kinds. The release-level summary is in the
+[v132 catalog](binaryen/version-132-upgrade.md#compact-imports-grouped-syntax-expands-to-ordinary-imports).
 
 The v132 WAT grammar uses `item` declarations:
 

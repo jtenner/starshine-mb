@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-09-16
 sources:
   - https://webassembly.github.io/threads/core/valid/instructions.html
   - https://webassembly.github.io/threads/core/exec/instructions.html
   - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/basic/relaxed-atomics.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/validation/relaxed-atomics.wast
   - wast/atomic-memory-instruction-authoring.md
   - validate/resource-sections-and-limits.md
   - wast/resource-declaration-authoring.md
@@ -31,7 +33,7 @@ related:
 
 # Linear-Memory Threads And Shared-Memory Boundary
 
-The September 10 Binaryen 132 update adds the linear-atomic WAST surface, including named/numeric memory selection, memory64/shared declarations and all three orders. Earlier text-parser-gap statements below are superseded by [atomic authoring](wast/atomic-memory-instruction-authoring.md). External execution support remains proposal-specific.
+The Binaryen 132 intake records the linear-atomic WAST surface, including named/numeric memory selection, memory64/shared declarations and all three orders. Earlier text-parser-gap statements below are superseded by [atomic authoring](wast/atomic-memory-instruction-authoring.md). External execution support remains proposal-specific.
 
 ## Overview
 
@@ -52,9 +54,9 @@ The Threads draft and current local typechecker agree on the static-validation b
 | --- | --- | --- | --- |
 | Ordinary memory32/memory64 limits | Core / finished-feature evidence for address width and limits. | Core and binary model `I32Limits` and `I64Limits`; WAST declarations are still narrower. | [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md) |
 | Shared linear memory | Threads proposal/draft evidence, not stable-Core-alone evidence. | `MemType(Limits, Bool)` stores sharedness; validation rejects shared memories without a maximum. | This page plus [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md) |
-| Ordinary `0xFE` atomics | Threads proposal/draft instruction evidence. | Core, binary, validator, generator, HOT/effects support the current local subset. `MemArg` forms typecheck against an existing shared **or unshared** memory; generator coverage intentionally chooses shared memory. Linear-memory WAST keywords are absent. | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) |
-| `atomic.fence` | Threads / ordering barrier. | Core/binary/validator carry `AtomicOrder::{SeqCst, AcqRel}` on the standalone `[] -> []` fence; it has no selected memory and no sharedness check. | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) |
-| Relaxed Atomics | Separate active Phase-2 proposal for ordering immediates and `pause`. | Partial local representation: linear loads/stores/RMW/cmpxchg/fence carry `SeqCst` or `AcqRel`; `pause`, dedicated proposal gating, and high-level WAST text remain absent. | [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md) |
+| Ordinary `0xFE` atomics | Threads proposal/draft instruction evidence. | Core, binary, validator, generator, HOT/effects support the current local subset. `MemArg` forms typecheck against an existing shared **or unshared** memory; generator coverage intentionally chooses shared memory. The v132 WAST surface covers named/numeric memory selection, memory64/shared declarations and the represented order forms. | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) |
+| `atomic.fence` | Threads / ordering barrier. | Core/binary/validator carry `AtomicOrder::{SeqCst, AcqRel, Relaxed}` on the standalone `[] -> []` fence; it has no selected memory and no sharedness check. | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) |
+| Relaxed Atomics | Separate active Phase-2 proposal for ordering immediates and `pause`. | Partial local representation: linear loads/stores/RMW/cmpxchg/fence carry `SeqCst`, `AcqRel` or `Relaxed` through WAST, binary and HOT; `pause`, dedicated proposal gating and full runtime support remain absent. | [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md) |
 | Shared-GC aggregate atomics | Shared-Everything / GC aggregate surface, not linear-memory `MemArg` atomics. | Shared type metadata plus struct/array atomic get/RMW/cmpxchg are core/binary/validator/HOT-visible; WAST coverage is narrower and aggregate set/wait/notify remain future work. | [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) |
 | Memory Control | Separate active Phase-1 runtime memory-management proposal. | No `memory.discard` / lazy commit / mapping / BYOB support. | [`wasm-memory-control-boundary.md`](wasm-memory-control-boundary.md) |
 | Custom Page Sizes | Separate active-proposal memory-type dimension. | No page-size field, binary flag, validator dimension, or WAST spelling. | [`wasm-custom-page-sizes-boundary.md`](wasm-custom-page-sizes-boundary.md) |
@@ -98,7 +100,7 @@ Starshine's current ordinary linear-memory atomic support is real but layer-spec
 3. [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) routes `MemArg`-based atomics through `memarg_check_atomic(...)`, which currently performs ordinary memory-index, alignment, offset, and address-width checks but does **not** require the selected memory's `shared` bit. [`src/validate/typecheck_negative_wbtest.mbt`](../../src/validate/typecheck_negative_wbtest.mbt) locks the positive non-shared atomic-load case.
 4. `AtomicFence` is different: the typechecker accepts it as `Ok(st)` because it has no memory argument and no stack effect.
 5. [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) emits its coverage prelude only when `allow_atomics` is enabled and it can find a shared memory. That is representative generator topology, not a validator precondition; the focused typechecker regression cited above is the local proof.
-6. Current high-level WAST keywords/parser arms do **not** expose `i32.atomic.load`, `memory.atomic.wait32`, `atomic.fence`, or sibling linear-memory atomic text. Use core builders, binary bytes, or `gen_valid` for tests until [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) is widened.
+6. The v132 high-level WAST keywords/parser arms expose the represented linear-memory atomic text, including `i32.atomic.load`, `memory.atomic.wait32`, and `atomic.fence`. Use the focused authoring page for the supported spelling and keep any still-unrepresented proposal instruction on the core/binary/generated route.
 
 ### Example: valid shared-memory core shape (but sharedness is not an atomic validation precondition)
 

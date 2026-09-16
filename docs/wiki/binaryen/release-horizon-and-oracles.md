@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-16
 sources:
   - https://github.com/WebAssembly/binaryen/releases/tag/version_132
   - https://github.com/WebAssembly/binaryen/compare/version_131...version_132
@@ -39,7 +39,9 @@ Use it when you need to answer a basic question like:
 The current comparison baseline is **`version_132`**, published **2026-08-12**
 at `79dfe6b412a3c22bfdb190ed6a4d79adf734db5d`. New correctness and performance
 comparisons use a verified v132 binary. The [v132 upgrade](version-132-upgrade.md)
-records the reproduced 59-commit / 220-file delta and implementation boundaries.
+records the reproduced 59-commit / 220-file delta, implementation boundaries and
+the released transform-shape catalog. Use that catalog when a v132 question is
+about the input pattern or output form rather than the public release date.
 Version 131 remains the historical source of existing measurements and signoffs;
 none of those results is silently relabeled v132. Post-tag fixes remain a separate
 intake, including DAE2 #8994 and constraint correctness guardrails. The v132 tag

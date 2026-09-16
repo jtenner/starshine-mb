@@ -1,11 +1,24 @@
 ---
 kind: decision
 status: working
-last_reviewed: 2026-09-11
+last_reviewed: 2026-09-16
 sources:
   - ../raw/binaryen/2026-09-10-v131-v132-release-inventory.json
   - https://github.com/WebAssembly/binaryen/compare/version_131...version_132
   - https://github.com/WebAssembly/binaryen/releases/tag/version_132
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/ConstraintAnalysis.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/MakeSharedObjects.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/wasm/wasm-binary.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/constraint-analysis.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/constraint-analysis-loops.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-control-flow.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/basic/compact-imports.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/basic/relaxed-atomics.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/waitqueue.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/array-multibyte.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/make-shared-objects.wast
 related:
   - release-horizon-and-oracles.md
   - passes/tracker.md
@@ -117,6 +130,187 @@ separate. Presets have not changed.
 | Constraints | Integer/reference facts, width-correct bit-pattern ranges, copy relations, joins, increments, loop arguments, widening, bounded work and converged rewrites. | Floating-point proofs remain disabled; corpus performance and residual opportunities require signoff. |
 | Proposal model | Waitqueue references/new/notify/explicit waits; multibyte array offsets/alignment through parsing, validation, HOT and encoding; continuation-associated signatures and control. | Runtime exclusions remain explicit. Optional tool passes are separate. |
 | Feature policy | Core and CLI controls for acquire-release atomics, relaxed atomics, shared-everything, multibyte and relaxed SIMD; inference includes declarations, initializers and handlers. | This does not claim complete support for every older proposal. |
+
+## Released transform and shape catalog
+
+This is the shape-level view of the v131-to-v132 delta. It groups the released
+source and test changes by the input pattern they recognize or represent. The
+examples describe semantic forms; Binaryen may use different temporary locals,
+type names or canonical text after rewriting. Post-tag fixes are called out
+where they change the safety boundary, but are not presented as v132 release
+behavior.
+
+### Constraint analysis: facts that collapse predicates
+
+`constraint-analysis` walks the function CFG, records local writes and branch
+conditions, joins facts at reachable merges, and rewrites a predicate only when
+the converged facts prove its result. The v132 additions cover these shapes:
+
+| Input shape | Fact or rewrite | Required boundary |
+| --- | --- | --- |
+| `x = C; eq(x, C)` or `ne(x, D)` in the same block | Replace the Boolean result with `1` or `0`, while retaining the predicate operands and their effects. | Only predicate-relevant locals are tracked; an unknown local remains unknown. |
+| `x = y` followed by a predicate on `x` | Follow the copy back to `y` and track both locals. | A later write invalidates facts that depended on the old value. |
+| A predicate in an `if`, conditional `br`, or null/non-null `br_on` arm | Send the condition or its negation to the selected successor, then use it inside that block. | The released pass handles two-way CFG edges and `br_on_null` / `br_on_non_null`; switch and cast branches remain outside this solver slice. |
+| Two paths assign the same constant before a merge | Join the equal facts and fold the post-merge predicate. | Different path values produce a range or unknown fact rather than a false equality proof; unreachable predecessors contribute nothing. |
+| `x == C || x > C` and `x <= C && x < C` | Fuse redundant relational alternatives into a stronger normalized bound, then use it in later predicates. | Signedness, operand width and comparison negation are preserved independently. |
+| Signed or unsigned inequality against a constant | Add the corresponding lower/upper bound, including the v132 missing unsigned cases. | Bit-pattern ranges are width-correct; i32 and i64 constants do not share a domain. |
+| `x = y + K` on a loop backedge followed by a bound check | Transfer the increment and widen the loop-carried range so bounded loops converge without enumerating iterations. | Modular overflow is preserved; unbounded or almost-infinite loops must terminate analysis without inventing a proof. |
+| An unreachable block after a proved contradiction | Drop its remaining children and replace the region with `unreachable`, then refinalize. | Effects and traps in reachable operands stay in evaluation order; unfinished analysis cannot certify a rewrite. |
+
+The solver also sorts and removes redundant constraints internally, limits
+repeated increment work, and avoids copying state when an edge has no useful
+branch condition. Those changes improve convergence and memory cost; they are
+not additional IR rewrite families. Floating-point predicates remain disabled
+because NaNs and signed zero make the integer-style logical rules unsound.
+The [constraint shape page](passes/constraint-analysis/wat-shapes.md) contains
+small WAT examples and the local test map.
+
+### DAE2: unused values, result tuples, and dependency graphs
+
+The v132 DAE2 result extension treats a function's result tuple as one liveness
+unit and solves it together with parameters, direct calls, indirect function
+type families and forwarding cycles:
+
+| Input shape | Released result | Required boundary |
+| --- | --- | --- |
+| Private `(result i32)` whose callers drop the call | Remove the result from the function and call type; turn the producer expression into a dropped value when it has effects. | A trapping or effectful producer is retained in its original position. |
+| Private `(result i32 i64)` whose whole tuple is unused | Remove the whole tuple and retain its evaluation through `tuple.drop` or equivalent dropped children. | A tuple with any observed component stays intact; per-slot result pruning is not a v132 feature. |
+| A result used only as an argument to an unused parameter | Forward “used” backward through the graph; if no observable consumer reaches it, remove both value edges. | Calls, nontermination, traps and argument evaluation remain observable. |
+| Forwarding functions in a cycle | Keep the cycle's value locations unused unless an observable consumer reaches the cycle. | The solver must converge without assuming recursion is dead. |
+| Result-producing `if`, block, loop, return or tail-call | Remove the value wrapper while preserving conditional calls, writes, traps and control flow. | The control structure cannot be flattened merely because its result is dropped. |
+| Direct and indirect calls, referenced functions, imports/exports and intrinsics | Rewrite only the eligible signatures and all affected call/return sites. | Open-world references and effect-free-call intrinsics pin signatures; stack-switching continuation types are collected and protected. |
+
+The upstream result fixtures are split across [`dae2-results.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results.wast), [`dae2-results-control-flow.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-control-flow.wast), [`dae2-results-cycles.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-cycles.wast), [`dae2-results-indirect.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-indirect.wast), [`dae2-results-open-world.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-open-world.wast), [`dae2-results-intrinsics.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-intrinsics.wast), [`dae2-results-returns.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-returns.wast), and [`dae2-results-cont.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/dae2-results-cont.wast). The post-tag #8994 correction additionally preserves caller results for an unchangeable open-world indirect tail callee.
+
+### Atomic orders: ordering-sensitive eligibility
+
+v132 introduces a distinct `relaxed-atomics` feature and a `Relaxed` order
+alongside `SeqCst` and `AcqRel`. The represented shapes include ordered linear
+loads, stores, RMWs, cmpxchg operations and fences, plus order-bearing shared
+GC reads/stores and matching RMW pairs. Text roundtrips preserve forms such as:
+
+```wat
+(atomic.fence relaxed)
+(i32.atomic.store relaxed (i32.const 1) (i32.const 1))
+(drop (i32.atomic.load relaxed (i32.const 1)))
+```
+
+The v132 effect rule is directional: an earlier Relaxed-or-stronger atomic load
+cannot be moved past a later Relaxed-or-stronger atomic store, even when their
+heap classes are disjoint. `SeqCst` and shared reads remain barriers for
+Precompute. Eligible immutable, unshared Relaxed/AcqRel GC reads may fold; the
+fold does not apply to mutable fields, shared objects or SeqCst reads. An
+atomic fence is an ordering barrier with no stack result, never removable
+incidental code. These rules describe optimization eligibility, not a claim of
+concurrent runtime signoff.
+
+### Descriptors: branch polarity, nullability, and borrowed payloads
+
+The descriptor family uses both `br_on_cast_desc_eq` and
+`br_on_cast_desc_eq_fail` forms:
+
+```wat
+(br_on_cast_desc_eq $done (ref null $source) (ref $target)
+  (local.get $value) (local.get $descriptor))
+```
+
+The failure form reverses the branch condition. Local-subtyping and cleanup
+must refine the value on the selected edge, retain a non-null result when the
+destination is non-null, and preserve the descriptor operand's single
+evaluation when it is borrowed from a multivalue stack. A reachable descriptor
+branch remains a branch even when the surrounding block result is bottom;
+explicit values after a terminator can be removed only after reachability is
+known. Null descriptor inputs and unreachable branch operands retain their
+traps. The relevant released fixtures are
+[`local-subtyping-desc.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/local-subtyping-desc.wast),
+[`unreachable-br-on-cast-desc.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/basic/unreachable-br-on-cast-desc.wast),
+[`vacuum-desc.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/vacuum-desc.wast),
+[`monomorphize-desc.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/monomorphize-desc.wast), and
+[`ref-cast-desc.wast`](https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/ref-cast-desc.wast).
+
+### Compact imports: grouped syntax expands to ordinary imports
+
+The two released compact forms are serialization shapes rather than optimizer
+rewrites. The text form can group mixed per-item descriptions:
+
+```wat
+(import "env"
+  (item $f "f" (func (param i32)))
+  (item $g "g" (global i32)))
+```
+
+It can also share one function or global description across several names:
+
+```wat
+(import "math"
+  (item $sin "sin") (item $cos "cos")
+  (func (param f64) (result f64)))
+```
+
+The reader expands either group into ordered logical imports, preserving names,
+kind, exact-function annotations and index spaces. The opt-in writer groups
+only consecutive compatible runs; a module-name, kind or type boundary ends a
+run, and ordinary encoding remains the default. The AST does not preserve the
+original group spelling or per-item source spans.
+
+### Waitqueues and multibyte array memory arguments
+
+The v132 proposal intake adds represented shapes that every layer must carry
+without changing their effects:
+
+```wat
+(waitqueue.new)
+(waitqueue.notify (global.get $wq) (i32.const 1))
+(struct.wait $t 0 (global.get $object) (global.get $wq)
+  (i32.const 0) (i64.const 0))
+
+(i32.store (type $bytes) offset=12 align=2
+  (local.get $array) (i32.const 0) (i32.const 1337))
+(drop (i32.load8_u (type $bytes) offset=4
+  (local.get $array) (i32.const 0)))
+```
+
+Waitqueue references distinguish shared `waitqueue` and `nowaitqueue`, preserve
+nullable null values, and keep object/index/timeout evaluation order. A null or
+unreachable wait operand still produces the specified trap or unreachable
+shape. Multibyte array loads and stores carry an array type, element index,
+byte offset, alignment, load signedness/width or store width, and value where
+applicable. Validation rejects bad memory indices and inconsistent alignment;
+binary and text roundtrips retain the memarg. These are represented proposal
+forms, not new optimizer rewrites, and their runtime/concurrency support remains
+separate from structural validation.
+
+### MakeSharedObjects: unshared references become shared handles
+
+`make-shared-objects` is a new explicit upstream pass. It rewrites reference
+types to shared forms, maps `ref.func` values to stable shared `i31` handles,
+synthesizes a function table and element segment, and lowers `call_ref` to a
+table lookup plus `call_indirect`. Nullable casts/tests use a scratch local so
+the reference is evaluated once; non-null casts retain their trap behavior.
+Function signatures remain unshared while object and reference containers are
+made shared, and recursive type groups are rewritten together. This pass is
+still upstream-only in Starshine; its catalog entry is included to keep the
+released v132 shape inventory complete.
+
+### Changes that guard or expose shapes without adding a rewrite
+
+Several v132 commits change acceptance, metadata or tools rather than adding a
+new transform pattern:
+
+- `wasm-ctor-eval` refuses to flatten data segments with huge memory64 offsets,
+  preserving the instantiation/trap boundary instead of allocating an
+  impractical constant buffer.
+- The indirect-call effect type-update fix and deterministic type-name mapping
+  repair analysis and metadata; they do not introduce a new user-visible
+  peephole.
+- Relaxed SIMD changes validation and fuzzer handling. It is separate from
+  relaxed atomics and does not add a new OptimizeInstructions rule.
+- JS API changes expose `BinaryenStringConst` and merge the feature-taking
+  binary reader entry point. Ordinary DAE changes statistics only.
+- The released `OptimizeInstructions.cpp` diff contains comments only, so no
+  v132 OI peephole should be attributed to this upgrade.
+
+The complete commit-to-file mapping remains in the [exact release ledger](#exact-release-commit-ledger), while the [83-path intake manifest](../raw/binaryen/2026-09-10-v132-regression-intake.json) records which upstream fixtures were adapted, structurally checked, or intentionally left outside execution.
 
 Shared HOT corrections preserve evaluation of pending calls, old local reads,
 multivalue producers and nested conditional assignments. CFG backedges enter loop

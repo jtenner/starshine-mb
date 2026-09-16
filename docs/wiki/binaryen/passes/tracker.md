@@ -126,13 +126,16 @@ This page is the durable answer to two recurring questions:
 ## Binaryen 132 intake
 
 The [exact release review](../version-132-upgrade.md) covers 59 commits and 25
-changed pass files. Existing precompute variants now accept eligible unshared
-Relaxed reads; shared directional ordering has the released load-before-store
-edge. Descriptor regressions cover active local-subtyping/vacuum/cast cleanup.
-Normal DAE's upstream algorithm and OptimizeInstructions' peepholes did not
-change in this release. DAE2 and constraint analysis still have no Starshine
-registration and remain new implementation work. The post-tag default constraint
-scheduling change is outside v132; the baseline update does not change presets.
+changed pass files, with a [shape catalog](../version-132-upgrade.md#released-transform-and-shape-catalog)
+for the behavior-bearing families. Existing precompute variants now accept
+eligible unshared Relaxed reads; shared directional ordering has the released
+load-before-store edge. Descriptor regressions cover active local-subtyping,
+vacuum and cast cleanup. Normal DAE's upstream algorithm and
+OptimizeInstructions' peepholes did not change in this release. DAE2 and
+constraint analysis are registered opt-in Starshine passes with focused
+implementation and GenValid dossiers; their full opportunity and cost signoff
+remains in progress. The post-tag default constraint scheduling change is
+outside v132; the baseline update does not change presets.
 
 ## Source-of-truth rule
 
