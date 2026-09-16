@@ -1,10 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-03
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
-  - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - binaryen-strategy.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -43,7 +41,7 @@ related:
 ## Why this pass matters
 
 - The public family gap had a dedicated `[O4Z-PCP]001` backlog slice; the implementation and propagation-specific signoff are now complete.
-- The public-port closeout is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md); the shared-evaluator refresh is [`../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md`](../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md).
+- The July 17-18 port and evaluator work is absorbed into this dossier. It established the public descriptor, one-solve/one-rerun bound, the fail-closed result-`if` and loop-fact boundaries, returned scalar and conversion folding, immutable fresh aggregate reads, and effect-preserving `local.tee` parent folding. The exact v130/v131 matrices remain below as historical evidence; the temporary notes are deleted after absorption.
 - The pass is already important in neighboring docs:
   - `dae-optimizing` and `inlining-optimizing` both depend on the `precompute-propagate` nested-rerun rule.
   - `simplify-globals-optimizing` is easier to teach once the contrast is explicit: it reruns the default function pipeline **without** prepending `precompute-propagate`.
@@ -161,7 +159,6 @@ The focused `precompute-propagate` regression now requires the folded `I64(107)`
 
 ## Sources
 
-- [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md)
 - [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md)
 - [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md)
 - [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md)

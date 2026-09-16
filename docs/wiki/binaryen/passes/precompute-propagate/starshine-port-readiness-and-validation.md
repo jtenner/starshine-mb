@@ -1,11 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
-  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
-  - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - index.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_propagate_test.mbt
@@ -102,7 +99,7 @@ moon test --package jtenner/starshine/validate --file gen_valid_precompute_propa
 
 ### Direct fuzz
 
-Use Binaryen `version_131`, an explicitly rebuilt release native Starshine binary, parallel workers, the isolated v131 cache, and only the reviewed cleanup normalizers. The exact final lanes are recorded in [`./fuzzing.md`](./fuzzing.md).
+Use Binaryen `version_132`, an explicitly rebuilt release native Starshine binary, parallel workers, the v132 cache, and only the reviewed cleanup normalizers. The exact current lanes are recorded in [`./fuzzing.md`](./fuzzing.md); the v131 closeout remains historical evidence.
 
 ### Artifact/performance
 
@@ -111,7 +108,7 @@ bun scripts/self-optimize-compare.ts \
   tests/node/dist/starshine-debug-wasi.wasm \
   --out-dir .tmp/self-opt-precompute-propagate-gap-close-memorygrow \
   --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt \
+  --wasm-opt-bin .tmp/binaryen-version_132/bin/wasm-opt \
   --canonicalize-binaryen-output \
   --precompute-propagate
 ```
@@ -120,7 +117,7 @@ Require external validity, no stale-local substitution, classification of the fi
 
 ## Current evidence
 
-The renewed July 26, 2026 v131 evidence is:
+The renewed July 26, 2026 v131 evidence is retained as historical provenance:
 
 - regular GenValid: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-regular-100000`, `100000/100000`, `41287` direct and `58713` cleanup-normalized, zero mismatches or failures;
 - dedicated `precompute-all`: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-dedicated-10000`, `10000/10000`, `6423` direct and `3577` cleanup-normalized, zero mismatches or failures;
@@ -134,4 +131,4 @@ The two wasm-smith differences preserve a reachable `atomic.fence` that Binaryen
 
 ## Status rule
 
-The public propagation member and shared v131 evaluator are closed at Binaryen-v131-or-better behavior parity. Reopen for a semantic/validation failure, a pass-owned size-losing family without measured benefit, a new source-backed evaluator gap, or a pass-local regression beyond `2x` Binaryen. Do not call smaller validated structural differences parity bugs merely because the WAT differs.
+The public propagation member and shared evaluator were closed at Binaryen-v131-or-better behavior parity at that historical checkpoint. New signoff uses Binaryen 132. Reopen for a semantic/validation failure, a pass-owned size-losing family without measured benefit, a new source-backed evaluator gap, or a pass-local regression beyond `2x` Binaryen. Do not call smaller validated structural differences parity bugs merely because the WAT differs.

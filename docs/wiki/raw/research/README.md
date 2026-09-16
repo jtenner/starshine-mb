@@ -1,6 +1,6 @@
 # Numbered Research Workspace
 
-Current status: **90 numbered research notes are present as of 2026-09-16**. The 2026-07-18 closeout removed the 1,757 notes that existed at that point, but later investigations reopened this temporary workspace. [`../../research-archive-closeout.md`](../../research-archive-closeout.md) records the historical result and ownership policy; exact text for deleted notes remains available through git history.
+Current status: **87 numbered research notes are present as of 2026-09-16**. The 2026-07-18 closeout removed the 1,757 notes that existed at that point, but later investigations reopened this temporary workspace. Three supported `precompute` notes were absorbed into the living pass dossiers on 2026-09-16. [`../../research-archive-closeout.md`](../../research-archive-closeout.md) records the historical result and ownership policy; exact text for deleted notes remains available through git history.
 
 This directory remains the temporary workspace for substantial repo-authored investigations that need a numbered document while active. It is not a permanent agent-only archive.
 

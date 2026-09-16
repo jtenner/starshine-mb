@@ -1,11 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
-  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
-  - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - index.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_propagate_test.mbt
@@ -138,11 +135,11 @@ Registry, preset, and nested scheduler expectations are covered in:
 
 Generator name, limits, validation, and trigger floors are covered by [`src/validate/gen_valid_precompute_propagate_wbtest.mbt`](../../../../../src/validate/gen_valid_precompute_propagate_wbtest.mbt).
 
-## Signoff summary
+## Historical v131 signoff summary
 
-The public-port closeout is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md); the recorded v131 correctness-repair renewal is in [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md).
+The July 17-18 public-port, evaluator, and correctness-repair findings are absorbed into this page and its fuzzing dossier. Their exact source and artifact details remain represented by the local implementation/test map and the historical matrices below; the numbered notes are no longer live sources.
 
-Current results against explicit Binaryen `version_131`:
+Historical results against explicit Binaryen `version_131`:
 
 - regular GenValid: `100000/100000`, `41287` direct plus `58713` cleanup-normalized, zero residuals/failures;
 - dedicated `precompute-all`: `10000/10000`, `6423` direct plus `3577` cleanup-normalized, zero residuals/failures;
@@ -159,7 +156,7 @@ The former first difference at defined `4`, absolute `31` is closed. On the rebu
 - Preserve the one-solve/one-rerun bound.
 - Keep stale result-`if` facts rejected unless a real phi or direct condition proof exists; keep raw branch/loop facts conservative and invalidate loop-written locals before body evaluation.
 - Use the public descriptor in all top-level and nested propagating slots; do not recreate a private prefix fork.
-- Use Binaryen `version_131` as the released oracle and keep inherited plain-precompute boundaries explicit.
+- Use Binaryen `version_132` for new comparisons. Keep the recorded v131 oracle, commands, artifacts, and inherited plain-precompute boundaries explicitly historical.
 
 
 ## Nested loop-copy reaching writes

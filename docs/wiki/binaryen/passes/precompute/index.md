@@ -1,12 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-11
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
-  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - binaryen-strategy.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_test.mbt
@@ -55,10 +53,18 @@ explicit draft-runtime exclusions are tracked in the
 [upgrade](../../version-132-upgrade.md). The older measurements below keep their
 original oracle and source checkpoint.
 
+The absorbed July 17-18 evaluator work established the durable shared contract
+now summarized here: exact scalar and floating results, trapping and
+saturating conversions, repeated parent evaluation through `select`, fresh
+immutable array/struct reads including packed forms, and effect-preserving
+folds of constant-valued `local.tee` parents. The v130/v131 matrices and
+correctness boundaries remain historical; current renewal is owned by the v132
+upgrade record and the current fuzzing page.
+
 ## Role
 
 - `precompute` is an active implemented **hot pass** in Starshine.
-- The Binaryen `version_131` source and executable reconciliation confirms the real upstream family still has **two public names**:
+- The historical Binaryen `version_131` source and executable reconciliation confirmed that the upstream family has **two public names**; new comparisons use the v132 baseline:
   - `precompute`
   - `precompute-propagate`
   The older `version_129` investigation remains historical provenance; it is no longer the current release baseline.
@@ -116,7 +122,7 @@ So this pass is not just “integer constant folding.”
   - The pass keeps a heap-value cache so `ref.eq`, immutable field reads, and nested immutable-object reasoning do not accidentally confuse “same contents” with “same allocation.”
 - Emitability is also part of the contract.
   - Binaryen may know a result value precisely, but still refuse to replace the expression if it cannot emit that value as a valid constant expression.
-- Starshine's shared evaluator is closed at Binaryen-v131-or-better behavior parity. It covers scalar/floating/conversion evaluation, partial selects, immutable nested heap values and exact identities, strings, descriptors, deterministic SIMD, effect/trap-preserving parent replacement, constant control `Flow`, exact cast refinalization, legacy EH admission, and continuation/stack-switching preservation. The 2026-07-26 renewal additionally resolves type-indexed block/loop arities, preserves every terminal multivalue branch payload, refuses unsafe parameterized-block flattening, aligns no-local raw control cleanup across both public names, reaches a nested raw-cleanup fixpoint, and removes dropped exact pure-reference operations despite conservative generic heap flags. Plain `precompute` may produce smaller output than Binaryen when abandoned operands are pure and a branch already determines control; `precompute-propagate` adds exactly one SSA local-consensus solve and one evaluator rerun.
+- Starshine's shared evaluator was closed at Binaryen-v131-or-better behavior parity at the historical checkpoint. It covers scalar/floating/conversion evaluation, partial selects, immutable nested heap values and exact identities, strings, descriptors, deterministic SIMD, effect/trap-preserving parent replacement, constant control `Flow`, exact cast refinalization, legacy EH admission, and continuation/stack-switching preservation. The 2026-07-26 renewal additionally resolved type-indexed block/loop arities, preserved every terminal multivalue branch payload, refused unsafe parameterized-block flattening, aligned no-local raw control cleanup across both public names, reached a nested raw-cleanup fixpoint, and removed dropped exact pure-reference operations despite conservative generic heap flags. Plain `precompute` may produce smaller output than Binaryen when abandoned operands are pure and a branch already determines control; `precompute-propagate` adds exactly one SSA local-consensus solve and one evaluator rerun. New signoff uses Binaryen 132.
 - The direct debug-artifact representation drift is classified at `.tmp/pc-artifact-drift-classified` and rechecked at `.tmp/pc001-final-recheck`: after fixing the compare fallback to ignore parentheses inside WAT data strings, the first function-body drift is defined `4` / absolute `21`, where Binaryen emits temporary-local/block scaffolding plus dropped intermediate constants around `memory.size` / `local.tee` scalar folding while Starshine leaves the compact stack expression. Type-index ordering also differs across `1913 / 4671` defined functions because Binaryen's `precompute` output reorders the function types. The active `[PC]001` backlog slice is closed because direct semantic parity remains green and the remaining shape gap is not a small raw shortcut candidate; whole-command runtime belongs to `[WALL]001`.
 - The earlier generated-artifact slot-19 hard failure is retired.
   - The durable explanation is that the saved failure was fixed by HOT-lowering / writeback guards and full-module validation, not by discovering that Binaryen `precompute` itself is a still-open structural rewrite hazard.
@@ -194,11 +200,11 @@ Treat those as dated drift notes, not as silent edits to the historical `version
 
 ## Historical release-gating status as of 2026-06-20
 
-This section preserves the June boundary history. It is superseded for the recorded v131 status by the July 18 v131 closeout in [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md): both public variants were closed at v131-or-better behavior parity, and both required four-lane matrices were current at that checkpoint, self-optimization validates, and pass-local timing meets the `2x` threshold.
+This section preserves the June boundary history. It is superseded for the historical v131 status by the July 18 closeout summarized in the historical evidence below: both public variants were closed at v131-or-better behavior parity, and both required four-lane matrices were current at that checkpoint, self-optimization validated, and pass-local timing met the `2x` threshold.
 
 `precompute` is closed for the v0.1.0 `-O4z` per-pass audit under the repo's current pass-audit/signoff standard. The older branch-heavy 10000-case direct compare evidence remains useful, the dedicated profile gap is closed by `precompute-all`, and the first O4z recovery slice allows only changed `raw-scalar-folds` results under `optimize_level >= 4 && shrink_level >= 1`. The remaining O4z no-op surface is an explicit v0.1.0 release boundary rather than full O4z PC-slot optimization parity: HOT-only cleanup, load/call ownership hazards, large lowered functions, br_table/parser stack hazards, unchanged raw no-candidate cases, and changed non-scalar repair reasons stay fail-closed as `o4z-precompute-noop` until a focused artifact/fixture reopens them. The native path decision is explicit for this checkout: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe` for precompute compare lanes because `target/native/release/build/cmd/cmd.exe` remains absent. The bounded regular GenValid mismatch family has been reduced: constant self-exiting `block br_if` debris and constant-true self-branching loop result tails are fixed in pass code, while the remaining constant-false loop / mixed root-debris family is classified as a focused-test-backed Starshine size win with explicit PC normalizer coverage. The final closeout in [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md) adds the missing regular GenValid `100000` lane: `.tmp/pass-fuzz-precompute-final-regular-100000` compared `100000/100000`, normalized `15491`, cleanup-normalized `84509`, and had `0` mismatches or failures. The prior final-evidence refresh records green `10000` dedicated `precompute-all` and `10000` broad `pass-fuzz-stress` lanes, plus the explicit wasm-smith `10000` lane. Its sole mismatch, `case-006523-wasm-smith`, is accepted as a narrow Starshine correctness boundary: Binaryen erases a reachable `atomic.fence` before branch-to-end, while Starshine preserves the ordering barrier as required by the local atomics docs and focused boundary test.
 
-The descriptor split is public and testable: direct `precompute` requires no analyses, while `precompute-propagate` requires SSA and performs one local solve before one evaluator rerun. The former private `precompute-propagate-prefix` helper was removed when the public port landed. The July 17 follow-up broadened the shared evaluator with trap-proven integer division/remainder, initial floating scalar families, partial scalar parents through `select`, focused fresh-GC identity/`ref.test`/immutable-struct reads, and atomic-fence-preserving raw cleanup. The July 18 evaluator refresh closes the remaining returned count/rotate/floating/conversion witnesses, repeated unary-parent `select` evaluation, fresh immutable arrays/default structs/packed reads, and a narrow `local.tee` child-retention witness; see [`../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md`](../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md). The original public-port closeout remains [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md).
+The descriptor split is public and testable: direct `precompute` requires no analyses, while `precompute-propagate` requires SSA and performs one local solve before one evaluator rerun. The former private `precompute-propagate-prefix` helper was removed when the public port landed. The absorbed July work broadened the shared evaluator with trap-proven integer division/remainder, floating scalar families, partial scalar parents through `select`, fresh-GC identity and `ref.test`, immutable struct/array/default/packed reads, atomic-fence-preserving raw cleanup, and a narrow `local.tee` child-retention rule. The exact implementation and test ownership remains in this page and the sibling `precompute-propagate` dossier.
 
 The dedicated profile follow-up is [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md). It adds `precompute-all` plus focused generator tests for scalar, control, immutable-global, cleanup, effect/trap boundary, GC/array atomic boundary, and direct-vs-prefix watchpoint leaves.
 
@@ -212,7 +218,7 @@ The durable modern status refresh is [`binaryen-strategy.md` (absorbed)](binarye
 
 ## 2026-07-26 v131 correctness-repair renewal
 
-The renewed explicit-v131 audit closes the post-repair evidence item in `[AUDIT-CORRECTNESS]001`. The rebuilt native CLI and explicit Binaryen-v131 oracle complete both public four-lane matrices with zero validation, generator, property, Starshine command, or true semantic failures. Plain and propagating regular `100000` plus dedicated `10000` lanes have zero residual mismatches. Random-all residuals are either source-inspected smaller dead-value/control cleanup or the existing reachable-`atomic.fence` correctness boundary. wasm-smith retains only case `6523` for the fence boundary and, for propagation, case `3694` as a seven-byte smaller exact scratch-local shape. Fresh `500/500` idempotence and runtime samples are green for both public names. Exact directories and counts live in [`./fuzzing.md`](./fuzzing.md), and the repair/evidence narrative is in [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md).
+The historical explicit-v131 audit closed the post-repair evidence item in `[AUDIT-CORRECTNESS]001`. The rebuilt native CLI and explicit Binaryen-v131 oracle completed both public four-lane matrices with zero validation, generator, property, Starshine command, or true semantic failures. Plain and propagating regular `100000` plus dedicated `10000` lanes had zero residual mismatches. Random-all residuals were either source-inspected smaller dead-value/control cleanup or the existing reachable-`atomic.fence` correctness boundary. wasm-smith retained only case `6523` for the fence boundary and, for propagation, case `3694` as a seven-byte smaller exact scratch-local shape. Fresh `500/500` idempotence and runtime samples were green for both public names. Exact directories and counts live in [`./fuzzing.md`](./fuzzing.md).
 
 ## 2026-08-28 recursive self-bootstrap overwrite repair
 
@@ -269,7 +275,7 @@ The checked-in reduced fixture is `tests/repros/precompute-propagate-rust-fannku
 - Treat the retained 2026-05-05 research mirror, [`binaryen-strategy.md` (absorbed)](binaryen-strategy.md), as historical freshness evidence; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
-- Use Binaryen `version_131` as the current public release baseline for new conclusions. Keep the detailed `version_129` algorithm reading and v130 reconciliation as historical provenance.
+- Use Binaryen `version_132` as the current public release baseline for new conclusions. Keep the detailed `version_129` algorithm reading and v130/v131 reconciliations as historical provenance.
 - Keep the landing page honest about the mode split:
   - no-DWARF `-O` / `-Os` top-level slots use plain `precompute`
   - aggressive `-O4z`-style and nested optimizing reruns use `precompute-propagate`

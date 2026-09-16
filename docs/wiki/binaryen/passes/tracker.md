@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-02
+last_reviewed: 2026-09-16
 sources:
-  - ../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../release-horizon-and-oracles.md
   - ./asyncify/index.md
   - remove-exports/index.md

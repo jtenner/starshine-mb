@@ -1,9 +1,8 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-13
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts

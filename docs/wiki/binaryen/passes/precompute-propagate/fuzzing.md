@@ -1,11 +1,8 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-13
+last_reviewed: 2026-09-16
 sources:
-  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
-  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
-  - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
@@ -31,6 +28,12 @@ exercise both registered precompute variants through the same evaluator guards.
 The [upgrade record](../../version-132-upgrade.md) owns current results; dated
 v131 campaigns below remain historical evidence.
 
+The absorbed July 17-18 closeout established the dedicated local-facts profile,
+the broader `precompute-all` aggregate, and shared evaluator coverage for
+returned scalars, immutable fresh aggregates, and effect-preserving parent
+folds. The matrices below retain their exact v130/v131 tool and artifact
+provenance; new campaigns use the v132 command and version guard above.
+
 ## 2026-08-30 batched writeback-validation safety lane
 
 The regular explicit-v131 lane after batching changed-definition validation is `.tmp/optimization-campaign-20260830/pass-fuzz-precompute-propagate-regular-10000`. It compares `10000/10000`: `504` direct normalized plus `9,496` cleanup-normalized matches, zero mismatches, and zero validation, property, generator, or command failures. Canonical sizes total 717,790 Starshine bytes versus 3,235,768 Binaryen bytes, split 9,496 smaller, 504 equal, and zero larger outputs.
@@ -43,7 +46,7 @@ Native SHA-256 `d7921ee49c6781c10f3388e7f594dd67445587d767ef4db3d37107045e93886b
 
 ## Current state
 
-The direct lane is active and maps the exact Starshine public name to Binaryen `version_131`'s `--precompute-propagate`.
+The direct lane is active and maps the exact Starshine public name to Binaryen `version_132`'s `--precompute-propagate`.
 
 Use the rebuilt native CLI:
 
