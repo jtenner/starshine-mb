@@ -979,3 +979,14 @@ the entire evaluated prefix. It removes names for deleted suffix labels while
 retaining live labels. A conditional unreachable does not truncate fallthrough.
 Red-first pass/dispatcher tests cover saved case 2, prefix effects, and names in
 `oi_residual_unreachable_wbtest.mbt`. Fuzz remains deferred.
+
+### Redundant declarative element cleanup
+
+OI removes raw-function declarative segments only when retained exports,
+global/table initializers, or retained elements already declare every member.
+Duplicate-only declarations retain their first necessary segment. Active and
+passive initialization stays unchanged; any nested element-index operation or
+opaque name payload skips this cleanup. Surviving element names are remapped.
+Red-first pass/dispatcher regressions in `oi_residual_elements_wbtest.mbt` cover
+saved case 108, declaration validity, names, and the indexed-segment boundary.
+Fuzz remains deferred.
