@@ -53,6 +53,10 @@ test "review2 local-cse stable filters preserve duplicate survivor order" {
       fn(active) { lcse_raw_filter_active_without_heap(exprs, active) },
       [1, 0, 2, 3, 4, 5, 7, 1],
     ),
+    (
+      fn(active) { lcse_raw_filter_active_without_global(exprs, active) },
+      [6, 1, 0, 2, 3, 4, 7, 1],
+    ),
     (fn(active) { lcse_raw_filter_active_local_only(exprs, active) }, [1, 0, 1]),
   ]
   for (filter, expected) in filters {

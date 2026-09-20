@@ -1518,6 +1518,11 @@ fn lcse_raw_result_type(
         Some(ty) => Some(ty)
         None => None
       }
+    @lib.Instruction::GlobalGet(idx) =>
+      match env {
+        Some(env) => env.get_global_type(idx).map(fn(ty) { ty.0 })
+        None => None
+      }
     @lib.Instruction::I32Const(_)
     | @lib.Instruction::I32Load(_)
     | @lib.Instruction::I32Load8S(_)
@@ -1987,6 +1992,26 @@ fn lcse_raw_filter_active_without_call(
 }
 
 ///|
+fn lcse_raw_filter_active_without_global(
+  exprs : Array[LcseRawExpr],
+  active : Array[Int],
+) -> Unit {
+  let keep : Array[Int] = []
+  for expr_id in active {
+    if expr_id >= 0 &&
+      expr_id < exprs.length() &&
+      !exprs[expr_id].reads_global &&
+      !exprs[expr_id].reads_call {
+      keep.push(expr_id)
+    }
+  }
+  active.clear()
+  for expr_id in keep {
+    active.push(expr_id)
+  }
+}
+
+///|
 fn lcse_raw_filter_active_local_only(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
@@ -2184,8 +2209,8 @@ fn lcse_raw_scan_nested_repeats(
       | @lib.ArrayInitData(_, _)
       | @lib.ArrayInitElem(_, _) =>
         lcse_raw_filter_active_without_heap(exprs, active)
-      @lib.GlobalSet(_)
-      | @lib.TableSet(_)
+      @lib.GlobalSet(_) => lcse_raw_filter_active_without_global(exprs, active)
+      @lib.TableSet(_)
       | @lib.TableGrow(_)
       | @lib.TableCopy(_, _)
       | @lib.TableFill(_)
@@ -2464,8 +2489,9 @@ fn lcse_raw_rewrite_instrs(
         )
         lcse_raw_filter_active_without_call(exprs, active)
       }
-      @lib.Instruction::GlobalSet(_)
-      | @lib.Instruction::TableSet(_)
+      @lib.Instruction::GlobalSet(_) =>
+        lcse_raw_filter_active_without_global(exprs, active)
+      @lib.Instruction::TableSet(_)
       | @lib.Instruction::TableGrow(_)
       | @lib.Instruction::TableCopy(_, _)
       | @lib.Instruction::TableFill(_)

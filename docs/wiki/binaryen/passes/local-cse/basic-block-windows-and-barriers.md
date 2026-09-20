@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-14
+last_reviewed: 2026-09-19
 sources:
   - ./index.md
   - https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md
@@ -338,3 +338,15 @@ Sources: `src/passes/local_cse.mbt`,
 `src/cmd/local_cse_fourth_audit_wbtest.mbt`. The September 14 native baseline
 replay returned the same arithmetic value but changed an exported global from
 99 to 0. The bounded regressions also cover dropped loads and integer division.
+
+## Global writes and cached expressions
+
+Both raw availability scanners discard transitive `reads_global` candidates and
+call-dependent candidates at `global.set`, while retaining local-only candidates.
+Other effect filters retain their existing rules. Global result types come from
+the validation environment and remain unknown without module context. Previously
+missing global result typing masked the stale availability defect in ordinary WAT
+fixtures; regression tests cover both typing and invalidation.
+See [implementation](../../../../../src/passes/local_cse.mbt),
+[tests](../../../../../src/passes/local_cse_audit_test.mbt), and the
+[runtime lane](../../../../../tests/optimizer/regressions/local-cse-global.test.ts).
