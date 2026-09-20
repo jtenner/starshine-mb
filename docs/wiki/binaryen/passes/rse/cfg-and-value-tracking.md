@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-19
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
   - ./index.md
@@ -193,3 +193,13 @@ The legacy-write/reset audit verifies the necessary post-try assignment.
 Try-table catch destinations receive unknown local-value snapshots before the
 body label is pushed. A caught throw can bypass later normal-path assignments;
 the exceptional block-exit audit retains the required assignment after the join.
+
+## Legacy EH loop write summaries
+
+The raw loop summary visits protected legacy `try` bodies and every tagged or
+catch-all handler. A zero write count is a proof only after this complete walk.
+Delegation carries no instructions; the existing legacy-EH transfer still clears
+value facts and marks enclosing loop backedges conservatively. HOT RSE is unchanged.
+See [implementation](../../../../../src/passes/rse.mbt),
+[regressions](../../../../../src/passes/rse_audit_test.mbt), and the
+[runtime lane](../../../../../tests/optimizer/regressions/rse-legacy-loop.test.ts).

@@ -139,3 +139,25 @@ test "audit rse descriptor branches merge target local facts" {
     )
   }
 }
+
+///|
+test "rse loop legacy EH writes retain post-loop reset" {
+  for
+    eh in [
+      "(try (do i32.const 1 local.set 0) (catch_all))", "(try (do throw $e) (catch $e i32.const 1 local.set 0))",
+      "(try (do throw $e) (catch_all i32.const 1 local.set 0))", "(try (do i32.const 1 local.set 0) (catch_all)) local.get 1 i32.const 1 i32.add local.tee 1 i32.const 2 i32.lt_u br_if 0",
+      "(block (try (do i32.const 1 local.set 0) (delegate 0)))",
+    ] {
+    let output = audit_run(
+      "(module (tag $e) (func (result i32) (local i32 i32) (loop " +
+      eh +
+      ") i32.const 0 local.set 0 local.get 0))",
+      "redundant-set-elimination",
+    )
+    assert_true(
+      audit_body(output).contains(
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      ),
+    )
+  }
+}

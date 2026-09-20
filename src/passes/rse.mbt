@@ -925,6 +925,18 @@ fn rse_raw_loop_summary_scan(
           None => ()
         }
       }
+      @lib.Instruction::Try(_, @lib.Expr(body), catches, _) => {
+        // Delegation has no instruction body. Count every possible write;
+        // the normal EH transfer still clears value/control-flow facts.
+        rse_raw_loop_summary_scan(state, summary, body)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              rse_raw_loop_summary_scan(state, summary, catch_body)
+          }
+        }
+      }
       _ => ()
     }
   }
