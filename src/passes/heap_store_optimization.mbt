@@ -830,6 +830,7 @@ fn hso_region_touches_local(
 
 ///|
 fn hso_region_accesses_global(
+  module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   global_id : Int,
@@ -837,6 +838,7 @@ fn hso_region_accesses_global(
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if hso_subtree_accesses_global(
+        module_ctx,
         func,
         @ir.hot_region_get(func, region_ref, idx),
         global_id,
@@ -850,6 +852,7 @@ fn hso_region_accesses_global(
 
 ///|
 fn hso_subtree_accesses_global(
+  module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
   node_id : Int,
   global_id : Int,
@@ -861,17 +864,20 @@ fn hso_subtree_accesses_global(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::GlobalGet =>
-      if !want_write && node.imm0 == global_id {
+      if !want_write &&
+        !globals_are_provably_disjoint(module_ctx, node.imm0, global_id) {
         return true
       }
     @ir.HotOp::GlobalSet =>
-      if want_write && node.imm0 == global_id {
+      if want_write &&
+        !globals_are_provably_disjoint(module_ctx, node.imm0, global_id) {
         return true
       }
     _ => ()
   }
   for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
     if hso_subtree_accesses_global(
+        module_ctx,
         func,
         @ir.hot_child_get(func, node_id, idx),
         global_id,
@@ -883,6 +889,7 @@ fn hso_subtree_accesses_global(
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       hso_region_accesses_global(
+        module_ctx,
         func,
         @ir.hot_region_body_ref(func, node_id),
         global_id,
@@ -890,6 +897,7 @@ fn hso_subtree_accesses_global(
       )
     @ir.HotOp::If =>
       if hso_region_accesses_global(
+          module_ctx,
           func,
           @ir.hot_region_then_ref(func, node_id),
           global_id,
@@ -899,12 +907,15 @@ fn hso_subtree_accesses_global(
       } else {
         match @ir.hot_region_else_ref(func, node_id) {
           Some(region_ref) =>
-            hso_region_accesses_global(func, region_ref, global_id, want_write)
+            hso_region_accesses_global(
+              module_ctx, func, region_ref, global_id, want_write,
+            )
           None => false
         }
       }
     @ir.HotOp::Try =>
       if hso_region_accesses_global(
+          module_ctx,
           func,
           @ir.hot_region_body_ref(func, node_id),
           global_id,
@@ -914,18 +925,22 @@ fn hso_subtree_accesses_global(
       } else {
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(region_ref) =>
-            hso_region_accesses_global(func, region_ref, global_id, want_write)
+            hso_region_accesses_global(
+              module_ctx, func, region_ref, global_id, want_write,
+            )
           None => false
         }
       }
     @ir.HotOp::TryTable =>
       hso_region_accesses_global(
+        module_ctx,
         func,
         @ir.hot_region_body_ref(func, node_id),
         global_id,
         want_write,
       ) ||
       hso_region_accesses_global(
+        module_ctx,
         func,
         @ir.hot_region_catch_list_ref(func, node_id),
         global_id,
@@ -937,6 +952,7 @@ fn hso_subtree_accesses_global(
 
 ///|
 fn hso_subtree_global_order_conflicts(
+  module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
   barrier_id : Int,
   moved_id : Int,
@@ -947,18 +963,37 @@ fn hso_subtree_global_order_conflicts(
   let barrier = @ir.hot_node_get(func, barrier_id)
   match barrier.op {
     @ir.HotOp::GlobalGet =>
-      if hso_subtree_accesses_global(func, moved_id, barrier.imm0, true) {
+      if hso_subtree_accesses_global(
+          module_ctx,
+          func,
+          moved_id,
+          barrier.imm0,
+          true,
+        ) {
         return true
       }
     @ir.HotOp::GlobalSet =>
-      if hso_subtree_accesses_global(func, moved_id, barrier.imm0, false) ||
-        hso_subtree_accesses_global(func, moved_id, barrier.imm0, true) {
+      if hso_subtree_accesses_global(
+          module_ctx,
+          func,
+          moved_id,
+          barrier.imm0,
+          false,
+        ) ||
+        hso_subtree_accesses_global(
+          module_ctx,
+          func,
+          moved_id,
+          barrier.imm0,
+          true,
+        ) {
         return true
       }
     _ => ()
   }
   for idx = 0; idx < pass_value_operand_count(func, barrier_id); idx = idx + 1 {
     if hso_subtree_global_order_conflicts(
+        module_ctx,
         func,
         @ir.hot_child_get(func, barrier_id, idx),
         moved_id,
@@ -969,39 +1004,48 @@ fn hso_subtree_global_order_conflicts(
   match barrier.op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       hso_region_global_order_conflicts(
+        module_ctx,
         func,
         @ir.hot_region_body_ref(func, barrier_id),
         moved_id,
       )
     @ir.HotOp::If =>
       hso_region_global_order_conflicts(
+        module_ctx,
         func,
         @ir.hot_region_then_ref(func, barrier_id),
         moved_id,
       ) ||
       (match @ir.hot_region_else_ref(func, barrier_id) {
         Some(region_ref) =>
-          hso_region_global_order_conflicts(func, region_ref, moved_id)
+          hso_region_global_order_conflicts(
+            module_ctx, func, region_ref, moved_id,
+          )
         None => false
       })
     @ir.HotOp::Try =>
       hso_region_global_order_conflicts(
+        module_ctx,
         func,
         @ir.hot_region_body_ref(func, barrier_id),
         moved_id,
       ) ||
       (match @ir.hot_region_catch_ref(func, barrier_id) {
         Some(region_ref) =>
-          hso_region_global_order_conflicts(func, region_ref, moved_id)
+          hso_region_global_order_conflicts(
+            module_ctx, func, region_ref, moved_id,
+          )
         None => false
       })
     @ir.HotOp::TryTable =>
       hso_region_global_order_conflicts(
+        module_ctx,
         func,
         @ir.hot_region_body_ref(func, barrier_id),
         moved_id,
       ) ||
       hso_region_global_order_conflicts(
+        module_ctx,
         func,
         @ir.hot_region_catch_list_ref(func, barrier_id),
         moved_id,
@@ -1012,12 +1056,14 @@ fn hso_subtree_global_order_conflicts(
 
 ///|
 fn hso_region_global_order_conflicts(
+  module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   moved_id : Int,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if hso_subtree_global_order_conflicts(
+        module_ctx,
         func,
         @ir.hot_region_get(func, region_ref, idx),
         moved_id,
@@ -2189,7 +2235,7 @@ fn hso_nodes_can_reorder(
     return false
   }
   if ((barrier_mask | moved_mask) & @ir.EFFECT_MASK_GLOBAL_STATE) != 0U &&
-    hso_subtree_global_order_conflicts(func, barrier_id, moved_id) {
+    hso_subtree_global_order_conflicts(module_ctx, func, barrier_id, moved_id) {
     return false
   }
   let barrier_reorder_mask = if (barrier_mask & @ir.EFFECT_MASK_CONTROL) == 0U {
@@ -2551,6 +2597,7 @@ fn hso_struct_new_operand_effect_mask(
 
 ///|
 fn hso_struct_new_global_read_conflicts_with_write(
+  module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
   struct_new_id : Int,
   blocker_id : Int,
@@ -2566,6 +2613,7 @@ fn hso_struct_new_global_read_conflicts_with_write(
     @ir.HotOp::GlobalSet => {
       for idx = 0; idx < @ir.hot_child_count(func, struct_new_id); idx = idx + 1 {
         if hso_subtree_accesses_global(
+            module_ctx,
             func,
             @ir.hot_child_get(func, struct_new_id, idx),
             blocker.imm0,
@@ -2582,6 +2630,7 @@ fn hso_struct_new_global_read_conflicts_with_write(
 
 ///|
 fn hso_global_only_ordering_can_be_ignored(
+  module_ctx : @ir.HotModuleContext?,
   func : @ir.HotFunc,
   moved_struct_new_id : Int,
   moved_mask : UInt,
@@ -2595,9 +2644,11 @@ fn hso_global_only_ordering_can_be_ignored(
   if moved_without_global != 0U || blocker_without_global != 0U {
     return false
   }
-  !hso_subtree_global_order_conflicts(func, blocker_id, moved_struct_new_id) &&
+  !hso_subtree_global_order_conflicts(
+    module_ctx, func, blocker_id, moved_struct_new_id,
+  ) &&
   !hso_struct_new_global_read_conflicts_with_write(
-    func, moved_struct_new_id, blocker_id,
+    module_ctx, func, moved_struct_new_id, blocker_id,
   )
 }
 
@@ -2822,7 +2873,7 @@ fn hso_wrapped_try_table_swap_allowed(
       cache, func, module_ctx, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
     ) &&
     !hso_global_only_ordering_can_be_ignored(
-      func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
+      module_ctx, func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
     ) {
     return false
   }
@@ -2890,7 +2941,7 @@ fn hso_root_can_swap_before_local_struct_new(
       cache, func, module_ctx, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
     ) &&
     !hso_global_only_ordering_can_be_ignored(
-      func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
+      module_ctx, func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
     ) {
     return false
   }
@@ -3979,14 +4030,16 @@ fn hso_try_fold_into_struct_new(
   for idx = field_idx + 1; idx < field_count; idx = idx + 1 {
     if !needs_default_materialization {
       let later_id = @ir.hot_child_get(func, struct_new_id, idx)
-      if hso_subtree_global_order_conflicts(func, later_id, value_id) {
+      if hso_subtree_global_order_conflicts(
+          module_ctx, func, later_id, value_id,
+        ) {
         return None
       }
     }
   }
   match desc_id {
     Some(desc_id) =>
-      if hso_subtree_global_order_conflicts(func, desc_id, value_id) {
+      if hso_subtree_global_order_conflicts(module_ctx, func, desc_id, value_id) {
         return None
       }
     None => ()

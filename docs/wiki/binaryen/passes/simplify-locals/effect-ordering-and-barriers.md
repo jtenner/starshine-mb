@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-11
+last_reviewed: 2026-09-19
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -238,3 +238,24 @@ performance bug. Release SHA-256 is
 `d5a68233c5402e62af7aa6a1b6dc12d4cb0591033608a046221344148edac1f8`;
 exact fixture evidence is `sl-release-hash-evaluation-once.json` in the same
 Dewdrop evidence directory.
+
+## Global storage aliasing
+
+Different indices do not establish independent storage for imported globals. The
+[WebAssembly JavaScript import algorithm](https://webassembly.github.io/spec/js-api/#read-the-imports)
+uses the supplied `WebAssembly.Global` object's global address, so two imports may
+share that address. Defined globals receive fresh storage.
+
+`globals_are_provably_disjoint` in
+[pass_common.mbt](../../../../../src/passes/pass_common.mbt) centralizes the rule:
+equal or invalid indices, missing module context, and two imports cannot prove
+disjointness; distinct valid indices with at least one definition can. Code
+Pushing, all SimplifyLocals variants, Heap Store Optimization, and Optimize
+Instructions consecutive-input interference use this rule. SimplifyLocals carries the
+module context explicitly through each sinkable collection, including nested
+regions. Read/write and write/write conflicts use storage aliasing; read/read
+ordering and other effect checks are unchanged.
+
+See [regressions](../../../../../src/passes/simplify_locals_audit_test.mbt) and the
+[host-alias runtime lane](../../../../../tests/optimizer/regressions/imported-global-alias.test.ts).
+The no-nesting variants retain their existing restrictions on global-read sinking.

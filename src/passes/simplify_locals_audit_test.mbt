@@ -348,3 +348,52 @@ test "audit simplify-locals-notee-nostructure preserves dead-result i64.trunc_f6
     1,
   )
 }
+
+///|
+test "simplify locals global storage aliasing across every shared variant" {
+  for
+    pass in [
+      "simplify-locals", "simplify-locals-notee", "simplify-locals-no-tee", "simplify-locals-nonesting",
+      "simplify-locals-no-nesting", "simplify-locals-nostructure", "simplify-locals-no-structure",
+      "simplify-locals-notee-nostructure",
+    ] {
+    for
+      pair in [
+        (
+          "(import \"m\" \"a\" (global (mut i32))) (import \"m\" \"b\" (global (mut i32)))",
+          1,
+        ),
+        ("(global (mut i32) (i32.const 1)) (global (mut i32) (i32.const 1))", 0),
+        (
+          "(import \"m\" \"a\" (global (mut i32))) (global (mut i32) (i32.const 1))",
+          0,
+        ),
+      ] {
+      let (globals, expected_sets) = pair
+      let sets = if pass == "simplify-locals-nonesting" ||
+        pass == "simplify-locals-no-nesting" {
+        1
+      } else {
+        expected_sets
+      }
+      let output = audit_run(
+        "(module " +
+        globals +
+        " (func (result i32) (local i32) global.get 0 local.set 0 i32.const 7 global.set 1 local.get 0))",
+        pass,
+      )
+      assert_true(
+        audit_count(audit_body(output), fn(i) { i is @lib.LocalSet(_) }) == sets,
+        msg=pass + globals,
+      )
+    }
+    let output = audit_run(
+      "(module (func (param i32) (result i32) (local i32) local.get 0 local.set 1 local.get 1))",
+      pass,
+    )
+    @debug.assert_eq(
+      audit_count(audit_body(output), fn(i) { i is @lib.LocalSet(_) }),
+      0,
+    )
+  }
+}

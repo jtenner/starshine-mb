@@ -19874,9 +19874,10 @@ fn OiStateWriteSetFact::writes_local(
 fn OiStateWriteSetFact::writes_global(
   self : OiStateWriteSetFact,
   global_idx : Int,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> Bool {
   for value in self.global_writes {
-    if value == global_idx {
+    if !globals_are_provably_disjoint(module_ctx, value, global_idx) {
       return true
     }
   }
@@ -20822,13 +20823,15 @@ fn OiInterveningEffectFact::ordered_before_right_fallthrough(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
   right_id : Int,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> Bool {
   // Represented subset of Binaryen v130
   // `EffectAnalyzer::orderedBefore(effects(right))` / `invalidates` used by
   // OI consecutive-input equality. Coarse effect bits prove memory/table/call
   // interference, while `OiStateWriteSetFact` proves exact local/global misses
   // so `local.get $x` can be reused across writes to other locals and
-  // `global.get $x` can be reused across non-call writes to other globals.
+  // `global.get $x` can be reused across non-call writes to provably
+  // disjoint global storage.
   if self.unsupported_control {
     return true
   }
@@ -20857,7 +20860,7 @@ fn OiInterveningEffectFact::ordered_before_right_fallthrough(
       )
     }
     @ir.HotOp::GlobalGet if (self.effect_mask & @ir.EFFECT_MASK_CALL) == 0U &&
-      !self.state_writes.writes_global(right.imm0) => {
+      !self.state_writes.writes_global(right.imm0, module_ctx~) => {
       effective_write_mask = optimize_instructions_mask_without_global_state(
         effective_write_mask,
       )
@@ -21014,12 +21017,16 @@ fn OiConsecutiveInputInterferenceFact::from_intervening_effect(
   node_masks : Array[UInt],
   right_fallthrough_id : Int,
   intervening_effect_fact : OiInterveningEffectFact,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> OiConsecutiveInputInterferenceFact {
   // Keep the Binaryen `EffectAnalyzer::orderedBefore(effects(right))` blocker
   // as its own nested fact so equality proof selection and effect invalidation
   // remain independent source-backed decisions.
   let kind = if intervening_effect_fact.ordered_before_right_fallthrough(
-      func, node_masks, right_fallthrough_id,
+      func,
+      node_masks,
+      right_fallthrough_id,
+      module_ctx~,
     ) {
     ConsecutiveInputEffectsOrderedBeforeRight
   } else {
@@ -21148,6 +21155,7 @@ fn OiConsecutiveInputEqualityFact::from_adjacent_operands(
     effects.node_masks,
     right_fallthrough_id,
     intervening_effect_fact,
+    module_ctx=ctx.module_ctx,
   )
   {
     left_fallthrough_id,

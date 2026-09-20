@@ -282,31 +282,6 @@ fn code_pushing_node_is_pure_nop_or_drop_const(
 }
 
 ///|
-fn code_pushing_globals_are_disjoint(
-  module_ctx : @ir.HotModuleContext?,
-  lhs : Int,
-  rhs : Int,
-) -> Bool {
-  if lhs == rhs || lhs < 0 || rhs < 0 {
-    return false
-  }
-  let module_ctx = match module_ctx {
-    Some(module_ctx) => module_ctx
-    None => return false
-  }
-  let lhs = @lib.GlobalIdx::new(lhs.to_uint())
-  let rhs = @lib.GlobalIdx::new(rhs.to_uint())
-  if @ir.hot_module_resolve_global_type(module_ctx, lhs) is None ||
-    @ir.hot_module_resolve_global_type(module_ctx, rhs) is None {
-    return false
-  }
-  // Defined globals own fresh storage. Two imports can name the same host
-  // global instance, regardless of their distinct indices or import names.
-  @ir.hot_module_resolve_global_init(module_ctx, lhs) is Some(_) ||
-  @ir.hot_module_resolve_global_init(module_ctx, rhs) is Some(_)
-}
-
-///|
 fn code_pushing_subtree_writes_global(
   func : @ir.HotFunc,
   node_id : Int,
@@ -318,7 +293,7 @@ fn code_pushing_subtree_writes_global(
   }
   let node = @ir.hot_node_get(func, node_id)
   if node.op is @ir.HotOp::GlobalSet &&
-    !code_pushing_globals_are_disjoint(module_ctx, node.imm0, global_id) {
+    !globals_are_provably_disjoint(module_ctx, node.imm0, global_id) {
     return true
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
@@ -346,7 +321,7 @@ fn code_pushing_direct_global_set_disjoint_from_global_get(
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::GlobalSet if code_pushing_globals_are_disjoint(
+    @ir.HotOp::GlobalSet if globals_are_provably_disjoint(
         module_ctx,
         node.imm0,
         value_global_id,

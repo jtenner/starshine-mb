@@ -1021,3 +1021,31 @@ fn pass_const_instruction_vectors_bits_equal(
   }
   true
 }
+
+///|
+// Global indices identify module slots, not necessarily distinct storage.
+// JS imports of the same WebAssembly.Global share its [[Global]] address.
+// https://webassembly.github.io/spec/js-api/#read-the-imports
+fn globals_are_provably_disjoint(
+  module_ctx : @ir.HotModuleContext?,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  if lhs == rhs || lhs < 0 || rhs < 0 {
+    return false
+  }
+  let module_ctx = match module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  let lhs = @lib.GlobalIdx::new(lhs.to_uint())
+  let rhs = @lib.GlobalIdx::new(rhs.to_uint())
+  if @ir.hot_module_resolve_global_type(module_ctx, lhs) is None ||
+    @ir.hot_module_resolve_global_type(module_ctx, rhs) is None {
+    return false
+  }
+  // Defined globals own fresh storage. Two imports can name the same host
+  // global instance, regardless of their distinct indices or import names.
+  @ir.hot_module_resolve_global_init(module_ctx, lhs) is Some(_) ||
+  @ir.hot_module_resolve_global_init(module_ctx, rhs) is Some(_)
+}

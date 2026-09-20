@@ -744,10 +744,10 @@ test "code-pushing global storage proofs distinguish imports from definitions" {
       ),
     ),
   )
-  assert_false(code_pushing_globals_are_disjoint(module_ctx, 0, 1))
-  assert_true(code_pushing_globals_are_disjoint(module_ctx, 0, 2))
-  assert_true(code_pushing_globals_are_disjoint(module_ctx, 2, 1))
-  assert_false(code_pushing_globals_are_disjoint(module_ctx, 2, 2))
-  assert_false(code_pushing_globals_are_disjoint(module_ctx, 99, 2))
-  assert_false(code_pushing_globals_are_disjoint(None, 0, 2))
+  assert_false(globals_are_provably_disjoint(module_ctx, 0, 1))
+  assert_true(globals_are_provably_disjoint(module_ctx, 0, 2))
+  assert_true(globals_are_provably_disjoint(module_ctx, 2, 1))
+  assert_false(globals_are_provably_disjoint(module_ctx, 2, 2))
+  assert_false(globals_are_provably_disjoint(module_ctx, 99, 2))
+  assert_false(globals_are_provably_disjoint(None, 0, 2))
 }

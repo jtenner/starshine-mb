@@ -102,3 +102,38 @@ test "fourth audit heap store branch preserves constructor call" {
     }
   }
 }
+
+///|
+test "heap store constructor global reads cannot cross aliased import writes" {
+  let input = pass_test_module_from_wat(
+    "(module (type $s (struct (field (mut i32)) (field (mut i32)))) (import \"m\" \"a\" (global (mut i32))) (import \"m\" \"b\" (global (mut i32))) (func (result i32) (local (ref null $s)) i32.const 0))",
+  )
+  let @lib.Func(locals, _) = input.code_sec.unwrap().0[0]
+  let type_idx = @lib.TypeIdx::new(0U)
+  let local_idx = @lib.LocalIdx::new(0U)
+  let input = input.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        locals,
+        @lib.Expr::new([
+          @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+          @lib.Instruction::i32_const(2),
+          @lib.Instruction::struct_new(type_idx),
+          @lib.Instruction::local_set(local_idx),
+          @lib.Instruction::i32_const(7),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          @lib.Instruction::local_get(local_idx),
+          @lib.Instruction::i32_const(9),
+          @lib.Instruction::struct_set(type_idx, @lib.U32(1U)),
+          @lib.Instruction::local_get(local_idx),
+          @lib.Instruction::struct_get(type_idx, @lib.U32(0U)),
+        ]),
+      ),
+    ]),
+  )
+  let output = audit_run_module(input, "heap-store-optimization")
+  @debug.assert_eq(
+    audit_count(audit_body(output), fn(i) { i is @lib.StructSet(_, _) }),
+    1,
+  )
+}

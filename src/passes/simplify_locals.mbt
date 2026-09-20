@@ -160,6 +160,7 @@ priv struct SimplifyLocalsSinkableInfo {
 
 ///|
 priv struct SimplifyLocalsSinkables {
+  module_ctx : @ir.HotModuleContext?
   entries : Array[SimplifyLocalsSinkableInfo?]
   active_pos : Array[Int]
   active_locals : Array[Int]
@@ -200,6 +201,7 @@ priv struct SimplifyLocalsStackedForwarderTail {
 ///|
 fn simplify_locals_new_sinkables(
   func : @ir.HotFunc,
+  module_ctx? : @ir.HotModuleContext? = None,
   source_gets? : Array[Array[(Int, Int)]]? = None,
 ) -> SimplifyLocalsSinkables {
   let source_gets = match source_gets {
@@ -226,6 +228,7 @@ fn simplify_locals_new_sinkables(
     }
   }
   {
+    module_ctx,
     entries: Array::make(@ir.hot_local_count(func), None),
     active_pos: Array::make(@ir.hot_local_count(func), -1),
     active_locals: [],
@@ -1315,6 +1318,7 @@ fn simplify_locals_effects_conflict_exact_local(
 
 ///|
 fn simplify_locals_effects_conflict_exact_global(
+  module_ctx : @ir.HotModuleContext?,
   lhs : SimplifyLocalsEffects,
   rhs_global_read : Int,
   rhs_global_write : Int,
@@ -1325,12 +1329,24 @@ fn simplify_locals_effects_conflict_exact_global(
   if rhs_global_read < 0 && rhs_global_write < 0 {
     return true
   }
-  if simplify_locals_effects_has_local(lhs.global_writes, rhs_global_read) {
-    return true
+  if rhs_global_read >= 0 {
+    for write in lhs.global_writes {
+      if !globals_are_provably_disjoint(module_ctx, write, rhs_global_read) {
+        return true
+      }
+    }
   }
-  if simplify_locals_effects_has_local(lhs.global_reads, rhs_global_write) ||
-    simplify_locals_effects_has_local(lhs.global_writes, rhs_global_write) {
-    return true
+  if rhs_global_write >= 0 {
+    for read in lhs.global_reads {
+      if !globals_are_provably_disjoint(module_ctx, read, rhs_global_write) {
+        return true
+      }
+    }
+    for write in lhs.global_writes {
+      if !globals_are_provably_disjoint(module_ctx, write, rhs_global_write) {
+        return true
+      }
+    }
   }
   false
 }
@@ -1380,6 +1396,7 @@ fn simplify_locals_effects_ordered_before(
   rhs_local_write : Int,
   rhs_global_read : Int,
   rhs_global_write : Int,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> Bool {
   // An unrelated local read neither traps nor changes observable state.
   // It may precede a pending control/call value when that value cannot change
@@ -1441,7 +1458,7 @@ fn simplify_locals_effects_ordered_before(
   if simplify_locals_effects_has(lhs.mask, @ir.EFFECT_MASK_GLOBAL_STATE) &&
     simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_GLOBAL_STATE) &&
     simplify_locals_effects_conflict_exact_global(
-      lhs, rhs_global_read, rhs_global_write,
+      module_ctx, lhs, rhs_global_read, rhs_global_write,
     ) {
     return true
   }
@@ -1570,6 +1587,7 @@ fn simplify_locals_invalidate_sinkables(
             effects_local_write,
             effects_global_read,
             effects_global_write,
+            module_ctx=sinkables.module_ctx,
           ) {
           simplify_locals_sinkables_clear_local(sinkables, local_id)
           continue
@@ -3736,6 +3754,7 @@ fn simplify_locals_scan_node(
       let loop_sinkables = simplify_locals_new_sinkables(
         func,
         source_gets=Some(sinkables.source_gets),
+        module_ctx=sinkables.module_ctx,
       )
       if simplify_locals_scan_region(
           func,
@@ -3794,6 +3813,7 @@ fn simplify_locals_scan_node(
       let then_sinkables = simplify_locals_new_sinkables(
         func,
         source_gets=Some(sinkables.source_gets),
+        module_ctx=sinkables.module_ctx,
       )
       if simplify_locals_scan_region(
           func,
@@ -3814,6 +3834,7 @@ fn simplify_locals_scan_node(
           let else_sinkables = simplify_locals_new_sinkables(
             func,
             source_gets=Some(sinkables.source_gets),
+            module_ctx=sinkables.module_ctx,
           )
           if simplify_locals_scan_region(
               func, else_ref, else_sinkables, first_cycle, get_counts, detached,
@@ -3870,6 +3891,7 @@ fn simplify_locals_scan_node(
           let catch_sinkables = simplify_locals_new_sinkables(
             func,
             source_gets=Some(sinkables.source_gets),
+            module_ctx=sinkables.module_ctx,
           )
           if simplify_locals_scan_region(
               func, catch_ref, catch_sinkables, first_cycle, get_counts, detached,
@@ -3905,6 +3927,7 @@ fn simplify_locals_scan_node(
       let catch_sinkables = simplify_locals_new_sinkables(
         func,
         source_gets=Some(sinkables.source_gets),
+        module_ctx=sinkables.module_ctx,
       )
       if simplify_locals_scan_region(
           func,
@@ -5840,7 +5863,7 @@ fn simplify_locals_run_main_cycle(
   policy : SimplifyLocalsPolicy,
   protect_control_embedded_local_tee : Bool,
 ) -> (Bool, Bool) {
-  let sinkables = simplify_locals_new_sinkables(func)
+  let sinkables = simplify_locals_new_sinkables(func, module_ctx=ctx.module_ctx)
   let count_gets_start_us = perf_start_timer_opt(
     ctx.perf,
     "detail:simplify-locals:count-local-gets",
