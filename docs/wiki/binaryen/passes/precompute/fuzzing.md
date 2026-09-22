@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -15,12 +15,26 @@ sources:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## September 22 SIMD alias repair signoff
+
+After the red-first three-pair alias regression and CLI test, fresh native
+SHA-256 `1b354cea5152439252c7f2ba8c5349fdd62a03cebd74407541ff40f292c7a97f`
+compared 10,123 valid `precompute-all` cases against verified Binaryen 132 in
+`.tmp/pass-safety-final-precompute-10600`: 2,955 direct and 7,168 documented
+cleanup-normalized matches, zero output mismatches, validation failures, or
+command failures. The 10,600 requested cases include 477 generated atomic
+inputs rejected by independent validation for invalid consistency ordering;
+they were not compared. The [safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit)
+records the common command and complete seven-lane matrix.
+
 ## Binaryen 132 refresh
 
 New campaigns use `.tmp/binaryen-version_132/bin/wasm-opt` with
 `--require-binaryen-version 132`. The `precompute-all` aggregate retains every
 existing leaf; `precompute-gc-atomic-boundary` now emits SeqCst, AcqRel and Relaxed
-reads. Focused [release regressions](../../../../../src/passes/binaryen132_precompute_test.mbt)
+reads. The September 22 independent-validator run above found that some emitted
+read orderings are invalid; their repair remains in the active backlog. Focused
+[release regressions](../../../../../src/passes/binaryen132_precompute_test.mbt)
 cover immutable unshared folds and nonconstant read guards. The
 [upgrade record](../../version-132-upgrade.md) owns current validation results;
 all dated results below retain their original v131 oracle.

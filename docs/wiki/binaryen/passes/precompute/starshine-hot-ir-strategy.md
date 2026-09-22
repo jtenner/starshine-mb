@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ./index.md
@@ -29,6 +29,12 @@ related:
 
 # Starshine `precompute` strategy today
 
+> **Repaired September 22, 2026:** the raw SIMD bitselect fold previously
+> assumed three local indices were distinct. A replayed valid module returned
+> lane 0 = 1 before `--precompute` and 0 afterward when the first and second
+> locals aliased. The fold now requires pairwise distinct indices; tests cover
+> all three alias pairs. See the [eight-agent safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit).
+
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 This page describes the **current in-tree Starshine implementation** against the maintained Binaryen `version_132` baseline. The detailed historical algorithm reading began at `version_129`; focused v130/current-main review found no behavior-bearing drift, and the 2026-07-26 explicit-v131 renewal is summarized in the living owner and validation pages. For the validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
@@ -49,7 +55,10 @@ Starshine currently implements a focused HOT-IR `precompute` pass covering:
 - artifact-driven invalid-lower and writeback-validation guard rails around the old slot-19 failure family
 - a focused boundary guard preserving reachable `atomic.fence` barriers even when Binaryen `--precompute` currently erases a fence before a branch-to-end
 
-That surface is source-backed and closed at Binaryen-v131-or-better behavior parity. `precompute-propagate` remains a distinct public sibling because it adds one SSA local-consensus solve and one evaluator rerun.
+The historical direct v131 comparison covered that surface but did not catch
+the September 22 SIMD aliasing counterexample above; the direct repair is now
+covered by focused regressions. `precompute-propagate` remains a distinct public
+sibling because it adds one SSA local-consensus solve and one evaluator rerun.
 
 ## Exact local code map
 
@@ -74,7 +83,8 @@ The pass also appears in the registry and preset expansions in [`src/passes/opti
   - exposes `precompute` as an active hot pass
 - `optimize_preset_passes(...)`
 - `shrink_preset_passes(...)`
-  - both replay `precompute` twice, matching the current local top-level PC slot story
+  - choose direct `precompute` at lower levels and `precompute-propagate` at
+    higher levels; the current O4/Z4 function queue uses the latter twice
 
 ## 2. Exact constant sources the pass knows how to read
 

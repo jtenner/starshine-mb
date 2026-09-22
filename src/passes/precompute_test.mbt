@@ -2527,6 +2527,52 @@ test "precompute folds materialized local SIMD NaN fixup chains" {
 }
 
 ///|
+test "precompute preserves aliased SIMD bitselect locals" {
+  // The second write replaces the first value before either select operand.
+  let first_second =
+    #|(module (func (result v128) (local v128 v128)
+    #|  v128.const i32x4 0 0 0 0
+    #|  local.set 0
+    #|  v128.const i32x4 1 1 1 1
+    #|  local.set 0
+    #|  local.get 0 local.get 0 f32x4.eq local.set 1
+    #|  local.get 0 local.get 0 local.get 1 v128.bitselect))
+    #|
+  // The computed mask replaces the first selected value.
+  let first_mask =
+    #|(module (func (result v128) (local v128 v128)
+    #|  v128.const i32x4 0 0 0 0
+    #|  local.set 0
+    #|  v128.const i32x4 1 1 1 1
+    #|  local.set 1
+    #|  local.get 0 local.get 0 f32x4.eq local.set 0
+    #|  local.get 0 local.get 1 local.get 0 v128.bitselect))
+    #|
+  // The computed mask replaces the second selected value.
+  let second_mask =
+    #|(module (func (result v128) (local v128 v128)
+    #|  v128.const i32x4 0 0 0 0
+    #|  local.set 0
+    #|  v128.const i32x4 1 1 1 1
+    #|  local.set 1
+    #|  local.get 0 local.get 0 f32x4.eq local.set 1
+    #|  local.get 0 local.get 1 local.get 1 v128.bitselect))
+    #|
+  let cases = [first_second, first_mask, second_mask]
+  for input in cases {
+    let optimized = match pass_test_run_pipeline(input, ["precompute"]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected aliased SIMD precompute success, got \{err}")
+    }
+    let @lib.Func(_, @lib.Expr(body)) = match optimized.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs[0]
+      None => fail("expected SIMD function body")
+    }
+    assert_true(body.contains(@lib.Instruction::v128_bitselect()))
+  }
+}
+
+///|
 test "precompute folds zero SIMD lane extractions from edge-of-memory" {
   let optimized = match
     pass_test_run_pipeline(

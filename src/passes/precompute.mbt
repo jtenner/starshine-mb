@@ -7632,7 +7632,10 @@ fn precompute_raw_fold_output_tail(
         first_compare_get == second_compare_get &&
         first_local == first_select_get &&
         second_local == second_select_get &&
-        mask_local == mask_get =>
+        mask_local == mask_get &&
+        first_local != second_local &&
+        first_local != mask_local &&
+        second_local != mask_local =>
         match
           precompute_raw_try_fold_binary(first_value, first_value, compare_op) {
           Some(mask) =>
