@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-12
+last_reviewed: 2026-09-22
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -12,6 +12,18 @@ sources:
 # `memory-packing` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 22 input-ownership repair signoff
+
+A red-first adjacent test proved that overlap cleanup mutated the caller's
+data-segment array; the pass now copies it before rewriting. The final verified
+v132 `memory-packing-all` run at `.tmp/pass-safety-final-memory-packing-10000`
+compared 10,000/10,000 with zero validation, generator, property, or command
+failures. Its 7,288 matches, 2,712 residuals, and exact canonical size deltas
+are unchanged from the runtime-backed September 12 classification below:
+1,382 smaller active zero-length correctness wins and 1,330 size-costing
+dynamic memory64 complete-preflight correctness wins. The [safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit)
+records the final native binary and other lanes.
 
 ## September 12, 2026 size-parity follow-up
 

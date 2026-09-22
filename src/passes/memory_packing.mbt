@@ -2617,7 +2617,7 @@ pub fn memory_packing_run_module_pass(
   zero_filled_memory? : Bool = false,
 ) -> @lib.Module {
   let datas = match mod_.data_sec {
-    Some(@lib.DataSec(datas)) => datas
+    Some(@lib.DataSec(datas)) => datas.copy()
     None => return mod_
   }
   let segment_op_preflight = mp_module_segment_op_preflight(mod_)

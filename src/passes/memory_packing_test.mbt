@@ -423,6 +423,22 @@ test "memory-packing preserves empty active segment with trapping offset" {
 }
 
 ///|
+test "memory-packing does not mutate input overlapping data segments" {
+  let input = pass_test_module_from_wat(
+    "(module (memory 1) (data (i32.const 0) \"A\") (data (i32.const 0) \"B\"))",
+  )
+  let optimized = memory_packing_run_module_pass(input)
+  match input.data_sec {
+    Some(@lib.DataSec([@lib.Data(_, first), @lib.Data(_, second)])) => {
+      @debug.assert_eq(first, b"A")
+      @debug.assert_eq(second, b"B")
+    }
+    _ => fail("expected original overlapping data segments to remain intact")
+  }
+  assert_true(optimized.data_sec is Some(_))
+}
+
+///|
 test "memory-packing preserves trailing trap after a nonzero prefix" {
   let input =
     #| (module

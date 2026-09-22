@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
@@ -42,6 +42,11 @@ Starshine currently supports:
 
 The important v131 boundary is Binaryen's released imported-memory overlap exception. Starshine now matches it: defined-memory overlaps are neutralized in source order, while imported-memory overlaps require `zero_filled_memory` and a proof that every active segment fits within the declared minimum. The proof compares page counts instead of overflowing maximal memory64 byte sizes and admits only the exact `2^64` endpoint special case. See [`index.md`](index.md).
 
+The September 22 input-ownership repair copies the data-segment array before
+source-order overlap cleanup. The pass can zero entries in that copy without
+changing the caller's original module; the adjacent regression calls the pass
+and checks the original segment bytes afterward.
+
 ## Why this remains a module pass
 
 The historical filename says `starshine-hot-ir-strategy`, but this pass is deliberately module-scoped. A correct rewrite needs the complete memory/import shape, every data segment and its source order, all segment users, index/name/data-count repair, and output validity limits. The module driver is [`memory_packing_run_module_pass(...)`](../../../../../src/passes/memory_packing.mbt); [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches the public spelling.
@@ -54,7 +59,7 @@ The historical filename says `starshine-hot-ir-strategy`, but this pass is delib
 | Imported/defined memory shape and bounds | `mp_imported_mem_count`, `mp_defined_mem_count`, `mp_sole_memory_type`, `mp_provably_in_bounds` | A single imported memory is eligible only with `zero_filled_memory`; overflow-safe page-count proofs feed overlap admission and active trap preservation. |
 | Active offsets and ranges | `mp_parse_base_offset`, `mp_active_rewrite*`, `mp_collect_ranges`, `mp_merge_small_zero_ranges` | Exact i32/i64 constants only; range splitting uses the local fixed threshold and preserves shifted offsets. |
 | Startup trap preservation | `mp_should_preserve_trap`, `mp_preserve_trapping_top_byte` | A dropped zero tail cannot erase an observable active-segment out-of-bounds trap. |
-| Whole-module active legality | `mp_can_optimize`, `mp_active_spans_are_disjoint`, `mp_zero_out_trampled_data` | Memory index must be zero and offsets exact; overlap is detected with overflow-aware spans, then earlier bytes are zeroed in source order. Imported overlap additionally requires every active segment to be in bounds. |
+| Whole-module active legality | `mp_can_optimize`, `mp_active_spans_are_disjoint`, `mp_zero_out_trampled_data` | Memory index must be zero and offsets exact; overlap is detected with overflow-aware spans, then earlier bytes are zeroed in source order in a copied data array. Imported overlap additionally requires every active segment to be in bounds. |
 | Segment users and passive planning | `mp_collect_data_usages`, `mp_passive_user_scan`, passive split/replacement helpers | Supported passive `memory.init` / `data.drop` paths are rewritten; referrer counts reproduce Binaryen's `2 + 19 * memory.init + 3 * data.drop` interior threshold and `9 * memory.init` edge threshold; GC data users remain conservative no-split boundaries. |
 | Safe and cheap code traversal | `mp_module_segment_op_preflight` | One recursive preflight proves every flattened `memory.init` operand boundary before mutation and records whether any data-index operation exists; modules without such operations avoid cloning the complete code section. |
 | Output repair | segment-plan/remap/name/data-count helpers | Rebuilt data segments preserve surviving data-index users, names, and `data_count` semantics. |
