@@ -1645,6 +1645,12 @@ pub enum GenValidProfile {
   DirectizeBoundaryProfile
   DirectizeAllProfile
   RandomAllProfilesProfile
+  CampaignMemory64MultiMemoryProfile
+  CampaignEhControlProfile
+  CampaignGcRefSubtypesProfile
+  CampaignSimdNumericProfile
+  CampaignCallTopologyProfile
+  CampaignSegmentStateProfile
   RumeDeadGraphProfile
   RumeTableTrapProfile
   RumeLegacyEhProfile

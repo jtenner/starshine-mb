@@ -1074,6 +1074,12 @@ pub enum GenValidProfile {
   DirectizeBoundaryProfile
   DirectizeAllProfile
   RandomAllProfilesProfile
+  CampaignMemory64MultiMemoryProfile
+  CampaignEhControlProfile
+  CampaignGcRefSubtypesProfile
+  CampaignSimdNumericProfile
+  CampaignCallTopologyProfile
+  CampaignSegmentStateProfile
   RumeDeadGraphProfile
   RumeTableTrapProfile
   RumeLegacyEhProfile
@@ -1617,6 +1623,12 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     DirectizeBoundaryProfile => "directize-boundaries"
     DirectizeAllProfile => "directize-all"
     RandomAllProfilesProfile => "random-all-profiles"
+    CampaignMemory64MultiMemoryProfile => "campaign-memory64-multimemory"
+    CampaignEhControlProfile => "campaign-eh-control"
+    CampaignGcRefSubtypesProfile => "campaign-gc-ref-subtypes"
+    CampaignSimdNumericProfile => "campaign-simd-numeric"
+    CampaignCallTopologyProfile => "campaign-call-topology"
+    CampaignSegmentStateProfile => "campaign-segment-state"
   }
 }
 
@@ -2276,6 +2288,12 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SsaMergeExplicitProfile, 1),
         GenValidProfileMember::new(SsaNestedValueProfile, 1),
         GenValidProfileMember::new(PggAllProfile, 1),
+        GenValidProfileMember::new(CampaignMemory64MultiMemoryProfile, 1),
+        GenValidProfileMember::new(CampaignEhControlProfile, 1),
+        GenValidProfileMember::new(CampaignGcRefSubtypesProfile, 1),
+        GenValidProfileMember::new(CampaignSimdNumericProfile, 1),
+        GenValidProfileMember::new(CampaignCallTopologyProfile, 1),
+        GenValidProfileMember::new(CampaignSegmentStateProfile, 1),
       ]
     _ => []
   }
@@ -2818,6 +2836,12 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     DirectizeBoundaryProfile,
     DirectizeAllProfile,
     RandomAllProfilesProfile,
+    CampaignMemory64MultiMemoryProfile,
+    CampaignEhControlProfile,
+    CampaignGcRefSubtypesProfile,
+    CampaignSimdNumericProfile,
+    CampaignCallTopologyProfile,
+    CampaignSegmentStateProfile,
   ]
 }
 
@@ -6274,6 +6298,12 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     DirectizeAllProfile =>
       gen_valid_directize_profile_config(DirectizeConstantProfile)
     RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
+    CampaignMemory64MultiMemoryProfile => gen_valid_campaign_memory64_config()
+    CampaignEhControlProfile => gen_valid_campaign_eh_control_config()
+    CampaignGcRefSubtypesProfile => gen_valid_campaign_gc_refs_config()
+    CampaignSimdNumericProfile => gen_valid_campaign_simd_numeric_config()
+    CampaignCallTopologyProfile => gen_valid_campaign_call_topology_config()
+    CampaignSegmentStateProfile => gen_valid_campaign_segment_state_config()
   }
 }
 
@@ -34526,6 +34556,24 @@ fn gen_valid_duplicate_import_elimination_profile_module(
 ///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if config == gen_valid_campaign_memory64_config() {
+    return gen_valid_campaign_memory64_module(ctx)
+  }
+  if config == gen_valid_campaign_eh_control_config() {
+    return gen_valid_campaign_eh_control_module(ctx)
+  }
+  if gen_valid_is_campaign_gc_refs_config(config) {
+    return gen_valid_campaign_gc_refs_module(ctx)
+  }
+  if config == gen_valid_campaign_simd_numeric_config() {
+    return gen_valid_campaign_simd_numeric_module(ctx)
+  }
+  if config == gen_valid_campaign_call_topology_config() {
+    return gen_valid_campaign_call_topology_module(ctx)
+  }
+  if config == gen_valid_campaign_segment_state_config() {
+    return gen_valid_campaign_segment_state_module(ctx)
+  }
   if gen_valid_is_engine_state_profile_config(config) {
     return gen_valid_engine_state_profile_module(ctx)
   }

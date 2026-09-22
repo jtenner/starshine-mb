@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-22
 sources:
   - ../../README.md
   - ../../../agent-todo.md
@@ -82,6 +82,33 @@ orders, shared/unshared heaps, memory64 and fences. Its 180 bounded RMW samples
 include identity and changing operations for each aggregate/order/sharedness
 combination. Structural order tests complement generation; a single-thread
 runtime match does not establish concurrency correctness.
+
+Six named `campaign-*` profiles widen `random-all-profiles` with seed-varying
+shapes: `campaign-memory64-multimemory` crosses memory indices, address widths,
+loads, stores and growth; `campaign-eh-control` varies catch forms, nested
+depths, rethrow and multivalue branches; `campaign-gc-ref-subtypes` varies
+subtype parents, casts and aggregate access; `campaign-simd-numeric` varies
+local aliases, lanes and numeric conversions; `campaign-call-topology` varies
+direct, indirect, reference and tail routes; and `campaign-segment-state`
+varies active, passive and declarative segments with bulk operations and drop
+state. Their [bounded structural tests](../../../src/validate/) cover 64–128
+seeds per profile in the default suite. A September 22 native batch of 256
+modules per profile passed independent `wasm-tools validate --features all`
+for all 1,536 outputs. The first EH batch exposed two invalid `try_table`
+fallthrough shapes, which were corrected before this clean rerun. These
+generator checks do not establish optimizer semantic equivalence.
+
+The first verified-v132, eight-worker `vacuum` comparison used 256 cases per
+campaign. Memory64, GC/ref, SIMD/numeric, call topology, and the final segment
+profile each compared **256/256** with zero mismatches or command/validation
+failures. Segment elements place passive entries at indices 0 and 1 so Binaryen
+132 resolves both bulk-operation targets; the earlier interleaved version was
+independently valid but caused 205/256 Binaryen parser failures, and a first
+passive-only revision still caused 150/256. EH/control compared **256/256**
+valid cases but left 128 raw Vacuum parity gaps across four layouts, including
+64 cases with larger Starshine canonical output. They remain active in the
+[backlog](../../../agent-todo.md); output validation and cleanup normalizers do
+not establish a Starshine win or semantic parity for those differences.
 
 ## Current contract
 
