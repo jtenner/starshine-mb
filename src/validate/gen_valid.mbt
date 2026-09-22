@@ -23619,12 +23619,7 @@ fn gen_valid_precompute_gc_atomic_types() -> Array[RecType] {
 ///|
 fn gen_valid_precompute_gc_atomic_body() -> Array[Instruction] {
   let body : Array[Instruction] = []
-  for
-    order in [
-      AtomicOrder::seq_cst(),
-      AtomicOrder::acq_rel(),
-      AtomicOrder::relaxed(),
-    ] {
+  for order in [AtomicOrder::seq_cst(), AtomicOrder::acq_rel()] {
     body.push(Instruction::local_get(LocalIdx::new(0U)))
     body.push(
       Instruction::struct_atomic_get_s(order, TypeIdx::new(0U), U32(0U)),

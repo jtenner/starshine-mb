@@ -31,9 +31,18 @@ records the common command and complete seven-lane matrix.
 
 New campaigns use `.tmp/binaryen-version_132/bin/wasm-opt` with
 `--require-binaryen-version 132`. The `precompute-all` aggregate retains every
-existing leaf; `precompute-gc-atomic-boundary` now emits SeqCst, AcqRel and Relaxed
-reads. The September 22 independent-validator run above found that some emitted
-read orderings are invalid; their repair remains in the active backlog. Focused
+existing leaf. The September 22 independent-validator run above rejected every
+sample of `precompute-gc-atomic-boundary` at consistency byte `2` (`Relaxed`),
+which the pinned `wasm-tools` validator does not support for aggregate atomic
+reads. A red-first generator test now requires the leaf to emit SeqCst and
+AcqRel reads without the unsupported Relaxed read. The fresh native
+`.tmp/pass-fuzz-precompute-final-generator-10000` run compared **10,000/10,000**
+cases against verified Binaryen 132 with eight workers and independent
+`wasm-tools` validation: 3,238 direct and 6,762 cleanup-normalized matches,
+zero input/output validation failures, mismatches, generator failures, or
+command failures. All 449 selected atomic-boundary cases entered comparison.
+An independent batch validation of 10,000 emitted inputs also passed. The 477
+rejected cases remain historical results of the earlier three-order generator. Focused
 [release regressions](../../../../../src/passes/binaryen132_precompute_test.mbt)
 cover immutable unshared folds and nonconstant read guards. The
 [upgrade record](../../version-132-upgrade.md) owns current validation results;

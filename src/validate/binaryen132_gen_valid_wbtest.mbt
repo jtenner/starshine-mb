@@ -1,5 +1,5 @@
 ///|
-test "Binaryen 132 precompute aggregate includes all atomic orders" {
+test "Binaryen 132 precompute aggregate includes independently supported atomic read orders" {
   let mod_ = gen_valid_precompute_profile_module(
     GenValidConfig::for_profile(PrecomputeGcAtomicBoundaryProfile),
   )
@@ -11,12 +11,7 @@ test "Binaryen 132 precompute aggregate includes all atomic orders" {
     Some(CodeSec([Func(_, Expr(body))])) => body
     _ => fail("expected one aggregate boundary function")
   }
-  for
-    order in [
-      AtomicOrder::seq_cst(),
-      AtomicOrder::acq_rel(),
-      AtomicOrder::relaxed(),
-    ] {
+  for order in [AtomicOrder::seq_cst(), AtomicOrder::acq_rel()] {
     assert_true(
       body.contains(
         Instruction::struct_atomic_get_s(order, TypeIdx::new(0U), U32(0U)),
